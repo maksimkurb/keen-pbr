@@ -7,7 +7,7 @@ import (
 
 type IpsetManager struct{}
 
-func (im *IpsetManager) AddToIpset(ipsetCommand, name string, networks []string) error {
+func (im *IpsetManager) AddToIpset(ipsetCommand string, ipset IpsetConfig, networks []string) error {
 	cmd := exec.Command(ipsetCommand, "restore", "-exist")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -16,14 +16,19 @@ func (im *IpsetManager) AddToIpset(ipsetCommand, name string, networks []string)
 
 	go func() {
 		defer stdin.Close()
-		fmt.Fprintf(stdin, "create %s hash:net family inet\n", name)
+		fmt.Fprintf(stdin, "create %s hash:net family inet\n", ipset.IpsetName)
+
+		if ipset.FlushBeforeApplying {
+			fmt.Fprintf(stdin, "flush %s\n", ipset.IpsetName)
+		}
+
 		for _, network := range networks {
-			fmt.Fprintf(stdin, "add %s %s\n", name, network)
+			fmt.Fprintf(stdin, "add %s %s\n", ipset.IpsetName, network)
 		}
 	}()
 
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("Failed to add addresses to ipset %s: %v\n%s", name, err, output)
+		return fmt.Errorf("Failed to add addresses to ipset %s: %v\n%s", ipset.IpsetName, err, output)
 	}
 
 	return nil

@@ -35,7 +35,7 @@ func ApplyLists(config *Config) error {
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") {
 			path := filepath.Join(dnsmasqDir, entry.Name())
-			log.Printf("Removing old dnsmasq config file: %s", path)
+			log.Printf("Removing old dnsmasq config file '%s'", path)
 			if err := os.Remove(path); err != nil {
 				return fmt.Errorf("failed to remove old config file: %v", err)
 			}
@@ -44,62 +44,66 @@ func ApplyLists(config *Config) error {
 
 	ipsetManager := &IpsetManager{}
 
-	// Process lists
-	for _, list := range config.List {
+	for _, ipset := range config.Ipset {
 		var ipv4Networks []string
 		var domains []string
 
-		// Read and process list file
-		content, err := os.ReadFile(filepath.Join(listsDir, fmt.Sprintf("%s.lst", list.Name)))
-		if err != nil {
-			return fmt.Errorf("failed to read list file: %v", err)
-		}
-
-		scanner := bufio.NewScanner(strings.NewReader(string(content)))
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
+		// Process lists
+		for _, list := range ipset.List {
+			// Read and process list file
+			content, err := os.ReadFile(filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName)))
+			if err != nil {
+				return fmt.Errorf("failed to read list file %s-%s: %v\n\nplease, run keenetic-pbr download", err)
 			}
 
-			if isDNSName(line) {
-				domains = append(domains, line)
-			} else if isIPv4(line) || IsCIDR(line) {
-				ipv4Networks = append(ipv4Networks, line)
+			scanner := bufio.NewScanner(strings.NewReader(string(content)))
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+
+				if isDNSName(line) {
+					domains = append(domains, line)
+				} else if isIPv4(line) || IsCIDR(line) {
+					ipv4Networks = append(ipv4Networks, line)
+				}
 			}
 		}
 
 		if len(ipv4Networks) > 0 {
 			// Summarize networks if requested
-			var oldIpNetworksLen = len(ipv4Networks)
+			var ipsLen = len(ipv4Networks)
 			if config.General.Summarize {
 				ipv4Networks = NetworkSummarizer{}.SummarizeIPv4(ipv4Networks)
 			}
 
 			// Apply networks to ipsets
 			if config.General.Summarize {
-				log.Printf("Importing list \"%s\" addresses to ipset %s (%d -> %d items)...", list.Name, list.Ipset, oldIpNetworksLen, len(ipv4Networks))
+				log.Printf("Filling ipset '%s' (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
 			} else {
-				log.Printf("Importing list \"%s\" addresses to ipset %s (%d items)...", list.Name, list.Ipset, oldIpNetworksLen)
+				log.Printf("Filling ipset '%s' (%d items)...", ipset.IpsetName, ipsLen)
 			}
-			if err := ipsetManager.AddToIpset(config.General.IpsetPath, list.Ipset, ipv4Networks); err != nil {
+			if err := ipsetManager.AddToIpset(config.General.IpsetPath, ipset, ipv4Networks); err != nil {
 				return err
 			}
 		}
 
 		// Write dnsmasq configuration
 		if len(domains) > 0 {
-			log.Printf("Creating dnsmasq conf for list \"%s\"...", list.Name)
-			dnsmasqConf := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", list.Name))
+			dnsmasqConf := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
+			log.Printf("Creating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConf)
 			f, err := os.Create(dnsmasqConf)
 			if err != nil {
 				return fmt.Errorf("failed to create dnsmasq config file: %v", err)
 			}
 			defer f.Close()
 
+			domains = removeDuplicateStr(domains)
+
 			writer := bufio.NewWriter(f)
 			for _, domain := range domains {
-				fmt.Fprintf(writer, "ipset=/%s/%s\n", domain, list.Ipset)
+				fmt.Fprintf(writer, "ipset=/%s/%s\n", domain, ipset.IpsetName)
 			}
 			if err := writer.Flush(); err != nil {
 				return fmt.Errorf("failed to write dnsmasq config: %v", err)
@@ -140,4 +144,16 @@ func isIPv6(str string) bool {
 func IsCIDR(str string) bool {
 	_, _, err := net.ParseCIDR(str)
 	return err == nil
+}
+
+func removeDuplicateStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }

@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	General GeneralConfig `toml:"general"`
-	List    []ListSource  `toml:"list"`
+	Ipset   []IpsetConfig `toml:"ipset"`
 }
 
 type GeneralConfig struct {
@@ -21,10 +21,15 @@ type GeneralConfig struct {
 	Summarize      bool   `toml:"summarize"`
 }
 
+type IpsetConfig struct {
+	IpsetName           string       `toml:"ipset_name"`
+	FlushBeforeApplying bool         `toml:"flush_before_applying"`
+	List                []ListSource `toml:"list"`
+}
+
 type ListSource struct {
-	Name  string `toml:"name"`
-	URL   string `toml:"url"`
-	Ipset string `toml:"ipset"`
+	ListName string `toml:"name"`
+	URL      string `toml:"url"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -58,11 +63,20 @@ func LoadConfig(configPath string) (*Config, error) {
 
 func (c *Config) validateListNamesUnique() error {
 	names := make(map[string]bool)
-	for _, list := range c.List {
-		if names[list.Name] {
-			return fmt.Errorf("duplicate list name found: %s, check your configuration", list.Name)
+	for _, ipset := range c.Ipset {
+		if names[ipset.IpsetName] {
+			return fmt.Errorf("duplicate ipset name found: %s, check your configuration", ipset.IpsetName)
 		}
-		names[list.Name] = true
+		names[ipset.IpsetName] = true
+
+		list_names := make(map[string]bool)
+		for _, list := range ipset.List {
+			if list_names[list.ListName] {
+				return fmt.Errorf("duplicate list name found: %s in ipset %s, check your configuration", list.ListName, ipset.IpsetName)
+			}
+			list_names[list.ListName] = true
+
+		}
 	}
 	return nil
 }
