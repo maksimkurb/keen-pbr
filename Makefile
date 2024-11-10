@@ -47,4 +47,4 @@ define Package/keenetic-pbr/install
 		$(INSTALL_BIN) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
 endef
 
-$(eval $(call BuildPackage,bridge))
+$(eval $(call BuildPackage,keenetic-pbr))
