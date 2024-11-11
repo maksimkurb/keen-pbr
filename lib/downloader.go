@@ -27,6 +27,7 @@ func DownloadLists(config *Config) error {
 				if err := os.WriteFile(path, []byte(strings.Join(list.Hosts, "\n")), 0644); err != nil {
 					return fmt.Errorf("failed to write list file to %s: %v", path, err)
 				}
+				continue
 			}
 
 			log.Printf("Downloading list \"%s-%s\" from URL: %s", ipset.IpsetName, list.ListName, list.URL)
