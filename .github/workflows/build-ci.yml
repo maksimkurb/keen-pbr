@@ -138,9 +138,7 @@ jobs:
           docker run --rm --user root -i --mount source=entware-home,target=/home/me -v $(pwd):/target -w /home/me/Entware --name builder builder find ./bin -type f -name 'keenetic-pbr*.ipk' -exec cp -v {} /target/output \;
           rm -rf keenetic-pbr || true
           mkdir keenetic-pbr
-          bash -c "cp -r ./output/* keenetic-pbr"
           bash -c "cp -r ./output/*.ipk keenetic-pbr-$VERSION-$RELEASE-$SHA-${{ matrix.arch }}-entware.ipk"
-          tar -czvf keenetic-pbr-$VERSION-$RELEASE-$SHA-${{ matrix.arch }}-entware.tar.gz keenetic-pbr
 
       - name: Upload packages
         if: steps.build.outcome == 'success'
@@ -148,7 +146,6 @@ jobs:
         with:
           name: keenetic-pbr-entware-${{ matrix.arch }}
           path: |
-            ./**/keenetic-pbr*-entware.tar.gz
             ./**/keenetic-pbr*-entware.ipk
           if-no-files-found: error
 
