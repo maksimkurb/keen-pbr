@@ -3,7 +3,7 @@
 PATH=/opt/bin:/opt/sbin:/sbin:/bin:/usr/sbin:/usr/bin
 
 CONFIG="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
-KEENETIC_PBR="keenetic-pbr"
+KEENETIC_PBR="/opt/usr/bin/keenetic-pbr"
 
 log()
 {
@@ -34,15 +34,15 @@ del_all_prerouting_rules()
 enable_hwnat()
 {
   log "Enabling HW NAT"
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=1 || true # NDMS3
+  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true # NDMS2
+  sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true # NDMS3
 }
 
 disable_hwnat()
 {
   log "Disabling HW NAT"
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=0 || true # NDMS3
+  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true # NDMS2
+  sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true # NDMS3
 }
 
 apply_lists()
@@ -55,6 +55,7 @@ restart_dnsmasq()
 {
   log "Restarting dnsmasq"
   /opt/etc/init.d/S56dnsmasq restart
+  log "dnsmasq restarted"
 }
 
 clear_lists()
