@@ -39,17 +39,17 @@ GO_TARGET:=./
 
 define Package/keenetic-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/cron.daily/
-		$(INSTALL_DIR) $(1)/opt/etc/ndm/fs.d/
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/ifstatechanged.d/
+		$(INSTALL_DIR) $(1)/opt/etc/init.d/
 		$(INSTALL_DIR) $(1)/opt/etc/keenetic-pbr/
 		$(INSTALL_DIR) $(1)/opt/etc/dnsmasq.d/
 		$(INSTALL_DIR) $(1)/opt/usr/bin/
 
 		$(INSTALL_BIN) opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh $(1)/opt/etc/cron.daily/
-		$(INSTALL_BIN) opt/etc/ndm/fs.d/50-keenetic-pbr-disable-hwnat.sh $(1)/opt/etc/ndm/fs.d/
 		$(INSTALL_BIN) opt/etc/ndm/ifstatechanged.d/50-keenetic-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_BIN) opt/etc/ndm/netfilter.d/50-keenetic-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
+		$(INSTALL_BIN) opt/etc/init.d/S80keenetic-pbr $(1)/opt/etc/init.d
 		$(INSTALL_BIN) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
 		$(INSTALL_BIN) opt/etc/dnsmasq.conf.keenetic-pbr $(1)/opt/etc/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keenetic-pbr $(1)/opt/usr/bin/
