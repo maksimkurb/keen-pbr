@@ -1,16 +1,18 @@
 user=nobody
 pid-file=/var/run/opt-dnsmasq.pid
 
-interface=lo
-interface=br0
-port=5353
+# interface=lo
+# interface=br0
+# port=5353
+
+port=53
 
 dns-forward-max=5096
 min-port=4096
 cache-size=1536
 max-ttl=86400
 
-bind-interfaces
+# bind-interfaces
 bogus-priv
 no-negcache
 no-resolv
