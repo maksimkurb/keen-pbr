@@ -1,7 +1,6 @@
 #!/opt/bin/sh
 
-CONFIG="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
-KEENETIC_PBR="keenetic-pbr"
+. /opt/etc/keenetic-pbr/defaults
 
 # Check if invoked with "hook"
 [ "$1" == "hook" ] || exit 0
@@ -55,7 +54,7 @@ $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset
       no-down-down)
 	      logger -t "keenetic-pbr" "Interface $system_name is disconnected"
         logger -t "keenetic-pbr" "Removing routing rules for $system_name"
-        delete_routing_rules "$iface_name" "$ipset_name" "$priority"
+        delete_routing_rules "$ipset_name" "$iface_name" "$fwmark" "$table" "$priority"
       ;;
     esac
 

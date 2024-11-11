@@ -1,0 +1,3 @@
+PATH=/opt/bin:/opt/sbin:/sbin:/bin:/usr/sbin:/usr/bin
+CONFIG="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
+KEENETIC_PBR="/opt/usr/bin/keenetic-pbr"
