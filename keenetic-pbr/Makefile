@@ -51,7 +51,54 @@ define Package/keenetic-pbr/install
 		$(INSTALL_BIN) opt/etc/ndm/ifstatechanged.d/50-keenetic-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_BIN) opt/etc/ndm/netfilter.d/50-keenetic-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
+		$(INSTALL_BIN) opt/etc/dnsmasq.conf.keenetic-pbr $(1)/opt/etc/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keenetic-pbr $(1)/opt/usr/bin/
+endef
+
+define Package/kvas/postinst
+
+#!/bin/sh
+
+echo "Keenetic-pbr is installed!"
+echo ""
+echo "Replacing old dnsmasq configuration file..."
+mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.orig || true
+mv /opt/etc/dnsmasq.conf.keenetic-pbr /opt/etc/dnsmasq.conf || true
+echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.orig"
+echo ""
+echo "Please check the following config files and modify them accordingly:"
+echo "1. /opt/etc/keenetic-pbr/keenetic-pbr.conf"
+echo "2. /opt/etc/dnsmasq.conf"
+echo ""
+echo "After modifying these files, try to download lists by running the following command:"
+echo "# keenetic-pbr download"
+echo ""
+echo "If everything is good, please restart OPKG and check if policy based routing works."
+
+endef
+
+define Package/kvas/postrm
+
+#!/bin/sh
+echo "Keenetic-pbr is uninstalled!"
+
+echo ""
+echo "Restoring original dnsmasq configuration file..."
+# Check if the original configuration file exists before proceeding
+if [ -f /opt/etc/dnsmasq.conf.orig ]; then
+# Move current configuration to backup
+mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.keenetic-pbr || true
+
+# Restore the original configuration
+mv /opt/etc/dnsmasq.conf.orig /opt/etc/dnsmasq.conf || true
+
+echo "Original dnsmasq configuration file restored from /opt/etc/dnsmasq.conf.orig"
+echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.keenetic-pbr"
+else
+echo "Original dnsmasq configuration file not found. No changes made."
+fi
+echo ""
+
 endef
 
 $(eval $(call BuildPackage,keenetic-pbr))
