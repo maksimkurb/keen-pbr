@@ -17,7 +17,7 @@ include $(INCLUDE_DIR)/golang.mk
 define Package/keenetic-pbr
 	SECTION:=utils
 	CATEGORY:=Routing
-	EXTRA_DEPENDS:=+dnsmasq-full +ipset +iptables +cron
+	EXTRA_DEPENDS:=dnsmasq-full, ipset, iptables, cron
 	TITLE:=Tool for downloading, parsing and importing domains/ip/cidr lists into dnsmasq and ipset
 	URL:=https://github.com/maksimkurb/keenetic-pbr/
 	MAINTAINER:=Maxim Kurbatov <maxim@kurb.me>
