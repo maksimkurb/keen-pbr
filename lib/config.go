@@ -17,7 +17,6 @@ type Config struct {
 type GeneralConfig struct {
 	IpsetPath       string `toml:"ipset_path"`
 	ListsOutputDir  string `toml:"lists_output_dir"`
-	DnsmasqConfPath string `toml:"dnsmasq_conf"`
 	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
 	Summarize       bool   `toml:"summarize"`
 }
@@ -37,8 +36,9 @@ type RoutingConfig struct {
 }
 
 type ListSource struct {
-	ListName string `toml:"name"`
-	URL      string `toml:"url"`
+	ListName string   `toml:"name"`
+	URL      string   `toml:"url"`
+	Hosts    []string `toml:"hosts"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -63,14 +63,14 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %v", err)
 	}
 
-	if err := config.validateListNamesUnique(); err != nil {
+	if err := config.validateConfig(); err != nil {
 		return nil, err
 	}
 
 	return &config, nil
 }
 
-func (c *Config) validateListNamesUnique() error {
+func (c *Config) validateConfig() error {
 	names := make(map[string]bool)
 	fwmarks := make(map[uint16]bool)
 	tables := make(map[uint16]bool)
@@ -104,6 +104,16 @@ func (c *Config) validateListNamesUnique() error {
 
 		list_names := make(map[string]bool)
 		for _, list := range ipset.List {
+			if list.ListName == "" {
+				return fmt.Errorf("list name cannot be empty, check your configuration")
+			}
+			if list.URL == "" && (list.Hosts == nil || len(list.Hosts) == 0) {
+				return fmt.Errorf("list %s should contain URL or hosts list, check your configuration")
+			}
+			if list.URL != "" && (list.Hosts != nil && len(list.Hosts) > 0) {
+				return fmt.Errorf("list %s can contain either URL or hosts list, not both, check your configuration")
+			}
+
 			if list_names[list.ListName] {
 				return fmt.Errorf("duplicate list name found: %s in ipset %s, check your configuration", list.ListName, ipset.IpsetName)
 			}

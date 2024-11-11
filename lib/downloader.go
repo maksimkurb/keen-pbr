@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func DownloadLists(config *Config) error {
@@ -19,6 +20,15 @@ func DownloadLists(config *Config) error {
 
 	for _, ipset := range config.Ipset {
 		for _, list := range ipset.List {
+			if list.Hosts != nil && len(list.Hosts) > 0 {
+				log.Printf("Processing list \"%s-%s\"", ipset.IpsetName, list.ListName)
+
+				path := filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName))
+				if err := os.WriteFile(path, []byte(strings.Join(list.Hosts, "\n")), 0644); err != nil {
+					return fmt.Errorf("failed to write list file to %s: %v", path, err)
+				}
+			}
+
 			log.Printf("Downloading list \"%s-%s\" from URL: %s", ipset.IpsetName, list.ListName, list.URL)
 
 			resp, err := client.Get(list.URL)
