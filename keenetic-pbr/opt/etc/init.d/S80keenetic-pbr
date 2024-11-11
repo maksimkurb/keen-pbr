@@ -1,0 +1,111 @@
+#!/bin/sh
+
+PATH=/opt/bin:/opt/sbin:/sbin:/bin:/usr/sbin:/usr/bin
+
+CONFIG="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
+KEENETIC_PBR="keenetic-pbr"
+
+log()
+{
+  logger -t "keenetic-pbr" "$1"
+  echo "[keenetic-pbr] $1"
+}
+
+add_all_prerouting_rules()
+{
+  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
+    if [ -z "$(iptables-save | grep "$ipset_name")" ]; then
+      log "Adding rule to mark all packets in ipset $ipset_name with fwmark $fwmark"
+      iptables -w -A PREROUTING -t mangle -m set --match-set "$ipset_name" dst,src -j MARK --set-mark "$fwmark"
+    fi
+  done
+}
+
+del_all_prerouting_rules()
+{
+  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
+    if [ -z "$(iptables-save | grep "$ipset_name")" ]; then
+      log "Deleting rule to mark all packets in ipset $ipset_name with fwmark $fwmark"
+      iptables -w -D PREROUTING -t mangle -m set --match-set "$ipset_name" dst,src -j MARK --set-mark "$fwmark"
+    fi
+  done
+}
+
+enable_hwnat()
+{
+  log "Enabling HW NAT"
+  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 || true # NDMS2
+  sysctl -w net.netfilter.nf_conntrack_fastnat=1 || true # NDMS3
+}
+
+disable_hwnat()
+{
+  log "Disabling HW NAT"
+  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 || true # NDMS2
+  sysctl -w net.netfilter.nf_conntrack_fastnat=0 || true # NDMS3
+}
+
+apply_lists()
+{
+  log "Applying ipset lists"
+  $KEENETIC_PBR -config "$CONFIG" apply
+}
+
+restart_dnsmasq()
+{
+  log "Restarting dnsmasq"
+  /opt/etc/init.d/S56dnsmasq restart
+}
+
+clear_lists()
+{
+  log "Clearing ipset lists"
+  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
+    ipset flush "$ipset_name" || true
+  done
+}
+
+start()
+{
+  disable_hwnat
+  apply_lists
+  add_all_prerouting_rules
+  restart_dnsmasq
+}
+
+stop()
+{
+  enable_hwnat
+  clear_lists
+  del_all_prerouting_rules
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    stop
+    sleep 2
+    start
+    ;;
+  reload-lists|reload_lists)
+    clear_lists
+    apply_lists
+    restart_dnsmasq
+    ;;
+  download-lists|download_lists)
+    log "Downloading new version of lists..."
+    $KEENETIC_PBR -config "$CONFIG" download
+    log "Lists downloaded"
+    ;;
+  add-prerouting-rules|add_prerouting_rules)
+    add_all_prerouting_rules
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|reload-lists|download-lists}"
+    ;;
+esac

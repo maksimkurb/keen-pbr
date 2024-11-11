@@ -1,4 +1,3 @@
 #!/opt/bin/sh
 
-logger -t "keenetic-pbr" "Updating lists"
-/opt/usr/bin/keenetic-pbr download
+/opt/etc/init.d/S80keenetic-pbr download-lists
