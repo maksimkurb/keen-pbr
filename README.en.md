@@ -1,7 +1,9 @@
 # Keenetic PBR
 
 ![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
-![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr)
+![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
+
+#### [> README на русском <](./README.md)
 
 Keenetic PBR is a utility for policy-based routing on Keenetic routers, enabling you to direct traffic according to
 specific routing policies based on domain lists and IP sets.
@@ -95,14 +97,20 @@ summarize = true
   # Lists to be imported to ipset/dnsmasq
   [[ipset.list]]
   # List 1 name
-  name = "list-name"
-  # List 1 URL
-  url = "https://some-url/list1.lst"
-
+  name = "local"
+  # List of hosts
+  hosts = ["ifconfig.co", "myip2.ru", "1.2.3.4", "141.201.11.0/24"]
+   
   [[ipset.list]]
   # List 2 name
+  name = "list-name"
+  # List 2 URL (file should contain domains, IPs and CIDRs, one per line)
+  url = "https://some-url/list1.lst"
+   
+  [[ipset.list]]
+  # List 3 name
   name = "re-filter-ipsum"
-  # List 2 URL
+  # List 3 URL (file should contain domains, IPs and CIDRs, one per line)
   url = "https://some-url/list2.lst"
   
 # You can add as many ipsets as you want:

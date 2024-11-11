@@ -1,7 +1,9 @@
 # Keenetic PBR
 
 ![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
-![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr)
+![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
+
+#### [> README in English <](./README.en.md)
 
 Keenetic PBR — это утилита для маршрутизации на основе политики для маршрутизаторов Keenetic, позволяющая направлять трафик в соответствии с
 определенными маршрутными политиками на основе списков доменов и IP-адресов.
@@ -91,18 +93,24 @@ summarize = true
    
    # Приоритет для ip rule
    priority = 1001
-   
+
    # Списки для импорта в ipset/dnsmasq
    [[ipset.list]]
    # Имя списка 1
-   name = "list-name"
-   # URL списка 1
-   url = "https://some-url/list1.lst"
+   name = "local"
+   # Список хостов списка 1
+   hosts = ["ifconfig.co", "myip2.ru", "1.2.3.4", "141.201.11.0/24"]
    
    [[ipset.list]]
    # Имя списка 2
+   name = "list-name"
+   # URL списка 2 (файл должен содержать домены, IP адреса и CIDR, по одному на каждой строчке)
+   url = "https://some-url/list1.lst"
+   
+   [[ipset.list]]
+   # Имя списка 3
    name = "re-filter-ipsum"
-   # URL списка 2
+   # URL списка 3 (файл должен содержать домены, IP адреса и CIDR, по одному на каждой строчке)
    url = "https://some-url/list2.lst"
 
 # Вы можете добавлять столько ipset, сколько хотите:
