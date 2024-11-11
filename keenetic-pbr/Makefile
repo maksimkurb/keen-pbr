@@ -55,7 +55,7 @@ define Package/keenetic-pbr/install
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keenetic-pbr $(1)/opt/usr/bin/
 endef
 
-define Package/kvas/postinst
+define Package/keenetic-pbr/postinst
 
 #!/bin/sh
 
@@ -77,7 +77,7 @@ echo "If everything is good, please restart OPKG and check if policy based routi
 
 endef
 
-define Package/kvas/postrm
+define Package/keenetic-pbr/postrm
 
 #!/bin/sh
 echo "Keenetic-pbr is uninstalled!"
