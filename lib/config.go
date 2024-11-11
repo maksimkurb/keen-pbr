@@ -15,16 +15,25 @@ type Config struct {
 }
 
 type GeneralConfig struct {
-	IpsetPath      string `toml:"ipset_path"`
-	ListsOutputDir string `toml:"lists_output_dir"`
-	DnsmasqConfDir string `toml:"dnsmasq_conf_dir"`
-	Summarize      bool   `toml:"summarize"`
+	IpsetPath       string `toml:"ipset_path"`
+	ListsOutputDir  string `toml:"lists_output_dir"`
+	DnsmasqConfPath string `toml:"dnsmasq_conf"`
+	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
+	Summarize       bool   `toml:"summarize"`
 }
 
 type IpsetConfig struct {
-	IpsetName           string       `toml:"ipset_name"`
-	FlushBeforeApplying bool         `toml:"flush_before_applying"`
-	List                []ListSource `toml:"list"`
+	IpsetName           string        `toml:"ipset_name"`
+	Routing             RoutingConfig `toml:"routing"`
+	FlushBeforeApplying bool          `toml:"flush_before_applying"`
+	List                []ListSource  `toml:"list"`
+}
+
+type RoutingConfig struct {
+	Interface      string `toml:"interface"`
+	FwMark         uint16 `toml:"fwmark"`
+	IpRouteTable   uint16 `toml:"table"`
+	IpRulePriority uint16 `toml:"priority"`
 }
 
 type ListSource struct {
@@ -63,11 +72,35 @@ func LoadConfig(configPath string) (*Config, error) {
 
 func (c *Config) validateListNamesUnique() error {
 	names := make(map[string]bool)
+	fwmarks := make(map[uint16]bool)
+	tables := make(map[uint16]bool)
+	priorities := make(map[uint16]bool)
 	for _, ipset := range c.Ipset {
+		if ipset.IpsetName == "" {
+			return fmt.Errorf("ipset name cannot be empty, check your configuration")
+		}
 		if names[ipset.IpsetName] {
 			return fmt.Errorf("duplicate ipset name found: %s, check your configuration", ipset.IpsetName)
 		}
 		names[ipset.IpsetName] = true
+
+		if ipset.Routing.Interface == "" {
+			return fmt.Errorf("interface cannot be empty, check your configuration")
+		}
+		if fwmarks[ipset.Routing.FwMark] {
+			return fmt.Errorf("duplicate fwmark found: %s, check your configuration", ipset.Routing.FwMark)
+		}
+		fwmarks[ipset.Routing.FwMark] = true
+
+		if tables[ipset.Routing.IpRouteTable] {
+			return fmt.Errorf("duplicate table found: %s, check your configuration", ipset.Routing.IpRouteTable)
+		}
+		tables[ipset.Routing.IpRouteTable] = true
+
+		if priorities[ipset.Routing.IpRulePriority] {
+			return fmt.Errorf("duplicate priority found: %s, check your configuration", ipset.Routing.IpRulePriority)
+		}
+		priorities[ipset.Routing.IpRulePriority] = true
 
 		list_names := make(map[string]bool)
 		for _, list := range ipset.List {
@@ -77,6 +110,24 @@ func (c *Config) validateListNamesUnique() error {
 			list_names[list.ListName] = true
 
 		}
+	}
+	return nil
+}
+
+func validateUnique(items []interface{}) error {
+	seen := make(map[interface{}]bool)
+	for _, item := range items {
+		if seen[item] {
+			return fmt.Errorf("duplicate item found: %v", item)
+		}
+		seen[item] = true
+	}
+	return nil
+}
+
+func GenRoutingConfig(c *Config) error {
+	for _, ipset := range c.Ipset {
+		fmt.Printf("%s %s %d %d %d\n", ipset.IpsetName, ipset.Routing.Interface, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 	}
 	return nil
 }

@@ -13,8 +13,9 @@ import (
 type Command string
 
 const (
-	Download Command = "download"
-	Apply    Command = "apply"
+	Download         Command = "download"
+	Apply            Command = "apply"
+	GenRoutingConfig Command = "gen-routing-config"
 )
 
 // Config holds the application configuration
@@ -39,8 +40,9 @@ func parseFlags() *CLI {
 		fmt.Fprintf(os.Stderr, "Keenetic Policy-Based Routing Manager\n\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  download    Download lists specified in config\n")
-		fmt.Fprintf(os.Stderr, "  apply       Apply configuration to router\n\n")
+		fmt.Fprintf(os.Stderr, "  download                Download lists\n")
+		fmt.Fprintf(os.Stderr, "  apply                   Import lists to ipset and update dnsmasq lists\n\n")
+		fmt.Fprintf(os.Stderr, "  gen-routing-config      Gen configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -59,6 +61,8 @@ func parseFlags() *CLI {
 		cli.command = Download
 	case "apply":
 		cli.command = Apply
+	case "gen-routing-config":
+		cli.command = GenRoutingConfig
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
 		flag.Usage()
@@ -99,6 +103,10 @@ func main() {
 		}
 	case Apply:
 		if err := lib.ApplyLists(config); err != nil {
+			log.Fatalf("Failed to apply configuration: %v", err)
+		}
+	case GenRoutingConfig:
+		if err := lib.GenRoutingConfig(config); err != nil {
 			log.Fatalf("Failed to apply configuration: %v", err)
 		}
 	}

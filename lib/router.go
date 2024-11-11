@@ -17,7 +17,7 @@ var rxDNSName = regexp.MustCompile(DNSName)
 
 func ApplyLists(config *Config) error {
 	listsDir := filepath.Clean(config.General.ListsOutputDir)
-	dnsmasqDir := filepath.Clean(config.General.DnsmasqConfDir)
+	dnsmasqDir := filepath.Clean(config.General.DnsmasqListsDir)
 
 	// Create required directories
 	for _, dir := range []string{listsDir, dnsmasqDir} {
