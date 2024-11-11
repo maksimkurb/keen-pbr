@@ -1,3 +1,7 @@
+# Credits:
+# https://github.com/Waujito
+# https://github.com/Waujito/youtubeUnblock/blob/main/.github/workflows/build-ci.yml
+
 name: CI
 
 on:
