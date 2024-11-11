@@ -169,4 +169,3 @@ jobs:
           title: 'Development build'
           files: |
             ./**/keenetic-pbr*.ipk
-            ./**/keenetic-pbr*.tar.gz
