@@ -114,6 +114,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
   - В данном файле вы должны настроить необходимые ipset, списки и выходные интерфейсы
 - **(опционально) Конфигурация dnsmasq:** `/opt/etc/dnsmasq.conf`
    - Данный файл можно перенастроить под свои нужды, например заменить upstream DNS сервер на свой
+   - Рекомендуется поставить и настроить пакет `dnscrypt-proxy2`, а затем указать в `dnsmasq.conf` настройку `server=127.0.0.1#9153`, чтобы DNS-запросы были защищены DNS-over-HTTPS (DoH)
 
 ### 1. Редактирование `keenetic-pbr.conf`
 
