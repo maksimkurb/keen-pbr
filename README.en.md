@@ -3,20 +3,27 @@
 ![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
 ![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
 
+> **keenetic-pbr** is not an official product of the **Keenetic** company and is in no way affiliated with it. This package is created by an independent developer and is provided "as is" without any warranty. Any questions and suggestions regarding the package can be submitted to the GitHub Issues page or the Telegram chat: https://t.me/keenetic_pbr.
+
 #### [> README на русском <](./README.md)
 
-Keenetic PBR is a utility for policy-based routing on Keenetic routers, enabling you to direct traffic according to
-specific routing policies based on domain lists and IP sets.
+**keenetic-pbr** is a policy-based routing package for Keenetic routers.
 
-It is configurable to integrate with `dnsmasq` for
-domain-based routing and utilizes `ipset` for routing control.
+Project Telegram chat (in Russian): https://t.me/keenetic_pbr
+
+With this package, you can set up selective routing for specified IP addresses, subnets, and domains. This is useful if you need to organize secure access to certain resources or selectively distribute traffic across multiple providers (e.g., traffic to site A goes through one provider, while other traffic goes through another).
+
+The package uses `ipset` to store a large number of addresses in the router's memory without significantly increasing load and `dnsmasq` to populate this `ipset` with IP addresses resolved by local network clients.
+
+To configure routing, the package creates scripts in the directories `/opt/etc/ndm/netfilter.d` and `/opt/etc/ndm/ifstatechanged.d`.
 
 ## Features
 
 - Domain-based routing via `dnsmasq`
-- IP-based routing via `ipset`
-- Customizable routing tables and priorities
+- IP address-based routing via `ipset`
+- Configurable routing tables and priorities
 - Automatic configuration for `dnsmasq` lists
+
 
 ## Installation (one-liner)
 
@@ -61,86 +68,52 @@ Open `/opt/etc/keenetic-pbr/keenetic-pbr.conf` and edit as needed.
 The main thing you probably want to edit is to change `interface` for routing.
 
 ```ini
+#---------------------#
+#   General Settings  #
+#---------------------#
 [general]
-# Path to `ipset` binary
-ipset_path = "ipset"
+ipset_path = "ipset"                                 # Path to the `ipset` binary file
+lists_output_dir = "/opt/etc/keenetic-pbr/lists.d"   # Lists will be downloaded to this folder
+dnsmasq_lists_dir = "/opt/etc/dnsmasq.d"             # Downloaded lists will be saved in this directory for dnsmasq
+summarize = true                                     # If true, keenetic-pbr will summarize IP addresses and CIDR before applying to ipset
 
-# Output directory for routing lists
-lists_output_dir = "/opt/etc/keenetic-pbr/lists.d"
-
-# Downloaded lists would be saved to this directory for dnsmasq
-dnsmasq_lists_dir = "/opt/etc/dnsmasq.d"
-
-# If true, keenetic-pbr would summarize IPs and CIDRs before applying them to ipset
-summarize = true
-
+#-------------#
+#   IPSET 1   #
+#-------------#
 [[ipset]]
-   # Name of the ipset
-   ipset_name = "vpn"
-   
-   # Clear ipset each time before loading it
-   flush_before_applying = true
+ipset_name = "vpn"              # Name of the ipset
+flush_before_applying = true    # Clear ipset each time before filling it
 
-  [ipset.routing]
-  # Target interface for routing
-  interface = "nwg1"
-  
-  # This fwmark would apply to all packets with IPs from this ipset
-  fwmark = 1001
-  
-  # ip routing table number
-  table = 1001
-  
-  # ip rule priority number
-  priority = 1001
+   [ipset.routing]
+   interface = "nwg1"   # Where the traffic for IPs in this ipset will be directed
+   fwmark = 1001        # This fwmark will be applied to packets matching the list criteria
+   table = 1001         # Routing table number (ip route table); a default gateway to the specified interface above will be added there
+   priority = 1001      # Routing rule priority (ip rule priority); the lower the number, the higher the priority
 
-  # Lists to be imported to ipset/dnsmasq
-  [[ipset.list]]
-  # List 1 name
-  name = "local"
-  # List of hosts
-  hosts = ["ifconfig.co", "myip2.ru", "1.2.3.4", "141.201.11.0/24"]
-   
-  [[ipset.list]]
-  # List 2 name
-  name = "list-name"
-  # List 2 URL (file should contain domains, IPs and CIDRs, one per line)
-  url = "https://some-url/list1.lst"
-   
-  [[ipset.list]]
-  # List 3 name
-  name = "re-filter-ipsum"
-  # List 3 URL (file should contain domains, IPs and CIDRs, one per line)
-  url = "https://some-url/list2.lst"
-  
+   # List 1 (manual address entry)
+   [[ipset.list]]
+   name = "local"
+   hosts = [
+       "ifconfig.co",
+       "myip2.ru",
+       "1.2.3.4",
+       "141.201.11.0/24",
+   ]
+
+   # List 2 (download via URL)
+   [[ipset.list]]
+   name = "remote-list-1"
+   url = "https://some-url/list1.lst"  # The file should contain domains, IP addresses, and CIDR, one per line
+
+    # List 3 (download via URL)
+   [[ipset.list]]
+   name = "remote-list-2"
+   url = "https://some-url/list2.lst"
+
 # You can add as many ipsets as you want:
-
 # [[ipset]]
-#   ipset_name = "direct"
-#   flush_before_applying = true
-#
-#   [ipset.routing]
-#   interface = "ppp0"
-#   fwmark = 998
-#   table = 998
-#   priority = 998
-#   
-#   [[ipset.list]]
-#   name = "list-name"
-#   url = "https://some-url/list1.lst"
-#
-#   [[ipset.list]]
-#   name = "re-filter-ipsum"
-#   url = "https://some-url/list2.lst"
-#
-# [[ipset]]
-#   ...
-#
-#   [ipset.routing]
-#   ...
-#  
-#   [[ipset.list]]
-#   ...
+# ipset_name = "direct"
+# ...
 ```
 
 ### 2. Download lists
