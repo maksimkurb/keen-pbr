@@ -30,11 +30,6 @@ define Package/keenetic-pbr/description
 	Then additional scripts from this package would be used to route traffic based on these lists.
 endef
 
-GO_LDFLAGS += \
-	-X '$(XIMPORTPATH)/constant.Version=$(PKG_VERSION)' \
-	-w -s
-
-
 GO_TARGET:=./
 
 define Package/keenetic-pbr/install
