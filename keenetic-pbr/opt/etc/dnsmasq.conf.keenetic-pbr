@@ -1,11 +1,18 @@
+####################
+#  dnsmasq config  #
+####################
+# This config was provided by `keenetic-pbr` package
+
 user=nobody
 pid-file=/var/run/opt-dnsmasq.pid
 
-# interface=lo
-# interface=br0
-# port=5353
-
+# Port to listen DNS-requests on
 port=53
+
+# Upstream DNS servers
+# IT IS HIGHLY ADVISED TO CONFIGURE dnscrypt-proxy2 AND REPLACE THESE ADDRESSES:
+server=8.8.8.8
+server=8.8.4.4
 
 dns-forward-max=5096
 min-port=4096
@@ -25,6 +32,5 @@ log-async
 # stop-dns-rebind
 rebind-localhost-ok
 
-server=8.8.8.8
-# addn-hosts=/opt/etc/hosts
+# dnsmasq will read domains provided by keenetic-pbr from this folder
 conf-dir=/opt/etc/dnsmasq.d/,*.conf
