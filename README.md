@@ -34,7 +34,8 @@ Telegram-чат проекта: https://t.me/keenetic_pbr
 │       └── keenetic-pbr                    # Утилита для скачивания и обработки списков, их импорта в ipset, а также генерации файлов конфигурации для dnsmasq
 └── /etc
     ├── /keenetic-pbr
-    │   └── /keenetic-pbr.conf              # Файл конфигурации keenetic-pbr
+    │   ├── /keenetic-pbr.conf              # Файл конфигурации keenetic-pbr
+    │   └── /lists.d                        # В эту папку keenetic-pbr будет помещать скачанные и локальные списки. Не кладите сюда ничего сами, т.к. файлы из этой папки удаляются после каждого запуска команды "keenetic-pbr download".
     ├── /ndm
     │   ├── /netfilter.d
     │   │   └── 50-keenetic-pbr-fwmarks.sh  # Скрипт добавляет iptables правило для маркировки пакетов в ipset с определённым fwmark
@@ -184,7 +185,48 @@ keenetic-pbr download
 > [!IMPORTANT]  
 > Эту команду необходимо запустить даже в том случае, если все списки являются локальными. Данная команда экспортирует все списки из настроек в папку `lists.d`.
 
-### 3. Включение DNS Override
+### 3. Настройка DNS over HTTPS (DoH)
+> [!TIP]  
+> Обычный протокол DNS является не безопасным, поскольку все запросы передаются в открытом виде.
+> Это значит, что провайдер или злоумышленники могут перехватить и подменить ваши DNS-запросы ([DNS spoofing](https://ru.wikipedia.org/wiki/DNS_spoofing)), направив вас на ненастоящий веб-сайт.
+> 
+> Чтобы обезопасить себя от этого, рекомендуется настроить пакет `dnscrypt-proxy2`, который будет использовать протокол **DNS-over-HTTPS** (**DoH**) для шифрования DNS-запросов.
+> Подробнее о **DoH** [можно прочитать здесь](https://adguard-dns.io/ru/blog/adguard-dns-announcement.html).
+
+Для настройки **DoH** на роутере необходимо выполнить следующие действия:
+1. Скачиваем `dnscrypt-proxy2`
+    ```bash
+    keenetic-pbr download
+    ```
+2. Редактируем файл `/opt/etc/dnscrypt-proxy.toml`
+    ```ini
+   # ...
+   
+   # Указываем upstream-серверы (необходимо убрать решётку перед server_names)
+   server_names = ['adguard-dns-doh', 'cloudflare-security', 'google']
+   
+   # Указываем порт 9153 для прослушивания DNS-запросов
+   listen_addresses = ['[::]:9153']
+   
+   # ... 
+    ```
+3. Редактируем файл `/opt/etc/dnsmasq.conf`
+    ```ini
+   # ...
+   
+   # Меняем сервер по умолчанию 8.8.8.8 на наш dnscrypt-proxy2
+   server=127.0.0.1#9153
+   
+   # ...
+    ```
+
+4. Перезапускаем `dnscrypt-proxy2` и `dnsmasq`
+    ```bash
+   /opt/etc/init.d/S09dnscrypt-proxy2 restart
+   /opt/etc/init.d/S56dnsmasq restart
+   ```
+
+### 4. Включение DNS Override
 
 Для того, чтобы Keenetic использовал `dnsmasq` в качестве DNS-сервера, необходимо включить DNS-Override.
 
@@ -203,7 +245,7 @@ keenetic-pbr download
 > [!TIP]
 > Если вы решите отключить DNS-Override в будущем, выполните команды `no opkg dns-override` и `system configuration save`.
 
-### 4. Перезапуск OPKG и проверка работы маршрутизации
+### 5. Перезапуск OPKG и проверка работы маршрутизации
 
 Перезапустите OPKG и убедитесь, что маршрутизация на основе политики работает должным образом.
 
