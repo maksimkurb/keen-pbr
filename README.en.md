@@ -30,7 +30,7 @@ To configure routing, the package creates scripts in the directories `/opt/etc/n
 Connect to your EntWare using SSH and run the following command:
 
    ```bash
-   opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install
+   opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install.sh
    ```
 
 ## Installation (manual)
