@@ -85,7 +85,7 @@ Telegram-чат проекта: https://t.me/keenetic_pbr
 Подключитесь к вашему OPKG по SSH и выполните следующую команду:
 
 ```bash
-opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install
+opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install.sh
 ```
 
 ### Ручная установка
