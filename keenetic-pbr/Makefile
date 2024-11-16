@@ -55,45 +55,109 @@ define Package/keenetic-pbr/postinst
 
 #!/bin/sh
 
-echo "Keenetic-pbr is installed!"
+# Essential paths
+DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
+DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.keenetic-pbr.orig"
+DNSMASQ_KEENETIC_PBR_BAK="${DNSMASQ_CONF}.keenetic-pbr.old"
+DNSMASQ_DEFAULT="${DNSMASQ_CONF}.keenetic-pbr"
+KEENETIC_CONF="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
+
+echo "Keenetic-pbr installation"
+echo "------------------------"
+
+# Backup existing config if present
+if [ -f "$DNSMASQ_CONF" ]; then
+	echo "Existing dnsmasq.conf found, backing up to '$DNSMASQ_ORIGINAL_BAK'"
+    cp "$DNSMASQ_CONF" "$DNSMASQ_ORIGINAL_BAK"
+
+	while true; do
+		echo ""
+        echo "Select dnsmasq.conf configuration:"
+        echo "1. Replace dnsmasq.conf with provided from keenetic-pbr (recommended)"
+        echo "2. Keep current dnsmasq.conf"
+
+        if [ -f "$DNSMASQ_KEENETIC_PBR_BAK" ]; then
+        	echo "3. Restore dnsmasq.conf from previous keenetic-pbr installation"
+        fi
+
+        printf "Please enter your choice: "
+		read -r choice
+		case $choice in
+			1)
+				echo "Replacing dnsmasq.conf with provided from keenetic-pbr"
+				echo "Copying '$DNSMASQ_DEFAULT' to '$DNSMASQ_CONF'..."
+				cp "$DNSMASQ_DEFAULT" "$DNSMASQ_CONF"
+				break
+				;;
+			2)
+				echo "Keeping current dnsmasq.conf"
+				echo "You can copy keenetic-pbr config later manually, it will be stored at '$DNSMASQ_DEFAULT'"
+				break
+				;;
+			3)
+				if [ -f "$DNSMASQ_KEENETIC_PBR_BAK" ]; then
+					echo "Restoring dnsmasq.conf from previous keenetic-pbr installation"
+					echo "Copying '$DNSMASQ_KEENETIC_PBR_BAK' to '$DNSMASQ_CONF'..."
+					cp "$DNSMASQ_KEENETIC_PBR_BAK" "$DNSMASQ_CONF"
+					break
+				else
+					echo "Invalid option."
+					continue
+				fi
+				;;
+			*)
+				echo "Invalid option."
+				continue
+				;;
+		esac
+	done
+else
+    # No existing config, use default
+    cp "$DNSMASQ_DEFAULT" "$DNSMASQ_CONF"
+fi
+
+echo "Installation complete!"
+echo "Please make sure to:"
+echo "1. Configure $KEENETIC_CONF"
+echo "2. Configure $DNSMASQ_CONF"
+echo "3. (recommended) Install dnscrypt-proxy2 and configure it"
+echo "4. Run the following command: keenetic-pbr download"
+echo "5. Enable opkg dns-override"
+echo "6. Restart OPKG"
 echo ""
-echo "Replacing old dnsmasq configuration file..."
-mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.orig || true
-(mv /opt/etc/dnsmasq.conf.keenetic-pbr.bak /opt/etc/dnsmasq.conf && (rm /opt/etc/dnsmasq.conf.keenetic-pbr || true)) || mv /opt/etc/dnsmasq.conf.keenetic-pbr.bak /opt/etc/dnsmasq.conf || true
-echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.orig"
-echo ""
-echo "Please check the following config files and modify them accordingly:"
-echo "1. /opt/etc/keenetic-pbr/keenetic-pbr.conf"
-echo "2. /opt/etc/dnsmasq.conf"
-echo ""
-echo "After modifying these files, try to download lists by running the following command:"
-echo "# keenetic-pbr download"
-echo ""
-echo "If everything is good, please restart OPKG and check if policy based routing works."
 
 endef
 
 define Package/keenetic-pbr/postrm
 
 #!/bin/sh
-echo "Keenetic-pbr is uninstalled!"
 
-echo ""
-echo "Restoring original dnsmasq configuration file..."
-# Check if the original configuration file exists before proceeding
-if [ -f /opt/etc/dnsmasq.conf.orig ]; then
-# Move current configuration to backup
-mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.keenetic-pbr.bak || true
+DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
+DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.bak.keenetic-pbr.orig"
 
-# Restore the original configuration
-mv /opt/etc/dnsmasq.conf.orig /opt/etc/dnsmasq.conf || true
+echo "Keenetic-pbr uninstallation"
+echo "--------------------------"
 
-echo "Original dnsmasq configuration file restored from /opt/etc/dnsmasq.conf.orig"
-echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.keenetic-pbr.bak"
+if [ -f "$DNSMASQ_ORIGINAL_BAK" ]; then
+    echo "Select action:"
+    echo "1. Restore original dnsmasq.conf from backup"
+    echo "2. Keep current dnsmasq.conf"
+
+    read -r choice
+    case $choice in
+        1)
+            cp "$DNSMASQ_ORIGINAL_BAK" "$DNSMASQ_CONF"
+            echo "Original dnsmasq.conf is restored from backup"
+            ;;
+        *)
+            echo "Keeping current configuration"
+            ;;
+    esac
 else
-echo "Original dnsmasq configuration file not found. No changes made."
+    echo "No dnsmasq.conf backup configuration found"
 fi
-echo ""
+
+echo "Uninstallation complete!"
 
 endef
 
