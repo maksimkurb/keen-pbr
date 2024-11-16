@@ -32,6 +32,10 @@ endef
 
 GO_TARGET:=./
 
+define Package/keenetic-pbr/conffiles
+/opt/etc/keenetic-pbr/keenetic-pbr.conf
+endef
+
 define Package/keenetic-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/cron.daily/
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d/
@@ -45,9 +49,9 @@ define Package/keenetic-pbr/install
 		$(INSTALL_BIN) opt/etc/ndm/ifstatechanged.d/50-keenetic-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_BIN) opt/etc/ndm/netfilter.d/50-keenetic-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) opt/etc/init.d/S80keenetic-pbr $(1)/opt/etc/init.d
-		$(INSTALL_BIN) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
+		$(INSTALL_CONF) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
 		$(INSTALL_BIN) opt/etc/keenetic-pbr/defaults $(1)/opt/etc/keenetic-pbr/
-		$(INSTALL_BIN) opt/etc/dnsmasq.conf.keenetic-pbr $(1)/opt/etc/
+		$(INSTALL_CONF) opt/etc/dnsmasq.conf.keenetic-pbr $(1)/opt/etc/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keenetic-pbr $(1)/opt/usr/bin/
 endef
 
