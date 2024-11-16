@@ -59,7 +59,7 @@ echo "Keenetic-pbr is installed!"
 echo ""
 echo "Replacing old dnsmasq configuration file..."
 mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.orig || true
-mv /opt/etc/dnsmasq.conf.keenetic-pbr /opt/etc/dnsmasq.conf || true
+(mv /opt/etc/dnsmasq.conf.keenetic-pbr.bak /opt/etc/dnsmasq.conf && (rm /opt/etc/dnsmasq.conf.keenetic-pbr || true)) || mv /opt/etc/dnsmasq.conf.keenetic-pbr.bak /opt/etc/dnsmasq.conf || true
 echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.orig"
 echo ""
 echo "Please check the following config files and modify them accordingly:"
@@ -83,13 +83,13 @@ echo "Restoring original dnsmasq configuration file..."
 # Check if the original configuration file exists before proceeding
 if [ -f /opt/etc/dnsmasq.conf.orig ]; then
 # Move current configuration to backup
-mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.keenetic-pbr || true
+mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.keenetic-pbr.bak || true
 
 # Restore the original configuration
 mv /opt/etc/dnsmasq.conf.orig /opt/etc/dnsmasq.conf || true
 
 echo "Original dnsmasq configuration file restored from /opt/etc/dnsmasq.conf.orig"
-echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.keenetic-pbr"
+echo "Old dnsmasq configuration file is moved to /opt/etc/dnsmasq.conf.keenetic-pbr.bak"
 else
 echo "Original dnsmasq configuration file not found. No changes made."
 fi
