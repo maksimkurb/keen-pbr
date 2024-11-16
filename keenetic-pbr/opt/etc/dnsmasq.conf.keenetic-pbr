@@ -26,5 +26,5 @@ log-async
 rebind-localhost-ok
 
 server=8.8.8.8
-addn-hosts=/opt/etc/hosts
+# addn-hosts=/opt/etc/hosts
 conf-dir=/opt/etc/dnsmasq.d/,*.conf
