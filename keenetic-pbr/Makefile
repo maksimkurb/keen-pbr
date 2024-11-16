@@ -134,9 +134,14 @@ define Package/keenetic-pbr/postrm
 
 DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
 DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.bak.keenetic-pbr.orig"
+DNSMASQ_KEENETIC_PBR_BAK="${DNSMASQ_CONF}.keenetic-pbr.old"
 
 echo "Keenetic-pbr uninstallation"
 echo "--------------------------"
+
+if [ -f "$DNSMASQ_CONF" ]; then
+    cp "$DNSMASQ_CONF" "$DNSMASQ_KEENETIC_PBR_BAK"
+fi
 
 if [ -f "$DNSMASQ_ORIGINAL_BAK" ]; then
     echo "Select action:"
