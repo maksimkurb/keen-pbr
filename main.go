@@ -27,6 +27,7 @@ type Config struct {
 type CLI struct {
 	configPath string
 	command    Command
+	ipFamily   uint8
 }
 
 func parseFlags() *CLI {
@@ -42,7 +43,8 @@ func parseFlags() *CLI {
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  download                Download lists\n")
 		fmt.Fprintf(os.Stderr, "  apply                   Import lists to ipset and update dnsmasq lists\n")
-		fmt.Fprintf(os.Stderr, "  gen-routing-config      Gen configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
+		fmt.Fprintf(os.Stderr, "  gen-routing-config      Gen IPv4 configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
+		fmt.Fprintf(os.Stderr, "  gen-routing-config-ipv6 Gen IPv6 configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -63,6 +65,10 @@ func parseFlags() *CLI {
 		cli.command = Apply
 	case "gen-routing-config":
 		cli.command = GenRoutingConfig
+		cli.ipFamily = 4
+	case "gen-routing-config-ipv6":
+		cli.command = GenRoutingConfig
+		cli.ipFamily = 6
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
 		flag.Usage()
@@ -106,7 +112,7 @@ func main() {
 			log.Fatalf("Failed to apply configuration: %v", err)
 		}
 	case GenRoutingConfig:
-		if err := lib.GenRoutingConfig(config); err != nil {
+		if err := lib.GenRoutingConfig(config, cli.ipFamily); err != nil {
 			log.Fatalf("Failed to apply configuration: %v", err)
 		}
 	}

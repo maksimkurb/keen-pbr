@@ -23,6 +23,7 @@ type GeneralConfig struct {
 
 type IpsetConfig struct {
 	IpsetName           string        `toml:"ipset_name"`
+	IpVersion           uint8         `toml:"ip_version"`
 	Routing             RoutingConfig `toml:"routing"`
 	FlushBeforeApplying bool          `toml:"flush_before_applying"`
 	List                []ListSource  `toml:"list"`
@@ -84,6 +85,13 @@ func (c *Config) validateConfig() error {
 		}
 		names[ipset.IpsetName] = true
 
+		if ipset.IpVersion != 6 {
+			if ipset.IpVersion != 4 && ipset.IpVersion != 0 {
+				return fmt.Errorf("unknown IP version %d, check your configuration", ipset.IpVersion)
+			}
+			ipset.IpVersion = 4
+		}
+
 		if ipset.Routing.Interface == "" {
 			return fmt.Errorf("interface cannot be empty, check your configuration")
 		}
@@ -124,19 +132,11 @@ func (c *Config) validateConfig() error {
 	return nil
 }
 
-func validateUnique(items []interface{}) error {
-	seen := make(map[interface{}]bool)
-	for _, item := range items {
-		if seen[item] {
-			return fmt.Errorf("duplicate item found: %v", item)
-		}
-		seen[item] = true
-	}
-	return nil
-}
-
-func GenRoutingConfig(c *Config) error {
+func GenRoutingConfig(c *Config, ipFamily uint8) error {
 	for _, ipset := range c.Ipset {
+		if ipset.IpVersion != ipFamily {
+			continue
+		}
 		fmt.Printf("%s %s %d %d %d\n", ipset.IpsetName, ipset.Routing.Interface, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 	}
 	return nil

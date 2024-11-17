@@ -5,9 +5,7 @@ import (
 	"sort"
 )
 
-type NetworkSummarizer struct{}
-
-func (ns NetworkSummarizer) SummarizeIPv4(networks []string) []string {
+func SummarizeIPv4(networks []string) []string {
 	if len(networks) == 0 {
 		return nil
 	}

@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -42,10 +42,9 @@ func ApplyLists(config *Config) error {
 		}
 	}
 
-	ipsetManager := &IpsetManager{}
-
 	for _, ipset := range config.Ipset {
 		var ipv4Networks []string
+		var ipv6Networks []string
 		var domains []string
 
 		// Process lists
@@ -53,7 +52,8 @@ func ApplyLists(config *Config) error {
 			// Read and process list file
 			content, err := os.ReadFile(filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName)))
 			if err != nil {
-				return fmt.Errorf("failed to read list file %s-%s: %v\n\nplease, run keenetic-pbr download", err)
+				log.Printf("failed to read list file %s-%s: %v\n\nplease, run \"keenetic-pbr download\"", err)
+				continue
 			}
 
 			scanner := bufio.NewScanner(strings.NewReader(string(content)))
@@ -65,27 +65,46 @@ func ApplyLists(config *Config) error {
 
 				if isDNSName(line) {
 					domains = append(domains, line)
-				} else if isIPv4(line) || IsCIDR(line) {
-					ipv4Networks = append(ipv4Networks, line)
+				} else if isIP(line) || isCIDR(line) {
+					// ipv4 contain dots, ipv6 contain colons
+					if strings.Contains(line, ".") {
+						ipv4Networks = append(ipv4Networks, line)
+					} else {
+						ipv6Networks = append(ipv6Networks, line)
+					}
 				}
 			}
 		}
 
-		if len(ipv4Networks) > 0 {
+		err := CreateIpset(config.General.IpsetPath, ipset)
+		if err != nil {
+			log.Printf("Could not create ipset '%s': %v", ipset.IpsetName, err)
+		}
+
+		// Filling ipv4 ipset
+		if ipset.IpVersion != 6 && len(ipv4Networks) > 0 {
 			// Summarize networks if requested
 			var ipsLen = len(ipv4Networks)
 			if config.General.Summarize {
-				ipv4Networks = NetworkSummarizer{}.SummarizeIPv4(ipv4Networks)
+				ipv4Networks = SummarizeIPv4(ipv4Networks)
 			}
 
 			// Apply networks to ipsets
 			if config.General.Summarize {
-				log.Printf("Filling ipset '%s' (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
+				log.Printf("Filling ipset '%s' (IPv4) (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
 			} else {
-				log.Printf("Filling ipset '%s' (%d items)...", ipset.IpsetName, ipsLen)
+				log.Printf("Filling ipset '%s' (IPv4) (%d items)...", ipset.IpsetName, ipsLen)
 			}
-			if err := ipsetManager.AddToIpset(config.General.IpsetPath, ipset, ipv4Networks); err != nil {
-				return err
+			if err := AddToIpset(config.General.IpsetPath, ipset, ipv4Networks); err != nil {
+				log.Printf("Could not fill ipset (IPv4) '%s': %v", ipset.IpsetName, err)
+			}
+		}
+
+		if ipset.IpVersion == 6 && len(ipv6Networks) > 0 {
+			// Apply networks to ipsets
+			log.Printf("Filling ipset '%s' (IPv6) (%d items)...", ipset.IpsetName, len(ipv6Networks))
+			if err := AddToIpset(config.General.IpsetPath, ipset, ipv6Networks); err != nil {
+				log.Printf("Could not fill ipset (IPv6) '%s': %v", ipset.IpsetName, err)
 			}
 		}
 
@@ -99,7 +118,8 @@ func ApplyLists(config *Config) error {
 			}
 			defer f.Close()
 
-			domains = removeDuplicateStr(domains)
+			slices.Sort(domains)
+			domains = slices.Compact(domains)
 
 			writer := bufio.NewWriter(f)
 			for _, domain := range domains {
@@ -113,47 +133,4 @@ func ApplyLists(config *Config) error {
 
 	log.Print("Configuration applied successfully")
 	return nil
-}
-
-// isDNSName will validate the given string as a DNS name
-func isDNSName(str string) bool {
-	if str == "" || len(strings.Replace(str, ".", "", -1)) > 255 {
-		// constraints already violated
-		return false
-	}
-	return !isIP(str) && rxDNSName.MatchString(str)
-}
-
-func isIP(str string) bool {
-	return net.ParseIP(str) != nil
-}
-
-// isIPv4 checks if the string is an IP version 4.
-func isIPv4(str string) bool {
-	ip := net.ParseIP(str)
-	return ip != nil && strings.Contains(str, ".")
-}
-
-// isIPv6 checks if the string is an IP version 6.
-func isIPv6(str string) bool {
-	ip := net.ParseIP(str)
-	return ip != nil && strings.Contains(str, ":")
-}
-
-// IsCIDR checks if the string is an valid CIDR notiation (IPV4 & IPV6)
-func IsCIDR(str string) bool {
-	_, _, err := net.ParseCIDR(str)
-	return err == nil
-}
-
-func removeDuplicateStr(strSlice []string) []string {
-	allKeys := make(map[string]bool)
-	list := []string{}
-	for _, item := range strSlice {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
-		}
-	}
-	return list
 }
