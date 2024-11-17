@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
+	"sort"
 	"strings"
 )
 
@@ -118,8 +118,7 @@ func ApplyLists(config *Config) error {
 			}
 			defer f.Close()
 
-			slices.Sort(domains)
-			domains = slices.Compact(domains)
+			domains = removeDuplicates(domains)
 
 			writer := bufio.NewWriter(f)
 			for _, domain := range domains {
@@ -133,4 +132,20 @@ func ApplyLists(config *Config) error {
 
 	log.Print("Configuration applied successfully")
 	return nil
+}
+
+func removeDuplicates(strings []string) []string {
+	sort.Strings(strings)
+	// Remove duplicates
+	if len(strings) > 0 {
+		j := 1
+		for i := 1; i < len(strings); i++ {
+			if strings[i] != strings[i-1] {
+				strings[j] = strings[i]
+				j++
+			}
+		}
+		strings = strings[:j]
+	}
+	return strings
 }
