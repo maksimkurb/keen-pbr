@@ -2,11 +2,17 @@ package lib
 
 import (
 	"fmt"
+	"github.com/BurntSushi/toml"
 	"log"
 	"os"
 	"path/filepath"
+)
 
-	"github.com/BurntSushi/toml"
+type IpFamily uint8
+
+const (
+	Ipv4 IpFamily = 4
+	Ipv6 IpFamily = 6
 )
 
 type Config struct {
@@ -23,9 +29,9 @@ type GeneralConfig struct {
 
 type IpsetConfig struct {
 	IpsetName           string        `toml:"ipset_name"`
-	IpVersion           uint8         `toml:"ip_version"`
-	Routing             RoutingConfig `toml:"routing"`
+	IpVersion           IpFamily      `toml:"ip_version"`
 	FlushBeforeApplying bool          `toml:"flush_before_applying"`
+	Routing             RoutingConfig `toml:"routing"`
 	List                []ListSource  `toml:"list"`
 }
 
@@ -39,6 +45,7 @@ type RoutingConfig struct {
 type ListSource struct {
 	ListName string   `toml:"name"`
 	URL      string   `toml:"url"`
+	File     string   `toml:"file"`
 	Hosts    []string `toml:"hosts"`
 }
 
@@ -61,9 +68,12 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	var config Config
 	if err := toml.Unmarshal(content, &config); err != nil {
+		if parseErr, ok := err.(toml.ParseError); ok {
+			log.Printf("%s", parseErr.ErrorWithUsage())
+			return nil, fmt.Errorf("failed to parse config file")
+		}
 		return nil, fmt.Errorf("failed to parse config file: %v", err)
 	}
-
 	if err := config.validateConfig(); err != nil {
 		return nil, err
 	}
@@ -85,11 +95,11 @@ func (c *Config) validateConfig() error {
 		}
 		names[ipset.IpsetName] = true
 
-		if ipset.IpVersion != 6 {
-			if ipset.IpVersion != 4 && ipset.IpVersion != 0 {
+		if ipset.IpVersion != Ipv6 {
+			if ipset.IpVersion != Ipv4 && ipset.IpVersion != 0 {
 				return fmt.Errorf("unknown IP version %d, check your configuration", ipset.IpVersion)
 			}
-			ipset.IpVersion = 4
+			ipset.IpVersion = Ipv4
 		}
 
 		if ipset.Routing.Interface == "" {
@@ -132,12 +142,12 @@ func (c *Config) validateConfig() error {
 	return nil
 }
 
-func GenRoutingConfig(c *Config, ipFamily uint8) error {
+func GenRoutingConfig(c *Config, ipFamily IpFamily) error {
 	for _, ipset := range c.Ipset {
 		if ipset.IpVersion != ipFamily {
 			continue
 		}
-		fmt.Printf("%s %s %d %d %d\n", ipset.IpsetName, ipset.Routing.Interface, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+		fmt.Printf("kpbr_ipset=%s kpbr_interface=%s kpbr_fwmark=%d kpbr_table_id=%d kpbr_rule_priority=%d\n", ipset.IpsetName, ipset.Routing.Interface, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 	}
 	return nil
 }

@@ -130,7 +130,7 @@ func ApplyLists(config *Config) error {
 		}
 	}
 
-	log.Print("Configuration applied successfully")
+	log.Print("Configuration applied")
 	return nil
 }
 

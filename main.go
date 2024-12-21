@@ -18,16 +18,11 @@ const (
 	GenRoutingConfig Command = "gen-routing-config"
 )
 
-// Config holds the application configuration
-type Config struct {
-	// Configuration fields will be defined in config package
-}
-
 // CLI represents command line arguments
 type CLI struct {
 	configPath string
 	command    Command
-	ipFamily   uint8
+	ipFamily   lib.IpFamily
 }
 
 func parseFlags() *CLI {
@@ -65,10 +60,10 @@ func parseFlags() *CLI {
 		cli.command = Apply
 	case "gen-routing-config":
 		cli.command = GenRoutingConfig
-		cli.ipFamily = 4
+		cli.ipFamily = lib.Ipv4
 	case "gen-routing-config-ipv6":
 		cli.command = GenRoutingConfig
-		cli.ipFamily = 6
+		cli.ipFamily = lib.Ipv6
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
 		flag.Usage()

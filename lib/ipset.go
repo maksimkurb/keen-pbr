@@ -26,14 +26,24 @@ func CreateIpset(ipsetCommand string, ipset IpsetConfig) error {
 
 // AddToIpset adds the given networks to the specified ipset
 func AddToIpset(ipsetCommand string, ipset IpsetConfig, networks []string) error {
+	if _, err := exec.LookPath(ipsetCommand); err != nil {
+		return fmt.Errorf("failed to find ipset command %s: %v", ipsetCommand, err)
+	}
+
 	cmd := exec.Command(ipsetCommand, "restore", "-exist")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdin pipe: %v", err)
 	}
 
+	errCh := make(chan error, 1)
 	go func() {
-		defer stdin.Close()
+		defer func() {
+			if err := stdin.Close(); err != nil {
+				errCh <- fmt.Errorf("failed to close stdin pipe: %v", err)
+			}
+		}()
+
 		// Write commands to stdin
 		if ipset.FlushBeforeApplying {
 			if _, err := fmt.Fprintf(stdin, "flush %s\n", ipset.IpsetName); err != nil {
@@ -48,7 +58,7 @@ func AddToIpset(ipsetCommand string, ipset IpsetConfig, networks []string) error
 				errorCounter++
 
 				if errorCounter > 10 {
-					log.Printf("too many errors, aborting import")
+					errCh <- fmt.Errorf("too many errors, aborting import")
 					return
 				}
 			}
@@ -57,6 +67,12 @@ func AddToIpset(ipsetCommand string, ipset IpsetConfig, networks []string) error
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to add addresses to ipset %s: %v\n%s", ipset.IpsetName, err, output)
+	}
+
+	for err := range errCh {
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return nil

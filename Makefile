@@ -5,7 +5,8 @@ PKG_FULLVERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
 BINARY_NAME=keenetic-pbr
 
 build:
-	GOARCH=amd64 GOOS=linux go build -o bin/${BINARY_NAME}-linux-amd64 main.go
+	GOARCH=amd64 GOOS=linux go build -ldflags "-s -w" -o bin/${BINARY_NAME}-linux-amd64 main.go
+	echo "keenetic-pbr built with size $$(du -BK ./bin/${BINARY_NAME}-linux-amd64 | awk '{print $$1}')"
 
 run: build
 	./bin/${BINARY_NAME}
