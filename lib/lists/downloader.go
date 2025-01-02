@@ -1,16 +1,16 @@
-package lib
+package lists
 
 import (
 	"fmt"
+	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-func DownloadLists(config *Config) error {
+func DownloadLists(config *config.Config) error {
 	client := &http.Client{}
 
 	listsDir := filepath.Clean(config.General.ListsOutputDir)
@@ -20,13 +20,7 @@ func DownloadLists(config *Config) error {
 
 	for _, ipset := range config.Ipset {
 		for _, list := range ipset.List {
-			if list.Hosts != nil && len(list.Hosts) > 0 {
-				log.Printf("Processing list \"%s-%s\"", ipset.IpsetName, list.ListName)
-
-				path := filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName))
-				if err := os.WriteFile(path, []byte(strings.Join(list.Hosts, "\n")), 0644); err != nil {
-					return fmt.Errorf("failed to write list file to %s: %v", path, err)
-				}
+			if list.URL == "" {
 				continue
 			}
 

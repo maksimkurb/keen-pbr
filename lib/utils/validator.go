@@ -24,28 +24,31 @@ SOFTWARE.
 Credits: https://github.com/asaskevich/govalidator
 */
 
-package lib
+package utils
 
 import (
 	"net"
+	"regexp"
 	"strings"
 )
 
-// isDNSName will validate the given string as a DNS name
-func isDNSName(str string) bool {
+var rxDNSName = regexp.MustCompile(`^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`)
+
+// IsDNSName will validate the given string as a DNS name
+func IsDNSName(str string) bool {
 	if str == "" || len(strings.Replace(str, ".", "", -1)) > 255 {
 		// constraints already violated
 		return false
 	}
-	return !isIP(str) && rxDNSName.MatchString(str)
+	return !IsIP(str) && rxDNSName.MatchString(str)
 }
 
-func isIP(str string) bool {
+func IsIP(str string) bool {
 	return net.ParseIP(str) != nil
 }
 
-// isCIDR checks if the string is an valid CIDR notiation (IPV4 & IPV6)
-func isCIDR(str string) bool {
+// IsCIDR checks if the string is an valid CIDR notiation (IPV4 & IPV6)
+func IsCIDR(str string) bool {
 	_, _, err := net.ParseCIDR(str)
 	return err == nil
 }

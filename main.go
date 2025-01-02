@@ -3,75 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/maksimkurb/keenetic-pbr/lib/commands"
+	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"log"
-	"maksimkurb/keenetic-pbr/lib"
 	"os"
 	"path/filepath"
 )
-
-// Command represents the subcommand to execute
-type Command string
-
-const (
-	Download         Command = "download"
-	Apply            Command = "apply"
-	GenRoutingConfig Command = "gen-routing-config"
-)
-
-// CLI represents command line arguments
-type CLI struct {
-	configPath string
-	command    Command
-	ipFamily   lib.IpFamily
-}
-
-func parseFlags() *CLI {
-	cli := &CLI{}
-
-	// Define flags
-	flag.StringVar(&cli.configPath, "config", "/opt/etc/keenetic-pbr/keenetic-pbr.conf", "Path to configuration file")
-
-	// Custom usage message
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Keenetic Policy-Based Routing Manager\n\n")
-		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  download                Download lists\n")
-		fmt.Fprintf(os.Stderr, "  apply                   Import lists to ipset and update dnsmasq lists\n")
-		fmt.Fprintf(os.Stderr, "  gen-routing-config      Gen IPv4 configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
-		fmt.Fprintf(os.Stderr, "  gen-routing-config-ipv6 Gen IPv6 configuration for routing scripts (ipset, iface_name, fwmark, table, priority)\n\n")
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	// Process command
-	args := flag.Args()
-	if len(args) != 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	switch args[0] {
-	case "download":
-		cli.command = Download
-	case "apply":
-		cli.command = Apply
-	case "gen-routing-config":
-		cli.command = GenRoutingConfig
-		cli.ipFamily = lib.Ipv4
-	case "gen-routing-config-ipv6":
-		cli.command = GenRoutingConfig
-		cli.ipFamily = lib.Ipv6
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	return cli
-}
 
 func init() {
 	// Setup logging
@@ -82,33 +19,64 @@ func init() {
 }
 
 func main() {
-	cli := parseFlags()
+	ctx := &commands.AppContext{}
 
-	// Ensure config directory exists
-	configDir := filepath.Dir(cli.configPath)
+	// Define flags
+	flag.StringVar(&ctx.ConfigPath, "config", "/opt/etc/keenetic-pbr/keenetic-pbr.conf", "Path to configuration file")
+
+	// Custom usage message
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Keenetic Policy-Based Routing Manager\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Commands:\n")
+		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
+		fmt.Fprintf(os.Stderr, "  apply                   Import IPs from lists to ipsets and update dnsmasq domains config\n")
+		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+
+	// Ensure cfg directory exists
+	configDir := filepath.Dir(ctx.ConfigPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
-		log.Fatalf("Failed to create config directory: %v", err)
+		log.Fatalf("Failed to create cfg directory: %v", err)
 	}
 
-	// Load configuration
-	config, err := lib.LoadConfig(cli.configPath)
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+	// Get interfaces list
+	var err error
+	if ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
+		log.Fatalf("Failed to get interfaces list: %v", err)
 	}
 
-	// Execute command
-	switch cli.command {
-	case Download:
-		if err := lib.DownloadLists(config); err != nil {
-			log.Fatalf("Failed to download lists: %v", err)
-		}
-	case Apply:
-		if err := lib.ApplyLists(config); err != nil {
-			log.Fatalf("Failed to apply configuration: %v", err)
-		}
-	case GenRoutingConfig:
-		if err := lib.GenRoutingConfig(config, cli.ipFamily); err != nil {
-			log.Fatalf("Failed to apply configuration: %v", err)
+	cmds := []commands.Runner{
+		commands.CreateDownloadCommand(),
+		commands.CreateApplyCommand(),
+		commands.CreateInterfacesCommand(),
+	}
+
+	args := flag.Args()
+
+	if len(args) < 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	subcommand := args[0]
+	for _, cmd := range cmds {
+		if cmd.Name() == subcommand {
+			if err := cmd.Init(args[1:], ctx); err != nil {
+				log.Fatalf("Failed to initialize command: %v", err)
+			}
+
+			if err := cmd.Run(); err != nil {
+				log.Fatalf("Failed to run command: %v", err)
+			}
+
+			os.Exit(0)
 		}
 	}
+
+	log.Fatalf("Unknown subcommand: %s", subcommand)
 }

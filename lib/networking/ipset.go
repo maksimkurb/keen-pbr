@@ -1,13 +1,14 @@
-package lib
+package networking
 
 import (
 	"fmt"
+	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"log"
 	"os/exec"
 )
 
 // CreateIpset creates a new ipset with the given name and IP family (4 or 6)
-func CreateIpset(ipsetCommand string, ipset IpsetConfig) error {
+func CreateIpset(ipsetCommand string, ipset *config.IpsetConfig) error {
 	// Determine IP family
 	family := "inet"
 	if ipset.IpVersion == 6 {
@@ -25,7 +26,7 @@ func CreateIpset(ipsetCommand string, ipset IpsetConfig) error {
 }
 
 // AddToIpset adds the given networks to the specified ipset
-func AddToIpset(ipsetCommand string, ipset IpsetConfig, networks []string) error {
+func AddToIpset(ipsetCommand string, ipset *config.IpsetConfig, networks []string) error {
 	if _, err := exec.LookPath(ipsetCommand); err != nil {
 		return fmt.Errorf("failed to find ipset command %s: %v", ipsetCommand, err)
 	}
