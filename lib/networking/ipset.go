@@ -3,7 +3,7 @@ package networking
 import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"log"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"os/exec"
 )
 
@@ -14,7 +14,7 @@ func CreateIpset(ipsetCommand string, ipset *config.IpsetConfig) error {
 	if ipset.IpVersion == 6 {
 		family = "inet6"
 	} else if ipset.IpVersion != 0 && ipset.IpVersion != 4 {
-		log.Printf("unknown IP version %d, assuming IPv4", ipset.IpVersion)
+		log.Warnf("unknown IP version %d, assuming IPv4", ipset.IpVersion)
 	}
 
 	cmd := exec.Command(ipsetCommand, "create", ipset.IpsetName, "hash:net", "family", family, "-exist")
@@ -48,14 +48,14 @@ func AddToIpset(ipsetCommand string, ipset *config.IpsetConfig, networks []strin
 		// Write commands to stdin
 		if ipset.FlushBeforeApplying {
 			if _, err := fmt.Fprintf(stdin, "flush %s\n", ipset.IpsetName); err != nil {
-				log.Printf("failed to flush ipset %s: %v", ipset.IpsetName, err)
+				log.Warnf("failed to flush ipset %s: %v", ipset.IpsetName, err)
 			}
 		}
 
 		errorCounter := 0
 		for _, network := range networks {
 			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IpsetName, network); err != nil {
-				log.Printf("failed to add address %s to ipset %s: %v", network, ipset.IpsetName, err)
+				log.Warnf("failed to add address %s to ipset %s: %v", network, ipset.IpsetName, err)
 				errorCounter++
 
 				if errorCounter > 10 {

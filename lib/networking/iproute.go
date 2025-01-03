@@ -3,9 +3,9 @@ package networking
 import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"log"
 	"net"
 )
 
@@ -85,9 +85,9 @@ func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
 }
 
 func (ipr *IpRoute) Add() error {
-	log.Printf("Adding IP route [%v]", ipr)
+	log.Infof("Adding IP route [%v]", ipr)
 	if err := netlink.RouteAdd(ipr.Route); err != nil {
-		log.Printf("Failed to add IP route [%v]: %v", ipr, err)
+		log.Warnf("Failed to add IP route [%v]: %v", ipr, err)
 		return err
 	}
 
@@ -107,23 +107,23 @@ func (ipr *IpRoute) AddIfNotExists() error {
 
 func (ipr *IpRoute) IsExists() (bool, error) {
 	if filtered, err := netlink.RouteListFiltered(ipr.Family, ipr.Route, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_OIF); err != nil {
-		log.Printf("Checking if IP route exists [%v] is failed: %v", ipr, err)
+		log.Warnf("Checking if IP route exists [%v] is failed: %v", ipr, err)
 		return false, err
 	} else {
 		if len(filtered) > 0 {
-			log.Printf("Checking if IP route exists [%v]: YES", ipr)
+			log.Debugf("Checking if IP route exists [%v]: YES", ipr)
 			return true, nil
 		}
 	}
 
-	log.Printf("Checking if IP route exists [%v]: NO", ipr)
+	log.Debugf("Checking if IP route exists [%v]: NO", ipr)
 	return false, nil
 }
 
 func (ipr *IpRoute) Del() error {
-	log.Printf("Deleting IP route [%v]", ipr)
+	log.Infof("Deleting IP route [%v]", ipr)
 	if err := netlink.RouteDel(ipr.Route); err != nil {
-		log.Printf("Failed to delete IP route [%v]: %v", ipr, err)
+		log.Warnf("Failed to delete IP route [%v]: %v", ipr, err)
 		return err
 	}
 
@@ -158,10 +158,10 @@ func (ipr *IpRoute) DelIfExists() error {
 //}
 
 func ListRoutesInTable(table int) ([]*IpRoute, error) {
-	log.Printf("Listing all routes in the routing table %d", table)
+	log.Debugf("Listing all routes in the routing table %d", table)
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
-		log.Printf("Failed to list routes for table %d: %v", table, err)
+		log.Warnf("Failed to list routes for table %d: %v", table, err)
 		return nil, err
 	}
 

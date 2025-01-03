@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,7 +35,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") {
 				path := filepath.Join(dnsmasqDir, entry.Name())
-				log.Printf("Removing old dnsmasq cfg file '%s'", path)
+				log.Infof("Removing old dnsmasq cfg file '%s'", path)
 				if err := os.Remove(path); err != nil {
 					return fmt.Errorf("failed to remove old cfg file: %v", err)
 				}
@@ -48,7 +48,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		var ipv6Networks []string
 		var domains []string
 
-		log.Printf("Processing ipset \"%s\": ", ipset.IpsetName)
+		log.Infof("Processing ipset \"%s\": ", ipset.IpsetName)
 
 		// Process lists
 		for _, list := range ipset.List {
@@ -77,7 +77,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 
 		err := networking.CreateIpset(cfg.General.IpsetPath, ipset)
 		if err != nil {
-			log.Printf("Could not create ipset '%s': %v", ipset.IpsetName, err)
+			log.Warnf("Could not create ipset '%s': %v", ipset.IpsetName, err)
 		}
 
 		// Filling ipv4 ipset
@@ -90,27 +90,27 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 
 			// Apply networks to ipsets
 			if cfg.General.Summarize {
-				log.Printf("Filling ipset '%s' (IPv4) (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
+				log.Infof("Filling ipset '%s' (IPv4) (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
 			} else {
-				log.Printf("Filling ipset '%s' (IPv4) (%d items)...", ipset.IpsetName, ipsLen)
+				log.Infof("Filling ipset '%s' (IPv4) (%d items)...", ipset.IpsetName, ipsLen)
 			}
 			if err := networking.AddToIpset(cfg.General.IpsetPath, ipset, ipv4Networks); err != nil {
-				log.Printf("Could not fill ipset (IPv4) '%s': %v", ipset.IpsetName, err)
+				log.Infof("Could not fill ipset (IPv4) '%s': %v", ipset.IpsetName, err)
 			}
 		}
 
 		if !skipIpset && ipset.IpVersion == config.Ipv6 && len(ipv6Networks) > 0 {
 			// Apply networks to ipsets
-			log.Printf("Filling ipset '%s' (IPv6) (%d items)...", ipset.IpsetName, len(ipv6Networks))
+			log.Infof("Filling ipset '%s' (IPv6) (%d items)...", ipset.IpsetName, len(ipv6Networks))
 			if err := networking.AddToIpset(cfg.General.IpsetPath, ipset, ipv6Networks); err != nil {
-				log.Printf("Could not fill ipset (IPv6) '%s': %v", ipset.IpsetName, err)
+				log.Warnf("Could not fill ipset (IPv6) '%s': %v", ipset.IpsetName, err)
 			}
 		}
 
 		// Write dnsmasq configuration
 		if !skipDnsmasq && len(domains) > 0 {
 			dnsmasqConf := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
-			log.Printf("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConf)
+			log.Infof("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConf)
 			f, err := os.Create(dnsmasqConf)
 			if err != nil {
 				return fmt.Errorf("failed to create dnsmasq cfg file: %v", err)
@@ -129,7 +129,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		}
 	}
 
-	log.Print("Configuration applied")
+	log.Infof("Configuration applied")
 	return nil
 }
 
@@ -155,7 +155,7 @@ func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]string, ip
 			ipv6NetworksPtr = &ipv6Networks
 		}
 	} else {
-		log.Printf("Could not parse host, skipping: %s", host)
+		log.Warnf("Could not parse host, skipping: %s", host)
 	}
 }
 

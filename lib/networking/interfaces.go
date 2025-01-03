@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/maksimkurb/keenetic-pbr/lib/keenetic"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/vishvananda/netlink"
-	"log"
 	"net"
 )
 
@@ -44,7 +44,7 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
 		var err error
 		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
 		if err != nil {
-			log.Printf("failed to get Keenetic interfaces: %v", err)
+			log.Warnf("failed to get Keenetic interfaces: %v", err)
 		}
 	}
 

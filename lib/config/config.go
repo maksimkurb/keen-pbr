@@ -2,12 +2,12 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 
 	"github.com/BurntSushi/toml"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 )
 
 var (
@@ -66,7 +66,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create parent directory: %v", err)
 		}
-		log.Printf("Configuration file not found: %s", configFile)
+		log.Errorf("Configuration file not found: %s", configFile)
 		return nil, fmt.Errorf("configuration file not found: %s", configFile)
 	}
 
@@ -78,7 +78,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	var config Config
 	if err := toml.Unmarshal(content, &config); err != nil {
 		if parseErr, ok := err.(toml.ParseError); ok {
-			log.Printf("%s", parseErr.ErrorWithUsage())
+			log.Errorf("%s", parseErr.ErrorWithUsage())
 			return nil, fmt.Errorf("failed to parse config file")
 		}
 		return nil, fmt.Errorf("failed to parse config file: %v", err)

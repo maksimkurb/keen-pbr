@@ -3,8 +3,8 @@ package lists
 import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,23 +24,23 @@ func DownloadLists(config *config.Config) error {
 				continue
 			}
 
-			log.Printf("Downloading list \"%s-%s\" from URL: %s", ipset.IpsetName, list.ListName, list.URL)
+			log.Infof("Downloading list \"%s-%s\" from URL: %s", ipset.IpsetName, list.ListName, list.URL)
 
 			resp, err := client.Get(list.URL)
 			if err != nil {
-				log.Printf("Failed to download list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
+				log.Errorf("Failed to download list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
 				continue
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
-				log.Printf("Failed to download list \"%s-%s\": %s", ipset.IpsetName, list.ListName, resp.Status)
+				log.Errorf("Failed to download list \"%s-%s\": %s", ipset.IpsetName, list.ListName, resp.Status)
 				continue
 			}
 
 			content, err := io.ReadAll(resp.Body)
 			if err != nil {
-				log.Printf("Failed to read response for list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
+				log.Errorf("Failed to read response for list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
 				continue
 			}
 

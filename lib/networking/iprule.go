@@ -3,8 +3,8 @@ package networking
 import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/vishvananda/netlink"
-	"log"
 )
 
 type IpRule struct {
@@ -41,9 +41,9 @@ func BuildRule(ipFamily config.IpFamily, fwmark uint32, table int, priority int)
 }
 
 func (ipr *IpRule) Add() error {
-	log.Printf("Adding IP rule [%v]", ipr)
+	log.Infof("Adding IP rule [%v]", ipr)
 	if err := netlink.RuleAdd(ipr.Rule); err != nil {
-		log.Printf("Failed to add IP rule [%v]: %v", ipr, err)
+		log.Warnf("Failed to add IP rule [%v]: %v", ipr, err)
 		return err
 	}
 
@@ -63,23 +63,23 @@ func (ipr *IpRule) AddIfNotExists() error {
 
 func (ipr *IpRule) IsExists() (bool, error) {
 	if filtered, err := netlink.RuleListFiltered(ipr.Family, ipr.Rule, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_MARK|netlink.RT_FILTER_PRIORITY); err != nil {
-		log.Printf("Checking if IP rule exists [%v] is failed: %v", ipr, err)
+		log.Warnf("Checking if IP rule exists [%v] is failed: %v", ipr, err)
 		return false, err
 	} else {
 		if len(filtered) > 0 {
-			log.Printf("Checking if IP rule exists [%v]: YES", ipr)
+			log.Debugf("Checking if IP rule exists [%v]: YES", ipr)
 			return true, nil
 		}
 	}
 
-	log.Printf("Checking if IP rule exists [%v]: NO", ipr)
+	log.Debugf("Checking if IP rule exists [%v]: NO", ipr)
 	return false, nil
 }
 
 func (ipr *IpRule) Del() error {
-	log.Printf("Deleting IP rule [%v]", ipr)
+	log.Infof("Deleting IP rule [%v]", ipr)
 	if err := netlink.RuleDel(ipr.Rule); err != nil {
-		log.Printf("Failed to delete IP rule [%v]: %v", ipr, err)
+		log.Warnf("Failed to delete IP rule [%v]: %v", ipr, err)
 		return err
 	}
 

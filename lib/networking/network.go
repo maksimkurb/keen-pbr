@@ -3,14 +3,14 @@ package networking
 import (
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/maksimkurb/keenetic-pbr/lib/keenetic"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"log"
 	"net"
 )
 
 func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *string) error {
-	log.Printf("Applying network configuration.")
+	log.Infof("Applying network configuration.")
 
 	for _, ipset := range config.Ipset {
 		shouldRoute := false
@@ -43,7 +43,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 		var err error
 		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
 		if err != nil {
-			log.Printf("failed to get Keenetic interfaces: %v", err)
+			log.Warnf("failed to get Keenetic interfaces: %v", err)
 		}
 	}
 
@@ -76,7 +76,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	//	return err
 	//}
 
-	log.Printf("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
+	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
 	var chosenIface *Interface = nil
 	chosenIface, err := chooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces, chosenIface)
 	if err != nil {
@@ -84,11 +84,11 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	}
 
 	if chosenIface == nil {
-		log.Printf("Failed to choose interface for ipset %s, all configured interfaces are down", ipset.IpsetName)
+		log.Warnf("Could not choose interface for ipset %s, all configured interfaces are down", ipset.IpsetName)
 	}
 
 	if ipset.Routing.KillSwitch || chosenIface != nil {
-		log.Printf("Adding IP rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
+		log.Infof("Adding IP rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
 			ipset.Routing.FwMark, ipset.IpsetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 
 		if err := rule.AddIfNotExists(); err != nil {
@@ -103,7 +103,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	}
 
 	if chosenIface != nil {
-		log.Printf("Adding default IP route dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
+		log.Infof("Adding default IP route dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
 		route := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
 		if err := route.AddIfNotExists(); err != nil {
 			return err
@@ -114,7 +114,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 }
 
 func addBlackholeRoute(ipset *config.IpsetConfig, table int) error {
-	log.Printf("Adding blackhole route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
+	log.Infof("Adding blackhole route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
 	route := BuildBlackholeRoute(ipset.IpVersion, ipset.Routing.IpRouteTable)
 	if err := route.AddIfNotExists(); err != nil {
 		return err
@@ -147,34 +147,34 @@ func chooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneti
 				}
 
 				if keeneticIface != nil {
-					var chosen = ""
+					var chosen = "  "
 					if chosenIface == iface {
-						chosen = " <-- choosing it"
+						chosen = colorGreen + "->" + colorReset
 					}
 
-					log.Printf("  %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s%s",
+					log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
+						chosen,
 						attrs.Name,
 						attrs.Index,
 						keeneticIface.ID,
 						keeneticIface.Description,
 						up,
 						keeneticIface.Link,
-						keeneticIface.Connected,
-						chosen)
+						keeneticIface.Connected)
 				} else {
-					log.Printf("  %s (idx=%d) (unknown) up=%v link=unknown connected=unknown", attrs.Name, attrs.Index, up)
+					log.Infof("    %s (idx=%d) (unknown) up=%v link=unknown connected=unknown", attrs.Name, attrs.Index, up)
 				}
 			} else {
 				if up && chosenIface == nil {
 					chosenIface = iface
 				}
 
-				var chosen = ""
+				var chosen = "  "
 				if chosenIface == iface {
-					chosen = " <-- choosing it"
+					chosen = colorGreen + "->" + colorReset
 				}
 
-				log.Printf("  %s (idx=%d) up=%v%s", attrs.Name, attrs.Index, up, chosen)
+				log.Infof(" %s %s (idx=%d) up=%v", attrs.Name, attrs.Index, up, chosen)
 			}
 		}
 	}
