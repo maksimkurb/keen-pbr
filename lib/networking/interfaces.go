@@ -52,13 +52,8 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
 		attrs := iface.Attrs()
 
 		up := attrs.Flags&net.FlagUp != 0
-		upColor := colorRed
-		if up {
-			upColor = colorGreen
-		}
 
 		addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
-
 		var keeneticIface *keenetic.Interface = nil
 		if useKeeneticAPI && addrsErr == nil {
 			for _, addr := range addrs {
@@ -70,26 +65,23 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
 		}
 
 		if keeneticIface != nil {
-			linkColor := colorRed
-			if keeneticIface.Link == "up" {
-				linkColor = colorGreen
-			}
-
-			fmt.Printf("%d. %s%s%s (%s%s%s / \"%s\") (%sup%s=%s%v%s %slink%s=%s%s%s)\n",
+			fmt.Printf("%d. %s%s%s (%s%s%s / \"%s\") (%sup%s=%s%v%s %slink%s=%s%s%s %sconnected%s=%s%s%s)\n",
 				attrs.Index,
 				colorCyan, attrs.Name, colorReset,
 				colorCyan, keeneticIface.ID, colorReset,
 				keeneticIface.Description,
 				colorCyan, colorReset,
-				upColor, up, colorReset,
+				colorGreenIfTrue(up), up, colorReset,
 				colorCyan, colorReset,
-				linkColor, keeneticIface.Link, colorReset)
+				colorGreenIfEquals(keeneticIface.Link, keenetic.KEENETIC_LINK_UP), keeneticIface.Link, colorReset,
+				colorCyan, colorReset,
+				colorGreenIfEquals(keeneticIface.Connected, keenetic.KEENETIC_CONNECTED), keeneticIface.Connected, colorReset)
 		} else {
 			fmt.Printf("%d. %s%s%s (%sup%s=%s%v%s)\n",
 				attrs.Index,
 				colorCyan, attrs.Name, colorReset,
 				colorCyan, colorReset,
-				upColor, up, colorReset)
+				colorGreenIfTrue(up), up, colorReset)
 		}
 
 		if printIPs {
@@ -102,6 +94,20 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
 			}
 		}
 	}
+}
+
+func colorGreenIfEquals(actual string, expected string) string {
+	if actual == expected {
+		return colorGreen
+	}
+	return colorRed
+}
+
+func colorGreenIfTrue(actual bool) string {
+	if actual {
+		return colorGreen
+	}
+	return colorRed
 }
 
 func getIPFamily(ip net.IP) config.IpFamily {

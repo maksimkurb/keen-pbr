@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"log"
 	"net"
 )
+
+const DEFAULT_ROUTE_METRIC = 100
+const BLACKHOLE_ROUTE_METRIC = 200
 
 type IpRoute struct {
 	*netlink.Route
@@ -41,6 +45,29 @@ func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int) *Ip
 
 	ipr.Table = table
 	ipr.LinkIndex = iface.Link.Attrs().Index
+	ipr.Priority = DEFAULT_ROUTE_METRIC
+	if ipFamily == config.Ipv6 {
+		ipr.Family = netlink.FAMILY_V6
+		ipr.Dst = &net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 128),
+		}
+	} else {
+		ipr.Family = netlink.FAMILY_V4
+		ipr.Dst = &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 32),
+		}
+	}
+	return &IpRoute{&ipr}
+}
+
+func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
+	ipr := netlink.Route{}
+
+	ipr.Table = table
+	ipr.Priority = BLACKHOLE_ROUTE_METRIC
+	ipr.Type = unix.RTN_BLACKHOLE
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
 		ipr.Dst = &net.IPNet{
@@ -114,18 +141,34 @@ func (ipr *IpRoute) DelIfExists() error {
 	return nil
 }
 
-func DelIpRouteTable(table int) error {
-	log.Printf("Deleting IP route table [%d]", table)
+//func DelIpRouteTable(table int) error {
+//	log.Printf("Deleting IP route table [%d]", table)
+//	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
+//	if err != nil {
+//		return err
+//	}
+//
+//	for _, route := range routes {
+//		if err := netlink.RouteDel(&route); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
+
+func ListRoutesInTable(table int) ([]*IpRoute, error) {
+	log.Printf("Listing all routes in the routing table %d", table)
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
-		return err
+		log.Printf("Failed to list routes for table %d: %v", table, err)
+		return nil, err
 	}
 
+	var ipRoutes []*IpRoute
 	for _, route := range routes {
-		if err := netlink.RouteDel(&route); err != nil {
-			return err
-		}
+		ipRoutes = append(ipRoutes, &IpRoute{&route})
 	}
 
-	return nil
+	return ipRoutes, nil
 }

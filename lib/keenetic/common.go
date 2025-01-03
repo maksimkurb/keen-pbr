@@ -25,3 +25,6 @@ type InterfaceIPv6Address struct {
 }
 
 type Interfaces map[string]Interface
+
+const KEENETIC_LINK_UP = "up"
+const KEENETIC_CONNECTED = "yes"

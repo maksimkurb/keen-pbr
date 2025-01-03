@@ -45,6 +45,7 @@ type IpsetConfig struct {
 type RoutingConfig struct {
 	Interface      string   `toml:"interface"`
 	Interfaces     []string `toml:"interfaces"`
+	KillSwitch     bool     `toml:"kill_switch"`
 	FwMark         uint32   `toml:"fwmark"`
 	IpRouteTable   int      `toml:"table"`
 	IpRulePriority int      `toml:"priority"`
