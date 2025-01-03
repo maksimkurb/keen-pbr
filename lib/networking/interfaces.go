@@ -3,7 +3,9 @@ package networking
 import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/keenetic"
 	"github.com/vishvananda/netlink"
+	"log"
 	"net"
 )
 
@@ -36,7 +38,16 @@ func GetInterfaceList() ([]Interface, error) {
 	return interfaces, nil
 }
 
-func PrintInterfaces(ifaces []Interface, printIPs bool) {
+func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
+	var keeneticIfaces map[string]keenetic.Interface = nil
+	if useKeeneticAPI {
+		var err error
+		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+		if err != nil {
+			log.Printf("failed to get Keenetic interfaces: %v", err)
+		}
+	}
+
 	for _, iface := range ifaces {
 		attrs := iface.Attrs()
 
@@ -46,14 +57,44 @@ func PrintInterfaces(ifaces []Interface, printIPs bool) {
 			upColor = colorGreen
 		}
 
-		fmt.Printf("%d. %s%s%s (%sup%s=%s%v%s)\n",
-			attrs.Index,
-			colorCyan, attrs.Name, colorReset,
-			colorCyan, colorReset,
-			upColor, up, colorReset)
+		addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
+
+		var keeneticIface *keenetic.Interface = nil
+		if useKeeneticAPI && addrsErr == nil {
+			for _, addr := range addrs {
+				if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
+					keeneticIface = &val
+					break
+				}
+			}
+		}
+
+		if keeneticIface != nil {
+			linkColor := colorRed
+			if keeneticIface.Link == "up" {
+				linkColor = colorGreen
+			}
+
+			fmt.Printf("%d. %s%s%s (%s%s%s / \"%s\") (%sup%s=%s%v%s %slink%s=%s%s%s)\n",
+				attrs.Index,
+				colorCyan, attrs.Name, colorReset,
+				colorCyan, keeneticIface.ID, colorReset,
+				keeneticIface.Description,
+				colorCyan, colorReset,
+				upColor, up, colorReset,
+				colorCyan, colorReset,
+				linkColor, keeneticIface.Link, colorReset)
+		} else {
+			fmt.Printf("%d. %s%s%s (%sup%s=%s%v%s)\n",
+				attrs.Index,
+				colorCyan, attrs.Name, colorReset,
+				colorCyan, colorReset,
+				upColor, up, colorReset)
+		}
+
 		if printIPs {
-			if addrs, err := netlink.AddrList(iface, netlink.FAMILY_ALL); err != nil {
-				fmt.Printf("failed to get addresses for interface %s: %v", attrs.Name, err)
+			if addrsErr != nil {
+				fmt.Printf("failed to get addresses for interface %s: %v", attrs.Name, addrsErr)
 			} else {
 				for _, addr := range addrs {
 					fmt.Printf("  IP Address (IPv%d): %v\n", getIPFamily(addr.IP), addr.IPNet)

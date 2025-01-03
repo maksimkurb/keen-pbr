@@ -31,6 +31,7 @@ type GeneralConfig struct {
 	ListsOutputDir  string `toml:"lists_output_dir"`
 	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
 	Summarize       bool   `toml:"summarize"`
+	UseKeeneticAPI  bool   `toml:"use_keenetic_api"`
 }
 
 type IpsetConfig struct {
@@ -86,12 +87,28 @@ func LoadConfig(configPath string) (*Config, error) {
 }
 
 func (c *Config) ValidateConfig() error {
+	if c.General == nil {
+		return fmt.Errorf("configuration should contain \"general\" field, check your configuration")
+	}
+
+	if c.Ipset == nil {
+		return fmt.Errorf("configuration should contain \"ipset\" field, check your configuration")
+	}
+
 	names := make(map[string]bool)
 	fwmarks := make(map[uint32]bool)
 	tables := make(map[int]bool)
 	priorities := make(map[int]bool)
 
 	for _, ipset := range c.Ipset {
+		if ipset.Routing == nil {
+			return fmt.Errorf("ipset %s should contain \"ipset.routing\" field, check your configuration", ipset.IpsetName)
+		}
+
+		if ipset.List == nil {
+			return fmt.Errorf("ipset %s should contain \"ipset.list\" field, check your configuration", ipset.IpsetName)
+		}
+
 		// Validate ipset name
 		if err := validateIpsetName(ipset.IpsetName); err != nil {
 			return err
