@@ -44,9 +44,9 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 	}
 
 	for _, ipset := range cfg.Ipset {
-		var ipv4Networks []string
-		var ipv6Networks []string
-		var domains []string
+		var ipv4Networks []string = make([]string, 0)
+		var ipv6Networks []string = make([]string, 0)
+		var domains []string = make([]string, 0)
 
 		log.Infof("Processing ipset \"%s\": ", ipset.IpsetName)
 
@@ -142,17 +142,17 @@ func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]string, ip
 	if utils.IsDNSName(line) {
 		domains := *domainsPtr
 		domains = append(domains, line)
-		domainsPtr = &domains
+		*domainsPtr = domains
 	} else if utils.IsIP(line) || utils.IsCIDR(line) {
 		// ipv4 contain dots, ipv6 contain colons
 		if strings.Contains(line, ".") {
 			ipv4Networks := *ipv4NetworksPtr
 			ipv4Networks = append(ipv4Networks, line)
-			ipv4NetworksPtr = &ipv4Networks
+			*ipv4NetworksPtr = ipv4Networks
 		} else {
 			ipv6Networks := *ipv6NetworksPtr
 			ipv6Networks = append(ipv6Networks, line)
-			ipv6NetworksPtr = &ipv6Networks
+			*ipv6NetworksPtr = ipv6Networks
 		}
 	} else {
 		log.Warnf("Could not parse host, skipping: %s", host)
