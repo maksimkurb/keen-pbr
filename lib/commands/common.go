@@ -14,6 +14,7 @@ type Runner interface {
 
 type AppContext struct {
 	ConfigPath string
+	Verbose    bool
 	Interfaces []networking.Interface
 }
 

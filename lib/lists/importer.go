@@ -75,7 +75,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 
 		fmt.Printf("%d domains, %d ipv4 networks, %d ipv6 networks\n", len(domains), len(ipv4Networks), len(ipv6Networks))
 
-		err := networking.CreateIpset(cfg.General.IpsetPath, ipset)
+		err := networking.CreateIpset(ipset)
 		if err != nil {
 			log.Warnf("Could not create ipset '%s': %v", ipset.IpsetName, err)
 		}
@@ -94,7 +94,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 			} else {
 				log.Infof("Filling ipset '%s' (IPv4) (%d items)...", ipset.IpsetName, ipsLen)
 			}
-			if err := networking.AddToIpset(cfg.General.IpsetPath, ipset, ipv4Networks); err != nil {
+			if err := networking.AddToIpset(ipset, ipv4Networks); err != nil {
 				log.Infof("Could not fill ipset (IPv4) '%s': %v", ipset.IpsetName, err)
 			}
 		}
@@ -102,7 +102,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		if !skipIpset && ipset.IpVersion == config.Ipv6 && len(ipv6Networks) > 0 {
 			// Apply networks to ipsets
 			log.Infof("Filling ipset '%s' (IPv6) (%d items)...", ipset.IpsetName, len(ipv6Networks))
-			if err := networking.AddToIpset(cfg.General.IpsetPath, ipset, ipv6Networks); err != nil {
+			if err := networking.AddToIpset(ipset, ipv6Networks); err != nil {
 				log.Warnf("Could not fill ipset (IPv6) '%s': %v", ipset.IpsetName, err)
 			}
 		}

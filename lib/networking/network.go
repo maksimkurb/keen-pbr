@@ -43,14 +43,21 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 		var err error
 		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
 		if err != nil {
-			log.Warnf("failed to get Keenetic interfaces: %v", err)
+			log.Warnf("failed to query Keenetic API: %v", err)
 		}
 	}
 
-	rule := BuildRule(ipset.IpVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+	ipRule := BuildRule(ipset.IpVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+	ipTableRules, err := NewIPTableRules(ipset)
+	if err != nil {
+		return err
+	}
 
 	if !ipset.Routing.KillSwitch {
-		if err := rule.DelIfExists(); err != nil {
+		if err := ipRule.DelIfExists(); err != nil {
+			return err
+		}
+		if err := ipTableRules.DelIfExists(); err != nil {
 			return err
 		}
 	}
@@ -78,7 +85,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 
 	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
 	var chosenIface *Interface = nil
-	chosenIface, err := chooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces, chosenIface)
+	chosenIface, err = chooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces, chosenIface)
 	if err != nil {
 		return err
 	}
@@ -88,10 +95,14 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	}
 
 	if ipset.Routing.KillSwitch || chosenIface != nil {
-		log.Infof("Adding IP rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
+		log.Infof("Adding IP ipRule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
 			ipset.Routing.FwMark, ipset.IpsetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 
-		if err := rule.AddIfNotExists(); err != nil {
+		if err := ipRule.AddIfNotExists(); err != nil {
+			return err
+		}
+
+		if err := ipTableRules.AddIfNotExists(); err != nil {
 			return err
 		}
 	}
@@ -103,9 +114,9 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	}
 
 	if chosenIface != nil {
-		log.Infof("Adding default IP route dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
-		route := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
-		if err := route.AddIfNotExists(); err != nil {
+		log.Infof("Adding default IP ipRoute dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
+		ipRoute := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
+		if err := ipRoute.AddIfNotExists(); err != nil {
 			return err
 		}
 	}

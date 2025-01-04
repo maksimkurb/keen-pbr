@@ -4,25 +4,18 @@ import (
 	"flag"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/commands"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
-	"log"
 	"os"
 	"path/filepath"
 )
-
-func init() {
-	// Setup logging
-	if os.Getenv("LOG_LEVEL") == "" {
-		os.Setenv("LOG_LEVEL", "info")
-	}
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-}
 
 func main() {
 	ctx := &commands.AppContext{}
 
 	// Define flags
 	flag.StringVar(&ctx.ConfigPath, "config", "/opt/etc/keenetic-pbr/keenetic-pbr.conf", "Path to configuration file")
+	flag.BoolVar(&ctx.Verbose, "verbose", false, "Enable debug logging")
 
 	// Custom usage message
 	flag.Usage = func() {
@@ -37,6 +30,10 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if ctx.Verbose {
+		log.SetVerbose(true)
+	}
 
 	// Ensure cfg directory exists
 	configDir := filepath.Dir(ctx.ConfigPath)

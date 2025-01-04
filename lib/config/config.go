@@ -21,13 +21,19 @@ const (
 	Ipv6 IpFamily = 6
 )
 
+const (
+	IPTABLES_TMPL_IPSET    = "ipset_name"
+	IPTABLES_TMPL_FWMARK   = "fwmark"
+	IPTABLES_TMPL_TABLE    = "table"
+	IPTABLES_TMPL_PRIORITY = "priority"
+)
+
 type Config struct {
 	General *GeneralConfig `toml:"general"`
 	Ipset   []*IpsetConfig `toml:"ipset"`
 }
 
 type GeneralConfig struct {
-	IpsetPath       string `toml:"ipset_path"`
 	ListsOutputDir  string `toml:"lists_output_dir"`
 	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
 	Summarize       bool   `toml:"summarize"`
@@ -35,11 +41,18 @@ type GeneralConfig struct {
 }
 
 type IpsetConfig struct {
-	IpsetName           string         `toml:"ipset_name"`
-	IpVersion           IpFamily       `toml:"ip_version"`
-	FlushBeforeApplying bool           `toml:"flush_before_applying"`
-	Routing             *RoutingConfig `toml:"routing"`
-	List                []*ListSource  `toml:"list"`
+	IpsetName           string          `toml:"ipset_name"`
+	IpVersion           IpFamily        `toml:"ip_version"`
+	IPTablesRule        []*IPTablesRule `toml:"iptables_rule"`
+	FlushBeforeApplying bool            `toml:"flush_before_applying"`
+	Routing             *RoutingConfig  `toml:"routing"`
+	List                []*ListSource   `toml:"list"`
+}
+
+type IPTablesRule struct {
+	Chain string   `toml:"chain"`
+	Table string   `toml:"table"`
+	Rule  []string `toml:"rule"`
 }
 
 type RoutingConfig struct {
@@ -119,11 +132,16 @@ func (c *Config) ValidateConfig() error {
 		}
 
 		// Validate IP version
-		newVersion, err := validateIpVersion(ipset.IpVersion)
-		if err != nil {
+		if newVersion, err := validateIpVersion(ipset.IpVersion); err != nil {
+			return err
+		} else {
+			ipset.IpVersion = newVersion
+		}
+
+		// Validate iptables rules
+		if err := validateIPTablesRules(ipset); err != nil {
 			return err
 		}
-		ipset.IpVersion = newVersion
 
 		// Validate interfaces
 		if ipset.Routing.Interface == "" && len(ipset.Routing.Interfaces) == 0 {
@@ -163,6 +181,39 @@ func (c *Config) ValidateConfig() error {
 			}
 		}
 	}
+	return nil
+}
+
+func validateIPTablesRules(ipset *IpsetConfig) error {
+	if ipset.IPTablesRule == nil {
+		ipset.IPTablesRule = []*IPTablesRule{
+			{
+				Chain: "PREROUTING",
+				Table: "mangle",
+				Rule: []string{
+					"-m", "set", "--match-set", "{{" + IPTABLES_TMPL_IPSET + "}}", "dst,src",
+					"-j", "MARK", "--set-mark", "{{" + IPTABLES_TMPL_FWMARK + "}}",
+				},
+			},
+		}
+
+		return nil
+	}
+
+	if len(ipset.IPTablesRule) > 0 {
+		for _, rule := range ipset.IPTablesRule {
+			if rule.Chain == "" {
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"chain\" field, check your configuration", ipset.IpsetName)
+			}
+			if rule.Table == "" {
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"table\" field, check your configuration", ipset.IpsetName)
+			}
+			if len(rule.Rule) == 0 {
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"rule\" field, check your configuration", ipset.IpsetName)
+			}
+		}
+	}
+
 	return nil
 }
 
