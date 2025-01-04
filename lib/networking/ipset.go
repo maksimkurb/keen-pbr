@@ -27,6 +27,24 @@ func CreateIpset(ipset *config.IpsetConfig) error {
 	return nil
 }
 
+// CheckIpsetExists checks if the given ipset exists
+func CheckIpsetExists(ipset *config.IpsetConfig) (bool, error) {
+	cmd := exec.Command(ipsetCommand, "-n", "list", ipset.IpsetName)
+	if err := cmd.Start(); err != nil {
+		return false, err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			return exiterr.ExitCode() == 0, nil
+		} else {
+			return false, err
+		}
+	} else {
+		return true, nil
+	}
+}
+
 // AddToIpset adds the given networks to the specified ipset
 func AddToIpset(ipset *config.IpsetConfig, networks []string) error {
 	if _, err := exec.LookPath(ipsetCommand); err != nil {

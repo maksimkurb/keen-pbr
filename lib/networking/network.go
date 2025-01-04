@@ -29,7 +29,7 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 			continue
 		}
 
-		if err := applyIpsetNetworkConfiguration(ipset, config.General.UseKeeneticAPI); err != nil {
+		if err := applyIpsetNetworkConfiguration(ipset, *config.General.UseKeeneticAPI); err != nil {
 			return err
 		}
 	}
@@ -47,8 +47,8 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 		}
 	}
 
-	ipRule := BuildRule(ipset.IpVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
-	ipTableRules, err := NewIPTableRules(ipset)
+	ipRule := BuildIPRuleForIpset(ipset)
+	ipTableRules, err := BuildIPTablesForIpset(ipset)
 	if err != nil {
 		return err
 	}
@@ -79,23 +79,15 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 			}
 		}
 	}
-	//if err := DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
-	//	return err
-	//}
 
-	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
 	var chosenIface *Interface = nil
-	chosenIface, err = chooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces, chosenIface)
+	chosenIface, err = ChooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces)
 	if err != nil {
 		return err
 	}
 
-	if chosenIface == nil {
-		log.Warnf("Could not choose interface for ipset %s, all configured interfaces are down", ipset.IpsetName)
-	}
-
 	if ipset.Routing.KillSwitch || chosenIface != nil {
-		log.Infof("Adding IP ipRule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
+		log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
 			ipset.Routing.FwMark, ipset.IpsetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 
 		if err := ipRule.AddIfNotExists(); err != nil {
@@ -108,15 +100,13 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	}
 
 	if ipset.Routing.KillSwitch && !blackholePresent {
-		if err := addBlackholeRoute(ipset, ipset.Routing.IpRouteTable); err != nil {
+		if err := addBlackholeRoute(ipset); err != nil {
 			return err
 		}
 	}
 
 	if chosenIface != nil {
-		log.Infof("Adding default IP ipRoute dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
-		ipRoute := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
-		if err := ipRoute.AddIfNotExists(); err != nil {
+		if err := addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
 	}
@@ -124,8 +114,17 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	return nil
 }
 
-func addBlackholeRoute(ipset *config.IpsetConfig, table int) error {
-	log.Infof("Adding blackhole route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
+func addDefaultGatewayRoute(ipset *config.IpsetConfig, chosenIface *Interface) error {
+	log.Infof("Adding default gateway ip route dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
+	ipRoute := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
+	if err := ipRoute.AddIfNotExists(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addBlackholeRoute(ipset *config.IpsetConfig) error {
+	log.Infof("Adding blackhole ip route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
 	route := BuildBlackholeRoute(ipset.IpVersion, ipset.Routing.IpRouteTable)
 	if err := route.AddIfNotExists(); err != nil {
 		return err
@@ -133,7 +132,14 @@ func addBlackholeRoute(ipset *config.IpsetConfig, table int) error {
 	return nil
 }
 
-func chooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface, chosenIface *Interface) (*Interface, error) {
+func BuildIPRuleForIpset(ipset *config.IpsetConfig) *IpRule {
+	return BuildRule(ipset.IpVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+}
+
+func ChooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
+	var chosenIface *Interface = nil
+
+	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
 	for _, interfaceName := range ipset.Routing.Interfaces {
 		if iface, err := GetInterface(interfaceName); err != nil {
 			return nil, err
@@ -185,9 +191,14 @@ func chooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneti
 					chosen = colorGreen + "->" + colorReset
 				}
 
-				log.Infof(" %s %s (idx=%d) up=%v", attrs.Name, attrs.Index, up, chosen)
+				log.Infof(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
 			}
 		}
 	}
+
+	if chosenIface == nil {
+		log.Warnf("Could not choose best interface for ipset %s: all configured interfaces are down", ipset.IpsetName)
+	}
+
 	return chosenIface, nil
 }

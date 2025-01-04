@@ -37,15 +37,15 @@ type GeneralConfig struct {
 	ListsOutputDir  string `toml:"lists_output_dir"`
 	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
 	Summarize       bool   `toml:"summarize"`
-	UseKeeneticAPI  bool   `toml:"use_keenetic_api"`
+	UseKeeneticAPI  *bool  `toml:"use_keenetic_api"`
 }
 
 type IpsetConfig struct {
 	IpsetName           string          `toml:"ipset_name"`
 	IpVersion           IpFamily        `toml:"ip_version"`
-	IPTablesRule        []*IPTablesRule `toml:"iptables_rule"`
 	FlushBeforeApplying bool            `toml:"flush_before_applying"`
 	Routing             *RoutingConfig  `toml:"routing"`
+	IPTablesRule        []*IPTablesRule `toml:"iptables_rule"`
 	List                []*ListSource   `toml:"list"`
 }
 
@@ -56,7 +56,7 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interface      string   `toml:"interface"`
+	Interface      string   `toml:"interface,omitempty"`
 	Interfaces     []string `toml:"interfaces"`
 	KillSwitch     bool     `toml:"kill_switch"`
 	FwMark         uint32   `toml:"fwmark"`
@@ -66,9 +66,9 @@ type RoutingConfig struct {
 
 type ListSource struct {
 	ListName string   `toml:"name"`
-	URL      string   `toml:"url"`
-	File     string   `toml:"file"`
-	Hosts    []string `toml:"hosts"`
+	URL      string   `toml:"url,omitempty"`
+	File     string   `toml:"file,omitempty"`
+	Hosts    []string `toml:"hosts,omitempty"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -100,9 +100,22 @@ func LoadConfig(configPath string) (*Config, error) {
 	return &config, nil
 }
 
+func (c *Config) SerializeConfig() ([]byte, error) {
+	if bytes, err := toml.Marshal(c); err != nil {
+		return nil, err
+	} else {
+		return bytes, nil
+	}
+}
+
 func (c *Config) ValidateConfig() error {
 	if c.General == nil {
 		return fmt.Errorf("configuration should contain \"general\" field, check your configuration")
+	}
+
+	if c.General.UseKeeneticAPI == nil {
+		def := true
+		c.General.UseKeeneticAPI = &def
 	}
 
 	if c.Ipset == nil {
@@ -151,7 +164,9 @@ func (c *Config) ValidateConfig() error {
 			return fmt.Errorf("ipset %s contains both \"interface\" and \"interfaces\" fields, please use only one field to configure routing", ipset.IpsetName)
 		}
 		if ipset.Routing.Interface != "" {
+			log.Warnf("ipset %s contains deprecated \"interface\" field, please use \"interfaces\" instead", ipset.IpsetName)
 			ipset.Routing.Interfaces = []string{ipset.Routing.Interface}
+			ipset.Routing.Interface = ""
 		}
 		// check duplicate interfaces
 		ifNames := make(map[string]bool)

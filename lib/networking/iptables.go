@@ -15,7 +15,7 @@ type IPTableRules struct {
 	rules []*config.IPTablesRule
 }
 
-func NewIPTableRules(ipset *config.IpsetConfig) (*IPTableRules, error) {
+func BuildIPTablesForIpset(ipset *config.IpsetConfig) (*IPTableRules, error) {
 	protocol := iptables.ProtocolIPv4
 	if ipset.IpVersion == config.Ipv6 {
 		protocol = iptables.ProtocolIPv6

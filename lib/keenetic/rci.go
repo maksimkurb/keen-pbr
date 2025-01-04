@@ -3,6 +3,7 @@ package keenetic
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
 	"io"
 	"net/http"
@@ -45,6 +46,7 @@ func RciShowInterfaceMappedById() (map[string]Interface, error) {
 }
 
 func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
+	log.Debugf("Fetching interfaces from Keenetic...")
 	if interfaces, err := RciShowInterfaceMappedById(); err != nil {
 		return nil, err
 	} else {

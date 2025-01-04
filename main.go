@@ -25,6 +25,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
 		fmt.Fprintf(os.Stderr, "  apply                   Import IPs from lists to ipsets and update dnsmasq domains config\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
+		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -51,6 +52,7 @@ func main() {
 		commands.CreateDownloadCommand(),
 		commands.CreateApplyCommand(),
 		commands.CreateInterfacesCommand(),
+		commands.CreateSelfCheckCommand(),
 	}
 
 	args := flag.Args()
