@@ -72,20 +72,25 @@ The main thing you probably want to edit is to change `interface` for routing.
 #   General Settings  #
 #---------------------#
 [general]
-ipset_path = "ipset"                                 # Path to the `ipset` binary file
 lists_output_dir = "/opt/etc/keenetic-pbr/lists.d"   # Lists will be downloaded to this folder
 dnsmasq_lists_dir = "/opt/etc/dnsmasq.d"             # Downloaded lists will be saved in this directory for dnsmasq
 summarize = true                                     # If true, keenetic-pbr will summarize IP addresses and CIDR before applying to ipset
+use_keenetic_api = true                              # If true, keenetic-pbr will use Keenetic API to check if interface is online
 
 #-------------#
 #   IPSET 1   #
 #-------------#
 [[ipset]]
 ipset_name = "vpn"              # Name of the ipset
+ip_version = 4                  # IPv4 or IPv6
 flush_before_applying = true    # Clear ipset each time before filling it
 
    [ipset.routing]
-   interface = "nwg1"   # Where the traffic for IPs in this ipset will be directed
+   interfaces = ["nwg1", "nwg2"]   # Where the traffic for IPs in this ipset will be directed
+                                   # keenetic-pbr will use first interface that is administratively up.
+                                   # If use_keenetic_api is enabled, keenetic-pbr will also check if there is an active connection on this interface.
+   
+   kill_switch = false  # If kill-switch is turned on and all interfaces all down, traffic to the hosts from ipset will be dropped
    fwmark = 1001        # This fwmark will be applied to packets matching the list criteria
    table = 1001         # Routing table number (ip route table); a default gateway to the specified interface above will be added there
    priority = 1001      # Routing rule priority (ip rule priority); the lower the number, the higher the priority
@@ -100,12 +105,17 @@ flush_before_applying = true    # Clear ipset each time before filling it
        "141.201.11.0/24",
    ]
 
-   # List 2 (download via URL)
+   # List 2 (from local file)
+   [[ipset.list]]
+   name = "local-file"
+   file = "/opt/etc/keenetic-pbr/my-list.lst"
+
+   # List 3 (download via URL)
    [[ipset.list]]
    name = "remote-list-1"
    url = "https://some-url/list1.lst"  # The file should contain domains, IP addresses, and CIDR, one per line
 
-    # List 3 (download via URL)
+    # List 4 (download via URL)
    [[ipset.list]]
    name = "remote-list-2"
    url = "https://some-url/list2.lst"
