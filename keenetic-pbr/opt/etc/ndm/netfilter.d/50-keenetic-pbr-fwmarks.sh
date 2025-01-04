@@ -5,4 +5,8 @@
 
 /opt/etc/init.d/S80keenetic-pbr apply-routing
 
+logger -t "keenetic-pbr" "Routing applied for all interfaces (netfilter.d hook)"
+
+# Do your own stuff here
+
 exit 0
