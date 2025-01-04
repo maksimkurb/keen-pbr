@@ -52,6 +52,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 
 		// Process lists
 		for _, list := range ipset.List {
+			log.Infof("Processing list \"%s\" (type=%s)...", list.ListName, list.Type())
 			if list.URL != "" || list.File != "" {
 				listPath := getListPath(listsDir, ipset, list)
 
@@ -73,7 +74,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 			}
 		}
 
-		fmt.Printf("%d domains, %d ipv4 networks, %d ipv6 networks\n", len(domains), len(ipv4Networks), len(ipv6Networks))
+		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", len(domains), len(ipv4Networks), len(ipv6Networks))
 
 		err := networking.CreateIpset(ipset)
 		if err != nil {

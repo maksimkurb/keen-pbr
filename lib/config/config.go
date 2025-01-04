@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,8 +30,9 @@ const (
 )
 
 type Config struct {
-	General *GeneralConfig `toml:"general"`
-	Ipset   []*IpsetConfig `toml:"ipset"`
+	General         *GeneralConfig `toml:"general"`
+	Ipset           []*IpsetConfig `toml:"ipset"`
+	_configFilePath string
 }
 
 type GeneralConfig struct {
@@ -71,6 +73,16 @@ type ListSource struct {
 	Hosts    []string `toml:"hosts,omitempty"`
 }
 
+func (lst ListSource) Type() string {
+	if lst.URL != "" {
+		return "url"
+	} else if lst.File != "" {
+		return "file"
+	} else {
+		return "hosts"
+	}
+}
+
 func LoadConfig(configPath string) (*Config, error) {
 	configFile := filepath.Clean(configPath)
 
@@ -96,6 +108,8 @@ func LoadConfig(configPath string) (*Config, error) {
 		}
 		return nil, fmt.Errorf("failed to parse config file: %v", err)
 	}
+
+	config._configFilePath = configFile
 
 	return &config, nil
 }
@@ -191,7 +205,7 @@ func (c *Config) ValidateConfig() error {
 		// Validate lists
 		listNames := make(map[string]bool)
 		for _, list := range ipset.List {
-			if err := validateList(list, listNames, ipset.IpsetName); err != nil {
+			if err := validateList(c, list, listNames, ipset.IpsetName); err != nil {
 				return err
 			}
 		}
@@ -258,7 +272,7 @@ func validateIpVersion(version IpFamily) (IpFamily, error) {
 }
 
 // Validate list configuration
-func validateList(list *ListSource, listNames map[string]bool, ipsetName string) error {
+func validateList(cfg *Config, list *ListSource, listNames map[string]bool, ipsetName string) error {
 	if err := validateNonEmpty(list.ListName, "list name"); err != nil {
 		return err
 	}
@@ -267,15 +281,41 @@ func validateList(list *ListSource, listNames map[string]bool, ipsetName string)
 		return fmt.Errorf("%v in ipset %s", err, ipsetName)
 	}
 
-	if list.URL == "" && (list.Hosts == nil || len(list.Hosts) == 0) {
-		return fmt.Errorf("list %s should contain URL or hosts list, check your configuration", list.ListName)
+	isUrl := list.URL != ""
+	isFile := list.File != ""
+	isHosts := list.Hosts != nil && len(list.Hosts) > 0
+
+	if !isUrl && !isFile && !isHosts {
+		return fmt.Errorf("list %s should contain \"url\", \"file\" or non-empty \"hosts\" field, check your configuration", list.ListName)
 	}
 
-	if list.URL != "" && (list.Hosts != nil && len(list.Hosts) > 0) {
-		return fmt.Errorf("list %s can contain either URL or hosts list, not both, check your configuration", list.ListName)
+	if (isUrl && (isFile || isHosts)) || (isFile && isHosts) {
+		return fmt.Errorf("list %s can contain only one of \"url\", \"file\" or \"hosts\" field, but not both, check your configuration", list.ListName)
+	}
+
+	if isFile {
+		list.File = makePathAbsolute(list.File, filepath.Dir(cfg._configFilePath))
+		if _, err := os.Stat(list.File); errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("list %s file \"%s\" does not exist, check your configuration", list.ListName, list.File)
+		}
 	}
 
 	return nil
+}
+
+func makePathAbsolute(path, baseDir string) string {
+	// Check if the path is already absolute
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	// Join the relative path with the config directory
+	absolutePath := filepath.Join(baseDir, path)
+
+	// Clean the resulting path
+	absolutePath = filepath.Clean(absolutePath)
+
+	return absolutePath
 }
 
 func validateIpsetName(ipsetName string) error {
