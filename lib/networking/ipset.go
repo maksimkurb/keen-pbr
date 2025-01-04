@@ -63,6 +63,7 @@ func AddToIpset(ipset *config.IpsetConfig, networks []string) error {
 			if err := stdin.Close(); err != nil {
 				errCh <- fmt.Errorf("failed to close stdin pipe: %v", err)
 			}
+			close(errCh) // Close the channel when the goroutine finishes
 		}()
 
 		// Write commands to stdin
@@ -92,7 +93,7 @@ func AddToIpset(ipset *config.IpsetConfig, networks []string) error {
 
 	for err := range errCh {
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
