@@ -95,6 +95,18 @@ flush_before_applying = true    # Clear ipset each time before filling it
    table = 1001         # Routing table number (ip route table); a default gateway to the specified interface above will be added there
    priority = 1001      # Routing rule priority (ip rule priority); the lower the number, the higher the priority
 
+   # Advanced settings: you can specify custom iptables rules that will be applied for the ipset.
+   #   Available variables:
+   #   {{ipset_name}} - name of the ipset
+   #   {{fwmark}} - fwmark
+   #   {{table}} - number of the routing table
+   #   {{priority}} - priority of the routing rule
+   #
+   #[[ipset.iptables_rule]]
+   #chain = "PREROUTING"
+   #table = "mangle"
+   #rule = ["-m", "set", "--match-set", "{{ipset_name}}", "dst,src", "-j", "MARK", "--set-mark", "{{fwmark}}"]
+
    # List 1 (manual address entry)
    [[ipset.list]]
    name = "local"

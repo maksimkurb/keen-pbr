@@ -9,8 +9,10 @@ import (
 	"net"
 )
 
-func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *string) error {
+func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *string) (bool, error) {
 	log.Infof("Applying network configuration.")
+
+	appliedAtLeastOnce := false
 
 	for _, ipset := range config.Ipset {
 		shouldRoute := false
@@ -29,12 +31,13 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 			continue
 		}
 
+		appliedAtLeastOnce = true
 		if err := applyIpsetNetworkConfiguration(ipset, *config.General.UseKeeneticAPI); err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return nil
+	return appliedAtLeastOnce, nil
 }
 
 func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bool) error {
