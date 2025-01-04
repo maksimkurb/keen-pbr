@@ -162,6 +162,15 @@ keenetic-pbr download
 For any issues, verify your configuration files and logs.
 Ensure lists are downloaded correctly, and `dnsmasq` is running with the updated configuration.
 
+Before checking the workability on the client machine, you need to clear the DNS cache.
+To do this, run the command in the console (for Windows): `ipconfig /flushdns`.
+
+You can also run the following command to check if Keenetic-PBR is working correctly (output of this command will be very helpful if you ask for help in the Telegram chat):
+```bash
+keenetic-pbr self-check
+```
+
+You can ask questions in the Telegram chat of the project: https://t.me/keenetic_pbr
 
 ---
 
