@@ -8,74 +8,56 @@ log()
   echo "[keenetic-pbr] $1"
 }
 
-add_all_prerouting_rules()
-{
-  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
-    if [ -z "$(iptables-save | grep "-A PREROUTING -m set --match-set $ipset_name ")" ]; then
-      log "Adding rule to mark all packets in ipset $ipset_name with fwmark $fwmark"
-      iptables -w -A PREROUTING -t mangle -m set --match-set "$ipset_name" dst,src -j MARK --set-mark "$fwmark"
-    fi
-  done
-}
-
-del_all_prerouting_rules()
-{
-  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
-    if [ -z "$(iptables-save | grep "-A PREROUTING -m set --match-set $ipset_name ")" ]; then
-      log "Deleting rule to mark all packets in ipset $ipset_name with fwmark $fwmark"
-      iptables -w -D PREROUTING -t mangle -m set --match-set "$ipset_name" dst,src -j MARK --set-mark "$fwmark"
-    fi
-  done
-}
-
 enable_hwnat()
 {
-  log "Enabling HW NAT"
+  log "Enabling HW NAT..."
   sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true # NDMS2
   sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true # NDMS3
 }
 
 disable_hwnat()
 {
-  log "Disabling HW NAT"
+  log "Disabling HW NAT..."
   sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true # NDMS2
   sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true # NDMS3
 }
 
-apply_lists()
+apply_lists_and_routing()
 {
-  log "Applying ipset lists"
+  log "Applying lists and routing configuration..."
   $KEENETIC_PBR -config "$CONFIG" apply
+}
+
+apply_routing()
+{
+  log "Applying routing configuration..."
+  $KEENETIC_PBR -config "$CONFIG" apply --skip-dnsmasq --skip-ipset
+}
+
+unapply_routing()
+{
+  log "Removing routing configuration..."
+  $KEENETIC_PBR -config "$CONFIG" undo-routing
 }
 
 restart_dnsmasq()
 {
-  log "Restarting dnsmasq"
+  log "Restarting dnsmasq..."
   /opt/etc/init.d/S56dnsmasq restart
   log "dnsmasq restarted"
-}
-
-clear_lists()
-{
-  log "Clearing ipset lists"
-  $KEENETIC_PBR -config "$CONFIG" gen-routing-config | while IFS=" " read -r ipset_name iface_name fwmark table priority; do
-    ipset flush "$ipset_name" || true
-  done
 }
 
 start()
 {
   disable_hwnat
-  apply_lists
-  add_all_prerouting_rules
+  apply_lists_and_routing
   restart_dnsmasq
 }
 
 stop()
 {
   enable_hwnat
-  clear_lists
-  del_all_prerouting_rules
+  unapply_routing
 }
 
 case "$1" in
@@ -90,20 +72,21 @@ case "$1" in
     sleep 2
     start
     ;;
-  reload-lists|reload_lists)
-    clear_lists
-    apply_lists
-    restart_dnsmasq
-    ;;
   download-lists|download_lists)
-    log "Downloading new version of lists..."
+    log "Downloading lists..."
     $KEENETIC_PBR -config "$CONFIG" download
-    log "Lists downloaded"
+    log "Lists downloaded. Please run '/opt/etc/init.d/S80keenetic-pbr apply-lists' to make use of them or restart OPKG."
     ;;
-  add-prerouting-rules|add_prerouting_rules)
-    add_all_prerouting_rules
+  apply-lists|apply_lists)
+    apply_lists_and_routing
+    ;;
+  apply-routing|apply_routing)
+    apply_routing
+    ;;
+  self-check)
+    $KEENETIC_PBR -config "$CONFIG" self-check
     ;;
   *)
-    echo "Usage: $0 {start|stop|restart|reload-lists|download-lists}"
+    echo "Usage: $0 {start|stop|restart|download-lists|apply-lists|apply-routing|self-check}"
     ;;
 esac
