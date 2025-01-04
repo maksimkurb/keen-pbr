@@ -132,7 +132,7 @@ func checkIpset(cfg *config.Config, ipset *config.IpsetConfig) error {
 			return err
 		}
 		if err := checkIpTables(ipset); err != nil {
-			log.Errorf("Failed to check IP tables: %v", err)
+			log.Errorf("Failed to check iptable rules: %v", err)
 			return err
 		}
 	}
@@ -144,20 +144,20 @@ func checkIpset(cfg *config.Config, ipset *config.IpsetConfig) error {
 func checkIpTables(ipset *config.IpsetConfig) error {
 	ipTableRules, err := networking.BuildIPTablesForIpset(ipset)
 	if err != nil {
-		log.Errorf("Failed to build IP tables: %v", err)
+		log.Errorf("Failed to build iptable rules: %v", err)
 		return err
 	}
 
 	if existsMap, err := ipTableRules.CheckRulesExists(); err != nil {
-		log.Errorf("Failed to check IP tables [%v]: %v", ipTableRules, err)
+		log.Errorf("Failed to check iptable rules [%v]: %v", ipTableRules, err)
 		return err
 	} else {
-		log.Infof("Checking IP tables rules presense")
+		log.Infof("Checking iptable rules presense")
 		for rule, exists := range existsMap {
 			if exists {
-				log.Infof("IP tables rule [%v] is exists", *rule)
+				log.Infof("iptable rule [%v] is exists", *rule)
 			} else {
-				log.Errorf("IP tables rule [%v] is NOT exists", *rule)
+				log.Errorf("iptable rule [%v] is NOT exists", *rule)
 			}
 		}
 	}

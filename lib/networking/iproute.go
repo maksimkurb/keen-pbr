@@ -141,21 +141,21 @@ func (ipr *IpRoute) DelIfExists() error {
 	return nil
 }
 
-//func DelIpRouteTable(table int) error {
-//	log.Printf("Deleting IP route table [%d]", table)
-//	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
-//	if err != nil {
-//		return err
-//	}
-//
-//	for _, route := range routes {
-//		if err := netlink.RouteDel(&route); err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
+func DelIpRouteTable(table int) error {
+	log.Debugf("Deleting IP route table [%d]", table)
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return err
+	}
+
+	for _, route := range routes {
+		if err := netlink.RouteDel(&route); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func ListRoutesInTable(table int) ([]*IpRoute, error) {
 	log.Debugf("Listing all routes in the routing table %d", table)

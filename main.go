@@ -26,6 +26,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  apply                   Import IPs from lists to ipsets and update dnsmasq domains config\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
 		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
+		fmt.Fprintf(os.Stderr, "  undo-routing            Undo any routing configuration (reverts \"apply\" command)\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -53,6 +54,7 @@ func main() {
 		commands.CreateApplyCommand(),
 		commands.CreateInterfacesCommand(),
 		commands.CreateSelfCheckCommand(),
+		commands.CreateUndoCommand(),
 	}
 
 	args := flag.Args()
