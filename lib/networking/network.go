@@ -72,7 +72,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	} else {
 		// Cleanup all routes (except blackhole route if kill switch is enabled)
 		for _, route := range routes {
-			if ipset.Routing.KillSwitch && route.Type&unix.NHA_BLACKHOLE != 0 {
+			if ipset.Routing.KillSwitch && route.Type&unix.RTN_BLACKHOLE != 0 {
 				blackholePresent = true
 				continue
 			}

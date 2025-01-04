@@ -36,8 +36,8 @@ func (r *IpRoute) String() string {
 		}
 	}
 
-	return fmt.Sprintf("table %d: src=%s dst=%s -> dev %s (idx=%d)",
-		r.Table, from, to, linkName, r.LinkIndex)
+	return fmt.Sprintf("table %d: src=%s dst=%s -> dev %s (idx=%d) [metric:%d]",
+		r.Table, from, to, linkName, r.LinkIndex, r.Priority)
 }
 
 func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int) *IpRoute {
@@ -167,7 +167,8 @@ func ListRoutesInTable(table int) ([]*IpRoute, error) {
 
 	var ipRoutes []*IpRoute
 	for _, route := range routes {
-		ipRoutes = append(ipRoutes, &IpRoute{&route})
+		copiedRoute := route
+		ipRoutes = append(ipRoutes, &IpRoute{&copiedRoute})
 	}
 
 	return ipRoutes, nil
