@@ -133,7 +133,6 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 [general]
 lists_output_dir = "/opt/etc/keenetic-pbr/lists.d"   # В эту папку будут скачиваться списки
 dnsmasq_lists_dir = "/opt/etc/dnsmasq.d"             # Загруженные списки будут сохранены в этом каталоге для dnsmasq
-summarize = true                                     # Если true, keenetic-pbr будет суммировать IP-адреса и CIDR перед применением к ipset
 use_keenetic_api = true                              # Если true, keenetic-pbr будет делать запросы к Keenetic API (RCI), чтобы проверить, что интерфейс активен
 
 #-------------#

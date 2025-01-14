@@ -74,7 +74,6 @@ The main thing you probably want to edit is to change `interface` for routing.
 [general]
 lists_output_dir = "/opt/etc/keenetic-pbr/lists.d"   # Lists will be downloaded to this folder
 dnsmasq_lists_dir = "/opt/etc/dnsmasq.d"             # Downloaded lists will be saved in this directory for dnsmasq
-summarize = true                                     # If true, keenetic-pbr will summarize IP addresses and CIDR before applying to ipset
 use_keenetic_api = true                              # If true, keenetic-pbr will use Keenetic API to check if interface is online
 
 #-------------#
