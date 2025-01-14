@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
+	"github.com/maksimkurb/keenetic-pbr/lib/hashing"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
 	"net/netip"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
@@ -35,11 +35,21 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		}
 
 		for _, entry := range entries {
-			if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") {
-				path := filepath.Join(dnsmasqDir, entry.Name())
-				log.Infof("Removing old dnsmasq cfg file '%s'", path)
-				if err := os.Remove(path); err != nil {
-					return fmt.Errorf("failed to remove old cfg file: %v", err)
+			if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") || strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf.md5") {
+				shouldRemove := true
+				for _, ipset := range cfg.Ipset {
+					if strings.HasPrefix(entry.Name(), ipset.IpsetName+".keenetic-pbr.conf") {
+						shouldRemove = false
+						break
+					}
+				}
+
+				if shouldRemove {
+					path := filepath.Join(dnsmasqDir, entry.Name())
+					log.Infof("Removing old dnsmasq cfg file '%s'", path)
+					if err := os.Remove(path); err != nil {
+						return fmt.Errorf("failed to remove old cfg file: %v", err)
+					}
 				}
 			}
 		}
@@ -48,7 +58,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 	for _, ipset := range cfg.Ipset {
 		var ipv4Networks = make([]netip.Prefix, 0)
 		var ipv6Networks = make([]netip.Prefix, 0)
-		var domains = make([]string, 0)
+		var domains = hashing.NewChecksumStringSet()
 
 		log.Infof("Processing ipset \"%s\": ", ipset.IpsetName)
 
@@ -67,16 +77,16 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 				scanner := bufio.NewScanner(listFile)
 
 				for scanner.Scan() {
-					appendHost(scanner.Text(), &domains, &ipv4Networks, &ipv6Networks)
+					appendHost(scanner.Text(), domains, &ipv4Networks, &ipv6Networks)
 				}
 			} else {
 				for _, host := range list.Hosts {
-					appendHost(host, &domains, &ipv4Networks, &ipv6Networks)
+					appendHost(host, domains, &ipv4Networks, &ipv6Networks)
 				}
 			}
 		}
 
-		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", len(domains), len(ipv4Networks), len(ipv6Networks))
+		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", domains.Size(), len(ipv4Networks), len(ipv6Networks))
 
 		err := networking.CreateIpset(ipset)
 		if err != nil {
@@ -86,7 +96,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		if !skipIpset {
 			if len(ipv4Networks) > 0 {
 				if ipset.IpVersion == config.Ipv4 {
-					fillIpset(cfg, ipset, ipv4Networks)
+					fillIpset(ipset, ipv4Networks)
 				} else {
 					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
 						ipset.IpsetName, 4, len(ipv4Networks), 6)
@@ -95,7 +105,7 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 
 			if len(ipv6Networks) > 0 {
 				if ipset.IpVersion == config.Ipv6 {
-					fillIpset(cfg, ipset, ipv6Networks)
+					fillIpset(ipset, ipv6Networks)
 				} else {
 					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
 						ipset.IpsetName, 6, len(ipv6Networks), 4)
@@ -104,29 +114,11 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		}
 
 		// Write dnsmasq configuration
-		if !skipDnsmasq && len(domains) > 0 {
-			startTime := time.Now().UnixMilli()
-
-			dnsmasqConf := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
-			log.Infof("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConf)
-			f, err := os.Create(dnsmasqConf)
-			if err != nil {
-				return fmt.Errorf("failed to create dnsmasq cfg file: %v", err)
+		if !skipDnsmasq && domains.Size() > 0 {
+			err2 := writeDnsmasqConfig(dnsmasqDir, ipset, domains)
+			if err2 != nil {
+				return err2
 			}
-			defer f.Close()
-
-			domains = removeDuplicates(domains)
-
-			writer := bufio.NewWriter(f)
-			for _, domain := range domains {
-				fmt.Fprintf(writer, "ipset=/%s/%s\n", domain, ipset.IpsetName)
-			}
-			if err := writer.Flush(); err != nil {
-				return fmt.Errorf("failed to write dnsmasq cfg: %v", err)
-			}
-
-			log.Infof("Writing dnsmasq configutaion took %dms", time.Now().UnixMilli()-startTime)
-			log.Warnf("Please restart dnsmasq service for changes to take effect!")
 		}
 	}
 
@@ -134,7 +126,42 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 	return nil
 }
 
-func fillIpset(cfg *config.Config, ipset *config.IpsetConfig, networks []netip.Prefix) {
+func writeDnsmasqConfig(dnsmasqDir string, ipset *config.IpsetConfig, domains *hashing.ChecksumStringSetProxy) error {
+	startTime := time.Now().UnixMilli()
+
+	dnsmasqConfPath := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
+
+	if changed, err := IsFileChanged(domains, dnsmasqConfPath); err != nil {
+		return fmt.Errorf("failed to calculate dnsmasq cfg checksum: %v", err)
+	} else if !changed {
+		log.Infof("dnsmasq configuration for ipset '%s' is up-to-date, skipping it's generation", ipset.IpsetName)
+		return nil
+	}
+	log.Infof("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConfPath)
+	f, err := os.Create(dnsmasqConfPath)
+	if err != nil {
+		return fmt.Errorf("failed to create dnsmasq cfg file: %v", err)
+	}
+	defer f.Close()
+
+	writer := bufio.NewWriter(f)
+	for domain, _ := range domains.Map() {
+		fmt.Fprintf(writer, "ipset=/%s/%s\n", domain, ipset.IpsetName)
+	}
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to write dnsmasq cfg: %v", err)
+	}
+	if err := WriteChecksum(domains, dnsmasqConfPath); err != nil {
+		return fmt.Errorf("failed to write dnsmasq cfg checksum: %v", err)
+	}
+
+	log.Infof("Writing dnsmasq configutaion took %dms", time.Now().UnixMilli()-startTime)
+	log.Warnf("Please restart dnsmasq service for changes to take effect!")
+
+	return nil
+}
+
+func fillIpset(ipset *config.IpsetConfig, networks []netip.Prefix) {
 	startTime := time.Now().UnixMilli()
 	// Apply networks to ipsets
 	log.Infof("Filling ipset '%s' (IPv%d) (%d networks)...",
@@ -146,16 +173,18 @@ func fillIpset(cfg *config.Config, ipset *config.IpsetConfig, networks []netip.P
 		ipset.IpsetName, ipset.IpVersion, time.Now().UnixMilli()-startTime)
 }
 
-func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
+func appendHost(host string, domainsPtr *hashing.ChecksumStringSetProxy, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return
 	}
 
 	if utils.IsDNSName(line) {
-		domains := *domainsPtr
-		domains = append(domains, line)
-		*domainsPtr = domains
+		err := domainsPtr.Put(line)
+		if err != nil {
+			log.Warnf("Could not add host '%s' to list: %v", host, err)
+			return
+		}
 	} else {
 		if strings.LastIndex(line, "/") < 0 {
 			line = line + "/32"
@@ -211,20 +240,4 @@ func getListPath(listsDir string, ipset *config.IpsetConfig, list *config.ListSo
 	}
 
 	return &path
-}
-
-func removeDuplicates(strings []string) []string {
-	sort.Strings(strings)
-	// Remove duplicates
-	if len(strings) > 0 {
-		j := 1
-		for i := 1; i < len(strings); i++ {
-			if strings[i] != strings[i-1] {
-				strings[j] = strings[i]
-				j++
-			}
-		}
-		strings = strings[:j]
-	}
-	return strings
 }
