@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"net/netip"
 	"os/exec"
 )
 
@@ -46,7 +47,7 @@ func CheckIpsetExists(ipset *config.IpsetConfig) (bool, error) {
 }
 
 // AddToIpset adds the given networks to the specified ipset
-func AddToIpset(ipset *config.IpsetConfig, networks []string) error {
+func AddToIpset(ipset *config.IpsetConfig, networks []netip.Prefix) error {
 	if _, err := exec.LookPath(ipsetCommand); err != nil {
 		return fmt.Errorf("failed to find ipset command %s: %v", ipsetCommand, err)
 	}
@@ -75,7 +76,11 @@ func AddToIpset(ipset *config.IpsetConfig, networks []string) error {
 
 		errorCounter := 0
 		for _, network := range networks {
-			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IpsetName, network); err != nil {
+			if !network.IsValid() {
+				log.Warnf("skipping invalid network %v", network)
+				continue
+			}
+			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IpsetName, network.String()); err != nil {
 				log.Warnf("failed to add address %s to ipset %s: %v", network, ipset.IpsetName, err)
 				errorCounter++
 

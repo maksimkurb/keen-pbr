@@ -8,10 +8,12 @@ import (
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
@@ -44,9 +46,9 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 	}
 
 	for _, ipset := range cfg.Ipset {
-		var ipv4Networks []string = make([]string, 0)
-		var ipv6Networks []string = make([]string, 0)
-		var domains []string = make([]string, 0)
+		var ipv4Networks = make([]netip.Prefix, 0)
+		var ipv6Networks = make([]netip.Prefix, 0)
+		var domains = make([]string, 0)
 
 		log.Infof("Processing ipset \"%s\": ", ipset.IpsetName)
 
@@ -81,35 +83,30 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 			log.Warnf("Could not create ipset '%s': %v", ipset.IpsetName, err)
 		}
 
-		// Filling ipv4 ipset
-		if !skipIpset && ipset.IpVersion != config.Ipv6 && len(ipv4Networks) > 0 {
-			// Summarize networks if requested
-			var ipsLen = len(ipv4Networks)
-			if cfg.General.Summarize {
-				ipv4Networks = networking.SummarizeIPv4(ipv4Networks)
+		if !skipIpset {
+			if len(ipv4Networks) > 0 {
+				if ipset.IpVersion == config.Ipv4 {
+					fillIpset(cfg, ipset, ipv4Networks)
+				} else {
+					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
+						ipset.IpsetName, 4, len(ipv4Networks), 6)
+				}
 			}
 
-			// Apply networks to ipsets
-			if cfg.General.Summarize {
-				log.Infof("Filling ipset '%s' (IPv4) (%d items, %d after summarization)...", ipset.IpsetName, ipsLen, len(ipv4Networks))
-			} else {
-				log.Infof("Filling ipset '%s' (IPv4) (%d items)...", ipset.IpsetName, ipsLen)
-			}
-			if err := networking.AddToIpset(ipset, ipv4Networks); err != nil {
-				log.Infof("Could not fill ipset (IPv4) '%s': %v", ipset.IpsetName, err)
-			}
-		}
-
-		if !skipIpset && ipset.IpVersion == config.Ipv6 && len(ipv6Networks) > 0 {
-			// Apply networks to ipsets
-			log.Infof("Filling ipset '%s' (IPv6) (%d items)...", ipset.IpsetName, len(ipv6Networks))
-			if err := networking.AddToIpset(ipset, ipv6Networks); err != nil {
-				log.Warnf("Could not fill ipset (IPv6) '%s': %v", ipset.IpsetName, err)
+			if len(ipv6Networks) > 0 {
+				if ipset.IpVersion == config.Ipv6 {
+					fillIpset(cfg, ipset, ipv6Networks)
+				} else {
+					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
+						ipset.IpsetName, 6, len(ipv6Networks), 4)
+				}
 			}
 		}
 
 		// Write dnsmasq configuration
 		if !skipDnsmasq && len(domains) > 0 {
+			startTime := time.Now().UnixMilli()
+
 			dnsmasqConf := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
 			log.Infof("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConf)
 			f, err := os.Create(dnsmasqConf)
@@ -127,6 +124,9 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 			if err := writer.Flush(); err != nil {
 				return fmt.Errorf("failed to write dnsmasq cfg: %v", err)
 			}
+
+			log.Infof("Writing dnsmasq configutaion took %dms", time.Now().UnixMilli()-startTime)
+			log.Warnf("Please restart dnsmasq service for changes to take effect!")
 		}
 	}
 
@@ -134,7 +134,19 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 	return nil
 }
 
-func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]string, ipv6NetworksPtr *[]string) {
+func fillIpset(cfg *config.Config, ipset *config.IpsetConfig, networks []netip.Prefix) {
+	startTime := time.Now().UnixMilli()
+	// Apply networks to ipsets
+	log.Infof("Filling ipset '%s' (IPv%d) (%d networks)...",
+		ipset.IpsetName, ipset.IpVersion, len(networks))
+	if err := networking.AddToIpset(ipset, networks); err != nil {
+		log.Infof("Could not fill ipset '%s' (IPv%d): %v", ipset.IpsetName, ipset.IpVersion, err)
+	}
+	log.Infof("Filling ipset '%s' (IPv%d) took %dms",
+		ipset.IpsetName, ipset.IpVersion, time.Now().UnixMilli()-startTime)
+}
+
+func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return
@@ -144,19 +156,31 @@ func appendHost(host string, domainsPtr *[]string, ipv4NetworksPtr *[]string, ip
 		domains := *domainsPtr
 		domains = append(domains, line)
 		*domainsPtr = domains
-	} else if utils.IsIP(line) || utils.IsCIDR(line) {
-		// ipv4 contain dots, ipv6 contain colons
-		if strings.Contains(line, ".") {
-			ipv4Networks := *ipv4NetworksPtr
-			ipv4Networks = append(ipv4Networks, line)
-			*ipv4NetworksPtr = ipv4Networks
-		} else {
-			ipv6Networks := *ipv6NetworksPtr
-			ipv6Networks = append(ipv6Networks, line)
-			*ipv6NetworksPtr = ipv6Networks
-		}
 	} else {
-		log.Warnf("Could not parse host, skipping: %s", host)
+		if strings.LastIndex(line, "/") < 0 {
+			line = line + "/32"
+		}
+		if netPrefix, err := netip.ParsePrefix(line); err == nil {
+			if !netPrefix.IsValid() {
+				log.Warnf("Could not parse host, skipping: %s", host)
+				return
+			}
+
+			// ipv4 contain dots, ipv6 contain colons
+			if netPrefix.Addr().Is4() {
+				ipv4Networks := *ipv4NetworksPtr
+				ipv4Networks = append(ipv4Networks, netPrefix)
+				*ipv4NetworksPtr = ipv4Networks
+			} else if netPrefix.Addr().Is6() {
+				ipv6Networks := *ipv6NetworksPtr
+				ipv6Networks = append(ipv6Networks, netPrefix)
+				*ipv6NetworksPtr = ipv6Networks
+			} else {
+				log.Warnf("Could not parse host, skipping: %s", host)
+			}
+		} else {
+			log.Warnf("Could not parse host, skipping: %s", host)
+		}
 	}
 }
 

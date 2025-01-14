@@ -38,7 +38,6 @@ type Config struct {
 type GeneralConfig struct {
 	ListsOutputDir  string `toml:"lists_output_dir"`
 	DnsmasqListsDir string `toml:"dnsmasq_lists_dir"`
-	Summarize       bool   `toml:"summarize"`
 	UseKeeneticAPI  *bool  `toml:"use_keenetic_api"`
 }
 
