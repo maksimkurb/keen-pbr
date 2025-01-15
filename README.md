@@ -3,11 +3,21 @@
 ![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
 ![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
 
-> **keenetic-pbr** не является официальным продуктом компании **Keenetic** и никак с ней не связан. Этот пакет создан сторонним разработчиком и предоставляется "как есть" без какой-либо гарантии. Все вопросы и предложения касательно пакета можно направлять в GitHub Issue и в Telegram-чат: https://t.me/keenetic_pbr.
+> **keenetic-pbr** не является официальным продуктом компании **Keenetic** и никак с ней не связан. Этот пакет создан сторонним разработчиком и предоставляется "как есть" без какой-либо гарантии, автор не несёт ответственности за повреждение Вашего устройства, все действия Вы выполняете на свой страх и риск.
+>
+>  Вопросы и предложения касательно пакета можно направлять в [GitHub Issue](https://github.com/maksimkurb/keenetic-pbr/issues) и в Telegram-чат: https://t.me/keenetic_pbr.
 
 #### [> README in English <](./README.en.md)
 
-keenetic-pbr — это пакет для маршрутизации на основе правил для роутеров Keenetic.
+#### ⚠️Для владельцев роутеров Keenetic без USB-разъёма:
+* Убедитесь, что вы обновились как минимум до версии `v-1.3.0-2`
+* [Отключите автообновление списков](#disable-lists-autoupdate) после установки/обновления пакета
+
+Всё это поможет предотвратить излишний износ NAND-памяти роутера.
+
+---
+
+**keenetic-pbr** — это пакет для маршрутизации на основе правил для роутеров Keenetic.
 
 Telegram-чат проекта: https://t.me/keenetic_pbr
 
