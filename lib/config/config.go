@@ -18,8 +18,9 @@ var (
 type IpFamily uint8
 
 const (
-	Ipv4 IpFamily = 4
-	Ipv6 IpFamily = 6
+	Ipv4  IpFamily = 4
+	Ipv6  IpFamily = 6
+	IpAll IpFamily = 46
 )
 
 const (
@@ -31,7 +32,7 @@ const (
 
 type Config struct {
 	General         *GeneralConfig `toml:"general"`
-	Ipset           []*IpsetConfig `toml:"ipset"`
+	IPSets          []*IPSetConfig `toml:"ipset"`
 	_configFilePath string
 }
 
@@ -41,13 +42,13 @@ type GeneralConfig struct {
 	UseKeeneticAPI  *bool  `toml:"use_keenetic_api"`
 }
 
-type IpsetConfig struct {
-	IpsetName           string          `toml:"ipset_name"`
-	IpVersion           IpFamily        `toml:"ip_version"`
+type IPSetConfig struct {
+	IPSetName           string          `toml:"ipset_name"`
+	IPVersion           IpFamily        `toml:"ip_version"`
 	FlushBeforeApplying bool            `toml:"flush_before_applying"`
 	Routing             *RoutingConfig  `toml:"routing"`
-	IPTablesRule        []*IPTablesRule `toml:"iptables_rule"`
-	List                []*ListSource   `toml:"list"`
+	IPTablesRules       []*IPTablesRule `toml:"iptables_rule"`
+	Lists               []*ListSource   `toml:"list"`
 }
 
 type IPTablesRule struct {
@@ -131,7 +132,7 @@ func (c *Config) ValidateConfig() error {
 		c.General.UseKeeneticAPI = &def
 	}
 
-	if c.Ipset == nil {
+	if c.IPSets == nil {
 		return fmt.Errorf("configuration should contain \"ipset\" field, check your configuration")
 	}
 
@@ -140,28 +141,28 @@ func (c *Config) ValidateConfig() error {
 	tables := make(map[int]bool)
 	priorities := make(map[int]bool)
 
-	for _, ipset := range c.Ipset {
+	for _, ipset := range c.IPSets {
 		if ipset.Routing == nil {
-			return fmt.Errorf("ipset %s should contain \"ipset.routing\" field, check your configuration", ipset.IpsetName)
+			return fmt.Errorf("ipset %s should contain \"ipset.routing\" field, check your configuration", ipset.IPSetName)
 		}
 
-		if ipset.List == nil {
-			return fmt.Errorf("ipset %s should contain \"ipset.list\" field, check your configuration", ipset.IpsetName)
+		if ipset.Lists == nil {
+			return fmt.Errorf("ipset %s should contain \"ipset.list\" field, check your configuration", ipset.IPSetName)
 		}
 
 		// Validate ipset name
-		if err := validateIpsetName(ipset.IpsetName); err != nil {
+		if err := validateIpsetName(ipset.IPSetName); err != nil {
 			return err
 		}
-		if err := checkDuplicates(ipset.IpsetName, names, "ipset name"); err != nil {
+		if err := checkDuplicates(ipset.IPSetName, names, "ipset name"); err != nil {
 			return err
 		}
 
 		// Validate IP version
-		if newVersion, err := validateIpVersion(ipset.IpVersion); err != nil {
+		if newVersion, err := validateIpVersion(ipset.IPVersion); err != nil {
 			return err
 		} else {
-			ipset.IpVersion = newVersion
+			ipset.IPVersion = newVersion
 		}
 
 		// Validate iptables rules
@@ -171,13 +172,13 @@ func (c *Config) ValidateConfig() error {
 
 		// Validate interfaces
 		if ipset.Routing.Interface == "" && len(ipset.Routing.Interfaces) == 0 {
-			return fmt.Errorf("ipset %s routing configuration should contain \"interfaces\" field, check your configuration", ipset.IpsetName)
+			return fmt.Errorf("ipset %s routing configuration should contain \"interfaces\" field, check your configuration", ipset.IPSetName)
 		}
 		if ipset.Routing.Interface != "" && len(ipset.Routing.Interfaces) > 0 {
-			return fmt.Errorf("ipset %s contains both \"interface\" and \"interfaces\" fields, please use only one field to configure routing", ipset.IpsetName)
+			return fmt.Errorf("ipset %s contains both \"interface\" and \"interfaces\" fields, please use only one field to configure routing", ipset.IPSetName)
 		}
 		if ipset.Routing.Interface != "" {
-			log.Warnf("ipset %s contains deprecated \"interface\" field, please use \"interfaces\" instead", ipset.IpsetName)
+			log.Warnf("ipset %s contains deprecated \"interface\" field, please use \"interfaces\" instead", ipset.IPSetName)
 			ipset.Routing.Interfaces = []string{ipset.Routing.Interface}
 			ipset.Routing.Interface = ""
 		}
@@ -185,7 +186,7 @@ func (c *Config) ValidateConfig() error {
 		ifNames := make(map[string]bool)
 		for _, ifName := range ipset.Routing.Interfaces {
 			if ifNames[ifName] {
-				return fmt.Errorf("ipset %s contains duplicate interface \"%s\", check your configuration", ipset.IpsetName, ifName)
+				return fmt.Errorf("ipset %s contains duplicate interface \"%s\", check your configuration", ipset.IPSetName, ifName)
 			}
 			ifNames[ifName] = true
 		}
@@ -203,8 +204,8 @@ func (c *Config) ValidateConfig() error {
 
 		// Validate lists
 		listNames := make(map[string]bool)
-		for _, list := range ipset.List {
-			if err := validateList(c, list, listNames, ipset.IpsetName); err != nil {
+		for _, list := range ipset.Lists {
+			if err := validateList(c, list, listNames, ipset.IPSetName); err != nil {
 				return err
 			}
 		}
@@ -212,9 +213,9 @@ func (c *Config) ValidateConfig() error {
 	return nil
 }
 
-func validateIPTablesRules(ipset *IpsetConfig) error {
-	if ipset.IPTablesRule == nil {
-		ipset.IPTablesRule = []*IPTablesRule{
+func validateIPTablesRules(ipset *IPSetConfig) error {
+	if ipset.IPTablesRules == nil {
+		ipset.IPTablesRules = []*IPTablesRule{
 			{
 				Chain: "PREROUTING",
 				Table: "mangle",
@@ -228,16 +229,16 @@ func validateIPTablesRules(ipset *IpsetConfig) error {
 		return nil
 	}
 
-	if len(ipset.IPTablesRule) > 0 {
-		for _, rule := range ipset.IPTablesRule {
+	if len(ipset.IPTablesRules) > 0 {
+		for _, rule := range ipset.IPTablesRules {
 			if rule.Chain == "" {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"chain\" field, check your configuration", ipset.IpsetName)
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"chain\" field, check your configuration", ipset.IPSetName)
 			}
 			if rule.Table == "" {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"table\" field, check your configuration", ipset.IpsetName)
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"table\" field, check your configuration", ipset.IPSetName)
 			}
 			if len(rule.Rule) == 0 {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"rule\" field, check your configuration", ipset.IpsetName)
+				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"rule\" field, check your configuration", ipset.IPSetName)
 			}
 		}
 	}

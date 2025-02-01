@@ -6,7 +6,7 @@ import (
 )
 
 func ValidateConfigInterfaces(c *config.Config, interfaces []Interface) error {
-	for _, ipset := range c.Ipset {
+	for _, ipset := range c.IPSets {
 		for _, interfaceName := range ipset.Routing.Interfaces {
 			if err := validateInterfaceExists(interfaceName, interfaces); err != nil {
 				return err

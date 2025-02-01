@@ -11,26 +11,26 @@ import (
 const ipsetCommand = "ipset"
 
 // CreateIpset creates a new ipset with the given name and IP family (4 or 6)
-func CreateIpset(ipset *config.IpsetConfig) error {
+func CreateIpset(ipset *config.IPSetConfig) error {
 	// Determine IP family
 	family := "inet"
-	if ipset.IpVersion == 6 {
+	if ipset.IPVersion == 6 {
 		family = "inet6"
-	} else if ipset.IpVersion != 0 && ipset.IpVersion != 4 {
-		log.Warnf("unknown IP version %d, assuming IPv4", ipset.IpVersion)
+	} else if ipset.IPVersion != 0 && ipset.IPVersion != 4 {
+		log.Warnf("unknown IP version %d, assuming IPv4", ipset.IPVersion)
 	}
 
-	cmd := exec.Command(ipsetCommand, "create", ipset.IpsetName, "hash:net", "family", family, "-exist")
+	cmd := exec.Command(ipsetCommand, "create", ipset.IPSetName, "hash:net", "family", family, "-exist")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create ipset %s (IPv%d): %v", ipset.IpsetName, ipset.IpVersion, err)
+		return fmt.Errorf("failed to create ipset %s (IPv%d): %v", ipset.IPSetName, ipset.IPVersion, err)
 	}
 
 	return nil
 }
 
 // CheckIpsetExists checks if the given ipset exists
-func CheckIpsetExists(ipset *config.IpsetConfig) (bool, error) {
-	cmd := exec.Command(ipsetCommand, "-n", "list", ipset.IpsetName)
+func CheckIpsetExists(ipset *config.IPSetConfig) (bool, error) {
+	cmd := exec.Command(ipsetCommand, "-n", "list", ipset.IPSetName)
 	if err := cmd.Start(); err != nil {
 		return false, err
 	}
@@ -47,7 +47,7 @@ func CheckIpsetExists(ipset *config.IpsetConfig) (bool, error) {
 }
 
 // AddToIpset adds the given networks to the specified ipset
-func AddToIpset(ipset *config.IpsetConfig, networks []netip.Prefix) error {
+func AddToIpset(ipset *config.IPSetConfig, networks []netip.Prefix) error {
 	if _, err := exec.LookPath(ipsetCommand); err != nil {
 		return fmt.Errorf("failed to find ipset command %s: %v", ipsetCommand, err)
 	}
@@ -69,8 +69,8 @@ func AddToIpset(ipset *config.IpsetConfig, networks []netip.Prefix) error {
 
 		// Write commands to stdin
 		if ipset.FlushBeforeApplying {
-			if _, err := fmt.Fprintf(stdin, "flush %s\n", ipset.IpsetName); err != nil {
-				log.Warnf("failed to flush ipset %s: %v", ipset.IpsetName, err)
+			if _, err := fmt.Fprintf(stdin, "flush %s\n", ipset.IPSetName); err != nil {
+				log.Warnf("failed to flush ipset %s: %v", ipset.IPSetName, err)
 			}
 		}
 
@@ -80,8 +80,8 @@ func AddToIpset(ipset *config.IpsetConfig, networks []netip.Prefix) error {
 				log.Warnf("skipping invalid network %v", network)
 				continue
 			}
-			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IpsetName, network.String()); err != nil {
-				log.Warnf("failed to add address %s to ipset %s: %v", network, ipset.IpsetName, err)
+			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IPSetName, network.String()); err != nil {
+				log.Warnf("failed to add address %s to ipset %s: %v", network, ipset.IPSetName, err)
 				errorCounter++
 
 				if errorCounter > 10 {
@@ -93,7 +93,7 @@ func AddToIpset(ipset *config.IpsetConfig, networks []netip.Prefix) error {
 	}()
 
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to add addresses to ipset %s: %v\n%s", ipset.IpsetName, err, output)
+		return fmt.Errorf("failed to add addresses to ipset %s: %v\n%s", ipset.IPSetName, err, output)
 	}
 
 	for err := range errCh {

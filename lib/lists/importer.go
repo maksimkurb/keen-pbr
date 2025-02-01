@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/hashing"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -37,8 +37,8 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") || strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf.md5") {
 				shouldRemove := true
-				for _, ipset := range cfg.Ipset {
-					if strings.HasPrefix(entry.Name(), ipset.IpsetName+".keenetic-pbr.conf") {
+				for _, ipset := range cfg.IPSets {
+					if strings.HasPrefix(entry.Name(), ipset.IPSetName+".keenetic-pbr.conf") {
 						shouldRemove = false
 						break
 					}
@@ -55,15 +55,16 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 		}
 	}
 
-	for _, ipset := range cfg.Ipset {
+	var domainStore = CreateDomainStore(len(cfg.IPSets))
+
+	for ipsetIndex, ipset := range cfg.IPSets {
 		var ipv4Networks = make([]netip.Prefix, 0)
 		var ipv6Networks = make([]netip.Prefix, 0)
-		var domains = hashing.NewChecksumStringSet()
 
-		log.Infof("Processing ipset \"%s\": ", ipset.IpsetName)
+		log.Infof("Processing ipset \"%s\": ", ipset.IPSetName)
 
 		// Process lists
-		for _, list := range ipset.List {
+		for _, list := range ipset.Lists {
 			log.Infof("Processing list \"%s\" (type=%s)...", list.ListName, list.Type())
 			if list.URL != "" || list.File != "" {
 				listPath := getListPath(listsDir, ipset, list)
@@ -77,82 +78,166 @@ func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
 				scanner := bufio.NewScanner(listFile)
 
 				for scanner.Scan() {
-					appendHost(scanner.Text(), domains, &ipv4Networks, &ipv6Networks)
+					appendHost(scanner.Text(), ipsetIndex, domainStore, &ipv4Networks, &ipv6Networks)
 				}
 			} else {
 				for _, host := range list.Hosts {
-					appendHost(host, domains, &ipv4Networks, &ipv6Networks)
+					appendHost(host, ipsetIndex, domainStore, &ipv4Networks, &ipv6Networks)
 				}
 			}
 		}
 
-		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", domains.Size(), len(ipv4Networks), len(ipv6Networks))
+		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", domainStore.Count(), len(ipv4Networks), len(ipv6Networks))
 
 		err := networking.CreateIpset(ipset)
 		if err != nil {
-			log.Warnf("Could not create ipset '%s': %v", ipset.IpsetName, err)
+			log.Warnf("Could not create ipset '%s': %v", ipset.IPSetName, err)
 		}
 
 		if !skipIpset {
 			if len(ipv4Networks) > 0 {
-				if ipset.IpVersion == config.Ipv4 {
+				if ipset.IPVersion == config.Ipv4 {
 					fillIpset(ipset, ipv4Networks)
 				} else {
 					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
-						ipset.IpsetName, 4, len(ipv4Networks), 6)
+						ipset.IPSetName, 4, len(ipv4Networks), 6)
 				}
 			}
 
 			if len(ipv6Networks) > 0 {
-				if ipset.IpVersion == config.Ipv6 {
+				if ipset.IPVersion == config.Ipv6 {
 					fillIpset(ipset, ipv6Networks)
 				} else {
 					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
-						ipset.IpsetName, 6, len(ipv6Networks), 4)
+						ipset.IPSetName, 6, len(ipv6Networks), 4)
 				}
 			}
 		}
+	}
 
-		// Write dnsmasq configuration
-		if !skipDnsmasq && domains.Size() > 0 {
-			err2 := writeDnsmasqConfig(dnsmasqDir, ipset, domains)
-			if err2 != nil {
-				return err2
-			}
+	// Write dnsmasq configuration
+	if !skipDnsmasq && domainStore.Count() > 0 {
+		err2 := writeDnsmasqConfig(listsDir, dnsmasqDir, cfg, domainStore)
+		if err2 != nil {
+			return err2
 		}
 	}
+
+	rtm := runtime.MemStats{}
+	runtime.ReadMemStats(&rtm)
+	fmt.Println("Alloc:", rtm.HeapAlloc)
 
 	log.Infof("Configuration applied")
 	return nil
 }
 
-func writeDnsmasqConfig(dnsmasqDir string, ipset *config.IpsetConfig, domains *hashing.ChecksumStringSetProxy) error {
+func writeDnsmasqConfig(listsDir, dnsmasqDir string, config *config.Config, domains *DomainStore) error {
 	startTime := time.Now().UnixMilli()
 
-	dnsmasqConfPath := filepath.Join(dnsmasqDir, fmt.Sprintf("%s.keenetic-pbr.conf", ipset.IpsetName))
+	ipsetCount := len(config.IPSets)
+	files := make(map[rune]*os.File)
+	fileBuffers := make(map[rune]*bufio.Writer)
+	defer func() {
+		for idx, f := range files {
+			if err := fileBuffers[idx].Flush(); err != nil {
+				log.Errorf("Failed to flush file: %v", err)
+			}
+			if err := f.Close(); err != nil {
+				log.Errorf("Failed to close file: %v", err)
+			}
+		}
+	}()
 
-	if changed, err := IsFileChanged(domains, dnsmasqConfPath); err != nil {
-		return fmt.Errorf("failed to calculate dnsmasq cfg checksum: %v", err)
-	} else if !changed {
-		log.Infof("dnsmasq configuration for ipset '%s' is up-to-date, skipping it's generation", ipset.IpsetName)
-		return nil
-	}
-	log.Infof("Generating dnsmasq configuration for ipset '%s': %s", ipset.IpsetName, dnsmasqConfPath)
-	f, err := os.Create(dnsmasqConfPath)
-	if err != nil {
-		return fmt.Errorf("failed to create dnsmasq cfg file: %v", err)
-	}
-	defer f.Close()
+	log.Infof("Generating dnsmasq configuration...")
 
-	writer := bufio.NewWriter(f)
-	for domain, _ := range domains.Map() {
-		fmt.Fprintf(writer, "ipset=/%s/%s\n", domain, ipset.IpsetName)
+	writeHost := func(domain string) {
+		if !utils.IsDNSName(domain) {
+			return
+		}
+
+		sanitizedDomain := sanitizeDomain(domain)
+
+		// there is no problem with collisions for single ipset
+		if ipsetCount > 1 {
+			if collision := domains.GetCollisionDomain(sanitizedDomain); collision != "" {
+				log.Warnf("Found collision: \"%s\" and \"%s\" have the same CRC32-hash. Routing for both of these domains will be undetermined. To fix this, please remove one of these domains", domain, collision)
+			}
+		}
+
+		associations, hash := domains.GetAssociatedIPSetIndexesForDomain(sanitizedDomain)
+		if associations == nil {
+			return
+		}
+
+		fileRune := rune(domain[0])
+		if _, ok := files[fileRune]; !ok {
+			path := filepath.Join(dnsmasqDir, fmt.Sprintf("%c.keenetic-pbr.conf", fileRune))
+			f, err := os.Create(path)
+			if err != nil {
+				log.Fatalf("Failed to create dnsmasq cfg file '%s': %v", path, err)
+				return
+			}
+			files[fileRune] = f
+			fileBuffers[fileRune] = bufio.NewWriter(f)
+		}
+		writer := fileBuffers[fileRune]
+
+		if _, err := fmt.Fprintf(writer, "ipset=/%s/", domain); err != nil {
+			log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
+			return
+		}
+
+		isFirstIPSet := true
+		for i := 0; i < ipsetCount; i++ {
+			if !associations.Has(i) {
+				continue
+			}
+
+			if !isFirstIPSet {
+				if _, err := writer.WriteRune(','); err != nil {
+					log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
+					return
+				}
+			}
+
+			isFirstIPSet = false
+
+			if _, err := writer.WriteString(config.IPSets[i].IPSetName); err != nil {
+				log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
+				return
+			}
+		}
+
+		if _, err := writer.WriteRune('\n'); err != nil {
+			log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
+			return
+		}
+
+		domains.Forget(hash)
 	}
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("failed to write dnsmasq cfg: %v", err)
-	}
-	if err := WriteChecksum(domains, dnsmasqConfPath); err != nil {
-		return fmt.Errorf("failed to write dnsmasq cfg checksum: %v", err)
+
+	for _, ipset := range config.IPSets {
+		for _, list := range ipset.Lists {
+			if list.URL != "" || list.File != "" {
+				listPath := getListPath(listsDir, ipset, list)
+
+				listFile, err := os.Open(*listPath)
+				if err != nil {
+					log.Fatalf("Failed to read list file '%s': %v", *listPath, err)
+				}
+				defer listFile.Close()
+
+				scanner := bufio.NewScanner(listFile)
+
+				for scanner.Scan() {
+					writeHost(scanner.Text())
+				}
+			} else {
+				for _, host := range list.Hosts {
+					writeHost(host)
+				}
+			}
+		}
 	}
 
 	log.Infof("Writing dnsmasq configutaion took %dms", time.Now().UnixMilli()-startTime)
@@ -161,30 +246,26 @@ func writeDnsmasqConfig(dnsmasqDir string, ipset *config.IpsetConfig, domains *h
 	return nil
 }
 
-func fillIpset(ipset *config.IpsetConfig, networks []netip.Prefix) {
+func fillIpset(ipset *config.IPSetConfig, networks []netip.Prefix) {
 	startTime := time.Now().UnixMilli()
 	// Apply networks to ipsets
 	log.Infof("Filling ipset '%s' (IPv%d) (%d networks)...",
-		ipset.IpsetName, ipset.IpVersion, len(networks))
+		ipset.IPSetName, ipset.IPVersion, len(networks))
 	if err := networking.AddToIpset(ipset, networks); err != nil {
-		log.Infof("Could not fill ipset '%s' (IPv%d): %v", ipset.IpsetName, ipset.IpVersion, err)
+		log.Infof("Could not fill ipset '%s' (IPv%d): %v", ipset.IPSetName, ipset.IPVersion, err)
 	}
 	log.Infof("Filling ipset '%s' (IPv%d) took %dms",
-		ipset.IpsetName, ipset.IpVersion, time.Now().UnixMilli()-startTime)
+		ipset.IPSetName, ipset.IPVersion, time.Now().UnixMilli()-startTime)
 }
 
-func appendHost(host string, domainsPtr *hashing.ChecksumStringSetProxy, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
+func appendHost(host string, ipsetIndex int, domainStore *DomainStore, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return
 	}
 
 	if utils.IsDNSName(line) {
-		err := domainsPtr.Put(line)
-		if err != nil {
-			log.Warnf("Could not add host '%s' to list: %v", host, err)
-			return
-		}
+		domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipsetIndex)
 	} else {
 		if strings.LastIndex(line, "/") < 0 {
 			line = line + "/32"
@@ -213,10 +294,10 @@ func appendHost(host string, domainsPtr *hashing.ChecksumStringSetProxy, ipv4Net
 	}
 }
 
-func getListPath(listsDir string, ipset *config.IpsetConfig, list *config.ListSource) *string {
+func getListPath(listsDir string, ipset *config.IPSetConfig, list *config.ListSource) *string {
 	var path = ""
 	if list.URL != "" {
-		path = filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName))
+		path = filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IPSetName, list.ListName))
 	} else if list.File != "" {
 		path = list.File
 	}

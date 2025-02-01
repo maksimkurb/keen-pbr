@@ -43,9 +43,9 @@ func (g *UndoCommand) Init(args []string, ctx *AppContext) error {
 func (g *UndoCommand) Run() error {
 	log.Infof("Removing all iptables rules, ip rules and ip routes...")
 
-	for _, ipset := range g.cfg.Ipset {
+	for _, ipset := range g.cfg.IPSets {
 		if err := undoIpset(ipset); err != nil {
-			log.Errorf("Failed to undo routing configuration for ipset [%s]: %v", ipset.IpsetName, err)
+			log.Errorf("Failed to undo routing configuration for ipset [%s]: %v", ipset.IPSetName, err)
 			return err
 		}
 	}
@@ -54,8 +54,8 @@ func (g *UndoCommand) Run() error {
 	return nil
 }
 
-func undoIpset(ipset *config.IpsetConfig) error {
-	log.Infof("----------------- IPSet [%s] ------------------", ipset.IpsetName)
+func undoIpset(ipset *config.IPSetConfig) error {
+	log.Infof("----------------- IPSet [%s] ------------------", ipset.IPSetName)
 
 	log.Infof("Deleting IP route table %d", ipset.Routing.IpRouteTable)
 	if err := networking.DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
@@ -88,6 +88,6 @@ func undoIpset(ipset *config.IpsetConfig) error {
 		}
 	}
 
-	log.Infof("----------------- IPSet [%s] END ------------------", ipset.IpsetName)
+	log.Infof("----------------- IPSet [%s] END ------------------", ipset.IPSetName)
 	return nil
 }
