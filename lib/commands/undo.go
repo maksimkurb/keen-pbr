@@ -31,7 +31,7 @@ func (g *UndoCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath, ctx.Interfaces); err != nil {
+	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg

@@ -55,6 +55,7 @@ func main() {
 		commands.CreateInterfacesCommand(),
 		commands.CreateSelfCheckCommand(),
 		commands.CreateUndoCommand(),
+		commands.CreateUpgradeConfigCommand(),
 	}
 
 	args := flag.Args()

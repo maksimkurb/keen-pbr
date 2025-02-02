@@ -145,7 +145,8 @@ func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneti
 	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IPSetName, ipset.Routing.Interfaces)
 	for _, interfaceName := range ipset.Routing.Interfaces {
 		if iface, err := GetInterface(interfaceName); err != nil {
-			return nil, err
+			log.Errorf("Failed to get interface \"%s\" status: %v", interfaceName, err)
+			continue
 		} else {
 			addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
 			var keeneticIface *keenetic.Interface = nil

@@ -2,9 +2,8 @@ module github.com/maksimkurb/keenetic-pbr
 
 go 1.23.4
 
-require github.com/BurntSushi/toml v1.4.0
-
 require (
+	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/coreos/go-iptables v0.8.0
 	github.com/valyala/fasttemplate v1.2.2
 	github.com/vishvananda/netlink v1.3.0

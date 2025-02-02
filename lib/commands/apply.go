@@ -52,10 +52,16 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 		return fmt.Errorf("--only-routing-for-interface and --skip-* can not be used together")
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath, ctx.Interfaces); err != nil {
+	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg
+	}
+
+	if !g.SkipRouting || g.OnlyRoutingForInterface != "" {
+		if err := networking.ValidateInterfacesArePresent(g.cfg, ctx.Interfaces); err != nil {
+			return fmt.Errorf("failed to apply routing: %v", err)
+		}
 	}
 
 	return nil
@@ -64,17 +70,17 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 func (g *ApplyCommand) Run() error {
 	if (!g.SkipIpset || !g.SkipDnsmasq) && g.OnlyRoutingForInterface == "" {
 		if err := lists.ApplyLists(g.cfg, g.SkipDnsmasq, g.SkipIpset); err != nil {
-			return fmt.Errorf("failed to apply configuration: %v", err)
+			return fmt.Errorf("failed to apply lists: %v", err)
 		}
 	}
 
 	if !g.SkipRouting {
 		if appliedAtLeastOnce, err := networking.ApplyNetworkConfiguration(g.cfg, &g.OnlyRoutingForInterface); err != nil {
-			return fmt.Errorf("failed to apply configuration: %v", err)
+			return fmt.Errorf("failed to apply routing: %v", err)
 		} else {
 			if !appliedAtLeastOnce {
 				if g.FailIfNothingToApply {
-					log.Warnf("Nothing to apply, exiting with error code (5)")
+					log.Warnf("Nothing to apply, exiting with exit_code=5")
 					os.Exit(5)
 				} else {
 					log.Warnf("Nothing to apply")

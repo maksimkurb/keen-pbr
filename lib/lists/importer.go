@@ -2,270 +2,212 @@ package lists
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
+	"net/netip"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
-	"net/netip"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"time"
 )
 
-func ApplyLists(cfg *config.Config, skipDnsmasq bool, skipIpset bool) error {
-	listsDir := filepath.Clean(cfg.General.ListsOutputDir)
-	dnsmasqDir := filepath.Clean(cfg.General.DnsmasqListsDir)
+// ApplyLists processes the configuration and applies the lists to the appropriate sets.
+func ApplyLists(cfg *config.Config, skipDnsmasq, skipIpset bool) error {
+	if err := prepareDirectories(cfg.GetAbsDownloadedListsDir(), cfg.GetAbsDnsmasqDir(), skipDnsmasq); err != nil {
+		return err
+	}
 
 	if !skipDnsmasq {
-		// Create required directories
-		for _, dir := range []string{listsDir, dnsmasqDir} {
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %v", dir, err)
-			}
-		}
-
-		// Remove old dnsmasq cfg files
-		entries, err := os.ReadDir(dnsmasqDir)
-		if err != nil {
-			return fmt.Errorf("failed to read dnsmasq directory: %v", err)
-		}
-
-		for _, entry := range entries {
-			if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") || strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf.md5") {
-				shouldRemove := true
-				for _, ipset := range cfg.IPSets {
-					if strings.HasPrefix(entry.Name(), ipset.IPSetName+".keenetic-pbr.conf") {
-						shouldRemove = false
-						break
-					}
-				}
-
-				if shouldRemove {
-					path := filepath.Join(dnsmasqDir, entry.Name())
-					log.Infof("Removing old dnsmasq cfg file '%s'", path)
-					if err := os.Remove(path); err != nil {
-						return fmt.Errorf("failed to remove old cfg file: %v", err)
-					}
-				}
-			}
+		if err := cleanupOldDnsmasqConfigs(cfg.GetAbsDnsmasqDir(), cfg.IPSets); err != nil {
+			return err
 		}
 	}
 
-	var domainStore = CreateDomainStore(len(cfg.IPSets))
+	domainStore := CreateDomainStore(len(cfg.IPSets))
+	for ipsetIndex, ipsetCfg := range cfg.IPSets {
+		ipCount := 0
 
-	for ipsetIndex, ipset := range cfg.IPSets {
-		var ipv4Networks = make([]netip.Prefix, 0)
-		var ipv6Networks = make([]netip.Prefix, 0)
+		log.Infof("Processing ipset \"%s\": ", ipsetCfg.IPSetName)
 
-		log.Infof("Processing ipset \"%s\": ", ipset.IPSetName)
-
-		// Process lists
-		for _, list := range ipset.Lists {
-			log.Infof("Processing list \"%s\" (type=%s)...", list.ListName, list.Type())
-			if list.URL != "" || list.File != "" {
-				listPath := getListPath(listsDir, ipset, list)
-
-				listFile, err := os.Open(*listPath)
-				if err != nil {
-					log.Fatalf("Failed to read list file '%s': %v", *listPath, err)
-				}
-				defer listFile.Close()
-
-				scanner := bufio.NewScanner(listFile)
-
-				for scanner.Scan() {
-					appendHost(scanner.Text(), ipsetIndex, domainStore, &ipv4Networks, &ipv6Networks)
-				}
+		ipset := networking.BuildIPSet(ipsetIndex, ipsetCfg.IPSetName, ipsetCfg.IPVersion)
+		if err := ipset.CreateIfNotExists(); err != nil {
+			if !skipIpset {
+				return err
 			} else {
-				for _, host := range list.Hosts {
-					appendHost(host, ipsetIndex, domainStore, &ipv4Networks, &ipv6Networks)
+				log.Warnf("ipset '%s' is not created: %v", ipsetCfg.IPSetName, err)
+			}
+		}
+
+		if ipsetWriter, err := ipset.OpenWriter(); err != nil {
+			return err
+		} else {
+			defer ipsetWriter.Close()
+
+			for _, listName := range ipsetCfg.Lists {
+				if err := processList(cfg, listName, ipsetWriter, domainStore, &ipCount); err != nil {
+					return err
 				}
 			}
 		}
 
-		log.Infof("Lists processing finished: %d domains, %d ipv4 networks, %d ipv6 networks", domainStore.Count(), len(ipv4Networks), len(ipv6Networks))
-
-		err := networking.CreateIpset(ipset)
-		if err != nil {
-			log.Warnf("Could not create ipset '%s': %v", ipset.IPSetName, err)
-		}
-
-		if !skipIpset {
-			if len(ipv4Networks) > 0 {
-				if ipset.IPVersion == config.Ipv4 {
-					fillIpset(ipset, ipv4Networks)
-				} else {
-					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
-						ipset.IPSetName, 4, len(ipv4Networks), 6)
-				}
-			}
-
-			if len(ipv6Networks) > 0 {
-				if ipset.IPVersion == config.Ipv6 {
-					fillIpset(ipset, ipv6Networks)
-				} else {
-					log.Warnf("Lists for ipset '%s' (IPv%d) contains %d of IPv%d networks, skipping them",
-						ipset.IPSetName, 6, len(ipv6Networks), 4)
-				}
-			}
-		}
+		log.Infof("ipset processing finished: %d domains, %d IPs/networks", domainStore.Count(), ipCount)
 	}
 
-	// Write dnsmasq configuration
 	if !skipDnsmasq && domainStore.Count() > 0 {
-		err2 := writeDnsmasqConfig(listsDir, dnsmasqDir, cfg, domainStore)
-		if err2 != nil {
-			return err2
+		if err := writeDnsmasqConfig(cfg, domainStore); err != nil {
+			return err
 		}
 	}
-
-	rtm := runtime.MemStats{}
-	runtime.ReadMemStats(&rtm)
-	fmt.Println("Alloc:", rtm.HeapAlloc)
 
 	log.Infof("Configuration applied")
 	return nil
 }
 
-func writeDnsmasqConfig(listsDir, dnsmasqDir string, config *config.Config, domains *DomainStore) error {
-	startTime := time.Now().UnixMilli()
+// prepareDirectories ensures that the required directories exist.
+func prepareDirectories(listsDir, dnsmasqDir string, skipDnsmasq bool) error {
+	if skipDnsmasq {
+		return nil
+	}
 
-	ipsetCount := len(config.IPSets)
-	files := make(map[rune]*os.File)
-	fileBuffers := make(map[rune]*bufio.Writer)
-	defer func() {
-		for idx, f := range files {
-			if err := fileBuffers[idx].Flush(); err != nil {
-				log.Errorf("Failed to flush file: %v", err)
+	for _, dir := range []string{listsDir, dnsmasqDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", dir, err)
+		}
+	}
+	return nil
+}
+
+// cleanupOldDnsmasqConfigs removes old dnsmasq configuration files.
+func cleanupOldDnsmasqConfigs(dnsmasqDir string, ipsets []*config.IPSetConfig) error {
+	entries, err := os.ReadDir(dnsmasqDir)
+	if err != nil {
+		return fmt.Errorf("failed to read dnsmasq directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf") || strings.HasSuffix(entry.Name(), ".keenetic-pbr.conf.md5") {
+			shouldRemove := true
+			for _, ipset := range ipsets {
+				if strings.HasPrefix(entry.Name(), ipset.IPSetName+".keenetic-pbr.conf") {
+					shouldRemove = false
+					break
+				}
 			}
-			if err := f.Close(); err != nil {
-				log.Errorf("Failed to close file: %v", err)
+
+			if shouldRemove {
+				path := filepath.Join(dnsmasqDir, entry.Name())
+				log.Infof("Removing old dnsmasq cfg file '%s'", path)
+				if err := os.Remove(path); err != nil {
+					return fmt.Errorf("failed to remove old cfg file: %v", err)
+				}
 			}
 		}
-	}()
+	}
+	return nil
+}
+
+// processList processes a single list within an IP set.
+func processList(cfg *config.Config, listName string, ipsetWriter *networking.IPSetWriter, domainStore *DomainStore, ipCount *int) error {
+	list, err := getListByName(cfg, listName)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Reading list \"%s\" (type=%s)...", list.ListName, list.Type())
+
+	if err := iterateOverList(list, cfg, func(host string) error {
+		return appendHost(host, ipsetWriter, domainStore, ipCount)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getListByName(cfg *config.Config, listName string) (*config.ListSource, error) {
+	for _, l := range cfg.Lists {
+		if l.ListName == listName {
+			return l, nil
+		}
+	}
+	return nil, fmt.Errorf("list \"%s\" not found", listName)
+}
+
+// writeDnsmasqConfig writes the dnsmasq configuration.
+func writeDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
+	startTime := time.Now().UnixMilli()
+
+	dnsmasqConfigWriter := NewDnsmasqConfigWriter(cfg)
+	defer dnsmasqConfigWriter.Close()
 
 	log.Infof("Generating dnsmasq configuration...")
 
-	writeHost := func(domain string) {
-		if !utils.IsDNSName(domain) {
-			return
-		}
-
-		sanitizedDomain := sanitizeDomain(domain)
-
-		// there is no problem with collisions for single ipset
-		if ipsetCount > 1 {
-			if collision := domains.GetCollisionDomain(sanitizedDomain); collision != "" {
-				log.Warnf("Found collision: \"%s\" and \"%s\" have the same CRC32-hash. Routing for both of these domains will be undetermined. To fix this, please remove one of these domains", domain, collision)
-			}
-		}
-
-		associations, hash := domains.GetAssociatedIPSetIndexesForDomain(sanitizedDomain)
-		if associations == nil {
-			return
-		}
-
-		fileRune := rune(domain[0])
-		if _, ok := files[fileRune]; !ok {
-			path := filepath.Join(dnsmasqDir, fmt.Sprintf("%c.keenetic-pbr.conf", fileRune))
-			f, err := os.Create(path)
+	for _, ipset := range cfg.IPSets {
+		for _, listName := range ipset.Lists {
+			list, err := getListByName(cfg, listName)
 			if err != nil {
-				log.Fatalf("Failed to create dnsmasq cfg file '%s': %v", path, err)
-				return
-			}
-			files[fileRune] = f
-			fileBuffers[fileRune] = bufio.NewWriter(f)
-		}
-		writer := fileBuffers[fileRune]
-
-		if _, err := fmt.Fprintf(writer, "ipset=/%s/", domain); err != nil {
-			log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
-			return
-		}
-
-		isFirstIPSet := true
-		for i := 0; i < ipsetCount; i++ {
-			if !associations.Has(i) {
-				continue
+				return err
 			}
 
-			if !isFirstIPSet {
-				if _, err := writer.WriteRune(','); err != nil {
-					log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
-					return
-				}
-			}
-
-			isFirstIPSet = false
-
-			if _, err := writer.WriteString(config.IPSets[i].IPSetName); err != nil {
-				log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
-				return
-			}
-		}
-
-		if _, err := writer.WriteRune('\n'); err != nil {
-			log.Errorf("Failed to write to dnsmasq cfg file: %v", err)
-			return
-		}
-
-		domains.Forget(hash)
-	}
-
-	for _, ipset := range config.IPSets {
-		for _, list := range ipset.Lists {
-			if list.URL != "" || list.File != "" {
-				listPath := getListPath(listsDir, ipset, list)
-
-				listFile, err := os.Open(*listPath)
-				if err != nil {
-					log.Fatalf("Failed to read list file '%s': %v", *listPath, err)
-				}
-				defer listFile.Close()
-
-				scanner := bufio.NewScanner(listFile)
-
-				for scanner.Scan() {
-					writeHost(scanner.Text())
-				}
-			} else {
-				for _, host := range list.Hosts {
-					writeHost(host)
-				}
+			if err := iterateOverList(list, cfg, func(host string) error {
+				return writeHostToDnsmasq(host, dnsmasqConfigWriter, domains)
+			}); err != nil {
+				return err
 			}
 		}
 	}
 
-	log.Infof("Writing dnsmasq configutaion took %dms", time.Now().UnixMilli()-startTime)
+	log.Infof("Writing dnsmasq configuration took %dms", time.Now().UnixMilli()-startTime)
 	log.Warnf("Please restart dnsmasq service for changes to take effect!")
 
 	return nil
 }
 
-func fillIpset(ipset *config.IPSetConfig, networks []netip.Prefix) {
-	startTime := time.Now().UnixMilli()
-	// Apply networks to ipsets
-	log.Infof("Filling ipset '%s' (IPv%d) (%d networks)...",
-		ipset.IPSetName, ipset.IPVersion, len(networks))
-	if err := networking.AddToIpset(ipset, networks); err != nil {
-		log.Infof("Could not fill ipset '%s' (IPv%d): %v", ipset.IPSetName, ipset.IPVersion, err)
+// writeHostToDnsmasq writes a single host to the dnsmasq configuration.
+func writeHostToDnsmasq(domain string, dnsmasqConfigWriter *DnsmasqConfigWriter, domains *DomainStore) error {
+	if !utils.IsDNSName(domain) {
+		return nil
 	}
-	log.Infof("Filling ipset '%s' (IPv%d) took %dms",
-		ipset.IPSetName, ipset.IPVersion, time.Now().UnixMilli()-startTime)
+
+	sanitizedDomain := sanitizeDomain(domain)
+
+	if dnsmasqConfigWriter.GetIPSetCount() > 1 {
+		if collision := domains.GetCollisionDomain(sanitizedDomain); collision != "" {
+			log.Warnf("Found collision: \"%s\" and \"%s\" have the same CRC32-hash. "+
+				"Routing for both of these domains will be undetermined. "+
+				"To fix this, please remove one of these domains", domain, collision)
+		}
+	}
+
+	associations, hash := domains.GetAssociatedIPSetIndexesForDomain(sanitizedDomain)
+	if associations == nil {
+		return nil
+	}
+
+	configID := getConfigID(domain)
+	err := dnsmasqConfigWriter.WriteDomain(configID, sanitizedDomain, associations)
+	if err != nil {
+		return fmt.Errorf("failed to write domain to dnsmasq config: %v", err)
+	}
+
+	domains.Forget(hash)
+
+	return nil
 }
 
-func appendHost(host string, ipsetIndex int, domainStore *DomainStore, ipv4NetworksPtr *[]netip.Prefix, ipv6NetworksPtr *[]netip.Prefix) {
+// appendHost appends a host to the appropriate networks or domain store.
+func appendHost(host string, ipsetWriter *networking.IPSetWriter, domainStore *DomainStore, ipCount *int) error {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return
+		return nil
 	}
 
 	if utils.IsDNSName(line) {
-		domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipsetIndex)
+		domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipsetWriter.GetIPSet().Index)
 	} else {
 		if strings.LastIndex(line, "/") < 0 {
 			line = line + "/32"
@@ -273,18 +215,15 @@ func appendHost(host string, ipsetIndex int, domainStore *DomainStore, ipv4Netwo
 		if netPrefix, err := netip.ParsePrefix(line); err == nil {
 			if !netPrefix.IsValid() {
 				log.Warnf("Could not parse host, skipping: %s", host)
-				return
+				return nil
 			}
 
-			// ipv4 contain dots, ipv6 contain colons
-			if netPrefix.Addr().Is4() {
-				ipv4Networks := *ipv4NetworksPtr
-				ipv4Networks = append(ipv4Networks, netPrefix)
-				*ipv4NetworksPtr = ipv4Networks
-			} else if netPrefix.Addr().Is6() {
-				ipv6Networks := *ipv6NetworksPtr
-				ipv6Networks = append(ipv6Networks, netPrefix)
-				*ipv6NetworksPtr = ipv6Networks
+			if (netPrefix.Addr().Is4() && ipsetWriter.GetIPSet().IpFamily == config.Ipv4) ||
+				(netPrefix.Addr().Is6() && ipsetWriter.GetIPSet().IpFamily == config.Ipv6) {
+				*ipCount++
+				if err := ipsetWriter.Add(netPrefix); err != nil {
+					return err
+				}
 			} else {
 				log.Warnf("Could not parse host, skipping: %s", host)
 			}
@@ -292,33 +231,35 @@ func appendHost(host string, ipsetIndex int, domainStore *DomainStore, ipv4Netwo
 			log.Warnf("Could not parse host, skipping: %s", host)
 		}
 	}
+
+	return nil
 }
 
-func getListPath(listsDir string, ipset *config.IPSetConfig, list *config.ListSource) *string {
-	var path = ""
-	if list.URL != "" {
-		path = filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IPSetName, list.ListName))
-	} else if list.File != "" {
-		path = list.File
-	}
+func iterateOverList(list *config.ListSource, cfg *config.Config, iterateFn func(string) error) error {
+	if list.URL != "" || list.File != "" {
+		if listPath, err := list.GetAbsolutePathAndCheckExists(cfg); err != nil {
+			return err
+		} else {
+			listFile, err := os.Open(listPath)
+			if err != nil {
+				return fmt.Errorf("failed to read list file '%s': %v", listPath, err)
+			}
+			defer listFile.Close()
 
-	if path == "" {
+			scanner := bufio.NewScanner(listFile)
+			for scanner.Scan() {
+				if err := iterateFn(scanner.Text()); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	} else {
+		for _, host := range list.Hosts {
+			if err := iterateFn(host); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
-
-	var err error
-	path, err = filepath.Abs(path)
-	if err != nil {
-		log.Fatalf("Failed to resolve absolute path to file '%s': %v", path, err)
-	}
-
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		if list.URL != "" {
-			log.Fatalf("Could not open list file '%s', please run 'keenetic-pbr download' first", path)
-		} else {
-			log.Fatalf("Could not open list file '%s'", path)
-		}
-	}
-
-	return &path
 }

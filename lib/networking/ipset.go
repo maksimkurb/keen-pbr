@@ -1,36 +1,80 @@
 package networking
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/config"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"io"
 	"net/netip"
 	"os/exec"
+	"sync"
 )
 
 const ipsetCommand = "ipset"
 
-// CreateIpset creates a new ipset with the given name and IP family (4 or 6)
-func CreateIpset(ipset *config.IPSetConfig) error {
-	// Determine IP family
-	family := "inet"
-	if ipset.IPVersion == 6 {
-		family = "inet6"
-	} else if ipset.IPVersion != 0 && ipset.IPVersion != 4 {
-		log.Warnf("unknown IP version %d, assuming IPv4", ipset.IPVersion)
+type IPSet struct {
+	Index    int
+	Name     string
+	IpFamily config.IpFamily
+}
+
+type IPSetWriter struct {
+	ipset  *IPSet
+	cmd    *exec.Cmd
+	stdin  *bufio.Writer
+	pipe   *io.WriteCloser
+	mutex  sync.Mutex
+	errors chan error
+	closed bool
+}
+
+func BuildIPSet(index int, name string, ipFamily config.IpFamily) *IPSet {
+	return &IPSet{
+		Index:    index,
+		Name:     name,
+		IpFamily: ipFamily,
+	}
+}
+
+func (ipset *IPSet) String() string {
+	return fmt.Sprintf("ipset %s (IPv%d)", ipset.Name, ipset.IpFamily)
+}
+
+func (ipset *IPSet) CheckExecutable() error {
+	if _, err := exec.LookPath("ipset"); err != nil {
+		return fmt.Errorf("failed to find ipset command: %v", err)
+	}
+	return nil
+}
+
+func (ipset *IPSet) CreateIfNotExists() error {
+	if err := ipset.CheckExecutable(); err != nil {
+		return err
 	}
 
-	cmd := exec.Command(ipsetCommand, "create", ipset.IPSetName, "hash:net", "family", family, "-exist")
+	var family string
+	if ipset.IpFamily == 6 {
+		family = "inet6"
+	} else {
+		family = "inet"
+	}
+
+	cmd := exec.Command(ipsetCommand, "create", ipset.Name, "hash:net", "family", family, "-exist")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create ipset %s (IPv%d): %v", ipset.IPSetName, ipset.IPVersion, err)
+		return fmt.Errorf("failed to create ipset [%s]: %v", ipset, err)
 	}
 
 	return nil
 }
 
-// CheckIpsetExists checks if the given ipset exists
-func CheckIpsetExists(ipset *config.IPSetConfig) (bool, error) {
-	cmd := exec.Command(ipsetCommand, "-n", "list", ipset.IPSetName)
+func (ipset *IPSet) IsExists() (bool, error) {
+	if err := ipset.CheckExecutable(); err != nil {
+		return false, err
+	}
+
+	cmd := exec.Command(ipsetCommand, "-n", "list", ipset.Name)
 	if err := cmd.Start(); err != nil {
 		return false, err
 	}
@@ -103,4 +147,102 @@ func AddToIpset(ipset *config.IPSetConfig, networks []netip.Prefix) error {
 	}
 
 	return nil
+}
+
+func (ipset *IPSet) Flush() error {
+	if err := ipset.CheckExecutable(); err != nil {
+		return err
+	}
+
+	if exists, err := ipset.IsExists(); err != nil {
+		return err
+	} else if !exists {
+		return fmt.Errorf("ipset %s does not exist, failed to flush", ipset.Name)
+	}
+
+	cmd := exec.Command(ipsetCommand, "flush", ipset.Name)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to flush ipset %s: %v", ipset.Name, err)
+	}
+	return nil
+}
+
+func (ipset *IPSet) OpenWriter() (*IPSetWriter, error) {
+	if err := ipset.CheckExecutable(); err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command("ipset", "restore", "-exist")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdin pipe: %v", err)
+	}
+
+	writer := &IPSetWriter{
+		ipset:  ipset,
+		cmd:    cmd,
+		stdin:  bufio.NewWriter(stdin),
+		pipe:   &stdin,
+		errors: make(chan error),
+	}
+
+	go func() {
+		defer close(writer.errors)
+		if err := cmd.Run(); err != nil {
+			writer.errors <- fmt.Errorf("ipset command failed: %v", err)
+		}
+	}()
+
+	return writer, nil
+}
+
+// Add writes an IP network to the buffer.
+func (w *IPSetWriter) Add(network netip.Prefix) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.closed {
+		return errors.New("cannot add to closed writer")
+	}
+
+	if !network.IsValid() {
+		log.Warnf("Skipping invalid network: %v", network)
+		return nil
+	}
+
+	if _, err := w.stdin.WriteString(fmt.Sprintf("add %s %s\n", w.ipset.Name, network.String())); err != nil {
+		return fmt.Errorf("failed to write to ipset: %v", err)
+	}
+	return nil
+}
+
+// Close flushes the buffer, closes the pipe, and waits for the command to complete.
+func (w *IPSetWriter) Close() error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.closed {
+		return errors.New("writer already closed")
+	}
+	w.closed = true
+
+	if err := w.stdin.Flush(); err != nil {
+		return fmt.Errorf("failed to flush stdin: %v", err)
+	}
+
+	if err := (*w.pipe).Close(); err != nil {
+		return fmt.Errorf("failed to close stdin pipe: %v", err)
+	}
+
+	for err := range w.errors {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (w *IPSetWriter) GetIPSet() *IPSet {
+	return w.ipset
 }
