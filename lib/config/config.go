@@ -72,7 +72,6 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	log.Debugf("Configuration file path: %s", configFile)
 	log.Debugf("Downloaded lists directory: %s", config.GetAbsDownloadedListsDir())
-	log.Debugf("Dnsmasq config directory: %s", config.GetAbsDnsmasqDir())
 
 	return &config, nil
 }

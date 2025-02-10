@@ -85,7 +85,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 		log.Infof("Usage of kill-switch is DISABLED")
 	}
 
-	ipset := networking.BuildIPSet(0, ipsetCfg.IPSetName, ipsetCfg.IPVersion)
+	ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
 
 	if exists, err := ipset.IsExists(); err != nil {
 		log.Errorf("Failed to check ipset presense [%s]: %v", ipsetCfg.IPSetName, err)

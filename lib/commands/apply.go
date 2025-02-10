@@ -15,7 +15,6 @@ func CreateApplyCommand() *ApplyCommand {
 		fs: flag.NewFlagSet("apply", flag.ExitOnError),
 	}
 
-	gc.fs.BoolVar(&gc.SkipDnsmasq, "skip-dnsmasq", false, "Skip dnsmasq config files generation")
 	gc.fs.BoolVar(&gc.SkipIpset, "skip-ipset", false, "Skip ipset filling")
 	gc.fs.BoolVar(&gc.SkipRouting, "skip-routing", false, "Skip ip routes and ip rules applying")
 	gc.fs.StringVar(&gc.OnlyRoutingForInterface, "only-routing-for-interface", "", "Only apply ip routes/rules for the specified interface (if it is present in keenetic-pbr config)")
@@ -28,7 +27,6 @@ type ApplyCommand struct {
 	fs  *flag.FlagSet
 	cfg *config.Config
 
-	SkipDnsmasq             bool
 	SkipIpset               bool
 	SkipRouting             bool
 	OnlyRoutingForInterface string
@@ -44,11 +42,11 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if g.SkipDnsmasq && g.SkipIpset && g.SkipRouting {
-		return fmt.Errorf("--skip-dnsmasq, --skip-ipset and --skip-routing are used, nothing to do")
+	if g.SkipIpset && g.SkipRouting {
+		return fmt.Errorf("--skip-ipset and --skip-routing are used, nothing to do")
 	}
 
-	if g.OnlyRoutingForInterface != "" && (g.SkipRouting || g.SkipIpset || g.SkipDnsmasq) {
+	if g.OnlyRoutingForInterface != "" && (g.SkipRouting || g.SkipIpset) {
 		return fmt.Errorf("--only-routing-for-interface and --skip-* can not be used together")
 	}
 
@@ -68,8 +66,8 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *ApplyCommand) Run() error {
-	if (!g.SkipIpset || !g.SkipDnsmasq) && g.OnlyRoutingForInterface == "" {
-		if err := lists.ApplyLists(g.cfg, g.SkipDnsmasq, g.SkipIpset); err != nil {
+	if !g.SkipIpset && g.OnlyRoutingForInterface == "" {
+		if err := lists.ImportListsToIPSets(g.cfg); err != nil {
 			return fmt.Errorf("failed to apply lists: %v", err)
 		}
 	}

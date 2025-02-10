@@ -14,6 +14,7 @@ const (
 
 var (
 	verbose     = false
+	forceStdErr = false
 	logPrefixes = map[int]string{
 		levelDebug: "\033[37m[DBG]\033[0m", // White
 		levelInfo:  "\033[36m[INF]\033[0m", // Cyan
@@ -25,6 +26,11 @@ var (
 // SetVerbose sets the logging verbosity. If true, all log levels are displayed.
 func SetVerbose(v bool) {
 	verbose = v
+}
+
+// SetForceStdErr sets the output channel. If true, all log messages will be written to stderr.
+func SetForceStdErr(v bool) {
+	forceStdErr = v
 }
 
 // Debugf logs a debug message if verbose is true.
@@ -62,7 +68,7 @@ func logMessage(level int, format string, args ...interface{}) {
 	output := prefix + " " + message + "\n"
 
 	// Write the output to the appropriate stream
-	if level == levelError {
+	if forceStdErr || level == levelError {
 		os.Stderr.WriteString(output)
 	} else {
 		os.Stdout.WriteString(output)

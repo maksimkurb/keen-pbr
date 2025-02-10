@@ -16,11 +16,11 @@ func BenchmarkApplyLists(b *testing.B) {
 	// Reset the timer to exclude the setup time from the benchmark.
 	b.ResetTimer()
 
-	// Run the benchmark for ApplyLists.
-	b.Run("ApplyLists", func(b *testing.B) {
+	// Run the benchmark for ImportListsToIPSets.
+	b.Run("ImportListsToIPSets", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			if err := ApplyLists(cfg, false, true); err != nil {
-				b.Errorf("ApplyLists() error = %v", err)
+			if err := ImportListsToIPSets(cfg, false, true); err != nil {
+				b.Errorf("ImportListsToIPSets() error = %v", err)
 			}
 		}
 	})

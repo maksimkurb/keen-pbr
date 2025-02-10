@@ -15,7 +15,6 @@ import (
 const ipsetCommand = "ipset"
 
 type IPSet struct {
-	Index    int
 	Name     string
 	IpFamily config.IpFamily
 }
@@ -30,9 +29,8 @@ type IPSetWriter struct {
 	closed bool
 }
 
-func BuildIPSet(index int, name string, ipFamily config.IpFamily) *IPSet {
+func BuildIPSet(name string, ipFamily config.IpFamily) *IPSet {
 	return &IPSet{
-		Index:    index,
 		Name:     name,
 		IpFamily: ipFamily,
 	}

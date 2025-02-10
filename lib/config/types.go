@@ -17,9 +17,8 @@ type Config struct {
 }
 
 type GeneralConfig struct {
-	ListsOutputDir  string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
-	DnsmasqListsDir string `toml:"dnsmasq_lists_dir" comment:"Directory for generated dnsmasq configs"`
-	UseKeeneticAPI  *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
+	ListsOutputDir string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
+	UseKeeneticAPI *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
 }
 
 type IPSetConfig struct {
@@ -64,10 +63,6 @@ func (c *Config) GetConfigDir() string {
 
 func (c *Config) GetAbsDownloadedListsDir() string {
 	return utils.GetAbsolutePath(c.General.ListsOutputDir, c.GetConfigDir())
-}
-
-func (c *Config) GetAbsDnsmasqDir() string {
-	return utils.GetAbsolutePath(c.General.DnsmasqListsDir, c.GetConfigDir())
 }
 
 func (lst *ListSource) Type() string {

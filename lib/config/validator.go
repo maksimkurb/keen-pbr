@@ -121,6 +121,7 @@ func (c *Config) validateGeneralConfig() error {
 		def := true
 		c.General.UseKeeneticAPI = &def
 	}
+
 	return nil
 }
 

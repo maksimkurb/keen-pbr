@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/maksimkurb/keenetic-pbr/lib/commands"
 	"github.com/maksimkurb/keenetic-pbr/lib/log"
 	"github.com/maksimkurb/keenetic-pbr/lib/networking"
 	"os"
-	"path/filepath"
 )
 
 func main() {
@@ -23,7 +23,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
-		fmt.Fprintf(os.Stderr, "  apply                   Import IPs from lists to ipsets and update dnsmasq domains config\n")
+		fmt.Fprintf(os.Stderr, "  apply                   Import IPs/CIDRs from lists to ipsets\n")
+		fmt.Fprintf(os.Stderr, "  print-dnsmasq-config    Print dnsmasq generated 'ipset=...' entries to stdout. Logs will be written to stderr.\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
 		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
 		fmt.Fprintf(os.Stderr, "  undo-routing            Undo any routing configuration (reverts \"apply\" command)\n")
@@ -37,10 +38,9 @@ func main() {
 		log.SetVerbose(true)
 	}
 
-	// Ensure cfg directory exists
-	configDir := filepath.Dir(ctx.ConfigPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		log.Fatalf("Failed to create cfg directory: %v", err)
+	// Ensure cfg file exists
+	if _, err := os.Stat(ctx.ConfigPath); errors.Is(err, os.ErrNotExist) {
+		log.Fatalf("Configuration file not found: %s", ctx.ConfigPath)
 	}
 
 	// Get interfaces list
@@ -52,6 +52,7 @@ func main() {
 	cmds := []commands.Runner{
 		commands.CreateDownloadCommand(),
 		commands.CreateApplyCommand(),
+		commands.CreateDnsmasqConfigCommand(),
 		commands.CreateInterfacesCommand(),
 		commands.CreateSelfCheckCommand(),
 		commands.CreateUndoCommand(),
