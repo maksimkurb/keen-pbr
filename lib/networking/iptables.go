@@ -11,13 +11,13 @@ import (
 
 type IPTableRules struct {
 	ipt   *iptables.IPTables
-	ipset *config.IpsetConfig
+	ipset *config.IPSetConfig
 	rules []*config.IPTablesRule
 }
 
-func BuildIPTablesForIpset(ipset *config.IpsetConfig) (*IPTableRules, error) {
+func BuildIPTablesForIpset(ipset *config.IPSetConfig) (*IPTableRules, error) {
 	protocol := iptables.ProtocolIPv4
-	if ipset.IpVersion == config.Ipv6 {
+	if ipset.IPVersion == config.Ipv6 {
 		protocol = iptables.ProtocolIPv6
 	}
 
@@ -32,10 +32,10 @@ func BuildIPTablesForIpset(ipset *config.IpsetConfig) (*IPTableRules, error) {
 	}
 }
 
-func processRules(ipset *config.IpsetConfig) ([]*config.IPTablesRule, error) {
-	rules := make([]*config.IPTablesRule, len(ipset.IPTablesRule))
+func processRules(ipset *config.IPSetConfig) ([]*config.IPTablesRule, error) {
+	rules := make([]*config.IPTablesRule, len(ipset.IPTablesRules))
 
-	for i, rule := range ipset.IPTablesRule {
+	for i, rule := range ipset.IPTablesRules {
 		ruleSpecs := make([]string, len(rule.Rule))
 
 		for j, ruleSpec := range rule.Rule {
@@ -52,14 +52,14 @@ func processRules(ipset *config.IpsetConfig) ([]*config.IPTablesRule, error) {
 	return rules, nil
 }
 
-func processRulePart(template string, ipset *config.IpsetConfig) string {
+func processRulePart(template string, ipset *config.IPSetConfig) string {
 	if !strings.Contains(template, "{{") {
 		return template
 	}
 
 	t := fasttemplate.New(template, "{{", "}}")
 	return t.ExecuteString(map[string]interface{}{
-		config.IPTABLES_TMPL_IPSET:    ipset.IpsetName,
+		config.IPTABLES_TMPL_IPSET:    ipset.IPSetName,
 		config.IPTABLES_TMPL_FWMARK:   strconv.FormatUint(uint64(ipset.Routing.FwMark), 10),
 		config.IPTABLES_TMPL_PRIORITY: strconv.FormatUint(uint64(ipset.Routing.IpRulePriority), 10),
 		config.IPTABLES_TMPL_TABLE:    strconv.FormatUint(uint64(ipset.Routing.IpRouteTable), 10),

@@ -22,7 +22,7 @@ func (r *IpRule) String() string {
 		to = r.Dst.String()
 	}
 
-	return fmt.Sprintf("%d: from %s to %s fwmark=%d -> table %d",
+	return fmt.Sprintf("rule %d: from %s to %s fwmark=%d -> table %d",
 		r.Priority, from, to, r.Mark, r.Table)
 }
 

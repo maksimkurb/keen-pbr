@@ -14,7 +14,7 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 
 	appliedAtLeastOnce := false
 
-	for _, ipset := range config.Ipset {
+	for _, ipset := range config.IPSets {
 		shouldRoute := false
 		if onlyRoutingForInterface == nil || *onlyRoutingForInterface == "" {
 			shouldRoute = true
@@ -40,7 +40,7 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 	return appliedAtLeastOnce, nil
 }
 
-func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bool) error {
+func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bool) error {
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	if useKeeneticAPI {
 		var err error
@@ -91,7 +91,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 
 	if ipset.Routing.KillSwitch || chosenIface != nil {
 		log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
-			ipset.Routing.FwMark, ipset.IpsetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+			ipset.Routing.FwMark, ipset.IPSetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 
 		if err := ipRule.AddIfNotExists(); err != nil {
 			return err
@@ -117,35 +117,36 @@ func applyIpsetNetworkConfiguration(ipset *config.IpsetConfig, useKeeneticAPI bo
 	return nil
 }
 
-func addDefaultGatewayRoute(ipset *config.IpsetConfig, chosenIface *Interface) error {
+func addDefaultGatewayRoute(ipset *config.IPSetConfig, chosenIface *Interface) error {
 	log.Infof("Adding default gateway ip route dev=%s to table=%d", chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
-	ipRoute := BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
+	ipRoute := BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable)
 	if err := ipRoute.AddIfNotExists(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func addBlackholeRoute(ipset *config.IpsetConfig) error {
+func addBlackholeRoute(ipset *config.IPSetConfig) error {
 	log.Infof("Adding blackhole ip route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
-	route := BuildBlackholeRoute(ipset.IpVersion, ipset.Routing.IpRouteTable)
+	route := BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
 	if err := route.AddIfNotExists(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func BuildIPRuleForIpset(ipset *config.IpsetConfig) *IpRule {
-	return BuildRule(ipset.IpVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+func BuildIPRuleForIpset(ipset *config.IPSetConfig) *IpRule {
+	return BuildRule(ipset.IPVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 }
 
-func ChooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
+func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
 	var chosenIface *Interface = nil
 
-	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IpsetName, ipset.Routing.Interfaces)
+	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IPSetName, ipset.Routing.Interfaces)
 	for _, interfaceName := range ipset.Routing.Interfaces {
 		if iface, err := GetInterface(interfaceName); err != nil {
-			return nil, err
+			log.Errorf("Failed to get interface \"%s\" status: %v", interfaceName, err)
+			continue
 		} else {
 			addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
 			var keeneticIface *keenetic.Interface = nil
@@ -200,7 +201,7 @@ func ChooseBestInterface(ipset *config.IpsetConfig, useKeeneticAPI bool, keeneti
 	}
 
 	if chosenIface == nil {
-		log.Warnf("Could not choose best interface for ipset %s: all configured interfaces are down", ipset.IpsetName)
+		log.Warnf("Could not choose best interface for ipset %s: all configured interfaces are down", ipset.IPSetName)
 	}
 
 	return chosenIface, nil

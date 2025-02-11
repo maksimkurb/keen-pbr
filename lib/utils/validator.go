@@ -29,14 +29,13 @@ package utils
 import (
 	"net"
 	"regexp"
-	"strings"
 )
 
 var rxDNSName = regexp.MustCompile(`^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`)
 
 // IsDNSName will validate the given string as a DNS name
 func IsDNSName(str string) bool {
-	if str == "" || len(strings.Replace(str, ".", "", -1)) > 255 {
+	if str == "" || len(str) > 253 {
 		// constraints already violated
 		return false
 	}
@@ -45,10 +44,4 @@ func IsDNSName(str string) bool {
 
 func IsIP(str string) bool {
 	return net.ParseIP(str) != nil
-}
-
-// IsCIDR checks if the string is an valid CIDR notiation (IPV4 & IPV6)
-func IsCIDR(str string) bool {
-	_, _, err := net.ParseCIDR(str)
-	return err == nil
 }

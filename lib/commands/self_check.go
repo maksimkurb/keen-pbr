@@ -34,10 +34,15 @@ func (g *SelfCheckCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath, ctx.Interfaces); err != nil {
+	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg
+	}
+
+	if err := networking.ValidateInterfacesArePresent(g.cfg, ctx.Interfaces); err != nil {
+		log.Errorf("Configuration validation failed: %v", err)
+		networking.PrintMissingInterfacesHelp()
 	}
 
 	return nil
@@ -52,7 +57,7 @@ func (g *SelfCheckCommand) Run() error {
 		log.Errorf("Failed to serialize config: %v", err)
 		return err
 	} else {
-		if err := binary.Write(os.Stdout, binary.LittleEndian, cfg); err != nil {
+		if err := binary.Write(os.Stdout, binary.LittleEndian, cfg.Bytes()); err != nil {
 			log.Errorf("Failed to output config: %v", err)
 			return err
 		}
@@ -60,9 +65,9 @@ func (g *SelfCheckCommand) Run() error {
 
 	log.Infof("----------------- Configuration END ------------------")
 
-	for _, ipset := range g.cfg.Ipset {
+	for _, ipset := range g.cfg.IPSets {
 		if err := checkIpset(g.cfg, ipset); err != nil {
-			log.Errorf("Failed to check ipset routing configuration [%s]: %v", ipset.IpsetName, err)
+			log.Errorf("Failed to check ipset routing configuration [%s]: %v", ipset.IPSetName, err)
 			return err
 		}
 	}
@@ -71,27 +76,29 @@ func (g *SelfCheckCommand) Run() error {
 	return nil
 }
 
-func checkIpset(cfg *config.Config, ipset *config.IpsetConfig) error {
-	log.Infof("----------------- IPSet [%s] ------------------", ipset.IpsetName)
+func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
+	log.Infof("----------------- IPSet [%s] ------------------", ipsetCfg.IPSetName)
 
-	if ipset.Routing.KillSwitch {
+	if ipsetCfg.Routing.KillSwitch {
 		log.Infof("Usage of kill-switch is enabled")
 	} else {
 		log.Infof("Usage of kill-switch is DISABLED")
 	}
 
-	if exists, err := networking.CheckIpsetExists(ipset); err != nil {
-		log.Errorf("Failed to check ipset presense [%s]: %v", ipset.IpsetName, err)
+	ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
+
+	if exists, err := ipset.IsExists(); err != nil {
+		log.Errorf("Failed to check ipset presense [%s]: %v", ipsetCfg.IPSetName, err)
 		return err
 	} else {
 		if exists {
-			log.Infof("ipset [%s] is exists", ipset.IpsetName)
+			log.Infof("ipset [%s] is exists", ipsetCfg.IPSetName)
 		} else {
-			log.Errorf("ipset [%s] is NOT exists", ipset.IpsetName)
+			log.Errorf("ipset [%s] is NOT exists", ipsetCfg.IPSetName)
 		}
 	}
 
-	ipRule := networking.BuildIPRuleForIpset(ipset)
+	ipRule := networking.BuildIPRuleForIpset(ipsetCfg)
 	if exists, err := ipRule.IsExists(); err != nil {
 		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
 		return err
@@ -117,7 +124,7 @@ func checkIpset(cfg *config.Config, ipset *config.IpsetConfig) error {
 		log.Warnf("Usage of Keenetic API is DISABLED. This may lead to wrong interface selection if you are using multiple interfaces for ipset")
 	}
 
-	if chosenIface, err := networking.ChooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces); err != nil {
+	if chosenIface, err := networking.ChooseBestInterface(ipsetCfg, useKeeneticAPI, keeneticIfaces); err != nil {
 		log.Errorf("Failed to choose best interface: %v", err)
 		return err
 	} else {
@@ -127,21 +134,21 @@ func checkIpset(cfg *config.Config, ipset *config.IpsetConfig) error {
 			log.Infof("Choosing interface %s", chosenIface.Attrs().Name)
 		}
 
-		if err := checkIpRoutes(ipset, chosenIface); err != nil {
+		if err := checkIpRoutes(ipsetCfg, chosenIface); err != nil {
 			log.Errorf("Failed to check IP routes: %v", err)
 			return err
 		}
-		if err := checkIpTables(ipset); err != nil {
+		if err := checkIpTables(ipsetCfg); err != nil {
 			log.Errorf("Failed to check iptable rules: %v", err)
 			return err
 		}
 	}
 
-	log.Infof("----------------- IPSet [%s] END ------------------", ipset.IpsetName)
+	log.Infof("----------------- IPSet [%s] END ------------------", ipsetCfg.IPSetName)
 	return nil
 }
 
-func checkIpTables(ipset *config.IpsetConfig) error {
+func checkIpTables(ipset *config.IPSetConfig) error {
 	ipTableRules, err := networking.BuildIPTablesForIpset(ipset)
 	if err != nil {
 		log.Errorf("Failed to build iptable rules: %v", err)
@@ -165,7 +172,7 @@ func checkIpTables(ipset *config.IpsetConfig) error {
 	return nil
 }
 
-func checkIpRoutes(ipset *config.IpsetConfig, chosenIface *networking.Interface) error {
+func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface) error {
 	if routes, err := networking.ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
 		log.Errorf("Failed to list IP routes in table %d: %v", ipset.Routing.IpRouteTable, err)
 		return err
@@ -194,7 +201,7 @@ func checkIpRoutes(ipset *config.IpsetConfig, chosenIface *networking.Interface)
 	}
 
 	if chosenIface != nil {
-		defaultIpRoute := networking.BuildDefaultRoute(ipset.IpVersion, *chosenIface, ipset.Routing.IpRouteTable)
+		defaultIpRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable)
 		if exists, err := defaultIpRoute.IsExists(); err != nil {
 			log.Errorf("Failed to check default IP route [%v]: %v", defaultIpRoute, err)
 			return err
@@ -209,7 +216,7 @@ func checkIpRoutes(ipset *config.IpsetConfig, chosenIface *networking.Interface)
 		log.Infof("Default IP route check SKIPPED because no interface is connected")
 	}
 
-	blackholeIpRoute := networking.BuildBlackholeRoute(ipset.IpVersion, ipset.Routing.IpRouteTable)
+	blackholeIpRoute := networking.BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
 	if exists, err := blackholeIpRoute.IsExists(); err != nil {
 		log.Errorf("Failed to check blackhole IP route [%v]: %v", blackholeIpRoute, err)
 		return err

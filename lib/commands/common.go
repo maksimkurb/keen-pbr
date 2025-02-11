@@ -18,7 +18,7 @@ type AppContext struct {
 	Interfaces []networking.Interface
 }
 
-func loadAndValidateConfigOrFail(configPath string, interfaces []networking.Interface) (*config.Config, error) {
+func loadAndValidateConfigOrFail(configPath string) (*config.Config, error) {
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %v", err)
@@ -26,10 +26,7 @@ func loadAndValidateConfigOrFail(configPath string, interfaces []networking.Inte
 
 	// Validate configuration
 	if err = cfg.ValidateConfig(); err != nil {
-		return nil, fmt.Errorf("failed to validate configuration: %v", err)
-	}
-	if err := networking.ValidateConfigInterfaces(cfg, interfaces); err != nil {
-		return nil, fmt.Errorf("failed to validate configuration: %v", err)
+		return nil, fmt.Errorf("configuration validation is failed: %v", err)
 	}
 	return cfg, nil
 }

@@ -19,47 +19,49 @@ func DownloadLists(config *config.Config) error {
 		return fmt.Errorf("failed to create lists directory: %v", err)
 	}
 
-	for _, ipset := range config.Ipset {
-		for _, list := range ipset.List {
-			if list.URL == "" {
-				continue
-			}
+	for _, list := range config.Lists {
+		if list.URL == "" {
+			continue
+		}
 
-			log.Infof("Downloading list \"%s-%s\" from URL: %s", ipset.IpsetName, list.ListName, list.URL)
+		log.Infof("Downloading list \"%s\" from URL: %s", list.ListName, list.URL)
 
-			resp, err := client.Get(list.URL)
-			if err != nil {
-				log.Errorf("Failed to download list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
-				continue
-			}
-			defer resp.Body.Close()
-			bodyProxy := hashing.NewMD5ReaderProxy(resp.Body)
+		resp, err := client.Get(list.URL)
+		if err != nil {
+			log.Errorf("Failed to download list \"%s\": %v", list.ListName, err)
+			continue
+		}
+		defer resp.Body.Close()
+		bodyProxy := hashing.NewMD5ReaderProxy(resp.Body)
 
-			if resp.StatusCode != http.StatusOK {
-				log.Errorf("Failed to download list \"%s-%s\": %s", ipset.IpsetName, list.ListName, resp.Status)
-				continue
-			}
+		if resp.StatusCode != http.StatusOK {
+			log.Errorf("Failed to download list \"%s\": %s", list.ListName, resp.Status)
+			continue
+		}
 
-			content, err := io.ReadAll(bodyProxy)
-			if err != nil {
-				log.Errorf("Failed to read response for list \"%s-%s\": %v", ipset.IpsetName, list.ListName, err)
-				continue
-			}
+		content, err := io.ReadAll(bodyProxy)
+		if err != nil {
+			log.Errorf("Failed to read response for list \"%s\": %v", list.ListName, err)
+			continue
+		}
 
-			filePath := filepath.Join(listsDir, fmt.Sprintf("%s-%s.lst", ipset.IpsetName, list.ListName))
-			if changed, err := IsFileChanged(bodyProxy, filePath); err != nil {
-				log.Errorf("Failed to calculate list \"%s-%s\" checksum: %v", ipset.IpsetName, list.ListName, err)
-			} else if !changed {
-				log.Infof("List \"%s-%s\" is not changed, skipping write to disk", ipset.IpsetName, list.ListName)
-				continue
-			}
+		filePath, err := list.GetAbsolutePath(config)
+		if err != nil {
+			return err
+		}
 
-			if err := os.WriteFile(filePath, content, 0644); err != nil {
-				return fmt.Errorf("failed to write list file to %s: %v", filePath, err)
-			}
-			if err := WriteChecksum(bodyProxy, filePath); err != nil {
-				return fmt.Errorf("failed to write list checksum: %v", err)
-			}
+		if changed, err := IsFileChanged(bodyProxy, filePath); err != nil {
+			log.Errorf("Failed to calculate list \"%s\" checksum: %v", list.ListName, err)
+		} else if !changed {
+			log.Infof("List \"%s\" is not changed, skipping write to disk", list.ListName)
+			continue
+		}
+
+		if err := os.WriteFile(filePath, content, 0644); err != nil {
+			return fmt.Errorf("failed to write list file to %s: %v", filePath, err)
+		}
+		if err := WriteChecksum(bodyProxy, filePath); err != nil {
+			return fmt.Errorf("failed to write list checksum: %v", err)
 		}
 	}
 
