@@ -69,6 +69,17 @@ KEENETIC_CONF="/opt/etc/keenetic-pbr/keenetic-pbr.conf"
 echo "Keenetic-pbr installation"
 echo "------------------------"
 
+if [ -f "$${KEENETIC_CONF}" ]; then
+	echo "Existing keenetic-pbr.conf found, upgrading it. Old config will be backed up to 'keenetic-pbr.conf.before-update'"
+	cp "$${KEENETIC_CONF}" "$${KEENETIC_CONF}.before-update"
+	keenetic-pbr upgrade-config || echo "keenetic-pbr config upgrade failed"
+fi
+
+# rm all files /opt/etc/dnsmasq.d/*.keenetic-pbr.conf
+echo "Removing old generated dnsmasq ipset configs (dnsmasq.d/*.keenetic-pbr.conf)"
+rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.conf
+rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.conf.md5
+
 # Backup existing config if present
 if [ -f "$${DNSMASQ_CONF}" ]; then
 	echo "Existing dnsmasq.conf found, backing up to '$$DNSMASQ_ORIGINAL_BAK'"
