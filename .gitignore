@@ -1,3 +1,4 @@
 test-config/
 keenetic-pbr
 bin/
+!keenetic-pbr/opt/etc/keenetic-pbr/local.lst
