@@ -9,7 +9,7 @@
 
 #### ⚠️For Keenetic router owners without USB port:
 * Make sure you've updated to at least version `v-1.3.0-2`
-* [Disable lists auto-update](#disable-lists-autoupdate) after package installation/update
+* [Disable lists auto-update](#config-step-3) after package installation/update
 
 This will help prevent excessive wear of the router's NAND-flash memory.
 
@@ -97,7 +97,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 ```
 
 > [!CAUTION]  
-> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#disable-lists-autoupdate) to prevent NAND-flash memory wear!
+> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear!
 
 ### Manual installation/update
 
@@ -119,99 +119,42 @@ During installation, the `keenetic-pbr` package replaces the original **dnsmasq*
 A backup of your original file is saved as `/opt/etc/dnsmasq.conf.orig`.
 
 > [!CAUTION]  
-> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#disable-lists-autoupdate) to prevent NAND-flash memory wear!
+> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear!
 
 ## Configuration
 
-Adjust the following configuration files according to your needs:
+Adjust the following configuration files according to your needs (more details below):
 
-- **(required) Keenetic-PBR configuration:** `/opt/etc/keenetic-pbr/keenetic-pbr.conf`
+1. **(required) [Configure keenetic-pbr package](#config-step-1)**
    - In this file, you must configure the required ipsets, lists, and output interfaces
-- **(optional) Disable lists auto-update:** `/opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh`
-   - If Entware is installed on internal memory, it is strongly recommended to [disable lists auto-update](#disable-lists-autoupdate) to prevent NAND-flash memory wear
-- **(optional) dnsmasq configuration:** `/opt/etc/dnsmasq.conf`
-   - This file can be reconfigured for your needs, e.g. you can replace the upstream DNS server with your own
-   - It is recommended to install and configure the `dnscrypt-proxy2` package, and then specify the setting `server=127.0.0.1#9153` in `dnsmasq.conf` so that DNS requests are protected by DNS-over-HTTPS (DoH)
+2. **(required) [Download remote lists (if you have any)](#config-step-2)**
+3. **(optional) [Disable lists auto-update](#config-step-3)**
+   - If Entware is installed on internal memory, it is strongly recommended to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear
+4. **(optional) [Configure DNS over HTTPS (DoH)](#config-step-4)**
+   - dnsmasq can be reconfigured for your needs, e.g. you can replace the upstream DNS server with your own
+   - It is recommended to install and configure the `dnscrypt-proxy2` package to protect your DNS requests via DNS-over-HTTPS (DoH)
+5. **(required) [Enable DNS Override](#config-step-5)**
 
-### 1. Edit `keenetic-pbr.conf`
+<a name="config-step-1"></a>
+### 1. Configuring keenetic-pbr package
 
 Open `/opt/etc/keenetic-pbr/keenetic-pbr.conf` and edit as needed:
 
-1. You need to adjust the `interface` field, specifying the interface through which outgoing traffic that matches the list criteria will go.
+1. You need to adjust the `interfaces` field, specifying the interface through which outgoing traffic that matches the list criteria will go.
 2. You also need to add lists (local or remote via URL)
 
-**Configuration example:** (you don't need to copy this example, you can just edit the file that comes with the package)
-```toml
-#-------------#
-#   IPSET 1   #
-#-------------#
-[[ipset]]
-ipset_name = "vpn"              # Name of the ipset
-ip_version = 4                  # IPv4 or IPv6
-flush_before_applying = true    # Clear ipset each time before filling it
-
-   [ipset.routing]
-   interfaces = ["nwg1", "nwg2"]   # Where the traffic for IPs in this ipset will be directed
-                                   # keenetic-pbr will use first interface that is administratively up.
-                                   # If use_keenetic_api is enabled, keenetic-pbr will also check if there is an active connection on this interface.
-   
-   kill_switch = false  # If kill-switch is turned on and all interfaces all down, traffic to the hosts from ipset will be dropped
-   fwmark = 1001        # This fwmark will be applied to packets matching the list criteria
-   table = 1001         # Routing table number (ip route table); a default gateway to the specified interface above will be added there
-   priority = 1001      # Routing rule priority (ip rule priority); the lower the number, the higher the priority
-
-   # Advanced settings: you can specify custom iptables rules that will be applied for the ipset.
-   #   Available variables:
-   #   {{ipset_name}} - name of the ipset
-   #   {{fwmark}} - fwmark
-   #   {{table}} - number of the routing table
-   #   {{priority}} - priority of the routing rule
-   #
-   #[[ipset.iptables_rule]]
-   #chain = "PREROUTING"
-   #table = "mangle"
-   #rule = ["-m", "set", "--match-set", "{{ipset_name}}", "dst,src", "-j", "MARK", "--set-mark", "{{fwmark}}"]
-
-   # List 1 (manual address entry)
-   [[ipset.list]]
-   name = "local"
-   hosts = [
-       "ifconfig.co",
-       "myip2.ru",
-       "1.2.3.4",
-       "141.201.11.0/24",
-   ]
-
-   # List 2 (from local file)
-   [[ipset.list]]
-   name = "local-file"
-   file = "/opt/etc/keenetic-pbr/my-list.lst"
-
-   # List 3 (download via URL)
-   [[ipset.list]]
-   name = "remote-list-1"
-   url = "https://some-url/list1.lst"  # The file should contain domains, IP addresses, and CIDR, one per line
-
-    # List 4 (download via URL)
-   [[ipset.list]]
-   name = "remote-list-2"
-   url = "https://some-url/list2.lst"
-
-# You can add as many ipsets as you want:
-# [[ipset]]
-# ipset_name = "direct"
-# ...
-```
-
+<a name="config-step-2"></a>
 ### 2. Download lists
 
-After editing the configuration file, enter this command to download list files:
+After editing the configuration file, enter this command to download list files.
+
+This command must be executed only if you have at least one remote list (the `url` field is specified for some list).
 
 ```bash
 keenetic-pbr download
 ```
 
-<a name="disable-lists-autoupdate"></a>
+<a name="config-step-3"></a>
 ### 3. Disable lists auto-update
 > [!CAUTION]
 > If Entware is installed on the router's internal memory, you must disable daily automatic list updates to prevent NAND memory wear.
@@ -225,6 +168,7 @@ rm /opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh
 
 You can always [update lists manually](#lists-update).
 
+<a name="config-step-4"></a>
 ### 4. Configure DNS over HTTPS (DoH)
 > [!TIP]  
 > The regular DNS protocol is not secure as all requests are transmitted in plain text.
@@ -260,12 +204,15 @@ To configure **DoH** on the router, follow these steps:
    # ... (other config lines here, don't delete them)
     ```
 
-4. Restart `dnscrypt-proxy2` and `dnsmasq`
+4. Validate configuration syntax
     ```bash
-   /opt/etc/init.d/S09dnscrypt-proxy2 restart
-   /opt/etc/init.d/S56dnsmasq restart
+   # Check dnsmasq config
+   dnsmasq --test
+   # Check dnscrypt-proxy config (run only if you have installed dnscrypt-proxy2)
+   dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
    ```
 
+<a name="config-step-5"></a>
 ### 5. Enable DNS Override
 
 To make `dnsmasq` as the main DNS server on the router, you need to enable **DNS Override**.
@@ -273,13 +220,11 @@ To make `dnsmasq` as the main DNS server on the router, you need to enable **DNS
 > [!NOTE]  
 > This step is not required if your lists contain only IP addresses or CIDRs and do not specify domain names.
 
-1. Open the following URL in the browser:
-   ```
-   http://<router-ip-address>/a
-   ```
+1. Open the following URL in the browser: http://my.keenetic.net/a
 2. Enter the following commands one by one:
    - `opkg dns-override`
    - `system configuration save`
+3. **Reboot the router!**
 
 > [!TIP]
 > If you ever decide to disable DNS Override in the future, execute the following commands: `no opkg dns-override` and `system configuration save`.
@@ -288,18 +233,21 @@ To make `dnsmasq` as the main DNS server on the router, you need to enable **DNS
 
 Restart OPKG and ensure policy-based routing is functioning as expected.
 
-To do this, open an address that is not in your lists (e.g., https://2ip.ru) and an address that is in your lists (e.g., https://ifconfig.co) and compare the IP addresses, they should be different.
+To do this, open an address that is not in your lists (e.g., https://www.whatismyip.com) and an address that is in your lists (e.g., https://ifconfig.co) and compare the IP addresses, they should be different.
 
 <a name="lists-update"></a>
 ## Updating lists
 
 * Lists are updated daily by cron automatically.
-   * If you have installed Entware on internal memory, please [disable lists auto-update](#disable-lists-autoupdate) to prevent NAND memory wear.
+   * If you have installed Entware on internal memory, please [disable lists auto-update](#config-step-3) to prevent NAND memory wear.
 
 If you edited the `keenetic-pbr.conf` settings and want to update lists manually, run the following commands via SSH:
 
 ```bash
+# Run this if you added new remote lists to download them
 keenetic-pbr download
+
+# Run this to apply new configuration
 /opt/etc/init.d/S80keenetic-pbr restart
 ```
 
@@ -313,10 +261,35 @@ To do this, run the command in the console (for Windows): `ipconfig /flushdns`.
 
 You can also run the following command to check if Keenetic-PBR is working correctly (output of this command will be very helpful if you ask for help in the Telegram chat):
 ```bash
-keenetic-pbr self-check
+# Check dnsmasq configured properly
+/opt/etc/init.d/S80keenetic-pbr check
+
+# Check routing state
+/opt/etc/init.d/S80keenetic-pbr self-check
 ```
 
 You can ask questions in the Telegram chat of the project: https://t.me/keenetic_pbr
+
+## I messed everything up, internet is gone
+
+You can temporarily disable this configuration by disabling **OPKG** in the settings (selecting "Not specified" section) and rebooting the router.
+
+If you want to completely remove the package, you need to follow these steps:
+1. Execute via SSH: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+2. Disable DNS-override (http://my.keenetic.net/a):
+   - `no opkg dns-override`
+   - `system configuration save`
+3. Disable **OPKG** (if you don't use it for other purposes)
+4. Reboot the router
+
+### Complete uninstallation
+
+1. Execute via SSH: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+2. Disable DNS-override (http://my.keenetic.net/a):
+   - `no opkg dns-override`
+   - `system configuration save`
+3. Disable **OPKG** (if you don't use it for other purposes)
+4. Reboot the router
 
 ---
 
