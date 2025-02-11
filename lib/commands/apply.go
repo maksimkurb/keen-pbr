@@ -70,6 +70,10 @@ func (g *ApplyCommand) Run() error {
 		if err := lists.ImportListsToIPSets(g.cfg); err != nil {
 			return fmt.Errorf("failed to apply lists: %v", err)
 		}
+	} else {
+		if err := lists.CreateIPSetsIfAbsent(g.cfg); err != nil {
+			return fmt.Errorf("failed to create ipsets: %v", err)
+		}
 	}
 
 	if !g.SkipRouting {
