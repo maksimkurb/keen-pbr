@@ -79,7 +79,7 @@ fi
 # rm all files /opt/etc/dnsmasq.d/*.keenetic-pbr.conf
 echo "Removing old generated dnsmasq ipset configs (dnsmasq.d/*.keenetic-pbr.conf)"
 rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.conf
-rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.conf.md5
+rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.md5
 
 # Backup existing config if present
 if [ -f "$${DNSMASQ_CONF}" ]; then
