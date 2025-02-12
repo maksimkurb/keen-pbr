@@ -34,6 +34,7 @@ GO_TARGET:=./
 
 define Package/keenetic-pbr/conffiles
 /opt/etc/keenetic-pbr/keenetic-pbr.conf
+/opt/etc/keenetic-pbr/local.lst
 endef
 
 define Package/keenetic-pbr/install
