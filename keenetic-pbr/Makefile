@@ -50,6 +50,7 @@ define Package/keenetic-pbr/install
 		$(INSTALL_BIN) opt/etc/ndm/netfilter.d/50-keenetic-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) opt/etc/init.d/S80keenetic-pbr $(1)/opt/etc/init.d
 		$(INSTALL_CONF) opt/etc/keenetic-pbr/keenetic-pbr.conf $(1)/opt/etc/keenetic-pbr/
+		$(INSTALL_BIN) opt/etc/dnsmasq.d/100-keenetic-pbr.conf $(1)/opt/etc/dnsmasq.d/
 		$(INSTALL_CONF) opt/etc/keenetic-pbr/local.lst $(1)/opt/etc/keenetic-pbr/
 		$(INSTALL_BIN) opt/etc/keenetic-pbr/defaults $(1)/opt/etc/keenetic-pbr/
 		$(INSTALL_CONF) opt/etc/dnsmasq.conf.keenetic-pbr $(1)/opt/etc/
