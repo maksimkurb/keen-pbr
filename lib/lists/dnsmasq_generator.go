@@ -12,6 +12,10 @@ import (
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
 func PrintDnsmasqConfig(cfg *config.Config) error {
+	if err := CreateIPSetsIfAbsent(cfg); err != nil {
+		return err
+	}
+
 	domainStore := CreateDomainStore(len(cfg.IPSets))
 	for ipsetIndex, ipsetCfg := range cfg.IPSets {
 		for _, listName := range ipsetCfg.Lists {

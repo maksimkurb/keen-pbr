@@ -12,6 +12,18 @@ import (
 	"strings"
 )
 
+// CreateIPSetsIfAbsent creates the ipsets if they do not exist.
+func CreateIPSetsIfAbsent(cfg *config.Config) error {
+	for _, ipsetCfg := range cfg.IPSets {
+		ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
+		if err := ipset.CreateIfNotExists(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // appendHost appends a host to the appropriate networks or domain store.
 func appendHost(host string, ipsetIndex int, ipsetWriter *networking.IPSetWriter, domainStore *DomainStore, ipCount *int) error {
 	line := strings.TrimSpace(host)

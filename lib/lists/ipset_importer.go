@@ -7,18 +7,6 @@ import (
 	"github.com/maksimkurb/keenetic-pbr/lib/utils"
 )
 
-// CreateIPSetsIfAbsent creates the ipsets if they do not exist.
-func CreateIPSetsIfAbsent(cfg *config.Config) error {
-	for _, ipsetCfg := range cfg.IPSets {
-		ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
-		if err := ipset.CreateIfNotExists(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ImportListsToIPSets processes the configuration and applies the lists to the appropriate ipsets.
 func ImportListsToIPSets(cfg *config.Config) error {
 	for ipsetIndex, ipsetCfg := range cfg.IPSets {
