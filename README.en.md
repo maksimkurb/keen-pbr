@@ -247,8 +247,9 @@ If you edited the `keenetic-pbr.conf` settings and want to update lists manually
 # Run this if you added new remote lists to download them
 keenetic-pbr download
 
-# Run this to apply new configuration
+# Run the following commands to apply new configuration
 /opt/etc/init.d/S80keenetic-pbr restart
+/opt/etc/init.d/S56dnsmasq restart
 ```
 
 ## Troubleshooting

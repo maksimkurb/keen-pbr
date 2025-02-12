@@ -250,8 +250,9 @@ rm /opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh
 # Если вы добавили новые удалённые списки, необходимо скачать их
 keenetic-pbr download
 
-# Запустите это для применения новой конфигурации
+# Запустите следующие команды для применения новой конфигурации:
 /opt/etc/init.d/S80keenetic-pbr restart
+/opt/etc/init.d/S56dnsmasq restart
 ```
 
 ## Устранение неполадок
