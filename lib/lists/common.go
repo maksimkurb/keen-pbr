@@ -55,8 +55,6 @@ func appendHost(host string, ipsetIndex int, ipsetWriter *networking.IPSetWriter
 				if err := ipsetWriter.Add(netPrefix); err != nil {
 					return err
 				}
-			} else {
-				log.Warnf("Could not parse host, skipping: %s", host)
 			}
 		} else {
 			log.Warnf("Could not parse host, skipping: %s", host)
