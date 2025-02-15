@@ -9,7 +9,7 @@ check_internet() {
 # Function to get the latest release package URL for the correct architecture
 get_latest_package_url() {
     ARCH=$(opkg print-architecture | grep -v 'all' | awk 'NR==1{print $2}')
-    RELEASE_URL="https://api.github.com/repos/maksimkurb/keenetic-pbr/releases/latest"
+    RELEASE_URL="https://api.github.com/repos/maksimkurb/keen-pbr/releases/latest"
     PACKAGE_URL=$(curl -sH "Accept: application/vnd.github.v3+json" "$RELEASE_URL" | jq -r '.assets[] | select(.name | contains("'"$ARCH"'")) | .browser_download_url')
     echo "$PACKAGE_URL"
 }
