@@ -1,5 +1,6 @@
 # Credits:
 # https://github.com/Anonym-tsk/nfqws-keenetic/blob/master/.github/workflows/release.yml
+# https://github.com/Waujito/youtubeUnblock/blob/main/.github/workflows/build-ci.yml
 
 name: Build and publish release
 
@@ -14,14 +15,68 @@ on:
       - 'LICENSE'
       - 'README.md'
       - 'README.en.md'
-  workflow_dispatch: {}
+  workflow_dispatch: { }
 
 jobs:
 
   build-entware:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch:
+          - aarch64-3.10
+          - mips-3.4
+          - mipsel-3.4
+
+    outputs:
+      version: ${{ steps.gh.outputs.version }}
+      sha: ${{ steps.gh.outputs.sha }}
 
     steps:
+      #####################################
+      # Prepare Entware build environment #
+      #####################################
+      - name: Set up Entware docker container
+        run: |
+          git clone --depth 1 https://github.com/Entware/docker.git
+          docker build docker --pull --tag builder
+          docker volume create entware-home
+
+      - name: Restore Entware from cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/entware
+          key: entware-cache-${{ matrix.arch }}
+
+      - name: Load Entware from cache
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          docker run --rm --mount source=entware-home,target=/backup_vol -v ~/entware:/backup ubuntu tar -xf /backup/entware.tar -C /backup_vol
+          docker run --rm --mount source=entware-home,target=/home/me -w /home/me ubuntu bash -c 'cp -r ./backup_vol/* ./'
+          docker run --rm --mount source=entware-home,target=/home/me -w /home/me ubuntu bash -c 'chown -R 1000:1000 ./* ./'
+
+      - name: Build Entware
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder make package/symlinks
+          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder cp -v configs/${{ matrix.arch }}.config .config
+          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder make -j$(nproc) toolchain/install
+          docker run --rm --mount source=entware-home,target=/backup_vol -v ~/entware:/backup ubuntu tar -cf /backup/entware.tar /backup_vol
+
+      - name: Save Entware to cache
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        id: cache-save
+        uses: actions/cache/save@v4
+        with:
+          path: ~/entware
+          key: entware-cache-${{ matrix.arch }}
+
+      #################
+      # Build package #
+      #################
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -30,158 +85,203 @@ jobs:
         with:
           file: 'VERSION'
 
-      - name: Build entware packages
-        run: make entware
+      - name: Get version and commit sha
+        id: gh
+        env:
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
+          else
+            echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Upload files
+      - name: Build Entware packages
+        id: build
+        run: |
+          echo "src-link keenPbr /repo/entware" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a feeds.conf
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ./scripts/feeds update keenPbr
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ./scripts/feeds install -a -p keenPbr
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ln -s /repo/.git feeds/keenPbr/keen-pbr/git-src
+          echo "CONFIG_SRC_TREE_OVERRIDE=y" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a .config
+          echo "CONFIG_PACKAGE_keen-pbr=m" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a .config
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder make package/keenetic-pbr/compile V=s
+
+      - name: Extract packages
+        if: steps.build.outcome == 'success'
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          mkdir output
+          docker run --rm --user root -i --mount source=entware-home,target=/home/me -v $(pwd):/target -w /home/me/Entware --name builder builder find ./bin -type f -name 'keen-pbr*.ipk' -exec cp -v {} /target/output \;
+          rm -rf keen-pbr || true
+          mkdir keen-pbr
+          bash -c "cp -r ./output/*.ipk keen-pbr-$VERSION-$SHA-${{ matrix.arch }}-entware.ipk"
+
+      - name: Upload packages
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: entware
-          path: ./out/*.ipk
+          name: keen-pbr-entware-${{ matrix.arch }}
+          path: |
+            ./**/keen-pbr-*-entware.ipk
           if-no-files-found: error
 
       - name: Summary
+        env:
+          VERSION: ${{ steps.gh.outputs.version }}
+          SHA: ${{ steps.gh.outputs.sha }}
         run: |
           echo '```' >> $GITHUB_STEP_SUMMARY
-          ls ./out >> $GITHUB_STEP_SUMMARY
+          echo "Version: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "Git commit SHA: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ls ./ >> $GITHUB_STEP_SUMMARY
+          echo ""
+          ls ./output >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-  build-repository:
-    runs-on: ubuntu-22.04
-    needs:
-      - build-entware
+#  build-repository:
+#    runs-on: ubuntu-22.04
+#    needs:
+#      - build-entware
+#
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v4
+#
+#      - name: Bump version file
+#        uses: francktrouillez/auto-bump-version-file@v1
+#        with:
+#          file: 'VERSION'
+#
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v4
+#        with:
+#          path: out
+#          merge-multiple: true
+#
+#      - name: Display artifacts
+#        run: ls ./
+#
+#      - name: Build repository
+#        run: make repository
+#
+#      - name: Upload pages artifact
+#        uses: actions/upload-pages-artifact@v3
+#        with:
+#          path: ./out/_pages
+#
+#      - name: Summary
+#        run: |
+#          echo '```' >> $GITHUB_STEP_SUMMARY
+#          ls -R ./out/_pages >> $GITHUB_STEP_SUMMARY
+#          echo '```' >> $GITHUB_STEP_SUMMARY
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+#  create-release:
+#    runs-on: ubuntu-22.04
+#    needs: [ build-repository ]
+#
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+#
+#      - name: Bump version file
+#        uses: francktrouillez/auto-bump-version-file@v1
+#        with:
+#          file: 'VERSION'
+#
+#      - name: Read version
+#        id: version
+#        uses: juliangruber/read-file-action@v1
+#        with:
+#          path: ./VERSION
+#          trim: true
+#
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v4
+#        with:
+#          path: out
+#
+#      - name: Display artifacts
+#        run: ls -R ./out
+#
+#      - name: Commit and push version file
+#        run: |
+#          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+#          git config --local user.name "github-actions[bot]"
+#          git add VERSION
+#          git commit -m "Version ${{ steps.version.outputs.content }}"
+#          git tag -a v${{ steps.version.outputs.content }} -m "Version ${{ steps.version.outputs.content }}"
+#          git push origin v${{ steps.version.outputs.content }}
+#          git push
+#
+#      - name: Create Release
+#        id: create_release
+#        uses: actions/create-release@v1.1.4
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          tag_name: v${{ steps.version.outputs.content }}
+#          release_name: Release v${{ steps.version.outputs.content }}
+#          draft: true
+#          prerelease: false
+#
+#      - name: Upload Release mips
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
+#          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
+#          asset_content_type: application/octet-stream
+#
+#      - name: Upload Release mipsel
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
+#          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
+#          asset_content_type: application/octet-stream
+#
+#      - name: Upload Release aarch64
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
+#          asset_name: keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
+#          asset_content_type: application/octet-stream
+#
+#      - name: Summary
+#        run: |
+#          echo "Release v${{ steps.version.outputs.content }} created" >> $GITHUB_STEP_SUMMARY
 
-      - name: Bump version file
-        uses: francktrouillez/auto-bump-version-file@v1
-        with:
-          file: 'VERSION'
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: out
-          merge-multiple: true
-
-      - name: Display artifacts
-        run: ls ./out
-
-      - name: Build repository
-        run: make repository
-
-      - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./out/_pages
-
-      - name: Summary
-        run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ls -R ./out/_pages >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-  create-release:
-    runs-on: ubuntu-22.04
-    needs: [build-repository]
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Bump version file
-        uses: francktrouillez/auto-bump-version-file@v1
-        with:
-          file: 'VERSION'
-
-      - name: Read version
-        id: version
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./VERSION
-          trim: true
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: out
-
-      - name: Display artifacts
-        run: ls -R ./out
-
-      - name: Commit and push version file
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add VERSION
-          git commit -m "Version ${{ steps.version.outputs.content }}"
-          git tag -a v${{ steps.version.outputs.content }} -m "Version ${{ steps.version.outputs.content }}"
-          git push origin v${{ steps.version.outputs.content }}
-          git push
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1.1.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.content }}
-          release_name: Release v${{ steps.version.outputs.content }}
-          draft: true
-          prerelease: false
-
-      - name: Upload Release mips
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release mipsel
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
-          asset_content_type: application/octet-stream
-
-      - name: Summary
-        run: |
-          echo "Release v${{ steps.version.outputs.content }} created" >> $GITHUB_STEP_SUMMARY
-
-  deploy-repository:
-    runs-on: ubuntu-22.04
-    needs: [build-repository]
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Summary
-        run: |
-          echo "Repository deployed" >> $GITHUB_STEP_SUMMARY
+#  deploy-repository:
+#    runs-on: ubuntu-22.04
+#    needs: [ build-repository ]
+#    permissions:
+#      contents: read
+#      pages: write
+#      id-token: write
+#
+#    steps:
+#      - name: Setup Pages
+#        uses: actions/configure-pages@v5
+#
+#      - name: Deploy to GitHub Pages
+#        id: deployment
+#        uses: actions/deploy-pages@v4
+#
+#      - name: Summary
+#        run: |
+#          echo "Repository deployed" >> $GITHUB_STEP_SUMMARY
