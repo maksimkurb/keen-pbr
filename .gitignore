@@ -1,5 +1,4 @@
-test-config/
-keenetic-pbr
-keen-pbr
+./keenetic-pbr
+./keen-pbr
 bin/
 out/

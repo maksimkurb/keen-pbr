@@ -1,0 +1,14 @@
+# You can add IPs, CIDRs and domains entries to this list, one entry per line.
+# All rows started with "#" (hashtag) will be ignored.
+
+# Example IPs:
+# 1.2.3.4
+# 244.178.44.111
+
+# Example CIDRs:
+# 89.207.132.0/24
+# 38.51.0.0/16
+
+# Example domains (domain.com and ALL it's subdomains will be added to the list):
+# domain.com
+# some-website.org
