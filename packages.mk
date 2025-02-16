@@ -19,7 +19,6 @@ _control:
 	echo "" >> out/$(BUILD_DIR)/control/control
 
 _scripts:
-	cp common/ipk/preinst out/$(BUILD_DIR)/control/preinst
 	cp common/ipk/postinst out/$(BUILD_DIR)/control/postinst
 	cp common/ipk/postrm out/$(BUILD_DIR)/control/postrm
 
