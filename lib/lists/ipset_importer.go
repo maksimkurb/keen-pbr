@@ -1,10 +1,10 @@
 package lists
 
 import (
-	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
-	"github.com/maksimkurb/keenetic-pbr/lib/networking"
-	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/networking"
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 )
 
 // ImportListsToIPSets processes the configuration and applies the lists to the appropriate ipsets.

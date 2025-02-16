@@ -2,9 +2,9 @@ package networking
 
 import (
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/keenetic"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/keenetic"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 	"github.com/vishvananda/netlink"
 	"net"
 )

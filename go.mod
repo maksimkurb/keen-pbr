@@ -1,4 +1,4 @@
-module github.com/maksimkurb/keenetic-pbr
+module github.com/maksimkurb/keen-pbr
 
 go 1.23
 

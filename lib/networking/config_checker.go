@@ -2,8 +2,8 @@ package networking
 
 import (
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 func ValidateInterfacesArePresent(c *config.Config, interfaces []Interface) error {
@@ -19,7 +19,7 @@ func ValidateInterfacesArePresent(c *config.Config, interfaces []Interface) erro
 }
 
 func PrintMissingInterfacesHelp() {
-	log.Warnf("(tip) Please enter command `keenetic-pbr interfaces` to show available interfaces list")
+	log.Warnf("(tip) Please enter command `keen-pbr interfaces` to show available interfaces list")
 }
 
 func validateInterfaceExists(interfaceName string, interfaces []Interface) error {

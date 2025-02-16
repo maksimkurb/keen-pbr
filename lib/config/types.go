@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"os"
 	"path/filepath"
 )
@@ -39,7 +39,7 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nKeenetic-pbr will use first available interface.\nIf use_keenetic_api is enabled, keenetic-pbr will also check if there is any network connectivity on this interface."`
+	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nIf use_keenetic_api is enabled, keen-pbr will also check if there is any network connectivity on this interface."`
 	KillSwitch     bool     `toml:"kill_switch" comment:"Drop all traffic to the hosts from this ipset if all interfaces are down (prevent traffic leaks)."`
 	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
@@ -108,7 +108,7 @@ func (lst *ListSource) GetAbsolutePathAndCheckExists(cfg *Config) (string, error
 	} else {
 		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			if lst.URL != "" {
-				return "", fmt.Errorf("list file is not exists: %s, please run 'keenetic-pbr download' first", path)
+				return "", fmt.Errorf("list file is not exists: %s, please run 'keen-pbr download' first", path)
 			} else {
 				return "", fmt.Errorf("list file is not exists: %s", path)
 			}

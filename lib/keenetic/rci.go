@@ -3,8 +3,8 @@ package keenetic
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
-	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"github.com/maksimkurb/keen-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"io"
 	"net/http"
 )

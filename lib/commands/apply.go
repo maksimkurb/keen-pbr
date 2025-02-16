@@ -3,10 +3,10 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/lists"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
-	"github.com/maksimkurb/keenetic-pbr/lib/networking"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/lists"
+	"github.com/maksimkurb/keen-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/networking"
 	"os"
 )
 
@@ -17,7 +17,7 @@ func CreateApplyCommand() *ApplyCommand {
 
 	gc.fs.BoolVar(&gc.SkipIpset, "skip-ipset", false, "Skip ipset filling")
 	gc.fs.BoolVar(&gc.SkipRouting, "skip-routing", false, "Skip ip routes and ip rules applying")
-	gc.fs.StringVar(&gc.OnlyRoutingForInterface, "only-routing-for-interface", "", "Only apply ip routes/rules for the specified interface (if it is present in keenetic-pbr config)")
+	gc.fs.StringVar(&gc.OnlyRoutingForInterface, "only-routing-for-interface", "", "Only apply ip routes/rules for the specified interface (if it is present in keen-pbr config)")
 	gc.fs.BoolVar(&gc.FailIfNothingToApply, "fail-if-nothing-to-apply", false, "If there is routing configuration to apply, exit with error code (5)")
 
 	return gc

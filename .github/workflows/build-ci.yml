@@ -107,16 +107,16 @@ jobs:
           RELEASE: ${{ needs.prepare.outputs.release }}
           SHA: ${{ needs.prepare.outputs.sha }}
         run: |
-          sed -i "s/PKG_REV:=.*$/PKG_REV:=$SHA/;s/PKG_VERSION:=.*$/PKG_VERSION:=$VERSION-$RELEASE-$SHA/" keenetic-pbr/Makefile
+          sed -i "s/PKG_REV:=.*$/PKG_REV:=$SHA/;s/PKG_VERSION:=.*$/PKG_VERSION:=$VERSION-$RELEASE-$SHA/" keen-pbr/Makefile
 
       - name: Build packages
         id: build
         run: |
-          echo "src-link keeneticPbr /keenetic-pbr" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keenetic-pbr -w /home/me/Entware --name builder builder tee -a feeds.conf
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keenetic-pbr -w /home/me/Entware --name builder builder ./scripts/feeds update keeneticPbr
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keenetic-pbr -w /home/me/Entware --name builder builder ./scripts/feeds install -a -p keeneticPbr
-          echo "CONFIG_PACKAGE_keenetic-pbr=m" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keenetic-pbr -w /home/me/Entware --name builder builder tee -a .config
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keenetic-pbr -w /home/me/Entware --name builder builder make package/keenetic-pbr/compile V=s
+          echo "src-link keeneticPbr /keen-pbr" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keen-pbr -w /home/me/Entware --name builder builder tee -a feeds.conf
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keen-pbr -w /home/me/Entware --name builder builder ./scripts/feeds update keeneticPbr
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keen-pbr -w /home/me/Entware --name builder builder ./scripts/feeds install -a -p keeneticPbr
+          echo "CONFIG_PACKAGE_keen-pbr=m" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keen-pbr -w /home/me/Entware --name builder builder tee -a .config
+          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/keen-pbr -w /home/me/Entware --name builder builder make package/keen-pbr/compile V=s
 
       - name: Extract packages
         if: steps.build.outcome == 'success'
@@ -127,18 +127,18 @@ jobs:
           SHA: ${{ needs.prepare.outputs.sha }}
         run: |
           mkdir output
-          docker run --rm --user root -i --mount source=entware-home,target=/home/me -v $(pwd):/target -w /home/me/Entware --name builder builder find ./bin -type f -name 'keenetic-pbr*.ipk' -exec cp -v {} /target/output \;
-          rm -rf keenetic-pbr || true
-          mkdir keenetic-pbr
-          bash -c "cp -r ./output/*.ipk keenetic-pbr-$VERSION-$RELEASE-$SHA-${{ matrix.arch }}-entware.ipk"
+          docker run --rm --user root -i --mount source=entware-home,target=/home/me -v $(pwd):/target -w /home/me/Entware --name builder builder find ./bin -type f -name 'keen-pbr*.ipk' -exec cp -v {} /target/output \;
+          rm -rf keen-pbr || true
+          mkdir keen-pbr
+          bash -c "cp -r ./output/*.ipk keen-pbr-$VERSION-$RELEASE-$SHA-${{ matrix.arch }}-entware.ipk"
 
       - name: Upload packages
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: keenetic-pbr-entware-${{ matrix.arch }}
+          name: keen-pbr-entware-${{ matrix.arch }}
           path: |
-            ./**/keenetic-pbr*-entware.ipk
+            ./**/keen-pbr*-entware.ipk
           if-no-files-found: error
 
   pre-release:
@@ -160,4 +160,4 @@ jobs:
           draft: true
           title: 'Development build'
           files: |
-            ./**/keenetic-pbr*.ipk
+            ./**/keen-pbr*.ipk

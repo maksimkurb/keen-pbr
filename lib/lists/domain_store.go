@@ -2,8 +2,8 @@ package lists
 
 import (
 	"crypto/md5"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
-	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"github.com/maksimkurb/keen-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"hash"
 	"hash/crc32"
 	"strconv"

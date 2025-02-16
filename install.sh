@@ -1,5 +1,5 @@
 #!/bin/sh
-# install.sh - Script to download and install the latest keenetic-pbr release for OpenWRT
+# install.sh - Script to download and install the latest keen-pbr release for OpenWRT
 
 # Function to check for internet connection
 check_internet() {

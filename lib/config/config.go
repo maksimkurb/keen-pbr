@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 var (

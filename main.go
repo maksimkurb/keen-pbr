@@ -4,9 +4,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/commands"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
-	"github.com/maksimkurb/keenetic-pbr/lib/networking"
+	"github.com/maksimkurb/keen-pbr/lib/commands"
+	"github.com/maksimkurb/keen-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/networking"
 	"os"
 )
 
@@ -14,7 +14,7 @@ func main() {
 	ctx := &commands.AppContext{}
 
 	// Define flags
-	flag.StringVar(&ctx.ConfigPath, "config", "/opt/etc/keenetic-pbr/keenetic-pbr.conf", "Path to configuration file")
+	flag.StringVar(&ctx.ConfigPath, "config", "/opt/etc/keen-pbr/keen-pbr.conf", "Path to configuration file")
 	flag.BoolVar(&ctx.Verbose, "verbose", false, "Enable debug logging")
 
 	// Custom usage message

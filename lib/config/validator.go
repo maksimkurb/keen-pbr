@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/utils"
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"os"
 )
 

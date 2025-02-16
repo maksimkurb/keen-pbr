@@ -2,8 +2,8 @@ package lists
 
 import (
 	"errors"
-	"github.com/maksimkurb/keenetic-pbr/lib/hashing"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/hashing"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 	"io"
 	"os"
 )

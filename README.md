@@ -1,11 +1,11 @@
-# keenetic-pbr
+# keen-pbr - Инструменты для выборочной маршрутизации на роутерах Keenetic
 
-![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
-![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
+![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
+![release](https://img.shields.io/github/v/release/maksimkurb/keen-pbr?sort=date)
 
-> **keenetic-pbr** не является официальным продуктом компании **Keenetic** и никак с ней не связан. Этот пакет создан сторонним разработчиком и предоставляется "как есть" без какой-либо гарантии, автор не несёт ответственности за повреждение Вашего устройства, все действия Вы выполняете на свой страх и риск.
+> **keen-pbr** не является официальным продуктом компании **Keenetic** и никак с ней не связан. Этот пакет создан сторонним разработчиком и предоставляется "как есть" без какой-либо гарантии, автор не несёт ответственности за повреждение Вашего устройства, все действия Вы выполняете на свой страх и риск.
 >
->  Вопросы и предложения касательно пакета можно направлять в [GitHub Issue](https://github.com/maksimkurb/keenetic-pbr/issues) и в Telegram-чат: https://t.me/keenetic_pbr.
+>  Вопросы и предложения касательно пакета можно направлять в [GitHub Issue](https://github.com/maksimkurb/keen-pbr/issues) и в Telegram-чат: https://t.me/keen_pbr.
 
 #### [> README in English <](./README.en.md)
 
@@ -17,9 +17,9 @@
 
 ---
 
-**keenetic-pbr** — это пакет для маршрутизации на основе правил для роутеров Keenetic.
+**keen-pbr** — это пакет для маршрутизации на основе правил для роутеров Keenetic.
 
-Telegram-чат проекта: https://t.me/keenetic_pbr
+Telegram-чат проекта: https://t.me/keen_pbr
 
 С помощью этого пакета можно настроить выборочную маршрутизацию для указанных IP-адресов, подсетей и доменов. Это необходимо, если вам понадобилось организовать защищенный доступ к определенным ресурсам, либо выборочно разделить трафик на несколько провайдеров (напр. трафик до сайта А идёт через одного оператора, а остальной трафик - через другого)
 
@@ -41,24 +41,25 @@ Telegram-чат проекта: https://t.me/keenetic_pbr
 /opt
 ├── /usr
 │   └── /bin
-│       └── keenetic-pbr                    # Утилита для скачивания и обработки списков, их импорта в ipset, а также генерации файлов конфигурации для dnsmasq
+│       └── keen-pbr                    # Утилита для скачивания и обработки списков, их импорта в ipset, а также генерации файлов конфигурации для dnsmasq
 └── /etc
-    ├── /keenetic-pbr
-    │   ├── /keenetic-pbr.conf              # Файл конфигурации keenetic-pbr
-    │   └── /lists.d                        # В эту папку keenetic-pbr будет помещать скачанные и локальные списки. Не кладите сюда ничего сами, т.к. файлы из этой папки удаляются после каждого запуска команды "keenetic-pbr download".
+    ├── /keen-pbr
+    │   ├── /keen-pbr.conf              # Файл конфигурации keen-pbr
+    │   ├── /lists.d                    # В эту папку keen-pbr будет помещать скачанные и локальные списки. Не кладите сюда ничего сами, т.к. файлы из этой папки удаляются после каждого запуска команды "keen-pbr download".
+    │   └── /local.lst                  # Список IP/CIDR/domain по умолчанию
     ├── /ndm
     │   ├── /netfilter.d
-    │   │   └── 50-keenetic-pbr-fwmarks.sh  # Скрипт добавляет iptables правило для маркировки пакетов в ipset с определённым fwmark
+    │   │   └── 50-keen-pbr-fwmarks.sh  # Скрипт добавляет iptables правило для маркировки пакетов в ipset с определённым fwmark
     │   └── /ifstatechanged.d
-    │       └── 50-keenetic-pbr-routing.sh  # Скрипт добавляет ip rule для направления пакетов с fwmark в нужную таблицу маршрутизации и создаёт её с нужным default gateway
+    │       └── 50-keen-pbr-routing.sh  # Скрипт добавляет ip rule для направления пакетов с fwmark в нужную таблицу маршрутизации и создаёт её с нужным default gateway
     ├── /cron.daily
-    │   └── 50-keenetic-pbr-lists-update.sh # Скрипт для автоматического ежедневного обновления списков
+    │   └── 50-keen-pbr-lists-update.sh # Скрипт для автоматического ежедневного обновления списков
     └── /dnsmasq.d
         └── (config files)                  # Папка с сгенерированными конфигурациями для dnsmasq, заставляющими его класть IP-адреса доменов из списков в нужный ipset
 ```
 
 ### Маршрутизация пакетов на основе IP-адресов и подсетей
-**keenetic-pbr** автоматически загружает ip-адреса и подсети из списков в нужные `ipset`. Далее пакеты на IP-адреса, которые попадают в этот `ipset`, маркируются определённым `fwmark` и на основе правил маршрутизации переадресовываются на конкретный интерфейс.
+**keen-pbr** автоматически загружает ip-адреса и подсети из списков в нужные `ipset`. Далее пакеты на IP-адреса, которые попадают в этот `ipset`, маркируются определённым `fwmark` и на основе правил маршрутизации переадресовываются на конкретный интерфейс.
 
 **Схема процесса:**
 ![IP routing scheme](./.github/docs/ip-routing.svg)
@@ -83,10 +84,10 @@ Telegram-чат проекта: https://t.me/keenetic_pbr
    - **Пакеты OPKG / Поддержка открытых пакетов**
    - **Пакеты OPKG / Модули ядра подсистемы Netfilter**
    - **Пакеты OPKG / Пакет расширения Xtables-addons для Netfilter**
-     - На данный момент этот пакет не обязателен, поскольку его возможности не используются keenetic-pbr, но его возможности могут пригодиться в будущем. Инструкция к модулю [доступна по ссылке](https://manpages.ubuntu.com/manpages/trusty/en/man8/xtables-addons.8.html).
+     - На данный момент этот пакет не обязателен, поскольку его возможности не используются keen-pbr, но его возможности могут пригодиться в будущем. Инструкция к модулю [доступна по ссылке](https://manpages.ubuntu.com/manpages/trusty/en/man8/xtables-addons.8.html).
 3. Вам необходимо установить среду Entware на Keenetic ([инструкция](https://help.keenetic.com/hc/ru/articles/360021214160-%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B-%D0%BF%D0%B0%D0%BA%D0%B5%D1%82%D0%BE%D0%B2-%D1%80%D0%B5%D0%BF%D0%BE%D0%B7%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D1%8F-Entware-%D0%BD%D0%B0-USB-%D0%BD%D0%B0%D0%BA%D0%BE%D0%BF%D0%B8%D1%82%D0%B5%D0%BB%D1%8C)), для этого понадобится USB-накопитель, который будет постоянно вставлен в роутер
 4. Также необходимо настроить второе (третье, четвёртое, ...) соединение, через которое вы хотите направить трафик попадающий под списки. Это может быть VPN-соединение или второй провайдер (multi-WAN).
-5. **Ваши устройства должны быть в Политике доступа в интернет по умолчанию** (раздел Приоритеты подключений -> Применение политик). В противном случае устройство может игнорировать все правила, применённые keenetic-pbr.
+5. **Ваши устройства должны быть в Политике доступа в интернет по умолчанию** (раздел Приоритеты подключений -> Применение политик). В противном случае устройство может игнорировать все правила, применённые keen-pbr.
 
 ## Установка и обновление
 
@@ -95,7 +96,7 @@ Telegram-чат проекта: https://t.me/keenetic_pbr
 Подключитесь к вашему OPKG по SSH и выполните следующую команду:
 
 ```bash
-opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install.sh
+opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keen-pbr/refs/heads/main/install.sh && sh install.sh
 ```
 
 > [!CAUTION]  
@@ -103,7 +104,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 
 ### Ручная установка/обновление
 
-1. Перейдите на страницу [релизов](https://github.com/maksimkurb/keenetic-pbr/releases) и скопируйте URL `.ipk` файла
+1. Перейдите на страницу [релизов](https://github.com/maksimkurb/keen-pbr/releases) и скопируйте URL `.ipk` файла
    для вашей архитектуры для последней версии.
 
 2. Скачайте `.ipk` файл на ваш маршрутизатор:
@@ -114,10 +115,10 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 3. Установите его с помощью OPKG:
 
    ```bash
-   opkg install keenetic-pbr-*-entware.ipk
+   opkg install keen-pbr-*-entware.ipk
    ```
 
-Во время установки пакет `keenetic-pbr` заменяет оригинальный файл конфигурации **dnsmasq**.
+Во время установки пакет `keen-pbr` заменяет оригинальный файл конфигурации **dnsmasq**.
 Резервная копия будет сохранена в `/opt/etc/dnsmasq.conf.orig`.
 
 > [!CAUTION]  
@@ -127,7 +128,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 
 Отредактируйте следующие файлы конфигурации в соответствии с вашими потребностями (подробные инструкции ниже):
 
-1. **(обязательно) [Настройке пакет keenetic-pbr](#config-step-1)**
+1. **(обязательно) [Настройке пакет keen-pbr](#config-step-1)**
     - In this file, you must configure the required ipsets, lists, and output interfaces
 2. **(обязательно) [Скачайте удалённые списки (если есть списки с `url="..."`)](#config-step-2)**
 3. **(опционально) [Отключите автообновление списков](#config-step-3)**
@@ -138,9 +139,9 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 5. **(обязательно) [Включение DNS Override](#config-step-5)**
 
 <a name="config-step-1"></a>
-### 1. Настройка пакета keenetic-pbr
+### 1. Настройка пакета keen-pbr
 
-Откройте `/opt/etc/keenetic-pbr/keenetic-pbr.conf` и отредактируйте его по мере необходимости:
+Откройте `/opt/etc/keen-pbr/keen-pbr.conf` и отредактируйте его по мере необходимости:
 
 1. Необходимо поправить поле `interfaces`, указав туда интерфейс, через который будет идти исходящий трафик, попавший под критерии списков.
 2. Также необходимо добавить списки (локальный или удалённый по URL)
@@ -153,7 +154,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 Эту команду необходимо выполнять только если у Вас есть хотя-бы один удалённый список (поле `url` указано хотя-бы для одного списка).
 
 ```bash
-keenetic-pbr download
+keen-pbr download
 ```
 
 <a name="config-step-3"></a>
@@ -161,11 +162,11 @@ keenetic-pbr download
 > [!CAUTION]
 > Если Entware установлен на внутреннюю память роутера, обязательно отключите ежедневное автоматическое обновление списков, чтобы предотвратить износ памяти.
 >
-> Эту команду нужно выполнять **после каждого обновления пакета keenetic-pbr**!
+> Эту команду нужно выполнять **после каждого обновления пакета keen-pbr**!
 
-Для того, чтобы отключить автообновление списков, удалите файл `/opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh`:
+Для того, чтобы отключить автообновление списков, удалите файл `/opt/etc/cron.daily/50-keen-pbr-lists-update.sh`:
 ```bash
-rm /opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh
+rm /opt/etc/cron.daily/50-keen-pbr-lists-update.sh
 ```
 
 Вы всегда сможете [обновить списки вручную](#lists-update).
@@ -244,14 +245,14 @@ rm /opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh
 * Списки обновляются автоматически ежедневно с помощью `cron`.
   * Если Entware установлен на внутреннюю память, пожалуйста, [отключите автообновление списков](#config-step-3), чтобы предотвратить износ памяти.
 
-В случае, если вы редактировали настройки `keenetic-pbr.conf` и хотите обновить списки вручную, выполните следующие команды по SSH:
+В случае, если вы редактировали настройки `keen-pbr.conf` и хотите обновить списки вручную, выполните следующие команды по SSH:
 
 ```bash
 # Если вы добавили новые удалённые списки, необходимо скачать их
-keenetic-pbr download
+keen-pbr download
 
 # Запустите следующие команды для применения новой конфигурации:
-/opt/etc/init.d/S80keenetic-pbr restart
+/opt/etc/init.d/S80keen-pbr restart
 /opt/etc/init.d/S56dnsmasq restart
 ```
 
@@ -263,23 +264,23 @@ keenetic-pbr download
 Перед проверкой работоспособности на клиентской машине необходимо очистить DNS-кеш.
 Сделать это выполнив команду в консоли (для Windows): `ipconfig /flushdns`.
 
-Также выполните следующую команду, чтобы проверить, правильно ли работает Keenetic-PBR (вывод этой команды будет очень полезен, если вы хотите получить помощь в Telegram-чате):
+Также выполните следующую команду, чтобы проверить, правильно ли работает **keen-pbr** (вывод этой команды будет очень полезен, если вы хотите получить помощь в Telegram-чате):
 ```bash
 # Проверка, что dnsmasq запущен корректно
-/opt/etc/init.d/S80keenetic-pbr check
+/opt/etc/init.d/S80keen-pbr check
 
 # Проверка состояния маршрутизации
-/opt/etc/init.d/S80keenetic-pbr self-check
+/opt/etc/init.d/S80keen-pbr self-check
 ```
 
-Вы можете задать вопросы в Telegram-чате проекта: https://t.me/keenetic_pbr
+Вы можете задать вопросы в Telegram-чате проекта: https://t.me/keen_pbr
 
 ## Я всё поломал, интернет пропал вовсе
 
 Можно временно отключить данную конфигурацию, выключив **OPKG** в настройках (выбрав раздел="не указан") и перезагрузив роутер.
 
 Если желаете полностью удалить пакет, необходимо выполнить следующие шаги:
-1. По SSH выполнить: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+1. По SSH выполнить: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Отключить DNS-override (http://my.keenetic.net/a):
     - `no opkg dns-override`
     - `system configuration save`
@@ -288,7 +289,7 @@ keenetic-pbr download
 
 ### Полное удаление пакета
 
-1. По SSH выполнить: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+1. По SSH выполнить: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Отключить DNS-override (http://my.keenetic.net/a):
     - `no opkg dns-override`
     - `system configuration save`
@@ -297,4 +298,4 @@ keenetic-pbr download
 
 ---
 
-Приятного использования маршрутизации на основе политики с Keenetic-PBR!
+Приятного использования маршрутизации на основе политики с **keen-pbr**!

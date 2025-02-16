@@ -3,9 +3,9 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"github.com/maksimkurb/keenetic-pbr/lib/config"
-	"github.com/maksimkurb/keenetic-pbr/lib/lists"
-	"github.com/maksimkurb/keenetic-pbr/lib/log"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/lists"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 func CreateDnsmasqConfigCommand() *DnsmasqConfigCommand {

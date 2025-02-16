@@ -1,9 +1,9 @@
-# Keenetic PBR
+# keen-pbr - Policy Based Routing toolkit for Keenetic routers
 
-![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keenetic-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
-![release](https://img.shields.io/github/v/release/maksimkurb/keenetic-pbr?sort=date)
+![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
+![release](https://img.shields.io/github/v/release/maksimkurb/keen-pbr?sort=date)
 
-> **keenetic-pbr** is not an official product of the **Keenetic** company and is in no way affiliated with it. This package is created by an independent developer and is provided "as is" without any warranty. Any questions and suggestions regarding the package can be submitted to the GitHub Issues page or the Telegram chat: https://t.me/keenetic_pbr.
+> **keen-pbr** is not an official product of the **Keenetic** company and is in no way affiliated with it. This package is created by an independent developer and is provided "as is" without any warranty. Any questions and suggestions regarding the package can be submitted to the GitHub Issues page or the Telegram chat: https://t.me/keen_pbr.
 
 #### [> README на русском <](./README.md)
 
@@ -15,9 +15,9 @@ This will help prevent excessive wear of the router's NAND-flash memory.
 
 ---
 
-**keenetic-pbr** is a policy-based routing package for Keenetic routers.
+**keen-pbr** is a policy-based routing package for Keenetic routers.
 
-Project Telegram chat (in Russian): https://t.me/keenetic_pbr
+Project Telegram chat (in Russian): https://t.me/keen_pbr
 
 With this package, you can set up selective routing for specified IP addresses, subnets, and domains. This is useful if you need to organize secure access to certain resources or selectively distribute traffic across multiple providers (e.g., traffic to site A goes through one provider, while other traffic goes through another).
 
@@ -39,24 +39,25 @@ This package contains the following scripts and utilities:
 /opt
 ├── /usr
 │   └── /bin
-│       └── keenetic-pbr                    # Utility for downloading and processing lists, importing them to ipset, and generating configuration files for dnsmasq
+│       └── keen-pbr                    # Utility for downloading and processing lists, importing them to ipset, and generating configuration files for dnsmasq
 └── /etc
-    ├── /keenetic-pbr
-    │   ├── /keenetic-pbr.conf              # keenetic-pbr configuration file
-    │   └── /lists.d                        # keenetic-pbr will place downloaded and local lists in this folder. Don't put anything here yourself, as files from this folder are deleted after each "keenetic-pbr download" command.
+    ├── /keen-pbr
+    │   ├── /keen-pbr.conf              # keen-pbr configuration file
+    │   ├── /lists.d                    # keen-pbr will place downloaded and local lists in this folder. Don't put anything here yourself, as files from this folder are deleted after each "keen-pbr download" command.
+    │   └── /local.lst                  # Default local IP/CIDR/domain list
     ├── /ndm
     │   ├── /netfilter.d
-    │   │   └── 50-keenetic-pbr-fwmarks.sh  # Script adds iptables rule for marking packets in ipset with a specific fwmark
+    │   │   └── 50-keen-pbr-fwmarks.sh  # Script adds iptables rule for marking packets in ipset with a specific fwmark
     │   └── /ifstatechanged.d
-    │       └── 50-keenetic-pbr-routing.sh  # Script adds ip rule to direct packets with fwmark to the required routing table and creates it with the needed default gateway
+    │       └── 50-keen-pbr-routing.sh  # Script adds ip rule to direct packets with fwmark to the required routing table and creates it with the needed default gateway
     ├── /cron.daily
-    │   └── 50-keenetic-pbr-lists-update.sh # Script for automatic daily list updates
+    │   └── 50-keen-pbr-lists-update.sh # Script for automatic daily list updates
     └── /dnsmasq.d
         └── (config files)                  # Folder with generated configurations for dnsmasq, making it put IP addresses of domains from lists into the required ipset
 ```
 
 ### Packet routing based on IP addresses and subnets
-**keenetic-pbr** automatically loads IP addresses and subnets from lists into the required `ipset`. Then packets to IP addresses that were added into this `ipset` are marked with a specific `fwmark` and based on routing rules are redirected to a specific interface.
+**keen-pbr** automatically loads IP addresses and subnets from lists into the required `ipset`. Then packets to IP addresses that were added into this `ipset` are marked with a specific `fwmark` and based on routing rules are redirected to a specific interface.
 
 **Process diagram:**
 ![IP routing scheme](./.github/docs/ip-routing.svg)
@@ -81,10 +82,10 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
    - **OPKG Packages / Open Package System Support**
    - **OPKG Packages / Netfilter Subsystem Kernel Modules**
    - **OPKG Packages / Xtables-addons Extension Package for Netfilter**
-      - Currently, this package is not mandatory as its capabilities are not used by keenetic-pbr, but its features may be useful in the future. Module instructions are [available here](https://manpages.ubuntu.com/manpages/trusty/en/man8/xtables-addons.8.html).
+      - Currently, this package is not mandatory as its capabilities are not used by keen-pbr, but its features may be useful in the future. Module instructions are [available here](https://manpages.ubuntu.com/manpages/trusty/en/man8/xtables-addons.8.html).
 3. You need to install Entware environment on Keenetic ([instructions](https://help.keenetic.com/hc/ru/articles/360021214160)), for this you'll need a USB drive that will be permanently plugged into the router
 4. You also need to configure a second (third, fourth, ...) connection through which you want to direct traffic that falls under the lists. This can be a VPN connection or a second provider (multi-WAN).
-5. **Your devices must be in the Default Internet Access Policy** (Connection Priorities -> Policy Bindings section). Otherwise, the device may ignore all rules applied by keenetic-pbr.
+5. **Your devices must be in the Default Internet Access Policy** (Connection Priorities -> Policy Bindings section). Otherwise, the device may ignore all rules applied by keen-pbr.
 
 ## Installation and updating
 
@@ -93,7 +94,7 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
 Connect to your EntWare using SSH and run the following command:
 
 ```bash
-opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keenetic-pbr/refs/heads/main/install.sh && sh install.sh
+opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keen-pbr/refs/heads/main/install.sh && sh install.sh
 ```
 
 > [!CAUTION]  
@@ -101,7 +102,7 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 
 ### Manual installation/update
 
-1. Go to [releases](https://github.com/maksimkurb/keenetic-pbr/releases) page and copy URL for the latest `.ipk` file
+1. Go to [releases](https://github.com/maksimkurb/keen-pbr/releases) page and copy URL for the latest `.ipk` file
    for your architecture.
 
 2. Download the `.ipk` file on your router:
@@ -112,10 +113,10 @@ opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/
 3. Install it using OPKG:
 
    ```bash
-   opkg install keenetic-pbr-*-entware.ipk
+   opkg install keen-pbr-*-entware.ipk
    ```
 
-During installation, the `keenetic-pbr` package replaces the original **dnsmasq** configuration file.
+During installation, the `keen-pbr` package replaces the original **dnsmasq** configuration file.
 A backup of your original file is saved as `/opt/etc/dnsmasq.conf.orig`.
 
 > [!CAUTION]  
@@ -125,7 +126,7 @@ A backup of your original file is saved as `/opt/etc/dnsmasq.conf.orig`.
 
 Adjust the following configuration files according to your needs (more details below):
 
-1. **(required) [Configure keenetic-pbr package](#config-step-1)**
+1. **(required) [Configure keen-pbr package](#config-step-1)**
    - In this file, you must configure the required ipsets, lists, and output interfaces
 2. **(required) [Download remote lists (if you have any)](#config-step-2)**
 3. **(optional) [Disable lists auto-update](#config-step-3)**
@@ -136,9 +137,9 @@ Adjust the following configuration files according to your needs (more details b
 5. **(required) [Enable DNS Override](#config-step-5)**
 
 <a name="config-step-1"></a>
-### 1. Configuring keenetic-pbr package
+### 1. Configuring keen-pbr package
 
-Open `/opt/etc/keenetic-pbr/keenetic-pbr.conf` and edit as needed:
+Open `/opt/etc/keen-pbr/keen-pbr.conf` and edit as needed:
 
 1. You need to adjust the `interfaces` field, specifying the interface through which outgoing traffic that matches the list criteria will go.
 2. You also need to add lists (local or remote via URL)
@@ -151,7 +152,7 @@ After editing the configuration file, enter this command to download list files.
 This command must be executed only if you have at least one remote list (the `url` field is specified for some list).
 
 ```bash
-keenetic-pbr download
+keen-pbr download
 ```
 
 <a name="config-step-3"></a>
@@ -159,11 +160,11 @@ keenetic-pbr download
 > [!CAUTION]
 > If Entware is installed on the router's internal memory, you must disable daily automatic list updates to prevent NAND memory wear.
 >
-> This command needs to be executed **after each keenetic-pbr package update**!
+> This command needs to be executed **after each keen-pbr package update**!
 
-To disable list auto-updates, delete the file `/opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh`:
+To disable list auto-updates, delete the file `/opt/etc/cron.daily/50-keen-pbr-lists-update.sh`:
 ```bash
-rm /opt/etc/cron.daily/50-keenetic-pbr-lists-update.sh
+rm /opt/etc/cron.daily/50-keen-pbr-lists-update.sh
 ```
 
 You can always [update lists manually](#lists-update).
@@ -241,14 +242,14 @@ To do this, open an address that is not in your lists (e.g., https://www.whatism
 * Lists are updated daily by cron automatically.
    * If you have installed Entware on internal memory, please [disable lists auto-update](#config-step-3) to prevent NAND memory wear.
 
-If you edited the `keenetic-pbr.conf` settings and want to update lists manually, run the following commands via SSH:
+If you edited the `keen-pbr.conf` settings and want to update lists manually, run the following commands via SSH:
 
 ```bash
 # Run this if you added new remote lists to download them
-keenetic-pbr download
+keen-pbr download
 
 # Run the following commands to apply new configuration
-/opt/etc/init.d/S80keenetic-pbr restart
+/opt/etc/init.d/S80keen-pbr restart
 /opt/etc/init.d/S56dnsmasq restart
 ```
 
@@ -260,23 +261,23 @@ Ensure lists are downloaded correctly, and `dnsmasq` is running with the updated
 Before checking the workability on the client machine, you need to clear the DNS cache.
 To do this, run the command in the console (for Windows): `ipconfig /flushdns`.
 
-You can also run the following command to check if Keenetic-PBR is working correctly (output of this command will be very helpful if you ask for help in the Telegram chat):
+You can also run the following command to check if **keen-pbr** is working correctly (output of this command will be very helpful if you ask for help in the Telegram chat):
 ```bash
 # Check dnsmasq configured properly
-/opt/etc/init.d/S80keenetic-pbr check
+/opt/etc/init.d/S80keen-pbr check
 
 # Check routing state
-/opt/etc/init.d/S80keenetic-pbr self-check
+/opt/etc/init.d/S80keen-pbr self-check
 ```
 
-You can ask questions in the Telegram chat of the project: https://t.me/keenetic_pbr
+You can ask questions in the Telegram chat of the project: https://t.me/keen_pbr
 
 ## I messed everything up, internet is gone
 
 You can temporarily disable this configuration by disabling **OPKG** in the settings (selecting "Not specified" section) and rebooting the router.
 
 If you want to completely remove the package, you need to follow these steps:
-1. Execute via SSH: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+1. Execute via SSH: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Disable DNS-override (http://my.keenetic.net/a):
    - `no opkg dns-override`
    - `system configuration save`
@@ -285,7 +286,7 @@ If you want to completely remove the package, you need to follow these steps:
 
 ### Complete uninstallation
 
-1. Execute via SSH: `opkg remove keenetic-pbr dnsmasq dnscrypt-proxy2`
+1. Execute via SSH: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Disable DNS-override (http://my.keenetic.net/a):
    - `no opkg dns-override`
    - `system configuration save`
@@ -294,4 +295,4 @@ If you want to completely remove the package, you need to follow these steps:
 
 ---
 
-Enjoy seamless policy-based routing with Keenetic-PBR!
+Enjoy seamless policy-based routing with **keen-pbr**!
