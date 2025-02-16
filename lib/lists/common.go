@@ -60,6 +60,10 @@ func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
 		return nil
 	}
 
+	if utils.IsDNSName(line) {
+		return nil
+	}
+
 	if strings.LastIndex(line, "/") < 0 {
 		line = line + "/32"
 	}
