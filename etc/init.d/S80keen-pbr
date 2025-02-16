@@ -5,7 +5,7 @@
 log()
 {
   logger -t "keen-pbr" "$1"
-  echo "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
+  echo -e "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
 }
 
 enable_hwnat()
@@ -25,19 +25,19 @@ disable_hwnat()
 apply_lists_and_routing()
 {
   log "Applying routing configuration and importing IPs/CIDRs to ipsets..."
-  $KEENETIC_PBR -config "$CONFIG" apply
+  $KEEN_PBR -config "$CONFIG" apply
 }
 
 apply_routing()
 {
   log "Applying routing configuration..."
-  $KEENETIC_PBR -config "$CONFIG" apply -skip-ipset
+  $KEEN_PBR -config "$CONFIG" apply -skip-ipset
 }
 
 unapply_routing()
 {
   log "Removing routing configuration..."
-  $KEENETIC_PBR -config "$CONFIG" undo-routing
+  $KEEN_PBR -config "$CONFIG" undo-routing
 }
 
 check() {
@@ -46,7 +46,7 @@ check() {
 
   # Checking keen-pbr state
   echo "Checking keen-pbr state"
-  $KEENETIC_PBR -config "$CONFIG" self-check
+  $KEEN_PBR -config "$CONFIG" self-check
 
   echo "Currently configured ipset lists:"
   ipset list -t
@@ -54,7 +54,7 @@ check() {
 
 generate_dnsmasq_config()
 {
-  $KEENETIC_PBR -config "$CONFIG" print-dnsmasq-config
+  $KEEN_PBR -config "$CONFIG" print-dnsmasq-config
 }
 
 start()
@@ -83,7 +83,7 @@ case "$1" in
     ;;
   download-lists|download_lists|update)
     log "Downloading lists..."
-    $KEENETIC_PBR -config "$CONFIG" download
+    $KEEN_PBR -config "$CONFIG" download
     log "Lists downloaded. Please run '/opt/etc/init.d/S80keen-pbr restart' to make use of them or restart OPKG."
     ;;
   apply-lists|apply_lists)

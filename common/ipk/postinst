@@ -1,0 +1,85 @@
+#!/bin/sh
+
+# Essential paths
+DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
+DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.keen-pbr.orig"
+DNSMASQ_KEEN_PBR_BAK="${DNSMASQ_CONF}.keen-pbr.old"
+DNSMASQ_DEFAULT="${DNSMASQ_CONF}.keen-pbr"
+KEEN_PBR_CONF="/opt/etc/keen-pbr/keen-pbr.conf"
+
+echo "keen-pbr installation"
+echo "------------------------"
+
+if [ -f "${KEEN_PBR_CONF}" ]; then
+	echo "Existing keen-pbr.conf found, upgrading it. Old config will be backed up to 'keen-pbr.conf.before-update'"
+	cp "${KEEN_PBR_CONF}" "${KEEN_PBR_CONF}.before-update"
+	keen-pbr upgrade-config || echo "keen-pbr config upgrade failed"
+fi
+
+# rm all files /opt/etc/dnsmasq.d/*.keen-pbr.conf
+echo "Removing old generated dnsmasq ipset configs (dnsmasq.d/*.keen-pbr.conf)"
+rm -f /opt/etc/dnsmasq.d/*.keen-pbr.conf
+rm -f /opt/etc/dnsmasq.d/*.keen-pbr.md5
+
+# Backup existing config if present
+if [ -f "${DNSMASQ_CONF}" ]; then
+	echo "Existing dnsmasq.conf found, backing up to '$DNSMASQ_ORIGINAL_BAK'"
+    cp "${DNSMASQ_CONF}" "${DNSMASQ_ORIGINAL_BAK}"
+
+	while true; do
+		echo ""
+        echo "Select dnsmasq.conf configuration:"
+        echo "1. Replace dnsmasq.conf with provided from keen-pbr (recommended)"
+        echo "2. Keep current dnsmasq.conf"
+
+        if [ -f "${DNSMASQ_KEEN_PBR_BAK}" ]; then
+        	echo "3. Restore dnsmasq.conf from previous keen-pbr installation"
+        fi
+
+        printf "Please enter your choice: "
+		read -r choice
+		case "${choice}" in
+			1)
+				echo "Replacing dnsmasq.conf with provided from keen-pbr"
+				echo "Copying '${DNSMASQ_DEFAULT}' to '${DNSMASQ_CONF}'..."
+				cp "${DNSMASQ_DEFAULT}" "${DNSMASQ_CONF}"
+				break
+				;;
+			2)
+				echo "Keeping current dnsmasq.conf"
+				echo "You can copy keen-pbr config later manually, it will be stored at '${DNSMASQ_DEFAULT}'"
+				break
+				;;
+			3)
+				if [ -f "${DNSMASQ_KEEN_PBR_BAK}" ]; then
+					echo "Restoring dnsmasq.conf from previous keen-pbr installation"
+					echo "Copying '${DNSMASQ_KEEN_PBR_BAK}' to '${DNSMASQ_CONF}'..."
+					cp "${DNSMASQ_KEEN_PBR_BAK}" "${DNSMASQ_CONF}"
+					break
+				else
+					echo "Invalid option."
+					continue
+				fi
+				;;
+			*)
+				echo "Invalid option."
+				continue
+				;;
+		esac
+	done
+else
+    # No existing config, use default
+    cp "${DNSMASQ_DEFAULT}" "${DNSMASQ_CONF}"
+fi
+
+echo "Installation complete!"
+echo "Please make sure to:"
+echo "1. Configure ${KEEN_PBR_CONF}"
+echo "2. Configure ${DNSMASQ_CONF}"
+echo "3. (recommended) Install dnscrypt-proxy2 and configure it"
+echo "4. Run the following command: keen-pbr download"
+echo "5. Enable opkg dns-override"
+echo "6. Restart OPKG"
+echo ""
+
+exit 0

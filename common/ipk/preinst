@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Essential paths
+OLD_KEEN_PBR_CONF="/opt/etc/keen-pbr/keenetic-pbr.conf"
+KEEN_PBR_CONF="/opt/etc/keen-pbr/keen-pbr.conf"
+
+if [ ! -f "${KEEN_PBR_CONF}" ]; then
+	if [ -f "${OLD_KEEN_PBR_CONF}" ]; then
+    echo "Old keenetic-pbr.conf found, moving it to keen-pbr.conf"
+    mv "${OLD_KEEN_PBR_CONF}" "${KEEN_PBR_CONF}"
+  fi
+fi
+
+exit 0
