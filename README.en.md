@@ -114,8 +114,8 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
    During installation, the `keen-pbr` package replaces the original **dnsmasq** configuration file.
    A backup will be saved in `/opt/etc/dnsmasq.conf.orig`.
 
-   > [!CAUTION]  
-   > If Entware is installed on the router's internal memory, be sure to [disable list auto-update](#config-step-3) to prevent memory wear!
+> [!CAUTION]  
+> If Entware is installed on the router's internal memory, be sure to [disable list auto-update](#config-step-3) to prevent memory wear!
 
 #### Update:
 ```bash
