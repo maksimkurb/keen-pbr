@@ -1,0 +1,36 @@
+####################
+#  dnsmasq config  #
+####################
+# This config was provided by `keen-pbr` package
+
+user=nobody
+pid-file=/var/run/opt-dnsmasq.pid
+
+# Port to listen DNS-requests on
+port=53
+
+# Upstream DNS servers
+# IT IS HIGHLY ADVISED TO CONFIGURE dnscrypt-proxy2 AND REPLACE THESE ADDRESSES:
+server=8.8.8.8
+server=8.8.4.4
+
+dns-forward-max=5096
+min-port=4096
+cache-size=1536
+max-ttl=86400
+
+# bind-interfaces
+bogus-priv
+no-negcache
+no-resolv
+no-poll
+clear-on-reload
+expand-hosts
+localise-queries
+domain-needed
+log-async
+# stop-dns-rebind
+rebind-localhost-ok
+
+# dnsmasq will read domains provided by keen-pbr from this folder
+conf-dir=/opt/etc/dnsmasq.d/,*.conf
