@@ -173,10 +173,10 @@ opkg info keen-pbr
 Отредактируйте следующие файлы конфигурации в соответствии с вашими потребностями (подробные инструкции ниже):
 
 1. **(обязательно) [Настройке пакет keen-pbr](#config-step-1)**
-    - In this file, you must configure the required ipsets, lists, and output interfaces
+    - В данном файле вы должны настроить необходимые ipset, списки и выходные интерфейсы
 2. **(обязательно) [Скачайте удалённые списки (если есть списки с `url="..."`)](#config-step-2)**
 3. **(опционально) [Отключите автообновление списков](#config-step-3)**
-    - If Entware is installed on internal memory, it is strongly recommended to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear
+    - Если Entware установлен на внутреннюю память, то настоятельно рекомендуется [отключить автообновление списков](#config-step-3), чтобы предотвратить износ NAND-памяти
 4. **(опционально) [Настройте DNS over HTTPS (DoH)](#config-step-4)**
     - dnsmasq можно перенастроить под свои нужды, например заменить upstream DNS сервер на свой
     - Рекомендуется установить и настроить пакет `dnscrypt-proxy2`, чтобы ваши DNS-запросы были защищены DNS-over-HTTPS (DoH)
@@ -189,6 +189,46 @@ opkg info keen-pbr
 
 1. Необходимо поправить поле `interfaces`, указав туда интерфейс, через который будет идти исходящий трафик, попавший под критерии списков.
 2. Также необходимо добавить списки (локальный или удалённый по URL)
+
+```toml
+# ... (здесь другие строчки конфига, их удалять не нужно)
+[[ipset]]
+  lists = [
+    "epic-games",  # Названия списков должны совпадать с теми,
+    "notion-site", # которые мы указали внизу в секциях [[list]]
+    "local-file",
+    "local"
+  ]
+
+  # ... (здесь другие строчки конфига, их удалять не нужно)
+
+  [ipset.routing]
+  # В поле `interfaces` указываем наши VPN-интерфейсы.
+  # Их названия можно узнать, введя команду `keen-pbr interfaces`
+  interfaces = ["nwg1", "nwg4"]
+
+# ... (здесь другие строчки конфига, их удалять не нужно)
+
+# В самом низу конфига указываем наши списки
+[[list]]
+list_name = "local" # Это название мы должны указать в поле "lists=[...]" в ipset
+hosts = [
+   "ifconfig.co",
+   "myip2.ru"
+]
+
+[[list]]
+list_name = "local-file"
+file = "/opt/etc/keen-pbr/local.lst"
+
+[[list]]
+list_name = "epic-games"
+url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/epicgames"
+
+[[list]]
+list_name = "notion-site"
+url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/notion"
+```
 
 <a name="config-step-2"></a>
 ### 2. Скачивание удалённых списков
@@ -323,16 +363,9 @@ keen-pbr download
 
 Можно временно отключить данную конфигурацию, выключив **OPKG** в настройках (выбрав раздел="не указан") и перезагрузив роутер.
 
-Если желаете полностью удалить пакет, необходимо выполнить следующие шаги:
-1. По SSH выполнить: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
-2. Отключить DNS-override (http://my.keenetic.net/a):
-    - `no opkg dns-override`
-    - `system configuration save`
-3. Выключить **OPKG** (если не пользуетесь им для других нужд)
-4. Перезагрузить роутер
-
 ### Полное удаление пакета
 
+Если желаете полностью удалить пакет, необходимо выполнить следующие шаги:
 1. По SSH выполнить: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Отключить DNS-override (http://my.keenetic.net/a):
     - `no opkg dns-override`

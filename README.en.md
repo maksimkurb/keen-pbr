@@ -155,6 +155,46 @@ Open `/opt/etc/keen-pbr/keen-pbr.conf` and edit as needed:
 1. You need to adjust the `interfaces` field, specifying the interface through which outgoing traffic that matches the list criteria will go.
 2. You also need to add lists (local or remote via URL)
 
+```toml
+# ... (other config lines here, don't delete them)
+[[ipset]]
+  lists = [
+    "epic-games",  # List names here must correspond to the list names
+    "notion-site", # in the [[list]] sections below
+    "local-file",
+    "local"
+  ]
+
+  # ... (other config lines here, don't delete them)
+
+  [ipset.routing]
+  # Here we should specify the interfaces through which outgoing traffic will go.
+  # To get list of all available interfaces, run `keen-pbr interfaces`
+  interfaces = ["nwg1", "nwg4"]
+
+# ... (other config lines here, don't delete them)
+
+# In the bottom of the file, we should add our lists
+[[list]]
+list_name = "local" # This name should be the same as in "lists=[...]" field in the ipset
+hosts = [
+   "ifconfig.co",
+   "myip2.ru"
+]
+
+[[list]]
+list_name = "local-file"
+file = "/opt/etc/keen-pbr/local.lst"
+
+[[list]]
+list_name = "epic-games"
+url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/epicgames"
+
+[[list]]
+list_name = "notion-site"
+url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/notion"
+```
+
 <a name="config-step-2"></a>
 ### 2. Download lists
 
@@ -287,16 +327,10 @@ You can ask questions in the Telegram chat of the project: https://t.me/keen_pbr
 
 You can temporarily disable this configuration by disabling **OPKG** in the settings (selecting "Not specified" section) and rebooting the router.
 
-If you want to completely remove the package, you need to follow these steps:
-1. Execute via SSH: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
-2. Disable DNS-override (http://my.keenetic.net/a):
-   - `no opkg dns-override`
-   - `system configuration save`
-3. Disable **OPKG** (if you don't use it for other purposes)
-4. Reboot the router
 
 ### Complete uninstallation
 
+If you want to completely remove the package, you need to follow these steps:
 1. Execute via SSH: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
 2. Disable DNS-override (http://my.keenetic.net/a):
    - `no opkg dns-override`
