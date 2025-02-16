@@ -24,7 +24,7 @@ func CreateDomainStore(ipsetCount int) *DomainStore {
 	}
 }
 
-func (n *DomainStore) AssociateDomainWithIPSet(domainStr SanitizedDomain, ipsetIndex int) {
+func (n *DomainStore) AssociateDomainWithIPSets(domainStr SanitizedDomain, ipsets []DestIPSet) {
 	crc32Hash := hashDomain(domainStr)
 
 	if _, ok := n.mapping[crc32Hash]; !ok {
@@ -35,7 +35,9 @@ func (n *DomainStore) AssociateDomainWithIPSet(domainStr SanitizedDomain, ipsetI
 		n.appendCollision(domainStr, crc32Hash)
 	}
 
-	n.mapping[crc32Hash].Add(ipsetIndex)
+	for _, ipset := range ipsets {
+		n.mapping[crc32Hash].Add(ipset.Index)
+	}
 }
 
 func (n *DomainStore) GetAssociatedIPSetIndexesForDomain(domainStr SanitizedDomain) (utils.BitSet, uint32) {

@@ -45,9 +45,7 @@ func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) err
 		if domainStore == nil {
 			return nil
 		}
-		for _, ipset := range ipsets {
-			domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipset.Index)
-		}
+		domainStore.AssociateDomainWithIPSets(sanitizeDomain(line), ipsets)
 	}
 
 	return nil
