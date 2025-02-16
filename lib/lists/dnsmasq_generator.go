@@ -17,13 +17,31 @@ func PrintDnsmasqConfig(cfg *config.Config) error {
 	}
 
 	domainStore := CreateDomainStore(len(cfg.IPSets))
+	listMapping := make(map[string][]DestIPSet)
 	for ipsetIndex, ipsetCfg := range cfg.IPSets {
 		for _, listName := range ipsetCfg.Lists {
-			log.Infof("Parsing list \"%s\" for ipset \"%s\"...", listName, ipsetCfg.IPSetName)
-
-			if err := processList(cfg, ipsetIndex, listName, nil, domainStore, nil); err != nil {
-				return err
+			if listMapping[listName] == nil {
+				listMapping[listName] = make([]DestIPSet, 0)
 			}
+
+			listMapping[listName] = append(listMapping[listName], DestIPSet{
+				Index: ipsetIndex,
+				Name:  ipsetCfg.IPSetName,
+			})
+		}
+	}
+
+	for listName, ipsets := range listMapping {
+		log.Infof("Processing list \"%s\" (ipsets: %v)...", listName, ipsets)
+		list, err := getListByName(cfg, listName)
+		if err != nil {
+			return err
+		}
+
+		if err := iterateOverList(list, cfg, func(host string) error {
+			return appendDomain(host, ipsets, domainStore)
+		}); err != nil {
+			return err
 		}
 	}
 

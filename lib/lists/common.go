@@ -12,6 +12,16 @@ import (
 	"strings"
 )
 
+type DestIPSet struct {
+	Index  int
+	Name   string
+	Writer *networking.IPSetWriter
+}
+
+func (ips DestIPSet) String() string {
+	return ips.Name
+}
+
 // CreateIPSetsIfAbsent creates the ipsets if they do not exist.
 func CreateIPSetsIfAbsent(cfg *config.Config) error {
 	for _, ipsetCfg := range cfg.IPSets {
@@ -24,8 +34,8 @@ func CreateIPSetsIfAbsent(cfg *config.Config) error {
 	return nil
 }
 
-// appendHost appends a host to the appropriate networks or domain store.
-func appendHost(host string, ipsetIndex int, ipsetWriter *networking.IPSetWriter, domainStore *DomainStore, ipCount *int) error {
+// appendDomain appends a domain to the appropriate networks or domain store.
+func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) error {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return nil
@@ -35,30 +45,42 @@ func appendHost(host string, ipsetIndex int, ipsetWriter *networking.IPSetWriter
 		if domainStore == nil {
 			return nil
 		}
-		domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipsetIndex)
-	} else {
-		if ipsetWriter == nil {
+		for _, ipset := range ipsets {
+			domainStore.AssociateDomainWithIPSet(sanitizeDomain(line), ipset.Index)
+		}
+	}
+
+	return nil
+}
+
+// appendIPOrCIDR appends a host to the appropriate networks or domain store.
+func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
+	line := strings.TrimSpace(host)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
+
+	if strings.LastIndex(line, "/") < 0 {
+		line = line + "/32"
+	}
+	if netPrefix, err := netip.ParsePrefix(line); err == nil {
+		if !netPrefix.IsValid() {
+			log.Warnf("Could not parse host, skipping: %s", host)
 			return nil
 		}
-		if strings.LastIndex(line, "/") < 0 {
-			line = line + "/32"
-		}
-		if netPrefix, err := netip.ParsePrefix(line); err == nil {
-			if !netPrefix.IsValid() {
-				log.Warnf("Could not parse host, skipping: %s", host)
-				return nil
-			}
 
-			if (netPrefix.Addr().Is4() && ipsetWriter.GetIPSet().IpFamily == config.Ipv4) ||
-				(netPrefix.Addr().Is6() && ipsetWriter.GetIPSet().IpFamily == config.Ipv6) {
-				*ipCount++
-				if err := ipsetWriter.Add(netPrefix); err != nil {
+		for _, ipset := range ipsets {
+			if (netPrefix.Addr().Is4() && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
+				(netPrefix.Addr().Is6() && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
+				if err := ipset.Writer.Add(netPrefix); err != nil {
 					return err
 				}
 			}
-		} else {
-			log.Warnf("Could not parse host, skipping: %s", host)
 		}
+
+		*ipCount++
+	} else {
+		log.Warnf("Could not parse host, skipping: %s", host)
 	}
 
 	return nil
@@ -91,24 +113,6 @@ func iterateOverList(list *config.ListSource, cfg *config.Config, iterateFn func
 		}
 		return nil
 	}
-}
-
-// processList processes a single list within an IP set.
-func processList(cfg *config.Config, ipsetIndex int, listName string, ipsetWriter *networking.IPSetWriter, domainStore *DomainStore, ipCount *int) error {
-	list, err := getListByName(cfg, listName)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Reading list \"%s\" (type=%s)...", list.ListName, list.Type())
-
-	if err := iterateOverList(list, cfg, func(host string) error {
-		return appendHost(host, ipsetIndex, ipsetWriter, domainStore, ipCount)
-	}); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func getListByName(cfg *config.Config, listName string) (*config.ListSource, error) {
