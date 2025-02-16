@@ -114,6 +114,9 @@ Telegram-чат проекта: https://t.me/keen_pbr
    
    # Заменяем пути внутри файла keen-pbr.conf
    sed -i 's|/keenetic-pbr/|/keen-pbr/|g' /opt/etc/keen-pbr/keen-pbr.conf
+
+   # Удаляем старые сгенерированные файлы dnsmasq (они более не нужны)
+   rm /opt/etc/dnsmasq.d/*.keenetic-pbr.conf /opt/etc/dnsmasq.d/*.keenetic-pbr.conf.md5
    ```
 3. Следуйте дальнейшим инструкциям по установке с нуля ниже.
 
