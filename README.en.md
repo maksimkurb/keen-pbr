@@ -87,40 +87,51 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
 4. You also need to configure a second (third, fourth, ...) connection through which you want to direct traffic that falls under the lists. This can be a VPN connection or a second provider (multi-WAN).
 5. **Your devices must be in the Default Internet Access Policy** (Connection Priorities -> Policy Bindings section). Otherwise, the device may ignore all rules applied by keen-pbr.
 
-## Installation and updating
+## Installation and Update
 
-### Automatic installation/update
+1. Install necessary dependencies:
+   ```bash
+   opkg update
+   opkg install ca-certificates wget-ssl
+   opkg remove wget-nossl
+   ```
 
-Connect to your EntWare using SSH and run the following command:
+2. Install opkg repository in the system
+   ```bash
+   mkdir -p /opt/etc/opkg
+   ARCH=$(opkg print-architecture | grep -v 'all' | awk 'NR==1{print $2}' | cut -d'-' -f1)
+   echo "Adding keen-pbr repository for architecture \"${ARCH}\""
+   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr/${ARCH}" > /opt/etc/opkg/keen-pbr.conf
+   ```
+   Supported architectures: `mips`, `mipsel`, `aarch64`.
 
+3. Install the package:
+   ```bash
+   opkg update
+   opkg install keen-pbr
+   ```
+
+   During installation, the `keen-pbr` package replaces the original **dnsmasq** configuration file.
+   A backup will be saved in `/opt/etc/dnsmasq.conf.orig`.
+
+   > [!CAUTION]  
+   > If Entware is installed on the router's internal memory, be sure to [disable list auto-update](#config-step-3) to prevent memory wear!
+
+#### Update:
 ```bash
-opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keen-pbr/refs/heads/main/install.sh && sh install.sh
+opkg update
+opkg upgrade keen-pbr
+``` 
+
+#### Removal:
+```bash
+opkg remove --autoremove keen-pbr
 ```
 
-> [!CAUTION]  
-> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear!
-
-### Manual installation/update
-
-1. Go to [releases](https://github.com/maksimkurb/keen-pbr/releases) page and copy URL for the latest `.ipk` file
-   for your architecture.
-
-2. Download the `.ipk` file on your router:
-   ```bash
-   curl -LO <URL-to-latest-ipk-file-for-your-architecture>
-   ```
-
-3. Install it using OPKG:
-
-   ```bash
-   opkg install keen-pbr-*-entware.ipk
-   ```
-
-During installation, the `keen-pbr` package replaces the original **dnsmasq** configuration file.
-A backup of your original file is saved as `/opt/etc/dnsmasq.conf.orig`.
-
-> [!CAUTION]  
-> If Entware is installed on the router's internal memory, be sure to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear!
+#### Installed Version Information:
+```bash
+opkg info keen-pbr
+```
 
 ## Configuration
 

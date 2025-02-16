@@ -91,38 +91,49 @@ Telegram-чат проекта: https://t.me/keen_pbr
 
 ## Установка и обновление
 
-### Автоматическая установка/обновление
+1. Установите необходимые зависимости:
+   ```bash
+   opkg update
+   opkg install ca-certificates wget-ssl
+   opkg remove wget-nossl
+   ```
+ 
+2. Установите opkg-репозиторий в систему
+   ```bash
+   mkdir -p /opt/etc/opkg
+   ARCH=$(opkg print-architecture | grep -v 'all' | awk 'NR==1{print $2}' | cut -d'-' -f1)
+   echo "Adding keen-pbr repository for architecture \"${ARCH}\""
+   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr/${ARCH}" > /opt/etc/opkg/keen-pbr.conf
+   ```
+   Поддерживаемые архитектуры: `mips`, `mipsel`, `aarch64`.
+ 
+3. Установите пакет:
+   ```bash
+   opkg update
+   opkg install keen-pbr
+   ```
 
-Подключитесь к вашему OPKG по SSH и выполните следующую команду:
+   Во время установки пакет `keen-pbr` заменяет оригинальный файл конфигурации **dnsmasq**.
+   Резервная копия будет сохранена в `/opt/etc/dnsmasq.conf.orig`.
+   
+   > [!CAUTION]  
+   > Если Entware установлен на внутреннюю память роутера, обязательно [отключите автообновление списков](#config-step-3), чтобы предотвратить износ памяти!
 
+#### Обновление:
 ```bash
-opkg install curl jq && curl -sOfL https://raw.githubusercontent.com/maksimkurb/keen-pbr/refs/heads/main/install.sh && sh install.sh
+opkg update
+opkg upgrade keen-pbr
+``` 
+
+#### Удаление
+```bash
+opkg remove --autoremove keen-pbr
 ```
 
-> [!CAUTION]  
-> Если Entware установлен на внутреннюю память роутера, обязательно [отключите автообновление списков](#config-step-3), чтобы предотвратить износ памяти!
-
-### Ручная установка/обновление
-
-1. Перейдите на страницу [релизов](https://github.com/maksimkurb/keen-pbr/releases) и скопируйте URL `.ipk` файла
-   для вашей архитектуры для последней версии.
-
-2. Скачайте `.ipk` файл на ваш маршрутизатор:
-   ```bash
-   curl -LO <URL-to-latest-ipk-file-for-your-architecture>
-   ```
-
-3. Установите его с помощью OPKG:
-
-   ```bash
-   opkg install keen-pbr-*-entware.ipk
-   ```
-
-Во время установки пакет `keen-pbr` заменяет оригинальный файл конфигурации **dnsmasq**.
-Резервная копия будет сохранена в `/opt/etc/dnsmasq.conf.orig`.
-
-> [!CAUTION]  
-> Если Entware установлен на внутреннюю память роутера, обязательно [отключите автообновление списков](#config-step-3), чтобы предотвратить износ памяти!
+#### Информация об установленной версии
+```bash
+opkg info keen-pbr
+```
 
 ## Настройка
 
