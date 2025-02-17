@@ -75,7 +75,7 @@ jobs:
           VERSION: ${{ steps.gh.outputs.version }}
           SHA: ${{ steps.gh.outputs.sha }}
         run: |
-          echo "src-link keenPbr $GITHUB_WORKSPACE/entware" >> ./feeds.conf
+          echo "src-link keenPbr $GITHUB_WORKSPACE/package/entware" >> ./feeds.conf
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "# feeds.conf" >> $GITHUB_STEP_SUMMARY
           cat feeds.conf >> $GITHUB_STEP_SUMMARY
@@ -92,6 +92,9 @@ jobs:
           echo "# .config" >> $GITHUB_STEP_SUMMARY
           cat .config >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          echo "> Current directory is: $(pwd)"
+          ls -la ./
           
           make package/keen-pbr/compile V=s
           

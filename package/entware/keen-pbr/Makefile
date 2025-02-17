@@ -44,15 +44,15 @@ define Package/keen-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/dnsmasq.d/
 		$(INSTALL_DIR) $(1)/opt/usr/bin/
 
-		$(INSTALL_BIN) opt/etc/cron.daily/50-keen-pbr-lists-update.sh $(1)/opt/etc/cron.daily/
-		$(INSTALL_BIN) opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
-		$(INSTALL_BIN) opt/etc/ndm/netfilter.d/50-keen-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
-		$(INSTALL_BIN) opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d
-		$(INSTALL_CONF) opt/etc/keen-pbr/keen-pbr.conf $(1)/opt/etc/keen-pbr/
-		$(INSTALL_BIN) opt/etc/dnsmasq.d/100-keen-pbr.conf $(1)/opt/etc/dnsmasq.d/
-		$(INSTALL_CONF) opt/etc/keen-pbr/local.lst $(1)/opt/etc/keen-pbr/
-		$(INSTALL_BIN) opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/
-		$(INSTALL_CONF) opt/etc/dnsmasq.conf.keen-pbr $(1)/opt/etc/
+		$(INSTALL_BIN) ../../etc/cron.daily/50-keen-pbr-lists-update.sh $(1)/opt/etc/cron.daily/
+		$(INSTALL_BIN) ../../etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
+		$(INSTALL_BIN) ../../etc/ndm/netfilter.d/50-keen-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
+		$(INSTALL_BIN) ../../etc/init.d/S80keen-pbr $(1)/opt/etc/init.d
+		$(INSTALL_CONF) ../../etc/keen-pbr/keen-pbr.conf $(1)/opt/etc/keen-pbr/
+		$(INSTALL_BIN) ../../etc/dnsmasq.d/100-keen-pbr.conf $(1)/opt/etc/dnsmasq.d/
+		$(INSTALL_CONF) ../../etc/keen-pbr/local.lst $(1)/opt/etc/keen-pbr/
+		$(INSTALL_BIN) ../../etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/
+		$(INSTALL_CONF) ../../etc/dnsmasq.conf.keen-pbr $(1)/opt/etc/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keen-pbr $(1)/opt/usr/bin/
 endef
 
