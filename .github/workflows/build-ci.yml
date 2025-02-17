@@ -126,7 +126,6 @@ jobs:
       - name: Build repository
         run:  |
           git clone https://github.com/maksimkurb/ipk-html-indexer
-          mkdir out
           cp ./*.ipk ./out/
           ./ipk-html-indexer/index_feed.sh -a -h ./out
 
