@@ -196,7 +196,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
+          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
           asset_name: keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
           asset_content_type: application/octet-stream
 
@@ -206,7 +206,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
+          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
           asset_name: keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
           asset_content_type: application/octet-stream
 
@@ -216,7 +216,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/entware/keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
+          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
           asset_name: keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
           asset_content_type: application/octet-stream
 
