@@ -84,9 +84,6 @@ jobs:
           echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
           echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
           
-          echo "> Current directory is: $(pwd)"
-          ls -la ./
-          
           make package/keen-pbr/compile V=s
           
           mv $(find ./bin -type f -name 'keen-pbr*.ipk') ./keen-pbr-$VERSION-$SHA-entware-${{ matrix.arch }}.ipk
