@@ -134,9 +134,7 @@ Telegram-чат проекта: https://t.me/keen_pbr
 2. Установите opkg-репозиторий в систему
    ```bash
    mkdir -p /opt/etc/opkg
-   ARCH=$(opkg print-architecture | grep -v 'all' | awk 'NR==1{print $2}' | cut -d'-' -f1)
-   echo "Adding keen-pbr repository for architecture \"${ARCH}\""
-   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr/${ARCH}" > /opt/etc/opkg/keen-pbr.conf
+   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr" > /opt/etc/opkg/keen-pbr.conf
    ```
    Поддерживаемые архитектуры: `mips`, `mipsel`, `aarch64`.
  
