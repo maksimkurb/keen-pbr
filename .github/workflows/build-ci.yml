@@ -176,46 +176,16 @@ jobs:
           git push origin v${{ steps.version.outputs.content }}
           git push
 
-      - name: Create Release
+      - name: Create GitHub Release
         id: create_release
-        uses: actions/create-release@v1.1.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.content }}
-          release_name: Release v${{ steps.version.outputs.content }}
+          name: Release v${{ steps.version.outputs.content }}
           draft: true
           prerelease: false
-
-      - name: Upload Release mips
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mips-3.4.ipk
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release mipsel
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_mipsel-3.4.ipk
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./out/keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
-          asset_name: keen-pbr_${{ steps.version.outputs.content }}_aarch64-3.10.ipk
-          asset_content_type: application/octet-stream
+          files: |
+            ./out/keen-pbr-*.ipk
 
       - name: Summary
         run: |
