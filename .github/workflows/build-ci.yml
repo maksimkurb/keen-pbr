@@ -33,6 +33,7 @@ jobs:
 
     container:
       image: ghcr.io/maksimkurb/entware-builder:${{ matrix.arch }}
+      options: --user root
 
     outputs:
       version: ${{ steps.gh.outputs.version }}
