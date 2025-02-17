@@ -185,7 +185,7 @@ jobs:
           draft: true
           prerelease: false
           files: |
-            ./out/keen-pbr-*.ipk
+            ./out/**/keen-pbr-*.ipk
 
       - name: Summary
         run: |
