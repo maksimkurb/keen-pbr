@@ -28,55 +28,17 @@ jobs:
           - aarch64-3.10
           - mips-3.4
           - mipsel-3.4
+          - x64-3.2
+          - armv7-3.2
+
+    container:
+      image: ghcr.io/maksimkurb/entware-builder:${{ matrix.arch }}
 
     outputs:
       version: ${{ steps.gh.outputs.version }}
       sha: ${{ steps.gh.outputs.sha }}
 
     steps:
-      #####################################
-      # Prepare Entware build environment #
-      #####################################
-      - name: Set up Entware docker container
-        run: |
-          git clone --depth 1 https://github.com/Entware/docker.git
-          docker build docker --pull --tag builder
-          docker volume create entware-home
-
-      - name: Restore Entware from cache
-        id: cache-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/entware
-          key: entware-cache-${{ matrix.arch }}
-
-      - name: Load Entware from cache
-        if: steps.cache-restore.outputs.cache-hit == 'true'
-        run: |
-          docker run --rm --mount source=entware-home,target=/backup_vol -v ~/entware:/backup ubuntu tar -xf /backup/entware.tar -C /backup_vol
-          docker run --rm --mount source=entware-home,target=/home/me -w /home/me ubuntu bash -c 'cp -r ./backup_vol/* ./'
-          docker run --rm --mount source=entware-home,target=/home/me -w /home/me ubuntu bash -c 'chown -R 1000:1000 ./* ./'
-
-      - name: Build Entware
-        if: steps.cache-restore.outputs.cache-hit != 'true'
-        run: |
-          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder make package/symlinks
-          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder cp -v configs/${{ matrix.arch }}.config .config
-          docker run --rm -i --mount source=entware-home,target=/home/me -w /home/me/Entware --name builder builder make -j$(nproc) toolchain/install
-          docker run --rm --mount source=entware-home,target=/backup_vol -v ~/entware:/backup ubuntu tar -cf /backup/entware.tar /backup_vol
-
-      - name: Save Entware to cache
-        if: steps.cache-restore.outputs.cache-hit != 'true'
-        id: cache-save
-        uses: actions/cache/save@v4
-        with:
-          path: ~/entware
-          key: entware-cache-${{ matrix.arch }}
-
-      #################
-      # Build package #
-      #################
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -85,43 +47,54 @@ jobs:
         with:
           file: 'VERSION'
 
-      - name: Get version and commit sha
+      - name: Get version
         id: gh
         env:
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
           echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+          echo "version=$(cat VERSION)" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ github.event_name }}" != "pull_request" ]]; then
             echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
+            echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_STEP_SUMMARY
           else
             echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_OUTPUT
+            echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_STEP_SUMMARY
           fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
 
       - name: Build Entware packages
         id: build
-        run: |
-          echo "src-link keenPbr /repo/entware" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a feeds.conf
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ./scripts/feeds update keenPbr
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ./scripts/feeds install -a -p keenPbr
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder ln -s /repo/.git feeds/keenPbr/keen-pbr/git-src
-          echo "CONFIG_SRC_TREE_OVERRIDE=y" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a .config
-          echo "CONFIG_PACKAGE_keen-pbr=m" | docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder tee -a .config
-          docker run --rm -i --mount source=entware-home,target=/home/me -v $GITHUB_WORKSPACE:/repo -w /home/me/Entware --name builder builder make package/keenetic-pbr/compile V=s
-
-      - name: Extract packages
-        if: steps.build.outcome == 'success'
-        shell: bash
+        working-directory: /home/me/Entware
         env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-          SHA: ${{ needs.prepare.outputs.sha }}
+          VERSION: ${{ steps.gh.outputs.version }}
+          SHA: ${{ steps.gh.outputs.sha }}
         run: |
-          mkdir output
-          docker run --rm --user root -i --mount source=entware-home,target=/home/me -v $(pwd):/target -w /home/me/Entware --name builder builder find ./bin -type f -name 'keen-pbr*.ipk' -exec cp -v {} /target/output \;
-          rm -rf keen-pbr || true
-          mkdir keen-pbr
-          bash -c "cp -r ./output/*.ipk keen-pbr-$VERSION-$SHA-${{ matrix.arch }}-entware.ipk"
+          echo "src-link keenPbr $GITHUB_WORKSPACE/entware" >> ./feeds.conf
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "# feeds.conf" >> $GITHUB_STEP_SUMMARY
+          cat feeds.conf >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          ./scripts/feeds update keenPbr
+          ./scripts/feeds install -a -p keenPbr
+          ln -s $GITHUB_WORKSPACE/.git ./feeds/keenPbr/keen-pbr/git-src
+          
+          echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
+          echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "# .config" >> $GITHUB_STEP_SUMMARY
+          cat .config >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          make package/keen-pbr/compile V=s
+          
+          mv $(find ./bin -type f -name 'keen-pbr*.ipk') ./keen-pbr-$VERSION-$SHA-entware-${{ matrix.arch }}.ipk
 
       - name: Upload packages
         if: steps.build.outcome == 'success'
@@ -129,22 +102,8 @@ jobs:
         with:
           name: keen-pbr-entware-${{ matrix.arch }}
           path: |
-            ./**/keen-pbr-*-entware.ipk
+            /home/me/Entware/keen-pbr*.ipk
           if-no-files-found: error
-
-      - name: Summary
-        env:
-          VERSION: ${{ steps.gh.outputs.version }}
-          SHA: ${{ steps.gh.outputs.sha }}
-        run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "Version: $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "Git commit SHA: $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          ls ./ >> $GITHUB_STEP_SUMMARY
-          echo ""
-          ls ./output >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
 #  build-repository:
 #    runs-on: ubuntu-22.04
