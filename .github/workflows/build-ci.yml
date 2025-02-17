@@ -88,11 +88,6 @@ jobs:
           echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
           echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
           
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "# .config" >> $GITHUB_STEP_SUMMARY
-          cat .config >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          
           echo "> Current directory is: $(pwd)"
           ls -la ./
           
