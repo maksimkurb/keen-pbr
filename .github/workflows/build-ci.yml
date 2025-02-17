@@ -76,10 +76,6 @@ jobs:
           SHA: ${{ steps.gh.outputs.sha }}
         run: |
           echo "src-link keenPbr $GITHUB_WORKSPACE/package/entware" >> ./feeds.conf
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "# feeds.conf" >> $GITHUB_STEP_SUMMARY
-          cat feeds.conf >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
           
           ./scripts/feeds update keenPbr
           ./scripts/feeds install -a -p keenPbr
@@ -104,42 +100,46 @@ jobs:
             /home/me/Entware/keen-pbr*.ipk
           if-no-files-found: error
 
-#  build-repository:
-#    runs-on: ubuntu-22.04
-#    needs:
-#      - build-entware
-#
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Bump version file
-#        uses: francktrouillez/auto-bump-version-file@v1
-#        with:
-#          file: 'VERSION'
-#
-#      - name: Download artifacts
-#        uses: actions/download-artifact@v4
-#        with:
-#          path: out
-#          merge-multiple: true
-#
-#      - name: Display artifacts
-#        run: ls ./
-#
-#      - name: Build repository
-#        run: make repository
-#
-#      - name: Upload pages artifact
-#        uses: actions/upload-pages-artifact@v3
-#        with:
-#          path: ./out/_pages
-#
-#      - name: Summary
-#        run: |
-#          echo '```' >> $GITHUB_STEP_SUMMARY
-#          ls -R ./out/_pages >> $GITHUB_STEP_SUMMARY
-#          echo '```' >> $GITHUB_STEP_SUMMARY
+  build-repository:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-entware
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bump version file
+        uses: francktrouillez/auto-bump-version-file@v1
+        with:
+          file: 'VERSION'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Display artifacts
+        run: ls ./
+
+      - name: Build repository
+        run:  |
+          git clone https://github.com/maksimkurb/ipk-html-indexer
+          mkdir out
+          cp ./*.ipk ./out/
+          ./ipk-html-indexer/index_feed.sh -a -h ./out
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+      - name: Summary
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -R ./out >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
 #  create-release:
 #    runs-on: ubuntu-22.04

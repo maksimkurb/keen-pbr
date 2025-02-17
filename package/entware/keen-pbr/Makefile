@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=keen-pbr
-PKG_VERSION:=$(shell cat $(PKG_BUILD_DIR)/package/../VERSION)
+PKG_VERSION:=$(shell cat ../../../VERSION)
 PKG_REV:=$(shell echo ${GITHUB_SHA})
 PKG_RELEASE:=1
 
