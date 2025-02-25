@@ -60,11 +60,11 @@ define Package/keen-pbr/install
 endef
 
 define Package/keen-pbr/postinst
-$(file <$(PKG_BUILD_DIR)/entware/keen-pbr/postinst)
+$(file <$(PKG_BUILD_DIR)/package/entware/keen-pbr/postinst)
 endef
 
 define Package/keen-pbr/postrm
-$(file <$(PKG_BUILD_DIR)/entware/keen-pbr/postrm)
+$(file <$(PKG_BUILD_DIR)/package/entware/keen-pbr/postrm)
 endef
 
 $(eval $(call BuildPackage,keen-pbr))
