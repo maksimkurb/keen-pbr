@@ -216,16 +216,16 @@ hosts = [
 ]
 
 [[list]]
-list_name = "local-file"
-file = "/opt/etc/keen-pbr/local.lst"
+  list_name = "local-file"
+  file = "/opt/etc/keen-pbr/local.lst"
 
 [[list]]
-list_name = "epic-games"
-url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/epicgames"
+  list_name = "epic-games"
+  url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/epicgames"
 
 [[list]]
-list_name = "notion-site"
-url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/notion"
+  list_name = "notion-site"
+  url = "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/notion"
 ```
 
 <a name="config-step-2"></a>
