@@ -19,6 +19,8 @@ type Config struct {
 type GeneralConfig struct {
 	ListsOutputDir string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
 	UseKeeneticAPI *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
+	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
+	FallbackDNS    string `toml:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
 }
 
 type IPSetConfig struct {

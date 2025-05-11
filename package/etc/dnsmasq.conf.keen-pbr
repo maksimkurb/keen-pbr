@@ -10,9 +10,9 @@ pid-file=/var/run/opt-dnsmasq.pid
 port=53
 
 # Upstream DNS servers
-# IT IS HIGHLY ADVISED TO CONFIGURE dnscrypt-proxy2 AND REPLACE THESE ADDRESSES:
-server=8.8.8.8
-server=8.8.4.4
+# keen-pbr will use DNS servers from Keenetic if "use_keenetic_dns" is set to true in /opt/etc/keen-pbr/keen-pbr.conf
+# server=8.8.8.8
+# server=8.8.4.4
 
 dns-forward-max=5096
 min-port=4096

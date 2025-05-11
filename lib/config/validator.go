@@ -122,6 +122,11 @@ func (c *Config) validateGeneralConfig() error {
 		c.General.UseKeeneticAPI = &def
 	}
 
+	if c.General.UseKeeneticDNS == nil {
+		def := false
+		c.General.UseKeeneticDNS = &def
+	}
+
 	return nil
 }
 
@@ -159,7 +164,7 @@ func (ipset *IPSetConfig) validateOrPrefillIPTablesRules() error {
 				Chain: "PREROUTING",
 				Table: "mangle",
 				Rule: []string{
-					"-m", "mark", "--mark", "0x0/0xffffffff","-m", "set", "--match-set", "{{" + IPTABLES_TMPL_IPSET + "}}", "dst,src", "-j", "MARK", "--set-mark", "{{" + IPTABLES_TMPL_FWMARK + "}}",
+					"-m", "mark", "--mark", "0x0/0xffffffff", "-m", "set", "--match-set", "{{" + IPTABLES_TMPL_IPSET + "}}", "dst,src", "-j", "MARK", "--set-mark", "{{" + IPTABLES_TMPL_FWMARK + "}}",
 				},
 			},
 		}

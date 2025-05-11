@@ -28,3 +28,20 @@ type Interfaces map[string]Interface
 
 const KEENETIC_LINK_UP = "up"
 const KEENETIC_CONNECTED = "yes"
+
+type DnsServerType string
+
+const (
+	DnsServerTypePlain     DnsServerType = "IP4"
+	DnsServerTypePlainIPv6 DnsServerType = "IP6"
+	DnsServerTypeDoT       DnsServerType = "DoT"
+	DnsServerTypeDoH       DnsServerType = "DoH"
+)
+
+type DnsServerInfo struct {
+	Type     DnsServerType
+	Domain   *string
+	Proxy    string
+	Endpoint string // For DoT: SNI, for DoH: URI, for Plain/PlainIPv6: same as Proxy
+	Port     string // Only for DoT and DoH entries, empty otherwise
+}

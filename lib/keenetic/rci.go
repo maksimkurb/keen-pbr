@@ -7,6 +7,17 @@ import (
 	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"io"
 	"net/http"
+	"strings"
+	"time"
+)
+
+const (
+	dnsServerPrefix   = "dns_server = "
+	localhostPrefix   = "127.0.0.1:"
+	httpsPrefix       = "https://"
+	atSymbol          = "@"
+	dotSymbol         = "."
+	commentDelimiter  = "#"
 )
 
 // Generic function to fetch and deserialize JSON
@@ -40,9 +51,27 @@ func fetchAndDeserialize[T any](endpoint string) (T, error) {
 	return result, nil
 }
 
+// fetchAndDeserializeWithRetry calls fetchAndDeserialize with up to 3 attempts and 3s interval between them on failure
+func fetchAndDeserializeWithRetry[T any](endpoint string) (T, error) {
+	var lastErr error
+	var zero T
+	for attempt := 1; attempt <= 3; attempt++ {
+		result, err := fetchAndDeserialize[T](endpoint)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if attempt < 3 {
+			log.Warnf("Failed to make RCI call %s (%s), retrying in 3s...", endpoint, err.Error())
+			time.Sleep(3 * time.Second)
+		}
+	}
+	return zero, lastErr
+}
+
 // RciShowInterfaceMappedById returns a map of interfaces in Keenetic
 func RciShowInterfaceMappedById() (map[string]Interface, error) {
-	return fetchAndDeserialize[map[string]Interface]("/show/interface")
+	return fetchAndDeserializeWithRetry[map[string]Interface]("/show/interface")
 }
 
 func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
@@ -68,4 +97,127 @@ func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
 		}
 		return mapped, nil
 	}
+}
+
+// RciShowDnsServers fetches all DNS servers from Keenetic RCI and returns them for the System policy only
+func RciShowDnsServers() ([]DnsServerInfo, error) {
+	type proxyStatusEntry struct {
+		ProxyName   string `json:"proxy-name"`
+		ProxyConfig string `json:"proxy-config"`
+	}
+	type dnsProxyResponse struct {
+		ProxyStatus []proxyStatusEntry `json:"proxy-status"`
+	}
+
+	resp, err := fetchAndDeserializeWithRetry[dnsProxyResponse]("/show/dns-proxy")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range resp.ProxyStatus {
+		if entry.ProxyName != "System" {
+			continue
+		}
+		var servers []DnsServerInfo
+		lines := strings.Split(entry.ProxyConfig, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, dnsServerPrefix) {
+				continue
+			}
+			// Remove prefix
+			val := strings.TrimPrefix(line, dnsServerPrefix)
+			// Remove comments
+			var comment string
+			if idx := strings.Index(val, commentDelimiter); idx != -1 {
+				comment = strings.TrimSpace(val[idx+1:])
+				val = val[:idx]
+			}
+			val = strings.TrimSpace(val)
+			// Split by whitespace
+			parts := strings.Fields(val)
+			if len(parts) == 0 {
+				log.Errorf("Empty or malformed dns_server line: %q", line)
+				continue
+			}
+			addr := parts[0]
+			var domain *string
+			if len(parts) > 1 && parts[1] != dotSymbol {
+				domain = &parts[1]
+			}
+
+			var endpoint string
+			var typ DnsServerType
+			var port string
+			var ipOnly string
+			if idx := strings.LastIndex(addr, ":"); idx != -1 && idx > 0 && idx < len(addr)-1 {
+				ipOnly = addr[:idx]
+			} else {
+				ipOnly = addr
+			}
+
+			if strings.Contains(addr, ":") && !strings.HasPrefix(addr, localhostPrefix) {
+				// IPv6 address
+				typ = DnsServerTypePlainIPv6
+				endpoint = addr
+				port = ""
+			} else if strings.HasPrefix(addr, localhostPrefix) {
+				// Local proxy, check for DoT/DoH in comment
+				if comment != "" && strings.HasPrefix(comment, httpsPrefix) {
+					typ = DnsServerTypeDoH
+					// Extract URI from comment (e.g. https://freedns.controld.com/p0@dnsm)
+					uri := comment
+					if idx := strings.Index(uri, atSymbol); idx != -1 {
+						uri = uri[:idx]
+					}
+					if uri == "" {
+						log.Errorf("Malformed DoH URI in line: %q", line)
+						continue
+					}
+					endpoint = uri
+					// Extract port from addr
+					if idx := strings.LastIndex(addr, ":"); idx != -1 && idx < len(addr)-1 {
+						port = addr[idx+1:]
+					} else {
+						port = ""
+					}
+				} else if comment != "" && strings.Contains(comment, atSymbol) {
+					typ = DnsServerTypeDoT
+					// Extract SNI after @
+					parts := strings.SplitN(comment, atSymbol, 2)
+					if len(parts) == 2 && parts[1] != "" {
+						endpoint = parts[1]
+					} else {
+						log.Errorf("Malformed DoT SNI in line: %q", line)
+						continue
+					}
+					// Extract port from addr
+					if idx := strings.LastIndex(addr, ":"); idx != -1 && idx < len(addr)-1 {
+						port = addr[idx+1:]
+					} else {
+						port = ""
+					}
+				} else {
+					typ = DnsServerTypePlain
+					endpoint = addr
+					port = ""
+				}
+			} else {
+				// Plain IPv4
+				typ = DnsServerTypePlain
+				endpoint = addr
+				port = ""
+			}
+
+			servers = append(servers, DnsServerInfo{
+				Type:     typ,
+				Domain:   domain,
+				Proxy:    ipOnly,
+				Endpoint: endpoint,
+				Port:     port,
+			})
+		}
+		return servers, nil // Only return the System policy's servers
+	}
+	return nil, nil // No System policy found
 }

@@ -176,9 +176,6 @@ opkg info keen-pbr
 3. **(опционально) [Отключите автообновление списков](#config-step-3)**
     - Если Entware установлен на внутреннюю память, то настоятельно рекомендуется [отключить автообновление списков](#config-step-3), чтобы предотвратить износ NAND-памяти
 4. **(опционально) [Настройте DNS over HTTPS (DoH)](#config-step-4)**
-    - dnsmasq можно перенастроить под свои нужды, например заменить upstream DNS сервер на свой
-    - Рекомендуется установить и настроить пакет `dnscrypt-proxy2`, чтобы ваши DNS-запросы были защищены DNS-over-HTTPS (DoH)
-5. **(обязательно) [Включение DNS Override](#config-step-5)**
 
 <a name="config-step-1"></a>
 ### 1. Настройка пакета keen-pbr
@@ -255,15 +252,42 @@ rm /opt/etc/cron.daily/50-keen-pbr-lists-update.sh
 
 <a name="config-step-4"></a>
 ### 4. Настройка DNS over HTTPS (DoH)
-> [!TIP]  
-> Обычный протокол DNS является не безопасным, поскольку все запросы передаются в открытом виде.
-> Это значит, что провайдер или злоумышленники могут перехватить и подменить ваши DNS-запросы ([DNS spoofing](https://ru.wikipedia.org/wiki/DNS_spoofing)), направив вас на ненастоящий веб-сайт.
-> 
-> Чтобы обезопасить себя от этого, рекомендуется настроить пакет `dnscrypt-proxy2`, который будет использовать протокол **DNS-over-HTTPS** (**DoH**) для шифрования DNS-запросов.
-> Подробнее о **DoH** [можно прочитать здесь](https://adguard-dns.io/ru/blog/adguard-dns-announcement.html).
+
+> Keen-pbr поддерживает два способа настройки защищённого DNS:
+> - **Использовать DNS из Keenetic (предпочтительно)**
+> - Использовать внешний прокси (например, dnscrypt-proxy2)
+
+<details>
+<summary><strong>Использовать DNS из Keenetic (предпочтительно)</strong></summary>
+
+**Предусловие**:
+- У вас должен быть настроен DoH/DoT на самом роутере. Подробнее смотрите в [официальной документации](https://help.keenetic.com/hc/ru/articles/360007687159-%D0%9F%D1%80%D0%BE%D0%BA%D1%81%D0%B8-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B-DNS-over-TLS-%D0%B8-DNS-over-HTTPS-%D0%B4%D0%BB%D1%8F-%D1%88%D0%B8%D1%84%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F-DNS-%D0%B7%D0%B0%D0%BF%D1%80%D0%BE%D1%81%D0%BE%D0%B2).
+
+1. Отредактируйте файл `/opt/etc/keen-pbr/keen-pbr.conf`
+   ```toml
+   [general]
+   # ... (здесь другие строчки конфига, их удалять не нужно)
+
+   use_keenetic_dns = true
+   fallback_dns = "8.8.8.8"
+
+   # ... (здесь другие строчки конфига, их удалять не нужно)
+   ```
+
+2. Откройте `/opt/etc/dnsmasq.conf` и удалите или закомментируйте все строки, начинающиеся с `server=`.
+
+
+- keen-pbr будет брать DNS-сервера из системного профиля.
+- Если вы поменяете DNS-сервера в системном профиле, необходимо будет перезагрузить сервис `dnsmasq` (или выключить и включить OPKG), чтобы новые настройки вступили в силу.
+- Если RCI не сможет получить список DNS-серверов с роутера, будет использован fallback DNS (например, 8.8.8.8).
+- Это наиболее простой и надёжный способ, если вы уже настроили DoH/DoT на самом Keenetic.
+</details>
+
+<details>
+<summary><strong>Использовать внешний прокси (dnscrypt-proxy2)</strong></summary>
 
 Для настройки **DoH** на роутере необходимо выполнить следующие действия:
-1. Скачиваем `dnscrypt-proxy2`
+1. Устанавливаем `dnscrypt-proxy2`
     ```bash
     opkg install dnscrypt-proxy2
     ```
@@ -275,7 +299,7 @@ rm /opt/etc/cron.daily/50-keen-pbr-lists-update.sh
    server_names = ['adguard-dns-doh', 'cloudflare-security', 'google']
    
    # Указываем порт 9153 для прослушивания DNS-запросов
-   listen_addresses = ['[::]:9153']
+   listen_addresses = ['127.0.0.1:9153']
    
    # ... (здесь другие строчки конфига, их удалять не нужно)
     ```
@@ -283,19 +307,34 @@ rm /opt/etc/cron.daily/50-keen-pbr-lists-update.sh
     ```ini
    # ... (здесь другие строчки конфига, их удалять не нужно)
    
-   # Меняем сервер по умолчанию 8.8.8.8 на наш dnscrypt-proxy2
+   # Добавляем наш dnscrypt-proxy2 в качестве upstream-сервера
+   # Остальные строчки, начинающиеся с "server=" НЕОБХОДИМО УДАЛИТЬ ИЛИ ЗАКОММЕНТИРОВАТЬ
    server=127.0.0.1#9153
    
    # ... (здесь другие строчки конфига, их удалять не нужно)
     ```
 
+4. Редактируем файл `/opt/etc/keen-pbr/keen-pbr.conf`
+  ```toml
+  [general]
+  # ... (здесь другие строчки конфига, их удалять не нужно)
+
+  # Отключаем использование DNS из Keenetic
+  use_keenetic_dns = false
+
+  # ... (здесь другие строчки конфига, их удалять не нужно)
+  ```
+
 4. Проверяем валидность конфигурации
     ```bash
+   # Проверяем конфиг dnscrypt-proxy2
+   dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
+
    # Проверяем конфиг dnsmasq
    dnsmasq --test
-   # Проверяем конфиг dnscrypt-proxy2 (запускать только если установлен dnscrypt-proxy2)
-   dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
    ```
+
+</details>
 
 <a name="config-step-5"></a>
 ### 5. Включение DNS Override

@@ -28,6 +28,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
 		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
 		fmt.Fprintf(os.Stderr, "  undo-routing            Undo any routing configuration (reverts \"apply\" command)\n")
+		fmt.Fprintf(os.Stderr, "  dns                     Show System DNS proxy profile\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -57,6 +58,7 @@ func main() {
 		commands.CreateSelfCheckCommand(),
 		commands.CreateUndoCommand(),
 		commands.CreateUpgradeConfigCommand(),
+		commands.CreateDnsCommand(),
 	}
 
 	args := flag.Args()

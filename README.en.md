@@ -220,47 +220,88 @@ You can always [update lists manually](#lists-update).
 
 <a name="config-step-4"></a>
 ### 4. Configure DNS over HTTPS (DoH)
-> [!TIP]  
-> The regular DNS protocol is not secure as all requests are transmitted in plain text.
-> This means that ISPs or attackers can intercept and modify your DNS requests ([DNS spoofing](https://en.wikipedia.org/wiki/DNS_spoofing)), directing you to a fake website.
->
-> To protect from this, it is recommended to configure the `dnscrypt-proxy2` package, which will use the **DNS-over-HTTPS** (**DoH**) protocol to encrypt DNS requests.
-> You can read more about **DoH** [here](https://en.wikipedia.org/wiki/DNS_over_HTTPS).
 
-To configure **DoH** on the router, follow these steps:
-1. Download `dnscrypt-proxy2`
+> keen-pbr supports two ways to set up secure DNS:
+> - **Use DNS from Keenetic (recommended)**
+> - Use an external proxy (e.g., dnscrypt-proxy2)
+
+<details>
+<summary><strong>Use DNS from Keenetic (recommended)</strong></summary>
+
+**Prerequisite**:
+- You must have DoH/DoT configured on your router. See the [official Keenetic documentation](https://help.keenetic.com/hc/en-us/articles/360007687159-DNS-over-TLS-and-DNS-over-HTTPS-proxy-servers-for-DNS-requests-encryption) for details.
+
+1. Edit file: `/opt/etc/keen-pbr/keen-pbr.conf`
+   ```toml
+   [general]
+   # ... (other config lines here, don't delete them)
+
+   use_keenetic_dns = true
+   fallback_dns = "8.8.8.8"
+
+   # ... (other config lines here, don't delete them)
+   ```
+
+2. Open `/opt/etc/dnsmasq.conf` and remove or comment out all lines that start with `server=`.
+
+
+- keen-pbr will use DNS servers from the System profile.
+- If you change DNS servers in the System profile, you need to restart the dnsmasq service (or disable and re-enable OPKG) for the new settings to take effect.
+- If RCI cannot get the DNS server list from the router, the fallback DNS (e.g., 8.8.8.8) will be used.
+- This is the simplest and most reliable way if you have already set up DoH/DoT on your Keenetic router.
+
+</details>
+
+<details>
+<summary><strong>Use an external proxy (dnscrypt-proxy2)</strong></summary>
+
+To set up **DoH** on your router, follow these steps:
+1. Install `dnscrypt-proxy2`
     ```bash
     opkg install dnscrypt-proxy2
     ```
-2. Edit the file `/opt/etc/dnscrypt-proxy.toml`
+2. Edit `/opt/etc/dnscrypt-proxy.toml`
     ```ini
    # ... (other config lines here, don't delete them)
    
-   # Specify upstream servers (need to remove the hash before server_names)
+   # Specify upstream servers (remove the # before server_names)
    server_names = ['adguard-dns-doh', 'cloudflare-security', 'google']
    
-   # Specify port 9153 for listening to DNS requests
-   listen_addresses = ['[::]:9153']
+   # Set port 9153 for listening to DNS requests
+   listen_addresses = ['127.0.0.1:9153']
    
    # ... (other config lines here, don't delete them)
     ```
-3. Edit the file `/opt/etc/dnsmasq.conf`
+3. Edit `/opt/etc/dnsmasq.conf`
     ```ini
    # ... (other config lines here, don't delete them)
    
-   # Change default server 8.8.8.8 to our dnscrypt-proxy2
+   # Add our dnscrypt-proxy2 as the upstream server
+   # All other lines starting with "server=" MUST BE REMOVED OR COMMENTED OUT
    server=127.0.0.1#9153
    
    # ... (other config lines here, don't delete them)
     ```
-
-4. Validate configuration syntax
+4. Edit `/opt/etc/keen-pbr/keen-pbr.conf`
+    ```toml
+    [general]
+    # ... (other config lines here, don't delete them)
+    
+    # Disable using DNS from Keenetic
+    use_keenetic_dns = false
+    
+    # ... (other config lines here, don't delete them)
+    ```
+5. Validate configuration
     ```bash
-   # Check dnsmasq config
-   dnsmasq --test
-   # Check dnscrypt-proxy config (run only if you have installed dnscrypt-proxy2)
-   dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
-   ```
+    # Check dnscrypt-proxy2 config
+    dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
+
+    # Check dnsmasq config
+    dnsmasq --test
+    ```
+
+</details>
 
 <a name="config-step-5"></a>
 ### 5. Enable DNS Override

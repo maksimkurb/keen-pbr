@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/keenetic"
 	"github.com/maksimkurb/keen-pbr/lib/log"
 	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"os"
@@ -67,6 +68,40 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
 			log.Errorf("Failed to flush stdout: %v", err)
 		}
 	}(stdoutBuffer)
+
+	if *cfg.General.UseKeeneticDNS {
+		// Import keenetic DNS servers
+		keeneticServers, err := keenetic.RciShowDnsServers()
+		if err != nil {
+			if cfg.General.FallbackDNS != "" {
+				log.Warnf("Failed to fetch Keenetic DNS servers, using fallback DNS: %s", cfg.General.FallbackDNS)
+				row := "server=" + cfg.General.FallbackDNS + "\n"
+				if _, err := stdoutBuffer.WriteString(row); err != nil {
+					return fmt.Errorf("failed to print fallback DNS to dnsmasq cfg file: %v", err)
+				}
+			} else {
+				log.Warnf("Failed to fetch Keenetic DNS servers, no fallback DNS provided")
+			}
+		} else {
+			log.Infof("Found %d Keenetic DNS servers", len(keeneticServers))
+			for _, server := range keeneticServers {
+				ip := server.Proxy
+				port := server.Port
+
+				row := "server="
+				if server.Domain != nil && *server.Domain != "" {
+					row += "/" + *server.Domain + "/"
+				}
+				row += ip
+				if port != "" {
+					row += "#" + port
+				}
+				if _, err := stdoutBuffer.WriteString(row + "\n"); err != nil {
+					return fmt.Errorf("failed to print DNS to dnsmasq cfg file: %v", err)
+				}
+			}
+		}
+	}
 
 	for _, ipset := range cfg.IPSets {
 		for _, listName := range ipset.Lists {
