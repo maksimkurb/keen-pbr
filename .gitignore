@@ -2,3 +2,10 @@
 ./keen-pbr
 bin/
 out/
+*.iml
+*.ipr
+*.iws
+.idea/
+/build/
+/dist/
+.vscode/
