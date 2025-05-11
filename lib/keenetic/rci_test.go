@@ -39,9 +39,9 @@ rpc_only = on
 		{
 			Type:     DnsServerTypeDoT,
 			Domain:   nil,
-			Proxy:    "127.0.0.1:40500",
+			Proxy:    "127.0.0.1",
 			Endpoint: "p0.freedns.controld.com",
-			Port:     "",
+			Port:     "40500",
 		},
 	}
 
@@ -186,16 +186,16 @@ mirror_path = /var/run/ntce-dns-mirror.sock
 		{
 			Type:     DnsServerTypeDoT,
 			Domain:   nil,
-			Proxy:    "127.0.0.1:40500",
+			Proxy:    "127.0.0.1",
 			Endpoint: "p1.freedns.controld.com",
-			Port:     "",
+			Port:     "40500",
 		},
 		{
 			Type:     DnsServerTypeDoT,
 			Domain:   nil,
-			Proxy:    "127.0.0.1:40501",
+			Proxy:    "127.0.0.1",
 			Endpoint: "76.76.2.11@p0.freedns.controld.com",
-			Port:     "",
+			Port:     "40501",
 		},
 		{
 			Type:     DnsServerTypeDoH,

@@ -151,15 +151,22 @@ func ParseDnsProxyConfig(config string) []DnsServerInfo {
 				// Extract port from addr
 				if idx := strings.LastIndex(addr, ":"); idx != -1 && idx < len(addr)-1 {
 					port = addr[idx+1:]
+					ipOnly = addr[:idx]
 				} else {
 					port = ""
+					ipOnly = addr
 				}
-				ipOnly = addr[:strings.LastIndex(addr, ":")]
 			} else if comment != "" { // treat any comment as DoT SNI
 				typ = DnsServerTypeDoT
 				endpoint = comment
-				ipOnly = addr // Use full addr as Proxy (including port)
-				port = ""
+				// Extract port from addr
+				if idx := strings.LastIndex(addr, ":"); idx != -1 && idx < len(addr)-1 {
+					port = addr[idx+1:]
+					ipOnly = addr[:idx]
+				} else {
+					port = ""
+					ipOnly = addr
+				}
 			} else {
 				typ = DnsServerTypePlain
 				endpoint = addr
