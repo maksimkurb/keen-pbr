@@ -489,3 +489,69 @@ func TestCheckIsDistinct(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDNSOverride(t *testing.T) {
+	tests := []struct {
+		name        string
+		dnsOverride string
+		expectError bool
+	}{
+		{"Empty string", "", false},
+		{"Valid IPv4", "8.8.8.8", false},
+		{"Valid IPv4 with port", "8.8.8.8#53", false},
+		{"Valid IPv4 with high port", "1.1.1.1#8080", false},
+		{"Valid IPv6", "2001:4860:4860::8888", false},
+		{"Valid IPv6 with port", "2001:4860:4860::8888#53", false},
+		{"Invalid IP", "invalid.ip", true},
+		{"Invalid port - zero", "8.8.8.8#0", true},
+		{"Invalid port - too high", "8.8.8.8#65536", true},
+		{"Invalid port - non-numeric", "8.8.8.8#abc", true},
+		{"Multiple # characters", "8.8.8.8#53#80", true},
+		{"IP with # but no port", "8.8.8.8#", true},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDNSOverride(tt.dnsOverride)
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateIPSet_DNSOverride(t *testing.T) {
+	tests := []struct {
+		name        string
+		dnsOverride string
+		expectError bool
+	}{
+		{"Valid DNS override", "8.8.8.8#53", false},
+		{"No DNS override", "", false},
+		{"Invalid DNS override", "invalid.ip", true},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ipset := &IPSetConfig{
+				IPSetName: "test",
+				IPVersion: Ipv4,
+				Routing: &RoutingConfig{
+					Interfaces:  []string{"eth0"},
+					DNSOverride: tt.dnsOverride,
+				},
+			}
+			
+			err := ipset.validateIPSet()
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}

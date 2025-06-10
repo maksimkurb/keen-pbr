@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"os"
+	"strings"
 )
 
 func (c *Config) ValidateConfig() error {
@@ -154,6 +155,13 @@ func (ipset *IPSetConfig) validateIPSet() error {
 		return err
 	}
 
+	// Validate DNS override format
+	if ipset.Routing.DNSOverride != "" {
+		if err := validateDNSOverride(ipset.Routing.DNSOverride); err != nil {
+			return fmt.Errorf("ipset %s DNS override validation failed: %v", ipset.IPSetName, err)
+		}
+	}
+
 	return nil
 }
 
@@ -217,4 +225,33 @@ func validateIpVersion(version IpFamily) (IpFamily, error) {
 	default:
 		return 0, fmt.Errorf("unknown IP version %d", version)
 	}
+}
+
+func validateDNSOverride(dnsOverride string) error {
+	if dnsOverride == "" {
+		return nil
+	}
+
+	// Check if it contains a port
+	if portIndex := strings.LastIndex(dnsOverride, "#"); portIndex != -1 {
+		ip := dnsOverride[:portIndex]
+		port := dnsOverride[portIndex+1:]
+		
+		// Validate IP address
+		if !utils.IsIP(ip) {
+			return fmt.Errorf("invalid IP address: %s", ip)
+		}
+		
+		// Validate port
+		if !utils.IsValidPort(port) {
+			return fmt.Errorf("invalid port: %s", port)
+		}
+	} else {
+		// No port specified, just validate IP
+		if !utils.IsIP(dnsOverride) {
+			return fmt.Errorf("invalid IP address: %s", dnsOverride)
+		}
+	}
+
+	return nil
 }

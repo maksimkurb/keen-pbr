@@ -8,10 +8,18 @@ import (
 
 func ValidateInterfacesArePresent(c *config.Config, interfaces []Interface) error {
 	for _, ipset := range c.IPSets {
+		hasValidInterface := false
+		
 		for _, interfaceName := range ipset.Routing.Interfaces {
 			if err := validateInterfaceExists(interfaceName, interfaces); err != nil {
-				return err
+				log.Errorf("Interface '%s' for ipset '%s' does not exist", interfaceName, ipset.IPSetName)
+			} else {
+				hasValidInterface = true
 			}
+		}
+		
+		if !hasValidInterface {
+			return fmt.Errorf("ipset '%s' has no valid interfaces available", ipset.IPSetName)
 		}
 	}
 

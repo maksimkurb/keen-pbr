@@ -29,6 +29,7 @@ package utils
 import (
 	"net"
 	"regexp"
+	"strconv"
 )
 
 var rxDNSName = regexp.MustCompile(`^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`)
@@ -44,4 +45,10 @@ func IsDNSName(str string) bool {
 
 func IsIP(str string) bool {
 	return net.ParseIP(str) != nil
+}
+
+// IsValidPort checks if the given string is a valid port number (1-65535)
+func IsValidPort(str string) bool {
+	port, err := strconv.Atoi(str)
+	return err == nil && port >= 1 && port <= 65535
 }

@@ -111,7 +111,7 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
 			}
 
 			if err := iterateOverList(list, cfg, func(host string) error {
-				return printDnsmasqIPSetEntry(cfg, stdoutBuffer, host, domains)
+				return printDnsmasqIPSetEntry(cfg, stdoutBuffer, host, domains, ipset)
 			}); err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
 }
 
 // printDnsmasqIPSetEntry prints a single dnsmasq ipset=... entry.
-func printDnsmasqIPSetEntry(cfg *config.Config, buffer *bufio.Writer, domain string, domains *DomainStore) error {
+func printDnsmasqIPSetEntry(cfg *config.Config, buffer *bufio.Writer, domain string, domains *DomainStore, ipset *config.IPSetConfig) error {
 	if !utils.IsDNSName(domain) {
 		return nil
 	}
@@ -167,6 +167,13 @@ func printDnsmasqIPSetEntry(cfg *config.Config, buffer *bufio.Writer, domain str
 
 	if _, err := buffer.WriteRune('\n'); err != nil {
 		return fmt.Errorf("failed to write to dnsmasq cfg file: %v", err)
+	}
+
+	// Handle DNS override for this domain if specified
+	if ipset.Routing != nil && ipset.Routing.DNSOverride != "" {
+		if _, err := fmt.Fprintf(buffer, "server=/%s/%s\n", sanitizedDomain, ipset.Routing.DNSOverride); err != nil {
+			return fmt.Errorf("failed to write DNS override to dnsmasq cfg file: %v", err)
+		}
 	}
 
 	domains.Forget(hash)

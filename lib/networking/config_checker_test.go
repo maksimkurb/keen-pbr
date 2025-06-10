@@ -40,7 +40,7 @@ func TestValidateInterfacesArePresent(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "Missing interface",
+			name: "Some interfaces missing but at least one valid",
 			config: &config.Config{
 				IPSets: []*config.IPSetConfig{
 					{
@@ -55,8 +55,7 @@ func TestValidateInterfacesArePresent(t *testing.T) {
 				{&mockNetlinkLink{name: "eth0"}},
 				{&mockNetlinkLink{name: "eth1"}},
 			},
-			expectError: true,
-			errorSubstr: "nonexistent",
+			expectError: false, // Should not error since eth0 exists
 		},
 		{
 			name: "Empty ipsets config",
@@ -69,20 +68,45 @@ func TestValidateInterfacesArePresent(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "Empty interfaces list",
+			name: "All interfaces missing",
 			config: &config.Config{
 				IPSets: []*config.IPSetConfig{
 					{
 						IPSetName: "test1",
 						Routing: &config.RoutingConfig{
-							Interfaces: []string{"eth0"},
+							Interfaces: []string{"eth0", "nonexistent"},
 						},
 					},
 				},
 			},
 			interfaces:  []Interface{},
 			expectError: true,
-			errorSubstr: "eth0",
+			errorSubstr: "test1",
+		},
+		{
+			name: "Multiple IPSets with mixed interface availability",
+			config: &config.Config{
+				IPSets: []*config.IPSetConfig{
+					{
+						IPSetName: "test1",
+						Routing: &config.RoutingConfig{
+							Interfaces: []string{"eth0", "missing1"}, // eth0 exists
+						},
+					},
+					{
+						IPSetName: "test2",
+						Routing: &config.RoutingConfig{
+							Interfaces: []string{"missing2", "missing3"}, // all missing
+						},
+					},
+				},
+			},
+			interfaces: []Interface{
+				{&mockNetlinkLink{name: "eth0"}},
+				{&mockNetlinkLink{name: "eth1"}},
+			},
+			expectError: true,
+			errorSubstr: "test2", // Should fail because test2 has no valid interfaces
 		},
 	}
 

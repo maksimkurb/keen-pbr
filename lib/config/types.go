@@ -3,9 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/maksimkurb/keen-pbr/lib/utils"
 	"os"
 	"path/filepath"
+
+	"github.com/maksimkurb/keen-pbr/lib/utils"
 )
 
 type Config struct {
@@ -46,6 +47,7 @@ type RoutingConfig struct {
 	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
 	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`
+	DNSOverride    string   `toml:"override_dns" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
 
 	DeprecatedInterface string `toml:"interface,omitempty"`
 }
