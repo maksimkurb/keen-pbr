@@ -1,12 +1,13 @@
 package networking
 
 import (
+	"net"
+
 	"github.com/maksimkurb/keen-pbr/lib/config"
 	"github.com/maksimkurb/keen-pbr/lib/keenetic"
 	"github.com/maksimkurb/keen-pbr/lib/log"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"net"
 )
 
 func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *string) (bool, error) {
@@ -140,64 +141,28 @@ func BuildIPRuleForIpset(ipset *config.IPSetConfig) *IpRule {
 }
 
 func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
-	var chosenIface *Interface = nil
+	var chosenIface *Interface
 
 	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IPSetName, ipset.Routing.Interfaces)
+	
 	for _, interfaceName := range ipset.Routing.Interfaces {
-		if iface, err := GetInterface(interfaceName); err != nil {
+		iface, err := GetInterface(interfaceName)
+		if err != nil {
 			log.Errorf("Failed to get interface \"%s\" status: %v", interfaceName, err)
 			continue
-		} else {
-			addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
-			var keeneticIface *keenetic.Interface = nil
-			if useKeeneticAPI && addrsErr == nil {
-				for _, addr := range addrs {
-					if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
-						keeneticIface = &val
-						break
-					}
-				}
-			}
-
-			attrs := iface.Attrs()
-			up := attrs.Flags&net.FlagUp != 0
-
-			if useKeeneticAPI {
-				if up && keeneticIface != nil && keeneticIface.Connected == keenetic.KEENETIC_CONNECTED && chosenIface == nil {
-					chosenIface = iface
-				}
-
-				if keeneticIface != nil {
-					var chosen = "  "
-					if chosenIface == iface {
-						chosen = colorGreen + "->" + colorReset
-					}
-
-					log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
-						chosen,
-						attrs.Name,
-						attrs.Index,
-						keeneticIface.ID,
-						keeneticIface.Description,
-						up,
-						keeneticIface.Link,
-						keeneticIface.Connected)
-				} else {
-					log.Infof("    %s (idx=%d) (unknown) up=%v link=unknown connected=unknown", attrs.Name, attrs.Index, up)
-				}
-			} else {
-				if up && chosenIface == nil {
-					chosenIface = iface
-				}
-
-				var chosen = "  "
-				if chosenIface == iface {
-					chosen = colorGreen + "->" + colorReset
-				}
-
-				log.Infof(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
-			}
 		}
+
+		attrs := iface.Attrs()
+		up := attrs.Flags&net.FlagUp != 0
+		keeneticIface := getKeeneticInterface(iface, useKeeneticAPI, keeneticIfaces)
+
+		// Check if this interface should be chosen
+		if chosenIface == nil && isInterfaceUsable(up, keeneticIface, useKeeneticAPI) {
+			chosenIface = iface
+		}
+
+		// Log interface status
+		logInterfaceStatus(iface, up, keeneticIface, chosenIface == iface, useKeeneticAPI)
 	}
 
 	if chosenIface == nil {
@@ -205,4 +170,62 @@ func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneti
 	}
 
 	return chosenIface, nil
+}
+
+// getKeeneticInterface finds the Keenetic interface info for the given system interface
+func getKeeneticInterface(iface *Interface, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) *keenetic.Interface {
+	if !useKeeneticAPI {
+		return nil
+	}
+
+	addrs, err := netlink.AddrList(iface, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil
+	}
+
+	for _, addr := range addrs {
+		if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
+			return &val
+		}
+	}
+	return nil
+}
+
+// isInterfaceUsable determines if an interface can be used for routing
+func isInterfaceUsable(up bool, keeneticIface *keenetic.Interface, useKeeneticAPI bool) bool {
+	if !up {
+		return false
+	}
+
+	if !useKeeneticAPI {
+		return true
+	}
+
+	// With Keenetic API: interface is usable if it's up and either:
+	// 1. Keenetic status shows connected=yes, or
+	// 2. Keenetic status is unknown (interface not found in API)
+	return keeneticIface == nil || keeneticIface.Connected == keenetic.KEENETIC_CONNECTED
+}
+
+// logInterfaceStatus logs the status of an interface in a consistent format
+func logInterfaceStatus(iface *Interface, up bool, keeneticIface *keenetic.Interface, isChosen bool, useKeeneticAPI bool) {
+	attrs := iface.Attrs()
+	chosen := "  "
+	if isChosen {
+		chosen = colorGreen + "->" + colorReset
+	}
+
+	if useKeeneticAPI {
+		if keeneticIface != nil {
+			log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
+				chosen, attrs.Name, attrs.Index,
+				keeneticIface.ID, keeneticIface.Description,
+				up, keeneticIface.Link, keeneticIface.Connected)
+		} else {
+			log.Infof(" %s %s (idx=%d) (unknown) up=%v link=unknown connected=unknown",
+				chosen, attrs.Name, attrs.Index, up)
+		}
+	} else {
+		log.Infof(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
+	}
 }
