@@ -20,12 +20,27 @@ const (
 	commentDelimiter  = "#"
 )
 
+// HTTPClient interface for dependency injection in tests
+type HTTPClient interface {
+	Get(url string) (*http.Response, error)
+}
+
+// defaultHTTPClient implements HTTPClient using the standard http package
+type defaultHTTPClient struct{}
+
+func (c *defaultHTTPClient) Get(url string) (*http.Response, error) {
+	return http.Get(url)
+}
+
+// Global HTTP client (can be overridden in tests)
+var httpClient HTTPClient = &defaultHTTPClient{}
+
 // Generic function to fetch and deserialize JSON
 func fetchAndDeserialize[T any](endpoint string) (T, error) {
 	var result T
 
 	// Make the HTTP request
-	resp, err := http.Get(rciPrefix + endpoint)
+	resp, err := httpClient.Get(rciPrefix + endpoint)
 	if err != nil {
 		return result, fmt.Errorf("failed to fetch data: %w", err)
 	}
