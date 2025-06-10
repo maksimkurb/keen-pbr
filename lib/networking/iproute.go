@@ -106,7 +106,16 @@ func (ipr *IpRoute) AddIfNotExists() error {
 }
 
 func (ipr *IpRoute) IsExists() (bool, error) {
-	if filtered, err := netlink.RouteListFiltered(ipr.Family, ipr.Route, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_OIF); err != nil {
+	var filters uint64
+	if ipr.Type == unix.RTN_BLACKHOLE {
+		// For blackhole routes, don't use OIF filter since they have no output interface
+		filters = netlink.RT_FILTER_TABLE | netlink.RT_FILTER_TYPE
+	} else {
+		// For regular routes, use the existing filters
+		filters = netlink.RT_FILTER_TABLE | netlink.RT_FILTER_OIF
+	}
+
+	if filtered, err := netlink.RouteListFiltered(ipr.Family, ipr.Route, filters); err != nil {
 		log.Warnf("Checking if IP route exists [%v] is failed: %v", ipr, err)
 		return false, err
 	} else {
