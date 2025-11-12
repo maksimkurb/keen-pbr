@@ -3,13 +3,18 @@
 ![workflow status](https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main)
 ![release](https://img.shields.io/github/v/release/maksimkurb/keen-pbr?sort=date)
 
+[![telegram chat](https://img.shields.io/badge/Telegram-%D0%A1%D0%BE%D0%BE%D0%B1%D1%89%D0%B5%D1%81%D1%82%D0%B2%D0%BE-white?logo=telegram&logoColor=white&labelColor=blue)](https://t.me/keen_pbr)
+
 > **keen-pbr** не является официальным продуктом компании **Keenetic** и никак с ней не связан. Этот пакет создан сторонним разработчиком и предоставляется "как есть" без какой-либо гарантии, автор не несёт ответственности за повреждение Вашего устройства, все действия Вы выполняете на свой страх и риск.
 >
 >  Вопросы и предложения касательно пакета можно направлять в [GitHub Issue](https://github.com/maksimkurb/keen-pbr/issues) и в Telegram-чат: https://t.me/keen_pbr.
 
 #### [> :us: README in English <](./README.en.md)
 
-#### [> 💰 Donate (только карты РФ) <](https://pay.cloudtips.ru/p/a633c47d)
+#### Поддержите проект 💰
+> [![ko-fi donate page badge](https://img.shields.io/badge/ko--fi-Donate%20(Карты%20иностранных%20банков)-lightgreen?logo=ko-fi&logoColor=FF6433&labelColor=white)](https://ko-fi.com/keen_pbr) <br>
+> [![cloudtips donate page badge](https://img.shields.io/badge/cloudtips-Donate%20(Российские%20банковские%20карты)-lightgreen?logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMjY2LjE4IDI2Ni4xOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj4KPHBhdGggZD0iTTEzMy4wOSAyNjYuMThDMjA2LjU5NCAyNjYuMTggMjY2LjE4IDIwNi41OTQgMjY2LjE4IDEzMy4wOUMyNjYuMTggNTkuNTg2NCAyMDYuNTk0IDAgMTMzLjA5IDBDNTkuNTg2NCAwIDAgNTkuNTg2NCAwIDEzMy4wOUMwIDIwNi41OTQgNTkuNTg2NCAyNjYuMTggMTMzLjA5IDI2Ni4xOFoiIGZpbGw9IiM2NDk2REMiLz4KPHBhdGggZD0ibTEwNC41IDE3MC4zIDg2LjE5LTg2LjE5YzIuMTMxLTIuMTMyOCA0LjY2MS0zLjgyNDkgNy40NDUtNC45NzkzIDIuNzg1LTEuMTU0NCA1Ljc3LTEuNzQ4NiA4Ljc4NS0xLjc0ODZzNiAwLjU5NDIgOC43ODUgMS43NDg2YzIuNzg0IDEuMTU0NCA1LjMxNCAyLjg0NjUgNy40NDUgNC45NzkzIDIuMTMzIDIuMTMwNSAzLjgyNSA0LjY2MDUgNC45NzkgNy40NDU0IDEuMTU1IDIuNzg0OSAxLjc0OSA1Ljc3IDEuNzQ5IDguNzg0NiAwIDMuMDE1LTAuNTk0IDYtMS43NDkgOC43ODUtMS4xNTQgMi43ODUtMi44NDYgNS4zMTUtNC45NzkgNy40NDVsLTUzLjY1IDUzLjczYy04LjYyNCA4LjYxLTIwLjMxMyAxMy40NDYtMzIuNSAxMy40NDZzLTIzLjg3Ni00LjgzNi0zMi41LTEzLjQ0NnoiIGZpbGw9IiNmZmYiLz4KPHBhdGggZD0ibTE2MS42OCA5NS44OS04Ni4xOSA4Ni4xOWMtMi4xMzA1IDIuMTMzLTQuNjYwNiAzLjgyNS03LjQ0NTQgNC45NzktMi43ODQ5IDEuMTU1LTUuNzcgMS43NDktOC43ODQ2IDEuNzQ5LTMuMDE0NyAwLTUuOTk5OC0wLjU5NC04Ljc4NDctMS43NDktMi43ODQ4LTEuMTU0LTUuMzE0OC0yLjg0Ni03LjQ0NTMtNC45NzktNC4yOTI5LTQuMzExLTYuNzAzMi0xMC4xNDYtNi43MDMyLTE2LjIzczIuNDEwMy0xMS45MTkgNi43MDMyLTE2LjIzbDUzLjY1LTUzLjczYzguNjI0OS04LjYxMDIgMjAuMzEzLTEzLjQ0NiAzMi41LTEzLjQ0NnMyMy44NzYgNC44MzYgMzIuNSAxMy40NDZ6IiBmaWxsPSIjZmZmIi8%2BCjwvZz4KPGRlZnM%2BCjxjbGlwUGF0aCBpZD0iYSI%2BCjxyZWN0IHdpZHRoPSIxMTk4LjciIGhlaWdodD0iMjY2LjE5IiBmaWxsPSIjZmZmIi8%2BCjwvY2xpcFBhdGg%2BCjwvZGVmcz4KPC9zdmc%2BCg%3D%3D&labelColor=white)](https://pay.cloudtips.ru/p/a633c47d)
+
 
 #### ⚠️Для владельцев роутеров Keenetic без USB-разъёма:
 * Убедитесь, что вы обновились как минимум до версии `v-1.3.0-2`
