@@ -1,4 +1,7 @@
 import { DNS, DNSType } from '../types';
+import { ToggleButtonGroup } from './ui/ToggleButtonGroup';
+import { Input } from './ui/Input';
+import { Checkbox } from './ui/Checkbox';
 
 interface DNSServerInputProps {
   value?: DNS;
@@ -12,7 +15,7 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
     onChange({
       type,
       server: value?.server || '',
-      port: value?.port || getDefaultPort(type),
+      port: getDefaultPort(type), // Always use default port when type changes
       path: type === 'https' ? (value?.path || '/dns-query') : undefined,
       throughOutbound: value?.throughOutbound ?? true,
     });
@@ -72,7 +75,7 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="block text-sm font-medium text-gray-700">{label}</label>
-        {allowEmpty && value && (
+        {allowEmpty && value && value.server.trim() !== '' && (
           <button
             type="button"
             onClick={handleClear}
@@ -84,102 +87,52 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
       </div>
 
       {/* DNS Type Button Group */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => handleTypeChange('udp')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            value?.type === 'udp'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          UDP
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('tls')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            value?.type === 'tls'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          DoT
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('https')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            value?.type === 'https'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          DoH
-        </button>
-      </div>
+      <ToggleButtonGroup
+        options={[
+          { value: 'udp' as DNSType, label: 'UDP' },
+          { value: 'tls' as DNSType, label: 'DoT' },
+          { value: 'https' as DNSType, label: 'DoH' },
+        ]}
+        value={value?.type || 'udp'}
+        onChange={handleTypeChange}
+      />
 
       {/* DNS Server Details */}
       {value && (
         <div className="space-y-3 p-4 bg-gray-50 rounded-md">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Server
-            </label>
-            <input
-              type="text"
-              value={value.server}
-              onChange={(e) => handleServerChange(e.target.value)}
-              placeholder="8.8.8.8 or dns.google"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <Input
+            label="Server"
+            type="text"
+            value={value.server}
+            onChange={(e) => handleServerChange(e.target.value)}
+            placeholder="8.8.8.8 or dns.google"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Port
-            </label>
-            <input
-              type="number"
-              value={value.port}
-              onChange={(e) => handlePortChange(e.target.value)}
-              min="1"
-              max="65535"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <Input
+            label="Port"
+            type="number"
+            value={value.port.toString()}
+            onChange={(e) => handlePortChange(e.target.value)}
+            min="1"
+            max="65535"
+          />
 
           {value.type === 'https' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Path
-              </label>
-              <input
-                type="text"
-                value={value.path || ''}
-                onChange={(e) => handlePathChange(e.target.value)}
-                placeholder="/dns-query"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <Input
+              label="Path"
+              type="text"
+              value={value.path || ''}
+              onChange={(e) => handlePathChange(e.target.value)}
+              placeholder="/dns-query"
+            />
           )}
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id={`${label}-through-outbound`}
-              checked={value.throughOutbound ?? true}
-              onChange={(e) => handleThroughOutboundChange(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label
-              htmlFor={`${label}-through-outbound`}
-              className="ml-2 block text-sm text-gray-700"
-            >
-              Query through outbound
-            </label>
-          </div>
+          <Checkbox
+            id={`${label}-through-outbound`}
+            label="Query through outbound"
+            checked={value.throughOutbound ?? true}
+            onChange={(e) => handleThroughOutboundChange(e.target.checked)}
+          />
         </div>
       )}
 

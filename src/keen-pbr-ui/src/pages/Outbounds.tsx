@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { infoAPI, outboundsAPI } from '../api/client';
 import type { NetworkInterface, Outbound, OutboundType } from '../types';
 import OutboundCard from '../components/OutboundCard';
+import { Button } from '../components/ui/Button';
 
 interface OutboundEntry {
   tag: string;
@@ -141,12 +142,9 @@ export default function Outbounds() {
     <div className="px-4 py-6 sm:px-0">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Outbounds</h1>
-        <button
-          onClick={handleAddOutbound}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
+        <Button onClick={handleAddOutbound}>
           Add Outbound
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -178,12 +176,9 @@ export default function Outbounds() {
 
       {entries.length > 0 && (
         <div className="mt-6">
-          <button
-            onClick={handleSave}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
+          <Button onClick={handleSave} size="lg">
             Save
-          </button>
+          </Button>
         </div>
       )}
     </div>

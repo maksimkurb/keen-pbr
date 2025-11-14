@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { settingsAPI } from '../api/client';
 import type { DNS, GeneralSettings as GeneralSettingsType } from '../types';
 import { DNSServerInput } from '../components/DNSServerInput';
+import { Button } from '../components/ui/Button';
 
 export function GeneralSettings() {
   const [settings, setSettings] = useState<GeneralSettingsType>({});
@@ -116,13 +117,9 @@ export function GeneralSettings() {
 
         {/* Save Button */}
         <div className="flex justify-end pt-4 border-t border-gray-200">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
+          <Button onClick={handleSave} disabled={saving} size="lg">
             {saving ? 'Saving...' : 'Save Settings'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

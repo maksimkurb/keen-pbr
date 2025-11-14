@@ -3,6 +3,11 @@ import { rulesAPI, outboundsAPI } from '../api/client';
 import type { Rule, OutboundTable, List, DNS } from '../types';
 import ListAccordion from '../components/ListAccordion';
 import { DNSServerInput } from '../components/DNSServerInput';
+import { ToggleButtonGroup } from '../components/ui/ToggleButtonGroup';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Checkbox } from '../components/ui/Checkbox';
 
 interface RuleEntry {
   id: string;
@@ -137,12 +142,9 @@ export default function Rules() {
     <div className="px-4 py-6 sm:px-0">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Rules</h1>
-        <button
-          onClick={handleAddRule}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
+        <Button onClick={handleAddRule}>
           Add Rule
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -156,66 +158,43 @@ export default function Rules() {
           <div key={index} className="bg-white shadow rounded-lg p-6">
             <div className="space-y-4">
               {/* ID field */}
-              <div>
-                <label htmlFor={`id-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                  ID
-                </label>
-                <input
-                  id={`id-${index}`}
-                  type="text"
-                  value={entry.id}
-                  onChange={(e) => handleIdChange(index, e.target.value)}
-                  disabled={!entry.isNew}
-                  placeholder="e.g., rule-youtube"
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 ${
-                    !entry.isNew ? 'bg-gray-100 text-gray-600' : ''
-                  }`}
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  {entry.isNew ? 'Unique identifier for this rule' : 'ID cannot be changed after creation'}
-                </p>
-              </div>
+              <Input
+                id={`id-${index}`}
+                label="ID"
+                type="text"
+                value={entry.id}
+                onChange={(e) => handleIdChange(index, e.target.value)}
+                disabled={!entry.isNew}
+                placeholder="e.g., rule-youtube"
+                helperText={entry.isNew ? 'Unique identifier for this rule' : 'ID cannot be changed after creation'}
+              />
 
               {/* Name field */}
-              <div>
-                <label htmlFor={`name-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                  Name (optional)
-                </label>
-                <input
-                  id={`name-${index}`}
-                  type="text"
-                  value={entry.data.name || ''}
-                  onChange={(e) => updateRuleData(index, { name: e.target.value })}
-                  placeholder="e.g., YouTube Traffic"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+              <Input
+                id={`name-${index}`}
+                label="Name (optional)"
+                type="text"
+                value={entry.data.name || ''}
+                onChange={(e) => updateRuleData(index, { name: e.target.value })}
+                placeholder="e.g., YouTube Traffic"
+              />
 
               {/* Enabled and Priority */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={entry.data.enabled}
-                      onChange={(e) => updateRuleData(index, { enabled: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm font-medium text-gray-700">Enabled</span>
-                  </label>
-                </div>
-                <div>
-                  <label htmlFor={`priority-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                    Priority
-                  </label>
-                  <input
-                    id={`priority-${index}`}
-                    type="number"
-                    value={entry.data.priority}
-                    onChange={(e) => updateRuleData(index, { priority: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  <Checkbox
+                    label="Enabled"
+                    checked={entry.data.enabled}
+                    onChange={(e) => updateRuleData(index, { enabled: e.target.checked })}
                   />
                 </div>
+                <Input
+                  id={`priority-${index}`}
+                  label="Priority"
+                  type="number"
+                  value={entry.data.priority.toString()}
+                  onChange={(e) => updateRuleData(index, { priority: parseInt(e.target.value) || 0 })}
+                />
               </div>
 
               {/* Outbound Table */}
@@ -223,60 +202,46 @@ export default function Rules() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Outbound Table
                 </label>
-                <div className="inline-flex rounded-md shadow-sm mb-3" role="group">
-                  <button
-                    type="button"
-                    onClick={() => updateOutboundTable(index, {
-                      type: 'static',
-                      outbound: availableOutbounds[0] || '',
-                    })}
-                    className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${
-                      entry.data.outboundTable.type === 'static'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Static
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateOutboundTable(index, {
-                      type: 'urltest',
-                      outbounds: availableOutbounds.slice(0, 1),
-                      testUrl: 'https://www.gstatic.com/generate_204',
-                    })}
-                    className={`px-4 py-2 text-sm font-medium border rounded-r-lg ${
-                      entry.data.outboundTable.type === 'urltest'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    URL Test
-                  </button>
-                </div>
+                <ToggleButtonGroup
+                  options={[
+                    { value: 'static' as const, label: 'Static' },
+                    { value: 'urltest' as const, label: 'URL Test' },
+                  ]}
+                  value={entry.data.outboundTable.type}
+                  onChange={(type) => {
+                    if (type === 'static') {
+                      updateOutboundTable(index, {
+                        type: 'static',
+                        outbound: availableOutbounds[0] || '',
+                      });
+                    } else {
+                      updateOutboundTable(index, {
+                        type: 'urltest',
+                        outbounds: availableOutbounds.slice(0, 1),
+                        testUrl: 'https://www.gstatic.com/generate_204',
+                      });
+                    }
+                  }}
+                  className="mb-3"
+                />
 
                 {entry.data.outboundTable.type === 'static' ? (
-                  <div>
-                    <label htmlFor={`outbound-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                      Outbound
-                    </label>
-                    <select
-                      id={`outbound-${index}`}
-                      value={entry.data.outboundTable.outbound}
-                      onChange={(e) => updateOutboundTable(index, {
-                        type: 'static',
-                        outbound: e.target.value,
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select outbound...</option>
-                      {availableOutbounds.map((tag) => (
-                        <option key={tag} value={tag}>
-                          {tag}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <Select
+                    id={`outbound-${index}`}
+                    label="Outbound"
+                    value={entry.data.outboundTable.outbound}
+                    onChange={(e) => updateOutboundTable(index, {
+                      type: 'static',
+                      outbound: e.target.value,
+                    })}
+                  >
+                    <option value="">Select outbound...</option>
+                    {availableOutbounds.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </Select>
                 ) : entry.data.outboundTable.type === 'urltest' ? (
                   <div className="space-y-3">
                     <div>
@@ -344,27 +309,22 @@ export default function Rules() {
                         </button>
                       </div>
                     </div>
-                    <div>
-                      <label htmlFor={`testUrl-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Test URL
-                      </label>
-                      <input
-                        id={`testUrl-${index}`}
-                        type="text"
-                        value={entry.data.outboundTable.testUrl}
-                        onChange={(e) => {
-                          if (entry.data.outboundTable.type === 'urltest') {
-                            updateOutboundTable(index, {
-                              type: 'urltest',
-                              outbounds: entry.data.outboundTable.outbounds,
-                              testUrl: e.target.value,
-                            });
-                          }
-                        }}
-                        placeholder="https://www.gstatic.com/generate_204"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
+                    <Input
+                      id={`testUrl-${index}`}
+                      label="Test URL"
+                      type="text"
+                      value={entry.data.outboundTable.testUrl}
+                      onChange={(e) => {
+                        if (entry.data.outboundTable.type === 'urltest') {
+                          updateOutboundTable(index, {
+                            type: 'urltest',
+                            outbounds: entry.data.outboundTable.outbounds,
+                            testUrl: e.target.value,
+                          });
+                        }
+                      }}
+                      placeholder="https://www.gstatic.com/generate_204"
+                    />
                   </div>
                 ) : null}
               </div>
@@ -523,12 +483,9 @@ export default function Rules() {
 
       {entries.length > 0 && (
         <div className="mt-6">
-          <button
-            onClick={handleSave}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-          >
+          <Button onClick={handleSave} size="lg">
             Save
-          </button>
+          </Button>
         </div>
       )}
     </div>
