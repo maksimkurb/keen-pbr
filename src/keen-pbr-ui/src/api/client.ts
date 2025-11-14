@@ -109,6 +109,10 @@ export const configAPI = {
       body: JSON.stringify(config),
     });
   },
+
+  async getSingbox() {
+    return fetchJSON<any>('/v1/config/singbox');
+  },
 };
 
 // Settings API

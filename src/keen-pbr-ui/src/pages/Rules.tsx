@@ -377,6 +377,7 @@ export default function Rules() {
                     }}
                     label=""
                     allowEmpty={true}
+                    showThroughOutbound={true}
                   />
                 )}
               </div>

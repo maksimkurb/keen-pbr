@@ -8,9 +8,10 @@ interface DNSServerInputProps {
   onChange: (dns: DNS | undefined) => void;
   label: string;
   allowEmpty?: boolean;
+  showThroughOutbound?: boolean;
 }
 
-export function DNSServerInput({ value, onChange, label, allowEmpty = false }: DNSServerInputProps) {
+export function DNSServerInput({ value, onChange, label, allowEmpty = false, showThroughOutbound = false }: DNSServerInputProps) {
   const handleTypeChange = (type: DNSType) => {
     onChange({
       type,
@@ -56,10 +57,6 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
     });
   };
 
-  const handleClear = () => {
-    onChange(undefined);
-  };
-
   const getDefaultPort = (type: DNSType): number => {
     switch (type) {
       case 'udp':
@@ -73,18 +70,7 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
-        {allowEmpty && value && value.server.trim() !== '' && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-xs text-red-600 hover:text-red-700"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
 
       {/* DNS Type Button Group */}
       <ToggleButtonGroup
@@ -127,12 +113,14 @@ export function DNSServerInput({ value, onChange, label, allowEmpty = false }: D
             />
           )}
 
-          <Checkbox
-            id={`${label}-through-outbound`}
-            label="Query through outbound"
-            checked={value.throughOutbound ?? true}
-            onChange={(e) => handleThroughOutboundChange(e.target.checked)}
-          />
+          {showThroughOutbound && (
+            <Checkbox
+              id={`${label}-through-outbound`}
+              label="Query through outbound"
+              checked={value.throughOutbound ?? true}
+              onChange={(e) => handleThroughOutboundChange(e.target.checked)}
+            />
+          )}
         </div>
       )}
 
