@@ -152,11 +152,11 @@ func generateInbounds() []Inbound {
 }
 
 // generateOutbounds generates outbound configurations
-func generateOutbounds(outbounds map[string]models.Outbound) []Outbound {
-	result := []Outbound{
-		{
-			Type: "direct",
-			Tag:  "direct-out",
+func generateOutbounds(outbounds map[string]models.Outbound) []interface{} {
+	result := []interface{}{
+		map[string]interface{}{
+			"type": "direct",
+			"tag":  "direct-out",
 		},
 	}
 
@@ -164,19 +164,24 @@ func generateOutbounds(outbounds map[string]models.Outbound) []Outbound {
 	for tag, outbound := range outbounds {
 		switch ob := outbound.(type) {
 		case *models.InterfaceOutbound:
-			result = append(result, Outbound{
-				Type:           "direct",
-				Tag:            tag,
-				BindInterface:  ob.IfName,
-				DomainResolver: fmt.Sprintf("%s-domain-resolver", tag),
+			result = append(result, map[string]interface{}{
+				"type":            "direct",
+				"tag":             tag,
+				"bind_interface":  ob.IfName,
+				"domain_resolver": fmt.Sprintf("%s-domain-resolver", tag),
 			})
 		case *models.ProxyOutbound:
-			// For proxy outbounds, we'll create a direct outbound for now
-			// TODO: Add proper proxy support
-			result = append(result, Outbound{
-				Type: "direct",
-				Tag:  tag,
-			})
+			// Parse proxy URL and generate proper sing-box outbound
+			proxyOutbound, err := ParseProxyURL(tag, ob.URL)
+			if err != nil {
+				// If parsing fails, create a direct outbound as fallback
+				result = append(result, map[string]interface{}{
+					"type": "direct",
+					"tag":  tag,
+				})
+			} else {
+				result = append(result, proxyOutbound)
+			}
 		}
 	}
 

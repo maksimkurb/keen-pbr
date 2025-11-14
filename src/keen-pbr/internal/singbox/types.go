@@ -8,7 +8,7 @@ type Config struct {
 	Certificate  map[string]any     `json:"certificate"`
 	Endpoints    []any              `json:"endpoints"`
 	Inbounds     []Inbound          `json:"inbounds"`
-	Outbounds    []Outbound         `json:"outbounds"`
+	Outbounds    []interface{}      `json:"outbounds"`
 	Route        RouteConfig        `json:"route"`
 	Services     []any              `json:"services"`
 	Experimental ExperimentalConfig `json:"experimental"`
