@@ -63,13 +63,13 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 			Type:       "udp",
 			Tag:        "bootstrap-dns-server",
 			Server:     "8.8.8.8",
-			ServerPort: "53",
+			ServerPort: 53,
 		},
 		{
 			Type:           "https",
 			Tag:            "dns-server",
 			Server:         "dns.google",
-			ServerPort:     "443",
+			ServerPort:     443,
 			DomainResolver: "bootstrap-dns-server",
 		},
 		{
@@ -86,7 +86,7 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 				Type:           "udp",
 				Tag:            fmt.Sprintf("%s-domain-resolver", tag),
 				Server:         "8.8.8.8",
-				ServerPort:     "53",
+				ServerPort:     53,
 				Detour:         tag,
 				DomainResolver: "bootstrap-dns-server",
 			})

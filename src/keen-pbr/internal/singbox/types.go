@@ -35,7 +35,7 @@ type DNSServer struct {
 	Type           string `json:"type"`
 	Tag            string `json:"tag"`
 	Server         string `json:"server"`
-	ServerPort     string `json:"server_port,omitempty"`
+	ServerPort     int    `json:"server_port,omitempty"`
 	Detour         string `json:"detour,omitempty"`
 	DomainResolver string `json:"domain_resolver,omitempty"`
 	Inet4Range     string `json:"inet4_range,omitempty"`
