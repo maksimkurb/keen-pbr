@@ -343,36 +343,6 @@ func generateRouteConfig(rules []*models.Rule, outbounds map[string]models.Outbo
 
 	ruleSets := []RuleSet{}
 
-	// Get the first enabled rule's outbound for special domain routing
-	var firstOutbound string
-	for _, rule := range rules {
-		if !rule.Enabled {
-			continue
-		}
-		switch table := rule.OutboundTable.(type) {
-		case *models.StaticOutboundTable:
-			firstOutbound = table.Outbound
-		case *models.URLTestOutboundTable:
-			if len(table.Outbounds) > 0 {
-				firstOutbound = table.Outbounds[0]
-			}
-		}
-		if firstOutbound != "" {
-			break
-		}
-	}
-
-	// Add route rule for IP domain (for checking real IP)
-	if firstOutbound != "" {
-		ipDomain := getIPDomain(generalSettings)
-		routeRules = append(routeRules, RouteRule{
-			Action:   "route",
-			Inbound:  "tproxy-in",
-			Outbound: firstOutbound,
-			Domain:   ipDomain,
-		})
-	}
-
 	// Add route-options rule for FakeIP domain
 	fakeipDomain := getFakeIPDomain(generalSettings)
 	routeRules = append(routeRules, RouteRule{
