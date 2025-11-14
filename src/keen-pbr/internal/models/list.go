@@ -23,21 +23,38 @@ const (
 	ListFormatBinary ListFormat = "binary"
 )
 
+// ListContentType represents the content type of the list (domains or IP subnets)
+type ListContentType string
+
+const (
+	ListContentTypeDomain   ListContentType = "domain"
+	ListContentTypeIPSubnet ListContentType = "ip_subnet"
+)
+
 // List is an interface for different list types
 type List interface {
 	GetType() ListType
+	GetContentType() ListContentType
 	Validate() error
 	GetEntryCount() int
 }
 
 // InlineList represents a list with inline entries
 type InlineList struct {
-	Type    ListType `json:"type"`
-	Entries []string `json:"entries"`
+	Type        ListType        `json:"type"`
+	ContentType ListContentType `json:"contentType"`
+	Entries     []string        `json:"entries"`
 }
 
 func (l *InlineList) GetType() ListType {
 	return ListTypeInline
+}
+
+func (l *InlineList) GetContentType() ListContentType {
+	if l.ContentType == "" {
+		return ListContentTypeDomain // Default to domain
+	}
+	return l.ContentType
 }
 
 func (l *InlineList) Validate() error {
@@ -51,13 +68,21 @@ func (l *InlineList) GetEntryCount() int {
 
 // LocalList represents a list stored locally
 type LocalList struct {
-	Type   ListType   `json:"type"`
-	Path   string     `json:"path"`
-	Format ListFormat `json:"format"`
+	Type        ListType        `json:"type"`
+	ContentType ListContentType `json:"contentType"`
+	Path        string          `json:"path"`
+	Format      ListFormat      `json:"format"`
 }
 
 func (l *LocalList) GetType() ListType {
 	return ListTypeLocal
+}
+
+func (l *LocalList) GetContentType() ListContentType {
+	if l.ContentType == "" {
+		return ListContentTypeDomain // Default to domain
+	}
+	return l.ContentType
 }
 
 func (l *LocalList) Validate() error {
@@ -77,15 +102,23 @@ func (l *LocalList) GetEntryCount() int {
 
 // RemoteList represents a list fetched from a remote URL
 type RemoteList struct {
-	Type           ListType      `json:"type"`
-	URL            string        `json:"url"`
-	UpdateInterval time.Duration `json:"updateInterval"`
-	Format         ListFormat    `json:"format"`
-	LastUpdate     *time.Time    `json:"lastUpdate,omitempty"`
+	Type           ListType        `json:"type"`
+	ContentType    ListContentType `json:"contentType"`
+	URL            string          `json:"url"`
+	UpdateInterval time.Duration   `json:"updateInterval"`
+	Format         ListFormat      `json:"format"`
+	LastUpdate     *time.Time      `json:"lastUpdate,omitempty"`
 }
 
 func (r *RemoteList) GetType() ListType {
 	return ListTypeRemote
+}
+
+func (r *RemoteList) GetContentType() ListContentType {
+	if r.ContentType == "" {
+		return ListContentTypeDomain // Default to domain
+	}
+	return r.ContentType
 }
 
 func (r *RemoteList) Validate() error {

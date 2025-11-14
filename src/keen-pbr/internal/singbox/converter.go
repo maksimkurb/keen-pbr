@@ -214,14 +214,15 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		},
 	}
 
-	// Collect all rule set tags for special domain DNS rule
-	var allRuleSetTags []string
+	// Collect all domain rule set tags for special domain DNS rule
+	// Only domain lists should be included in DNS rules
+	var allDomainRuleSetTags []string
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
 		}
-		ruleSetTags := generateRuleSetTags(rule)
-		allRuleSetTags = append(allRuleSetTags, ruleSetTags...)
+		domainRuleSetTags := generateDomainRuleSetTags(rule)
+		allDomainRuleSetTags = append(allDomainRuleSetTags, domainRuleSetTags...)
 	}
 
 	// Always add DNS rule for special domains (ip and fakeip check domains)
@@ -236,21 +237,22 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		Domain:     []string{fakeipDomain, ipDomain},
 	}
 
-	// Add rule sets if any are configured
-	if len(allRuleSetTags) > 0 {
-		specialDomainRule.RuleSet = allRuleSetTags
+	// Add domain rule sets if any are configured
+	if len(allDomainRuleSetTags) > 0 {
+		specialDomainRule.RuleSet = allDomainRuleSetTags
 	}
 
 	dnsRules = append(dnsRules, specialDomainRule)
 
 	// Generate DNS rules from application rules
+	// Only domain lists should be included in DNS rules
 	for _, rule := range rules {
 		if !rule.Enabled {
 			continue
 		}
 
-		ruleSetTags := generateRuleSetTags(rule)
-		if len(ruleSetTags) > 0 {
+		domainRuleSetTags := generateDomainRuleSetTags(rule)
+		if len(domainRuleSetTags) > 0 {
 			// Determine which DNS server to use for this rule
 			dnsServer := "fakeip-server"
 			if len(rule.CustomDNSServers) > 0 {
@@ -262,7 +264,7 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 				Action:     "route",
 				Server:     dnsServer,
 				RewriteTTL: 60,
-				RuleSet:    ruleSetTags,
+				RuleSet:    domainRuleSetTags,
 			})
 		}
 	}
@@ -421,6 +423,21 @@ func generateRuleSetTags(rule *models.Rule) []string {
 		tag := generateRuleSetTag(rule.ID, list, i)
 		if tag != "" {
 			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
+// generateDomainRuleSetTags generates rule set tags only for domain lists
+func generateDomainRuleSetTags(rule *models.Rule) []string {
+	var tags []string
+	for i, list := range rule.Lists {
+		// Only include domain lists in DNS rules
+		if list.GetContentType() == models.ListContentTypeDomain {
+			tag := generateRuleSetTag(rule.ID, list, i)
+			if tag != "" {
+				tags = append(tags, tag)
+			}
 		}
 	}
 	return tags
