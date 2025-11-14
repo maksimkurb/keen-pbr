@@ -1,0 +1,225 @@
+package networking
+
+import (
+	"fmt"
+)
+
+const (
+	// Packet mark used for routing (0x105 = 261 in decimal)
+	FWMARK = "0x105"
+
+	// TPROXY target address
+	TPROXY_ADDR = "127.0.0.1"
+	TPROXY_PORT = "1602"
+
+	// IPSet names
+	IPSET_LOCAL_V4         = "keen_pbr_localv4"
+	IPSET_PODKOP_SUBNETS   = "keen_pbr_podkop_subnets"
+	IPSET_DISCORD_SUBNETS  = "keen_pbr_discord_subnets"
+)
+
+// NetworkManager manages all networking components (ipsets, iptables)
+type NetworkManager struct {
+	ipsets   []*IPSet
+	iptables *IPTablesManager
+}
+
+// NewNetworkManager creates a new network manager
+func NewNetworkManager() *NetworkManager {
+	return &NetworkManager{
+		ipsets:   []*IPSet{},
+		iptables: NewIPTablesManager(),
+	}
+}
+
+// Setup configures all ipsets and iptables rules
+func (m *NetworkManager) Setup() error {
+	if err := m.setupIPSets(); err != nil {
+		return fmt.Errorf("failed to setup ipsets: %w", err)
+	}
+
+	if err := m.setupIPTablesRules(); err != nil {
+		return fmt.Errorf("failed to setup iptables rules: %w", err)
+	}
+
+	return nil
+}
+
+// setupIPSets creates and populates ipsets
+func (m *NetworkManager) setupIPSets() error {
+	// IPSet for local/private IPv4 addresses (RFC1918, loopback, etc.)
+	localv4 := NewIPSet(IPSET_LOCAL_V4, "hash:net", "inet")
+	localv4.AddElement("0.0.0.0/8")
+	localv4.AddElement("10.0.0.0/8")
+	localv4.AddElement("127.0.0.0/8")
+	localv4.AddElement("169.254.0.0/16")
+	localv4.AddElement("172.16.0.0/12")
+	localv4.AddElement("192.0.0.0/24")
+	localv4.AddElement("192.0.2.0/24")
+	localv4.AddElement("192.88.99.0/24")
+	localv4.AddElement("192.168.0.0/16")
+	localv4.AddElement("198.51.100.0/24")
+	localv4.AddElement("203.0.113.0/24")
+	localv4.AddElement("224.0.0.0/3")
+
+	// IPSet for podkop subnets (empty initially, can be populated dynamically)
+	podkopSubnets := NewIPSet(IPSET_PODKOP_SUBNETS, "hash:net", "inet")
+
+	// IPSet for Discord-related subnets
+	discordSubnets := NewIPSet(IPSET_DISCORD_SUBNETS, "hash:net", "inet")
+	discordSubnets.AddElement("5.200.14.128/25")
+	discordSubnets.AddElement("34.0.0.0/14")
+	discordSubnets.AddElement("35.192.0.0/11")
+	discordSubnets.AddElement("66.22.192.0/18")
+	discordSubnets.AddElement("138.128.136.0/21")
+	discordSubnets.AddElement("162.158.0.0/15")
+	discordSubnets.AddElement("172.64.0.0/13")
+
+	m.ipsets = []*IPSet{localv4, podkopSubnets, discordSubnets}
+
+	// Create and populate ipsets
+	for _, ipset := range m.ipsets {
+		if err := ipset.Create(); err != nil {
+			return err
+		}
+		if err := ipset.AddElements(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// setupIPTablesRules creates iptables rules based on nftables config
+func (m *NetworkManager) setupIPTablesRules() error {
+	// MANGLE PREROUTING rules
+	// Mark packets from specified interfaces to podkop subnets
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "br-lan",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "br-lan",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "gre4-mygre",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "gre4-mygre",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	// Mark packets to FakeIP range (198.18.0.0/15)
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "br-lan",
+		"-d", "198.18.0.0/15",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "br-lan",
+		"-d", "198.18.0.0/15",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "gre4-mygre",
+		"-d", "198.18.0.0/15",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "gre4-mygre",
+		"-d", "198.18.0.0/15",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	// Mark Discord UDP traffic (high ports)
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "br-lan",
+		"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
+		"-p", "udp",
+		"--dport", "50000:65535",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-i", "gre4-mygre",
+		"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
+		"-p", "udp",
+		"--dport", "50000:65535",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	// MANGLE OUTPUT rules
+	// Mark outgoing packets to podkop subnets (skip local IPs)
+	m.iptables.AddRule("mangle", "OUTPUT",
+		"-m", "set", "--match-set", IPSET_LOCAL_V4, "dst",
+		"-j", "RETURN")
+
+	m.iptables.AddRule("mangle", "OUTPUT",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "OUTPUT",
+		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	// Mark outgoing packets to FakeIP range
+	m.iptables.AddRule("mangle", "OUTPUT",
+		"-d", "198.18.0.0/15",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "OUTPUT",
+		"-d", "198.18.0.0/15",
+		"-p", "udp",
+		"-j", "MARK", "--set-mark", FWMARK)
+
+	// PREROUTING TPROXY rules
+	// Redirect marked packets to tproxy
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-m", "mark", "--mark", FWMARK,
+		"-p", "tcp",
+		"-j", "TPROXY",
+		"--on-ip", TPROXY_ADDR,
+		"--on-port", TPROXY_PORT,
+		"--tproxy-mark", FWMARK)
+
+	m.iptables.AddRule("mangle", "PREROUTING",
+		"-m", "mark", "--mark", FWMARK,
+		"-p", "udp",
+		"-j", "TPROXY",
+		"--on-ip", TPROXY_ADDR,
+		"--on-port", TPROXY_PORT,
+		"--tproxy-mark", FWMARK)
+
+	// Apply the rules
+	return m.iptables.ApplyRules()
+}
+
+// Teardown removes all ipsets and iptables rules
+func (m *NetworkManager) Teardown() error {
+	// Remove iptables rules first
+	if err := m.iptables.RemoveRules(); err != nil {
+		return fmt.Errorf("failed to remove iptables rules: %w", err)
+	}
+
+	// Destroy ipsets
+	for _, ipset := range m.ipsets {
+		if err := ipset.Destroy(); err != nil {
+			return fmt.Errorf("failed to destroy ipset: %w", err)
+		}
+	}
+
+	return nil
+}

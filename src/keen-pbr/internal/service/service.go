@@ -3,7 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
+
+	"github.com/maksimkurb/keenetic-pbr-go/keen-pbr/internal/networking"
 )
 
 // Status represents the service status
@@ -18,19 +21,21 @@ const (
 
 // Service manages the PBR service lifecycle
 type Service struct {
-	status    Status
-	enabled   bool
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.RWMutex
-	wg        sync.WaitGroup
+	status         Status
+	enabled        bool
+	ctx            context.Context
+	cancel         context.CancelFunc
+	mu             sync.RWMutex
+	wg             sync.WaitGroup
+	networkManager *networking.NetworkManager
 }
 
 // New creates a new Service instance
 func New() *Service {
 	return &Service{
-		status:  StatusStopped,
-		enabled: false,
+		status:         StatusStopped,
+		enabled:        false,
+		networkManager: networking.NewNetworkManager(),
 	}
 }
 
@@ -44,6 +49,15 @@ func (s *Service) Start() error {
 	}
 
 	s.status = StatusStarting
+
+	// Setup networking (ipsets and iptables)
+	log.Println("Setting up networking rules...")
+	if err := s.networkManager.Setup(); err != nil {
+		s.status = StatusStopped
+		return fmt.Errorf("failed to setup networking: %w", err)
+	}
+	log.Println("Networking rules applied successfully")
+
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	// Start service goroutines here
@@ -74,6 +88,14 @@ func (s *Service) Stop() error {
 	}
 
 	s.wg.Wait()
+
+	// Teardown networking (remove iptables rules and ipsets)
+	log.Println("Tearing down networking rules...")
+	if err := s.networkManager.Teardown(); err != nil {
+		log.Printf("Warning: failed to teardown networking: %v", err)
+	} else {
+		log.Println("Networking rules removed successfully")
+	}
 
 	s.mu.Lock()
 	s.status = StatusStopped
