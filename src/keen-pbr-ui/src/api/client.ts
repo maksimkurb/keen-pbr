@@ -111,7 +111,7 @@ export const configAPI = {
   },
 
   async getSingbox() {
-    return fetchJSON<any>('/v1/config/singbox');
+    return fetchJSON<any>('/v1/singbox/config');
   },
 };
 
