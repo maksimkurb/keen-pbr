@@ -14,6 +14,7 @@ import (
 func GenerateConfig(cfg *config.Config) (*Config, error) {
 	outbounds := cfg.GetAllOutbounds()
 	rules := cfg.GetAllRules()
+	generalSettings := cfg.GetGeneralSettings()
 
 	// Sort rules by priority (higher priority first)
 	sortedRules := make([]*models.Rule, 0, len(rules))
@@ -32,7 +33,7 @@ func GenerateConfig(cfg *config.Config) (*Config, error) {
 			Level:     "warn",
 			Timestamp: false,
 		},
-		DNS:         generateDNSConfig(sortedRules, outbounds),
+		DNS:         generateDNSConfig(sortedRules, outbounds, generalSettings),
 		NTP:         make(map[string]any),
 		Certificate: make(map[string]any),
 		Endpoints:   []any{},
@@ -56,41 +57,118 @@ func GenerateConfig(cfg *config.Config) (*Config, error) {
 	return singboxConfig, nil
 }
 
+// convertModelsDNSToSingbox converts a models.DNS to a singbox DNSServer
+func convertModelsDNSToSingbox(dns *models.DNS, tag string, detour string, domainResolver string) DNSServer {
+	server := DNSServer{
+		Type:       string(dns.Type),
+		Tag:        tag,
+		Server:     dns.Server,
+		ServerPort: int(dns.Port),
+	}
+
+	if detour != "" {
+		server.Detour = detour
+	}
+	if domainResolver != "" {
+		server.DomainResolver = domainResolver
+	}
+
+	return server
+}
+
 // generateDNSConfig generates DNS configuration
-func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outbound) DNSConfig {
-	dnsServers := []DNSServer{
-		{
+func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outbound, generalSettings *models.GeneralSettings) DNSConfig {
+	dnsServers := []DNSServer{}
+
+	// Add bootstrap DNS server from general settings or use default
+	if generalSettings != nil && generalSettings.BootstrapDNSServer != nil {
+		bootstrapDNS := convertModelsDNSToSingbox(generalSettings.BootstrapDNSServer, "bootstrap-dns-server", "", "")
+		dnsServers = append(dnsServers, bootstrapDNS)
+	} else {
+		// Default bootstrap DNS server
+		dnsServers = append(dnsServers, DNSServer{
 			Type:       "udp",
 			Tag:        "bootstrap-dns-server",
 			Server:     "8.8.8.8",
 			ServerPort: 53,
-		},
-		{
+		})
+	}
+
+	// Add default DNS server from general settings or use default
+	if generalSettings != nil && generalSettings.DefaultDNSServer != nil {
+		defaultDNS := convertModelsDNSToSingbox(generalSettings.DefaultDNSServer, "dns-server", "", "bootstrap-dns-server")
+		dnsServers = append(dnsServers, defaultDNS)
+	} else {
+		// Default DNS server
+		dnsServers = append(dnsServers, DNSServer{
 			Type:           "https",
 			Tag:            "dns-server",
 			Server:         "dns.google",
 			ServerPort:     443,
 			DomainResolver: "bootstrap-dns-server",
-		},
-		{
-			Type:       "fakeip",
-			Tag:        "fakeip-server",
-			Inet4Range: "198.18.0.0/15",
-		},
+		})
 	}
+
+	// Add fakeip server
+	dnsServers = append(dnsServers, DNSServer{
+		Type:       "fakeip",
+		Tag:        "fakeip-server",
+		Inet4Range: "198.18.0.0/15",
+	})
 
 	// Add domain resolvers for each outbound
 	for tag, outbound := range outbounds {
 		if iface, ok := outbound.(*models.InterfaceOutbound); ok {
+			// Use bootstrap DNS for domain resolvers
+			var bootstrapServer string
+			var bootstrapPort int
+			if generalSettings != nil && generalSettings.BootstrapDNSServer != nil {
+				bootstrapServer = generalSettings.BootstrapDNSServer.Server
+				bootstrapPort = int(generalSettings.BootstrapDNSServer.Port)
+			} else {
+				bootstrapServer = "8.8.8.8"
+				bootstrapPort = 53
+			}
+
 			dnsServers = append(dnsServers, DNSServer{
 				Type:           "udp",
 				Tag:            fmt.Sprintf("%s-domain-resolver", tag),
-				Server:         "8.8.8.8",
-				ServerPort:     53,
+				Server:         bootstrapServer,
+				ServerPort:     bootstrapPort,
 				Detour:         tag,
 				DomainResolver: "bootstrap-dns-server",
 			})
 			_ = iface // use variable to avoid unused warning
+		}
+	}
+
+	// Add custom DNS servers from rules
+	ruleCustomDNSMap := make(map[string]bool) // Track unique custom DNS servers
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+
+		for i, customDNS := range rule.CustomDNSServers {
+			dnsTag := fmt.Sprintf("rule-%s-dns-%d", rule.ID, i)
+			if !ruleCustomDNSMap[dnsTag] {
+				var detour string
+				if customDNS.ThroughOutbound {
+					// Determine which outbound to use for this DNS
+					switch table := rule.OutboundTable.(type) {
+					case *models.StaticOutboundTable:
+						detour = table.Outbound
+					case *models.URLTestOutboundTable:
+						if len(table.Outbounds) > 0 {
+							detour = table.Outbounds[0]
+						}
+					}
+				}
+
+				customDNSServer := convertModelsDNSToSingbox(&customDNS, dnsTag, detour, "bootstrap-dns-server")
+				dnsServers = append(dnsServers, customDNSServer)
+				ruleCustomDNSMap[dnsTag] = true
+			}
 		}
 	}
 
@@ -113,9 +191,16 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 
 		ruleSetTags := generateRuleSetTags(rule)
 		if len(ruleSetTags) > 0 {
+			// Determine which DNS server to use for this rule
+			dnsServer := "fakeip-server"
+			if len(rule.CustomDNSServers) > 0 {
+				// Use the first custom DNS server for this rule
+				dnsServer = fmt.Sprintf("rule-%s-dns-0", rule.ID)
+			}
+
 			dnsRules = append(dnsRules, DNSRule{
 				Action:     "route",
-				Server:     "fakeip-server",
+				Server:     dnsServer,
 				RewriteTTL: 60,
 				RuleSet:    ruleSetTags,
 			})
