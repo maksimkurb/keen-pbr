@@ -32,7 +32,7 @@ func main() {
 	svc := service.New()
 
 	// Create API server
-	apiServer := api.New(cfg, svc)
+	apiServer := api.New(cfg, *configPath, svc)
 
 	// Setup HTTP server
 	server := &http.Server{

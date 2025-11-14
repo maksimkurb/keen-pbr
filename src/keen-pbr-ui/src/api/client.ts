@@ -1,4 +1,4 @@
-import type { Config, OutboundTable, Rule, ServiceStatusResponse } from '../types';
+import type { Config, NetworkInterface, Outbound, Rule, ServiceStatusResponse } from '../types';
 
 // API base URL - empty string means same origin (embedded UI case)
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || '';
@@ -64,51 +64,36 @@ export const rulesAPI = {
     return fetchJSON<Rule>(`/v1/rules/${id}`);
   },
 
-  async create(rule: Rule) {
-    return fetchJSON<Rule>('/v1/rules', {
-      method: 'POST',
-      body: JSON.stringify(rule),
-    });
-  },
-
-  async update(id: string, rule: Rule) {
-    return fetchJSON<Rule>(`/v1/rules/${id}`, {
+  async bulkUpdate(rules: Rule[]) {
+    return fetchJSON<{ status: string }>('/v1/rules', {
       method: 'PUT',
-      body: JSON.stringify(rule),
+      body: JSON.stringify(rules),
     });
-  },
-
-  async delete(id: string) {
-    return fetchJSON<{ status: string }>(`/v1/rules/${id}`, { method: 'DELETE' });
   },
 };
 
-// Outbound Tables API
-export const outboundTablesAPI = {
+// Outbounds API
+export const outboundsAPI = {
   async getAll() {
-    return fetchJSON<Record<string, OutboundTable>>('/v1/outbound-tables');
+    return fetchJSON<Record<string, Outbound>>('/v1/outbounds');
   },
 
-  async getOne(id: string) {
-    return fetchJSON<OutboundTable>(`/v1/outbound-tables/${id}`);
+  async getOne(tag: string) {
+    return fetchJSON<Outbound>(`/v1/outbounds/${tag}`);
   },
 
-  async create(table: OutboundTable) {
-    return fetchJSON<{ id: string; table: OutboundTable }>('/v1/outbound-tables', {
-      method: 'POST',
-      body: JSON.stringify(table),
-    });
-  },
-
-  async update(id: string, table: OutboundTable) {
-    return fetchJSON<OutboundTable>(`/v1/outbound-tables/${id}`, {
+  async bulkUpdate(outbounds: Outbound[]) {
+    return fetchJSON<{ status: string }>('/v1/outbounds', {
       method: 'PUT',
-      body: JSON.stringify(table),
+      body: JSON.stringify(outbounds),
     });
   },
+};
 
-  async delete(id: string) {
-    return fetchJSON<{ status: string }>(`/v1/outbound-tables/${id}`, { method: 'DELETE' });
+// Info API
+export const infoAPI = {
+  async getInterfaces() {
+    return fetchJSON<NetworkInterface[]>('/v1/info/interfaces');
   },
 };
 

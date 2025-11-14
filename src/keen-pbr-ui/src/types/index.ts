@@ -10,20 +10,29 @@ export interface DNS {
 }
 
 // List Types
-export type ListType = 'local' | 'remote';
+export type ListType = 'inline' | 'local' | 'remote';
+export type ListFormat = 'source' | 'binary';
+
+export interface InlineList {
+  type: 'inline';
+  entries: string[];
+}
 
 export interface LocalList {
   type: 'local';
   path: string;
+  format: ListFormat;
 }
 
 export interface RemoteList {
   type: 'remote';
   url: string;
   updateInterval: string; // Duration as string (e.g., "1h", "30m")
+  format: ListFormat;
+  lastUpdate?: string; // ISO 8601 datetime string
 }
 
-export type List = LocalList | RemoteList;
+export type List = InlineList | LocalList | RemoteList;
 
 // Outbound Types
 export type OutboundType = 'interface' | 'proxy';
@@ -61,16 +70,25 @@ export type OutboundTable = StaticOutboundTable | URLTestOutboundTable;
 // Rule Type
 export interface Rule {
   id?: string;
+  name?: string;
+  enabled: boolean;
+  priority: number;
   customDnsServers?: DNS[];
   lists: List[];
-  outbound: Outbound;
+  outboundTable: OutboundTable;
 }
 
 // Config Type
 export interface Config {
   rules: Record<string, Rule>;
-  outboundTables: Record<string, OutboundTable>;
   outbounds: Record<string, Outbound>;
+}
+
+// Network Interface Type
+export interface NetworkInterface {
+  name: string;
+  ips: string[];
+  isUp: boolean;
 }
 
 // Service Status Types

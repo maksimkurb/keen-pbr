@@ -11,17 +11,19 @@ import (
 
 // Server represents the API server
 type Server struct {
-	config  *config.Config
-	service *service.Service
-	mux     *http.ServeMux
+	config     *config.Config
+	configPath string
+	service    *service.Service
+	mux        *http.ServeMux
 }
 
 // New creates a new API server
-func New(cfg *config.Config, svc *service.Service) *Server {
+func New(cfg *config.Config, configPath string, svc *service.Service) *Server {
 	s := &Server{
-		config:  cfg,
-		service: svc,
-		mux:     http.NewServeMux(),
+		config:     cfg,
+		configPath: configPath,
+		service:    svc,
+		mux:        http.NewServeMux(),
 	}
 
 	s.setupRoutes()
@@ -33,16 +35,21 @@ func (s *Server) setupRoutes() {
 	// Service endpoints
 	s.mux.HandleFunc("/v1/service/", s.handleService)
 
-	// Rule endpoints
-	s.mux.HandleFunc("/v1/rules", s.handleRules)
+	// Bulk endpoints (handle before individual endpoints to avoid conflicts)
+	s.mux.HandleFunc("/v1/rules", s.handleRulesBulk)
+	s.mux.HandleFunc("/v1/outbounds", s.handleOutboundsBulk)
+
+	// Individual rule endpoints (keep GET only)
 	s.mux.HandleFunc("/v1/rules/", s.handleRulesWithID)
 
-	// Outbound table endpoints
-	s.mux.HandleFunc("/v1/outbound-tables", s.handleOutboundTables)
-	s.mux.HandleFunc("/v1/outbound-tables/", s.handleOutboundTablesWithID)
+	// Individual outbound endpoints (keep GET only)
+	s.mux.HandleFunc("/v1/outbounds/", s.handleOutboundsWithTag)
 
 	// Config endpoint
 	s.mux.HandleFunc("/v1/config", s.handleConfig)
+
+	// Info endpoints
+	s.mux.HandleFunc("/v1/info/interfaces", s.handleInterfaces)
 
 	// Serve static files for non-API routes
 	s.mux.Handle("/", ServeStatic())

@@ -7,15 +7,6 @@ build:
 # Build with size optimizations
 build-small:
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o keen-pbr ./cmd/keen-pbr
-	@echo "Binary size before UPX:"
-	@ls -lh keen-pbr | awk '{print $$5}'
-	@if command -v upx >/dev/null 2>&1; then \
-		upx --best --lzma keen-pbr; \
-		echo "Binary size after UPX:"; \
-		ls -lh keen-pbr | awk '{print $$5}'; \
-	else \
-		echo "UPX not found, skipping compression. Install UPX for further size reduction."; \
-	fi
 
 # Build for router (MIPS)
 build-mips:
@@ -31,7 +22,7 @@ clean:
 
 # Run the application
 run:
-	go run ./cmd/keen-pbr
+	go run ./cmd/keen-pbr -config config.json
 
 # Run tests
 test:
