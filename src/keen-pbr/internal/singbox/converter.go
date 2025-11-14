@@ -147,30 +147,53 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		Inet4Range: "198.18.0.0/15",
 	})
 
-	// Add domain resolvers for each outbound
-	for tag, outbound := range outbounds {
-		if iface, ok := outbound.(*models.InterfaceOutbound); ok {
-			// Use bootstrap DNS for domain resolvers
-			var bootstrapServer string
-			var bootstrapPort int
-			if generalSettings != nil && generalSettings.BootstrapDNSServer != nil {
-				bootstrapServer = generalSettings.BootstrapDNSServer.Server
-				bootstrapPort = int(generalSettings.BootstrapDNSServer.Port)
-			} else {
-				bootstrapServer = "8.8.8.8"
-				bootstrapPort = 53
-			}
-
-			dnsServers = append(dnsServers, DNSServer{
-				Type:           "udp",
-				Tag:            fmt.Sprintf("%s-domain-resolver", tag),
-				Server:         bootstrapServer,
-				ServerPort:     bootstrapPort,
-				Detour:         tag,
-				DomainResolver: "bootstrap-dns-server",
-			})
-			_ = iface // use variable to avoid unused warning
+	// Collect interface outbounds that are actually used in rules
+	usedInterfaceOutbounds := make(map[string]bool)
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
 		}
+
+		// Collect outbounds from the rule's outbound table
+		switch table := rule.OutboundTable.(type) {
+		case *models.StaticOutboundTable:
+			if outbound, exists := outbounds[table.Outbound]; exists {
+				if _, isInterface := outbound.(*models.InterfaceOutbound); isInterface {
+					usedInterfaceOutbounds[table.Outbound] = true
+				}
+			}
+		case *models.URLTestOutboundTable:
+			for _, outboundTag := range table.Outbounds {
+				if outbound, exists := outbounds[outboundTag]; exists {
+					if _, isInterface := outbound.(*models.InterfaceOutbound); isInterface {
+						usedInterfaceOutbounds[outboundTag] = true
+					}
+				}
+			}
+		}
+	}
+
+	// Add domain resolvers only for interface outbounds that are actually used
+	for tag := range usedInterfaceOutbounds {
+		// Use bootstrap DNS for domain resolvers
+		var bootstrapServer string
+		var bootstrapPort int
+		if generalSettings != nil && generalSettings.BootstrapDNSServer != nil {
+			bootstrapServer = generalSettings.BootstrapDNSServer.Server
+			bootstrapPort = int(generalSettings.BootstrapDNSServer.Port)
+		} else {
+			bootstrapServer = "8.8.8.8"
+			bootstrapPort = 53
+		}
+
+		dnsServers = append(dnsServers, DNSServer{
+			Type:           "udp",
+			Tag:            fmt.Sprintf("%s-domain-resolver", tag),
+			Server:         bootstrapServer,
+			ServerPort:     bootstrapPort,
+			Detour:         tag,
+			DomainResolver: "bootstrap-dns-server",
+		})
 	}
 
 	// Add custom DNS servers from rules
@@ -450,11 +473,8 @@ func generateRuleSetTag(ruleID string, list models.List, index int) string {
 	sanitizedID = strings.ToLower(sanitizedID)
 
 	switch list.GetType() {
-	case models.ListTypeLocal, models.ListTypeRemote:
+	case models.ListTypeLocal, models.ListTypeRemote, models.ListTypeInline:
 		return fmt.Sprintf("%s-list-%d-ruleset", sanitizedID, index)
-	case models.ListTypeInline:
-		// Inline lists are not supported in rule sets, skip them
-		return ""
 	default:
 		return ""
 	}
@@ -481,9 +501,19 @@ func convertListToRuleSet(ruleID string, list models.List, index int) *RuleSet {
 			UpdateInterval: formatDuration(l.UpdateInterval),
 		}
 	case *models.InlineList:
-		// Inline lists need to be converted to local files first
-		// For now, we'll skip them
-		return nil
+		// Convert inline list to a local rule set
+		tag := generateRuleSetTag(ruleID, l, index)
+		// Sanitize rule ID for filename
+		sanitizedID := strings.ReplaceAll(ruleID, " ", "-")
+		sanitizedID = strings.ToLower(sanitizedID)
+		path := fmt.Sprintf("/tmp/sing-box/rulesets/%s-list-%d-ruleset.json", sanitizedID, index)
+
+		return &RuleSet{
+			Type:   "local",
+			Tag:    tag,
+			Format: "source",
+			Path:   path,
+		}
 	default:
 		return nil
 	}
