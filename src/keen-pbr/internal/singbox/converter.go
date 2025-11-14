@@ -10,6 +10,31 @@ import (
 	"github.com/maksimkurb/keenetic-pbr-go/keen-pbr/internal/models"
 )
 
+const (
+	// DefaultIPDomain is the default domain for checking real IP
+	DefaultIPDomain = "ip.podkop.fyi"
+	// DefaultFakeIPDomain is the default domain for fakeip testing
+	DefaultFakeIPDomain = "fakeip.podkop.fyi"
+	// FakeIPPort is the port override for fakeip domain
+	FakeIPPort = 8443
+)
+
+// getIPDomain returns the IP domain from settings or default
+func getIPDomain(settings *models.GeneralSettings) string {
+	if settings != nil && settings.IPDomain != "" {
+		return settings.IPDomain
+	}
+	return DefaultIPDomain
+}
+
+// getFakeIPDomain returns the FakeIP domain from settings or default
+func getFakeIPDomain(settings *models.GeneralSettings) string {
+	if settings != nil && settings.FakeIPDomain != "" {
+		return settings.FakeIPDomain
+	}
+	return DefaultFakeIPDomain
+}
+
 // GenerateConfig generates a sing-box configuration from the application config
 func GenerateConfig(cfg *config.Config) (*Config, error) {
 	outbounds := cfg.GetAllOutbounds()
@@ -39,7 +64,7 @@ func GenerateConfig(cfg *config.Config) (*Config, error) {
 		Endpoints:   []any{},
 		Inbounds:    generateInbounds(),
 		Outbounds:   generateOutbounds(outbounds),
-		Route:       generateRouteConfig(sortedRules, outbounds),
+		Route:       generateRouteConfig(sortedRules, outbounds, generalSettings),
 		Services:    []any{},
 		Experimental: ExperimentalConfig{
 			CacheFile: CacheFileConfig{
@@ -189,6 +214,30 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		},
 	}
 
+	// Collect all rule set tags for special domain DNS rule
+	var allRuleSetTags []string
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		ruleSetTags := generateRuleSetTags(rule)
+		allRuleSetTags = append(allRuleSetTags, ruleSetTags...)
+	}
+
+	// Add DNS rule for special domains (ip and fakeip check domains)
+	if len(allRuleSetTags) > 0 {
+		ipDomain := getIPDomain(generalSettings)
+		fakeipDomain := getFakeIPDomain(generalSettings)
+
+		dnsRules = append(dnsRules, DNSRule{
+			Action:     "route",
+			Server:     "fakeip-server",
+			RewriteTTL: 60,
+			Domain:     []string{fakeipDomain, ipDomain},
+			RuleSet:    allRuleSetTags,
+		})
+	}
+
 	// Generate DNS rules from application rules
 	for _, rule := range rules {
 		if !rule.Enabled {
@@ -280,7 +329,7 @@ func generateOutbounds(outbounds map[string]models.Outbound) []interface{} {
 }
 
 // generateRouteConfig generates routing configuration
-func generateRouteConfig(rules []*models.Rule, outbounds map[string]models.Outbound) RouteConfig {
+func generateRouteConfig(rules []*models.Rule, outbounds map[string]models.Outbound, generalSettings *models.GeneralSettings) RouteConfig {
 	routeRules := []RouteRule{
 		{
 			Action:  "sniff",
@@ -293,6 +342,44 @@ func generateRouteConfig(rules []*models.Rule, outbounds map[string]models.Outbo
 	}
 
 	ruleSets := []RuleSet{}
+
+	// Get the first enabled rule's outbound for special domain routing
+	var firstOutbound string
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		switch table := rule.OutboundTable.(type) {
+		case *models.StaticOutboundTable:
+			firstOutbound = table.Outbound
+		case *models.URLTestOutboundTable:
+			if len(table.Outbounds) > 0 {
+				firstOutbound = table.Outbounds[0]
+			}
+		}
+		if firstOutbound != "" {
+			break
+		}
+	}
+
+	// Add route rule for IP domain (for checking real IP)
+	if firstOutbound != "" {
+		ipDomain := getIPDomain(generalSettings)
+		routeRules = append(routeRules, RouteRule{
+			Action:   "route",
+			Inbound:  "tproxy-in",
+			Outbound: firstOutbound,
+			Domain:   ipDomain,
+		})
+	}
+
+	// Add route-options rule for FakeIP domain
+	fakeipDomain := getFakeIPDomain(generalSettings)
+	routeRules = append(routeRules, RouteRule{
+		Action:       "route-options",
+		Domain:       fakeipDomain,
+		OverridePort: FakeIPPort,
+	})
 
 	// Generate route rules from application rules
 	for _, rule := range rules {
