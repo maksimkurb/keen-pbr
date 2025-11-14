@@ -1,5 +1,6 @@
 keenetic-pbr
 keen-pbr
+!/*/**/keen-pbr
 bin/
 out/
 *.iml

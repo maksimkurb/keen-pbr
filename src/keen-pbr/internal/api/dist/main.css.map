@@ -1,0 +1,1 @@
+{"version":3,"file":"main.css","sources":["webpack://keen-pbr-ui/./src/index.css"],"sourcesContent":["@tailwind base;\n@tailwind components;\n@tailwind utilities;\n"],"names":[],"mappings":"AAAA,eACA,qBACA"}
