@@ -36,6 +36,7 @@ type DNSServer struct {
 	Tag            string `json:"tag"`
 	Server         string `json:"server"`
 	ServerPort     int    `json:"server_port,omitempty"`
+	Path           string `json:"path,omitempty"`           // Used for HTTPS DNS (DoH)
 	Detour         string `json:"detour,omitempty"`
 	DomainResolver string `json:"domain_resolver,omitempty"`
 	Inet4Range     string `json:"inet4_range,omitempty"`

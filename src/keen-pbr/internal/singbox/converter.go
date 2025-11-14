@@ -66,6 +66,11 @@ func convertModelsDNSToSingbox(dns *models.DNS, tag string, detour string, domai
 		ServerPort: int(dns.Port),
 	}
 
+	// Set path for HTTPS DNS (DoH)
+	if dns.Type == models.DNSTypeHTTPS && dns.Path != "" {
+		server.Path = dns.Path
+	}
+
 	if detour != "" {
 		server.Detour = detour
 	}
@@ -99,12 +104,13 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		defaultDNS := convertModelsDNSToSingbox(generalSettings.DefaultDNSServer, "dns-server", "", "bootstrap-dns-server")
 		dnsServers = append(dnsServers, defaultDNS)
 	} else {
-		// Default DNS server
+		// Default DNS server (DoH)
 		dnsServers = append(dnsServers, DNSServer{
 			Type:           "https",
 			Tag:            "dns-server",
 			Server:         "dns.google",
 			ServerPort:     443,
+			Path:           "/dns-query",
 			DomainResolver: "bootstrap-dns-server",
 		})
 	}
