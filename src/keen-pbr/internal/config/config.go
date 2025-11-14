@@ -11,8 +11,9 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Rules     map[string]*models.Rule    `json:"rules"`
-	Outbounds map[string]models.Outbound `json:"outbounds"`
+	Rules           map[string]*models.Rule    `json:"rules"`
+	Outbounds       map[string]models.Outbound `json:"outbounds"`
+	GeneralSettings *models.GeneralSettings    `json:"generalSettings,omitempty"`
 
 	mu sync.RWMutex
 }
@@ -20,8 +21,9 @@ type Config struct {
 // New creates a new Config instance
 func New() *Config {
 	return &Config{
-		Rules:     make(map[string]*models.Rule),
-		Outbounds: make(map[string]models.Outbound),
+		Rules:           make(map[string]*models.Rule),
+		Outbounds:       make(map[string]models.Outbound),
+		GeneralSettings: &models.GeneralSettings{},
 	}
 }
 
@@ -37,8 +39,9 @@ func Load(path string) (*Config, error) {
 	}
 
 	var rawConfig struct {
-		Rules     map[string]json.RawMessage `json:"rules"`
-		Outbounds map[string]json.RawMessage `json:"outbounds"`
+		Rules           map[string]json.RawMessage `json:"rules"`
+		Outbounds       map[string]json.RawMessage `json:"outbounds"`
+		GeneralSettings *models.GeneralSettings    `json:"generalSettings,omitempty"`
 	}
 
 	if err := json.Unmarshal(data, &rawConfig); err != nil {
@@ -46,6 +49,11 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := New()
+
+	// Load general settings
+	if rawConfig.GeneralSettings != nil {
+		cfg.GeneralSettings = rawConfig.GeneralSettings
+	}
 
 	// Unmarshal outbounds first (needed for rules)
 	for tag, rawOutbound := range rawConfig.Outbounds {
@@ -89,11 +97,13 @@ func (c *Config) Save(path string) error {
 // marshalJSON marshals config to JSON (caller must hold read lock)
 func (c *Config) marshalJSON() ([]byte, error) {
 	rawConfig := struct {
-		Rules     map[string]json.RawMessage `json:"rules"`
-		Outbounds map[string]json.RawMessage `json:"outbounds"`
+		Rules           map[string]json.RawMessage `json:"rules"`
+		Outbounds       map[string]json.RawMessage `json:"outbounds"`
+		GeneralSettings *models.GeneralSettings    `json:"generalSettings,omitempty"`
 	}{
-		Rules:     make(map[string]json.RawMessage),
-		Outbounds: make(map[string]json.RawMessage),
+		Rules:           make(map[string]json.RawMessage),
+		Outbounds:       make(map[string]json.RawMessage),
+		GeneralSettings: c.GeneralSettings,
 	}
 
 	// Marshal outbounds
@@ -290,4 +300,25 @@ func (c *Config) ToJSON() ([]byte, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.marshalJSON()
+}
+
+// GetGeneralSettings retrieves general settings
+func (c *Config) GetGeneralSettings() *models.GeneralSettings {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.GeneralSettings
+}
+
+// UpdateGeneralSettings updates general settings
+func (c *Config) UpdateGeneralSettings(settings *models.GeneralSettings) error {
+	if settings != nil {
+		if err := settings.Validate(); err != nil {
+			return err
+		}
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.GeneralSettings = settings
+	return nil
 }

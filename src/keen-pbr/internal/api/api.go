@@ -51,6 +51,9 @@ func (s *Server) setupRoutes() {
 	// Info endpoints
 	s.mux.HandleFunc("/v1/info/interfaces", s.handleInterfaces)
 
+	// General settings endpoint
+	s.mux.HandleFunc("/v1/settings/general", s.handleGeneralSettings)
+
 	// Singbox config generation endpoint
 	s.mux.HandleFunc("/v1/singbox/config", s.handleSingboxConfig)
 

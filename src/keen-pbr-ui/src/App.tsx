@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Rules from './pages/Rules';
 import Outbounds from './pages/Outbounds';
 import Configuration from './pages/Configuration';
+import { GeneralSettings } from './pages/GeneralSettings';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="rules" element={<Rules />} />
           <Route path="outbounds" element={<Outbounds />} />
+          <Route path="settings" element={<GeneralSettings />} />
           <Route path="config" element={<Configuration />} />
         </Route>
       </Routes>

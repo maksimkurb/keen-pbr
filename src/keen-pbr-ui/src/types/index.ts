@@ -78,10 +78,17 @@ export interface Rule {
   outboundTable: OutboundTable;
 }
 
+// General Settings Type
+export interface GeneralSettings {
+  defaultDnsServer?: DNS;
+  bootstrapDnsServer?: DNS;
+}
+
 // Config Type
 export interface Config {
   rules: Record<string, Rule>;
   outbounds: Record<string, Outbound>;
+  generalSettings?: GeneralSettings;
 }
 
 // Network Interface Type

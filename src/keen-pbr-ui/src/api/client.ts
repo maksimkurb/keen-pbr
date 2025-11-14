@@ -1,4 +1,4 @@
-import type { Config, NetworkInterface, Outbound, Rule, ServiceStatusResponse } from '../types';
+import type { Config, GeneralSettings, NetworkInterface, Outbound, Rule, ServiceStatusResponse } from '../types';
 
 // API base URL - empty string means same origin (embedded UI case)
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || '';
@@ -107,6 +107,20 @@ export const configAPI = {
     return fetchJSON<Config>('/v1/config', {
       method: 'PUT',
       body: JSON.stringify(config),
+    });
+  },
+};
+
+// Settings API
+export const settingsAPI = {
+  async getGeneral() {
+    return fetchJSON<GeneralSettings>('/v1/settings/general');
+  },
+
+  async updateGeneral(settings: GeneralSettings) {
+    return fetchJSON<GeneralSettings>('/v1/settings/general', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
     });
   },
 };

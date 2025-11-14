@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { rulesAPI, outboundsAPI } from '../api/client';
-import type { Rule, OutboundTable, List } from '../types';
+import type { Rule, OutboundTable, List, DNS } from '../types';
 import ListAccordion from '../components/ListAccordion';
+import { DNSServerInput } from '../components/DNSServerInput';
 
 interface RuleEntry {
   id: string;
@@ -366,6 +367,58 @@ export default function Rules() {
                     </div>
                   </div>
                 ) : null}
+              </div>
+
+              {/* Custom DNS Server */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Custom DNS Server (Optional)
+                  </label>
+                  {entry.data.customDnsServers && entry.data.customDnsServers.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => updateRuleData(index, { customDnsServers: [] })}
+                      className="text-xs text-red-600 hover:text-red-700"
+                    >
+                      Clear DNS Server
+                    </button>
+                  )}
+                </div>
+                {(!entry.data.customDnsServers || entry.data.customDnsServers.length === 0) ? (
+                  <div className="p-4 bg-gray-50 rounded-md">
+                    <p className="text-sm text-gray-500 mb-3">
+                      No custom DNS configured. Will use default DNS server from General Settings.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => updateRuleData(index, {
+                        customDnsServers: [{
+                          type: 'udp',
+                          server: '',
+                          port: 53,
+                          throughOutbound: true,
+                        }]
+                      })}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                      Add Custom DNS Server
+                    </button>
+                  </div>
+                ) : (
+                  <DNSServerInput
+                    value={entry.data.customDnsServers[0]}
+                    onChange={(dns: DNS | undefined) => {
+                      if (dns) {
+                        updateRuleData(index, { customDnsServers: [dns] });
+                      } else {
+                        updateRuleData(index, { customDnsServers: [] });
+                      }
+                    }}
+                    label=""
+                    allowEmpty={true}
+                  />
+                )}
               </div>
 
               {/* Lists section */}
