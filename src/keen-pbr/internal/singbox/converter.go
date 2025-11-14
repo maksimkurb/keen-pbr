@@ -224,19 +224,24 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		allRuleSetTags = append(allRuleSetTags, ruleSetTags...)
 	}
 
-	// Add DNS rule for special domains (ip and fakeip check domains)
-	if len(allRuleSetTags) > 0 {
-		ipDomain := getIPDomain(generalSettings)
-		fakeipDomain := getFakeIPDomain(generalSettings)
+	// Always add DNS rule for special domains (ip and fakeip check domains)
+	// These domains should always be routed through fakeip DNS
+	ipDomain := getIPDomain(generalSettings)
+	fakeipDomain := getFakeIPDomain(generalSettings)
 
-		dnsRules = append(dnsRules, DNSRule{
-			Action:     "route",
-			Server:     "fakeip-server",
-			RewriteTTL: 60,
-			Domain:     []string{fakeipDomain, ipDomain},
-			RuleSet:    allRuleSetTags,
-		})
+	specialDomainRule := DNSRule{
+		Action:     "route",
+		Server:     "fakeip-server",
+		RewriteTTL: 60,
+		Domain:     []string{fakeipDomain, ipDomain},
 	}
+
+	// Add rule sets if any are configured
+	if len(allRuleSetTags) > 0 {
+		specialDomainRule.RuleSet = allRuleSetTags
+	}
+
+	dnsRules = append(dnsRules, specialDomainRule)
 
 	// Generate DNS rules from application rules
 	for _, rule := range rules {
