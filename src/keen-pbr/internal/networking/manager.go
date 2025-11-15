@@ -8,10 +8,10 @@ import (
 
 const (
 	// Packet mark and routing table ID (0x105 = 261 decimal)
-	FWMARK_HEX = "0x105"
+	FWMARK_HEX = "0x1005"
 	FWMARK_DEC = "261"
-	TABLE_ID   = "105"
-	PRIORITY   = "105"
+	TABLE_ID   = "1005"
+	PRIORITY   = "1005"
 
 	// TPROXY target address
 	TPROXY_ADDR = "127.0.0.1"
