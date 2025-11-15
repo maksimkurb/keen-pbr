@@ -118,17 +118,17 @@ func WriteInlineListFiles(cfg *config.Config) error {
 				if inlineList.GetContentType() == models.ListContentTypeDomain {
 					// Domain rule set
 					ruleSet = map[string]interface{}{
-						"version": 1,
+						"version": 3,
 						"rules": []map[string]interface{}{
 							{
-								"domain": inlineList.Entries,
+								"domain_suffix": inlineList.Entries,
 							},
 						},
 					}
 				} else {
 					// IP CIDR rule set
 					ruleSet = map[string]interface{}{
-						"version": 1,
+						"version": 3,
 						"rules": []map[string]interface{}{
 							{
 								"ip_cidr": inlineList.Entries,
