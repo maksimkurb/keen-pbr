@@ -54,8 +54,10 @@ func (s *Server) setupRoutes() {
 	// General settings endpoint
 	s.mux.HandleFunc("/v1/settings/general", s.handleGeneralSettings)
 
-	// Singbox config generation endpoint
+	// Singbox endpoints
 	s.mux.HandleFunc("/v1/singbox/config", s.handleSingboxConfig)
+	s.mux.HandleFunc("/v1/singbox/download", s.handleSingboxDownload)
+	s.mux.HandleFunc("/v1/singbox/version", s.handleSingboxVersion)
 
 	// Serve static files for non-API routes
 	s.mux.Handle("/", ServeStatic())
