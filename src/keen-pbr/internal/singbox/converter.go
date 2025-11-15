@@ -415,10 +415,10 @@ func generateRouteConfig(rules []*models.Rule, outbounds map[string]models.Outbo
 			}
 
 			routeRules = append(routeRules, RouteRule{
-				Action:  "route",
-				Inbound: "tproxy-in",
+				Action:   "route",
+				Inbound:  "tproxy-in",
 				Outbound: outboundTag,
-				RuleSet: ruleSetValue,
+				RuleSet:  ruleSetValue,
 			})
 
 			// Add rule sets

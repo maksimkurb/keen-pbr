@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/hiddify/ray2sing/ray2sing"
 )
 
 // ParseProxyURL parses a proxy URL and returns a sing-box outbound configuration
@@ -78,4 +76,3 @@ func ParseProxyURL(tag, proxyURL string) (map[string]interface{}, error) {
 	result["tag"] = tag
 	return result, nil
 }
-
