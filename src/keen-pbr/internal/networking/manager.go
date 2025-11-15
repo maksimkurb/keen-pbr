@@ -7,8 +7,11 @@ import (
 )
 
 const (
-	// Packet mark used for routing (0x105 = 261 in decimal)
-	FWMARK = "0x105"
+	// Packet mark and routing table ID (0x105 = 261 decimal)
+	FWMARK_HEX = "0x105"
+	FWMARK_DEC = "261"
+	TABLE_ID   = "105"
+	PRIORITY   = "105"
 
 	// TPROXY target address
 	TPROXY_ADDR = "127.0.0.1"
@@ -81,11 +84,105 @@ func (m *NetworkManager) loadTPROXYModule() error {
 	return nil
 }
 
-// Setup configures all ipsets and iptables rules
+// setupRoutingTable creates routing table for TPROXY
+func (m *NetworkManager) setupRoutingTable() error {
+	// Check if route already exists
+	checkCmd := exec.Command("ip", "route", "list", "table", TABLE_ID)
+	output, err := checkCmd.CombinedOutput()
+	if err == nil && strings.Contains(string(output), "local default dev lo") {
+		// Route already exists
+		return nil
+	}
+
+	// Add route: ip route add local 0.0.0.0/0 dev lo table 105
+	addCmd := exec.Command("ip", "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", TABLE_ID)
+	if output, err := addCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to add routing table: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// setupRoutingRule creates IP rule for marked packets
+func (m *NetworkManager) setupRoutingRule() error {
+	// Check if rule already exists
+	checkCmd := exec.Command("ip", "rule", "list")
+	output, err := checkCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to list ip rules: %w", err)
+	}
+
+	// Check if rule exists: "from all fwmark 0x105 lookup 105"
+	if strings.Contains(string(output), "fwmark "+FWMARK_HEX) && strings.Contains(string(output), "lookup "+TABLE_ID) {
+		// Rule already exists
+		return nil
+	}
+
+	// Add rule: ip -4 rule add fwmark 0x105 table 105 priority 105
+	addCmd := exec.Command("ip", "-4", "rule", "add", "fwmark", FWMARK_HEX, "table", TABLE_ID, "priority", PRIORITY)
+	if output, err := addCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to add ip rule: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// teardownRoutingTable removes routing table
+func (m *NetworkManager) teardownRoutingTable() error {
+	// Check if route exists
+	checkCmd := exec.Command("ip", "route", "list", "table", TABLE_ID)
+	output, err := checkCmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(output), "local default dev lo") {
+		// Route doesn't exist, nothing to do
+		return nil
+	}
+
+	// Delete route: ip route del local 0.0.0.0/0 dev lo table 105
+	delCmd := exec.Command("ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", TABLE_ID)
+	if output, err := delCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to delete routing table: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// teardownRoutingRule removes IP rule
+func (m *NetworkManager) teardownRoutingRule() error {
+	// Check if rule exists
+	checkCmd := exec.Command("ip", "rule", "list")
+	output, err := checkCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to list ip rules: %w", err)
+	}
+
+	if !strings.Contains(string(output), "fwmark "+FWMARK_HEX) || !strings.Contains(string(output), "lookup "+TABLE_ID) {
+		// Rule doesn't exist, nothing to do
+		return nil
+	}
+
+	// Delete rule: ip -4 rule del fwmark 0x105 table 105
+	delCmd := exec.Command("ip", "-4", "rule", "del", "fwmark", FWMARK_HEX, "table", TABLE_ID)
+	if output, err := delCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to delete ip rule: %w, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// Setup configures all ipsets, iptables rules, routing table and rules
 func (m *NetworkManager) Setup() error {
 	// Load TPROXY kernel module first
 	if err := m.loadTPROXYModule(); err != nil {
 		return fmt.Errorf("failed to load TPROXY module: %w", err)
+	}
+
+	// Setup routing table and rule for TPROXY
+	if err := m.setupRoutingTable(); err != nil {
+		return fmt.Errorf("failed to setup routing table: %w", err)
+	}
+
+	if err := m.setupRoutingRule(); err != nil {
+		return fmt.Errorf("failed to setup routing rule: %w", err)
 	}
 
 	if err := m.setupIPSets(); err != nil {
@@ -154,26 +251,26 @@ func (m *NetworkManager) setupIPTablesRules() error {
 			"-i", iface,
 			"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
 			"-p", "tcp",
-			"-j", "MARK", "--set-mark", FWMARK)
+			"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 		m.iptables.AddRule("mangle", "PREROUTING",
 			"-i", iface,
 			"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
 			"-p", "udp",
-			"-j", "MARK", "--set-mark", FWMARK)
+			"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 		// Mark packets to FakeIP range (198.18.0.0/15)
 		m.iptables.AddRule("mangle", "PREROUTING",
 			"-i", iface,
 			"-d", "198.18.0.0/15",
 			"-p", "tcp",
-			"-j", "MARK", "--set-mark", FWMARK)
+			"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 		m.iptables.AddRule("mangle", "PREROUTING",
 			"-i", iface,
 			"-d", "198.18.0.0/15",
 			"-p", "udp",
-			"-j", "MARK", "--set-mark", FWMARK)
+			"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 		// Mark Discord UDP traffic (high ports)
 		m.iptables.AddRule("mangle", "PREROUTING",
@@ -181,7 +278,7 @@ func (m *NetworkManager) setupIPTablesRules() error {
 			"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
 			"-p", "udp",
 			"--dport", "50000:65535",
-			"-j", "MARK", "--set-mark", FWMARK)
+			"-j", "MARK", "--set-mark", FWMARK_HEX)
 	}
 
 	// MANGLE OUTPUT rules
@@ -193,36 +290,36 @@ func (m *NetworkManager) setupIPTablesRules() error {
 	m.iptables.AddRule("mangle", "OUTPUT",
 		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
 		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 	m.iptables.AddRule("mangle", "OUTPUT",
 		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
 		"-p", "udp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 	// Mark outgoing packets to FakeIP range (TCP only, as per nftables config)
 	m.iptables.AddRule("mangle", "OUTPUT",
 		"-d", "198.18.0.0/15",
 		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		"-j", "MARK", "--set-mark", FWMARK_HEX)
 
 	// PREROUTING TPROXY rules
 	// Redirect marked packets to tproxy
 	m.iptables.AddRule("mangle", "PREROUTING",
-		"-m", "mark", "--mark", FWMARK,
+		"-m", "mark", "--mark", FWMARK_HEX,
 		"-p", "tcp",
 		"-j", "TPROXY",
 		"--on-ip", TPROXY_ADDR,
 		"--on-port", TPROXY_PORT,
-		"--tproxy-mark", FWMARK)
+		"--tproxy-mark", FWMARK_HEX)
 
 	m.iptables.AddRule("mangle", "PREROUTING",
-		"-m", "mark", "--mark", FWMARK,
+		"-m", "mark", "--mark", FWMARK_HEX,
 		"-p", "udp",
 		"-j", "TPROXY",
 		"--on-ip", TPROXY_ADDR,
 		"--on-port", TPROXY_PORT,
-		"--tproxy-mark", FWMARK)
+		"--tproxy-mark", FWMARK_HEX)
 
 	// Apply the rules
 	return m.iptables.ApplyRules()
@@ -240,6 +337,16 @@ func (m *NetworkManager) Teardown() error {
 		if err := ipset.Destroy(); err != nil {
 			return fmt.Errorf("failed to destroy ipset: %w", err)
 		}
+	}
+
+	// Remove routing rule
+	if err := m.teardownRoutingRule(); err != nil {
+		return fmt.Errorf("failed to teardown routing rule: %w", err)
+	}
+
+	// Remove routing table
+	if err := m.teardownRoutingTable(); err != nil {
+		return fmt.Errorf("failed to teardown routing table: %w", err)
 	}
 
 	return nil
