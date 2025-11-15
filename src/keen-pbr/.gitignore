@@ -1,5 +1,6 @@
 # Binaries
-/keen-pbr
+/keen-pbr*
+/sing-box
 *.exe
 *.exe~
 *.dll

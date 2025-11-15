@@ -12,6 +12,10 @@ build-small:
 build-mips:
 	CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags="-s -w" -o keen-pbr-mips ./cmd/keen-pbr
 
+# Build and deploy to router (MIPS)
+deploy-mips: build-mips
+	scp -P 222 keen-pbr-mips root@192.168.54.1:/opt/root/keen-pbr
+
 # Build for router (ARM)
 build-arm:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o keen-pbr-arm ./cmd/keen-pbr
