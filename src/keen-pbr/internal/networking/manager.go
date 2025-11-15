@@ -222,15 +222,10 @@ func (m *NetworkManager) setupIPTablesRules() error {
 		"-p", "udp",
 		"-j", "MARK", "--set-mark", FWMARK)
 
-	// Mark outgoing packets to FakeIP range
+	// Mark outgoing packets to FakeIP range (TCP only, as per nftables config)
 	m.iptables.AddRule("mangle", "OUTPUT",
 		"-d", "198.18.0.0/15",
 		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	m.iptables.AddRule("mangle", "OUTPUT",
-		"-d", "198.18.0.0/15",
-		"-p", "udp",
 		"-j", "MARK", "--set-mark", FWMARK)
 
 	// PREROUTING TPROXY rules
