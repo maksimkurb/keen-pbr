@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { settingsAPI } from '../api/client';
 import type { DNS, GeneralSettings as GeneralSettingsType } from '../types';
 import { DNSServerInput } from '../components/DNSServerInput';
+import { InterfaceSelector } from '../components/InterfaceSelector';
 import { Button } from '../components/ui/Button';
 
 export function GeneralSettings() {
@@ -10,7 +11,6 @@ export function GeneralSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [newInterface, setNewInterface] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -58,20 +58,10 @@ export function GeneralSettings() {
     }));
   };
 
-  const handleAddInterface = () => {
-    if (newInterface.trim() === '') return;
-
+  const handleInterfacesChange = (interfaces: string[]) => {
     setSettings((prev) => ({
       ...prev,
-      inboundInterfaces: [...(prev.inboundInterfaces || []), newInterface.trim()],
-    }));
-    setNewInterface('');
-  };
-
-  const handleRemoveInterface = (index: number) => {
-    setSettings((prev) => ({
-      ...prev,
-      inboundInterfaces: (prev.inboundInterfaces || []).filter((_, i) => i !== index),
+      inboundInterfaces: interfaces,
     }));
   };
 
@@ -136,64 +126,12 @@ export function GeneralSettings() {
         <hr className="border-gray-200" />
 
         {/* Inbound Interfaces */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Inbound Interfaces
-          </label>
-          <p className="text-sm text-gray-500 mb-3">
-            Network interfaces to apply routing rules to (e.g., br-lan, gre4-mygre). Leave empty to default to br-lan.
-          </p>
-
-          {/* List of interfaces */}
-          <div className="space-y-2 mb-3">
-            {(settings.inboundInterfaces || []).length === 0 ? (
-              <p className="text-sm text-gray-400 italic">No interfaces configured (will default to br-lan)</p>
-            ) : (
-              (settings.inboundInterfaces || []).map((iface, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={iface}
-                    disabled
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-                  />
-                  <Button
-                    onClick={() => handleRemoveInterface(index)}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Add interface input */}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newInterface}
-              onChange={(e) => setNewInterface(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddInterface();
-                }
-              }}
-              placeholder="Enter interface name (e.g., br-lan)"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <Button
-              onClick={handleAddInterface}
-              variant="primary"
-              size="sm"
-              disabled={newInterface.trim() === ''}
-            >
-              Add
-            </Button>
-          </div>
-        </div>
+        <InterfaceSelector
+          selectedInterfaces={settings.inboundInterfaces || []}
+          onChange={handleInterfacesChange}
+          label="Inbound Interfaces"
+          helperText="Network interfaces to apply routing rules to (e.g., br-lan, gre4-mygre). Leave empty to default to br-lan."
+        />
 
         {/* Save Button */}
         <div className="flex justify-end pt-4 border-t border-gray-200">
