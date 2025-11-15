@@ -12,16 +12,29 @@ func ParseShadowsocks(tag, rawURL string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to parse Shadowsocks URL: %w", err)
 	}
 
+	// Shadowsocks URLs often encode method:password as base64 in the userinfo
+	// Try to decode the username as it might be base64(method:password)
+	username := u.Username
+	password := u.Password
+
+	// Try base64 decoding
+	decoded := DecodeBase64(username)
+	if decoded != username && strings.Contains(decoded, ":") {
+		// Successfully decoded and contains colon, split into method:password
+		parts := strings.SplitN(decoded, ":", 2)
+		username = parts[0] // method
+		password = parts[1] // password
+	}
+
 	// Method (encryption)
-	method := u.Username
+	method := username
 	if method == "" || method == "none" {
 		method = "chacha20-ietf-poly1305"
 	}
 
-	// Password
-	password := u.Password
+	// Use decoded password or fallback to username
 	if password == "" {
-		password = u.Username
+		password = username
 	}
 
 	outbound := map[string]interface{}{

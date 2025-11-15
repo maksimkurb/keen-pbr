@@ -45,27 +45,8 @@ func ParseURL(rawURL string, defaultPort uint16) (*ProxyURL, error) {
 
 	// Extract username and password
 	if u.User != nil {
-		username := u.User.Username()
-		// Try to decode username as base64
-		if decoded, err := base64.RawURLEncoding.DecodeString(username); err == nil {
-			username = string(decoded)
-		} else if decoded, err := base64.StdEncoding.DecodeString(username); err == nil {
-			username = string(decoded)
-		}
-
-		// Split username:password if contains colon
-		if strings.Contains(username, ":") {
-			parts := strings.SplitN(username, ":", 2)
-			proxyURL.Username = parts[0]
-			proxyURL.Password = parts[1]
-		} else {
-			proxyURL.Username = username
-		}
-
-		// Get password if not already set
-		if proxyURL.Password == "" {
-			proxyURL.Password, _ = u.User.Password()
-		}
+		proxyURL.Username = u.User.Username()
+		proxyURL.Password, _ = u.User.Password()
 	}
 
 	// Extract fragment as name
