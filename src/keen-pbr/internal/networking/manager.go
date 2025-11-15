@@ -9,7 +9,6 @@ import (
 const (
 	// Packet mark and routing table ID (0x105 = 261 decimal)
 	FWMARK_HEX = "0x1005"
-	FWMARK_DEC = "261"
 	TABLE_ID   = "1005"
 	PRIORITY   = "1005"
 
