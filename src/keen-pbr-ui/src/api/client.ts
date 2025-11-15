@@ -1,7 +1,7 @@
 import type { Config, GeneralSettings, NetworkInterface, Outbound, Rule, ServiceStatusResponse } from '../types';
 
 // API base URL - empty string means same origin (embedded UI case)
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || '';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) || '';
 
 class APIError extends Error {
   constructor(public status: number, message: string) {
