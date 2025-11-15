@@ -128,3 +128,25 @@ export const settingsAPI = {
     });
   },
 };
+
+// Singbox API
+export interface SingboxBinaryStatus {
+  exists: boolean;
+  path: string;
+  isWorking: boolean;
+  installedVersion?: string;
+  configuredVersion: string;
+  error?: string;
+}
+
+export const singboxAPI = {
+  async getVersion() {
+    return fetchJSON<SingboxBinaryStatus>('/v1/singbox/version');
+  },
+
+  async download() {
+    return fetchJSON<{ status: string; version: string; path: string }>('/v1/singbox/download', {
+      method: 'POST',
+    });
+  },
+};

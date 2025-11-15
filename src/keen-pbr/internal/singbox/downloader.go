@@ -196,13 +196,14 @@ func (d *Downloader) GetVersion() string {
 }
 
 // GetInstalledVersion checks if sing-box is installed and returns its version
+// Also serves as a verification that the binary works (exit code 0)
 func (d *Downloader) GetInstalledVersion() (string, error) {
 	// Check if binary exists
 	if _, err := os.Stat(d.config.InstallPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("sing-box not installed at %s", d.config.InstallPath)
 	}
 
-	// Execute sing-box version command to get actual version
+	// Execute sing-box version command to get actual version and verify it works
 	cmd := exec.Command(d.config.InstallPath, "version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -223,35 +224,20 @@ func (d *Downloader) GetInstalledVersion() (string, error) {
 	return strings.TrimSpace(versionStr), nil
 }
 
-// IsWorking checks if sing-box binary is working by executing --help
-func (d *Downloader) IsWorking() bool {
-	// Check if binary exists
-	if _, err := os.Stat(d.config.InstallPath); os.IsNotExist(err) {
-		return false
-	}
-
-	// Execute sing-box --help to verify it works
-	cmd := exec.Command(d.config.InstallPath, "--help")
-	err := cmd.Run()
-
-	// Exit code 0 means success
-	return err == nil
-}
-
 // GetStatus returns detailed status information about sing-box installation
 type BinaryStatus struct {
-	Exists          bool   `json:"exists"`
-	Path            string `json:"path"`
-	IsWorking       bool   `json:"isWorking"`
-	InstalledVersion string `json:"installedVersion,omitempty"`
+	Exists            bool   `json:"exists"`
+	Path              string `json:"path"`
+	IsWorking         bool   `json:"isWorking"`
+	InstalledVersion  string `json:"installedVersion,omitempty"`
 	ConfiguredVersion string `json:"configuredVersion"`
-	Error           string `json:"error,omitempty"`
+	Error             string `json:"error,omitempty"`
 }
 
 // GetStatus returns the current status of the sing-box binary
 func (d *Downloader) GetStatus() *BinaryStatus {
 	status := &BinaryStatus{
-		Path:             d.config.InstallPath,
+		Path:              d.config.InstallPath,
 		ConfiguredVersion: d.config.Version,
 	}
 
@@ -265,18 +251,13 @@ func (d *Downloader) GetStatus() *BinaryStatus {
 
 	status.Exists = true
 
-	// Check if binary is working
-	status.IsWorking = d.IsWorking()
-	if !status.IsWorking {
-		status.Error = "Binary exists but failed to execute"
-		return status
-	}
-
-	// Get installed version
+	// Get installed version - this also verifies the binary works
 	version, err := d.GetInstalledVersion()
 	if err != nil {
+		status.IsWorking = false
 		status.Error = err.Error()
 	} else {
+		status.IsWorking = true
 		status.InstalledVersion = version
 	}
 
