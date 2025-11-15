@@ -64,9 +64,10 @@ func parseVLESS(tag string, u *url.URL) (map[string]interface{}, error) {
 		"uuid":        uuid,
 	}
 
-	// Parse encryption (usually "none" for VLESS)
-	if encryption := query.Get("encryption"); encryption != "" {
-		outbound["flow"] = encryption
+	// Parse flow (optional, e.g., "xtls-rprx-vision")
+	// Note: Do not confuse with encryption parameter
+	if flow := query.Get("flow"); flow != "" {
+		outbound["flow"] = flow
 	}
 
 	// Parse security/TLS
@@ -106,9 +107,9 @@ func parseVLESS(tag string, u *url.URL) (map[string]interface{}, error) {
 		outbound["tls"] = tls
 	}
 
-	// Parse transport
+	// Parse transport (skip "tcp" as it's the default)
 	transportType := query.Get("type")
-	if transportType != "" {
+	if transportType != "" && transportType != "tcp" {
 		transport := map[string]interface{}{
 			"type": transportType,
 		}
