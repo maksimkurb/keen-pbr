@@ -2,6 +2,8 @@ package networking
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 )
 
 const (
@@ -32,8 +34,54 @@ func NewNetworkManager() *NetworkManager {
 	}
 }
 
+// loadTPROXYModule loads the TPROXY kernel module if not already loaded
+func (m *NetworkManager) loadTPROXYModule() error {
+	// Check if module is already loaded
+	cmd := exec.Command("lsmod")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to check loaded modules: %w", err)
+	}
+
+	// Check if xt_TPROXY is already loaded
+	if strings.Contains(string(output), "xt_TPROXY") {
+		return nil // Module already loaded
+	}
+
+	// Get kernel version for module path
+	kernelCmd := exec.Command("uname", "-r")
+	kernelOutput, err := kernelCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to get kernel version: %w", err)
+	}
+	kernelVersion := strings.TrimSpace(string(kernelOutput))
+
+	// Construct module path
+	modulePath := fmt.Sprintf("/lib/modules/%s/xt_TPROXY.ko", kernelVersion)
+
+	// Load the module using insmod
+	insmodCmd := exec.Command("insmod", modulePath)
+	insmodOutput, err := insmodCmd.CombinedOutput()
+	if err != nil {
+		// Try modprobe as fallback
+		modprobeCmd := exec.Command("modprobe", "xt_TPROXY")
+		modprobeOutput, err := modprobeCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to load TPROXY module with insmod (%s) and modprobe (%s)",
+				string(insmodOutput), string(modprobeOutput))
+		}
+	}
+
+	return nil
+}
+
 // Setup configures all ipsets and iptables rules
 func (m *NetworkManager) Setup() error {
+	// Load TPROXY kernel module first
+	if err := m.loadTPROXYModule(); err != nil {
+		return fmt.Errorf("failed to load TPROXY module: %w", err)
+	}
+
 	if err := m.setupIPSets(); err != nil {
 		return fmt.Errorf("failed to setup ipsets: %w", err)
 	}
