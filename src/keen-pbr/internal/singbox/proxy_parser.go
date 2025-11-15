@@ -1,7 +1,6 @@
 package singbox
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -17,62 +16,83 @@ func ParseProxyURL(tag, proxyURL string) (map[string]interface{}, error) {
 
 	scheme := strings.ToLower(u.Scheme)
 
-	// For protocols not supported by Ray2Singbox, use specific parsers
-	var outbound any
+	// Route to appropriate parser based on scheme
+	var outbound map[string]interface{}
 	switch scheme {
-	case "socks", "socks5":
-		outbound, err = ray2sing.SocksSingbox(proxyURL)
+	case "vless":
+		outbound, err = ParseVLESS(tag, proxyURL)
+	case "vmess":
+		outbound, err = ParseVMess(tag, proxyURL)
+	case "ss", "shadowsocks":
+		outbound, err = ParseShadowsocks(tag, proxyURL)
+	case "ssr":
+		outbound, err = ParseShadowsocksR(tag, proxyURL)
+	case "trojan":
+		outbound, err = ParseTrojan(tag, proxyURL)
+	case "socks", "socks4", "socks4a", "socks5", "socks5h":
+		outbound, err = ParseSOCKS(tag, proxyURL)
 	case "ssh":
-		outbound, err = ray2sing.SSHSingbox(proxyURL)
-	case "wireguard", "wg":
-		outbound, err = ray2sing.WiregaurdSingbox(proxyURL)
+		outbound, err = ParseSSH(tag, proxyURL)
+	case "wg", "wireguard":
+		outbound, err = ParseWireGuard(tag, proxyURL)
+	case "http", "https":
+		// HTTP proxy
+		outbound, err = parseHTTP(tag, proxyURL)
+	case "hysteria":
+		return nil, fmt.Errorf("Hysteria protocol is not yet implemented")
+	case "hysteria2", "hy2":
+		return nil, fmt.Errorf("Hysteria2 protocol is not yet implemented")
+	case "tuic":
+		return nil, fmt.Errorf("TUIC protocol is not yet implemented")
 	default:
-		// Use Ray2Singbox for all other protocols (vless, vmess, trojan, ss, http, https, etc.)
-		// useXrayWhenPossible=false to use only sing-box compatible parsers
-		var configJSON string
-		configJSON, err = ray2sing.Ray2Singbox(proxyURL, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse proxy URL: %w", err)
-		}
-
-		// Parse the JSON response
-		var config struct {
-			Outbounds []map[string]interface{} `json:"outbounds"`
-		}
-
-		if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
-		}
-
-		// Get the first outbound (should only be one for a single proxy URL)
-		if len(config.Outbounds) == 0 {
-			return nil, fmt.Errorf("no outbounds found in parsed config")
-		}
-
-		outbound = config.Outbounds[0]
+		return nil, fmt.Errorf("unsupported proxy protocol: %s", scheme)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s proxy URL: %w", scheme, err)
+		return nil, err
 	}
 
-	// Convert outbound to map if it's not already
-	var result map[string]interface{}
-	switch v := outbound.(type) {
-	case map[string]interface{}:
-		result = v
-	default:
-		// Marshal and unmarshal to convert to map
-		outboundBytes, err := json.Marshal(outbound)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal outbound: %w", err)
-		}
-		if err := json.Unmarshal(outboundBytes, &result); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal outbound: %w", err)
-		}
+	return outbound, nil
+}
+
+// parseHTTP parses an HTTP/HTTPS proxy URL
+func parseHTTP(tag, rawURL string) (map[string]interface{}, error) {
+	u, err := ParseProxyURL(rawURL, 8080)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTTP URL: %w", err)
 	}
 
-	// Set the tag
-	result["tag"] = tag
-	return result, nil
+	outbound := map[string]interface{}{
+		"type":        "http",
+		"tag":         tag,
+		"server":      u.Hostname,
+		"server_port": u.Port,
+	}
+
+	// Username and password (optional)
+	if u.Username != "" {
+		outbound["username"] = u.Username
+	}
+	if u.Password != "" {
+		outbound["password"] = u.Password
+	}
+
+	// TLS for HTTPS
+	if strings.ToLower(u.Scheme) == "https" {
+		tls := map[string]interface{}{
+			"enabled": true,
+		}
+
+		if sni := u.GetParam("sni"); sni != "" {
+			tls["server_name"] = sni
+		}
+
+		if u.GetParamBool("insecure", "allowInsecure") {
+			tls["insecure"] = true
+		}
+
+		outbound["tls"] = tls
+	}
+
+	return outbound, nil
 }
