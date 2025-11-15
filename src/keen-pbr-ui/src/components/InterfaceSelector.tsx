@@ -66,7 +66,7 @@ export function InterfaceSelector({
       <div className="space-y-2 mb-3">
         {selectedInterfaces.length === 0 ? (
           <p className="text-sm text-gray-400 italic">
-            No interfaces configured (will default to br-lan)
+            No interfaces configured (will default to br0)
           </p>
         ) : (
           selectedInterfaces.map((iface) => {

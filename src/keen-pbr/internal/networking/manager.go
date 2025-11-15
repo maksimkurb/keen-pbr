@@ -18,9 +18,9 @@ const (
 	TPROXY_PORT = "1602"
 
 	// IPSet names
-	IPSET_LOCAL_V4         = "keen_pbr_localv4"
-	IPSET_PODKOP_SUBNETS   = "keen_pbr_podkop_subnets"
-	IPSET_DISCORD_SUBNETS  = "keen_pbr_discord_subnets"
+	IPSET_LOCAL_V4        = "keen_pbr_localv4"
+	IPSET_PODKOP_SUBNETS  = "keen_pbr_podkop_subnets"
+	IPSET_DISCORD_SUBNETS = "keen_pbr_discord_subnets"
 )
 
 // NetworkManager manages all networking components (ipsets, iptables)
@@ -32,9 +32,9 @@ type NetworkManager struct {
 
 // NewNetworkManager creates a new network manager
 func NewNetworkManager(interfaces []string) *NetworkManager {
-	// Default to br-lan if no interfaces specified
+	// Default to br0 if no interfaces specified
 	if len(interfaces) == 0 {
-		interfaces = []string{"br-lan"}
+		interfaces = []string{"br0"}
 	}
 	return &NetworkManager{
 		ipsets:     []*IPSet{},

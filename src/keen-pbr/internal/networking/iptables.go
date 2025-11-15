@@ -2,6 +2,7 @@ package networking
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -45,6 +46,7 @@ func (m *IPTablesManager) ruleExists(rule *IPTablesRule) bool {
 
 // ApplyRules applies all rules
 func (m *IPTablesManager) ApplyRules() error {
+	addedCount := 0
 	for _, rule := range m.rules {
 		if m.ruleExists(rule) {
 			continue
@@ -53,18 +55,26 @@ func (m *IPTablesManager) ApplyRules() error {
 		args := []string{"-t", rule.Table, "-A", rule.Chain}
 		args = append(args, rule.Rule...)
 
+		log.Printf("Adding iptables rule: %s", rule.String())
 		cmd := exec.Command("iptables", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to add iptables rule %v: %w, output: %s",
 				rule, err, string(output))
 		}
+		addedCount++
+	}
+	if addedCount > 0 {
+		log.Printf("Added %d iptables rules", addedCount)
+	} else {
+		log.Printf("No new iptables rules to add (all already exist)")
 	}
 	return nil
 }
 
 // RemoveRules removes all rules
 func (m *IPTablesManager) RemoveRules() error {
+	removedCount := 0
 	// Remove in reverse order
 	for i := len(m.rules) - 1; i >= 0; i-- {
 		rule := m.rules[i]
@@ -76,6 +86,7 @@ func (m *IPTablesManager) RemoveRules() error {
 		args := []string{"-t", rule.Table, "-D", rule.Chain}
 		args = append(args, rule.Rule...)
 
+		log.Printf("Removing iptables rule: %s", rule.String())
 		cmd := exec.Command("iptables", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -85,6 +96,12 @@ func (m *IPTablesManager) RemoveRules() error {
 					rule, err, string(output))
 			}
 		}
+		removedCount++
+	}
+	if removedCount > 0 {
+		log.Printf("Removed %d iptables rules", removedCount)
+	} else {
+		log.Printf("No iptables rules to remove (none exist)")
 	}
 	return nil
 }

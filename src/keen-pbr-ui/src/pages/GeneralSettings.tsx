@@ -130,7 +130,7 @@ export function GeneralSettings() {
           selectedInterfaces={settings.inboundInterfaces || []}
           onChange={handleInterfacesChange}
           label="Inbound Interfaces"
-          helperText="Network interfaces to apply routing rules to (e.g., br-lan, gre4-mygre). Leave empty to default to br-lan."
+          helperText="Network interfaces to apply routing rules to (e.g., br0). Leave empty to default to br0."
         />
 
         {/* Save Button */}
