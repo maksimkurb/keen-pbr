@@ -58,6 +58,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/v1/singbox/config", s.handleSingboxConfig)
 	s.mux.HandleFunc("/v1/singbox/download", s.handleSingboxDownload)
 	s.mux.HandleFunc("/v1/singbox/version", s.handleSingboxVersion)
+	s.mux.HandleFunc("/v1/singbox/status", s.handleSingboxStatus)
 
 	// Serve static files for non-API routes
 	s.mux.Handle("/", ServeStatic())

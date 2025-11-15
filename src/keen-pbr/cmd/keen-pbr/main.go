@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Create service
-	svc := service.New()
+	svc := service.New(cfg)
 
 	// Create API server
 	apiServer := api.New(cfg, *configPath, svc)

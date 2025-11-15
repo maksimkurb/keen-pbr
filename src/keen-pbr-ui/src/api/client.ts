@@ -139,6 +139,13 @@ export interface SingboxBinaryStatus {
   error?: string;
 }
 
+export interface SingboxProcessInfo {
+  status: 'stopped' | 'running' | 'crashed' | 'failed';
+  errorOutput?: string;
+  lastStartTime?: string;
+  pid?: number;
+}
+
 export const singboxAPI = {
   async getVersion() {
     return fetchJSON<SingboxBinaryStatus>('/v1/singbox/version');
@@ -148,5 +155,9 @@ export const singboxAPI = {
     return fetchJSON<{ status: string; version: string; path: string }>('/v1/singbox/download', {
       method: 'POST',
     });
+  },
+
+  async getStatus() {
+    return fetchJSON<SingboxProcessInfo>('/v1/singbox/status');
   },
 };

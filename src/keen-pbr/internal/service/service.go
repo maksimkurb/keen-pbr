@@ -6,7 +6,9 @@ import (
 	"log"
 	"sync"
 
+	"github.com/maksimkurb/keenetic-pbr-go/keen-pbr/internal/config"
 	"github.com/maksimkurb/keenetic-pbr-go/keen-pbr/internal/networking"
+	"github.com/maksimkurb/keenetic-pbr-go/keen-pbr/internal/singbox"
 )
 
 // Status represents the service status
@@ -21,22 +23,50 @@ const (
 
 // Service manages the PBR service lifecycle
 type Service struct {
-	status         Status
-	enabled        bool
-	ctx            context.Context
-	cancel         context.CancelFunc
-	mu             sync.RWMutex
-	wg             sync.WaitGroup
-	networkManager *networking.NetworkManager
+	status          Status
+	enabled         bool
+	ctx             context.Context
+	cancel          context.CancelFunc
+	mu              sync.RWMutex
+	wg              sync.WaitGroup
+	networkManager  *networking.NetworkManager
+	singboxManager  *singbox.ProcessManager
+	config          *config.Config
+	singboxError    string
 }
 
 // New creates a new Service instance
-func New() *Service {
-	return &Service{
+func New(cfg *config.Config) *Service {
+	// Get sing-box paths from settings
+	settings := cfg.GetGeneralSettings()
+	binaryPath := "/usr/local/bin/sing-box"
+	if settings != nil && settings.SingBoxPath != "" {
+		binaryPath = settings.SingBoxPath
+	}
+	configPath := "/tmp/sing-box/config.json"
+
+	singboxManager := singbox.NewProcessManager(cfg, binaryPath, configPath)
+
+	svc := &Service{
 		status:         StatusStopped,
 		enabled:        false,
 		networkManager: networking.NewNetworkManager(),
+		singboxManager: singboxManager,
+		config:         cfg,
 	}
+
+	// Set crash callback to stop service when sing-box crashes
+	singboxManager.SetCrashCallback(func(err error) {
+		log.Printf("sing-box crashed, stopping service: %v", err)
+		svc.mu.Lock()
+		svc.singboxError = err.Error()
+		svc.mu.Unlock()
+
+		// Trigger service stop
+		go svc.Stop()
+	})
+
+	return svc
 }
 
 // Start starts the service
@@ -49,6 +79,7 @@ func (s *Service) Start() error {
 	}
 
 	s.status = StatusStarting
+	s.singboxError = "" // Clear previous errors
 
 	// Setup networking (ipsets and iptables)
 	log.Println("Setting up networking rules...")
@@ -57,6 +88,18 @@ func (s *Service) Start() error {
 		return fmt.Errorf("failed to setup networking: %w", err)
 	}
 	log.Println("Networking rules applied successfully")
+
+	// Start sing-box process
+	log.Println("Starting sing-box...")
+	if err := s.singboxManager.Start(); err != nil {
+		// sing-box failed to start, cleanup networking
+		log.Printf("Failed to start sing-box: %v", err)
+		s.networkManager.Teardown()
+		s.status = StatusStopped
+		s.singboxError = err.Error()
+		return fmt.Errorf("failed to start sing-box: %w", err)
+	}
+	log.Println("sing-box started successfully")
 
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
@@ -88,6 +131,14 @@ func (s *Service) Stop() error {
 	}
 
 	s.wg.Wait()
+
+	// Stop sing-box
+	log.Println("Stopping sing-box...")
+	if err := s.singboxManager.Stop(); err != nil {
+		log.Printf("Warning: failed to stop sing-box: %v", err)
+	} else {
+		log.Println("sing-box stopped successfully")
+	}
 
 	// Teardown networking (remove iptables rules and ipsets)
 	log.Println("Tearing down networking rules...")
@@ -138,6 +189,11 @@ func (s *Service) IsEnabled() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.enabled
+}
+
+// GetSingboxProcessInfo returns information about the sing-box process
+func (s *Service) GetSingboxProcessInfo() singbox.ProcessInfo {
+	return s.singboxManager.GetInfo()
 }
 
 // run is the main service loop

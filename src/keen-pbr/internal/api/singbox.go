@@ -100,3 +100,16 @@ func (s *Server) handleSingboxVersion(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, status)
 }
+
+// handleSingboxStatus handles getting sing-box runtime status
+func (s *Server) handleSingboxStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondError(w, http.StatusMethodNotAllowed, "Only GET method is allowed")
+		return
+	}
+
+	// Get process info from service
+	processInfo := s.service.GetSingboxProcessInfo()
+
+	respondJSON(w, http.StatusOK, processInfo)
+}
