@@ -51,19 +51,6 @@ func (d *Downloader) getArchiveFilename() (string, error) {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
-	// Map Go architecture names to sing-box release names
-	archMap := map[string]string{
-		"amd64": "amd64",
-		"386":   "386",
-		"arm64": "arm64",
-		"arm":   "armv7", // Default ARM to ARMv7
-	}
-
-	arch, ok := archMap[goarch]
-	if !ok {
-		return "", fmt.Errorf("unsupported architecture: %s", goarch)
-	}
-
 	// Determine file extension based on OS
 	var ext string
 	switch goos {
@@ -73,6 +60,73 @@ func (d *Downloader) getArchiveFilename() (string, error) {
 		ext = "zip"
 	default:
 		return "", fmt.Errorf("unsupported operating system: %s", goos)
+	}
+
+	// Map Go architecture names to sing-box release names
+	var arch string
+	switch goarch {
+	case "amd64":
+		arch = "amd64"
+	case "386":
+		// Check for softfloat variant
+		if os.Getenv("GO386") == "softfloat" {
+			arch = "386-softfloat"
+		} else {
+			arch = "386"
+		}
+	case "arm64":
+		arch = "arm64"
+	case "arm":
+		// Check GOARM environment variable for ARM version
+		goarm := os.Getenv("GOARM")
+		switch goarm {
+		case "5":
+			arch = "armv5"
+		case "6":
+			arch = "armv6"
+		case "7", "":
+			arch = "armv7" // Default to ARMv7
+		default:
+			arch = "armv7"
+		}
+	case "mips":
+		// Check for softfloat variant
+		if os.Getenv("GOMIPS") == "softfloat" {
+			arch = "mips-softfloat"
+		} else {
+			arch = "mips-softfloat" // sing-box only provides softfloat for mips
+		}
+	case "mipsle":
+		// Check for softfloat variant
+		if os.Getenv("GOMIPS") == "softfloat" {
+			arch = "mipsle-softfloat"
+		} else {
+			arch = "mipsle"
+		}
+	case "mips64":
+		// Check for softfloat variant
+		if os.Getenv("GOMIPS64") == "softfloat" {
+			arch = "mips64-softfloat"
+		} else {
+			arch = "mips64-softfloat" // sing-box only provides softfloat for mips64
+		}
+	case "mips64le":
+		// Check for softfloat variant
+		if os.Getenv("GOMIPS64") == "softfloat" {
+			arch = "mips64le-softfloat"
+		} else {
+			arch = "mips64le"
+		}
+	case "ppc64le":
+		arch = "ppc64le"
+	case "riscv64":
+		arch = "riscv64"
+	case "s390x":
+		arch = "s390x"
+	case "loong64":
+		arch = "loong64"
+	default:
+		return "", fmt.Errorf("unsupported architecture: %s", goarch)
 	}
 
 	// Build filename
