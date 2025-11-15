@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -201,7 +202,83 @@ func (d *Downloader) GetInstalledVersion() (string, error) {
 		return "", fmt.Errorf("sing-box not installed at %s", d.config.InstallPath)
 	}
 
-	// TODO: Execute sing-box version command to get actual version
-	// For now, just return that it exists
-	return "installed", nil
+	// Execute sing-box version command to get actual version
+	cmd := exec.Command(d.config.InstallPath, "version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute sing-box version: %w (output: %s)", err, string(output))
+	}
+
+	// Parse version from output
+	// Expected format: "sing-box version 1.12.12\n..."
+	versionStr := string(output)
+	lines := strings.Split(versionStr, "\n")
+	if len(lines) > 0 && strings.Contains(lines[0], "version") {
+		parts := strings.Fields(lines[0])
+		if len(parts) >= 3 {
+			return parts[2], nil
+		}
+	}
+
+	return strings.TrimSpace(versionStr), nil
+}
+
+// IsWorking checks if sing-box binary is working by executing --help
+func (d *Downloader) IsWorking() bool {
+	// Check if binary exists
+	if _, err := os.Stat(d.config.InstallPath); os.IsNotExist(err) {
+		return false
+	}
+
+	// Execute sing-box --help to verify it works
+	cmd := exec.Command(d.config.InstallPath, "--help")
+	err := cmd.Run()
+
+	// Exit code 0 means success
+	return err == nil
+}
+
+// GetStatus returns detailed status information about sing-box installation
+type BinaryStatus struct {
+	Exists          bool   `json:"exists"`
+	Path            string `json:"path"`
+	IsWorking       bool   `json:"isWorking"`
+	InstalledVersion string `json:"installedVersion,omitempty"`
+	ConfiguredVersion string `json:"configuredVersion"`
+	Error           string `json:"error,omitempty"`
+}
+
+// GetStatus returns the current status of the sing-box binary
+func (d *Downloader) GetStatus() *BinaryStatus {
+	status := &BinaryStatus{
+		Path:             d.config.InstallPath,
+		ConfiguredVersion: d.config.Version,
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(d.config.InstallPath); os.IsNotExist(err) {
+		status.Exists = false
+		status.IsWorking = false
+		status.Error = "Binary not found at " + d.config.InstallPath
+		return status
+	}
+
+	status.Exists = true
+
+	// Check if binary is working
+	status.IsWorking = d.IsWorking()
+	if !status.IsWorking {
+		status.Error = "Binary exists but failed to execute"
+		return status
+	}
+
+	// Get installed version
+	version, err := d.GetInstalledVersion()
+	if err != nil {
+		status.Error = err.Error()
+	} else {
+		status.InstalledVersion = version
+	}
+
+	return status
 }

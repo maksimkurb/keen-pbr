@@ -89,19 +89,14 @@ func (s *Server) handleSingboxVersion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create downloader to check installed version
+	// Create downloader to check status
 	downloader := singbox.NewDownloader(singbox.DownloaderConfig{
 		Version:     configuredVersion,
 		InstallPath: installPath,
 	})
 
-	installedVersion, err := downloader.GetInstalledVersion()
-	isInstalled := err == nil
+	// Get detailed status
+	status := downloader.GetStatus()
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"configuredVersion": configuredVersion,
-		"installedVersion":  installedVersion,
-		"installPath":       installPath,
-		"isInstalled":       isInstalled,
-	})
+	respondJSON(w, http.StatusOK, status)
 }
