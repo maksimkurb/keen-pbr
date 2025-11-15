@@ -82,6 +82,7 @@ export interface Rule {
 export interface GeneralSettings {
   defaultDnsServer?: DNS;
   bootstrapDnsServer?: DNS;
+  inboundInterfaces?: string[];
 }
 
 // Config Type

@@ -22,15 +22,21 @@ const (
 
 // NetworkManager manages all networking components (ipsets, iptables)
 type NetworkManager struct {
-	ipsets   []*IPSet
-	iptables *IPTablesManager
+	ipsets     []*IPSet
+	iptables   *IPTablesManager
+	interfaces []string
 }
 
 // NewNetworkManager creates a new network manager
-func NewNetworkManager() *NetworkManager {
+func NewNetworkManager(interfaces []string) *NetworkManager {
+	// Default to br-lan if no interfaces specified
+	if len(interfaces) == 0 {
+		interfaces = []string{"br-lan"}
+	}
 	return &NetworkManager{
-		ipsets:   []*IPSet{},
-		iptables: NewIPTablesManager(),
+		ipsets:     []*IPSet{},
+		iptables:   NewIPTablesManager(),
+		interfaces: interfaces,
 	}
 }
 
@@ -141,70 +147,42 @@ func (m *NetworkManager) setupIPSets() error {
 // setupIPTablesRules creates iptables rules based on nftables config
 func (m *NetworkManager) setupIPTablesRules() error {
 	// MANGLE PREROUTING rules
-	// Mark packets from specified interfaces to podkop subnets
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "br-lan",
-		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
-		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
+	// Create rules for each configured interface
+	for _, iface := range m.interfaces {
+		// Mark packets from interface to podkop subnets
+		m.iptables.AddRule("mangle", "PREROUTING",
+			"-i", iface,
+			"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+			"-p", "tcp",
+			"-j", "MARK", "--set-mark", FWMARK)
 
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "br-lan",
-		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
-		"-p", "udp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		m.iptables.AddRule("mangle", "PREROUTING",
+			"-i", iface,
+			"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
+			"-p", "udp",
+			"-j", "MARK", "--set-mark", FWMARK)
 
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "gre4-mygre",
-		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
-		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		// Mark packets to FakeIP range (198.18.0.0/15)
+		m.iptables.AddRule("mangle", "PREROUTING",
+			"-i", iface,
+			"-d", "198.18.0.0/15",
+			"-p", "tcp",
+			"-j", "MARK", "--set-mark", FWMARK)
 
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "gre4-mygre",
-		"-m", "set", "--match-set", IPSET_PODKOP_SUBNETS, "dst",
-		"-p", "udp",
-		"-j", "MARK", "--set-mark", FWMARK)
+		m.iptables.AddRule("mangle", "PREROUTING",
+			"-i", iface,
+			"-d", "198.18.0.0/15",
+			"-p", "udp",
+			"-j", "MARK", "--set-mark", FWMARK)
 
-	// Mark packets to FakeIP range (198.18.0.0/15)
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "br-lan",
-		"-d", "198.18.0.0/15",
-		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "br-lan",
-		"-d", "198.18.0.0/15",
-		"-p", "udp",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "gre4-mygre",
-		"-d", "198.18.0.0/15",
-		"-p", "tcp",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "gre4-mygre",
-		"-d", "198.18.0.0/15",
-		"-p", "udp",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	// Mark Discord UDP traffic (high ports)
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "br-lan",
-		"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
-		"-p", "udp",
-		"--dport", "50000:65535",
-		"-j", "MARK", "--set-mark", FWMARK)
-
-	m.iptables.AddRule("mangle", "PREROUTING",
-		"-i", "gre4-mygre",
-		"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
-		"-p", "udp",
-		"--dport", "50000:65535",
-		"-j", "MARK", "--set-mark", FWMARK)
+		// Mark Discord UDP traffic (high ports)
+		m.iptables.AddRule("mangle", "PREROUTING",
+			"-i", iface,
+			"-m", "set", "--match-set", IPSET_DISCORD_SUBNETS, "dst",
+			"-p", "udp",
+			"--dport", "50000:65535",
+			"-j", "MARK", "--set-mark", FWMARK)
+	}
 
 	// MANGLE OUTPUT rules
 	// Mark outgoing packets to podkop subnets (skip local IPs)

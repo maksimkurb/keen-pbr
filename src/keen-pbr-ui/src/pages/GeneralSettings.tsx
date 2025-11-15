@@ -10,6 +10,7 @@ export function GeneralSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [newInterface, setNewInterface] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -54,6 +55,23 @@ export function GeneralSettings() {
     setSettings((prev) => ({
       ...prev,
       bootstrapDnsServer: dns,
+    }));
+  };
+
+  const handleAddInterface = () => {
+    if (newInterface.trim() === '') return;
+
+    setSettings((prev) => ({
+      ...prev,
+      inboundInterfaces: [...(prev.inboundInterfaces || []), newInterface.trim()],
+    }));
+    setNewInterface('');
+  };
+
+  const handleRemoveInterface = (index: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      inboundInterfaces: (prev.inboundInterfaces || []).filter((_, i) => i !== index),
     }));
   };
 
@@ -113,6 +131,68 @@ export function GeneralSettings() {
           <p className="mt-2 text-sm text-gray-500">
             This DNS server is used to resolve domain names of other DNS servers. Typically should be a plain UDP DNS server (like 8.8.8.8:53).
           </p>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Inbound Interfaces */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Inbound Interfaces
+          </label>
+          <p className="text-sm text-gray-500 mb-3">
+            Network interfaces to apply routing rules to (e.g., br-lan, gre4-mygre). Leave empty to default to br-lan.
+          </p>
+
+          {/* List of interfaces */}
+          <div className="space-y-2 mb-3">
+            {(settings.inboundInterfaces || []).length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No interfaces configured (will default to br-lan)</p>
+            ) : (
+              (settings.inboundInterfaces || []).map((iface, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={iface}
+                    disabled
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+                  />
+                  <Button
+                    onClick={() => handleRemoveInterface(index)}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add interface input */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newInterface}
+              onChange={(e) => setNewInterface(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddInterface();
+                }
+              }}
+              placeholder="Enter interface name (e.g., br-lan)"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <Button
+              onClick={handleAddInterface}
+              variant="primary"
+              size="sm"
+              disabled={newInterface.trim() === ''}
+            >
+              Add
+            </Button>
+          </div>
         </div>
 
         {/* Save Button */}

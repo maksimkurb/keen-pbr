@@ -2,12 +2,13 @@ package models
 
 // GeneralSettings represents general application settings
 type GeneralSettings struct {
-	DefaultDNSServer   *DNS   `json:"defaultDnsServer,omitempty"`
-	BootstrapDNSServer *DNS   `json:"bootstrapDnsServer,omitempty"`
-	IPDomain           string `json:"ipDomain,omitempty"`     // Domain for checking real IP (default: "ip.podkop.fyi")
-	FakeIPDomain       string `json:"fakeipDomain,omitempty"` // Domain for fakeip testing (default: "fakeip.podkop.fyi")
-	SingBoxVersion     string `json:"singBoxVersion,omitempty"` // sing-box version to use (default: "1.12.12")
-	SingBoxPath        string `json:"singBoxPath,omitempty"`    // Path to sing-box binary (default: "/usr/local/bin/sing-box")
+	DefaultDNSServer   *DNS     `json:"defaultDnsServer,omitempty"`
+	BootstrapDNSServer *DNS     `json:"bootstrapDnsServer,omitempty"`
+	IPDomain           string   `json:"ipDomain,omitempty"`           // Domain for checking real IP (default: "ip.podkop.fyi")
+	FakeIPDomain       string   `json:"fakeipDomain,omitempty"`       // Domain for fakeip testing (default: "fakeip.podkop.fyi")
+	SingBoxVersion     string   `json:"singBoxVersion,omitempty"`     // sing-box version to use (default: "1.12.12")
+	SingBoxPath        string   `json:"singBoxPath,omitempty"`        // Path to sing-box binary (default: "/usr/local/bin/sing-box")
+	InboundInterfaces  []string `json:"inboundInterfaces,omitempty"`  // Network interfaces to apply routing rules to (default: ["br-lan"])
 }
 
 // Validate checks if general settings are valid

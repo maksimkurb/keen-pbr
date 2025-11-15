@@ -45,12 +45,18 @@ func New(cfg *config.Config) *Service {
 	}
 	configPath := singbox.ConfigPath
 
+	// Get inbound interfaces from settings
+	var interfaces []string
+	if settings != nil && len(settings.InboundInterfaces) > 0 {
+		interfaces = settings.InboundInterfaces
+	}
+
 	singboxManager := singbox.NewProcessManager(cfg, binaryPath, configPath)
 
 	svc := &Service{
 		status:         StatusStopped,
 		enabled:        false,
-		networkManager: networking.NewNetworkManager(),
+		networkManager: networking.NewNetworkManager(interfaces),
 		singboxManager: singboxManager,
 		config:         cfg,
 	}
