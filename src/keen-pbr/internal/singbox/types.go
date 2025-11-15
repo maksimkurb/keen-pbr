@@ -34,12 +34,13 @@ type DNSConfig struct {
 type DNSServer struct {
 	Type           string `json:"type"`
 	Tag            string `json:"tag"`
-	Server         string `json:"server"`
+	Server         string `json:"server,omitempty"`         // Not used for fakeip type
 	ServerPort     int    `json:"server_port,omitempty"`
 	Path           string `json:"path,omitempty"`           // Used for HTTPS DNS (DoH)
 	Detour         string `json:"detour,omitempty"`
 	DomainResolver string `json:"domain_resolver,omitempty"`
-	Inet4Range     string `json:"inet4_range,omitempty"`
+	Inet4Range     string `json:"inet4_range,omitempty"`    // Used for fakeip type
+	Inet6Range     string `json:"inet6_range,omitempty"`    // Used for fakeip type
 }
 
 // DNSRule represents a DNS routing rule

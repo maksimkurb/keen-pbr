@@ -145,6 +145,7 @@ func generateDNSConfig(rules []*models.Rule, outbounds map[string]models.Outboun
 		Type:       "fakeip",
 		Tag:        "fakeip-server",
 		Inet4Range: "198.18.0.0/15",
+		Inet6Range: "fc00::/18",
 	})
 
 	// Collect interface outbounds that are actually used in rules
