@@ -43,7 +43,7 @@ func New(cfg *config.Config) *Service {
 	if settings != nil && settings.SingBoxPath != "" {
 		binaryPath = settings.SingBoxPath
 	}
-	configPath := "/tmp/sing-box/config.json"
+	configPath := singbox.ConfigPath
 
 	singboxManager := singbox.NewProcessManager(cfg, binaryPath, configPath)
 
@@ -138,6 +138,14 @@ func (s *Service) Stop() error {
 		log.Printf("Warning: failed to stop sing-box: %v", err)
 	} else {
 		log.Println("sing-box stopped successfully")
+	}
+
+	// Cleanup temporary files
+	log.Println("Cleaning up temporary files...")
+	if err := singbox.CleanupTempFiles(); err != nil {
+		log.Printf("Warning: failed to cleanup temp files: %v", err)
+	} else {
+		log.Println("Temporary files cleaned up successfully")
 	}
 
 	// Teardown networking (remove iptables rules and ipsets)

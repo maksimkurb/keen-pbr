@@ -1,7 +1,10 @@
 package singbox
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +20,14 @@ const (
 	DefaultFakeIPDomain = "fakeip.podkop.fyi"
 	// FakeIPPort is the port override for fakeip domain
 	FakeIPPort = 8443
+	// TempDir is the base directory for temporary files
+	TempDir = "/tmp/keen-pbr"
+	// ConfigPath is the path to the sing-box config file
+	ConfigPath = TempDir + "/config.json"
+	// RuleSetsDir is the directory for rule set files
+	RuleSetsDir = TempDir + "/rulesets"
+	// CacheDBPath is the path to the cache database
+	CacheDBPath = TempDir + "/cache.db"
 )
 
 // getIPDomain returns the IP domain from settings or default
@@ -69,7 +80,7 @@ func GenerateConfig(cfg *config.Config) (*Config, error) {
 		Experimental: ExperimentalConfig{
 			CacheFile: CacheFileConfig{
 				Enabled:     true,
-				Path:        "/tmp/sing-box/cache.db",
+				Path:        CacheDBPath,
 				StoreFakeIP: true,
 			},
 			ClashAPI: ClashAPIConfig{
@@ -80,6 +91,74 @@ func GenerateConfig(cfg *config.Config) (*Config, error) {
 	}
 
 	return singboxConfig, nil
+}
+
+// WriteInlineListFiles writes inline list rule set files to disk
+func WriteInlineListFiles(cfg *config.Config) error {
+	// Create rulesets directory
+	if err := os.MkdirAll(RuleSetsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create rulesets directory: %w", err)
+	}
+
+	rules := cfg.GetAllRules()
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+
+		for i, list := range rule.Lists {
+			if inlineList, ok := list.(*models.InlineList); ok {
+				// Generate filename
+				sanitizedID := strings.ReplaceAll(rule.ID, " ", "-")
+				sanitizedID = strings.ToLower(sanitizedID)
+				filename := filepath.Join(RuleSetsDir, fmt.Sprintf("%s-list-%d-ruleset.json", sanitizedID, i))
+
+				// Create rule set content based on content type
+				var ruleSet map[string]interface{}
+				if inlineList.GetContentType() == models.ListContentTypeDomain {
+					// Domain rule set
+					ruleSet = map[string]interface{}{
+						"version": 1,
+						"rules": []map[string]interface{}{
+							{
+								"domain": inlineList.Entries,
+							},
+						},
+					}
+				} else {
+					// IP CIDR rule set
+					ruleSet = map[string]interface{}{
+						"version": 1,
+						"rules": []map[string]interface{}{
+							{
+								"ip_cidr": inlineList.Entries,
+							},
+						},
+					}
+				}
+
+				// Write to file
+				data, err := json.MarshalIndent(ruleSet, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal inline list %s: %w", filename, err)
+				}
+
+				if err := os.WriteFile(filename, data, 0644); err != nil {
+					return fmt.Errorf("failed to write inline list file %s: %w", filename, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// CleanupTempFiles removes all temporary files created by sing-box
+func CleanupTempFiles() error {
+	if err := os.RemoveAll(TempDir); err != nil {
+		return fmt.Errorf("failed to cleanup temp directory: %w", err)
+	}
+	return nil
 }
 
 // convertModelsDNSToSingbox converts a models.DNS to a singbox DNSServer
@@ -507,7 +586,7 @@ func convertListToRuleSet(ruleID string, list models.List, index int) *RuleSet {
 		// Sanitize rule ID for filename
 		sanitizedID := strings.ReplaceAll(ruleID, " ", "-")
 		sanitizedID = strings.ToLower(sanitizedID)
-		path := fmt.Sprintf("/tmp/sing-box/rulesets/%s-list-%d-ruleset.json", sanitizedID, index)
+		path := filepath.Join(RuleSetsDir, fmt.Sprintf("%s-list-%d-ruleset.json", sanitizedID, index))
 
 		return &RuleSet{
 			Type:   "local",

@@ -191,6 +191,11 @@ func (pm *ProcessManager) GetStatus() ProcessStatus {
 
 // generateConfigFile generates the sing-box config and writes it to disk
 func (pm *ProcessManager) generateConfigFile() error {
+	// Write inline list files first
+	if err := WriteInlineListFiles(pm.config); err != nil {
+		return fmt.Errorf("failed to write inline list files: %w", err)
+	}
+
 	// Generate config
 	singboxConfig, err := GenerateConfig(pm.config)
 	if err != nil {
@@ -204,8 +209,7 @@ func (pm *ProcessManager) generateConfigFile() error {
 	}
 
 	// Ensure config directory exists
-	configDir := "/tmp/sing-box"
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(TempDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
