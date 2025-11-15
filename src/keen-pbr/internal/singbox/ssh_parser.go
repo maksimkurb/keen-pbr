@@ -7,7 +7,7 @@ import (
 
 // ParseSSH parses an SSH proxy URL
 func ParseSSH(tag, rawURL string) (map[string]interface{}, error) {
-	u, err := ParseProxyURL(rawURL, 22)
+	u, err := ParseURL(rawURL, 22)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SSH URL: %w", err)
 	}

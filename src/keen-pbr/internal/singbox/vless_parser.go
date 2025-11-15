@@ -6,7 +6,7 @@ import (
 
 // ParseVLESS parses a VLESS proxy URL
 func ParseVLESS(tag, rawURL string) (map[string]interface{}, error) {
-	u, err := ParseProxyURL(rawURL, 443)
+	u, err := ParseURL(rawURL, 443)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VLESS URL: %w", err)
 	}

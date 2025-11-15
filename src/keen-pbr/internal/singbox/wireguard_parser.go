@@ -8,7 +8,7 @@ import (
 
 // ParseWireGuard parses a WireGuard proxy URL
 func ParseWireGuard(tag, rawURL string) (map[string]interface{}, error) {
-	u, err := ParseProxyURL(rawURL, 51820)
+	u, err := ParseURL(rawURL, 51820)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse WireGuard URL: %w", err)
 	}

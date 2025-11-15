@@ -7,7 +7,7 @@ import (
 
 // ParseShadowsocks parses a Shadowsocks proxy URL
 func ParseShadowsocks(tag, rawURL string) (map[string]interface{}, error) {
-	u, err := ParseProxyURL(rawURL, 443)
+	u, err := ParseURL(rawURL, 443)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Shadowsocks URL: %w", err)
 	}

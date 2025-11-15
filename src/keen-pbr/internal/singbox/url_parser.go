@@ -19,8 +19,8 @@ type ProxyURL struct {
 	Params   map[string]string
 }
 
-// ParseProxyURL parses a proxy URL string into a ProxyURL struct
-func ParseProxyURL(rawURL string, defaultPort uint16) (*ProxyURL, error) {
+// ParseURL parses a proxy URL string into a ProxyURL struct
+func ParseURL(rawURL string, defaultPort uint16) (*ProxyURL, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)

@@ -57,7 +57,7 @@ func ParseProxyURL(tag, proxyURL string) (map[string]interface{}, error) {
 
 // parseHTTP parses an HTTP/HTTPS proxy URL
 func parseHTTP(tag, rawURL string) (map[string]interface{}, error) {
-	u, err := ParseProxyURL(rawURL, 8080)
+	u, err := ParseURL(rawURL, 8080)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTTP URL: %w", err)
 	}
