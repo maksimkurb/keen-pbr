@@ -40,7 +40,7 @@ func (g *InterfacesCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *InterfacesCommand) Run() error {
-	networking.PrintInterfaces(g.ctx.Interfaces, true, *g.cfg.General.UseKeeneticAPI)
+	networking.PrintInterfaces(g.ctx.Interfaces, true)
 
 	return nil
 }

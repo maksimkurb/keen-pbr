@@ -19,7 +19,6 @@ type Config struct {
 
 type GeneralConfig struct {
 	ListsOutputDir string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticAPI *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
 	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
 	FallbackDNS    string `toml:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
 }
@@ -42,7 +41,7 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nIf use_keenetic_api is enabled, keen-pbr will also check if there is any network connectivity on this interface.\nIf all interfaces are down, traffic will be blocked (blackhole route)."`
+	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route)."`
 	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
 	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`

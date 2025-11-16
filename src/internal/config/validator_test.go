@@ -325,16 +325,12 @@ func TestValidateGeneralConfig_DefaultValues(t *testing.T) {
 	config := &Config{
 		General: &GeneralConfig{},
 	}
-	
+
 	err := config.validateGeneralConfig()
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	
-	if config.General.UseKeeneticAPI == nil || !*config.General.UseKeeneticAPI {
-		t.Error("Expected UseKeeneticAPI to default to true")
-	}
-	
+
 	if config.General.UseKeeneticDNS == nil || *config.General.UseKeeneticDNS {
 		t.Error("Expected UseKeeneticDNS to default to false")
 	}

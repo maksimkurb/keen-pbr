@@ -33,7 +33,7 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 		}
 
 		appliedAtLeastOnce = true
-		if err := applyIpsetNetworkConfiguration(ipset, *config.General.UseKeeneticAPI); err != nil {
+		if err := applyIpsetNetworkConfiguration(ipset); err != nil {
 			return false, err
 		}
 	}
@@ -41,14 +41,12 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 	return appliedAtLeastOnce, nil
 }
 
-func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bool) error {
+func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig) error {
 	var keeneticIfaces map[string]keenetic.Interface = nil
-	if useKeeneticAPI {
-		var err error
-		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
-		if err != nil {
-			log.Warnf("failed to query Keenetic API: %v", err)
-		}
+	var err error
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	if err != nil {
+		log.Warnf("failed to query Keenetic API: %v", err)
 	}
 
 	ipRule := BuildIPRuleForIpset(ipset)
@@ -76,7 +74,7 @@ func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 	}
 
 	var chosenIface *Interface = nil
-	chosenIface, err = ChooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces)
+	chosenIface, err = ChooseBestInterface(ipset, keeneticIfaces)
 	if err != nil {
 		return err
 	}
@@ -178,16 +176,14 @@ func ApplyRoutingConfiguration(config *config.Config) error {
 	log.Debugf("Updating routing configuration based on interface states...")
 
 	var keeneticIfaces map[string]keenetic.Interface = nil
-	if *config.General.UseKeeneticAPI {
-		var err error
-		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
-		if err != nil {
-			log.Warnf("failed to query Keenetic API: %v", err)
-		}
+	var err error
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	if err != nil {
+		log.Warnf("failed to query Keenetic API: %v", err)
 	}
 
 	for _, ipset := range config.IPSets {
-		if err := applyIpsetRoutingConfiguration(ipset, *config.General.UseKeeneticAPI, keeneticIfaces); err != nil {
+		if err := applyIpsetRoutingConfiguration(ipset, keeneticIfaces); err != nil {
 			return err
 		}
 	}
@@ -196,7 +192,7 @@ func ApplyRoutingConfiguration(config *config.Config) error {
 }
 
 // applyIpsetRoutingConfiguration updates ip routes for a single ipset based on interface state
-func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) error {
+func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, keeneticIfaces map[string]keenetic.Interface) error {
 	log.Debugf("Updating routes for ipset [%s]", ipset.IPSetName)
 
 	blackholePresent := false
@@ -218,7 +214,7 @@ func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 	}
 
 	var chosenIface *Interface = nil
-	chosenIface, err := ChooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces)
+	chosenIface, err := ChooseBestInterface(ipset, keeneticIfaces)
 	if err != nil {
 		return err
 	}
@@ -241,11 +237,11 @@ func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 	return nil
 }
 
-func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
+func ChooseBestInterface(ipset *config.IPSetConfig, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
 	var chosenIface *Interface
 
 	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v", ipset.IPSetName, ipset.Routing.Interfaces)
-	
+
 	for _, interfaceName := range ipset.Routing.Interfaces {
 		iface, err := GetInterface(interfaceName)
 		if err != nil {
@@ -255,15 +251,15 @@ func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneti
 
 		attrs := iface.Attrs()
 		up := attrs.Flags&net.FlagUp != 0
-		keeneticIface := getKeeneticInterface(iface, useKeeneticAPI, keeneticIfaces)
+		keeneticIface := getKeeneticInterface(iface, keeneticIfaces)
 
 		// Check if this interface should be chosen
-		if chosenIface == nil && isInterfaceUsable(up, keeneticIface, useKeeneticAPI) {
+		if chosenIface == nil && isInterfaceUsable(up, keeneticIface) {
 			chosenIface = iface
 		}
 
 		// Log interface status
-		logInterfaceStatus(iface, up, keeneticIface, chosenIface == iface, useKeeneticAPI)
+		logInterfaceStatus(iface, up, keeneticIface, chosenIface == iface)
 	}
 
 	if chosenIface == nil {
@@ -274,8 +270,8 @@ func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneti
 }
 
 // getKeeneticInterface finds the Keenetic interface info for the given system interface
-func getKeeneticInterface(iface *Interface, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) *keenetic.Interface {
-	if !useKeeneticAPI {
+func getKeeneticInterface(iface *Interface, keeneticIfaces map[string]keenetic.Interface) *keenetic.Interface {
+	if keeneticIfaces == nil {
 		return nil
 	}
 
@@ -293,39 +289,30 @@ func getKeeneticInterface(iface *Interface, useKeeneticAPI bool, keeneticIfaces 
 }
 
 // isInterfaceUsable determines if an interface can be used for routing
-func isInterfaceUsable(up bool, keeneticIface *keenetic.Interface, useKeeneticAPI bool) bool {
+func isInterfaceUsable(up bool, keeneticIface *keenetic.Interface) bool {
 	if !up {
 		return false
 	}
 
-	if !useKeeneticAPI {
-		return true
-	}
-
-	// With Keenetic API: interface is usable if it's up and either:
+	// Interface is usable if it's up and either:
 	// 1. Keenetic status shows connected=yes, or
-	// 2. Keenetic status is unknown (interface not found in API)
+	// 2. Keenetic status is unknown (interface not found in API or API failed)
 	return keeneticIface == nil || keeneticIface.Connected == keenetic.KEENETIC_CONNECTED
 }
 
 // logInterfaceStatus logs the status of an interface in a consistent format
-func logInterfaceStatus(iface *Interface, up bool, keeneticIface *keenetic.Interface, isChosen bool, useKeeneticAPI bool) {
+func logInterfaceStatus(iface *Interface, up bool, keeneticIface *keenetic.Interface, isChosen bool) {
 	attrs := iface.Attrs()
 	chosen := "  "
 	if isChosen {
 		chosen = colorGreen + "->" + colorReset
 	}
 
-	if useKeeneticAPI {
-		if keeneticIface != nil {
-			log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
-				chosen, attrs.Name, attrs.Index,
-				keeneticIface.ID, keeneticIface.Description,
-				up, keeneticIface.Link, keeneticIface.Connected)
-		} else {
-			log.Infof(" %s %s (idx=%d) (unknown) up=%v link=unknown connected=unknown",
-				chosen, attrs.Name, attrs.Index, up)
-		}
+	if keeneticIface != nil {
+		log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
+			chosen, attrs.Name, attrs.Index,
+			keeneticIface.ID, keeneticIface.Description,
+			up, keeneticIface.Link, keeneticIface.Connected)
 	} else {
 		log.Infof(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
 	}

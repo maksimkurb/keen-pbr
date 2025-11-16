@@ -61,13 +61,13 @@ func TestApplyNetworkConfiguration_InterfaceFiltering(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{
 				IPSets:  tt.ipsets,
-				General: &config.GeneralConfig{UseKeeneticAPI: boolPtr(false)},
+				General: &config.GeneralConfig{},
 			}
 
 			// This would normally fail because applyIpsetNetworkConfiguration requires actual network setup
 			// We're testing just the filtering logic here by checking the appliedAtLeastOnce return value
 			applied, _ := ApplyNetworkConfiguration(cfg, tt.onlyRoutingForInterface)
-			
+
 			// For the empty cases, we should get the expected appliedAtLeastOnce value
 			if !tt.expectedAppliedAtLeastOnce && applied != tt.expectedAppliedAtLeastOnce {
 				t.Errorf("Expected appliedAtLeastOnce = %v, got %v", tt.expectedAppliedAtLeastOnce, applied)
