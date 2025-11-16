@@ -584,6 +584,53 @@ func (v *ValidationService) ValidateConfig(cfg *config.Config) error {
 
 ---
 
+## Development Workflow
+
+### Pre-Commit Checklist
+
+**CRITICAL: Before every commit, the following MUST pass:**
+
+1. **Build Check**
+   ```bash
+   go build -o keen-pbr ./src/cmd/keen-pbr
+   ```
+   - Must complete without errors
+   - Binary must be created successfully
+
+2. **Test Check**
+   ```bash
+   go test ./src/... -short
+   ```
+   - All new tests must pass
+   - Existing tests may need updates (expected during refactoring)
+   - Document any intentionally skipped tests
+
+3. **Fix-Retry Loop**
+   - If build fails: Fix errors, then retry build
+   - If tests fail: Fix tests, then retry tests
+   - Maximum 3 retry attempts before asking for advice
+   - If stuck: Stop and ask for guidance
+
+4. **Commit Message Format**
+   - Include phase number and brief description
+   - List key changes
+   - Note any breaking changes or test updates needed
+
+**Example:**
+```bash
+# 1. Make changes
+# 2. Build
+go build -o keen-pbr ./src/cmd/keen-pbr || exit 1
+# 3. Test
+go test ./src/... -short || exit 1
+# 4. Commit
+git add -A
+git commit -m "Phase 2: Split keenetic package into focused files"
+git push
+```
+
+---
+
 ## Success Metrics
 
 - [ ] No file exceeds 200 lines (except tests)
@@ -594,3 +641,4 @@ func (v *ValidationService) ValidateConfig(cfg *config.Config) error {
 - [ ] All external dependencies injectable
 - [ ] Build time < 10s
 - [ ] Test suite runs in < 5s
+- [x] **All commits must pass build and tests**
