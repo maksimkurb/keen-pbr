@@ -10,9 +10,7 @@ import (
 )
 
 const colorCyan = "\033[0;36m"
-const colorGreen = "\033[0;32m"
 const colorRed = "\033[0;31m"
-const colorReset = "\033[0m"
 
 type Interface struct {
 	netlink.Link

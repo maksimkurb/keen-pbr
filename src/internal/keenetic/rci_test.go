@@ -538,7 +538,9 @@ func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 
 	// Set up mock client
 	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/show/interface": mockData,
+		"/show/interface":                          mockData,
+		"/show/version/release":                   "4.03.C.6.3-9",
+		"/show/interface/system-name?name=Bridge0": "br0",
 	}))
 
 	result, err := RciShowInterfaceMappedByIPNet()
@@ -546,9 +548,14 @@ func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	// Should contain entries for both IPv4 and IPv6 networks
+	// Should contain entries mapped by system name
 	if len(result) == 0 {
 		t.Error("Expected at least one network mapping")
+	}
+
+	// Check that the interface is mapped by system name
+	if _, exists := result["br0"]; !exists {
+		t.Error("Expected interface to be mapped by system name 'br0'")
 	}
 }
 
