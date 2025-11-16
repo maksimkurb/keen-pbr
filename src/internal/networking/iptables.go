@@ -15,23 +15,6 @@ type IPTableRules struct {
 	rules []*config.IPTablesRule
 }
 
-func BuildIPTablesForIpset(ipset *config.IPSetConfig) (*IPTableRules, error) {
-	protocol := iptables.ProtocolIPv4
-	if ipset.IPVersion == config.Ipv6 {
-		protocol = iptables.ProtocolIPv6
-	}
-
-	if ipt, err := iptables.NewWithProtocol(protocol); err != nil {
-		return nil, err
-	} else {
-		if rules, err := processRules(ipset); err != nil {
-			return nil, err
-		} else {
-			return &IPTableRules{ipt, ipset, rules}, nil
-		}
-	}
-}
-
 func processRules(ipset *config.IPSetConfig) ([]*config.IPTablesRule, error) {
 	rules := make([]*config.IPTablesRule, len(ipset.IPTablesRules))
 

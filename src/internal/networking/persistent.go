@@ -29,8 +29,8 @@ func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
 	log.Infof("----------------- IPSet [%s] - Applying Persistent Config ------------------",
 		ipset.IPSetName)
 
-	ipRule := BuildIPRuleForIpset(ipset)
-	ipTableRules, err := BuildIPTablesForIpset(ipset)
+	ipRule := NewIPRuleBuilder(ipset).Build()
+	ipTableRules, err := NewIPTablesBuilder(ipset).Build()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
 	log.Infof("----------------- IPSet [%s] - Removing Persistent Config ------------------",
 		ipset.IPSetName)
 
-	ipRule := BuildIPRuleForIpset(ipset)
+	ipRule := NewIPRuleBuilder(ipset).Build()
 	log.Infof("Deleting IP rule [%v]", ipRule)
 
 	if exists, err := ipRule.IsExists(); err != nil {
@@ -75,7 +75,7 @@ func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
 	}
 
 	log.Infof("Deleting iptables rules")
-	if ipTableRules, err := BuildIPTablesForIpset(ipset); err != nil {
+	if ipTableRules, err := NewIPTablesBuilder(ipset).Build(); err != nil {
 		log.Errorf("Failed to build iptables rules: %v", err)
 		return err
 	} else {
@@ -88,11 +88,4 @@ func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
 	log.Infof("----------------- IPSet [%s] - Persistent Config Removed ------------------",
 		ipset.IPSetName)
 	return nil
-}
-
-// BuildIPRuleForIpset creates an IP rule for the given ipset configuration.
-//
-// The rule directs packets with the specified fwmark to the custom routing table.
-func BuildIPRuleForIpset(ipset *config.IPSetConfig) *IpRule {
-	return BuildRule(ipset.IPVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 }

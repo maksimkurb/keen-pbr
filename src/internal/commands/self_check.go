@@ -93,7 +93,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 		}
 	}
 
-	ipRule := networking.BuildIPRuleForIpset(ipsetCfg)
+	ipRule := networking.NewIPRuleBuilder(ipsetCfg).Build()
 	if exists, err := ipRule.IsExists(); err != nil {
 		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
 		return err
@@ -139,7 +139,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 }
 
 func checkIpTables(ipset *config.IPSetConfig) error {
-	ipTableRules, err := networking.BuildIPTablesForIpset(ipset)
+	ipTableRules, err := networking.NewIPTablesBuilder(ipset).Build()
 	if err != nil {
 		log.Errorf("Failed to build iptable rules: %v", err)
 		return err
