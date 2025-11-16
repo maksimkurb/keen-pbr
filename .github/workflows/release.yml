@@ -2,43 +2,20 @@
 # https://github.com/Anonym-tsk/nfqws-keenetic/blob/master/.github/workflows/release.yml
 # https://github.com/Waujito/youtubeUnblock/blob/main/.github/workflows/build-ci.yml
 
-name: Build and publish release
+name: Release
 
 on:
-  push: { }
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
   workflow_dispatch: { }
 
 jobs:
 
-  check-version-changed:
-    runs-on: ubuntu-latest
-    outputs:
-      should_release: ${{ steps.check.outputs.should_release }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Check if VERSION changed on main
-        id: check
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            git diff HEAD^ HEAD --name-only | grep -q "^VERSION$" && SHOULD_RELEASE=true || SHOULD_RELEASE=false
-            echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
-            if [[ "$SHOULD_RELEASE" == "true" ]]; then
-              echo "✅ Main branch + VERSION changed - will build binaries AND create release" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ Main branch - will build binaries only (no release)" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "should_release=false" >> $GITHUB_OUTPUT
-            echo "✅ Non-main branch - will build binaries only (no release)" >> $GITHUB_STEP_SUMMARY
-          fi
-
   build-entware:
     runs-on: ubuntu-latest
-    needs: check-version-changed
 
     strategy:
       matrix:
@@ -79,7 +56,7 @@ jobs:
             echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_STEP_SUMMARY
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
-          
+
 
       - name: Build Entware packages
         id: build
@@ -89,16 +66,16 @@ jobs:
           SHA: ${{ steps.gh.outputs.sha }}
         run: |
           echo "src-link keenPbr $GITHUB_WORKSPACE/package/entware" >> ./feeds.conf
-          
+
           ./scripts/feeds update keenPbr
           ./scripts/feeds install -a -p keenPbr
           ln -s $GITHUB_WORKSPACE/.git ./feeds/keenPbr/keen-pbr/git-src
-          
+
           echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
           echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
-          
+
           make package/keen-pbr/compile V=s
-          
+
           mv $(find ./bin -type f -name 'keen-pbr*.ipk') ./keen-pbr-$VERSION-$SHA-entware-${{ matrix.arch }}.ipk
 
       - name: Upload packages
@@ -113,9 +90,7 @@ jobs:
   build-repository:
     runs-on: ubuntu-22.04
     needs:
-      - check-version-changed
       - build-entware
-    if: needs.check-version-changed.outputs.should_release == 'true'
 
     steps:
       - name: Checkout
@@ -150,8 +125,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-22.04
-    needs: [ check-version-changed, build-repository ]
-    if: needs.check-version-changed.outputs.should_release == 'true'
+    needs: [ build-repository ]
 
     steps:
       - name: Checkout repository
@@ -196,8 +170,7 @@ jobs:
 
   deploy-repository:
     runs-on: ubuntu-22.04
-    needs: [ check-version-changed, build-repository ]
-    if: needs.check-version-changed.outputs.should_release == 'true'
+    needs: [ build-repository ]
     permissions:
       contents: read
       pages: write
