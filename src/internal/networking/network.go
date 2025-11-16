@@ -57,23 +57,14 @@ func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 		return err
 	}
 
-	if !ipset.Routing.KillSwitch {
-		if err := ipRule.DelIfExists(); err != nil {
-			return err
-		}
-		if err := ipTableRules.DelIfExists(); err != nil {
-			return err
-		}
-	}
-
 	blackholePresent := false
 
 	if routes, err := ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
 		return err
 	} else {
-		// Cleanup all routes (except blackhole route if kill switch is enabled)
+		// Cleanup all routes (except blackhole route)
 		for _, route := range routes {
-			if ipset.Routing.KillSwitch && route.Type&unix.RTN_BLACKHOLE != 0 {
+			if route.Type&unix.RTN_BLACKHOLE != 0 {
 				blackholePresent = true
 				continue
 			}
@@ -90,26 +81,27 @@ func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 		return err
 	}
 
-	if ipset.Routing.KillSwitch || chosenIface != nil {
-		log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
-			ipset.Routing.FwMark, ipset.IPSetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+	// Always add iptables rules and ip rules
+	log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
+		ipset.Routing.FwMark, ipset.IPSetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 
-		if err := ipRule.AddIfNotExists(); err != nil {
-			return err
-		}
-
-		if err := ipTableRules.AddIfNotExists(); err != nil {
-			return err
-		}
+	if err := ipRule.AddIfNotExists(); err != nil {
+		return err
 	}
 
-	if ipset.Routing.KillSwitch && !blackholePresent {
-		if err := addBlackholeRoute(ipset); err != nil {
-			return err
-		}
+	if err := ipTableRules.AddIfNotExists(); err != nil {
+		return err
 	}
 
-	if chosenIface != nil {
+	// If no interface is available, add blackhole route to prevent traffic leaks
+	if chosenIface == nil {
+		if !blackholePresent {
+			if err := addBlackholeRoute(ipset); err != nil {
+				return err
+			}
+		}
+	} else {
+		// Interface is available, add default gateway route
 		if err := addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
@@ -128,7 +120,7 @@ func addDefaultGatewayRoute(ipset *config.IPSetConfig, chosenIface *Interface) e
 }
 
 func addBlackholeRoute(ipset *config.IPSetConfig) error {
-	log.Infof("Adding blackhole ip route to table=%d to prevent packets leakage (kill-switch)", ipset.Routing.IpRouteTable)
+	log.Infof("Adding blackhole ip route to table=%d to prevent traffic leaks (all interfaces down)", ipset.Routing.IpRouteTable)
 	route := BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
 	if err := route.AddIfNotExists(); err != nil {
 		return err
@@ -212,9 +204,9 @@ func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 	if routes, err := ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
 		return err
 	} else {
-		// Cleanup all routes (except blackhole route if kill switch is enabled)
+		// Cleanup all routes (except blackhole route)
 		for _, route := range routes {
-			if ipset.Routing.KillSwitch && route.Type&unix.RTN_BLACKHOLE != 0 {
+			if route.Type&unix.RTN_BLACKHOLE != 0 {
 				blackholePresent = true
 				continue
 			}
@@ -231,18 +223,19 @@ func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bo
 		return err
 	}
 
-	if ipset.Routing.KillSwitch && !blackholePresent {
-		if err := addBlackholeRoute(ipset); err != nil {
-			return err
+	// If no interface is available, add blackhole route to prevent traffic leaks
+	if chosenIface == nil {
+		log.Infof("No interface available for ipset [%s], adding blackhole route", ipset.IPSetName)
+		if !blackholePresent {
+			if err := addBlackholeRoute(ipset); err != nil {
+				return err
+			}
 		}
-	}
-
-	if chosenIface != nil {
+	} else {
+		// Interface is available, add default gateway route
 		if err := addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
-	} else {
-		log.Debugf("No interface available for ipset [%s], routes cleared", ipset.IPSetName)
 	}
 
 	return nil
