@@ -13,6 +13,7 @@ type Interface struct {
 	Link        string        `json:"link"`
 	Connected   string        `json:"connected"`
 	State       string        `json:"state"`
+	SystemName  string        `json:"system-name,omitempty"` // Linux interface name, populated manually
 }
 
 type InterfaceIPv6 struct {

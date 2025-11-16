@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
+	"github.com/vishvananda/netlink"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,6 +37,63 @@ func (c *defaultHTTPClient) Get(url string) (*http.Response, error) {
 
 // Global HTTP client (can be overridden in tests)
 var httpClient HTTPClient = &defaultHTTPClient{}
+
+// Cached Keenetic version info
+var keeneticVersionCache *KeeneticVersion = nil
+
+type KeeneticVersion struct {
+	Major int
+	Minor int
+}
+
+// parseVersion parses version string like "4.03.C.6.3-9" and returns major/minor
+func parseVersion(versionStr string) (*KeeneticVersion, error) {
+	parts := strings.Split(versionStr, ".")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid version format: %s", versionStr)
+	}
+
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid major version: %s", parts[0])
+	}
+
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid minor version: %s", parts[1])
+	}
+
+	return &KeeneticVersion{Major: major, Minor: minor}, nil
+}
+
+// GetKeeneticVersion fetches and caches the Keenetic OS version
+func GetKeeneticVersion() (*KeeneticVersion, error) {
+	if keeneticVersionCache != nil {
+		return keeneticVersionCache, nil
+	}
+
+	versionStr, err := fetchAndDeserialize[string]("/show/version/release")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Keenetic version: %w", err)
+	}
+
+	version, err := parseVersion(versionStr)
+	if err != nil {
+		return nil, err
+	}
+
+	keeneticVersionCache = version
+	log.Debugf("Detected Keenetic OS version: %d.%02d", version.Major, version.Minor)
+	return version, nil
+}
+
+// supportsSystemNameEndpoint returns true if Keenetic OS version supports /show/interface/system-name endpoint (4.03+)
+func supportsSystemNameEndpoint(version *KeeneticVersion) bool {
+	if version == nil {
+		return false
+	}
+	return version.Major > 4 || (version.Major == 4 && version.Minor >= 3)
+}
 
 // Generic function to fetch and deserialize JSON
 func fetchAndDeserialize[T any](endpoint string) (T, error) {
@@ -89,29 +149,163 @@ func RciShowInterfaceMappedById() (map[string]Interface, error) {
 	return fetchAndDeserializeWithRetry[map[string]Interface]("/show/interface")
 }
 
-func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
-	log.Debugf("Fetching interfaces from Keenetic...")
-	if interfaces, err := RciShowInterfaceMappedById(); err != nil {
-		return nil, err
-	} else {
-		mapped := make(map[string]Interface)
-		for _, iface := range interfaces {
-			if iface.Address != "" { // Check if IPv4 present
-				if netmask, err := utils.IPv4ToNetmask(iface.Address, iface.Mask); err == nil {
-					mapped[netmask.String()] = iface
-				}
-			}
+// getSystemNameForInterface fetches the Linux system name for a Keenetic interface using the RCI API
+func getSystemNameForInterface(interfaceID string) (string, error) {
+	endpoint := "/show/interface/system-name?name=" + url.QueryEscape(interfaceID)
+	systemName, err := fetchAndDeserialize[string](endpoint)
+	if err != nil {
+		return "", err
+	}
+	return systemName, nil
+}
 
-			if iface.IPv6.Addresses != nil { // Check if IPv6 present
-				for _, addr := range iface.IPv6.Addresses {
-					if netmask, err := utils.IPv6ToNetmask(addr.Address, addr.PrefixLength); err == nil {
-						mapped[netmask.String()] = iface
-					}
+// populateSystemNamesModern populates SystemName field using the system-name endpoint (Keenetic 4.03+)
+func populateSystemNamesModern(interfaces map[string]Interface) map[string]Interface {
+	result := make(map[string]Interface)
+	for id, iface := range interfaces {
+		systemName, err := getSystemNameForInterface(id)
+		if err != nil {
+			log.Debugf("Failed to get system name for interface %s: %v", id, err)
+			continue
+		}
+		iface.SystemName = systemName
+		result[systemName] = iface
+	}
+	return result
+}
+
+// populateSystemNamesLegacy populates SystemName field by matching IP addresses (for older Keenetic versions)
+func populateSystemNamesLegacy(interfaces map[string]Interface, systemInterfaces []SystemInterface) map[string]Interface {
+	result := make(map[string]Interface)
+
+	// Create maps of Keenetic interface IPs for quick lookup
+	keeneticIPv4 := make(map[string]string) // IP -> interface ID
+	keeneticIPv6 := make(map[string]string) // IP -> interface ID
+
+	for id, iface := range interfaces {
+		if iface.Address != "" {
+			if netmask, err := utils.IPv4ToNetmask(iface.Address, iface.Mask); err == nil {
+				keeneticIPv4[netmask.String()] = id
+			}
+		}
+		if iface.IPv6.Addresses != nil {
+			for _, addr := range iface.IPv6.Addresses {
+				if netmask, err := utils.IPv6ToNetmask(addr.Address, addr.PrefixLength); err == nil {
+					keeneticIPv6[netmask.String()] = id
 				}
 			}
 		}
-		return mapped, nil
 	}
+
+	// Match system interfaces with Keenetic interfaces
+	for _, sysIface := range systemInterfaces {
+		var matchedID string
+
+		// Try to match by IP addresses
+		for _, ip := range sysIface.IPs {
+			if id, ok := keeneticIPv4[ip]; ok {
+				matchedID = id
+				break
+			}
+			if id, ok := keeneticIPv6[ip]; ok {
+				matchedID = id
+				break
+			}
+		}
+
+		if matchedID != "" {
+			iface := interfaces[matchedID]
+			iface.SystemName = sysIface.Name
+			result[sysIface.Name] = iface
+		}
+	}
+
+	return result
+}
+
+// SystemInterface represents a Linux network interface with its IP addresses
+type SystemInterface struct {
+	Name string
+	IPs  []string
+}
+
+func RciShowInterfaceMappedBySystemName() (map[string]Interface, error) {
+	log.Debugf("Fetching interfaces from Keenetic...")
+	interfaces, err := RciShowInterfaceMappedById()
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to get Keenetic version and use modern approach if supported
+	version, err := GetKeeneticVersion()
+	if err != nil {
+		log.Warnf("Failed to detect Keenetic version, will use legacy IP matching: %v", err)
+		// Fall back to legacy approach
+		return populateSystemNamesLegacyFromNetlink(interfaces), nil
+	}
+
+	if supportsSystemNameEndpoint(version) {
+		log.Debugf("Using system-name endpoint (Keenetic %d.%02d+)", version.Major, version.Minor)
+		return populateSystemNamesModern(interfaces), nil
+	}
+
+	log.Debugf("Using legacy IP matching (Keenetic %d.%02d)", version.Major, version.Minor)
+	return populateSystemNamesLegacyFromNetlink(interfaces), nil
+}
+
+// populateSystemNamesLegacyFromNetlink gets system interfaces using netlink and matches with Keenetic interfaces
+func populateSystemNamesLegacyFromNetlink(interfaces map[string]Interface) map[string]Interface {
+	// Import netlink dynamically to avoid circular dependency
+	// We'll call a function from networking package
+	return populateSystemNamesLegacyWithHelper(interfaces, getSystemInterfacesHelper)
+}
+
+// Helper function type for getting system interfaces
+type SystemInterfaceGetter func() ([]SystemInterface, error)
+
+// populateSystemNamesLegacyWithHelper allows dependency injection for testing
+func populateSystemNamesLegacyWithHelper(interfaces map[string]Interface, getter SystemInterfaceGetter) map[string]Interface {
+	systemInterfaces, err := getter()
+	if err != nil {
+		log.Warnf("Failed to get system interfaces: %v", err)
+		return make(map[string]Interface)
+	}
+	return populateSystemNamesLegacy(interfaces, systemInterfaces)
+}
+
+// getSystemInterfacesHelper gets all system interfaces with their IP addresses
+func getSystemInterfacesHelper() ([]SystemInterface, error) {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []SystemInterface
+	for _, link := range links {
+		addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+		if err != nil {
+			log.Debugf("Failed to get addresses for interface %s: %v", link.Attrs().Name, err)
+			continue
+		}
+
+		var ips []string
+		for _, addr := range addrs {
+			ips = append(ips, addr.IPNet.String())
+		}
+
+		result = append(result, SystemInterface{
+			Name: link.Attrs().Name,
+			IPs:  ips,
+		})
+	}
+
+	return result, nil
+}
+
+// RciShowInterfaceMappedByIPNet is deprecated, use RciShowInterfaceMappedBySystemName instead
+// This function is kept for backward compatibility and returns the same data with SystemName populated
+func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
+	return RciShowInterfaceMappedBySystemName()
 }
 
 // ParseDnsProxyConfig parses the proxy config string and returns DNS server info

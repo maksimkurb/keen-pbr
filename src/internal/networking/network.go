@@ -6,7 +6,6 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
-	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -44,7 +43,7 @@ func ApplyNetworkConfiguration(config *config.Config, onlyRoutingForInterface *s
 func applyIpsetNetworkConfiguration(ipset *config.IPSetConfig) error {
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
 	if err != nil {
 		log.Warnf("failed to query Keenetic API: %v", err)
 	}
@@ -177,7 +176,7 @@ func ApplyRoutingConfiguration(config *config.Config) error {
 
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
 	if err != nil {
 		log.Warnf("failed to query Keenetic API: %v", err)
 	}
@@ -275,16 +274,11 @@ func getKeeneticInterface(iface *Interface, keeneticIfaces map[string]keenetic.I
 		return nil
 	}
 
-	addrs, err := netlink.AddrList(iface, netlink.FAMILY_ALL)
-	if err != nil {
-		return nil
+	// Try direct lookup by system name (new approach)
+	if val, ok := keeneticIfaces[iface.Attrs().Name]; ok {
+		return &val
 	}
 
-	for _, addr := range addrs {
-		if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
-			return &val
-		}
-	}
 	return nil
 }
 

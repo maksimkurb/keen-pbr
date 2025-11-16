@@ -41,7 +41,7 @@ func GetInterfaceList() ([]Interface, error) {
 func PrintInterfaces(ifaces []Interface, printIPs bool) {
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
 	if err != nil {
 		log.Warnf("failed to get Keenetic interfaces: %v", err)
 	}
@@ -53,12 +53,10 @@ func PrintInterfaces(ifaces []Interface, printIPs bool) {
 
 		addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
 		var keeneticIface *keenetic.Interface = nil
-		if addrsErr == nil && keeneticIfaces != nil {
-			for _, addr := range addrs {
-				if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
-					keeneticIface = &val
-					break
-				}
+		if keeneticIfaces != nil {
+			// Try direct lookup by system name
+			if val, ok := keeneticIfaces[attrs.Name]; ok {
+				keeneticIface = &val
 			}
 		}
 

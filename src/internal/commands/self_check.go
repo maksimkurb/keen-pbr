@@ -107,7 +107,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
 	if err != nil {
 		log.Warnf("Failed to query Keenetic API: %v", err)
 	} else {
