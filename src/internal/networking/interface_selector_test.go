@@ -5,7 +5,6 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
-	"github.com/maksimkurb/keen-pbr/src/internal/mocks"
 )
 
 // TestInterfaceSelector_WithMockKeenetic demonstrates using mocks for testing
@@ -34,42 +33,10 @@ func TestInterfaceSelector_WithMockKeenetic(t *testing.T) {
 		_ = iface
 	})
 
-	t.Run("Mock Keenetic client with connected interface", func(t *testing.T) {
-		// Create a mock that reports a connected VPN interface
-		mockClient := mocks.NewMockKeeneticClientWithInterfaces(map[string]keenetic.Interface{
-			"vpn0": {
-				ID:         "Wireguard0",
-				Type:       "Wireguard",
-				Connected:  keenetic.KEENETIC_CONNECTED,
-				Link:       keenetic.KEENETIC_LINK_UP,
-				SystemName: "vpn0",
-			},
-		})
-
-		// Wrap the mock in a real Client for compatibility
-		// Note: This demonstrates the limitation - we need to update Client to accept the interface
-		// For now, we'll skip this test as it requires Client refactoring
-		t.Skip("Requires Client to accept domain interface - will be implemented in later phase")
-
-		_ = mockClient
-	})
-
-	t.Run("Mock Keenetic client with disconnected interface", func(t *testing.T) {
-		// Create a mock that reports a disconnected VPN interface
-		mockClient := mocks.NewMockKeeneticClientWithInterfaces(map[string]keenetic.Interface{
-			"vpn0": {
-				ID:         "Wireguard0",
-				Type:       "Wireguard",
-				Connected:  "no",
-				Link:       "down",
-				SystemName: "vpn0",
-			},
-		})
-
-		t.Skip("Requires Client to accept domain interface - will be implemented in later phase")
-
-		_ = mockClient
-	})
+	// Note: Tests with MockKeeneticClient are not included here to avoid import cycles.
+	// Mock usage examples for Keenetic client can be found in src/internal/mocks/keenetic_test.go
+	// Once the networking package is refactored to use domain interfaces instead of concrete
+	// Client types, we can add full mock integration tests here.
 }
 
 // TestInterfaceSelector_IsUsable tests the interface usability check
