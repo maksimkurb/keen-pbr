@@ -531,27 +531,27 @@ func (v *ValidationService) ValidateConfig(cfg *config.Config) error {
 
 ### Recommended Order
 
-**Week 1-2: Foundation**
-- ✅ Phase 1: Create domain interfaces
-- ✅ Phase 5: Domain-specific errors
-- ✅ Phase 7.1: Remove global state
+**Week 1-2: Foundation** ✅ COMPLETE
+- ✅ Phase 1: Create domain interfaces (commit f179a10)
+- ✅ Phase 5: Domain-specific errors (commit f179a10)
+- ✅ Phase 7.1: Remove global state (commit f179a10)
 
-**Week 3-4: Core Refactoring**
-- Phase 2: Split Keenetic package
-- Phase 7.2: Add mocks for Keenetic
+**Week 3-4: Core Refactoring** ✅ COMPLETE
+- ✅ Phase 2: Split Keenetic package (commit d095c0d)
+- ✅ Phase 7.2: Add mocks for Keenetic (commit 060b4e3)
 
-**Week 5-6: Networking Layer**
-- Phase 3: Refactor networking package
-- Add mocks for networking
+**Week 5-6: Networking Layer** ✅ COMPLETE
+- ✅ Phase 3: Refactor networking package (commit d9ce55a)
+- ✅ Add mocks for networking (commit 1714cc7)
 
-**Week 7-8: Service Layer**
-- Phase 6: Create service layer
-- Phase 4: Refactor commands
+**Week 7-8: Service Layer** ✅ COMPLETE
+- ✅ Phase 6: Create service layer (commit 81f61f0)
+- ✅ Phase 4: Refactor commands (commit 575427b)
 
-**Week 9-10: Polish**
-- Phase 8: Documentation
-- Phase 9: Extract utilities
-- Phase 10: Validation service
+**Week 9-10: Polish** ⚠️ IN PROGRESS
+- ❌ Phase 8: Documentation (REMAINING)
+- ❌ Phase 9: Extract utilities (REMAINING)
+- ✅ Phase 10: Validation service (DONE - included in Phase 6)
 
 ---
 
@@ -633,12 +633,16 @@ git push
 
 ## Success Metrics
 
-- [ ] No file exceeds 200 lines (except tests)
-- [ ] No function exceeds 50 lines
-- [ ] Test coverage > 80%
-- [ ] All exported symbols documented
-- [ ] Zero global state
-- [ ] All external dependencies injectable
-- [ ] Build time < 10s
-- [ ] Test suite runs in < 5s
-- [x] **All commits must pass build and tests**
+- [~] No file exceeds 200 lines (except tests) - **5 files remaining** (ipset.go:246, self_check.go:229, validator.go:252, validation_service.go:231, mocks/networking.go:284)
+- [?] No function exceeds 50 lines - **Not yet verified**
+- [?] Test coverage > 80% - **Not yet measured**
+- [ ] All exported symbols documented - **Phase 8 remaining**
+- [~] Zero global state - **Nearly complete** (1 backward-compatibility var remaining: defaultClient)
+- [x] All external dependencies injectable - **✅ DONE** (domain interfaces implemented)
+- [x] Build time < 10s - **✅ DONE**
+- [x] Test suite runs in < 5s - **✅ DONE**
+- [x] **All commits must pass build and tests** - **✅ DONE**
+
+### Current Status: 80% Complete
+**Completed:** 8 out of 10 phases
+**Remaining:** Phase 8 (Documentation), Phase 9 (Builder utilities)
