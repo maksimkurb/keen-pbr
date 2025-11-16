@@ -140,6 +140,114 @@ func BuildIPRuleForIpset(ipset *config.IPSetConfig) *IpRule {
 	return BuildRule(ipset.IPVersion, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 }
 
+// ApplyPersistentNetworkConfiguration applies iptables rules and ip rules for all ipsets
+// This should be called once on service start and kept active regardless of interface state
+func ApplyPersistentNetworkConfiguration(config *config.Config) error {
+	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
+
+	for _, ipset := range config.IPSets {
+		if err := applyIpsetPersistentConfiguration(ipset); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// applyIpsetPersistentConfiguration applies iptables rules and ip rules for a single ipset
+func applyIpsetPersistentConfiguration(ipset *config.IPSetConfig) error {
+	log.Infof("----------------- IPSet [%s] - Applying Persistent Config ------------------", ipset.IPSetName)
+
+	ipRule := BuildIPRuleForIpset(ipset)
+	ipTableRules, err := BuildIPTablesForIpset(ipset)
+	if err != nil {
+		return err
+	}
+
+	// Always ensure iptables rules and ip rules are present
+	log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
+		ipset.Routing.FwMark, ipset.IPSetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+
+	if err := ipRule.AddIfNotExists(); err != nil {
+		return err
+	}
+
+	if err := ipTableRules.AddIfNotExists(); err != nil {
+		return err
+	}
+
+	log.Infof("----------------- IPSet [%s] - Persistent Config Applied ------------------", ipset.IPSetName)
+	return nil
+}
+
+// ApplyRoutingConfiguration updates ip routes based on current interface states
+// This should be called periodically to adjust routes when interfaces go up/down
+func ApplyRoutingConfiguration(config *config.Config) error {
+	log.Debugf("Updating routing configuration based on interface states...")
+
+	var keeneticIfaces map[string]keenetic.Interface = nil
+	if *config.General.UseKeeneticAPI {
+		var err error
+		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+		if err != nil {
+			log.Warnf("failed to query Keenetic API: %v", err)
+		}
+	}
+
+	for _, ipset := range config.IPSets {
+		if err := applyIpsetRoutingConfiguration(ipset, *config.General.UseKeeneticAPI, keeneticIfaces); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// applyIpsetRoutingConfiguration updates ip routes for a single ipset based on interface state
+func applyIpsetRoutingConfiguration(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) error {
+	log.Debugf("Updating routes for ipset [%s]", ipset.IPSetName)
+
+	blackholePresent := false
+
+	if routes, err := ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
+		return err
+	} else {
+		// Cleanup all routes (except blackhole route if kill switch is enabled)
+		for _, route := range routes {
+			if ipset.Routing.KillSwitch && route.Type&unix.RTN_BLACKHOLE != 0 {
+				blackholePresent = true
+				continue
+			}
+
+			if err := route.DelIfExists(); err != nil {
+				return err
+			}
+		}
+	}
+
+	var chosenIface *Interface = nil
+	chosenIface, err := ChooseBestInterface(ipset, useKeeneticAPI, keeneticIfaces)
+	if err != nil {
+		return err
+	}
+
+	if ipset.Routing.KillSwitch && !blackholePresent {
+		if err := addBlackholeRoute(ipset); err != nil {
+			return err
+		}
+	}
+
+	if chosenIface != nil {
+		if err := addDefaultGatewayRoute(ipset, chosenIface); err != nil {
+			return err
+		}
+	} else {
+		log.Debugf("No interface available for ipset [%s], routes cleared", ipset.IPSetName)
+	}
+
+	return nil
+}
+
 func ChooseBestInterface(ipset *config.IPSetConfig, useKeeneticAPI bool, keeneticIfaces map[string]keenetic.Interface) (*Interface, error) {
 	var chosenIface *Interface
 
