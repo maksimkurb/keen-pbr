@@ -123,7 +123,7 @@ func TestChooseBestInterface_BusinessLogic(t *testing.T) {
 				},
 			}
 
-			chosenInterface, err := ChooseBestInterface(ipset, tt.useKeeneticAPI, tt.keeneticIfaces)
+			chosenInterface, err := ChooseBestInterface(ipset, tt.keeneticIfaces)
 
 			if tt.expectError {
 				if err == nil {

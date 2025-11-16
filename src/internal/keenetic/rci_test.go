@@ -262,7 +262,7 @@ func setupMockClient(responses map[string]interface{}) *mockHTTPClient {
 
 // Helper to restore original client
 func restoreHTTPClient(original HTTPClient) {
-	httpClient = original
+	SetHTTPClient(original)
 }
 
 func TestParseDnsProxyConfig_EmptyConfig(t *testing.T) {
@@ -460,7 +460,7 @@ func TestParseDnsProxyConfig_CommentsWithSpaces(t *testing.T) {
 
 func TestRciShowInterfaceMappedById_WithMock(t *testing.T) {
 	// Save original client
-	originalClient := httpClient
+	originalClient := defaultClient.httpClient
 	defer restoreHTTPClient(originalClient)
 
 	// Mock interface data
@@ -486,9 +486,9 @@ func TestRciShowInterfaceMappedById_WithMock(t *testing.T) {
 	}
 
 	// Set up mock client
-	httpClient = setupMockClient(map[string]interface{}{
+	SetHTTPClient(setupMockClient(map[string]interface{}{
 		"/show/interface": mockData,
-	})
+	}))
 
 	result, err := RciShowInterfaceMappedById()
 	if err != nil {
@@ -511,7 +511,7 @@ func TestRciShowInterfaceMappedById_WithMock(t *testing.T) {
 
 func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 	// Save original client
-	originalClient := httpClient
+	originalClient := defaultClient.httpClient
 	defer restoreHTTPClient(originalClient)
 
 	// Mock interface data with proper IPv4 and IPv6 addresses
@@ -537,9 +537,9 @@ func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 	}
 
 	// Set up mock client
-	httpClient = setupMockClient(map[string]interface{}{
+	SetHTTPClient(setupMockClient(map[string]interface{}{
 		"/show/interface": mockData,
-	})
+	}))
 
 	result, err := RciShowInterfaceMappedByIPNet()
 	if err != nil {
@@ -554,7 +554,7 @@ func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 
 func TestRciShowDnsServers_WithMock(t *testing.T) {
 	// Save original client
-	originalClient := httpClient
+	originalClient := defaultClient.httpClient
 	defer restoreHTTPClient(originalClient)
 
 	// Mock DNS proxy data
@@ -568,9 +568,9 @@ func TestRciShowDnsServers_WithMock(t *testing.T) {
 	}
 
 	// Set up mock client
-	httpClient = setupMockClient(map[string]interface{}{
+	SetHTTPClient(setupMockClient(map[string]interface{}{
 		"/show/dns-proxy": mockData,
-	})
+	}))
 
 	result, err := RciShowDnsServers()
 	if err != nil {
@@ -598,14 +598,14 @@ func TestRciShowDnsServers_WithMock(t *testing.T) {
 
 func TestFetchAndDeserialize_ErrorHandling(t *testing.T) {
 	// Save original client
-	originalClient := httpClient
+	originalClient := defaultClient.httpClient
 	defer restoreHTTPClient(originalClient)
 
 	// Test HTTP error
-	httpClient = &mockHTTPClient{
+	SetHTTPClient(&mockHTTPClient{
 		shouldError: true,
 		errorMsg:    "connection refused",
-	}
+	})
 
 	_, err := fetchAndDeserialize[map[string]interface{}]("/test")
 	if err == nil {
@@ -613,7 +613,7 @@ func TestFetchAndDeserialize_ErrorHandling(t *testing.T) {
 	}
 
 	// Test 404 response
-	httpClient = setupMockClient(map[string]interface{}{})
+	SetHTTPClient(setupMockClient(map[string]interface{}{}))
 
 	_, err = fetchAndDeserialize[map[string]interface{}]("/nonexistent")
 	if err == nil {
@@ -623,13 +623,13 @@ func TestFetchAndDeserialize_ErrorHandling(t *testing.T) {
 
 func TestFetchAndDeserializeWithRetry_WithMock(t *testing.T) {
 	// Save original client
-	originalClient := httpClient
+	originalClient := defaultClient.httpClient
 	defer restoreHTTPClient(originalClient)
 
 	// Test successful response
-	httpClient = setupMockClient(map[string]interface{}{
+	SetHTTPClient(setupMockClient(map[string]interface{}{
 		"/test": map[string]string{"key": "value"},
-	})
+	}))
 
 	result, err := fetchAndDeserializeWithRetry[map[string]string]("/test")
 	if err != nil {

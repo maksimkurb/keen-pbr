@@ -1,0 +1,170 @@
+package keenetic
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+)
+
+// Client is the main client for interacting with the Keenetic Router RCI API.
+//
+// The client provides methods for retrieving router information including
+// version, interfaces, and DNS configuration. All methods are safe for
+// concurrent use.
+type Client struct {
+	httpClient HTTPClient
+	baseURL    string
+	cache      *Cache
+}
+
+// NewClient creates a new Keenetic RCI API client.
+//
+// If httpClient is nil, a default HTTP client will be used.
+func NewClient(httpClient HTTPClient) *Client {
+	if httpClient == nil {
+		httpClient = &defaultHTTPClient{}
+	}
+
+	return &Client{
+		httpClient: httpClient,
+		baseURL:    rciPrefix,
+		cache:      NewCache(0), // No TTL - cache forever
+	}
+}
+
+// fetchAndDeserialize is a generic helper function to fetch and deserialize JSON from the API.
+func fetchAndDeserializeForClient[T any](c *Client, endpoint string) (T, error) {
+	var result T
+
+	resp, err := c.httpClient.Get(c.baseURL + endpoint)
+	if err != nil {
+		return result, fmt.Errorf("failed to fetch %s: %w", endpoint, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return result, fmt.Errorf("unexpected status code %d for %s", resp.StatusCode, endpoint)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return result, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return result, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetVersion retrieves the Keenetic OS version.
+//
+// The version is cached after the first successful retrieval to avoid
+// repeated API calls.
+func (c *Client) GetVersion() (*KeeneticVersion, error) {
+	// Check cache first
+	if version, found := c.cache.GetVersion(); found {
+		return version, nil
+	}
+
+	// Fetch version from API
+	versionStr, err := fetchAndDeserializeForClient[string](c, "/show/version/release")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Keenetic version: %w", err)
+	}
+
+	version, err := parseVersion(versionStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the version
+	c.cache.SetVersion(version)
+	return version, nil
+}
+
+// GetInterfaces retrieves all network interfaces from the Keenetic router,
+// mapped by their system names (Linux interface names).
+//
+// This method supports both modern (4.03+) and legacy Keenetic OS versions,
+// automatically detecting the version and using the appropriate API.
+func (c *Client) GetInterfaces() (map[string]Interface, error) {
+	// Fetch all interfaces
+	interfaces, err := fetchAndDeserializeForClient[Interfaces](c, "/show/interface")
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to map
+	interfaceMap := make(map[string]Interface)
+	for _, iface := range interfaces {
+		interfaceMap[iface.ID] = iface
+	}
+
+	// Get version to determine how to populate SystemName
+	version, err := c.GetVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate SystemName field
+	if supportsSystemNameEndpoint(version) {
+		return c.populateSystemNamesModern(interfaceMap)
+	}
+	return c.populateSystemNamesLegacy(interfaceMap)
+}
+
+// GetDNSServers retrieves the list of DNS servers configured on the router.
+func (c *Client) GetDNSServers() ([]DnsServerInfo, error) {
+	dnsProxyConfig, err := fetchAndDeserializeForClient[string](c, "/show/dns/proxy")
+	if err != nil {
+		return nil, err
+	}
+
+	return parseDNSProxyConfig(dnsProxyConfig), nil
+}
+
+
+// ClearCache clears all cached data.
+//
+// This is useful for testing or when you need to force a refresh of cached data.
+func (c *Client) ClearCache() {
+	c.cache.Clear()
+}
+
+// defaultClient is a package-level client instance for backward compatibility.
+//
+// Deprecated: Use NewClient() to create a client instance instead.
+var defaultClient = NewClient(nil)
+
+// SetHTTPClient sets the HTTP client for the default client instance.
+// This is provided for backward compatibility with existing tests.
+//
+// Deprecated: Use NewClient(httpClient) to create a client with a custom HTTP client instead.
+func SetHTTPClient(client HTTPClient) {
+	defaultClient.httpClient = client
+	defaultClient.cache.Clear() // Clear cache when HTTP client changes
+}
+
+// GetKeeneticVersion fetches and caches the Keenetic OS version using the default client.
+//
+// Deprecated: Use Client.GetVersion() instead for better testability.
+func GetKeeneticVersion() (*KeeneticVersion, error) {
+	return defaultClient.GetVersion()
+}
+
+// RciShowInterfaceMappedBySystemName retrieves interfaces mapped by system name using the default client.
+//
+// Deprecated: Use Client.GetInterfaces() instead for better testability.
+func RciShowInterfaceMappedBySystemName() (map[string]Interface, error) {
+	return defaultClient.GetInterfaces()
+}
+
+// RciGetDnsServers retrieves DNS servers using the default client.
+//
+// Deprecated: Use Client.GetDNSServers() instead for better testability.
+func RciGetDnsServers() ([]DnsServerInfo, error) {
+	return defaultClient.GetDNSServers()
+}
