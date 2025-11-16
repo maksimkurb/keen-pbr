@@ -65,7 +65,7 @@ func (s *ServiceCommand) Run() error {
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
@@ -98,9 +98,17 @@ func (s *ServiceCommand) Run() error {
 			return s.shutdown()
 
 		case sig := <-sigChan:
-			log.Infof("Received signal %v, shutting down...", sig)
-			cancel()
-			return s.shutdown()
+			switch sig {
+			case syscall.SIGHUP:
+				log.Infof("Received SIGHUP signal, rechecking configuration...")
+				if err := s.recheckConfiguration(); err != nil {
+					log.Errorf("Failed to recheck configuration: %v", err)
+				}
+			case syscall.SIGINT, syscall.SIGTERM:
+				log.Infof("Received signal %v, shutting down...", sig)
+				cancel()
+				return s.shutdown()
+			}
 
 		case <-ticker.C:
 			// Update interface list
@@ -117,6 +125,31 @@ func (s *ServiceCommand) Run() error {
 			}
 		}
 	}
+}
+
+func (s *ServiceCommand) recheckConfiguration() error {
+	log.Infof("Rechecking configuration (triggered by SIGHUP)...")
+
+	// Update interface list
+	var err error
+	if s.ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
+		return fmt.Errorf("failed to get interfaces list: %v", err)
+	}
+
+	// Reapply persistent network configuration (iptables rules and ip rules)
+	log.Infof("Reapplying persistent network configuration...")
+	if err := networking.ApplyPersistentNetworkConfiguration(s.cfg); err != nil {
+		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	}
+
+	// Update routing configuration (ip routes)
+	log.Infof("Updating routing configuration...")
+	if err := networking.ApplyRoutingConfiguration(s.cfg); err != nil {
+		return fmt.Errorf("failed to apply routing configuration: %v", err)
+	}
+
+	log.Infof("Configuration rechecked successfully")
+	return nil
 }
 
 func (s *ServiceCommand) shutdown() error {
