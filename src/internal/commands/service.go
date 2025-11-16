@@ -13,6 +13,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 func CreateServiceCommand() *ServiceCommand {
@@ -155,12 +156,14 @@ func (s *ServiceCommand) recheckConfiguration() error {
 func (s *ServiceCommand) shutdown() error {
 	log.Infof("Shutting down keen-pbr service...")
 
-	// Remove all network configuration (iptables rules, ip rules, and ip routes)
-	for _, ipset := range s.cfg.IPSets {
-		if err := undoIpset(ipset); err != nil {
-			log.Errorf("Failed to undo routing configuration for ipset [%s]: %v", ipset.IPSetName, err)
-			return err
-		}
+	// Remove all network configuration using RoutingService
+	ipsetMgr := networking.NewIPSetManager()
+	networkMgr := networking.NewManager(nil) // nil keenetic client for now
+	routingService := service.NewRoutingService(networkMgr, ipsetMgr, nil)
+
+	if err := routingService.Undo(s.cfg); err != nil {
+		log.Errorf("Failed to undo routing configuration: %v", err)
+		return err
 	}
 
 	log.Infof("Service stopped successfully")

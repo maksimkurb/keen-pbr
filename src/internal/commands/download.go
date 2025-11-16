@@ -3,7 +3,8 @@ package commands
 import (
 	"flag"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/lists"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 func CreateDownloadCommand() *DownloadCommand {
@@ -37,5 +38,10 @@ func (g *DownloadCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *DownloadCommand) Run() error {
-	return lists.DownloadLists(g.cfg)
+	// Create service layer dependencies
+	ipsetMgr := networking.NewIPSetManager()
+	ipsetService := service.NewIPSetService(ipsetMgr)
+
+	// Use IPSetService to download lists
+	return ipsetService.DownloadLists(g.cfg)
 }
