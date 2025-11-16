@@ -23,7 +23,7 @@ _scripts:
 	cp common/ipk/postrm out/$(BUILD_DIR)/control/postrm
 
 _binary:
-	GOOS=linux GOARCH=$(GOARCH) go build -o out/$(BUILD_DIR)/data$(ROOT_DIR)/usr/bin/keen-pbr -ldflags "-w -s"
+	GOOS=linux GOARCH=$(GOARCH) go build -o out/$(BUILD_DIR)/data$(ROOT_DIR)/usr/bin/keen-pbr -ldflags "-w -s" ./src/cmd/keen-pbr
 
 _pkgfiles:
 	cat etc/init.d/S80keen-pbr > out/$(BUILD_DIR)/data$(ROOT_DIR)/etc/init.d/S80keen-pbr; \

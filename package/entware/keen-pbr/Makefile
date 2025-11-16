@@ -28,7 +28,7 @@ define Package/keen-pbr/description
 	Policy-based routing toolkit for Keenetic routers
 endef
 
-GO_TARGET:=./
+GO_TARGET:=./src/cmd/keen-pbr
 
 define Package/keen-pbr/conffiles
 /opt/etc/keen-pbr/keen-pbr.conf
