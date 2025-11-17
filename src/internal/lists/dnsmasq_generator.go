@@ -12,7 +12,7 @@ import (
 )
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
-func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client) error {
+func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, listManager *Manager) error {
 	if err := CreateIPSetsIfAbsent(cfg); err != nil {
 		return err
 	}
@@ -39,10 +39,25 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client) err
 			return err
 		}
 
+		// Start recording statistics for this list
+		if listManager != nil {
+			listManager.StartListProcessing(list, cfg)
+		}
+
 		if err := iterateOverList(list, cfg, func(host string) error {
-			return appendDomain(host, ipsets, domainStore)
+			isDomain, err := appendDomain(host, ipsets, domainStore)
+			if listManager != nil && isDomain {
+				listManager.RecordLineProcessed(list, cfg, host, true, false, false)
+			}
+			return err
 		}); err != nil {
 			return err
+		}
+
+		// Finish recording statistics for this list
+		if listManager != nil {
+			downloaded, lastModified := getFileStats(list, cfg)
+			listManager.FinishListProcessing(list, cfg, downloaded, lastModified)
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
@@ -44,7 +45,8 @@ func (g *DnsmasqConfigCommand) Init(args []string, ctx *AppContext) error {
 
 func (g *DnsmasqConfigCommand) Run() error {
 	client := keenetic.NewClient(nil)
-	if err := lists.PrintDnsmasqConfig(g.cfg, client); err != nil {
+	deps := domain.NewDefaultDependencies()
+	if err := lists.PrintDnsmasqConfig(g.cfg, client, deps.ListManager()); err != nil {
 		return fmt.Errorf("failed to print dnsmasq config: %v", err)
 	}
 

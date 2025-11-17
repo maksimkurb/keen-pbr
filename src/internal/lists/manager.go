@@ -1,10 +1,6 @@
 package lists
 
 import (
-	"bufio"
-	"net/netip"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,36 +17,26 @@ type ListStatistics struct {
 	calculatedAt time.Time
 }
 
-// cacheEntry stores cached statistics with metadata.
-type cacheEntry struct {
-	stats      ListStatistics
-	cachedAt   time.Time
-	fileModTime time.Time
-}
-
 // Manager manages list statistics with caching.
+// Statistics are populated when lists are processed for dnsmasq/ipsets,
+// not on-demand, to avoid duplicate file parsing.
 type Manager struct {
-	cache     map[string]*cacheEntry
-	cacheTTL  time.Duration
-	mu        sync.RWMutex
+	cache map[string]ListStatistics
+	mu    sync.RWMutex
 }
 
-// NewManager creates a new list manager with default cache TTL of 5 minutes.
+// NewManager creates a new list manager.
 func NewManager() *Manager {
-	return NewManagerWithTTL(5 * time.Minute)
-}
-
-// NewManagerWithTTL creates a new list manager with custom cache TTL.
-func NewManagerWithTTL(ttl time.Duration) *Manager {
 	return &Manager{
-		cache:    make(map[string]*cacheEntry),
-		cacheTTL: ttl,
+		cache: make(map[string]ListStatistics),
 	}
 }
 
-// GetStatistics returns statistics for a list, using cache if available.
+// GetStatistics returns cached statistics for a list.
+// Statistics are calculated during list processing (dnsmasq/ipsets),
+// not on-demand. Returns empty stats if not yet calculated.
 func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) ListStatistics {
-	// For inline hosts, return immediately (no caching needed)
+	// For inline hosts, count directly (no file processing needed)
 	if list.Hosts != nil {
 		return ListStatistics{
 			TotalHosts:   len(list.Hosts),
@@ -58,142 +44,124 @@ func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) Lis
 		}
 	}
 
-	// Get file path
-	filePath, err := list.GetAbsolutePath(cfg)
-	if err != nil {
+	// Get cache key
+	cacheKey := m.getCacheKey(list, cfg)
+	if cacheKey == "" {
 		return ListStatistics{}
 	}
 
-	// Check cache
+	// Return cached stats
 	m.mu.RLock()
-	entry, exists := m.cache[filePath]
-	m.mu.RUnlock()
+	defer m.mu.RUnlock()
 
-	// Get file info
-	fileInfo, err := os.Stat(filePath)
-
-	// For URL-based lists, track download status
-	downloaded := err == nil
-	var fileModTime time.Time
-	if downloaded {
-		fileModTime = fileInfo.ModTime()
-	}
-
-	// Return cached stats if valid
-	if exists && m.isCacheValid(entry, fileModTime, downloaded) {
-		stats := entry.stats
-		stats.Downloaded = downloaded
-		if downloaded {
-			stats.LastModified = fileModTime
-		}
+	if stats, exists := m.cache[cacheKey]; exists {
 		return stats
 	}
 
-	// Calculate new statistics
-	stats := m.calculateFileStats(filePath)
-	stats.Downloaded = downloaded
-	if downloaded {
-		stats.LastModified = fileModTime
-	}
-	stats.calculatedAt = time.Now()
-
-	// Cache the result (only if file exists and was successfully read)
-	if downloaded && (stats.TotalHosts > 0 || stats.IPv4Subnets > 0 || stats.IPv6Subnets > 0) {
-		m.mu.Lock()
-		m.cache[filePath] = &cacheEntry{
-			stats:       stats,
-			cachedAt:    time.Now(),
-			fileModTime: fileModTime,
-		}
-		m.mu.Unlock()
-	}
-
-	return stats
+	// No stats yet - will be calculated during list processing
+	return ListStatistics{}
 }
 
-// isCacheValid checks if cached entry is still valid.
-func (m *Manager) isCacheValid(entry *cacheEntry, currentModTime time.Time, fileExists bool) bool {
-	// Cache invalid if TTL expired
-	if time.Since(entry.cachedAt) > m.cacheTTL {
-		return false
-	}
-
-	// Cache invalid if file doesn't exist anymore
-	if !fileExists {
-		return false
-	}
-
-	// Cache invalid if file was modified
-	if !currentModTime.Equal(entry.fileModTime) {
-		return false
-	}
-
-	return true
-}
-
-// InvalidateCache invalidates the cache for a specific list.
-func (m *Manager) InvalidateCache(list *config.ListSource, cfg *config.Config) {
-	if list.Hosts != nil {
-		return // No cache for inline hosts
-	}
-
-	filePath, err := list.GetAbsolutePath(cfg)
-	if err != nil {
+// RecordLineProcessed should be called when a line is processed from a list.
+// This incrementally builds statistics during normal list operations.
+func (m *Manager) RecordLineProcessed(list *config.ListSource, cfg *config.Config, line string, isDomain bool, isIPv4 bool, isIPv6 bool) {
+	cacheKey := m.getCacheKey(list, cfg)
+	if cacheKey == "" {
 		return
 	}
 
 	m.mu.Lock()
-	delete(m.cache, filePath)
-	m.mu.Unlock()
+	defer m.mu.Unlock()
+
+	stats, exists := m.cache[cacheKey]
+	if !exists {
+		stats = ListStatistics{
+			calculatedAt: time.Now(),
+		}
+	}
+
+	if isDomain {
+		stats.TotalHosts++
+	} else if isIPv4 {
+		stats.IPv4Subnets++
+	} else if isIPv6 {
+		stats.IPv6Subnets++
+	}
+
+	m.cache[cacheKey] = stats
+}
+
+// StartListProcessing marks that a list is being processed.
+// This should be called before iterating over a list.
+func (m *Manager) StartListProcessing(list *config.ListSource, cfg *config.Config) {
+	cacheKey := m.getCacheKey(list, cfg)
+	if cacheKey == "" {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Initialize with empty stats
+	m.cache[cacheKey] = ListStatistics{
+		calculatedAt: time.Now(),
+	}
+}
+
+// FinishListProcessing marks that a list processing is complete.
+// This updates download status for URL-based lists.
+func (m *Manager) FinishListProcessing(list *config.ListSource, cfg *config.Config, downloaded bool, lastModified time.Time) {
+	if list.URL == "" {
+		return // Only for URL-based lists
+	}
+
+	cacheKey := m.getCacheKey(list, cfg)
+	if cacheKey == "" {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if stats, exists := m.cache[cacheKey]; exists {
+		stats.Downloaded = downloaded
+		if downloaded {
+			stats.LastModified = lastModified
+		}
+		m.cache[cacheKey] = stats
+	}
+}
+
+// getCacheKey returns a consistent cache key for a list.
+func (m *Manager) getCacheKey(list *config.ListSource, cfg *config.Config) string {
+	// For file and URL lists, use absolute path as key
+	if list.URL != "" || list.File != "" {
+		if path, err := list.GetAbsolutePath(cfg); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
+// InvalidateCache invalidates the cache for a specific list.
+// This should be called when a list is modified or downloaded via API.
+func (m *Manager) InvalidateCache(list *config.ListSource, cfg *config.Config) {
+	cacheKey := m.getCacheKey(list, cfg)
+	if cacheKey == "" {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.cache, cacheKey)
 }
 
 // InvalidateAll invalidates all cached statistics.
+// This should be called after downloading all lists.
 func (m *Manager) InvalidateAll() {
 	m.mu.Lock()
-	m.cache = make(map[string]*cacheEntry)
-	m.mu.Unlock()
-}
-
-// calculateFileStats reads a file and calculates statistics.
-func (m *Manager) calculateFileStats(filePath string) ListStatistics {
-	stats := ListStatistics{}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return stats
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Try to parse as CIDR
-		if prefix, err := netip.ParsePrefix(line); err == nil {
-			if prefix.Addr().Is4() {
-				stats.IPv4Subnets++
-			} else if prefix.Addr().Is6() {
-				stats.IPv6Subnets++
-			}
-		} else if addr, err := netip.ParseAddr(line); err == nil {
-			// Single IP address
-			if addr.Is4() {
-				stats.IPv4Subnets++
-			} else if addr.Is6() {
-				stats.IPv6Subnets++
-			}
-		} else {
-			// Assume it's a domain/host
-			stats.TotalHosts++
-		}
-	}
-
-	return stats
+	defer m.mu.Unlock()
+	m.cache = make(map[string]ListStatistics)
 }
 
 // GetCacheStats returns cache statistics for monitoring.
@@ -202,7 +170,6 @@ func (m *Manager) GetCacheStats() map[string]interface{} {
 	defer m.mu.RUnlock()
 
 	return map[string]interface{}{
-		"cached_entries": len(m.cache),
-		"cache_ttl":      m.cacheTTL.String(),
+		"cached_lists": len(m.cache),
 	}
 }

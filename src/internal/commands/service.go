@@ -77,7 +77,7 @@ func (s *ServiceCommand) Run() error {
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
-	if err := lists.ImportListsToIPSets(s.cfg); err != nil {
+	if err := lists.ImportListsToIPSets(s.cfg, deps.ListManager()); err != nil {
 		return fmt.Errorf("failed to import lists: %v", err)
 	}
 

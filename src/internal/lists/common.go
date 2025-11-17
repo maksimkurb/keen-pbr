@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"time"
 )
 
 type DestIPSet struct {
@@ -35,31 +36,33 @@ func CreateIPSetsIfAbsent(cfg *config.Config) error {
 }
 
 // appendDomain appends a domain to the appropriate networks or domain store.
-func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) error {
+func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) (bool, error) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return nil
+		return false, nil
 	}
 
 	if utils.IsDNSName(line) {
 		if domainStore == nil {
-			return nil
+			return true, nil
 		}
 		domainStore.AssociateDomainWithIPSets(sanitizeDomain(line), ipsets)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 // appendIPOrCIDR appends a host to the appropriate networks or domain store.
-func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
+// Returns (isIPv4, isIPv6, error).
+func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) (bool, bool, error) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return nil
+		return false, false, nil
 	}
 
 	if utils.IsDNSName(line) {
-		return nil
+		return false, false, nil
 	}
 
 	if strings.LastIndex(line, "/") < 0 {
@@ -68,24 +71,28 @@ func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
 	if netPrefix, err := netip.ParsePrefix(line); err == nil {
 		if !netPrefix.IsValid() {
 			log.Warnf("Could not parse host, skipping: %s", host)
-			return nil
+			return false, false, nil
 		}
 
+		isIPv4 := netPrefix.Addr().Is4()
+		isIPv6 := netPrefix.Addr().Is6()
+
 		for _, ipset := range ipsets {
-			if (netPrefix.Addr().Is4() && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
-				(netPrefix.Addr().Is6() && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
+			if (isIPv4 && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
+				(isIPv6 && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
 				if err := ipset.Writer.Add(netPrefix); err != nil {
-					return err
+					return false, false, err
 				}
 			}
 		}
 
 		*ipCount++
+		return isIPv4, isIPv6, nil
 	} else {
 		log.Warnf("Could not parse host, skipping: %s", host)
 	}
 
-	return nil
+	return false, false, nil
 }
 
 func iterateOverList(list *config.ListSource, cfg *config.Config, iterateFn func(string) error) error {
@@ -124,6 +131,34 @@ func getListByName(cfg *config.Config, listName string) (*config.ListSource, err
 		}
 	}
 	return nil, fmt.Errorf("list \"%s\" not found", listName)
+}
+
+// getFileStats returns file statistics for a list.
+// For URL-based lists, returns (true, modTime) if file exists.
+// For file-based lists, returns (true, modTime) if file exists.
+// For inline hosts, returns (false, zero time).
+func getFileStats(list *config.ListSource, cfg *config.Config) (bool, time.Time) {
+	if list.Hosts != nil {
+		// Inline hosts have no file
+		return false, time.Time{}
+	}
+
+	if list.URL != "" || list.File != "" {
+		listPath, err := list.GetAbsolutePathAndCheckExists(cfg)
+		if err != nil {
+			// File doesn't exist yet (not downloaded)
+			return false, time.Time{}
+		}
+
+		fileInfo, err := os.Stat(listPath)
+		if err != nil {
+			return false, time.Time{}
+		}
+
+		return true, fileInfo.ModTime()
+	}
+
+	return false, time.Time{}
 }
 
 // GetNetworksFromList parses a list and returns all valid network prefixes.
