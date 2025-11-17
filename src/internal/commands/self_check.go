@@ -105,16 +105,11 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 		}
 	}
 
-	var keeneticIfaces map[string]keenetic.Interface = nil
-	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
-	if err != nil {
-		log.Warnf("Failed to query Keenetic API: %v", err)
-	} else {
-		log.Infof("Successfully queried Keenetic API")
-	}
+	// Create Keenetic client and interface selector
+	client := keenetic.NewClient(nil)
+	selector := networking.NewInterfaceSelector(client)
 
-	if chosenIface, err := networking.ChooseBestInterface(ipsetCfg, keeneticIfaces); err != nil {
+	if chosenIface, err := selector.ChooseBest(ipsetCfg); err != nil {
 		log.Errorf("Failed to choose best interface: %v", err)
 		return err
 	} else {
