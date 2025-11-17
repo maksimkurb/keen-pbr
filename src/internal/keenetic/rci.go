@@ -79,13 +79,6 @@ func RciShowInterfaceMappedByIPNet() (map[string]Interface, error) {
 	return defaultClient.GetInterfaces()
 }
 
-// ParseDnsProxyConfig parses the proxy config string and returns DNS server info
-//
-// Deprecated: Use parseDNSProxyConfig from helpers.go instead.
-func ParseDnsProxyConfig(config string) []DnsServerInfo {
-	return parseDNSProxyConfig(config)
-}
-
 // RciShowDnsServers fetches all DNS servers from Keenetic RCI and returns them for the System policy only
 //
 // Deprecated: Use Client.GetDNSServers() for better testability.
@@ -107,7 +100,7 @@ func RciShowDnsServers() ([]DnsServerInfo, error) {
 		if entry.ProxyName != "System" {
 			continue
 		}
-		return parseDNSProxyConfig(entry.ProxyConfig), nil // Only return the System policy's servers
+		return ParseDNSProxyConfig(entry.ProxyConfig), nil // Only return the System policy's servers
 	}
 	return nil, nil // No System policy found
 }

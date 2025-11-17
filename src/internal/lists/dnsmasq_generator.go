@@ -12,7 +12,7 @@ import (
 )
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
-func PrintDnsmasqConfig(cfg *config.Config) error {
+func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client) error {
 	if err := CreateIPSetsIfAbsent(cfg); err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func PrintDnsmasqConfig(cfg *config.Config) error {
 	log.Infof("Parsed %d domains. Producing dnsmasq config into stdout...", domainStore.Count())
 
 	if domainStore.Count() > 0 {
-		if err := printDnsmasqConfig(cfg, domainStore); err != nil {
+		if err := printDnsmasqConfig(cfg, domainStore, keeneticClient); err != nil {
 			return err
 		}
 	}
@@ -58,7 +58,7 @@ func PrintDnsmasqConfig(cfg *config.Config) error {
 }
 
 // printDnsmasqConfig writes the dnsmasq configuration to stdout.
-func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
+func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient *keenetic.Client) error {
 	startTime := time.Now().UnixMilli()
 
 	stdoutBuffer := bufio.NewWriter(os.Stdout)
@@ -71,7 +71,13 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
 
 	if *cfg.General.UseKeeneticDNS {
 		// Import keenetic DNS servers
-		keeneticServers, err := keenetic.RciShowDnsServers()
+		var keeneticServers []keenetic.DnsServerInfo
+		var err error
+		if keeneticClient != nil {
+			keeneticServers, err = keeneticClient.GetDNSServers()
+		} else {
+			err = fmt.Errorf("keenetic client not available")
+		}
 		if err != nil {
 			if cfg.General.FallbackDNS != "" {
 				log.Warnf("Failed to fetch Keenetic DNS servers, using fallback DNS: %s", cfg.General.FallbackDNS)

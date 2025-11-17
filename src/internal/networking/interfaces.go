@@ -36,12 +36,14 @@ func GetInterfaceList() ([]Interface, error) {
 	return interfaces, nil
 }
 
-func PrintInterfaces(ifaces []Interface, printIPs bool) {
+func PrintInterfaces(ifaces []Interface, printIPs bool, keeneticClient *keenetic.Client) {
 	var keeneticIfaces map[string]keenetic.Interface = nil
 	var err error
-	keeneticIfaces, err = keenetic.RciShowInterfaceMappedBySystemName()
-	if err != nil {
-		log.Warnf("failed to get Keenetic interfaces: %v", err)
+	if keeneticClient != nil {
+		keeneticIfaces, err = keeneticClient.GetInterfaces()
+		if err != nil {
+			log.Warnf("failed to get Keenetic interfaces: %v", err)
+		}
 	}
 
 	for _, iface := range ifaces {

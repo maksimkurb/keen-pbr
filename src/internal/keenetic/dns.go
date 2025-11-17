@@ -6,7 +6,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
-// parseDNSProxyConfig parses the Keenetic DNS proxy configuration string and
+// ParseDNSProxyConfig parses the Keenetic DNS proxy configuration string and
 // returns a list of DNS server information.
 //
 // The configuration format includes lines like:
@@ -16,7 +16,7 @@ import (
 //
 // This function extracts DNS server type (Plain IPv4, Plain IPv6, DoT, DoH),
 // the proxy address, endpoint, port, and optional domain.
-func parseDNSProxyConfig(config string) []DnsServerInfo {
+func ParseDNSProxyConfig(config string) []DnsServerInfo {
 	var servers []DnsServerInfo
 	lines := strings.Split(config, "\n")
 

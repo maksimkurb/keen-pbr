@@ -20,7 +20,8 @@ func (c *DnsCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (c *DnsCommand) Run() error {
-	servers, err := keenetic.RciShowDnsServers()
+	client := keenetic.NewClient(nil)
+	servers, err := client.GetDNSServers()
 	if err != nil {
 		return fmt.Errorf("failed to fetch DNS servers: %v", err)
 	}

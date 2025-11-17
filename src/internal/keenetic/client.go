@@ -148,7 +148,7 @@ func (c *Client) GetDNSServers() ([]DnsServerInfo, error) {
 		return nil, err
 	}
 
-	return parseDNSProxyConfig(dnsProxyConfig), nil
+	return ParseDNSProxyConfig(dnsProxyConfig), nil
 }
 
 
