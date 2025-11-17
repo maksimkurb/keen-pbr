@@ -13,7 +13,6 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
-	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 func CreateServiceCommand() *ServiceCommand {
@@ -31,6 +30,7 @@ type ServiceCommand struct {
 	cfg             *config.Config
 	ctx             *AppContext
 	MonitorInterval int
+	networkMgr      *networking.Manager // Persistent network manager for interface tracking
 }
 
 func (s *ServiceCommand) Name() string {
@@ -68,6 +68,11 @@ func (s *ServiceCommand) Run() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
+	// Create persistent network manager for interface state tracking
+	// This manager maintains state across the service lifecycle to detect
+	// interface changes and prevent unnecessary route updates
+	s.networkMgr = networking.NewManager(nil) // nil keenetic client for now
+
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
 	if err := lists.ImportListsToIPSets(s.cfg); err != nil {
@@ -76,13 +81,13 @@ func (s *ServiceCommand) Run() error {
 
 	// Apply persistent network configuration (iptables rules and ip rules)
 	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
-	if err := networking.ApplyPersistentNetworkConfiguration(s.cfg); err != nil {
+	if err := s.networkMgr.ApplyPersistentConfig(s.cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
 	}
 
 	// Apply initial routing (ip routes)
 	log.Infof("Applying initial routing configuration...")
-	if err := networking.ApplyRoutingConfiguration(s.cfg); err != nil {
+	if err := s.networkMgr.ApplyRoutingConfig(s.cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply routing configuration: %v", err)
 	}
 
@@ -119,9 +124,10 @@ func (s *ServiceCommand) Run() error {
 				continue
 			}
 
-			// Update routing configuration (only ip routes)
-			log.Debugf("Checking interface states and updating routes...")
-			if err := networking.ApplyRoutingConfiguration(s.cfg); err != nil {
+			// Update routing configuration (only if interfaces changed)
+			// This uses smart change detection to avoid unnecessary route updates
+			log.Debugf("Checking interface states...")
+			if _, err := s.networkMgr.UpdateRoutingIfChanged(s.cfg.IPSets); err != nil {
 				log.Errorf("Failed to update routing configuration: %v", err)
 			}
 		}
@@ -139,13 +145,14 @@ func (s *ServiceCommand) recheckConfiguration() error {
 
 	// Reapply persistent network configuration (iptables rules and ip rules)
 	log.Infof("Reapplying persistent network configuration...")
-	if err := networking.ApplyPersistentNetworkConfiguration(s.cfg); err != nil {
+	if err := s.networkMgr.ApplyPersistentConfig(s.cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
 	}
 
-	// Update routing configuration (ip routes)
-	log.Infof("Updating routing configuration...")
-	if err := networking.ApplyRoutingConfiguration(s.cfg); err != nil {
+	// Force update routing configuration (ip routes)
+	// SIGHUP forces a full refresh, not just changed interfaces
+	log.Infof("Forcing routing configuration update...")
+	if err := s.networkMgr.ApplyRoutingConfig(s.cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply routing configuration: %v", err)
 	}
 
@@ -156,12 +163,8 @@ func (s *ServiceCommand) recheckConfiguration() error {
 func (s *ServiceCommand) shutdown() error {
 	log.Infof("Shutting down keen-pbr service...")
 
-	// Remove all network configuration using RoutingService
-	ipsetMgr := networking.NewIPSetManager()
-	networkMgr := networking.NewManager(nil) // nil keenetic client for now
-	routingService := service.NewRoutingService(networkMgr, ipsetMgr, nil)
-
-	if err := routingService.Undo(s.cfg); err != nil {
+	// Remove all network configuration
+	if err := s.networkMgr.UndoConfig(s.cfg.IPSets); err != nil {
 		log.Errorf("Failed to undo routing configuration: %v", err)
 		return err
 	}

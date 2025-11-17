@@ -1,6 +1,8 @@
 package networking
 
 import (
+	"sync"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"golang.org/x/sys/unix"
@@ -15,25 +17,110 @@ import (
 //
 // Routes are updated dynamically as interfaces go up and down to ensure
 // traffic always uses the best available interface.
+//
+// The manager tracks the current active interface for each ipset and only
+// applies changes when the best interface actually changes, preventing
+// unnecessary route churn.
 type RoutingConfigManager struct {
 	interfaceSelector *InterfaceSelector
+	mu                sync.Mutex
+	activeInterfaces  map[string]string // ipset name -> active interface name (or "" for blackhole)
 }
 
 // NewRoutingConfigManager creates a new routing configuration manager.
 func NewRoutingConfigManager(interfaceSelector *InterfaceSelector) *RoutingConfigManager {
 	return &RoutingConfigManager{
 		interfaceSelector: interfaceSelector,
+		activeInterfaces:  make(map[string]string),
 	}
 }
 
-// Apply applies routing configuration for a single ipset.
+// ApplyIfChanged applies routing configuration for a single ipset only if
+// the best interface has changed since the last application.
+//
+// This method is thread-safe and prevents unnecessary route updates when
+// the interface state hasn't changed. It's designed to be called periodically
+// from both the ticker and SIGHUP handler without causing route churn.
+//
+// Returns true if routes were updated, false if no change was needed.
+func (r *RoutingConfigManager) ApplyIfChanged(ipset *config.IPSetConfig) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Choose the best interface
+	chosenIface, err := r.interfaceSelector.ChooseBest(ipset)
+	if err != nil {
+		return false, err
+	}
+
+	// Determine target interface name
+	var targetIface string
+	if chosenIface == nil {
+		targetIface = "" // blackhole
+	} else {
+		targetIface = chosenIface.Attrs().Name
+	}
+
+	// Check if interface has changed
+	currentIface, exists := r.activeInterfaces[ipset.IPSetName]
+	if exists && currentIface == targetIface {
+		log.Debugf("Interface for ipset [%s] unchanged (%s), skipping route update",
+			ipset.IPSetName, ifaceNameOrBlackhole(targetIface))
+		return false, nil
+	}
+
+	// Interface changed - apply new routes
+	log.Infof("Interface for ipset [%s] changed: %s -> %s, updating routes",
+		ipset.IPSetName,
+		ifaceNameOrBlackhole(currentIface),
+		ifaceNameOrBlackhole(targetIface))
+
+	if err := r.applyRoutes(ipset, chosenIface); err != nil {
+		return false, err
+	}
+
+	// Update tracked state
+	r.activeInterfaces[ipset.IPSetName] = targetIface
+	return true, nil
+}
+
+// Apply applies routing configuration for a single ipset unconditionally.
 //
 // This method cleans up existing routes (except blackhole) and adds either:
 // - A default route through the best available interface, OR
 // - A blackhole route if no interface is available
+//
+// For periodic monitoring, use ApplyIfChanged instead to avoid unnecessary updates.
 func (r *RoutingConfigManager) Apply(ipset *config.IPSetConfig) error {
-	log.Debugf("Updating routes for ipset [%s]", ipset.IPSetName)
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
+	// Choose the best interface
+	chosenIface, err := r.interfaceSelector.ChooseBest(ipset)
+	if err != nil {
+		return err
+	}
+
+	// Apply routes
+	if err := r.applyRoutes(ipset, chosenIface); err != nil {
+		return err
+	}
+
+	// Update tracked state
+	var targetIface string
+	if chosenIface == nil {
+		targetIface = ""
+	} else {
+		targetIface = chosenIface.Attrs().Name
+	}
+	r.activeInterfaces[ipset.IPSetName] = targetIface
+
+	return nil
+}
+
+// applyRoutes is the internal method that actually applies routes.
+// Must be called with mutex held.
+func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIface *Interface) error {
 	blackholePresent := false
 
 	// List and clean up existing routes (except blackhole)
@@ -50,12 +137,6 @@ func (r *RoutingConfigManager) Apply(ipset *config.IPSetConfig) error {
 				return err
 			}
 		}
-	}
-
-	// Choose the best interface
-	chosenIface, err := r.interfaceSelector.ChooseBest(ipset)
-	if err != nil {
-		return err
 	}
 
 	// Add appropriate route based on interface availability
@@ -99,4 +180,12 @@ func (r *RoutingConfigManager) addBlackholeRoute(ipset *config.IPSetConfig) erro
 		return err
 	}
 	return nil
+}
+
+// ifaceNameOrBlackhole returns a friendly name for logging.
+func ifaceNameOrBlackhole(ifaceName string) string {
+	if ifaceName == "" {
+		return "blackhole"
+	}
+	return ifaceName
 }

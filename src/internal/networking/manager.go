@@ -66,6 +66,36 @@ func (m *Manager) ApplyRoutingConfig(ipsets []*config.IPSetConfig) error {
 	return nil
 }
 
+// UpdateRoutingIfChanged updates routing configuration only for ipsets where
+// the best interface has changed.
+//
+// This is the preferred method for periodic monitoring as it prevents unnecessary
+// route churn. It's thread-safe and can be called concurrently from multiple
+// sources (ticker, SIGHUP handler, etc.).
+//
+// Returns the number of ipsets that were actually updated.
+func (m *Manager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error) {
+	updatedCount := 0
+
+	for _, ipset := range ipsets {
+		updated, err := m.routingConfig.ApplyIfChanged(ipset)
+		if err != nil {
+			return updatedCount, err
+		}
+		if updated {
+			updatedCount++
+		}
+	}
+
+	if updatedCount > 0 {
+		log.Infof("Updated routing for %d ipset(s)", updatedCount)
+	} else {
+		log.Debugf("No routing changes needed, all interfaces unchanged")
+	}
+
+	return updatedCount, nil
+}
+
 // UndoConfig removes all network configuration for the specified ipsets.
 //
 // This includes:
