@@ -1,11 +1,7 @@
 package api
 
 import (
-	"bufio"
 	"net/http"
-	"net/netip"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -114,6 +110,9 @@ func (h *Handler) CreateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Invalidate cache for the new list
+	h.deps.ListManager().InvalidateCache(&list, cfg)
+
 	writeCreated(w, list)
 }
 
@@ -193,6 +192,9 @@ func (h *Handler) UpdateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Invalidate cache for the updated list
+	h.deps.ListManager().InvalidateCache(&updatedList, cfg)
+
 	writeJSONData(w, updatedList)
 }
 
@@ -209,6 +211,7 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 
 	// Find and remove the list
 	found := false
+	var deletedList *config.ListSource
 	for i, list := range cfg.Lists {
 		if list.ListName == name {
 			// Check if list is referenced by any ipset
@@ -221,6 +224,7 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			deletedList = list
 			cfg.Lists = append(cfg.Lists[:i], cfg.Lists[i+1:]...)
 			found = true
 			break
@@ -244,10 +248,16 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Invalidate cache for the deleted list
+	if deletedList != nil {
+		h.deps.ListManager().InvalidateCache(deletedList, cfg)
+	}
+
 	writeNoContent(w)
 }
 
 // convertToListInfo converts a config.ListSource to ListInfo with statistics.
+// Uses the list manager's cache for better performance.
 func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config) *ListInfo {
 	info := &ListInfo{
 		ListName: list.ListName,
@@ -256,73 +266,24 @@ func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config)
 		File:     list.File,
 	}
 
-	// Calculate statistics
-	stats := ListStatistics{}
+	// Get statistics from list manager (with caching)
+	managedStats := h.deps.ListManager().GetStatistics(list, cfg)
 
-	// For inline hosts, count directly
-	if list.Hosts != nil {
-		stats.TotalHosts = len(list.Hosts)
-	} else {
-		// For file and URL-based lists, try to read the file
-		filePath, err := list.GetAbsolutePath(cfg)
-		if err == nil {
-			stats = h.calculateFileStats(filePath)
+	// Convert to API statistics format
+	stats := ListStatistics{
+		TotalHosts:  managedStats.TotalHosts,
+		IPv4Subnets: managedStats.IPv4Subnets,
+		IPv6Subnets: managedStats.IPv6Subnets,
+	}
 
-			// For URL-based lists, add download status
-			if list.URL != "" {
-				fileInfo, err := os.Stat(filePath)
-				if err == nil {
-					stats.Downloaded = true
-					stats.LastModified = fileInfo.ModTime().Format(time.RFC3339)
-				} else {
-					stats.Downloaded = false
-				}
-			}
+	// Add download status for URL-based lists
+	if list.URL != "" {
+		stats.Downloaded = managedStats.Downloaded
+		if managedStats.Downloaded {
+			stats.LastModified = managedStats.LastModified.Format(time.RFC3339)
 		}
 	}
 
 	info.Stats = stats
 	return info
-}
-
-// calculateFileStats reads a file and calculates statistics.
-func (h *Handler) calculateFileStats(filePath string) ListStatistics {
-	stats := ListStatistics{}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return stats
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Try to parse as CIDR
-		if prefix, err := netip.ParsePrefix(line); err == nil {
-			if prefix.Addr().Is4() {
-				stats.IPv4Subnets++
-			} else if prefix.Addr().Is6() {
-				stats.IPv6Subnets++
-			}
-		} else if addr, err := netip.ParseAddr(line); err == nil {
-			// Single IP address
-			if addr.Is4() {
-				stats.IPv4Subnets++
-			} else if addr.Is6() {
-				stats.IPv6Subnets++
-			}
-		} else {
-			// Assume it's a domain/host
-			stats.TotalHosts++
-		}
-	}
-
-	return stats
 }

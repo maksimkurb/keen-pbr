@@ -199,7 +199,10 @@ GET /api/v1/lists
   - `downloaded` - Whether the file has been downloaded (URL-based lists only)
   - `last_modified` - Last modification time in RFC3339 format (URL-based lists only)
 
-**Note:** Inline host lists are not returned in the response to avoid sending large arrays. Use the statistics instead.
+**Notes:**
+- Inline host lists are not returned in the response to avoid sending large arrays. Use the statistics instead.
+- **Statistics are cached** for 5 minutes to improve performance. The cache is automatically invalidated when lists are modified via the API (create, update, delete operations).
+- The cache is also invalidated if the list file's modification time changes.
 
 #### Get Specific List
 

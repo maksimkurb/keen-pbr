@@ -2,6 +2,7 @@ package domain
 
 import (
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
@@ -25,6 +26,7 @@ type AppDependencies struct {
 	// Domain managers
 	networkManager NetworkManager
 	ipsetManager   IPSetManager
+	listManager    *lists.Manager
 }
 
 // AppConfig holds configuration for creating application dependencies.
@@ -69,11 +71,13 @@ func NewAppDependencies(cfg AppConfig) *AppDependencies {
 	}
 	networkManager := networking.NewManager(concreteClient)
 	ipsetManager := networking.NewIPSetManager()
+	listManager := lists.NewManager()
 
 	return &AppDependencies{
 		keeneticClient: keeneticClient,
 		networkManager: networkManager,
 		ipsetManager:   ipsetManager,
+		listManager:    listManager,
 	}
 }
 
@@ -99,6 +103,7 @@ func NewTestDependencies(
 		keeneticClient: keeneticClient,
 		networkManager: networkManager,
 		ipsetManager:   ipsetManager,
+		listManager:    lists.NewManager(),
 	}
 }
 
@@ -115,4 +120,9 @@ func (d *AppDependencies) NetworkManager() NetworkManager {
 // IPSetManager returns the ipset manager.
 func (d *AppDependencies) IPSetManager() IPSetManager {
 	return d.ipsetManager
+}
+
+// ListManager returns the list manager with caching.
+func (d *AppDependencies) ListManager() *lists.Manager {
+	return d.listManager
 }
