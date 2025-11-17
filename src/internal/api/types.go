@@ -17,12 +17,15 @@ type ListInfo struct {
 }
 
 // ListStatistics contains statistics about list content and download status.
+// Count fields (TotalHosts, IPv4Subnets, IPv6Subnets) are pointers and will be
+// null in JSON if statistics haven't been calculated yet.
+// Download status (Downloaded, LastModified) is always available for URL-based lists.
 type ListStatistics struct {
-	TotalHosts   int    `json:"total_hosts"`
-	IPv4Subnets  int    `json:"ipv4_subnets"`
-	IPv6Subnets  int    `json:"ipv6_subnets"`
-	Downloaded   bool   `json:"downloaded,omitempty"`    // Only for URL-based lists
-	LastModified string `json:"last_modified,omitempty"` // RFC3339 format, only for URL-based lists
+	TotalHosts   *int    `json:"total_hosts"`              // null if not yet calculated
+	IPv4Subnets  *int    `json:"ipv4_subnets"`             // null if not yet calculated
+	IPv6Subnets  *int    `json:"ipv6_subnets"`             // null if not yet calculated
+	Downloaded   bool    `json:"downloaded,omitempty"`     // Only for URL-based lists
+	LastModified *string `json:"last_modified,omitempty"`  // RFC3339 format, only for URL-based lists
 }
 
 // ListsResponse returns all lists in the configuration.

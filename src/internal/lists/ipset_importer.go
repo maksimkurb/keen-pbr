@@ -76,8 +76,7 @@ func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 
 		// Update statistics cache once after processing
 		if listManager != nil {
-			downloaded, lastModified := getFileStats(list, cfg)
-			listManager.UpdateStatistics(list, cfg, 0, ipv4Count, ipv6Count, downloaded, lastModified)
+			listManager.UpdateStatistics(list, cfg, 0, ipv4Count, ipv6Count)
 		}
 
 		log.Infof("List \"%s\" processing finished: %d IPs/networks loaded to ipset", listName, ipCount)

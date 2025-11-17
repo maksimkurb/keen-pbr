@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"os"
 	"strings"
-	"time"
 )
 
 type DestIPSet struct {
@@ -131,34 +130,6 @@ func getListByName(cfg *config.Config, listName string) (*config.ListSource, err
 		}
 	}
 	return nil, fmt.Errorf("list \"%s\" not found", listName)
-}
-
-// getFileStats returns file statistics for a list.
-// For URL-based lists, returns (true, modTime) if file exists.
-// For file-based lists, returns (true, modTime) if file exists.
-// For inline hosts, returns (false, zero time).
-func getFileStats(list *config.ListSource, cfg *config.Config) (bool, time.Time) {
-	if list.Hosts != nil {
-		// Inline hosts have no file
-		return false, time.Time{}
-	}
-
-	if list.URL != "" || list.File != "" {
-		listPath, err := list.GetAbsolutePathAndCheckExists(cfg)
-		if err != nil {
-			// File doesn't exist yet (not downloaded)
-			return false, time.Time{}
-		}
-
-		fileInfo, err := os.Stat(listPath)
-		if err != nil {
-			return false, time.Time{}
-		}
-
-		return true, fileInfo.ModTime()
-	}
-
-	return false, time.Time{}
 }
 
 // GetNetworksFromList parses a list and returns all valid network prefixes.

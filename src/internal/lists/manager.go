@@ -12,8 +12,6 @@ type ListStatistics struct {
 	TotalHosts   int
 	IPv4Subnets  int
 	IPv6Subnets  int
-	Downloaded   bool
-	LastModified time.Time
 	calculatedAt time.Time
 }
 
@@ -64,7 +62,9 @@ func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) *Li
 
 // UpdateStatistics updates the cached statistics for a list.
 // This should be called after list processing is complete with the final counts.
-func (m *Manager) UpdateStatistics(list *config.ListSource, cfg *config.Config, totalHosts int, ipv4Subnets int, ipv6Subnets int, downloaded bool, lastModified time.Time) {
+// Note: Download status and last modified date are not cached - they are
+// determined on-demand from file stats since they don't require parsing.
+func (m *Manager) UpdateStatistics(list *config.ListSource, cfg *config.Config, totalHosts int, ipv4Subnets int, ipv6Subnets int) {
 	cacheKey := m.getCacheKey(list, cfg)
 	if cacheKey == "" {
 		return
@@ -77,8 +77,6 @@ func (m *Manager) UpdateStatistics(list *config.ListSource, cfg *config.Config, 
 		TotalHosts:   totalHosts,
 		IPv4Subnets:  ipv4Subnets,
 		IPv6Subnets:  ipv6Subnets,
-		Downloaded:   downloaded,
-		LastModified: lastModified,
 		calculatedAt: time.Now(),
 	}
 }

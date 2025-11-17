@@ -54,8 +54,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 
 		// Update statistics cache once after processing
 		if listManager != nil {
-			downloaded, lastModified := getFileStats(list, cfg)
-			listManager.UpdateStatistics(list, cfg, domainCount, 0, 0, downloaded, lastModified)
+			listManager.UpdateStatistics(list, cfg, domainCount, 0, 0)
 		}
 	}
 

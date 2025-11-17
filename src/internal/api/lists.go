@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -257,7 +258,7 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 }
 
 // convertToListInfo converts a config.ListSource to ListInfo with statistics.
-// Uses the list manager's cache for better performance.
+// Uses the list manager's cache for counts, but gets download status from file stats.
 func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config) *ListInfo {
 	info := &ListInfo{
 		ListName: list.ListName,
@@ -266,27 +267,57 @@ func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config)
 		File:     list.File,
 	}
 
-	// Get statistics from list manager (with caching)
+	// Get cached statistics from list manager (only counts)
 	managedStats := h.deps.ListManager().GetStatistics(list, cfg)
 
-	// Convert to API statistics format (nil if not yet calculated)
+	// Build statistics object
+	stats := &ListStatistics{}
+
+	// Set counts if available (nil values indicate not yet calculated)
 	if managedStats != nil {
-		stats := &ListStatistics{
-			TotalHosts:  managedStats.TotalHosts,
-			IPv4Subnets: managedStats.IPv4Subnets,
-			IPv6Subnets: managedStats.IPv6Subnets,
-		}
-
-		// Add download status for URL-based lists
-		if list.URL != "" {
-			stats.Downloaded = managedStats.Downloaded
-			if managedStats.Downloaded {
-				stats.LastModified = managedStats.LastModified.Format(time.RFC3339)
-			}
-		}
-
-		info.Stats = stats
+		stats.TotalHosts = &managedStats.TotalHosts
+		stats.IPv4Subnets = &managedStats.IPv4Subnets
+		stats.IPv6Subnets = &managedStats.IPv6Subnets
 	}
 
+	// Always get download status for URL-based lists (not cached)
+	if list.URL != "" {
+		downloaded, lastModified := h.getFileStats(list, cfg)
+		stats.Downloaded = downloaded
+		if downloaded {
+			lastModifiedStr := lastModified.Format(time.RFC3339)
+			stats.LastModified = &lastModifiedStr
+		}
+	}
+
+	info.Stats = stats
 	return info
+}
+
+// getFileStats returns file statistics for a list.
+// For URL-based lists, returns (true, modTime) if file exists.
+// For file-based lists, returns (true, modTime) if file exists.
+// For inline hosts, returns (false, zero time).
+func (h *Handler) getFileStats(list *config.ListSource, cfg *config.Config) (bool, time.Time) {
+	if list.Hosts != nil {
+		// Inline hosts have no file
+		return false, time.Time{}
+	}
+
+	if list.URL != "" || list.File != "" {
+		listPath, err := list.GetAbsolutePathAndCheckExists(cfg)
+		if err != nil {
+			// File doesn't exist yet (not downloaded)
+			return false, time.Time{}
+		}
+
+		fileInfo, err := os.Stat(listPath)
+		if err != nil {
+			return false, time.Time{}
+		}
+
+		return true, fileInfo.ModTime()
+	}
+
+	return false, time.Time{}
 }
