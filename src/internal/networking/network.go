@@ -8,7 +8,11 @@ import (
 
 // defaultManager is a package-level manager instance for backward compatibility.
 //
-// Uses the default Keenetic client for interface status checking.
+// Uses the default Keenetic client for interface status checking. This global
+// variable is provided for legacy code compatibility only.
+//
+// Deprecated: New code should use domain.NewDefaultDependencies().NetworkManager()
+// for better testability and explicit dependency management.
 var defaultManager = NewManager(keenetic.GetDefaultClient())
 
 // ApplyNetworkConfiguration applies network configuration for specified ipsets.

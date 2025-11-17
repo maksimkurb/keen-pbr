@@ -18,13 +18,17 @@ type MockNetworkManager struct {
 	// ApplyRoutingConfigFunc is called by ApplyRoutingConfig if not nil
 	ApplyRoutingConfigFunc func(ipsets []*config.IPSetConfig) error
 
+	// UpdateRoutingIfChangedFunc is called by UpdateRoutingIfChanged if not nil
+	UpdateRoutingIfChangedFunc func(ipsets []*config.IPSetConfig) (int, error)
+
 	// UndoConfigFunc is called by UndoConfig if not nil
 	UndoConfigFunc func(ipsets []*config.IPSetConfig) error
 
 	// Track calls for verification in tests
-	ApplyPersistentConfigCalls int
-	ApplyRoutingConfigCalls    int
-	UndoConfigCalls            int
+	ApplyPersistentConfigCalls   int
+	ApplyRoutingConfigCalls      int
+	UpdateRoutingIfChangedCalls  int
+	UndoConfigCalls              int
 }
 
 // ApplyPersistentConfig applies persistent network configuration.
@@ -43,6 +47,15 @@ func (m *MockNetworkManager) ApplyRoutingConfig(ipsets []*config.IPSetConfig) er
 		return m.ApplyRoutingConfigFunc(ipsets)
 	}
 	return nil
+}
+
+// UpdateRoutingIfChanged updates routing configuration only where interfaces changed.
+func (m *MockNetworkManager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error) {
+	m.UpdateRoutingIfChangedCalls++
+	if m.UpdateRoutingIfChangedFunc != nil {
+		return m.UpdateRoutingIfChangedFunc(ipsets)
+	}
+	return 0, nil
 }
 
 // UndoConfig removes all network configuration.

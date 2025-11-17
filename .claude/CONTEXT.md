@@ -229,8 +229,14 @@ func (c *ApplyCommand) Run() error {
 - `KeeneticURL`: Custom Keenetic RCI endpoint (default: `http://localhost:79/rci`)
 - `DisableKeenetic`: Disable Keenetic API integration for non-router environments
 
-**Evolution**:
-Previously used `keenetic.GetDefaultClient()` with global state. Now uses `AppDependencies` for cleaner architecture. Legacy code still uses `GetDefaultClient()` but new code should use the container pattern.
+**Migration Status**:
+All CLI commands now use `AppDependencies` container:
+- ✅ `apply.go` - Migrated to DI container
+- ✅ `undo.go` - Migrated to DI container
+- ✅ `service.go` - Migrated to DI container (long-running daemon)
+- ✅ `download.go` - Migrated to DI container
+
+Legacy `defaultManager` in `networking/network.go` still uses `keenetic.GetDefaultClient()` for backward compatibility with deprecated functions. New code should always use the container pattern.
 
 See:
 - `src/internal/domain/container.go` - AppDependencies implementation

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
@@ -31,7 +31,7 @@ type ServiceCommand struct {
 	cfg             *config.Config
 	ctx             *AppContext
 	MonitorInterval int
-	networkMgr      *networking.Manager // Persistent network manager for interface tracking
+	networkMgr      domain.NetworkManager // Persistent network manager for interface tracking
 }
 
 func (s *ServiceCommand) Name() string {
@@ -69,10 +69,11 @@ func (s *ServiceCommand) Run() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	// Create persistent network manager for interface state tracking
+	// Create dependency container and persistent network manager
 	// This manager maintains state across the service lifecycle to detect
 	// interface changes and prevent unnecessary route updates
-	s.networkMgr = networking.NewManager(keenetic.GetDefaultClient())
+	deps := domain.NewDefaultDependencies()
+	s.networkMgr = deps.NetworkManager()
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")

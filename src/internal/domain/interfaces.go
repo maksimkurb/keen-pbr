@@ -41,6 +41,11 @@ type NetworkManager interface {
 	// based on the current interface states.
 	ApplyRoutingConfig(ipsets []*config.IPSetConfig) error
 
+	// UpdateRoutingIfChanged updates routing configuration only for ipsets where
+	// the best interface has changed. This is more efficient than ApplyRoutingConfig
+	// for monitoring scenarios. Returns the number of ipsets that were updated.
+	UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error)
+
 	// UndoConfig removes all network configuration for the specified ipsets,
 	// including iptables rules, ip rules, and ip routes.
 	UndoConfig(ipsets []*config.IPSetConfig) error
