@@ -112,7 +112,7 @@ func (c *Client) getSystemNamesForInterfacesBulk(interfaceIDs []string) (map[str
 	}
 
 	// Make POST request
-	resp, err := c.httpClient.Post(c.baseURL, "application/json", requestBody)
+	resp, err := c.httpClient.Post(c.baseURL+"/", "application/json", requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make bulk request: %w", err)
 	}
