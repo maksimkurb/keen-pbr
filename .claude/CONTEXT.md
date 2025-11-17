@@ -197,6 +197,31 @@ The application follows a clean layered architecture with clear separation of co
 5. **Testability**: Comprehensive mocks in `mocks/` package for unit testing
 6. **Builder Pattern**: Clean object construction for complex types (IPTables, IPRule)
 
+### Dependency Injection Pattern
+
+The codebase uses a **hybrid dependency injection approach**:
+
+**Global Client Pattern** (Current):
+- The `keenetic` package maintains a global `defaultClient` instance
+- `keenetic.GetDefaultClient()` provides access for dependency injection
+- Commands create managers using this client: `networking.NewManager(keenetic.GetDefaultClient())`
+- Benefits: Simple, works immediately, avoids nil dependencies
+- Trade-off: Global state, harder to configure per-command
+
+**Why This Pattern**:
+Previously, all managers were created with `nil` clients (`NewManager(nil)`), which disabled VPN interface status checking. The global client pattern provides immediate benefits:
+- InterfaceSelector can query Keenetic API for VPN connection status
+- Smart routing decisions based on actual interface connectivity
+- Service daemon can monitor interface changes effectively
+
+**Future Direction**:
+The codebase is architected to support a full DI container pattern:
+- Domain interfaces in `domain/` package ready for injection
+- Commands can be refactored to accept `AppDependencies` container
+- Configuration-driven client URLs (currently hardcoded to `http://192.168.1.1/rci`)
+
+See `src/internal/keenetic/client.go:151-165` for GetDefaultClient() implementation.
+
 ---
 
 ## Module Documentation
@@ -223,11 +248,12 @@ func (c *ApplyCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (c *ApplyCommand) Run() error {
-    // Create service dependencies
+    // Create service dependencies with Keenetic client
     ipsetMgr := networking.NewIPSetManager()
-    networkMgr := networking.NewManager(nil)
+    networkMgr := networking.NewManager(keenetic.GetDefaultClient())
+
     ipsetService := service.NewIPSetService(ipsetMgr)
-    routingService := service.NewRoutingService(networkMgr, ipsetMgr, nil)
+    routingService := service.NewRoutingService(networkMgr, ipsetMgr)
 
     // Orchestrate via services
     return routingService.Apply(cfg, opts)
@@ -373,7 +399,7 @@ func TestServiceOperation(t *testing.T) {
         return nil
     }
 
-    svc := service.NewRoutingService(mockNet, nil, nil)
+    svc := service.NewRoutingService(mockNet, nil)
     err := svc.Apply(cfg, opts)
     // Verify mock interactions
 }
@@ -664,7 +690,7 @@ func TestApply(t *testing.T) {
         },
     }
 
-    svc := service.NewRoutingService(mockNet, nil, nil)
+    svc := service.NewRoutingService(mockNet, nil)
     err := svc.Apply(cfg, opts)
     assert.NoError(t, err)
 }
