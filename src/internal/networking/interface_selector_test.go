@@ -74,6 +74,19 @@ func TestInterfaceSelector_IsUsable(t *testing.T) {
 			t.Error("Expected interface to not be usable when disconnected")
 		}
 	})
+
+	t.Run("Interface is usable when connected field is empty (unknown status)", func(t *testing.T) {
+		keeneticIface := &keenetic.Interface{
+			ID:        "GigabitEthernet1",
+			Connected: "", // Empty string - Keenetic API returned incomplete data
+			Link:      keenetic.KEENETIC_LINK_UP,
+		}
+
+		isUsable := selector.IsUsable(testIface, keeneticIface)
+		if !isUsable {
+			t.Error("Expected interface to be usable when connected field is empty (should trust system status)")
+		}
+	})
 }
 
 // Note: More comprehensive tests will be added when we refactor Client to accept

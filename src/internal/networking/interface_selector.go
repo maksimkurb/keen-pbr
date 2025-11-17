@@ -88,8 +88,11 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 // An interface is considered usable if:
 // 1. It is UP (system level)
 // 2. Either:
-//    a) Keenetic status shows connected=yes, OR
-//    b) Keenetic status is unknown (interface not found in API or API failed)
+//    a) Keenetic status is unknown (interface not found in API or API failed), OR
+//    b) Keenetic status does NOT explicitly say connected=no
+//
+// Note: Empty connected field is treated as "unknown", not as "disconnected".
+// This prevents route churn when Keenetic API returns incomplete data.
 func (s *InterfaceSelector) IsUsable(iface *Interface, keeneticIface *keenetic.Interface) bool {
 	attrs := iface.Attrs()
 	up := attrs.Flags&net.FlagUp != 0
@@ -98,10 +101,10 @@ func (s *InterfaceSelector) IsUsable(iface *Interface, keeneticIface *keenetic.I
 		return false
 	}
 
-	// Interface is usable if it's up and either:
-	// 1. Keenetic status shows connected=yes, or
-	// 2. Keenetic status is unknown (interface not found in API or API failed)
-	return keeneticIface == nil || keeneticIface.Connected == keenetic.KEENETIC_CONNECTED
+	// Interface is usable if it's up and Keenetic doesn't explicitly say it's down.
+	// Empty string (unknown status) is treated as usable - we trust the system status.
+	// Only if connected="no" do we consider it unusable.
+	return keeneticIface == nil || keeneticIface.Connected != "no"
 }
 
 // getKeeneticInterface finds the Keenetic interface info for the given system interface.
