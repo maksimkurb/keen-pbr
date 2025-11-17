@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
@@ -61,23 +60,6 @@ type statusEntry struct {
 	Code    string `json:"code"`
 	Ident   string `json:"ident"`
 	Message string `json:"message"`
-}
-
-// getSystemNameForInterface fetches the Linux system name for a Keenetic interface
-// using the RCI API /show/interface/system-name endpoint.
-//
-// This method is only available on Keenetic OS 4.03+. For older versions,
-// use legacy IP address matching instead.
-//
-// Deprecated: Use getSystemNamesForInterfacesBulk for better performance when
-// querying multiple interfaces.
-func (c *Client) getSystemNameForInterface(interfaceID string) (string, error) {
-	endpoint := "/show/interface/system-name?name=" + url.QueryEscape(interfaceID)
-	systemName, err := fetchAndDeserializeForClient[string](c, endpoint)
-	if err != nil {
-		return "", err
-	}
-	return systemName, nil
 }
 
 // getSystemNamesForInterfacesBulk fetches system names for multiple interfaces in a single request.
