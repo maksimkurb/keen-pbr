@@ -1,6 +1,10 @@
 package keenetic
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
@@ -17,11 +21,56 @@ type SystemInterface struct {
 	IPs  []string
 }
 
+// bulkSystemNameRequest represents the bulk POST request to fetch system names
+type bulkSystemNameRequest struct {
+	Show bulkSystemNameShow `json:"show"`
+}
+
+type bulkSystemNameShow struct {
+	Interface []bulkSystemNameInterface `json:"interface"`
+}
+
+type bulkSystemNameInterface struct {
+	SystemName bulkSystemNameQuery `json:"system-name"`
+}
+
+type bulkSystemNameQuery struct {
+	Name string `json:"name"`
+}
+
+// bulkSystemNameResponse represents the bulk response from Keenetic
+type bulkSystemNameResponse struct {
+	Show bulkSystemNameResponseShow `json:"show"`
+}
+
+type bulkSystemNameResponseShow struct {
+	Interface []bulkSystemNameResult `json:"interface"`
+}
+
+// bulkSystemNameResult can be either a successful system name string or an error object
+type bulkSystemNameResult struct {
+	SystemName interface{} `json:"system-name"` // Can be string or systemNameError
+}
+
+type systemNameError struct {
+	Status []statusEntry `json:"status"`
+}
+
+type statusEntry struct {
+	Status  string `json:"status"`
+	Code    string `json:"code"`
+	Ident   string `json:"ident"`
+	Message string `json:"message"`
+}
+
 // getSystemNameForInterface fetches the Linux system name for a Keenetic interface
 // using the RCI API /show/interface/system-name endpoint.
 //
 // This method is only available on Keenetic OS 4.03+. For older versions,
 // use legacy IP address matching instead.
+//
+// Deprecated: Use getSystemNamesForInterfacesBulk for better performance when
+// querying multiple interfaces.
 func (c *Client) getSystemNameForInterface(interfaceID string) (string, error) {
 	endpoint := "/show/interface/system-name?name=" + url.QueryEscape(interfaceID)
 	systemName, err := fetchAndDeserializeForClient[string](c, endpoint)
@@ -31,22 +80,121 @@ func (c *Client) getSystemNameForInterface(interfaceID string) (string, error) {
 	return systemName, nil
 }
 
+// getSystemNamesForInterfacesBulk fetches system names for multiple interfaces in a single request.
+//
+// This uses a bulk POST request to /rci to query all interfaces at once,
+// significantly reducing API calls and improving performance.
+//
+// Returns a map of Keenetic interface ID -> system name (Linux interface name).
+// Interfaces that don't exist or have errors are logged and skipped.
+func (c *Client) getSystemNamesForInterfacesBulk(interfaceIDs []string) (map[string]string, error) {
+	if len(interfaceIDs) == 0 {
+		return make(map[string]string), nil
+	}
+
+	// Build the bulk request
+	request := bulkSystemNameRequest{
+		Show: bulkSystemNameShow{
+			Interface: make([]bulkSystemNameInterface, len(interfaceIDs)),
+		},
+	}
+
+	for i, id := range interfaceIDs {
+		request.Show.Interface[i] = bulkSystemNameInterface{
+			SystemName: bulkSystemNameQuery{Name: id},
+		}
+	}
+
+	// Marshal request to JSON
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal bulk request: %w", err)
+	}
+
+	// Make POST request
+	resp, err := c.httpClient.Post(c.baseURL, "application/json", requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make bulk request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code %d for bulk request", resp.StatusCode)
+	}
+
+	// Read and parse response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response bulkSystemNameResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Process results
+	result := make(map[string]string)
+	for i, ifaceResult := range response.Show.Interface {
+		if i >= len(interfaceIDs) {
+			log.Warnf("Bulk response has more interfaces than requested, ignoring extras")
+			break
+		}
+
+		interfaceID := interfaceIDs[i]
+
+		// Check if system-name is a string or an error object
+		switch v := ifaceResult.SystemName.(type) {
+		case string:
+			// Success - we got the system name
+			result[interfaceID] = v
+		case map[string]interface{}:
+			// Error object - check if it has status field
+			if statusArray, ok := v["status"].([]interface{}); ok && len(statusArray) > 0 {
+				if statusObj, ok := statusArray[0].(map[string]interface{}); ok {
+					message := statusObj["message"]
+					log.Debugf("Failed to get system name for interface %s: %v", interfaceID, message)
+				}
+			} else {
+				log.Debugf("Failed to get system name for interface %s: unexpected error format", interfaceID)
+			}
+		default:
+			log.Debugf("Failed to get system name for interface %s: unexpected response type %T", interfaceID, v)
+		}
+	}
+
+	return result, nil
+}
+
 // populateSystemNamesModern populates SystemName field using the system-name
 // endpoint (Keenetic OS 4.03+).
 //
 // This is the preferred method for modern Keenetic OS versions as it directly
 // queries the system name without needing IP address matching.
+//
+// Uses a bulk POST request to fetch all system names in a single API call,
+// improving performance significantly when multiple interfaces are present.
 func (c *Client) populateSystemNamesModern(interfaces map[string]Interface) (map[string]Interface, error) {
+	// Collect all interface IDs
+	interfaceIDs := make([]string, 0, len(interfaces))
+	for id := range interfaces {
+		interfaceIDs = append(interfaceIDs, id)
+	}
+
+	// Fetch all system names in bulk
+	systemNames, err := c.getSystemNamesForInterfacesBulk(interfaceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch system names in bulk: %w", err)
+	}
+
+	// Map interfaces by system name
 	result := make(map[string]Interface)
-	for id, iface := range interfaces {
-		systemName, err := c.getSystemNameForInterface(id)
-		if err != nil {
-			log.Debugf("Failed to get system name for interface %s: %v", id, err)
-			continue
-		}
+	for id, systemName := range systemNames {
+		iface := interfaces[id]
 		iface.SystemName = systemName
 		result[systemName] = iface
 	}
+
 	return result, nil
 }
 

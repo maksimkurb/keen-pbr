@@ -242,6 +242,23 @@ func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
 	}, nil
 }
 
+func (m *mockHTTPClient) Post(url string, contentType string, body []byte) (*http.Response, error) {
+	if m.shouldError {
+		return nil, fmt.Errorf(m.errorMsg)
+	}
+
+	if resp, exists := m.responses[url]; exists {
+		return resp, nil
+	}
+
+	// Return 404 for unknown URLs
+	return &http.Response{
+		StatusCode: 404,
+		Status:     "404 Not Found",
+		Body:       io.NopCloser(strings.NewReader("")),
+	}, nil
+}
+
 func createMockResponse(statusCode int, data interface{}) *http.Response {
 	jsonData, _ := json.Marshal(data)
 	return &http.Response{
@@ -536,11 +553,21 @@ func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
 		},
 	}
 
-	// Set up mock client
+	// Set up mock client with bulk system-name response
+	bulkResponse := map[string]interface{}{
+		"show": map[string]interface{}{
+			"interface": []map[string]interface{}{
+				{
+					"system-name": "br0",
+				},
+			},
+		},
+	}
+
 	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/show/interface":                          mockData,
-		"/show/version/release":                   "4.03.C.6.3-9",
-		"/show/interface/system-name?name=Bridge0": "br0",
+		"/show/interface":       mockData,
+		"/show/version/release": "4.03.C.6.3-9",
+		"":                      bulkResponse, // Bulk POST request goes to baseURL (empty path)
 	}))
 
 	result, err := RciShowInterfaceMappedByIPNet()

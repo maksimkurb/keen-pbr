@@ -1,6 +1,7 @@
 package keenetic
 
 import (
+	"bytes"
 	"net/http"
 	"time"
 
@@ -19,6 +20,7 @@ const (
 // HTTPClient interface for dependency injection in tests
 type HTTPClient interface {
 	Get(url string) (*http.Response, error)
+	Post(url string, contentType string, body []byte) (*http.Response, error)
 }
 
 // defaultHTTPClient implements HTTPClient using the standard http package
@@ -26,6 +28,10 @@ type defaultHTTPClient struct{}
 
 func (c *defaultHTTPClient) Get(url string) (*http.Response, error) {
 	return http.Get(url)
+}
+
+func (c *defaultHTTPClient) Post(url string, contentType string, body []byte) (*http.Response, error) {
+	return http.Post(url, contentType, bytes.NewReader(body))
 }
 
 // KeeneticVersion represents the version of Keenetic OS
