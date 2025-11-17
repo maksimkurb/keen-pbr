@@ -153,20 +153,53 @@ GET /api/v1/lists
     "lists": [
       {
         "list_name": "vpn-domains",
-        "url": "https://example.com/vpn-list.txt"
+        "type": "url",
+        "url": "https://example.com/vpn-list.txt",
+        "stats": {
+          "total_hosts": 1250,
+          "ipv4_subnets": 45,
+          "ipv6_subnets": 12,
+          "downloaded": true,
+          "last_modified": "2025-11-17T10:30:00Z"
+        }
       },
       {
         "list_name": "local-ips",
-        "file": "/opt/etc/keen-pbr/lists/local.txt"
+        "type": "file",
+        "file": "/opt/etc/keen-pbr/lists/local.txt",
+        "stats": {
+          "total_hosts": 0,
+          "ipv4_subnets": 25,
+          "ipv6_subnets": 0
+        }
       },
       {
         "list_name": "inline-hosts",
-        "hosts": ["example.com", "test.org"]
+        "type": "hosts",
+        "stats": {
+          "total_hosts": 2,
+          "ipv4_subnets": 0,
+          "ipv6_subnets": 0
+        }
       }
     ]
   }
 }
 ```
+
+**Response Fields:**
+- `list_name` - Name of the list
+- `type` - List type: `url`, `file`, or `hosts`
+- `url` - Source URL (only for URL-based lists)
+- `file` - File path (only for file-based lists)
+- `stats` - List statistics:
+  - `total_hosts` - Number of domains/hostnames
+  - `ipv4_subnets` - Number of IPv4 addresses/subnets
+  - `ipv6_subnets` - Number of IPv6 addresses/subnets
+  - `downloaded` - Whether the file has been downloaded (URL-based lists only)
+  - `last_modified` - Last modification time in RFC3339 format (URL-based lists only)
+
+**Note:** Inline host lists are not returned in the response to avoid sending large arrays. Use the statistics instead.
 
 #### Get Specific List
 
@@ -182,7 +215,15 @@ GET /api/v1/lists/{name}
 {
   "data": {
     "list_name": "vpn-domains",
-    "url": "https://example.com/vpn-list.txt"
+    "type": "url",
+    "url": "https://example.com/vpn-list.txt",
+    "stats": {
+      "total_hosts": 1250,
+      "ipv4_subnets": 45,
+      "ipv6_subnets": 12,
+      "downloaded": true,
+      "last_modified": "2025-11-17T10:30:00Z"
+    }
   }
 }
 ```
@@ -555,7 +596,27 @@ GET /api/v1/health
 
 ## Data Types
 
-### ListSource
+### ListInfo (Response)
+
+```typescript
+{
+  "list_name": string,
+  "type": "url" | "file" | "hosts",
+  "url"?: string,        // HTTP(S) URL (only for url type)
+  "file"?: string,       // Local file path (only for file type)
+  "stats": {
+    "total_hosts": number,           // Number of domains/hostnames
+    "ipv4_subnets": number,          // Number of IPv4 addresses/subnets
+    "ipv6_subnets": number,          // Number of IPv6 addresses/subnets
+    "downloaded"?: boolean,          // File download status (url type only)
+    "last_modified"?: string         // RFC3339 timestamp (url type only)
+  }
+}
+```
+
+**Note:** This is the response format for GET requests. Inline `hosts` arrays are not included in responses.
+
+### ListSource (Request)
 
 ```typescript
 {
@@ -568,6 +629,7 @@ GET /api/v1/health
 
 **Constraints:**
 - Exactly one of `url`, `file`, or `hosts` must be specified
+- Use this format for POST and PUT requests
 
 ### IPSetConfig
 

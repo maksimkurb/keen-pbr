@@ -7,9 +7,27 @@ type DataResponse struct {
 	Data interface{} `json:"data"`
 }
 
+// ListInfo contains list information with statistics.
+type ListInfo struct {
+	ListName string         `json:"list_name"`
+	Type     string         `json:"type"` // "url", "file", "hosts"
+	URL      string         `json:"url,omitempty"`
+	File     string         `json:"file,omitempty"`
+	Stats    ListStatistics `json:"stats"`
+}
+
+// ListStatistics contains statistics about list content and download status.
+type ListStatistics struct {
+	TotalHosts   int    `json:"total_hosts"`
+	IPv4Subnets  int    `json:"ipv4_subnets"`
+	IPv6Subnets  int    `json:"ipv6_subnets"`
+	Downloaded   bool   `json:"downloaded,omitempty"`    // Only for URL-based lists
+	LastModified string `json:"last_modified,omitempty"` // RFC3339 format, only for URL-based lists
+}
+
 // ListsResponse returns all lists in the configuration.
 type ListsResponse struct {
-	Lists []*config.ListSource `json:"lists"`
+	Lists []*ListInfo `json:"lists"`
 }
 
 // IPSetsResponse returns all ipsets in the configuration.
