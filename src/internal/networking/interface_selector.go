@@ -52,7 +52,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 		}
 	}
 
-	log.Infof("Choosing best interface for ipset \"%s\" from the following list: %v",
+	log.Debugf("Choosing best interface for ipset \"%s\" from the following list: %v",
 		ipset.IPSetName, ipset.Routing.Interfaces)
 
 	for _, interfaceName := range ipset.Routing.Interfaces {
@@ -71,7 +71,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 			chosenIface = iface
 		}
 
-		// Log interface status
+		// Log interface status at debug level
 		s.logInterfaceStatus(iface, up, keeneticIface, chosenIface == iface)
 	}
 
@@ -130,11 +130,11 @@ func (s *InterfaceSelector) logInterfaceStatus(iface *Interface, up bool, keenet
 	}
 
 	if keeneticIface != nil {
-		log.Infof(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
+		log.Debugf(" %s %s (idx=%d) (%s / \"%s\") up=%v link=%s connected=%s",
 			chosen, attrs.Name, attrs.Index,
 			keeneticIface.ID, keeneticIface.Description,
 			up, keeneticIface.Link, keeneticIface.Connected)
 	} else {
-		log.Infof(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
+		log.Debugf(" %s %s (idx=%d) up=%v", chosen, attrs.Name, attrs.Index, up)
 	}
 }

@@ -26,9 +26,6 @@ func NewPersistentConfigManager() *PersistentConfigManager {
 // This creates iptables rules for packet marking and ip rules for routing
 // table selection. These rules stay active regardless of interface state.
 func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
-	log.Infof("----------------- IPSet [%s] - Applying Persistent Config ------------------",
-		ipset.IPSetName)
-
 	ipRule := NewIPRuleBuilder(ipset).Build()
 	ipTableRules, err := NewIPTablesBuilder(ipset).Build()
 	if err != nil {
@@ -36,19 +33,19 @@ func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
 	}
 
 	// Always ensure iptables rules and ip rules are present
-	log.Infof("Adding ip rule to forward all packets with fwmark=%d (ipset=%s) to table=%d (priority=%d)",
-		ipset.Routing.FwMark, ipset.IPSetName, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
-
-	if err := ipRule.AddIfNotExists(); err != nil {
+	if added, err := ipRule.AddIfNotExists(); err != nil {
 		return err
+	} else if added {
+		log.Infof("[%s] Added ip rule: fwmark=%d -> table=%d (priority=%d)",
+			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
 	}
 
-	if err := ipTableRules.AddIfNotExists(); err != nil {
+	if added, err := ipTableRules.AddIfNotExists(); err != nil {
 		return err
+	} else if added {
+		log.Infof("[%s] Added iptables rules for packet marking", ipset.IPSetName)
 	}
 
-	log.Infof("----------------- IPSet [%s] - Persistent Config Applied ------------------",
-		ipset.IPSetName)
 	return nil
 }
 
@@ -56,36 +53,27 @@ func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
 //
 // This deletes all iptables rules and ip rules associated with the ipset.
 func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
-	log.Infof("----------------- IPSet [%s] - Removing Persistent Config ------------------",
-		ipset.IPSetName)
-
 	ipRule := NewIPRuleBuilder(ipset).Build()
-	log.Infof("Deleting IP rule [%v]", ipRule)
 
-	if exists, err := ipRule.IsExists(); err != nil {
-		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
+	if deleted, err := ipRule.DelIfExists(); err != nil {
+		log.Errorf("[%s] Failed to delete IP rule: %v", ipset.IPSetName, err)
 		return err
-	} else if exists {
-		if err := ipRule.DelIfExists(); err != nil {
-			log.Errorf("Failed to delete IP rule [%v]: %v", ipRule, err)
-			return err
-		}
-	} else {
-		log.Infof("IP rule [%v] does not exist, skipping", ipRule)
+	} else if deleted {
+		log.Infof("[%s] Deleted ip rule: fwmark=%d -> table=%d",
+			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IpRouteTable)
 	}
 
-	log.Infof("Deleting iptables rules")
 	if ipTableRules, err := NewIPTablesBuilder(ipset).Build(); err != nil {
-		log.Errorf("Failed to build iptables rules: %v", err)
+		log.Errorf("[%s] Failed to build iptables rules: %v", ipset.IPSetName, err)
 		return err
 	} else {
-		if err := ipTableRules.DelIfExists(); err != nil {
-			log.Errorf("Failed to delete iptables rules [%v]: %v", ipTableRules, err)
+		if deleted, err := ipTableRules.DelIfExists(); err != nil {
+			log.Errorf("[%s] Failed to delete iptables rules: %v", ipset.IPSetName, err)
 			return err
+		} else if deleted {
+			log.Infof("[%s] Deleted iptables rules", ipset.IPSetName)
 		}
 	}
 
-	log.Infof("----------------- IPSet [%s] - Persistent Config Removed ------------------",
-		ipset.IPSetName)
 	return nil
 }

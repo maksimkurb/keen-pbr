@@ -85,7 +85,7 @@ func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
 }
 
 func (ipr *IpRoute) Add() error {
-	log.Infof("Adding IP route [%v]", ipr)
+	log.Debugf("Adding IP route [%v]", ipr)
 	if err := netlink.RouteAdd(ipr.Route); err != nil {
 		log.Warnf("Failed to add IP route [%v]: %v", ipr, err)
 		return err
@@ -94,15 +94,18 @@ func (ipr *IpRoute) Add() error {
 	return nil
 }
 
-func (ipr *IpRoute) AddIfNotExists() error {
+func (ipr *IpRoute) AddIfNotExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
-		return err
+		return false, err
 	} else {
 		if !exists {
-			return ipr.Add()
+			if err := ipr.Add(); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (ipr *IpRoute) IsExists() (bool, error) {
@@ -130,7 +133,7 @@ func (ipr *IpRoute) IsExists() (bool, error) {
 }
 
 func (ipr *IpRoute) Del() error {
-	log.Infof("Deleting IP route [%v]", ipr)
+	log.Debugf("Deleting IP route [%v]", ipr)
 	if err := netlink.RouteDel(ipr.Route); err != nil {
 		log.Warnf("Failed to delete IP route [%v]: %v", ipr, err)
 		return err
@@ -139,15 +142,18 @@ func (ipr *IpRoute) Del() error {
 	return nil
 }
 
-func (ipr *IpRoute) DelIfExists() error {
+func (ipr *IpRoute) DelIfExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
-		return err
+		return false, err
 	} else {
 		if exists {
-			return ipr.Del()
+			if err := ipr.Del(); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func DelIpRouteTable(table int) error {

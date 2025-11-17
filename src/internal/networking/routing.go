@@ -149,7 +149,6 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 
 	// Step 2: Ensure blackhole route ALWAYS exists (permanent fallback with metric 200)
 	if !blackholePresent {
-		log.Infof("Ensuring blackhole route exists for ipset [%s] (metric 200, fallback)", ipset.IPSetName)
 		if err := r.addBlackholeRoute(ipset); err != nil {
 			return err
 		}
@@ -158,8 +157,6 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 	// Step 3: Add new default gateway route if interface available (metric 100, takes precedence)
 	// This happens BEFORE removing old routes to minimize downtime
 	if chosenIface != nil {
-		log.Infof("Adding default gateway route for ipset [%s] via %s (metric 100, active)",
-			ipset.IPSetName, chosenIface.Attrs().Name)
 		if err := r.addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
@@ -170,25 +167,30 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			if route.LinkIndex == chosenIface.Link.Attrs().Index {
 				continue
 			}
-			if err := route.DelIfExists(); err != nil {
+			if deleted, err := route.DelIfExists(); err != nil {
 				return err
+			} else if deleted {
+				log.Infof("[%s] Removed old route via interface idx=%d", ipset.IPSetName, route.LinkIndex)
 			}
 		}
 	} else {
 		// Special case: if only ONE interface configured, keep its route even if down
 		// This avoids unnecessary route churn when the interface is temporarily unavailable
 		if len(ipset.Routing.Interfaces) == 1 {
-			log.Infof("Only one interface configured for ipset [%s], keeping existing route (avoid churn)",
-				ipset.IPSetName)
 			// Keep existing routes, don't remove them
+			log.Debugf("[%s] Only one interface configured, keeping existing route (avoid churn)", ipset.IPSetName)
 		} else {
 			// Multiple interfaces available: remove all default routes, fall back to blackhole
-			log.Infof("No interface available for ipset [%s], removing default routes (traffic will use blackhole metric 200)",
-				ipset.IPSetName)
+			anyRemoved := false
 			for _, route := range existingRoutes {
-				if err := route.DelIfExists(); err != nil {
+				if deleted, err := route.DelIfExists(); err != nil {
 					return err
+				} else if deleted {
+					anyRemoved = true
 				}
+			}
+			if anyRemoved {
+				log.Infof("[%s] No interface available, removed default routes (using blackhole)", ipset.IPSetName)
 			}
 		}
 	}
@@ -198,12 +200,12 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 
 // addDefaultGatewayRoute adds a default route through the specified interface.
 func (r *RoutingConfigManager) addDefaultGatewayRoute(ipset *config.IPSetConfig, chosenIface *Interface) error {
-	log.Infof("Adding default gateway ip route dev=%s to table=%d",
-		chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
-
 	ipRoute := BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable)
-	if err := ipRoute.AddIfNotExists(); err != nil {
+	if added, err := ipRoute.AddIfNotExists(); err != nil {
 		return err
+	} else if added {
+		log.Infof("[%s] Added default route via %s to table %d (metric 100)",
+			ipset.IPSetName, chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
 	}
 	return nil
 }
@@ -214,12 +216,12 @@ func (r *RoutingConfigManager) addDefaultGatewayRoute(ipset *config.IPSetConfig,
 // Because it has a higher metric than the default route (200 vs 100), it will only
 // be used when the default route is absent.
 func (r *RoutingConfigManager) addBlackholeRoute(ipset *config.IPSetConfig) error {
-	log.Infof("Adding blackhole ip route to table=%d (metric 200, permanent fallback)",
-		ipset.Routing.IpRouteTable)
-
 	route := BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
-	if err := route.AddIfNotExists(); err != nil {
+	if added, err := route.AddIfNotExists(); err != nil {
 		return err
+	} else if added {
+		log.Infof("[%s] Added blackhole route to table %d (metric 200, permanent fallback)",
+			ipset.IPSetName, ipset.Routing.IpRouteTable)
 	}
 	return nil
 }
