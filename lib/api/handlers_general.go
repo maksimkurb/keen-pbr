@@ -47,7 +47,7 @@ func HandleGeneralGet(configPath string) http.HandlerFunc {
 }
 
 // HandleGeneralUpdate updates general settings (partial update)
-func HandleGeneralUpdate(configPath string) http.HandlerFunc {
+func HandleGeneralUpdate(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req GeneralRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -56,7 +56,7 @@ func HandleGeneralUpdate(configPath string) http.HandlerFunc {
 		}
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Update only specified fields (partial update)
 			if req.ListsOutputDir != nil {
 				cfg.General.ListsOutputDir = *req.ListsOutputDir

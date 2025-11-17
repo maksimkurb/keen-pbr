@@ -79,7 +79,7 @@ func HandleListsGet(configPath string) http.HandlerFunc {
 }
 
 // HandleListsCreate creates a new list
-func HandleListsCreate(configPath string) http.HandlerFunc {
+func HandleListsCreate(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req ListRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -115,7 +115,7 @@ func HandleListsCreate(configPath string) http.HandlerFunc {
 		}
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Check if list already exists
 			for _, list := range cfg.Lists {
 				if list.ListName == req.ListName {
@@ -158,7 +158,7 @@ func HandleListsCreate(configPath string) http.HandlerFunc {
 }
 
 // HandleListsUpdate updates an existing list
-func HandleListsUpdate(configPath string) http.HandlerFunc {
+func HandleListsUpdate(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		listName := chi.URLParam(r, "list_name")
 
@@ -190,7 +190,7 @@ func HandleListsUpdate(configPath string) http.HandlerFunc {
 		}
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Find and update list
 			for _, list := range cfg.Lists {
 				if list.ListName == listName {
@@ -226,12 +226,12 @@ func HandleListsUpdate(configPath string) http.HandlerFunc {
 }
 
 // HandleListsDelete deletes a list
-func HandleListsDelete(configPath string) http.HandlerFunc {
+func HandleListsDelete(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		listName := chi.URLParam(r, "list_name")
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Check if list is referenced by any ipsets
 			referencingIPSets := []string{}
 			for _, ipset := range cfg.IPSets {

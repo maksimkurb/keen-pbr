@@ -130,7 +130,7 @@ func HandleIPSetsGet(configPath string) http.HandlerFunc {
 }
 
 // HandleIPSetsCreate creates a new ipset
-func HandleIPSetsCreate(configPath string) http.HandlerFunc {
+func HandleIPSetsCreate(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req IPSetRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -177,7 +177,7 @@ func HandleIPSetsCreate(configPath string) http.HandlerFunc {
 		}
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Check if ipset already exists
 			for _, ipset := range cfg.IPSets {
 				if ipset.IPSetName == req.IPSetName {
@@ -244,7 +244,7 @@ func HandleIPSetsCreate(configPath string) http.HandlerFunc {
 }
 
 // HandleIPSetsUpdate updates an existing ipset
-func HandleIPSetsUpdate(configPath string) http.HandlerFunc {
+func HandleIPSetsUpdate(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ipsetName := chi.URLParam(r, "ipset_name")
 
@@ -281,7 +281,7 @@ func HandleIPSetsUpdate(configPath string) http.HandlerFunc {
 		}
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Find ipset
 			var targetIPSet *config.IPSetConfig
 			for _, ipset := range cfg.IPSets {
@@ -347,12 +347,12 @@ func HandleIPSetsUpdate(configPath string) http.HandlerFunc {
 }
 
 // HandleIPSetsDelete deletes an ipset
-func HandleIPSetsDelete(configPath string) http.HandlerFunc {
+func HandleIPSetsDelete(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ipsetName := chi.URLParam(r, "ipset_name")
 
 		// Modify config
-		err := ModifyConfig(configPath, func(cfg *config.Config) error {
+		err := ModifyConfig(configPath, routingService, func(cfg *config.Config) error {
 			// Find and remove ipset
 			for i, ipset := range cfg.IPSets {
 				if ipset.IPSetName == ipsetName {

@@ -9,10 +9,10 @@ import (
 
 // StatusResponse represents system status
 type StatusResponse struct {
-	KeenPBRVersion        string                  `json:"keen_pbr_version"`
-	KeeneticOSVersion     string                  `json:"keenetic_os_version"`
-	DnsmasqStatus         string                  `json:"dnsmasq_status"`
-	KeenPBRServiceStatus  string                  `json:"keen_pbr_service_status"`
+	KeenPBRVersion        string                   `json:"keen_pbr_version"`
+	KeeneticOSVersion     string                   `json:"keenetic_os_version"`
+	DnsmasqStatus         string                   `json:"dnsmasq_status"`
+	KeenPBRServiceStatus  string                   `json:"keen_pbr_service_status"`
 	Services              map[string]ServiceStatus `json:"services"`
 }
 
@@ -24,7 +24,7 @@ type ServiceStatus struct {
 }
 
 // HandleStatus returns system status
-func HandleStatus(configPath string) http.HandlerFunc {
+func HandleStatus(configPath string, routingService *RoutingService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get keen-pbr version
 		versionBytes, err := os.ReadFile("/home/user/keen-pbr/VERSION")
@@ -47,19 +47,9 @@ func HandleStatus(configPath string) http.HandlerFunc {
 			}
 		}
 
-		// Get keen-pbr service status
-		keenPBRStatus := "unknown"
-		keenPBRMessage := ""
-		out, err = exec.Command("/opt/etc/init.d/S80keen-pbr", "check").CombinedOutput()
-		if err == nil {
-			output := string(out)
-			if strings.Contains(output, "alive") || strings.Contains(output, "running") {
-				keenPBRStatus = "running"
-				keenPBRMessage = "running"
-			} else {
-				keenPBRStatus = "stopped"
-			}
-		}
+		// Get routing service status from integrated service
+		keenPBRStatus := routingService.GetStatus()
+		keenPBRMessage := keenPBRStatus
 
 		resp := StatusResponse{
 			KeenPBRVersion:       version,

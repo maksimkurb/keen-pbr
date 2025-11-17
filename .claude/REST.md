@@ -434,10 +434,12 @@ Check if a domain's resolved IPs are in a specific ipset.
 
 All configuration-modifying endpoints (POST, PUT, DELETE on lists/ipsets/general) trigger automatic service restart:
 
-1. Stop keen-pbr service: `/opt/etc/init.d/S80keen-pbr stop`
-2. **Flush all ipsets**: `ipset flush <name>` for each (ensures clean state)
-3. Start keen-pbr service: `/opt/etc/init.d/S80keen-pbr start`
+1. **Stop routing service thread**: Internal in-process shutdown of the routing service goroutine
+2. **Flush all ipsets**: Clears all ipset entries defined in configuration (ensures clean state)
+3. **Start routing service thread**: Internal in-process restart of the routing service goroutine
 4. **Restart dnsmasq**: `/opt/etc/init.d/S56dnsmasq restart` (re-reads domain lists)
+
+**Note**: The keen-pbr server uses an integrated architecture where the REST API and routing service run in the same process. Service restarts are performed in-process without calling external scripts, ensuring the API remains responsive during routing service restarts
 
 ---
 

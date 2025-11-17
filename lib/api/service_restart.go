@@ -12,38 +12,20 @@ import (
 // configMutex protects concurrent config file access
 var configMutex sync.RWMutex
 
-// RestartServicesAfterConfigChange performs the complete service restart sequence:
-// 1. Stop keen-pbr service
-// 2. Flush all ipsets
-// 3. Start keen-pbr service
-// 4. Restart dnsmasq
-func RestartServicesAfterConfigChange(cfg *config.Config) error {
+// RestartServicesAfterConfigChange restarts the integrated routing service after configuration changes.
+// This uses the routing service's internal restart mechanism instead of calling init.d scripts.
+// Sequence:
+// 1. Restart integrated routing service (stops service, flushes ipsets, starts service)
+// 2. Restart dnsmasq to reload domain lists
+func RestartServicesAfterConfigChange(routingService *RoutingService) error {
 	log.Infof("[API] Restarting services after configuration change")
 
-	// 1. Stop keen-pbr service
-	log.Debugf("[API] Stopping keen-pbr service")
-	if err := exec.Command("/opt/etc/init.d/S80keen-pbr", "stop").Run(); err != nil {
-		log.Warnf("[API] Failed to stop keen-pbr service: %v", err)
-		// Continue anyway - service might not be running
+	// 1. Restart the integrated routing service
+	if err := routingService.Restart(); err != nil {
+		return fmt.Errorf("failed to restart routing service: %w", err)
 	}
 
-	// 2. Flush all ipsets
-	log.Debugf("[API] Flushing all ipsets")
-	for _, ipset := range cfg.IPSets {
-		log.Debugf("[API] Flushing ipset: %s", ipset.IPSetName)
-		if err := exec.Command("ipset", "flush", ipset.IPSetName).Run(); err != nil {
-			log.Warnf("[API] Failed to flush ipset %s: %v", ipset.IPSetName, err)
-			// Continue anyway - ipset might not exist yet
-		}
-	}
-
-	// 3. Start keen-pbr service
-	log.Debugf("[API] Starting keen-pbr service")
-	if err := exec.Command("/opt/etc/init.d/S80keen-pbr", "start").Run(); err != nil {
-		return fmt.Errorf("failed to start keen-pbr service: %w", err)
-	}
-
-	// 4. Restart dnsmasq to re-read domain lists
+	// 2. Restart dnsmasq to re-read domain lists
 	log.Debugf("[API] Restarting dnsmasq service")
 	if err := exec.Command("/opt/etc/init.d/S56dnsmasq", "restart").Run(); err != nil {
 		log.Warnf("[API] Failed to restart dnsmasq: %v", err)
@@ -62,7 +44,7 @@ func LoadConfig(configPath string) (*config.Config, error) {
 }
 
 // ModifyConfig executes a function that modifies the config, validates, writes, and restarts services
-func ModifyConfig(configPath string, modifyFn func(*config.Config) error) error {
+func ModifyConfig(configPath string, routingService *RoutingService, modifyFn func(*config.Config) error) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 
@@ -83,7 +65,7 @@ func ModifyConfig(configPath string, modifyFn func(*config.Config) error) error 
 	}
 
 	// Restart services
-	if err := RestartServicesAfterConfigChange(cfg); err != nil {
+	if err := RestartServicesAfterConfigChange(routingService); err != nil {
 		return fmt.Errorf("failed to restart services: %w", err)
 	}
 

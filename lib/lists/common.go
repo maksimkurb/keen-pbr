@@ -34,6 +34,20 @@ func CreateIPSetsIfAbsent(cfg *config.Config) error {
 	return nil
 }
 
+// FlushAllIPSets flushes all ipsets defined in the configuration.
+func FlushAllIPSets(cfg *config.Config) error {
+	for _, ipsetCfg := range cfg.IPSets {
+		ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
+		if err := ipset.Flush(); err != nil {
+			log.Warnf("Failed to flush ipset \"%s\": %v", ipsetCfg.IPSetName, err)
+		} else {
+			log.Infof("Flushed ipset \"%s\"", ipsetCfg.IPSetName)
+		}
+	}
+
+	return nil
+}
+
 // appendDomain appends a domain to the appropriate networks or domain store.
 func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) error {
 	line := strings.TrimSpace(host)

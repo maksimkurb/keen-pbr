@@ -49,7 +49,7 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 
 // Run executes the server command
 func (c *ServerCommand) Run() error {
-	log.Infof("Starting keen-pbr API server")
+	log.Infof("Starting keen-pbr integrated server (API + Routing Service)")
 	log.Infof("Config file: %s", c.ctx.ConfigPath)
 	log.Infof("Bind address: %s", c.bindAddr)
 	log.Infof("")
@@ -59,8 +59,8 @@ func (c *ServerCommand) Run() error {
 	log.Infof("  curl http://%s/api/v1/lists | jq", c.bindAddr)
 	log.Infof("")
 
-	// Create API server
-	server := api.NewServer(c.ctx.ConfigPath, c.bindAddr)
+	// Create API server with integrated routing service
+	server := api.NewServer(c.ctx.ConfigPath, c.bindAddr, c.ctx.Interfaces)
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
