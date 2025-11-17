@@ -3,11 +3,13 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/maksimkurb/keen-pbr/src/internal/service"
-	"os"
 )
 
 func CreateApplyCommand() *ApplyCommand {
@@ -68,10 +70,10 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 func (g *ApplyCommand) Run() error {
 	// Create service layer dependencies
 	ipsetMgr := networking.NewIPSetManager()
-	networkMgr := networking.NewManager(nil) // nil keenetic client for now
+	networkMgr := networking.NewManager(keenetic.GetDefaultClient())
 
 	ipsetService := service.NewIPSetService(ipsetMgr)
-	routingService := service.NewRoutingService(networkMgr, ipsetMgr, nil) // nil validator because we already validated in Init
+	routingService := service.NewRoutingService(networkMgr, ipsetMgr)
 
 	// Handle ipset operations
 	if !g.SkipIpset {

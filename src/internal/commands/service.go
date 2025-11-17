@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
@@ -71,7 +72,7 @@ func (s *ServiceCommand) Run() error {
 	// Create persistent network manager for interface state tracking
 	// This manager maintains state across the service lifecycle to detect
 	// interface changes and prevent unnecessary route updates
-	s.networkMgr = networking.NewManager(nil) // nil keenetic client for now
+	s.networkMgr = networking.NewManager(keenetic.GetDefaultClient())
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")

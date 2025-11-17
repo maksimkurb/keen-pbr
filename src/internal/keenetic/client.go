@@ -148,6 +148,22 @@ func SetHTTPClient(client HTTPClient) {
 	defaultClient.cache.Clear() // Clear cache when HTTP client changes
 }
 
+// GetDefaultClient returns the package-level client instance.
+//
+// This is useful for dependency injection when you want to use the global
+// client configuration but need to pass it explicitly to other components.
+//
+// Note: The default client is configured without a base URL, so it will use
+// the default RCI endpoint (http://192.168.1.1/rci). Future versions may
+// support configuration via environment variables or config files.
+//
+// Example:
+//
+//	networkMgr := networking.NewManager(keenetic.GetDefaultClient())
+func GetDefaultClient() *Client {
+	return defaultClient
+}
+
 // GetKeeneticVersion fetches and caches the Keenetic OS version using the default client.
 //
 // Deprecated: Use Client.GetVersion() instead for better testability.

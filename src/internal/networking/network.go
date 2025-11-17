@@ -7,7 +7,9 @@ import (
 )
 
 // defaultManager is a package-level manager instance for backward compatibility.
-var defaultManager = NewManager(nil)
+//
+// Uses the default Keenetic client for interface status checking.
+var defaultManager = NewManager(keenetic.GetDefaultClient())
 
 // ApplyNetworkConfiguration applies network configuration for specified ipsets.
 //

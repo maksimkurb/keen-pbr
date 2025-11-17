@@ -19,12 +19,13 @@ type ApplyOptions struct {
 
 // RoutingService orchestrates routing and network configuration operations.
 //
-// It coordinates between network managers, ipset managers, and validation,
+// It coordinates between network managers and ipset managers,
 // providing a high-level API for applying, updating, and removing configurations.
+//
+// Note: Configuration validation should be performed by callers before using this service.
 type RoutingService struct {
 	networkManager domain.NetworkManager
 	ipsetManager   domain.IPSetManager
-	validator      *ValidationService
 }
 
 // NewRoutingService creates a new routing service.
@@ -32,37 +33,29 @@ type RoutingService struct {
 // Parameters:
 //   - networkManager: Handles iptables, ip rules, and ip routes
 //   - ipsetManager: Handles ipset creation and population
-//   - validator: Validates configuration before application (optional, can be nil)
+//
+// Note: Configuration validation should be performed by the caller before
+// calling Apply(). Typically this is done in command Init() methods.
 func NewRoutingService(
 	networkManager domain.NetworkManager,
 	ipsetManager domain.IPSetManager,
-	validator *ValidationService,
 ) *RoutingService {
 	return &RoutingService{
 		networkManager: networkManager,
 		ipsetManager:   ipsetManager,
-		validator:      validator,
 	}
 }
 
 // Apply applies the complete routing configuration.
 //
 // This orchestrates the full workflow:
-//  1. Validates configuration (if validator provided)
-//  2. Creates ipsets (unless SkipIPSet is true)
-//  3. Applies persistent network config (unless SkipRouting is true)
-//  4. Applies dynamic routing config (unless SkipRouting is true)
+//  1. Creates ipsets (unless SkipIPSet is true)
+//  2. Applies persistent network config (unless SkipRouting is true)
+//  3. Applies dynamic routing config (unless SkipRouting is true)
 //
+// Note: Configuration must be validated by the caller before calling this method.
 // Returns error if any step fails.
 func (s *RoutingService) Apply(cfg *config.Config, opts ApplyOptions) error {
-	// Validate configuration
-	if s.validator != nil {
-		if err := s.validator.ValidateConfig(cfg); err != nil {
-			log.Errorf("Configuration validation failed: %v", err)
-			return err
-		}
-	}
-
 	// Create ipsets
 	if !opts.SkipIPSet {
 		log.Infof("Creating ipsets...")

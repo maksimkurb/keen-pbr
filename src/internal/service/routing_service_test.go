@@ -9,12 +9,11 @@ import (
 )
 
 func TestRoutingService_Apply(t *testing.T) {
-	t.Run("Full apply with validation", func(t *testing.T) {
+	t.Run("Full apply", func(t *testing.T) {
 		netMgr := mocks.NewMockNetworkManager()
 		ipsetMgr := mocks.NewMockIPSetManager()
-		validator := NewValidationService()
 
-		service := NewRoutingService(netMgr, ipsetMgr, validator)
+		service := NewRoutingService(netMgr, ipsetMgr)
 
 		cfg := &config.Config{
 			IPSets: []*config.IPSetConfig{
@@ -52,7 +51,7 @@ func TestRoutingService_Apply(t *testing.T) {
 		netMgr := mocks.NewMockNetworkManager()
 		ipsetMgr := mocks.NewMockIPSetManager()
 
-		service := NewRoutingService(netMgr, ipsetMgr, nil)
+		service := NewRoutingService(netMgr, ipsetMgr)
 
 		cfg := &config.Config{
 			IPSets: []*config.IPSetConfig{
@@ -74,7 +73,7 @@ func TestRoutingService_Apply(t *testing.T) {
 		netMgr := mocks.NewMockNetworkManager()
 		ipsetMgr := mocks.NewMockIPSetManager()
 
-		service := NewRoutingService(netMgr, ipsetMgr, nil)
+		service := NewRoutingService(netMgr, ipsetMgr)
 
 		cfg := &config.Config{
 			IPSets: []*config.IPSetConfig{
@@ -95,29 +94,6 @@ func TestRoutingService_Apply(t *testing.T) {
 		}
 	})
 
-	t.Run("Validation failure", func(t *testing.T) {
-		netMgr := mocks.NewMockNetworkManager()
-		ipsetMgr := mocks.NewMockIPSetManager()
-		validator := NewValidationService()
-
-		service := NewRoutingService(netMgr, ipsetMgr, validator)
-
-		// Invalid config - no ipsets
-		cfg := &config.Config{
-			IPSets: []*config.IPSetConfig{},
-		}
-
-		err := service.Apply(cfg, ApplyOptions{})
-		if err == nil {
-			t.Fatal("Expected validation error")
-		}
-
-		// Nothing should be called after validation failure
-		if ipsetMgr.CreateIfAbsentCalls != 0 {
-			t.Error("Expected no operations after validation failure")
-		}
-	})
-
 	t.Run("Network manager error", func(t *testing.T) {
 		expectedErr := errors.New("network error")
 		netMgr := &mocks.MockNetworkManager{
@@ -127,7 +103,7 @@ func TestRoutingService_Apply(t *testing.T) {
 		}
 		ipsetMgr := mocks.NewMockIPSetManager()
 
-		service := NewRoutingService(netMgr, ipsetMgr, nil)
+		service := NewRoutingService(netMgr, ipsetMgr)
 
 		cfg := &config.Config{
 			IPSets: []*config.IPSetConfig{
@@ -143,7 +119,7 @@ func TestRoutingService_Apply(t *testing.T) {
 }
 
 func TestRoutingService_FilterIPSetsByInterface(t *testing.T) {
-	service := NewRoutingService(nil, nil, nil)
+	service := NewRoutingService(nil, nil)
 
 	ipsets := []*config.IPSetConfig{
 		{
@@ -197,7 +173,7 @@ func TestRoutingService_FilterIPSetsByInterface(t *testing.T) {
 
 func TestRoutingService_Undo(t *testing.T) {
 	netMgr := mocks.NewMockNetworkManager()
-	service := NewRoutingService(netMgr, nil, nil)
+	service := NewRoutingService(netMgr, nil)
 
 	cfg := &config.Config{
 		IPSets: []*config.IPSetConfig{
@@ -217,7 +193,7 @@ func TestRoutingService_Undo(t *testing.T) {
 
 func TestRoutingService_UpdateRouting(t *testing.T) {
 	netMgr := mocks.NewMockNetworkManager()
-	service := NewRoutingService(netMgr, nil, nil)
+	service := NewRoutingService(netMgr, nil)
 
 	cfg := &config.Config{
 		IPSets: []*config.IPSetConfig{
@@ -241,7 +217,7 @@ func TestRoutingService_UpdateRouting(t *testing.T) {
 func TestRoutingService_ApplyPersistentOnly(t *testing.T) {
 	netMgr := mocks.NewMockNetworkManager()
 	ipsetMgr := mocks.NewMockIPSetManager()
-	service := NewRoutingService(netMgr, ipsetMgr, nil)
+	service := NewRoutingService(netMgr, ipsetMgr)
 
 	cfg := &config.Config{
 		IPSets: []*config.IPSetConfig{
