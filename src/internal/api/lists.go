@@ -269,21 +269,24 @@ func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config)
 	// Get statistics from list manager (with caching)
 	managedStats := h.deps.ListManager().GetStatistics(list, cfg)
 
-	// Convert to API statistics format
-	stats := ListStatistics{
-		TotalHosts:  managedStats.TotalHosts,
-		IPv4Subnets: managedStats.IPv4Subnets,
-		IPv6Subnets: managedStats.IPv6Subnets,
-	}
-
-	// Add download status for URL-based lists
-	if list.URL != "" {
-		stats.Downloaded = managedStats.Downloaded
-		if managedStats.Downloaded {
-			stats.LastModified = managedStats.LastModified.Format(time.RFC3339)
+	// Convert to API statistics format (nil if not yet calculated)
+	if managedStats != nil {
+		stats := &ListStatistics{
+			TotalHosts:  managedStats.TotalHosts,
+			IPv4Subnets: managedStats.IPv4Subnets,
+			IPv6Subnets: managedStats.IPv6Subnets,
 		}
+
+		// Add download status for URL-based lists
+		if list.URL != "" {
+			stats.Downloaded = managedStats.Downloaded
+			if managedStats.Downloaded {
+				stats.LastModified = managedStats.LastModified.Format(time.RFC3339)
+			}
+		}
+
+		info.Stats = stats
 	}
 
-	info.Stats = stats
 	return info
 }

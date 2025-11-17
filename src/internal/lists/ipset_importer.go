@@ -53,31 +53,31 @@ func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 
 	for listName, ipsets := range listMapping {
 		ipCount := 0
+		ipv4Count := 0
+		ipv6Count := 0
 		log.Infof("Processing list \"%s\" (ipsets: %v)...", listName, ipsets)
 		list, err := getListByName(cfg, listName)
 		if err != nil {
 			return err
 		}
 
-		// Start recording statistics for this list
-		if listManager != nil {
-			listManager.StartListProcessing(list, cfg)
-		}
-
 		if err := iterateOverList(list, cfg, func(host string) error {
 			isIPv4, isIPv6, err := appendIPOrCIDR(host, ipsets, &ipCount)
-			if listManager != nil && (isIPv4 || isIPv6) {
-				listManager.RecordLineProcessed(list, cfg, host, false, isIPv4, isIPv6)
+			if isIPv4 {
+				ipv4Count++
+			}
+			if isIPv6 {
+				ipv6Count++
 			}
 			return err
 		}); err != nil {
 			return err
 		}
 
-		// Finish recording statistics for this list
+		// Update statistics cache once after processing
 		if listManager != nil {
 			downloaded, lastModified := getFileStats(list, cfg)
-			listManager.FinishListProcessing(list, cfg, downloaded, lastModified)
+			listManager.UpdateStatistics(list, cfg, 0, ipv4Count, ipv6Count, downloaded, lastModified)
 		}
 
 		log.Infof("List \"%s\" processing finished: %d IPs/networks loaded to ipset", listName, ipCount)

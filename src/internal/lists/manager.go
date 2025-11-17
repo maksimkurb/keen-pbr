@@ -34,11 +34,11 @@ func NewManager() *Manager {
 
 // GetStatistics returns cached statistics for a list.
 // Statistics are calculated during list processing (dnsmasq/ipsets),
-// not on-demand. Returns empty stats if not yet calculated.
-func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) ListStatistics {
+// not on-demand. Returns nil if not yet calculated.
+func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) *ListStatistics {
 	// For inline hosts, count directly (no file processing needed)
 	if list.Hosts != nil {
-		return ListStatistics{
+		return &ListStatistics{
 			TotalHosts:   len(list.Hosts),
 			calculatedAt: time.Now(),
 		}
@@ -47,7 +47,7 @@ func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) Lis
 	// Get cache key
 	cacheKey := m.getCacheKey(list, cfg)
 	if cacheKey == "" {
-		return ListStatistics{}
+		return nil
 	}
 
 	// Return cached stats
@@ -55,16 +55,16 @@ func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) Lis
 	defer m.mu.RUnlock()
 
 	if stats, exists := m.cache[cacheKey]; exists {
-		return stats
+		return &stats
 	}
 
 	// No stats yet - will be calculated during list processing
-	return ListStatistics{}
+	return nil
 }
 
-// RecordLineProcessed should be called when a line is processed from a list.
-// This incrementally builds statistics during normal list operations.
-func (m *Manager) RecordLineProcessed(list *config.ListSource, cfg *config.Config, line string, isDomain bool, isIPv4 bool, isIPv6 bool) {
+// UpdateStatistics updates the cached statistics for a list.
+// This should be called after list processing is complete with the final counts.
+func (m *Manager) UpdateStatistics(list *config.ListSource, cfg *config.Config, totalHosts int, ipv4Subnets int, ipv6Subnets int, downloaded bool, lastModified time.Time) {
 	cacheKey := m.getCacheKey(list, cfg)
 	if cacheKey == "" {
 		return
@@ -73,62 +73,13 @@ func (m *Manager) RecordLineProcessed(list *config.ListSource, cfg *config.Confi
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	stats, exists := m.cache[cacheKey]
-	if !exists {
-		stats = ListStatistics{
-			calculatedAt: time.Now(),
-		}
-	}
-
-	if isDomain {
-		stats.TotalHosts++
-	} else if isIPv4 {
-		stats.IPv4Subnets++
-	} else if isIPv6 {
-		stats.IPv6Subnets++
-	}
-
-	m.cache[cacheKey] = stats
-}
-
-// StartListProcessing marks that a list is being processed.
-// This should be called before iterating over a list.
-func (m *Manager) StartListProcessing(list *config.ListSource, cfg *config.Config) {
-	cacheKey := m.getCacheKey(list, cfg)
-	if cacheKey == "" {
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Initialize with empty stats
 	m.cache[cacheKey] = ListStatistics{
+		TotalHosts:   totalHosts,
+		IPv4Subnets:  ipv4Subnets,
+		IPv6Subnets:  ipv6Subnets,
+		Downloaded:   downloaded,
+		LastModified: lastModified,
 		calculatedAt: time.Now(),
-	}
-}
-
-// FinishListProcessing marks that a list processing is complete.
-// This updates download status for URL-based lists.
-func (m *Manager) FinishListProcessing(list *config.ListSource, cfg *config.Config, downloaded bool, lastModified time.Time) {
-	if list.URL == "" {
-		return // Only for URL-based lists
-	}
-
-	cacheKey := m.getCacheKey(list, cfg)
-	if cacheKey == "" {
-		return
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if stats, exists := m.cache[cacheKey]; exists {
-		stats.Downloaded = downloaded
-		if downloaded {
-			stats.LastModified = lastModified
-		}
-		m.cache[cacheKey] = stats
 	}
 }
 

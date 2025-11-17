@@ -39,25 +39,23 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 			return err
 		}
 
-		// Start recording statistics for this list
-		if listManager != nil {
-			listManager.StartListProcessing(list, cfg)
-		}
+		// Count domains for statistics
+		domainCount := 0
 
 		if err := iterateOverList(list, cfg, func(host string) error {
 			isDomain, err := appendDomain(host, ipsets, domainStore)
-			if listManager != nil && isDomain {
-				listManager.RecordLineProcessed(list, cfg, host, true, false, false)
+			if isDomain {
+				domainCount++
 			}
 			return err
 		}); err != nil {
 			return err
 		}
 
-		// Finish recording statistics for this list
+		// Update statistics cache once after processing
 		if listManager != nil {
 			downloaded, lastModified := getFileStats(list, cfg)
-			listManager.FinishListProcessing(list, cfg, downloaded, lastModified)
+			listManager.UpdateStatistics(list, cfg, domainCount, 0, 0, downloaded, lastModified)
 		}
 	}
 

@@ -9,11 +9,11 @@ type DataResponse struct {
 
 // ListInfo contains list information with statistics.
 type ListInfo struct {
-	ListName string         `json:"list_name"`
-	Type     string         `json:"type"` // "url", "file", "hosts"
-	URL      string         `json:"url,omitempty"`
-	File     string         `json:"file,omitempty"`
-	Stats    ListStatistics `json:"stats"`
+	ListName string          `json:"list_name"`
+	Type     string          `json:"type"` // "url", "file", "hosts"
+	URL      string          `json:"url,omitempty"`
+	File     string          `json:"file,omitempty"`
+	Stats    *ListStatistics `json:"stats"` // nil if statistics not yet calculated
 }
 
 // ListStatistics contains statistics about list content and download status.
