@@ -174,6 +174,11 @@ func (c *Client) getSystemNamesForInterfacesBulk(interfaceIDs []string) (map[str
 //
 // Uses a bulk POST request to fetch all system names in a single API call,
 // improving performance significantly when multiple interfaces are present.
+//
+// When multiple Keenetic interfaces map to the same Linux system name
+// (e.g., GigabitEthernet1 and GigabitEthernet1/0 both map to eth3),
+// prefers the parent interface (without slash suffix) which typically has
+// complete status information (connected, description fields).
 func (c *Client) populateSystemNamesModern(interfaces map[string]Interface) (map[string]Interface, error) {
 	// Collect all interface IDs
 	interfaceIDs := make([]string, 0, len(interfaces))
@@ -187,15 +192,68 @@ func (c *Client) populateSystemNamesModern(interfaces map[string]Interface) (map
 		return nil, fmt.Errorf("failed to fetch system names in bulk: %w", err)
 	}
 
-	// Map interfaces by system name
+	// Map interfaces by system name, with preference for parent interfaces
 	result := make(map[string]Interface)
 	for id, systemName := range systemNames {
 		iface := interfaces[id]
 		iface.SystemName = systemName
-		result[systemName] = iface
+
+		// Check if we already have an interface for this system name
+		if existing, exists := result[systemName]; exists {
+			// Prefer the interface that is more likely to be the parent:
+			// 1. Prefer interface without slash in ID (e.g., "GigabitEthernet1" over "GigabitEthernet1/0")
+			// 2. Prefer interface with non-empty Connected field
+			// 3. Prefer interface with non-empty Description field
+
+			existingIsParent := !hasSlashInID(existing.ID)
+			newIsParent := !hasSlashInID(iface.ID)
+
+			existingHasConnected := existing.Connected != ""
+			newHasConnected := iface.Connected != ""
+
+			existingHasDescription := existing.Description != ""
+			newHasDescription := iface.Description != ""
+
+			// Prefer parent over child
+			if newIsParent && !existingIsParent {
+				result[systemName] = iface
+				log.Debugf("Preferring parent interface %s over child %s for system name %s",
+					iface.ID, existing.ID, systemName)
+				continue
+			} else if existingIsParent && !newIsParent {
+				// Keep existing parent
+				continue
+			}
+
+			// Both are parents or both are children - prefer one with more data
+			if newHasConnected && !existingHasConnected {
+				result[systemName] = iface
+				log.Debugf("Preferring interface %s (has connected) over %s for system name %s",
+					iface.ID, existing.ID, systemName)
+			} else if newHasDescription && !existingHasDescription {
+				result[systemName] = iface
+				log.Debugf("Preferring interface %s (has description) over %s for system name %s",
+					iface.ID, existing.ID, systemName)
+			}
+			// Otherwise keep existing
+		} else {
+			// First interface for this system name
+			result[systemName] = iface
+		}
 	}
 
 	return result, nil
+}
+
+// hasSlashInID checks if the interface ID contains a slash, indicating
+// it's a child interface (e.g., GigabitEthernet1/0, WifiMaster0/AccessPoint0)
+func hasSlashInID(id string) bool {
+	for i := 0; i < len(id); i++ {
+		if id[i] == '/' {
+			return true
+		}
+	}
+	return false
 }
 
 // populateSystemNamesLegacy populates SystemName field by matching IP addresses

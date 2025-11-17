@@ -270,7 +270,7 @@ func TestUpgradeConfig_DeprecatedListName(t *testing.T) {
 }
 
 func TestExampleConfig(t *testing.T) {
-	configFile := filepath.Join("../../keen-pbr.example.conf")
+	configFile := filepath.Join("../../../keen-pbr.example.conf")
 
 	config, err := LoadConfig(configFile)
 	if err != nil {
