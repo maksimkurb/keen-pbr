@@ -118,11 +118,6 @@ func (c *Config) validateGeneralConfig() error {
 		return fmt.Errorf("configuration should contain \"general\" field")
 	}
 
-	if c.General.UseKeeneticAPI == nil {
-		def := true
-		c.General.UseKeeneticAPI = &def
-	}
-
 	if c.General.UseKeeneticDNS == nil {
 		def := false
 		c.General.UseKeeneticDNS = &def

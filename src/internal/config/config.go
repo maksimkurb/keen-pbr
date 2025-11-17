@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -101,51 +100,10 @@ func (c *Config) UpgradeConfig() (bool, error) {
 	upgraded := false
 
 	for _, ipset := range c.IPSets {
-		if ipset.Routing.DeprecatedInterface != "" {
-			if !slices.Contains(ipset.Routing.Interfaces, ipset.Routing.DeprecatedInterface) {
-				ipset.Routing.Interfaces = append(ipset.Routing.Interfaces, ipset.Routing.DeprecatedInterface)
-			}
-			ipset.Routing.DeprecatedInterface = ""
-
-			log.Infof("Upgrading deprecated field \"interface\" to \"interfaces\" for ipset %s", ipset.IPSetName)
-			upgraded = true
-		}
-
-		if ipset.DeprecatedLists != nil {
-			for _, list := range ipset.DeprecatedLists {
-				newListName := ipset.IPSetName + "-" + list.Name()
-
-				if !slices.Contains(ipset.Lists, newListName) {
-					ipset.Lists = append(ipset.Lists, newListName)
-				}
-
-				list.ListName = newListName
-
-				c.Lists = append(c.Lists, list)
-			}
-
-			ipset.DeprecatedLists = nil
-
-			log.Infof("Upgrading deprecated field \"ipset.list\" to \"list\" for ipset %s", ipset.IPSetName)
-			upgraded = true
-		}
-
 		if ipset.IPVersion == 0 {
 			ipset.IPVersion = Ipv4
 
 			log.Infof("Upgrading required field \"ip_version\" for ipset %s", ipset.IPSetName)
-			upgraded = true
-		}
-	}
-
-	for _, list := range c.Lists {
-		if list.DeprecatedName != "" {
-			if list.ListName == "" {
-				list.ListName = list.DeprecatedName
-			}
-			list.DeprecatedName = ""
-
-			log.Infof("Upgrading deprecated field \"name\" to \"list_name\" for list %s", list.Name())
 			upgraded = true
 		}
 	}

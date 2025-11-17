@@ -52,10 +52,10 @@ func TestListSource_Type(t *testing.T) {
 }
 
 func TestListSource_Name(t *testing.T) {
-	list := &ListSource{ListName: "new_name", DeprecatedName: "old_name"}
+	list := &ListSource{ListName: "test_name"}
 	result := list.Name()
-	if result != "new_name" {
-		t.Errorf("Expected priority field to be used, got %s", result)
+	if result != "test_name" {
+		t.Errorf("Expected Name() to return ListName, got %s", result)
 	}
 }
 

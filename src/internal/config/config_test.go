@@ -138,81 +138,6 @@ func TestWriteConfig(t *testing.T) {
 	}
 }
 
-func TestUpgradeConfig_DeprecatedInterface(t *testing.T) {
-	config := &Config{
-		IPSets: []*IPSetConfig{
-			{
-				IPSetName: "test",
-				IPVersion: Ipv4,
-				Routing: &RoutingConfig{
-					DeprecatedInterface: "eth0",
-					Interfaces:          []string{},
-				},
-			},
-		},
-	}
-
-	upgraded, err := config.UpgradeConfig()
-	if err != nil {
-		t.Fatalf("Upgrade failed: %v", err)
-	}
-
-	if !upgraded {
-		t.Error("Expected config to be upgraded")
-	}
-
-	if len(config.IPSets[0].Routing.Interfaces) != 1 || config.IPSets[0].Routing.Interfaces[0] != "eth0" {
-		t.Error("Expected deprecated interface to be moved to interfaces array")
-	}
-
-	if config.IPSets[0].Routing.DeprecatedInterface != "" {
-		t.Error("Expected deprecated interface field to be cleared")
-	}
-}
-
-func TestUpgradeConfig_DeprecatedLists(t *testing.T) {
-	config := &Config{
-		IPSets: []*IPSetConfig{
-			{
-				IPSetName: "test",
-				IPVersion: Ipv4,
-				DeprecatedLists: []*ListSource{
-					{
-						ListName: "",
-						URL:      "http://example.com",
-					},
-				},
-				Lists: []string{},
-				Routing: &RoutingConfig{
-					Interfaces: []string{"eth0"},
-				},
-			},
-		},
-		Lists: []*ListSource{},
-	}
-
-	upgraded, err := config.UpgradeConfig()
-	if err != nil {
-		t.Fatalf("Upgrade failed: %v", err)
-	}
-
-	if !upgraded {
-		t.Error("Expected config to be upgraded")
-	}
-
-	if len(config.Lists) != 1 {
-		t.Error("Expected list to be moved to global lists")
-	}
-
-	if len(config.IPSets[0].Lists) != 1 {
-		t.Error("Expected list name to be added to ipset lists")
-	}
-
-	if config.IPSets[0].DeprecatedLists != nil {
-		t.Error("Expected deprecated lists field to be cleared")
-	}
-}
-
 func TestUpgradeConfig_IPVersion(t *testing.T) {
 	config := &Config{
 		IPSets: []*IPSetConfig{
@@ -240,37 +165,8 @@ func TestUpgradeConfig_IPVersion(t *testing.T) {
 	}
 }
 
-func TestUpgradeConfig_DeprecatedListName(t *testing.T) {
-	config := &Config{
-		Lists: []*ListSource{
-			{
-				DeprecatedName: "old_name",
-				ListName:       "",
-				URL:            "http://example.com",
-			},
-		},
-	}
-
-	upgraded, err := config.UpgradeConfig()
-	if err != nil {
-		t.Fatalf("Upgrade failed: %v", err)
-	}
-
-	if !upgraded {
-		t.Error("Expected config to be upgraded")
-	}
-
-	if config.Lists[0].ListName != "old_name" {
-		t.Error("Expected deprecated name to be moved to list_name")
-	}
-
-	if config.Lists[0].DeprecatedName != "" {
-		t.Error("Expected deprecated name field to be cleared")
-	}
-}
-
 func TestExampleConfig(t *testing.T) {
-	configFile := filepath.Join("../../keen-pbr.example.conf")
+	configFile := filepath.Join("../../../keen-pbr.example.conf")
 
 	config, err := LoadConfig(configFile)
 	if err != nil {

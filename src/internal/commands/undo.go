@@ -2,9 +2,10 @@ package commands
 
 import (
 	"flag"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
-	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 func CreateUndoCommand() *UndoCommand {
@@ -41,53 +42,12 @@ func (g *UndoCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *UndoCommand) Run() error {
-	log.Infof("Removing all iptables rules, ip rules and ip routes...")
+	// Create dependency container with default configuration
+	deps := domain.NewDefaultDependencies()
 
-	for _, ipset := range g.cfg.IPSets {
-		if err := undoIpset(ipset); err != nil {
-			log.Errorf("Failed to undo routing configuration for ipset [%s]: %v", ipset.IPSetName, err)
-			return err
-		}
-	}
+	// Create routing service from managers
+	routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
 
-	log.Infof("Undo routing completed successfully")
-	return nil
-}
-
-func undoIpset(ipset *config.IPSetConfig) error {
-	log.Infof("----------------- IPSet [%s] ------------------", ipset.IPSetName)
-
-	log.Infof("Deleting IP route table %d", ipset.Routing.IpRouteTable)
-	if err := networking.DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
-		return err
-	}
-
-	ipRule := networking.BuildIPRuleForIpset(ipset)
-	log.Infof("Deleting IP rule [%v]", ipRule)
-	if exists, err := ipRule.IsExists(); err != nil {
-		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
-		return err
-	} else {
-		if exists {
-			if err := ipRule.DelIfExists(); err != nil {
-				log.Errorf("Failed to delete IP rule [%v]: %v", ipRule, err)
-				return err
-			}
-		} else {
-			log.Infof("IP rule [%v] is NOT exists, skipping", ipRule)
-		}
-	}
-
-	log.Infof("Deleting iptable rules")
-	if ipTableRules, err := networking.BuildIPTablesForIpset(ipset); err != nil {
-		log.Errorf("Failed to build iptable rules: %v", err)
-	} else {
-		if err := ipTableRules.DelIfExists(); err != nil {
-			log.Errorf("Failed to delete iptable rules [%v]: %v", ipTableRules, err)
-			return err
-		}
-	}
-
-	log.Infof("----------------- IPSet [%s] END ------------------", ipset.IPSetName)
-	return nil
+	// Use RoutingService to undo all routing configuration
+	return routingService.Undo(g.cfg)
 }

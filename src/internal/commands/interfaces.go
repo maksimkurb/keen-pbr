@@ -3,6 +3,7 @@ package commands
 import (
 	"flag"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
@@ -40,7 +41,8 @@ func (g *InterfacesCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *InterfacesCommand) Run() error {
-	networking.PrintInterfaces(g.ctx.Interfaces, true, *g.cfg.General.UseKeeneticAPI)
+	client := keenetic.NewClient(nil)
+	networking.PrintInterfaces(g.ctx.Interfaces, true, client)
 
 	return nil
 }

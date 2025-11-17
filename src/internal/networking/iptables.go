@@ -15,23 +15,6 @@ type IPTableRules struct {
 	rules []*config.IPTablesRule
 }
 
-func BuildIPTablesForIpset(ipset *config.IPSetConfig) (*IPTableRules, error) {
-	protocol := iptables.ProtocolIPv4
-	if ipset.IPVersion == config.Ipv6 {
-		protocol = iptables.ProtocolIPv6
-	}
-
-	if ipt, err := iptables.NewWithProtocol(protocol); err != nil {
-		return nil, err
-	} else {
-		if rules, err := processRules(ipset); err != nil {
-			return nil, err
-		} else {
-			return &IPTableRules{ipt, ipset, rules}, nil
-		}
-	}
-}
-
 func processRules(ipset *config.IPSetConfig) ([]*config.IPTablesRule, error) {
 	rules := make([]*config.IPTablesRule, len(ipset.IPTablesRules))
 
@@ -66,40 +49,44 @@ func processRulePart(template string, ipset *config.IPSetConfig) string {
 	})
 }
 
-func (i *IPTableRules) AddIfNotExists() error {
+func (i *IPTableRules) AddIfNotExists() (bool, error) {
+	anyAdded := false
 	for _, rule := range i.rules {
 		exists, err := i.ipt.Exists(rule.Table, rule.Chain, rule.Rule...)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if exists {
 			continue
 		}
 
-		log.Infof("Adding iptables rule [%v]", rule)
+		log.Debugf("Adding iptables rule [%v]", rule)
 		if err := i.ipt.Append(rule.Table, rule.Chain, rule.Rule...); err != nil {
-			return err
+			return false, err
 		}
+		anyAdded = true
 	}
-	return nil
+	return anyAdded, nil
 }
 
-func (i *IPTableRules) DelIfExists() error {
+func (i *IPTableRules) DelIfExists() (bool, error) {
+	anyDeleted := false
 	for _, rule := range i.rules {
 		exists, err := i.ipt.Exists(rule.Table, rule.Chain, rule.Rule...)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !exists {
 			continue
 		}
 
-		log.Infof("Deleting iptables rule [%v]", rule)
+		log.Debugf("Deleting iptables rule [%v]", rule)
 		if err := i.ipt.Delete(rule.Table, rule.Chain, rule.Rule...); err != nil {
-			return err
+			return false, err
 		}
+		anyDeleted = true
 	}
-	return nil
+	return anyDeleted, nil
 }
 
 func (i *IPTableRules) CheckRulesExists() (map[*config.IPTablesRule]bool, error) {

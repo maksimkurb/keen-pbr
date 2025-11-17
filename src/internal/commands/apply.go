@@ -3,11 +3,13 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/lists"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
-	"os"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 func CreateApplyCommand() *ApplyCommand {
@@ -66,21 +68,63 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *ApplyCommand) Run() error {
-	if !g.SkipIpset && g.OnlyRoutingForInterface == "" {
-		if err := lists.ImportListsToIPSets(g.cfg); err != nil {
-			return fmt.Errorf("failed to apply lists: %v", err)
-		}
-	} else {
-		if err := lists.CreateIPSetsIfAbsent(g.cfg); err != nil {
+	// Create dependency container with default configuration
+	deps := domain.NewDefaultDependencies()
+
+	// Create services from managers
+	ipsetService := service.NewIPSetService(deps.IPSetManager())
+	routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
+
+	// Handle ipset operations
+	if !g.SkipIpset {
+		// Always ensure ipsets exist
+		if err := ipsetService.EnsureIPSetsExist(g.cfg); err != nil {
 			return fmt.Errorf("failed to create ipsets: %v", err)
+		}
+
+		// Only populate ipsets if we're not doing targeted routing for a single interface
+		if g.OnlyRoutingForInterface == "" {
+			if err := ipsetService.PopulateIPSets(g.cfg); err != nil {
+				return fmt.Errorf("failed to apply lists: %v", err)
+			}
 		}
 	}
 
+	// Handle routing operations
 	if !g.SkipRouting {
-		if appliedAtLeastOnce, err := networking.ApplyNetworkConfiguration(g.cfg, &g.OnlyRoutingForInterface); err != nil {
+		var onlyInterface *string
+		if g.OnlyRoutingForInterface != "" {
+			onlyInterface = &g.OnlyRoutingForInterface
+		}
+
+		opts := service.ApplyOptions{
+			SkipIPSet:     g.SkipIpset,
+			OnlyInterface: onlyInterface,
+		}
+
+		if err := routingService.Apply(g.cfg, opts); err != nil {
 			return fmt.Errorf("failed to apply routing: %v", err)
-		} else {
-			if !appliedAtLeastOnce {
+		}
+
+		// Check if anything was actually applied when using OnlyInterface
+		if onlyInterface != nil {
+			// Filter to see if any ipsets match this interface
+			appliedAny := false
+			for _, ipsetCfg := range g.cfg.IPSets {
+				if ipsetCfg.Routing != nil {
+					for _, iface := range ipsetCfg.Routing.Interfaces {
+						if iface == *onlyInterface {
+							appliedAny = true
+							break
+						}
+					}
+				}
+				if appliedAny {
+					break
+				}
+			}
+
+			if !appliedAny {
 				if g.FailIfNothingToApply {
 					log.Warnf("Nothing to apply, exiting with exit_code=5")
 					os.Exit(5)

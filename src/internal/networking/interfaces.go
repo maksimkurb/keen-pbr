@@ -10,9 +10,7 @@ import (
 )
 
 const colorCyan = "\033[0;36m"
-const colorGreen = "\033[0;32m"
 const colorRed = "\033[0;31m"
-const colorReset = "\033[0m"
 
 type Interface struct {
 	netlink.Link
@@ -38,11 +36,11 @@ func GetInterfaceList() ([]Interface, error) {
 	return interfaces, nil
 }
 
-func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
+func PrintInterfaces(ifaces []Interface, printIPs bool, keeneticClient *keenetic.Client) {
 	var keeneticIfaces map[string]keenetic.Interface = nil
-	if useKeeneticAPI {
-		var err error
-		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
+	var err error
+	if keeneticClient != nil {
+		keeneticIfaces, err = keeneticClient.GetInterfaces()
 		if err != nil {
 			log.Warnf("failed to get Keenetic interfaces: %v", err)
 		}
@@ -55,12 +53,10 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, useKeeneticAPI bool) {
 
 		addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
 		var keeneticIface *keenetic.Interface = nil
-		if useKeeneticAPI && addrsErr == nil {
-			for _, addr := range addrs {
-				if val, ok := keeneticIfaces[addr.IPNet.String()]; ok {
-					keeneticIface = &val
-					break
-				}
+		if keeneticIfaces != nil {
+			// Try direct lookup by system name
+			if val, ok := keeneticIfaces[attrs.Name]; ok {
+				keeneticIface = &val
 			}
 		}
 

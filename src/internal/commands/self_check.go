@@ -78,12 +78,7 @@ func (g *SelfCheckCommand) Run() error {
 
 func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 	log.Infof("----------------- IPSet [%s] ------------------", ipsetCfg.IPSetName)
-
-	if ipsetCfg.Routing.KillSwitch {
-		log.Infof("Usage of kill-switch is enabled")
-	} else {
-		log.Infof("Usage of kill-switch is DISABLED")
-	}
+	log.Infof("Blackhole route will be automatically added when all interfaces are down")
 
 	ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
 
@@ -98,7 +93,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 		}
 	}
 
-	ipRule := networking.BuildIPRuleForIpset(ipsetCfg)
+	ipRule := networking.NewIPRuleBuilder(ipsetCfg).Build()
 	if exists, err := ipRule.IsExists(); err != nil {
 		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
 		return err
@@ -110,21 +105,11 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 		}
 	}
 
-	useKeeneticAPI := *cfg.General.UseKeeneticAPI
-	var keeneticIfaces map[string]keenetic.Interface = nil
-	if useKeeneticAPI {
-		log.Infof("Usage of Keenetic API is enabled")
-		var err error
-		keeneticIfaces, err = keenetic.RciShowInterfaceMappedByIPNet()
-		if err != nil {
-			log.Errorf("Failed to query Keenetic API: %v", err)
-			return err
-		}
-	} else {
-		log.Warnf("Usage of Keenetic API is DISABLED. This may lead to wrong interface selection if you are using multiple interfaces for ipset")
-	}
+	// Create Keenetic client and interface selector
+	client := keenetic.NewClient(nil)
+	selector := networking.NewInterfaceSelector(client)
 
-	if chosenIface, err := networking.ChooseBestInterface(ipsetCfg, useKeeneticAPI, keeneticIfaces); err != nil {
+	if chosenIface, err := selector.ChooseBest(ipsetCfg); err != nil {
 		log.Errorf("Failed to choose best interface: %v", err)
 		return err
 	} else {
@@ -149,7 +134,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 }
 
 func checkIpTables(ipset *config.IPSetConfig) error {
-	ipTableRules, err := networking.BuildIPTablesForIpset(ipset)
+	ipTableRules, err := networking.NewIPTablesBuilder(ipset).Build()
 	if err != nil {
 		log.Errorf("Failed to build iptable rules: %v", err)
 		return err
@@ -185,10 +170,9 @@ func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface)
 
 		requiredRoutes := 0
 		if chosenIface != nil {
-			requiredRoutes += 1
-		}
-		if ipset.Routing.KillSwitch {
-			requiredRoutes += 1
+			requiredRoutes += 1 // default route
+		} else {
+			requiredRoutes += 1 // blackhole route when no interface is available
 		}
 
 		if len(routes) < requiredRoutes {
@@ -222,16 +206,16 @@ func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface)
 		return err
 	} else {
 		if exists {
-			if ipset.Routing.KillSwitch {
-				log.Infof("Blackhole IP route [%v] is exists", blackholeIpRoute)
+			if chosenIface == nil {
+				log.Infof("Blackhole IP route [%v] is exists (all interfaces are down)", blackholeIpRoute)
 			} else {
-				log.Errorf("Blackhole IP route [%v] is EXISTS, but kill-switch is DISABLED", blackholeIpRoute)
+				log.Errorf("Blackhole IP route [%v] EXISTS, but interface is UP (should not be present)", blackholeIpRoute)
 			}
 		} else {
-			if ipset.Routing.KillSwitch {
-				log.Errorf("Blackhole IP route [%v] is NOT exists, but kill-switch is ENABLED", blackholeIpRoute)
+			if chosenIface == nil {
+				log.Errorf("Blackhole IP route [%v] is NOT exists, but all interfaces are DOWN (should be present)", blackholeIpRoute)
 			} else {
-				log.Infof("Blackhole IP route [%v] is not exists. This is OK because kill-switch is DISABLED.", blackholeIpRoute)
+				log.Infof("Blackhole IP route [%v] is not exists. This is OK because interface is UP.", blackholeIpRoute)
 			}
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
 type Runner interface {
@@ -24,8 +25,9 @@ func loadAndValidateConfigOrFail(configPath string) (*config.Config, error) {
 		return nil, fmt.Errorf("failed to load configuration: %v", err)
 	}
 
-	// Validate configuration
-	if err = cfg.ValidateConfig(); err != nil {
+	// Validate configuration using ValidationService
+	validator := service.NewValidationService()
+	if err = validator.ValidateConfig(cfg); err != nil {
 		return nil, fmt.Errorf("configuration validation is failed: %v", err)
 	}
 	return cfg, nil

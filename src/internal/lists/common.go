@@ -125,3 +125,43 @@ func getListByName(cfg *config.Config, listName string) (*config.ListSource, err
 	}
 	return nil, fmt.Errorf("list \"%s\" not found", listName)
 }
+
+// GetNetworksFromList parses a list and returns all valid network prefixes.
+//
+// This is a public helper for the service layer to get networks from a list source.
+// It parses each line, skipping comments, DNS names, and invalid entries.
+func GetNetworksFromList(list *config.ListSource, cfg *config.Config) ([]netip.Prefix, error) {
+	var networks []netip.Prefix
+
+	err := iterateOverList(list, cfg, func(host string) error {
+		line := strings.TrimSpace(host)
+		if line == "" || strings.HasPrefix(line, "#") {
+			return nil
+		}
+
+		// Skip DNS names
+		if utils.IsDNSName(line) {
+			return nil
+		}
+
+		// Add /32 for single IPs
+		if strings.LastIndex(line, "/") < 0 {
+			line = line + "/32"
+		}
+
+		// Parse network prefix
+		if netPrefix, err := netip.ParsePrefix(line); err == nil {
+			if netPrefix.IsValid() {
+				networks = append(networks, netPrefix)
+			} else {
+				log.Warnf("Invalid network prefix, skipping: %s", host)
+			}
+		} else {
+			log.Warnf("Could not parse network prefix, skipping: %s", host)
+		}
+
+		return nil
+	})
+
+	return networks, err
+}

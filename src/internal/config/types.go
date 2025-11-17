@@ -19,7 +19,6 @@ type Config struct {
 
 type GeneralConfig struct {
 	ListsOutputDir string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticAPI *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
 	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
 	FallbackDNS    string `toml:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
 }
@@ -31,8 +30,6 @@ type IPSetConfig struct {
 	FlushBeforeApplying bool            `toml:"flush_before_applying" comment:"Clear ipset each time before filling it"`
 	Routing             *RoutingConfig  `toml:"routing"`
 	IPTablesRules       []*IPTablesRule `toml:"iptables_rule,omitempty" comment:"An iptables rule for this ipset (you can provide multiple rules).\nAvailable variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}."`
-
-	DeprecatedLists []*ListSource `toml:"list,omitempty"`
 }
 
 type IPTablesRule struct {
@@ -42,14 +39,12 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nIf use_keenetic_api is enabled, keen-pbr will also check if there is any network connectivity on this interface."`
-	KillSwitch     bool     `toml:"kill_switch" comment:"Drop all traffic to the hosts from this ipset if all interfaces are down (prevent traffic leaks)."`
+	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
+	KillSwitch     *bool    `toml:"kill_switch" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
 	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
 	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`
 	DNSOverride    string   `toml:"override_dns" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
-
-	DeprecatedInterface string `toml:"interface,omitempty"`
 }
 
 type ListSource struct {
@@ -57,8 +52,6 @@ type ListSource struct {
 	URL      string   `toml:"url,omitempty"`
 	File     string   `toml:"file,omitempty"`
 	Hosts    []string `toml:"hosts,multiline,omitempty"`
-
-	DeprecatedName string `toml:"name,omitempty"`
 }
 
 func (c *Config) GetConfigDir() string {
@@ -80,13 +73,7 @@ func (lst *ListSource) Type() string {
 }
 
 func (lst *ListSource) Name() string {
-	if lst.ListName != "" {
-		return lst.ListName
-	} else if lst.DeprecatedName != "" {
-		return lst.DeprecatedName
-	} else {
-		return ""
-	}
+	return lst.ListName
 }
 
 func (lst *ListSource) GetAbsolutePath(cfg *Config) (string, error) {
@@ -120,4 +107,14 @@ func (lst *ListSource) GetAbsolutePathAndCheckExists(cfg *Config) (string, error
 
 		return path, nil
 	}
+}
+
+// IsKillSwitchEnabled returns whether kill switch is enabled (default: true).
+// When enabled, traffic is blocked via blackhole route when all interfaces are down.
+// When disabled, ip rules and iptables rules are removed, allowing traffic to leak.
+func (rc *RoutingConfig) IsKillSwitchEnabled() bool {
+	if rc.KillSwitch == nil {
+		return true // Default to enabled for safety
+	}
+	return *rc.KillSwitch
 }

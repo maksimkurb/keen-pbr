@@ -41,7 +41,7 @@ func BuildRule(ipFamily config.IpFamily, fwmark uint32, table int, priority int)
 }
 
 func (ipr *IpRule) Add() error {
-	log.Infof("Adding IP rule [%v]", ipr)
+	log.Debugf("Adding IP rule [%v]", ipr)
 	if err := netlink.RuleAdd(ipr.Rule); err != nil {
 		log.Warnf("Failed to add IP rule [%v]: %v", ipr, err)
 		return err
@@ -50,15 +50,18 @@ func (ipr *IpRule) Add() error {
 	return nil
 }
 
-func (ipr *IpRule) AddIfNotExists() error {
+func (ipr *IpRule) AddIfNotExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
-		return err
+		return false, err
 	} else {
 		if !exists {
-			return ipr.Add()
+			if err := ipr.Add(); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (ipr *IpRule) IsExists() (bool, error) {
@@ -77,7 +80,7 @@ func (ipr *IpRule) IsExists() (bool, error) {
 }
 
 func (ipr *IpRule) Del() error {
-	log.Infof("Deleting IP rule [%v]", ipr)
+	log.Debugf("Deleting IP rule [%v]", ipr)
 	if err := netlink.RuleDel(ipr.Rule); err != nil {
 		log.Warnf("Failed to delete IP rule [%v]: %v", ipr, err)
 		return err
@@ -86,13 +89,16 @@ func (ipr *IpRule) Del() error {
 	return nil
 }
 
-func (ipr *IpRule) DelIfExists() error {
+func (ipr *IpRule) DelIfExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
-		return err
+		return false, err
 	} else {
 		if exists {
-			return ipr.Del()
+			if err := ipr.Del(); err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }
