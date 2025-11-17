@@ -13,7 +13,7 @@ import (
 //
 // Dual-Route Strategy (when kill switch enabled):
 // - Blackhole route (metric 200) ALWAYS exists as permanent fallback
-// - Default route (metric 100) added when interface available - takes precedence
+// - Default route (metric = interface index) added when interface available - takes precedence
 // - When interface goes down, default route removed, traffic falls back to blackhole
 //
 // Kill Switch Disabled:
@@ -98,7 +98,7 @@ func (r *RoutingConfigManager) ApplyIfChanged(ipset *config.IPSetConfig) (bool, 
 //
 // This method implements a dual-route strategy:
 // - Blackhole route (metric 200) is ALWAYS present as fallback
-// - Default route (metric 100) is added when interface is available - takes precedence
+// - Default route (metric = interface index) is added when interface is available - takes precedence
 // - Old default routes are cleaned up (but blackhole is preserved)
 //
 // For periodic monitoring, use ApplyIfChanged instead to avoid unnecessary updates.
@@ -134,7 +134,7 @@ func (r *RoutingConfigManager) Apply(ipset *config.IPSetConfig) error {
 //
 // This method implements a dual-route strategy with minimal downtime:
 //  1. Blackhole route ALWAYS exists with higher metric (200) as fallback
-//  2. When interface is available, default route exists with lower metric (100) - takes precedence
+//  2. When interface is available, default route exists with lower metric (interface index) - takes precedence
 //  3. Routes are updated in order: ensure blackhole → add new route → remove old routes
 //  4. Special case: single-interface ipsets never remove their route (avoid unnecessary churn)
 func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIface *Interface) error {
@@ -243,8 +243,8 @@ func (r *RoutingConfigManager) addDefaultGatewayRoute(ipset *config.IPSetConfig,
 	if added, err := ipRoute.AddIfNotExists(); err != nil {
 		return err
 	} else if added {
-		log.Infof("[%s] Added default route via %s to table %d (metric 100)",
-			ipset.IPSetName, chosenIface.Attrs().Name, ipset.Routing.IpRouteTable)
+		log.Infof("[%s] Added default route via %s to table %d (metric %d)",
+			ipset.IPSetName, chosenIface.Attrs().Name, ipset.Routing.IpRouteTable, ipRoute.Priority)
 	}
 	return nil
 }
@@ -252,8 +252,8 @@ func (r *RoutingConfigManager) addDefaultGatewayRoute(ipset *config.IPSetConfig,
 // addBlackholeRoute adds a blackhole route as permanent fallback (metric 200).
 //
 // This route always exists and acts as a safety net when no interface is available.
-// Because it has a higher metric than the default route (200 vs 100), it will only
-// be used when the default route is absent.
+// Because it has a higher metric than typical default routes (200 vs interface index),
+// it will only be used when the default route is absent.
 func (r *RoutingConfigManager) addBlackholeRoute(ipset *config.IPSetConfig) error {
 	route := BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
 	if added, err := route.AddIfNotExists(); err != nil {

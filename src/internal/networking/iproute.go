@@ -9,7 +9,6 @@ import (
 	"net"
 )
 
-const DEFAULT_ROUTE_METRIC = 100
 const BLACKHOLE_ROUTE_METRIC = 200
 
 type IpRoute struct {
@@ -45,7 +44,9 @@ func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int) *Ip
 
 	ipr.Table = table
 	ipr.LinkIndex = iface.Link.Attrs().Index
-	ipr.Priority = DEFAULT_ROUTE_METRIC
+	// Use interface index as metric to ensure unique metrics for different interfaces
+	// This prevents "file exists" errors when switching between interfaces
+	ipr.Priority = iface.Link.Attrs().Index
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
 		ipr.Dst = &net.IPNet{
