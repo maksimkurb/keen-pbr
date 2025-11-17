@@ -1017,16 +1017,26 @@ curl http://localhost:8080/api/v1/status | jq
 - Error responses use `{"error": {...}}` format instead
 
 ### Service Restart Behavior
-- Configuration changes (lists, ipsets, general settings) **automatically restart** the keen-pbr service
-- API server controls the routing service via `/opt/etc/init.d/S80keen-pbr restart`
-- Restart is asynchronous but verified before returning success response
-- If restart fails, the API returns 500 error with details
+Configuration changes (lists, ipsets, general settings) **automatically restart** services:
+1. Stop keen-pbr service (`/opt/etc/init.d/S80keen-pbr stop`)
+2. **Clear all ipsets** (`ipset flush <name>` for each - ensures clean state)
+3. Start keen-pbr service (`/opt/etc/init.d/S80keen-pbr start`)
+4. **Restart dnsmasq** (`/opt/etc/init.d/S56dnsmasq restart` - re-reads domain lists)
+
+Restart is verified before returning success response. If restart fails, API returns 500 error with details.
 
 ### Process Architecture
-- **API Server** (`keen-pbr server`): Separate process for HTTP API
+- **API Server** (`keen-pbr server`): Separate HTTP API process
 - **Routing Service** (`keen-pbr service`): Independent daemon for routing
-- API server manages config and controls service lifecycle
+- API server manages configuration and controls service lifecycle
 - Service runs independently and can be started/stopped via API
+
+### API Documentation
+**All API endpoints are fully documented in `.claude/REST.md`** with:
+- Complete endpoint specifications
+- Request/response examples
+- Error codes and handling
+- Implementation notes
 
 ### Future Enhancements
 - Consider adding `POST /api/v1/download` endpoint to trigger list downloads
