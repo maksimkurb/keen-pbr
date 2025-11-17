@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/maksimkurb/keen-pbr/src/internal/service"
@@ -68,12 +68,12 @@ func (g *ApplyCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *ApplyCommand) Run() error {
-	// Create service layer dependencies
-	ipsetMgr := networking.NewIPSetManager()
-	networkMgr := networking.NewManager(keenetic.GetDefaultClient())
+	// Create dependency container with default configuration
+	deps := domain.NewDefaultDependencies()
 
-	ipsetService := service.NewIPSetService(ipsetMgr)
-	routingService := service.NewRoutingService(networkMgr, ipsetMgr)
+	// Create services from managers
+	ipsetService := service.NewIPSetService(deps.IPSetManager())
+	routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
 
 	// Handle ipset operations
 	if !g.SkipIpset {

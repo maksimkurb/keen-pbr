@@ -18,9 +18,12 @@ type Client struct {
 	cache      *Cache
 }
 
-// NewClient creates a new Keenetic RCI API client.
+// NewClient creates a new Keenetic RCI API client with the default base URL.
 //
+// The default base URL is http://localhost:79/rci (local RCI endpoint).
 // If httpClient is nil, a default HTTP client will be used.
+//
+// For custom base URLs, use NewClientWithBaseURL.
 func NewClient(httpClient HTTPClient) *Client {
 	if httpClient == nil {
 		httpClient = &defaultHTTPClient{}
@@ -29,6 +32,28 @@ func NewClient(httpClient HTTPClient) *Client {
 	return &Client{
 		httpClient: httpClient,
 		baseURL:    rciPrefix,
+		cache:      NewCache(0), // No TTL - cache forever
+	}
+}
+
+// NewClientWithBaseURL creates a new Keenetic RCI API client with a custom base URL.
+//
+// This is useful for:
+//   - Connecting to remote Keenetic routers (e.g., "http://192.168.1.1/rci")
+//   - Testing with mock servers
+//   - Custom RCI proxy endpoints
+//
+// Example:
+//
+//	client := keenetic.NewClientWithBaseURL("http://192.168.1.1/rci", nil)
+func NewClientWithBaseURL(baseURL string, httpClient HTTPClient) *Client {
+	if httpClient == nil {
+		httpClient = &defaultHTTPClient{}
+	}
+
+	return &Client{
+		httpClient: httpClient,
+		baseURL:    baseURL,
 		cache:      NewCache(0), // No TTL - cache forever
 	}
 }

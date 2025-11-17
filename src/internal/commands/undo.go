@@ -4,8 +4,7 @@ import (
 	"flag"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
-	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
@@ -43,11 +42,11 @@ func (g *UndoCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *UndoCommand) Run() error {
-	// Create service layer dependencies
-	ipsetMgr := networking.NewIPSetManager()
-	networkMgr := networking.NewManager(keenetic.GetDefaultClient())
+	// Create dependency container with default configuration
+	deps := domain.NewDefaultDependencies()
 
-	routingService := service.NewRoutingService(networkMgr, ipsetMgr)
+	// Create routing service from managers
+	routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
 
 	// Use RoutingService to undo all routing configuration
 	return routingService.Undo(g.cfg)

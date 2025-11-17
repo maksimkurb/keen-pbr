@@ -199,28 +199,43 @@ The application follows a clean layered architecture with clear separation of co
 
 ### Dependency Injection Pattern
 
-The codebase uses a **hybrid dependency injection approach**:
+The codebase uses **AppDependencies** - a dependency injection container pattern:
 
-**Global Client Pattern** (Current):
-- The `keenetic` package maintains a global `defaultClient` instance
-- `keenetic.GetDefaultClient()` provides access for dependency injection
-- Commands create managers using this client: `networking.NewManager(keenetic.GetDefaultClient())`
-- Benefits: Simple, works immediately, avoids nil dependencies
-- Trade-off: Global state, harder to configure per-command
+**AppDependencies Container** (Implemented):
+- Located in `domain/container.go` - central DI container for all dependencies
+- Factory methods: `NewAppDependencies(config)`, `NewDefaultDependencies()`, `NewTestDependencies()`
+- Provides access to: `KeeneticClient()`, `NetworkManager()`, `IPSetManager()`
+- Benefits:
+  - Configuration-driven setup (custom Keenetic URLs, disable Keenetic entirely)
+  - Easy testing with mock implementations via `NewTestDependencies()`
+  - Explicit dependency management without global state in commands
+  - Single source of truth for dependency wiring
 
-**Why This Pattern**:
-Previously, all managers were created with `nil` clients (`NewManager(nil)`), which disabled VPN interface status checking. The global client pattern provides immediate benefits:
-- InterfaceSelector can query Keenetic API for VPN connection status
-- Smart routing decisions based on actual interface connectivity
-- Service daemon can monitor interface changes effectively
+**Usage in Commands**:
+```go
+func (c *ApplyCommand) Run() error {
+    // Create DI container with default config
+    deps := domain.NewDefaultDependencies()
 
-**Future Direction**:
-The codebase is architected to support a full DI container pattern:
-- Domain interfaces in `domain/` package ready for injection
-- Commands can be refactored to accept `AppDependencies` container
-- Configuration-driven client URLs (currently hardcoded to `http://192.168.1.1/rci`)
+    // Create services from managed dependencies
+    ipsetService := service.NewIPSetService(deps.IPSetManager())
+    routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
 
-See `src/internal/keenetic/client.go:151-165` for GetDefaultClient() implementation.
+    // Use services...
+}
+```
+
+**Configuration Options** (via `AppConfig`):
+- `KeeneticURL`: Custom Keenetic RCI endpoint (default: `http://localhost:79/rci`)
+- `DisableKeenetic`: Disable Keenetic API integration for non-router environments
+
+**Evolution**:
+Previously used `keenetic.GetDefaultClient()` with global state. Now uses `AppDependencies` for cleaner architecture. Legacy code still uses `GetDefaultClient()` but new code should use the container pattern.
+
+See:
+- `src/internal/domain/container.go` - AppDependencies implementation
+- `src/internal/keenetic/client.go:39-59` - NewClientWithBaseURL for custom URLs
+- `src/internal/commands/apply.go:70-76` - Example usage in commands
 
 ---
 
@@ -248,12 +263,12 @@ func (c *ApplyCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (c *ApplyCommand) Run() error {
-    // Create service dependencies with Keenetic client
-    ipsetMgr := networking.NewIPSetManager()
-    networkMgr := networking.NewManager(keenetic.GetDefaultClient())
+    // Create DI container with default config
+    deps := domain.NewDefaultDependencies()
 
-    ipsetService := service.NewIPSetService(ipsetMgr)
-    routingService := service.NewRoutingService(networkMgr, ipsetMgr)
+    // Create services from managed dependencies
+    ipsetService := service.NewIPSetService(deps.IPSetManager())
+    routingService := service.NewRoutingService(deps.NetworkManager(), deps.IPSetManager())
 
     // Orchestrate via services
     return routingService.Apply(cfg, opts)
@@ -363,19 +378,34 @@ interfaces, err := client.GetInterfaces()
 
 ### Domain Interfaces (`domain/`)
 
-**Purpose**: Core abstractions for dependency injection and testing.
+**Purpose**: Core abstractions for dependency injection, testing, and dependency management.
 
-**Interfaces**:
-- `NetworkManager`: Facade for all network operations
-- `RouteManager`: IP route add/delete/list operations
-- `InterfaceProvider`: Interface information retrieval
-- `IPSetManager`: IPSet create/flush/import operations
-- `KeeneticClient`: Router API interaction
+**Key Components**:
+
+1. **Interfaces** (`interfaces.go`):
+   - `NetworkManager`: Facade for all network operations
+   - `RouteManager`: IP route add/delete/list operations
+   - `InterfaceProvider`: Interface information retrieval
+   - `IPSetManager`: IPSet create/flush/import operations
+   - `KeeneticClient`: Router API interaction
+
+2. **AppDependencies Container** (`container.go`):
+   - Central DI container for managing all application dependencies
+   - Factory methods for production and test configurations
+   - Provides access to all managers and clients
+   - Supports configuration-driven setup (custom URLs, disable features)
+
+**Factory Methods**:
+- `NewAppDependencies(cfg AppConfig)`: Create with custom configuration
+- `NewDefaultDependencies()`: Create with default settings
+- `NewTestDependencies(...)`: Create with mock implementations for testing
 
 **Benefits**:
 - Enables mocking for unit tests
 - Loose coupling between layers
 - Clear contracts between components
+- Configuration-driven dependency creation
+- Single source of truth for dependency wiring
 - Easier to swap implementations
 
 ---
