@@ -43,8 +43,11 @@ func TestInterfaceSelector_WithMockKeenetic(t *testing.T) {
 func TestInterfaceSelector_IsUsable(t *testing.T) {
 	selector := NewInterfaceSelector(nil)
 
-	// Create a mock system interface (this is a simplified test)
-	// In reality, we'd need actual netlink interfaces
+	// Use loopback interface for testing (should always exist and be up)
+	testIface, err := GetInterface("lo")
+	if err != nil {
+		t.Skipf("Skipping test: loopback interface not available: %v", err)
+	}
 
 	t.Run("Interface is usable when up and connected", func(t *testing.T) {
 		keeneticIface := &keenetic.Interface{
@@ -53,15 +56,9 @@ func TestInterfaceSelector_IsUsable(t *testing.T) {
 			Link:      keenetic.KEENETIC_LINK_UP,
 		}
 
-		// Create a test interface - we'll need to mock this better in future
-		// For now, just test the keenetic part
-		testIface := (*Interface)(nil) // This needs a real interface
-
-		if testIface != nil {
-			isUsable := selector.IsUsable(testIface, keeneticIface)
-			if !isUsable {
-				t.Error("Expected interface to be usable when up and connected")
-			}
+		isUsable := selector.IsUsable(testIface, keeneticIface)
+		if !isUsable {
+			t.Error("Expected interface to be usable when up and connected")
 		}
 	})
 
@@ -72,13 +69,9 @@ func TestInterfaceSelector_IsUsable(t *testing.T) {
 			Link:      "down",
 		}
 
-		testIface := (*Interface)(nil)
-
-		if testIface != nil {
-			isUsable := selector.IsUsable(testIface, keeneticIface)
-			if isUsable {
-				t.Error("Expected interface to not be usable when disconnected")
-			}
+		isUsable := selector.IsUsable(testIface, keeneticIface)
+		if isUsable {
+			t.Error("Expected interface to not be usable when disconnected")
 		}
 	})
 }
