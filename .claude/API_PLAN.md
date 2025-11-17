@@ -25,7 +25,7 @@ GET /api/v1/lists
 **Response** (200 OK):
 ```json
 {
-  "lists": [
+  "data": [
     {
       "list_name": "local",
       "type": "hosts",
@@ -60,9 +60,11 @@ GET /api/v1/lists/{list_name}
 **Response** (200 OK):
 ```json
 {
-  "list_name": "local",
-  "type": "hosts",
-  "hosts": ["ifconfig.co", "myip2.ru"]
+  "data": {
+    "list_name": "local",
+    "type": "hosts",
+    "hosts": ["ifconfig.co", "myip2.ru"]
+  }
 }
 ```
 
@@ -104,9 +106,11 @@ or
 **Response** (201 Created):
 ```json
 {
-  "list_name": "custom-domains",
-  "type": "hosts",
-  "hosts": ["example.com", "test.com"]
+  "data": {
+    "list_name": "custom-domains",
+    "type": "hosts",
+    "hosts": ["example.com", "test.com"]
+  }
 }
 ```
 
@@ -135,9 +139,11 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
-  "list_name": "custom-domains",
-  "type": "hosts",
-  "hosts": ["newdomain.com", "another.com", "third.com"]
+  "data": {
+    "list_name": "custom-domains",
+    "type": "hosts",
+    "hosts": ["newdomain.com", "another.com", "third.com"]
+  }
 }
 ```
 
@@ -149,6 +155,7 @@ Content-Type: application/json
 - Cannot change `list_name` (use DELETE + POST instead)
 - Can change list type by specifying different source (url/file/hosts)
 - For inline lists (type="hosts"), this allows updating content directly
+- **After update**: Automatically restarts keen-pbr service to apply changes
 
 #### 1.5 Delete List
 ```
@@ -160,6 +167,9 @@ DELETE /api/v1/lists/{list_name}
 **Error Responses**:
 - 404 Not Found: List does not exist
 - 409 Conflict: List is referenced by one or more ipsets (return list of ipsets in error message)
+
+**Notes**:
+- **After delete**: Automatically restarts keen-pbr service to apply changes
 
 ---
 
@@ -175,7 +185,7 @@ GET /api/v1/ipsets
 **Response** (200 OK):
 ```json
 {
-  "ipsets": [
+  "data": [
     {
       "ipset_name": "vpn1",
       "lists": ["local-file", "local"],
@@ -203,19 +213,21 @@ GET /api/v1/ipsets/{ipset_name}
 **Response** (200 OK):
 ```json
 {
-  "ipset_name": "vpn1",
-  "lists": ["local-file", "local"],
-  "ip_version": 4,
-  "flush_before_applying": true,
-  "routing": {
-    "interfaces": ["nwg0"],
-    "kill_switch": false,
-    "fwmark": 1001,
-    "table": 1001,
-    "priority": 1001,
-    "override_dns": ""
-  },
-  "iptables_rules": []
+  "data": {
+    "ipset_name": "vpn1",
+    "lists": ["local-file", "local"],
+    "ip_version": 4,
+    "flush_before_applying": true,
+    "routing": {
+      "interfaces": ["nwg0"],
+      "kill_switch": false,
+      "fwmark": 1001,
+      "table": 1001,
+      "priority": 1001,
+      "override_dns": ""
+    },
+    "iptables_rules": []
+  }
 }
 ```
 
@@ -249,25 +261,30 @@ Content-Type: application/json
 **Response** (201 Created):
 ```json
 {
-  "ipset_name": "vpn2",
-  "lists": ["local"],
-  "ip_version": 4,
-  "flush_before_applying": true,
-  "routing": {
-    "interfaces": ["nwg1"],
-    "kill_switch": true,
-    "fwmark": 1002,
-    "table": 1002,
-    "priority": 1002,
-    "override_dns": "1.1.1.1"
-  },
-  "iptables_rules": []
+  "data": {
+    "ipset_name": "vpn2",
+    "lists": ["local"],
+    "ip_version": 4,
+    "flush_before_applying": true,
+    "routing": {
+      "interfaces": ["nwg1"],
+      "kill_switch": true,
+      "fwmark": 1002,
+      "table": 1002,
+      "priority": 1002,
+      "override_dns": "1.1.1.1"
+    },
+    "iptables_rules": []
+  }
 }
 ```
 
 **Error Responses**:
 - 400 Bad Request: Invalid request body or validation errors
 - 409 Conflict: IPSet with same name already exists
+
+**Notes**:
+- **After create**: Automatically restarts keen-pbr service to apply changes
 
 **Validation Rules**:
 - `ipset_name` must match regex `^[a-z][a-z0-9_]*$`
@@ -302,19 +319,21 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
-  "ipset_name": "vpn2",
-  "lists": ["local", "epic-games"],
-  "ip_version": 4,
-  "flush_before_applying": true,
-  "routing": {
-    "interfaces": ["nwg1", "nwg0"],
-    "kill_switch": false,
-    "fwmark": 1002,
-    "table": 1002,
-    "priority": 1002,
-    "override_dns": ""
-  },
-  "iptables_rules": []
+  "data": {
+    "ipset_name": "vpn2",
+    "lists": ["local", "epic-games"],
+    "ip_version": 4,
+    "flush_before_applying": true,
+    "routing": {
+      "interfaces": ["nwg1", "nwg0"],
+      "kill_switch": false,
+      "fwmark": 1002,
+      "table": 1002,
+      "priority": 1002,
+      "override_dns": ""
+    },
+    "iptables_rules": []
+  }
 }
 ```
 
@@ -326,6 +345,7 @@ Content-Type: application/json
 - Cannot change `ipset_name` (use DELETE + POST instead)
 - All fields are replaced (PUT semantic)
 - `iptables_rules` currently not modifiable via API (future enhancement)
+- **After update**: Automatically restarts keen-pbr service to apply changes
 
 #### 2.5 Delete IPSet
 ```
@@ -336,6 +356,9 @@ DELETE /api/v1/ipsets/{ipset_name}
 
 **Error Responses**:
 - 404 Not Found: IPSet does not exist
+
+**Notes**:
+- **After delete**: Automatically restarts keen-pbr service to apply changes
 
 ---
 
@@ -351,9 +374,11 @@ GET /api/v1/general
 **Response** (200 OK):
 ```json
 {
-  "lists_output_dir": "/opt/etc/keen-pbr/lists.d",
-  "use_keenetic_dns": true,
-  "fallback_dns": "8.8.8.8"
+  "data": {
+    "lists_output_dir": "/opt/etc/keen-pbr/lists.d",
+    "use_keenetic_dns": true,
+    "fallback_dns": "8.8.8.8"
+  }
 }
 ```
 
@@ -379,9 +404,11 @@ Content-Type: application/json
 **Response** (200 OK):
 ```json
 {
-  "lists_output_dir": "/opt/etc/keen-pbr/lists.d",
-  "use_keenetic_dns": false,
-  "fallback_dns": "1.1.1.1"
+  "data": {
+    "lists_output_dir": "/opt/etc/keen-pbr/lists.d",
+    "use_keenetic_dns": false,
+    "fallback_dns": "1.1.1.1"
+  }
 }
 ```
 
@@ -392,6 +419,7 @@ Content-Type: application/json
 - Partial updates supported (only specified fields are updated)
 - `lists_output_dir` can be updated but requires restart of keen-pbr service
 - `fallback_dns` must be valid IP address if specified, or empty string
+- **After update**: Automatically restarts keen-pbr service to apply changes
 
 ---
 
@@ -407,13 +435,20 @@ GET /api/v1/status
 **Response** (200 OK):
 ```json
 {
-  "keen_pbr_version": "2.2.2",
-  "keenetic_os_version": "3.9.5",
-  "dnsmasq_status": "alive",
-  "services": {
-    "dnsmasq": {
-      "status": "running",
-      "message": "alive"
+  "data": {
+    "keen_pbr_version": "2.2.2",
+    "keenetic_os_version": "3.9.5",
+    "dnsmasq_status": "alive",
+    "keen_pbr_service_status": "running",
+    "services": {
+      "dnsmasq": {
+        "status": "running",
+        "message": "alive"
+      },
+      "keen_pbr": {
+        "status": "running",
+        "pid": 12345
+      }
     }
   }
 }
@@ -423,6 +458,7 @@ GET /api/v1/status
 - `keen_pbr_version` (string): Current keen-pbr version from VERSION file
 - `keenetic_os_version` (string): Keenetic OS version from API, or "unknown" if unavailable
 - `dnsmasq_status` (string): "alive", "dead", or "unknown"
+- `keen_pbr_service_status` (string): "running", "stopped", or "unknown"
 - `services` (object): Detailed service status information
 
 **Error Responses**:
@@ -432,6 +468,194 @@ GET /api/v1/status
 - Version: Read from `/VERSION` file in project root
 - Keenetic OS: Query Keenetic RCI API `/show version` or similar
 - dnsmasq: Execute `/opt/etc/init.d/S56dnsmasq check` and parse output
+- keen-pbr service: Check if service is running via init.d script or PID file
+
+---
+
+### 5. Service Control (`/v1/service`)
+
+Control keen-pbr service state (start/stop).
+
+#### 5.1 Control Service State
+```
+POST /api/v1/service
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "up": true
+}
+```
+
+**Fields**:
+- `up` (boolean, required): `true` to start service, `false` to stop service
+
+**Response** (200 OK):
+```json
+{
+  "data": {
+    "status": "running",
+    "message": "Service started successfully"
+  }
+}
+```
+
+**Error Responses**:
+- 400 Bad Request: Invalid request body
+- 500 Internal Server Error: Failed to control service
+
+**Implementation**:
+- Start: Execute `/opt/etc/init.d/S80keen-pbr start`
+- Stop: Execute `/opt/etc/init.d/S80keen-pbr stop`
+- Verify status after operation
+
+**Notes**:
+- The keen-pbr service runs independently as `keen-pbr service` daemon
+- The API server (`keen-pbr server`) is a separate process that controls the service
+- Service control is done via init.d script for proper process management
+
+---
+
+### 6. Health Checks (`/v1/check`)
+
+Diagnostic endpoints for troubleshooting configuration and network state.
+
+#### 6.1 Check Networking Configuration
+```
+GET /api/v1/check/networking
+```
+
+Runs all checks from `keen-pbr self-check` command and returns boolean state for each check.
+
+**Response** (200 OK):
+```json
+{
+  "data": {
+    "checks": [
+      {
+        "name": "config_valid",
+        "description": "Configuration file is valid",
+        "status": true,
+        "message": "Configuration validated successfully"
+      },
+      {
+        "name": "ipsets_exist",
+        "description": "All configured ipsets exist",
+        "status": true,
+        "message": "All ipsets found"
+      },
+      {
+        "name": "iptables_rules",
+        "description": "IPTables rules are applied",
+        "status": false,
+        "message": "Missing iptables rule for ipset vpn1"
+      },
+      {
+        "name": "ip_rules",
+        "description": "IP rules are configured",
+        "status": true,
+        "message": "All IP rules configured"
+      },
+      {
+        "name": "ip_routes",
+        "description": "IP routes are configured",
+        "status": true,
+        "message": "All routes configured for available interfaces"
+      },
+      {
+        "name": "interfaces_available",
+        "description": "Routing interfaces are available",
+        "status": true,
+        "message": "Interface nwg0 is up"
+      }
+    ],
+    "overall_status": false,
+    "failed_checks": ["iptables_rules"]
+  }
+}
+```
+
+**Fields**:
+- `checks` (array): List of individual checks
+  - `name` (string): Check identifier
+  - `description` (string): Human-readable check description
+  - `status` (boolean): Check result (true = passed, false = failed)
+  - `message` (string): Detailed status message
+- `overall_status` (boolean): True if all checks passed
+- `failed_checks` (array of strings): Names of failed checks
+
+**Error Responses**:
+- 500 Internal Server Error: Unable to perform checks
+
+**Implementation**:
+Reuse logic from `keen-pbr self-check` command:
+- Validate configuration
+- Check ipset existence (`ipset list <name>`)
+- Verify iptables rules (`iptables -t mangle -L -n`)
+- Verify IP rules (`ip rule show`)
+- Verify IP routes (`ip route show table <N>`)
+- Check interface status
+
+#### 6.2 Check IPSet Domain Membership
+```
+GET /api/v1/check/ipset?ipset={ipset_name}&domain={domain}
+```
+
+Performs DNS lookup using Keenetic DNS server and checks if resolved IPs are in the specified ipset.
+
+**Query Parameters**:
+- `ipset` (string, required): Name of the ipset to check
+- `domain` (string, required): Domain name to resolve and check
+
+**Response** (200 OK):
+```json
+{
+  "data": {
+    "domain": "example.com",
+    "ipset": "vpn1",
+    "nameserver": "192.168.1.1",
+    "results": [
+      {
+        "ip": "93.184.216.34",
+        "in_set": true
+      },
+      {
+        "ip": "2606:2800:220:1:248:1893:25c8:1946",
+        "in_set": false
+      }
+    ],
+    "all_in_set": false
+  }
+}
+```
+
+**Fields**:
+- `domain` (string): The domain that was queried
+- `ipset` (string): The ipset that was checked
+- `nameserver` (string): DNS server used for lookup (Keenetic DNS)
+- `results` (array): Lookup results for each resolved IP
+  - `ip` (string): Resolved IP address
+  - `in_set` (boolean): Whether IP is in the ipset
+- `all_in_set` (boolean): True if all resolved IPs are in the ipset
+
+**Error Responses**:
+- 400 Bad Request: Missing required parameters
+- 404 Not Found: IPSet does not exist
+- 500 Internal Server Error: DNS lookup failed or ipset check failed
+
+**Implementation**:
+1. Get Keenetic DNS server from config or API
+2. Perform nslookup using Keenetic DNS: `nslookup <domain> <keenetic_dns>`
+3. Parse resolved IP addresses (both IPv4 and IPv6)
+4. For each IP, check membership: `ipset test <ipset_name> <ip>`
+5. Return results with in_set boolean for each IP
+
+**Example curl**:
+```bash
+curl "http://localhost:8080/api/v1/check/ipset?ipset=vpn1&domain=ifconfig.co" | jq
+```
 
 ---
 
@@ -461,8 +685,10 @@ src/internal/api/
 ├── handlers_ipsets.go      # IPSet CRUD handlers
 ├── handlers_general.go     # General settings handlers
 ├── handlers_status.go      # Status handler
+├── handlers_service.go     # Service control handler
+├── handlers_check.go       # Health check handlers
 ├── middleware.go           # Common middleware (logging, CORS, error handling)
-├── responses.go            # Standard response helpers
+├── responses.go            # Standard response helpers (data wrapper)
 ├── errors.go               # API error types and responses
 └── handlers_test.go        # API handler tests
 ```
@@ -474,7 +700,8 @@ src/internal/api/
 2. Modify in-memory Config struct
 3. Validate using `service.ValidationService`
 4. Write back using `config.WriteConfig()`
-5. Return response
+5. Restart keen-pbr service to apply changes
+6. Return response
 
 **Concurrency**:
 - Use mutex for config file writes
@@ -502,9 +729,22 @@ if err := validator.ValidateConfig(cfg); err != nil {
 if err := cfg.WriteConfig(); err != nil {
     return err
 }
+
+// Restart service to apply changes
+if err := restartKeenPBRService(); err != nil {
+    return err
+}
 ```
 
 ### Error Handling
+
+**Standard Response Wrapper**:
+All successful responses MUST wrap data in a `data` field:
+```json
+{
+  "data": { /* response payload */ }
+}
+```
 
 **Standard Error Response Format**:
 ```json
@@ -572,8 +812,15 @@ if err := cfg.WriteConfig(); err != nil {
 3. Implement GET /api/v1/status
 4. Add tests
 
-### Phase 5: Integration
-1. Add `api` command to keen-pbr CLI
+### Phase 5: Service Control & Health Checks
+1. Implement POST /api/v1/service (start/stop)
+2. Implement GET /api/v1/check/networking
+3. Implement GET /api/v1/check/ipset
+4. Add service restart logic for config changes
+5. Add tests
+
+### Phase 6: Integration
+1. Add `server` command to keen-pbr CLI
 2. Add configuration for API server (port, bind address)
 3. Add systemd/init.d integration
 4. Documentation and examples
@@ -582,10 +829,10 @@ if err := cfg.WriteConfig(); err != nil {
 
 ## CLI Integration
 
-### New Command: `api`
+### New Command: `server`
 
 ```bash
-keen-pbr api [options]
+keen-pbr server [options]
 ```
 
 **Options**:
@@ -595,10 +842,31 @@ keen-pbr api [options]
 **Example**:
 ```bash
 # Start API server
-keen-pbr api --bind 127.0.0.1:8080
+keen-pbr server --bind 127.0.0.1:8080
 
 # Start with custom config
-keen-pbr api --config /custom/path/keen-pbr.conf --bind :9000
+keen-pbr server --config /custom/path/keen-pbr.conf --bind :9000
+```
+
+### Architecture: API Server + Service Separation
+
+The API server and routing service are **separate processes**:
+
+1. **API Server** (`keen-pbr server`):
+   - HTTP REST API server
+   - Manages configuration files
+   - Controls the routing service via init.d scripts
+   - Does NOT perform routing operations directly
+
+2. **Routing Service** (`keen-pbr service`):
+   - Policy-based routing daemon
+   - Monitors interfaces and applies routing rules
+   - Controlled by API server via `/opt/etc/init.d/S80keen-pbr`
+   - Restarted automatically when configuration changes
+
+**Service Control Flow**:
+```
+API Request → API Server → Modify Config → init.d restart → Routing Service
 ```
 
 ### Configuration File Addition
@@ -741,16 +1009,33 @@ curl http://localhost:8080/api/v1/status | jq
 
 ---
 
-## Notes
+## Important Notes
 
-- API does NOT automatically apply changes (user must run `keen-pbr apply`)
-- Configuration is immediately persisted to file
-- Consider adding `POST /api/v1/apply` endpoint to trigger application
+### Data Wrapper Requirement
+- **ALL successful responses MUST wrap data in `{"data": ...}` format**
+- Never return arrays or objects directly as JSON root
+- Error responses use `{"error": {...}}` format instead
+
+### Service Restart Behavior
+- Configuration changes (lists, ipsets, general settings) **automatically restart** the keen-pbr service
+- API server controls the routing service via `/opt/etc/init.d/S80keen-pbr restart`
+- Restart is asynchronous but verified before returning success response
+- If restart fails, the API returns 500 error with details
+
+### Process Architecture
+- **API Server** (`keen-pbr server`): Separate process for HTTP API
+- **Routing Service** (`keen-pbr service`): Independent daemon for routing
+- API server manages config and controls service lifecycle
+- Service runs independently and can be started/stopped via API
+
+### Future Enhancements
 - Consider adding `POST /api/v1/download` endpoint to trigger list downloads
 - Consider WebSocket endpoint for real-time status updates
+- Add batch operations for bulk configuration changes
+- Add configuration rollback functionality
 
 ---
 
-*Version: 1.0*
+*Version: 2.0*
 *Date: 2024-11-17*
-*Status: Draft*
+*Status: Updated with service control, health checks, and data wrapper requirement*
