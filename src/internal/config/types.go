@@ -30,8 +30,6 @@ type IPSetConfig struct {
 	FlushBeforeApplying bool            `toml:"flush_before_applying" comment:"Clear ipset each time before filling it"`
 	Routing             *RoutingConfig  `toml:"routing"`
 	IPTablesRules       []*IPTablesRule `toml:"iptables_rule,omitempty" comment:"An iptables rule for this ipset (you can provide multiple rules).\nAvailable variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}."`
-
-	DeprecatedLists []*ListSource `toml:"list,omitempty"`
 }
 
 type IPTablesRule struct {
@@ -47,8 +45,6 @@ type RoutingConfig struct {
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
 	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`
 	DNSOverride    string   `toml:"override_dns" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
-
-	DeprecatedInterface string `toml:"interface,omitempty"`
 }
 
 type ListSource struct {
@@ -56,8 +52,6 @@ type ListSource struct {
 	URL      string   `toml:"url,omitempty"`
 	File     string   `toml:"file,omitempty"`
 	Hosts    []string `toml:"hosts,multiline,omitempty"`
-
-	DeprecatedName string `toml:"name,omitempty"`
 }
 
 func (c *Config) GetConfigDir() string {
@@ -79,13 +73,7 @@ func (lst *ListSource) Type() string {
 }
 
 func (lst *ListSource) Name() string {
-	if lst.ListName != "" {
-		return lst.ListName
-	} else if lst.DeprecatedName != "" {
-		return lst.DeprecatedName
-	} else {
-		return ""
-	}
+	return lst.ListName
 }
 
 func (lst *ListSource) GetAbsolutePath(cfg *Config) (string, error) {
