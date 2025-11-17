@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 // LoggingMiddleware logs HTTP requests

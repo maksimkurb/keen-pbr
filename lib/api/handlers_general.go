@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/maksimkurb/keen-pbr/lib/config"
 )
 
 // GeneralResponse represents general settings in API responses

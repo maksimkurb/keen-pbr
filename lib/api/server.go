@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 // Server represents the API server

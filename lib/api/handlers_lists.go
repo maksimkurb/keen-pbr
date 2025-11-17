@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/lib/config"
 )
 
 // ListResponse represents a list in API responses

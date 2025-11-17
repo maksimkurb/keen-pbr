@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"sync"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/lib/config"
+	"github.com/maksimkurb/keen-pbr/lib/log"
 )
 
 // configMutex protects concurrent config file access

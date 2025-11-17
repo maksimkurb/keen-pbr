@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/lib/config"
 )
 
 var ipsetNameRegex = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
@@ -51,7 +51,7 @@ type IPSetRequest struct {
 // RoutingRequest represents routing config in API requests
 type RoutingRequest struct {
 	Interfaces  []string `json:"interfaces"`
-	KillSwitch  *bool    `json:"kill_switch,omitempty"`
+	KillSwitch  bool     `json:"kill_switch"`
 	FwMark      uint32   `json:"fwmark"`
 	Table       int      `json:"table"`
 	Priority    int      `json:"priority"`
@@ -62,7 +62,7 @@ type RoutingRequest struct {
 func toIPSetResponse(ipset *config.IPSetConfig) IPSetResponse {
 	routing := &RoutingResponse{
 		Interfaces:  ipset.Routing.Interfaces,
-		KillSwitch:  ipset.Routing.IsKillSwitchEnabled(),
+		KillSwitch:  ipset.Routing.KillSwitch,
 		FwMark:      ipset.Routing.FwMark,
 		Table:       ipset.Routing.IpRouteTable,
 		Priority:    ipset.Routing.IpRulePriority,

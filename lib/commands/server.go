@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/maksimkurb/keen-pbr/lib/api"
 	"github.com/maksimkurb/keen-pbr/lib/log"
-	"github.com/maksimkurb/keen-pbr/src/internal/api"
 )
 
 // CreateServerCommand creates a new server command
