@@ -11,14 +11,19 @@ import (
 // RoutingConfigManager handles dynamic routing configuration that changes
 // based on interface state.
 //
-// Dual-Route Strategy:
+// Dual-Route Strategy (when kill switch enabled):
 // - Blackhole route (metric 200) ALWAYS exists as permanent fallback
 // - Default route (metric 100) added when interface available - takes precedence
 // - When interface goes down, default route removed, traffic falls back to blackhole
 //
+// Kill Switch Disabled:
+// - When all interfaces are down, removes ip rules and iptables rules
+// - Allows traffic to leak to default routing instead of blocking
+//
 // This strategy provides:
 // - Automatic failover without needing to reconfigure blackhole
-// - No traffic leaks when all interfaces are down
+// - No traffic leaks when all interfaces are down (with kill switch enabled)
+// - Controlled leaks when kill switch disabled
 // - Metric-based routing ensures best path is always used
 //
 // The manager tracks the current active interface for each ipset and only
@@ -26,14 +31,16 @@ import (
 // unnecessary route churn.
 type RoutingConfigManager struct {
 	interfaceSelector *InterfaceSelector
+	persistentConfig  *PersistentConfigManager
 	mu                sync.Mutex
 	activeInterfaces  map[string]string // ipset name -> active interface name (or "" for blackhole)
 }
 
 // NewRoutingConfigManager creates a new routing configuration manager.
-func NewRoutingConfigManager(interfaceSelector *InterfaceSelector) *RoutingConfigManager {
+func NewRoutingConfigManager(interfaceSelector *InterfaceSelector, persistentConfig *PersistentConfigManager) *RoutingConfigManager {
 	return &RoutingConfigManager{
 		interfaceSelector: interfaceSelector,
+		persistentConfig:  persistentConfig,
 		activeInterfaces:  make(map[string]string),
 	}
 }
@@ -147,16 +154,24 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 		}
 	}
 
-	// Step 2: Ensure blackhole route ALWAYS exists (permanent fallback with metric 200)
-	if !blackholePresent {
-		if err := r.addBlackholeRoute(ipset); err != nil {
-			return err
-		}
-	}
+	// Step 2: Handle kill switch behavior
+	killSwitchEnabled := ipset.Routing.IsKillSwitchEnabled()
 
 	// Step 3: Add new default gateway route if interface available (metric 100, takes precedence)
 	// This happens BEFORE removing old routes to minimize downtime
 	if chosenIface != nil {
+		// Interface is available - ensure persistent config is applied
+		if err := r.persistentConfig.Apply(ipset); err != nil {
+			return err
+		}
+
+		// Ensure blackhole route exists (if kill switch enabled)
+		if killSwitchEnabled && !blackholePresent {
+			if err := r.addBlackholeRoute(ipset); err != nil {
+				return err
+			}
+		}
+
 		if err := r.addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
@@ -174,23 +189,47 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			}
 		}
 	} else {
-		// Special case: if only ONE interface configured, keep its route even if down
-		// This avoids unnecessary route churn when the interface is temporarily unavailable
-		if len(ipset.Routing.Interfaces) == 1 {
-			// Keep existing routes, don't remove them
-			log.Debugf("[%s] Only one interface configured, keeping existing route (avoid churn)", ipset.IPSetName)
+		// No interface available - handle based on kill switch setting
+		if !killSwitchEnabled {
+			// Kill switch disabled: remove all routing config to allow traffic leaks
+			log.Infof("[%s] Kill switch disabled and no interface available, removing routing config (traffic will leak)", ipset.IPSetName)
+
+			// Remove all routes from the routing table
+			if err := DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
+				return err
+			}
+
+			// Remove persistent config (ip rules and iptables rules)
+			if err := r.persistentConfig.Remove(ipset); err != nil {
+				return err
+			}
 		} else {
-			// Multiple interfaces available: remove all default routes, fall back to blackhole
-			anyRemoved := false
-			for _, route := range existingRoutes {
-				if deleted, err := route.DelIfExists(); err != nil {
+			// Kill switch enabled: keep blackhole route and persistent config
+			// Ensure blackhole route exists (permanent fallback with metric 200)
+			if !blackholePresent {
+				if err := r.addBlackholeRoute(ipset); err != nil {
 					return err
-				} else if deleted {
-					anyRemoved = true
 				}
 			}
-			if anyRemoved {
-				log.Infof("[%s] No interface available, removed default routes (using blackhole)", ipset.IPSetName)
+
+			// Special case: if only ONE interface configured, keep its route even if down
+			// This avoids unnecessary route churn when the interface is temporarily unavailable
+			if len(ipset.Routing.Interfaces) == 1 {
+				// Keep existing routes, don't remove them
+				log.Debugf("[%s] Only one interface configured, keeping existing route (avoid churn)", ipset.IPSetName)
+			} else {
+				// Multiple interfaces available: remove all default routes, fall back to blackhole
+				anyRemoved := false
+				for _, route := range existingRoutes {
+					if deleted, err := route.DelIfExists(); err != nil {
+						return err
+					} else if deleted {
+						anyRemoved = true
+					}
+				}
+				if anyRemoved {
+					log.Infof("[%s] No interface available, removed default routes (using blackhole)", ipset.IPSetName)
+				}
 			}
 		}
 	}

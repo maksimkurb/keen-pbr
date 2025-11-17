@@ -25,10 +25,11 @@ type Manager struct {
 // In this case, only system-level interface status will be used for routing decisions.
 func NewManager(keeneticClient *keenetic.Client) *Manager {
 	interfaceSelector := NewInterfaceSelector(keeneticClient)
+	persistentConfig := NewPersistentConfigManager()
 
 	return &Manager{
-		persistentConfig:  NewPersistentConfigManager(),
-		routingConfig:     NewRoutingConfigManager(interfaceSelector),
+		persistentConfig:  persistentConfig,
+		routingConfig:     NewRoutingConfigManager(interfaceSelector, persistentConfig),
 		interfaceSelector: interfaceSelector,
 	}
 }

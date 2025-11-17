@@ -41,7 +41,8 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route)."`
+	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
+	KillSwitch     *bool    `toml:"kill_switch" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
 	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
 	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`
@@ -118,4 +119,14 @@ func (lst *ListSource) GetAbsolutePathAndCheckExists(cfg *Config) (string, error
 
 		return path, nil
 	}
+}
+
+// IsKillSwitchEnabled returns whether kill switch is enabled (default: true).
+// When enabled, traffic is blocked via blackhole route when all interfaces are down.
+// When disabled, ip rules and iptables rules are removed, allowing traffic to leak.
+func (rc *RoutingConfig) IsKillSwitchEnabled() bool {
+	if rc.KillSwitch == nil {
+		return true // Default to enabled for safety
+	}
+	return *rc.KillSwitch
 }
