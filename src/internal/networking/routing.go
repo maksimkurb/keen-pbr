@@ -125,32 +125,29 @@ func (r *RoutingConfigManager) Apply(ipset *config.IPSetConfig) error {
 // applyRoutes is the internal method that actually applies routes.
 // Must be called with mutex held.
 //
-// This method implements a dual-route strategy for reliability:
+// This method implements a dual-route strategy with minimal downtime:
 //  1. Blackhole route ALWAYS exists with higher metric (200) as fallback
 //  2. When interface is available, default route exists with lower metric (100) - takes precedence
-//  3. When interface unavailable, only blackhole route remains - prevents traffic leaks
+//  3. Routes are updated in order: ensure blackhole → add new route → remove old routes
+//  4. Special case: single-interface ipsets never remove their route (avoid unnecessary churn)
 func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIface *Interface) error {
 	blackholePresent := false
+	var existingRoutes []*IpRoute
 
-	// List and clean up existing default routes (but preserve blackhole)
+	// Step 1: List existing routes
 	if routes, err := ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
 		return err
 	} else {
 		for _, route := range routes {
-			// Keep blackhole route - it's our permanent fallback
 			if route.Type&unix.RTN_BLACKHOLE != 0 {
 				blackholePresent = true
-				continue
-			}
-
-			// Remove old default routes (will be re-added if interface available)
-			if err := route.DelIfExists(); err != nil {
-				return err
+			} else {
+				existingRoutes = append(existingRoutes, route)
 			}
 		}
 	}
 
-	// Step 1: Ensure blackhole route ALWAYS exists (permanent fallback with metric 200)
+	// Step 2: Ensure blackhole route ALWAYS exists (permanent fallback with metric 200)
 	if !blackholePresent {
 		log.Infof("Ensuring blackhole route exists for ipset [%s] (metric 200, fallback)", ipset.IPSetName)
 		if err := r.addBlackholeRoute(ipset); err != nil {
@@ -158,16 +155,42 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 		}
 	}
 
-	// Step 2: Add default gateway route if interface available (metric 100, takes precedence)
+	// Step 3: Add new default gateway route if interface available (metric 100, takes precedence)
+	// This happens BEFORE removing old routes to minimize downtime
 	if chosenIface != nil {
 		log.Infof("Adding default gateway route for ipset [%s] via %s (metric 100, active)",
 			ipset.IPSetName, chosenIface.Attrs().Name)
 		if err := r.addDefaultGatewayRoute(ipset, chosenIface); err != nil {
 			return err
 		}
+
+		// Step 4: Clean up old routes (now that new route is in place)
+		for _, route := range existingRoutes {
+			// Skip if this is the route we just added (same interface)
+			if route.LinkIndex == chosenIface.Link.Attrs().Index {
+				continue
+			}
+			if err := route.DelIfExists(); err != nil {
+				return err
+			}
+		}
 	} else {
-		log.Infof("No interface available for ipset [%s], traffic will use blackhole route (metric 200)",
-			ipset.IPSetName)
+		// Special case: if only ONE interface configured, keep its route even if down
+		// This avoids unnecessary route churn when the interface is temporarily unavailable
+		if len(ipset.Routing.Interfaces) == 1 {
+			log.Infof("Only one interface configured for ipset [%s], keeping existing route (avoid churn)",
+				ipset.IPSetName)
+			// Keep existing routes, don't remove them
+		} else {
+			// Multiple interfaces available: remove all default routes, fall back to blackhole
+			log.Infof("No interface available for ipset [%s], removing default routes (traffic will use blackhole metric 200)",
+				ipset.IPSetName)
+			for _, route := range existingRoutes {
+				if err := route.DelIfExists(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	return nil
