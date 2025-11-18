@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useUpdateList } from '../../src/hooks/useLists';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../src/api/client';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +41,13 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
     type: 'url',
   });
 
+  // Fetch full list data when editing an inline hosts list
+  const { data: fullListData } = useQuery({
+    queryKey: ['list', list?.list_name],
+    queryFn: () => apiClient.getList(list!.list_name),
+    enabled: !!list && list.type === 'hosts',
+  });
+
   // Initialize form when list changes
   useEffect(() => {
     if (list) {
@@ -47,10 +56,10 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
         type: list.type,
         url: list.url,
         file: list.file,
-        hosts: '', // Hosts are not returned in GET response
+        hosts: fullListData?.hosts ? fullListData.hosts.join('\n') : '',
       });
     }
-  }, [list]);
+  }, [list, fullListData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +181,7 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
               <Field>
                 <FieldLabel htmlFor="hosts">Hosts</FieldLabel>
                 <FieldDescription>
-                  Enter one domain/IP/CIDR per line. Note: Inline hosts are not shown in GET responses.
+                  Enter one domain/IP/CIDR per line
                 </FieldDescription>
                 <Textarea
                   id="hosts"

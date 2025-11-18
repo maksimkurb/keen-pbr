@@ -30,6 +30,7 @@ export interface ListInfo {
 	type: "url" | "file" | "hosts";
 	url?: string;
 	file?: string;
+	hosts?: string[]; // Only populated in GET single list endpoint for inline hosts
 	stats: ListStatistics | null;
 }
 

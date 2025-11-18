@@ -13,7 +13,8 @@ type ListInfo struct {
 	Type     string          `json:"type"` // "url", "file", "hosts"
 	URL      string          `json:"url,omitempty"`
 	File     string          `json:"file,omitempty"`
-	Stats    *ListStatistics `json:"stats"` // nil if statistics not yet calculated
+	Hosts    []string        `json:"hosts,omitempty"` // Only included for GET single list of type "hosts"
+	Stats    *ListStatistics `json:"stats"`           // nil if statistics not yet calculated
 }
 
 // ListStatistics contains statistics about list content and download status.
