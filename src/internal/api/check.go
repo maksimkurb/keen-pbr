@@ -87,9 +87,10 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 // findMatchingIPSets checks which IPSets contain the given host or IPs
 func (h *Handler) findMatchingIPSets(cfg *config.Config, host string, ips []string) []IPSetMatch {
 	matches := []IPSetMatch{}
+	matchedIPSets := make(map[string]bool) // Track which IPSets we've already matched
 
 	for _, ipsetConfig := range cfg.IPSets {
-		// Check each list in this IPSet
+		// Check each list in this IPSet for domain matches (inline hosts only)
 		for _, listName := range ipsetConfig.Lists {
 			// Find the list config
 			var listSource *config.ListSource
@@ -108,23 +109,56 @@ func (h *Handler) findMatchingIPSets(cfg *config.Config, host string, ips []stri
 			if listSource.Hosts != nil {
 				for _, domainPattern := range listSource.Hosts {
 					if h.matchesDomain(host, domainPattern) {
-						matches = append(matches, IPSetMatch{
-							IPSetName: ipsetConfig.IPSetName,
-							MatchType: "domain",
-						})
+						if !matchedIPSets[ipsetConfig.IPSetName] {
+							matches = append(matches, IPSetMatch{
+								IPSetName: ipsetConfig.IPSetName,
+								MatchType: "domain",
+							})
+							matchedIPSets[ipsetConfig.IPSetName] = true
+						}
 						goto nextIPSet
 					}
 				}
 			}
-
-			// Check if any resolved IPs match (for URL/file lists, we can't check without reading them)
-			// This would require reading the actual list files which is more complex
-			// For now, we'll just mark domain matches
 		}
 	nextIPSet:
 	}
 
+	// Check if any resolved IPs are actually in the IPSets using ipset test command
+	for _, ip := range ips {
+		for _, ipsetConfig := range cfg.IPSets {
+			// Skip if we already matched this IPSet
+			if matchedIPSets[ipsetConfig.IPSetName] {
+				continue
+			}
+
+			// Test if this IP is in the IPSet
+			if h.testIPInIPSet(ipsetConfig.IPSetName, ip) {
+				matchType := "ipv4"
+				if strings.Contains(ip, ":") {
+					matchType = "ipv6"
+				}
+
+				matches = append(matches, IPSetMatch{
+					IPSetName: ipsetConfig.IPSetName,
+					MatchType: matchType,
+				})
+				matchedIPSets[ipsetConfig.IPSetName] = true
+			}
+		}
+	}
+
 	return matches
+}
+
+// testIPInIPSet tests if an IP is in an IPSet using the ipset test command
+func (h *Handler) testIPInIPSet(ipsetName, ip string) bool {
+	// Run: ipset test <ipset_name> <ip>
+	cmd := exec.Command("ipset", "test", ipsetName, ip)
+	err := cmd.Run()
+
+	// ipset test returns exit code 0 if IP is in the set, 1 if not
+	return err == nil
 }
 
 // matchesDomain checks if a host matches a domain pattern (supports wildcards)
