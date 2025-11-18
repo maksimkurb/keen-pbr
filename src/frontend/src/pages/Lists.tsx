@@ -52,25 +52,27 @@ export default function Lists() {
   const ipsetNames = ipsets?.map((ipset) => ipset.ipset_name) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{t('lists.title')}</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold">{t('lists.title')}</h1>
+          <p className="mt-1 md:mt-2 text-sm md:text-base text-muted-foreground">
             Manage IP/domain lists ({lists?.length || 0})
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={handleDownloadAllLists}
             disabled={downloadAllLists.isPending}
+            className="w-full sm:w-auto"
           >
             <Download className={`mr-2 h-4 w-4 ${downloadAllLists.isPending ? 'animate-spin' : ''}`} />
-            Download All Lists
+            <span className="hidden sm:inline">Download All Lists</span>
+            <span className="sm:hidden">Download All</span>
           </Button>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             {t('lists.newList')}
           </Button>

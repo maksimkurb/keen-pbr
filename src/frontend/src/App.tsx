@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -19,6 +20,32 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  // Apply dark mode based on system preference
+  useEffect(() => {
+    const applyTheme = (isDark: boolean) => {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    // Check initial preference
+    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    applyTheme(darkModeQuery.matches);
+
+    // Listen for changes in system preference
+    const handleChange = (e: MediaQueryListEvent) => {
+      applyTheme(e.matches);
+    };
+
+    darkModeQuery.addEventListener('change', handleChange);
+
+    return () => {
+      darkModeQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>

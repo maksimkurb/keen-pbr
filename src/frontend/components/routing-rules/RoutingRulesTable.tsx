@@ -69,8 +69,8 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
-        <table className="w-full">
+      <div className="rounded-md border overflow-x-auto">
+        <table className="w-full min-w-[800px]">
           <thead>
             <tr className="border-b bg-muted/50">
               <th className="p-3 text-left text-sm font-medium">{t('routingRules.columns.name')}</th>

@@ -6,9 +6,8 @@ import App from './App';
 // Initialize Sentry for error tracking
 Sentry.init({
   dsn: 'https://b08196025c344c4784e3e8220de1d7e3@o175530.ingest.us.sentry.io/4510388317388800',
-  // Setting this option to true will send default PII data to Sentry.
-  // For example, automatic IP address collection on events
-  sendDefaultPii: true,
+  // Disable default PII data collection for privacy
+  sendDefaultPii: false,
 });
 
 const rootEl = document.getElementById('root');

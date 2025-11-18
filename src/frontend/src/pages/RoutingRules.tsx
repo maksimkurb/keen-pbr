@@ -35,16 +35,16 @@ export default function RoutingRules() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t('routingRules.title')}</h1>
-          <p className="text-muted-foreground mt-2">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold">{t('routingRules.title')}</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
             Manage IPSet routing configurations for policy-based routing
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={() => setCreateDialogOpen(true)} className="w-full md:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           {t('routingRules.newRule')}
         </Button>
