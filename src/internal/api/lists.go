@@ -474,7 +474,8 @@ func (h *Handler) DownloadList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Download the list
-	if err := lists.DownloadList(list, cfg); err != nil {
+	changed, err := lists.DownloadList(list, cfg)
+	if err != nil {
 		WriteInternalError(w, "Failed to download list: "+err.Error())
 		return
 	}
@@ -482,9 +483,13 @@ func (h *Handler) DownloadList(w http.ResponseWriter, r *http.Request) {
 	// Invalidate cache for this list
 	h.deps.ListManager().InvalidateCache(list, cfg)
 
-	// Return the updated list info
+	// Return the updated list info with changed status
 	listInfo := h.convertToListInfo(list, cfg, false)
-	writeJSONData(w, listInfo)
+	response := &ListDownloadResponse{
+		ListInfo: listInfo,
+		Changed:  changed,
+	}
+	writeJSONData(w, response)
 }
 
 // DownloadAllLists downloads all lists from their URLs.

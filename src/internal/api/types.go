@@ -34,6 +34,12 @@ type ListsResponse struct {
 	Lists []*ListInfo `json:"lists"`
 }
 
+// ListDownloadResponse returns the result of downloading a list.
+type ListDownloadResponse struct {
+	*ListInfo
+	Changed bool `json:"changed"` // true if the list was updated, false if unchanged
+}
+
 // IPSetsResponse returns all ipsets in the configuration.
 type IPSetsResponse struct {
 	IPSets []*config.IPSetConfig `json:"ipsets"`

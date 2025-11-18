@@ -47,6 +47,10 @@ export interface UpdateListRequest {
 	hosts?: string[];
 }
 
+export interface ListDownloadResponse extends ListInfo {
+	changed: boolean; // true if the list was updated, false if unchanged
+}
+
 // IPSet types
 export interface RoutingConfig {
 	interfaces: string[];
@@ -231,8 +235,8 @@ export class KeenPBRClient {
 		await this.request<void>("DELETE", `/lists/${encodeURIComponent(name)}`);
 	}
 
-	async downloadList(name: string): Promise<ListInfo> {
-		return this.request<ListInfo>(
+	async downloadList(name: string): Promise<ListDownloadResponse> {
+		return this.request<ListDownloadResponse>(
 			"POST",
 			`/lists-download/${encodeURIComponent(name)}`,
 		);

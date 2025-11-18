@@ -56,6 +56,15 @@
       "description": "Create your first list to get started",
       "createButton": "Create List",
       "clearFilters": "Clear filters"
+    },
+    "download": {
+      "success": "List \"{{name}}\" downloaded successfully",
+      "unchanged": "List \"{{name}}\" is up to date (no changes)",
+      "error": "Failed to download list: {{error}}"
+    },
+    "downloadAll": {
+      "success": "All lists downloaded successfully",
+      "error": "Failed to download lists: {{error}}"
     }
   },
   "routingRules": {

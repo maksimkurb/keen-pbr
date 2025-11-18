@@ -25,8 +25,12 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
 
   const handleDownloadList = async (listName: string) => {
     try {
-      await downloadList.mutateAsync(listName);
-      toast.success(t('lists.download.success', { name: listName }));
+      const result = await downloadList.mutateAsync(listName);
+      if (result.changed) {
+        toast.success(t('lists.download.success', { name: listName }));
+      } else {
+        toast.info(t('lists.download.unchanged', { name: listName }));
+      }
     } catch (error) {
       toast.error(t('lists.download.error', { error: String(error) }));
     }
