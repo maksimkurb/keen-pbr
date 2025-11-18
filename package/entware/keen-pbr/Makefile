@@ -37,7 +37,7 @@ define Build/Compile
 		npm run build
 
 	# Build Go binary
-	$(call Build/Compile/Default)
+	$(call Build/Compile/Go)
 endef
 
 define Package/keen-pbr/conffiles
