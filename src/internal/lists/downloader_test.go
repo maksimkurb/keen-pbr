@@ -208,10 +208,18 @@ func TestDownloadLists_FileUnchanged(t *testing.T) {
 }
 
 func TestDownloadLists_InvalidListsDir(t *testing.T) {
-	// Try to create directory in a path that doesn't exist and can't be created
+	// Create a file to use as the directory path, which will cause mkdir to fail
+	tmpFile, err := os.CreateTemp("", "testfile")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	// Try to use a file path as directory (will fail)
 	cfg := &config.Config{
 		General: &config.GeneralConfig{
-			ListsOutputDir: "/invalid/nonexistent/path",
+			ListsOutputDir: tmpFile.Name(), // This is a file, not a directory
 		},
 		Lists: []*config.ListSource{
 			{
@@ -220,8 +228,8 @@ func TestDownloadLists_InvalidListsDir(t *testing.T) {
 			},
 		},
 	}
-	
-	err := DownloadLists(cfg)
+
+	err = DownloadLists(cfg)
 	if err == nil {
 		t.Error("Expected error for invalid lists directory")
 	}
