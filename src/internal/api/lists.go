@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
@@ -439,4 +440,73 @@ func (h *Handler) calculateFileStatistics(list *config.ListSource, cfg *config.C
 	}
 
 	return totalHosts, ipv4Count, ipv6Count
+}
+
+// DownloadList downloads a specific list from its URL.
+// POST /api/v1/lists-download/:name
+func (h *Handler) DownloadList(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+
+	cfg, err := h.loadConfig()
+	if err != nil {
+		WriteInternalError(w, "Failed to load configuration: "+err.Error())
+		return
+	}
+
+	// Find the list
+	var list *config.ListSource
+	for _, l := range cfg.Lists {
+		if l.ListName == name {
+			list = l
+			break
+		}
+	}
+
+	if list == nil {
+		WriteNotFound(w, "List")
+		return
+	}
+
+	// Check if list has a URL
+	if list.URL == "" {
+		WriteInvalidRequest(w, "List does not have a URL configured")
+		return
+	}
+
+	// Download the list
+	if err := lists.DownloadList(list, cfg); err != nil {
+		WriteInternalError(w, "Failed to download list: "+err.Error())
+		return
+	}
+
+	// Invalidate cache for this list
+	h.deps.ListManager().InvalidateCache(list, cfg)
+
+	// Return the updated list info
+	listInfo := h.convertToListInfo(list, cfg, false)
+	writeJSONData(w, listInfo)
+}
+
+// DownloadAllLists downloads all lists from their URLs.
+// POST /api/v1/lists-download
+func (h *Handler) DownloadAllLists(w http.ResponseWriter, r *http.Request) {
+	cfg, err := h.loadConfig()
+	if err != nil {
+		WriteInternalError(w, "Failed to load configuration: "+err.Error())
+		return
+	}
+
+	// Download all lists
+	if err := lists.DownloadLists(cfg); err != nil {
+		WriteInternalError(w, "Failed to download lists: "+err.Error())
+		return
+	}
+
+	// Invalidate all caches
+	h.deps.ListManager().InvalidateAll()
+
+	// Return success message
+	writeJSONData(w, map[string]string{
+		"message": "All lists downloaded successfully",
+	})
 }

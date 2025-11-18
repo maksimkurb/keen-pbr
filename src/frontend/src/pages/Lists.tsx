@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus } from 'lucide-react';
-import { useLists } from '../hooks/useLists';
+import { Loader2, Plus, Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { useLists, useDownloadAllLists } from '../hooks/useLists';
 import { useIPSets } from '../hooks/useIPSets';
 import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/alert';
@@ -14,8 +15,18 @@ export default function Lists() {
   const { data: lists, isLoading: listsLoading, error: listsError } = useLists();
   const { data: ipsets, isLoading: ipsetsLoading } = useIPSets();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const downloadAllLists = useDownloadAllLists();
 
   const isLoading = listsLoading || ipsetsLoading;
+
+  const handleDownloadAllLists = async () => {
+    try {
+      await downloadAllLists.mutateAsync();
+      toast.success(t('lists.downloadAll.success'));
+    } catch (error) {
+      toast.error(t('lists.downloadAll.error', { error: String(error) }));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -50,10 +61,20 @@ export default function Lists() {
             Manage IP/domain lists ({lists?.length || 0})
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('lists.newList')}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleDownloadAllLists}
+            disabled={downloadAllLists.isPending}
+          >
+            <Download className={`mr-2 h-4 w-4 ${downloadAllLists.isPending ? 'animate-spin' : ''}`} />
+            Download All Lists
+          </Button>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('lists.newList')}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

@@ -231,6 +231,17 @@ export class KeenPBRClient {
 		await this.request<void>("DELETE", `/lists/${encodeURIComponent(name)}`);
 	}
 
+	async downloadList(name: string): Promise<ListInfo> {
+		return this.request<ListInfo>(
+			"POST",
+			`/lists-download/${encodeURIComponent(name)}`,
+		);
+	}
+
+	async downloadAllLists(): Promise<{ message: string }> {
+		return this.request<{ message: string }>("POST", "/lists-download");
+	}
+
 	// IPSets API
 	async getIPSets(): Promise<IPSetConfig[]> {
 		const result = await this.request<{ ipsets: IPSetConfig[] }>(

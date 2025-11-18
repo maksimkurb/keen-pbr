@@ -111,7 +111,7 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
             <Field>
               <FieldLabel htmlFor="list_name">List Name</FieldLabel>
               <FieldDescription>
-                A unique name for this list
+                Cannot be changed after creation
               </FieldDescription>
               <Input
                 id="list_name"
@@ -119,6 +119,7 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
                 onChange={(e) => setFormData({ ...formData, list_name: e.target.value })}
                 placeholder="my-list"
                 required
+                disabled
               />
             </Field>
 

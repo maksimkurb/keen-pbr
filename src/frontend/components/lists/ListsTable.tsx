@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { Pencil, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { StatsDisplay } from '../shared/StatsDisplay';
 import { EditListDialog } from './EditListDialog';
 import { DeleteListConfirmation } from './DeleteListConfirmation';
+import { useDownloadList } from '../../src/hooks/useLists';
 import type { ListInfo, IPSetConfig } from '../../src/api/client';
 
 interface ListsTableProps {
@@ -19,6 +21,16 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
   const [searchParams] = useSearchParams();
   const [editingList, setEditingList] = useState<ListInfo | null>(null);
   const [deletingList, setDeletingList] = useState<string | null>(null);
+  const downloadList = useDownloadList();
+
+  const handleDownloadList = async (listName: string) => {
+    try {
+      await downloadList.mutateAsync(listName);
+      toast.success(t('lists.download.success', { name: listName }));
+    } catch (error) {
+      toast.error(t('lists.download.error', { error: String(error) }));
+    }
+  };
 
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
@@ -65,6 +77,12 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
       default:
         return 'secondary';
     }
+  };
+
+  const formatLastModified = (lastModified?: string) => {
+    if (!lastModified) return null;
+    const date = new Date(lastModified);
+    return date.toLocaleString();
   };
 
   if (filteredLists.length === 0) {
@@ -116,6 +134,11 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                     {list.file && (
                       <div className="mt-1 text-xs text-muted-foreground">{list.file}</div>
                     )}
+                    {list.url && list.stats?.last_modified && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Last updated: {formatLastModified(list.stats.last_modified)}
+                      </div>
+                    )}
                   </td>
                   <td className="p-3">
                     <Badge variant={getTypeBadgeVariant(list.type)}>
@@ -144,6 +167,17 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                   </td>
                   <td className="p-3">
                     <div className="flex justify-end gap-2">
+                      {list.url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadList(list.list_name)}
+                          disabled={downloadList.isPending}
+                          title="Refresh list"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${downloadList.isPending ? 'animate-spin' : ''}`} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

@@ -11,57 +11,69 @@ import (
 	"path/filepath"
 )
 
-func DownloadLists(config *config.Config) error {
-	client := &http.Client{}
+// DownloadList downloads a single list from its URL.
+// Returns error if the list has no URL or download fails.
+func DownloadList(list *config.ListSource, cfg *config.Config) error {
+	if list.URL == "" {
+		return fmt.Errorf("list \"%s\" has no URL configured", list.ListName)
+	}
 
-	listsDir := filepath.Clean(config.General.ListsOutputDir)
+	listsDir := filepath.Clean(cfg.General.ListsOutputDir)
 	if err := os.MkdirAll(listsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create lists directory: %v", err)
 	}
 
+	log.Infof("Downloading list \"%s\" from URL: %s", list.ListName, list.URL)
+
+	client := &http.Client{}
+	resp, err := client.Get(list.URL)
+	if err != nil {
+		return fmt.Errorf("failed to download list \"%s\": %v", list.ListName, err)
+	}
+	defer resp.Body.Close()
+	bodyProxy := hashing.NewMD5ReaderProxy(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download list \"%s\": %s", list.ListName, resp.Status)
+	}
+
+	content, err := io.ReadAll(bodyProxy)
+	if err != nil {
+		return fmt.Errorf("failed to read response for list \"%s\": %v", list.ListName, err)
+	}
+
+	filePath, err := list.GetAbsolutePath(cfg)
+	if err != nil {
+		return err
+	}
+
+	if changed, err := IsFileChanged(bodyProxy, filePath); err != nil {
+		log.Errorf("Failed to calculate list \"%s\" checksum: %v", list.ListName, err)
+	} else if !changed {
+		log.Infof("List \"%s\" is not changed, skipping write to disk", list.ListName)
+		return nil
+	}
+
+	if err := os.WriteFile(filePath, content, 0644); err != nil {
+		return fmt.Errorf("failed to write list file to %s: %v", filePath, err)
+	}
+	if err := WriteChecksum(bodyProxy, filePath); err != nil {
+		return fmt.Errorf("failed to write list checksum: %v", err)
+	}
+
+	log.Infof("List \"%s\" downloaded successfully", list.ListName)
+	return nil
+}
+
+func DownloadLists(config *config.Config) error {
 	for _, list := range config.Lists {
 		if list.URL == "" {
 			continue
 		}
 
-		log.Infof("Downloading list \"%s\" from URL: %s", list.ListName, list.URL)
-
-		resp, err := client.Get(list.URL)
-		if err != nil {
-			log.Errorf("Failed to download list \"%s\": %v", list.ListName, err)
+		if err := DownloadList(list, config); err != nil {
+			log.Errorf("Error downloading list \"%s\": %v", list.ListName, err)
 			continue
-		}
-		defer resp.Body.Close()
-		bodyProxy := hashing.NewMD5ReaderProxy(resp.Body)
-
-		if resp.StatusCode != http.StatusOK {
-			log.Errorf("Failed to download list \"%s\": %s", list.ListName, resp.Status)
-			continue
-		}
-
-		content, err := io.ReadAll(bodyProxy)
-		if err != nil {
-			log.Errorf("Failed to read response for list \"%s\": %v", list.ListName, err)
-			continue
-		}
-
-		filePath, err := list.GetAbsolutePath(config)
-		if err != nil {
-			return err
-		}
-
-		if changed, err := IsFileChanged(bodyProxy, filePath); err != nil {
-			log.Errorf("Failed to calculate list \"%s\" checksum: %v", list.ListName, err)
-		} else if !changed {
-			log.Infof("List \"%s\" is not changed, skipping write to disk", list.ListName)
-			continue
-		}
-
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
-			return fmt.Errorf("failed to write list file to %s: %v", filePath, err)
-		}
-		if err := WriteChecksum(bodyProxy, filePath); err != nil {
-			return fmt.Errorf("failed to write list checksum: %v", err)
 		}
 	}
 

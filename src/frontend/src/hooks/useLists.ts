@@ -65,3 +65,32 @@ export function useDeleteList() {
     },
   });
 }
+
+/**
+ * Hook for downloading a specific list
+ */
+export function useDownloadList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (name: string) => apiClient.downloadList(name),
+    onSuccess: (_, name) => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] });
+      queryClient.invalidateQueries({ queryKey: ['lists', name] });
+    },
+  });
+}
+
+/**
+ * Hook for downloading all lists
+ */
+export function useDownloadAllLists() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.downloadAllLists(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] });
+    },
+  });
+}

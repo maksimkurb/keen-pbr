@@ -31,6 +31,10 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		r.Put("/lists/{name}", h.UpdateList)
 		r.Delete("/lists/{name}", h.DeleteList)
 
+		// List download endpoints
+		r.Post("/lists-download", h.DownloadAllLists)
+		r.Post("/lists-download/{name}", h.DownloadList)
+
 		// IPSets endpoints
 		r.Get("/ipsets", h.GetIPSets)
 		r.Post("/ipsets", h.CreateIPSet)
