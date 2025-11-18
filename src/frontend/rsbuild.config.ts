@@ -11,6 +11,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  server: {
+    proxy: {
+      '/api': 'http://192.168.54.1:8080',
+    },
+  },
   tools: {
     postcss: (config, { addPlugins }) => {
       addPlugins([
