@@ -26,6 +26,9 @@ const (
 
 	// ErrCodeServiceError indicates a service operation failed.
 	ErrCodeServiceError ErrorCode = "service_error"
+
+	// ErrCodeForbidden indicates access is forbidden.
+	ErrCodeForbidden ErrorCode = "forbidden"
 )
 
 // APIError represents a structured API error response.
@@ -91,4 +94,9 @@ func WriteValidationError(w http.ResponseWriter, message string, details map[str
 // WriteServiceError writes a 500 Internal Server Error for service failures.
 func WriteServiceError(w http.ResponseWriter, message string) {
 	WriteError(w, http.StatusInternalServerError, NewAPIError(ErrCodeServiceError, message))
+}
+
+// WriteForbidden writes a 403 Forbidden error.
+func WriteForbidden(w http.ResponseWriter, message string) {
+	WriteError(w, http.StatusForbidden, NewAPIError(ErrCodeForbidden, message))
 }

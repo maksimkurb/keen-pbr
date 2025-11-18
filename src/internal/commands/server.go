@@ -43,7 +43,7 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	c.fs = flag.NewFlagSet("server", flag.ExitOnError)
 
 	// Define command-specific flags
-	c.fs.StringVar(&c.bindAddr, "bind", "127.0.0.1:8080", "Address to bind the HTTP server (e.g., 127.0.0.1:8080)")
+	c.fs.StringVar(&c.bindAddr, "bind", "0.0.0.0:8080", "Address to bind the HTTP server (e.g., 0.0.0.0:8080)")
 
 	// Parse flags
 	if err := c.fs.Parse(args); err != nil {

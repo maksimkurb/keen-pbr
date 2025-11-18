@@ -15,6 +15,7 @@ func NewRouter(configPath string, deps *domain.AppDependencies) http.Handler {
 	// Apply middleware
 	r.Use(Recovery)
 	r.Use(Logger)
+	r.Use(PrivateSubnetOnly)  // Restrict access to private subnets
 	r.Use(CORS)
 	r.Use(JSONContentType)
 
