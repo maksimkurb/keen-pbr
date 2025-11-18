@@ -110,6 +110,18 @@ func (c *Client) GetVersion() (*KeeneticVersion, error) {
 	return version, nil
 }
 
+// GetRawVersion retrieves the raw Keenetic OS version string from the router.
+//
+// Unlike GetVersion, this returns the full version string as-is (e.g., "5.00.B.3.0-2")
+// without parsing it into major/minor components.
+func (c *Client) GetRawVersion() (string, error) {
+	versionStr, err := fetchAndDeserializeForClient[string](c, "/show/version/release")
+	if err != nil {
+		return "", fmt.Errorf("failed to get Keenetic version: %w", err)
+	}
+	return versionStr, nil
+}
+
 // GetInterfaces retrieves all network interfaces from the Keenetic router,
 // mapped by their system names (Linux interface names).
 //

@@ -35,31 +35,33 @@ func CreateIPSetsIfAbsent(cfg *config.Config) error {
 }
 
 // appendDomain appends a domain to the appropriate networks or domain store.
-func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) error {
+func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) (bool, error) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return nil
+		return false, nil
 	}
 
 	if utils.IsDNSName(line) {
 		if domainStore == nil {
-			return nil
+			return true, nil
 		}
 		domainStore.AssociateDomainWithIPSets(sanitizeDomain(line), ipsets)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 // appendIPOrCIDR appends a host to the appropriate networks or domain store.
-func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
+// Returns (isIPv4, isIPv6, error).
+func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) (bool, bool, error) {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return nil
+		return false, false, nil
 	}
 
 	if utils.IsDNSName(line) {
-		return nil
+		return false, false, nil
 	}
 
 	if strings.LastIndex(line, "/") < 0 {
@@ -68,24 +70,28 @@ func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) error {
 	if netPrefix, err := netip.ParsePrefix(line); err == nil {
 		if !netPrefix.IsValid() {
 			log.Warnf("Could not parse host, skipping: %s", host)
-			return nil
+			return false, false, nil
 		}
 
+		isIPv4 := netPrefix.Addr().Is4()
+		isIPv6 := netPrefix.Addr().Is6()
+
 		for _, ipset := range ipsets {
-			if (netPrefix.Addr().Is4() && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
-				(netPrefix.Addr().Is6() && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
+			if (isIPv4 && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
+				(isIPv6 && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
 				if err := ipset.Writer.Add(netPrefix); err != nil {
-					return err
+					return false, false, err
 				}
 			}
 		}
 
 		*ipCount++
+		return isIPv4, isIPv6, nil
 	} else {
 		log.Warnf("Could not parse host, skipping: %s", host)
 	}
 
-	return nil
+	return false, false, nil
 }
 
 func iterateOverList(list *config.ListSource, cfg *config.Config, iterateFn func(string) error) error {

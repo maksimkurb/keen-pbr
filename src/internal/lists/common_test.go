@@ -36,9 +36,12 @@ func TestAppendDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := appendDomain(tt.host, ipsets, domainStore)
+			isDomain, err := appendDomain(tt.host, ipsets, domainStore)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
+			}
+			if tt.expected && !isDomain {
+				t.Errorf("Expected domain to be added, but it wasn't")
 			}
 		})
 	}
@@ -54,9 +57,12 @@ func TestAppendDomain_NilStore(t *testing.T) {
 		{Index: 0, Name: "test"},
 	}
 
-	err := appendDomain("example.com", ipsets, nil)
+	isDomain, err := appendDomain("example.com", ipsets, nil)
 	if err != nil {
 		t.Errorf("Expected no error with nil store, got: %v", err)
+	}
+	if !isDomain {
+		t.Error("Expected domain to be recognized")
 	}
 }
 
@@ -81,7 +87,7 @@ func TestAppendIPOrCIDR(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			initialCount := ipCount
-			err := appendIPOrCIDR(tt.host, emptyIPSets, &ipCount)
+			isIPv4, isIPv6, err := appendIPOrCIDR(tt.host, emptyIPSets, &ipCount)
 
 			// Should not error for non-IP inputs or empty ipsets
 			if err != nil {
@@ -91,6 +97,11 @@ func TestAppendIPOrCIDR(t *testing.T) {
 			// Count should not change for non-IP inputs
 			if ipCount != initialCount {
 				t.Errorf("Expected count to remain %d, got %d", initialCount, ipCount)
+			}
+
+			// For these test cases, we don't expect IPs
+			if isIPv4 || isIPv6 {
+				t.Errorf("Expected no IP detection for '%s'", tt.host)
 			}
 		})
 	}

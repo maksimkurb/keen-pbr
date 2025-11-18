@@ -20,6 +20,9 @@ type KeeneticClient interface {
 	// GetVersion retrieves the Keenetic OS version information.
 	GetVersion() (*keenetic.KeeneticVersion, error)
 
+	// GetRawVersion retrieves the raw Keenetic OS version string.
+	GetRawVersion() (string, error)
+
 	// GetInterfaces retrieves all network interfaces from the Keenetic router,
 	// mapped by their system names (Linux interface names).
 	GetInterfaces() (map[string]keenetic.Interface, error)

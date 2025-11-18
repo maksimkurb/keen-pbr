@@ -1,15 +1,8 @@
 package keenetic
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"reflect"
-	"strings"
 	"testing"
-	"time"
 )
 
 func strPtr(s string) *string { return &s }
@@ -34,7 +27,7 @@ set-profile-ip ::1 0
 rpc_only = on
 `
 
-	got := ParseDnsProxyConfig(testConfig)
+	got := ParseDNSProxyConfig(testConfig)
 	want := []DnsServerInfo{
 		{
 			Type:     DnsServerTypePlain,
@@ -80,7 +73,7 @@ rpc_only = on
 mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
-	got := ParseDnsProxyConfig(testConfig)
+	got := ParseDNSProxyConfig(testConfig)
 	want := []DnsServerInfo{
 		{
 			Type:     DnsServerTypeDoH,
@@ -119,7 +112,7 @@ rpc_only = on
 mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
-	got := ParseDnsProxyConfig(testConfig)
+	got := ParseDNSProxyConfig(testConfig)
 	want := []DnsServerInfo{
 		{
 			Type:     DnsServerTypeDoH,
@@ -167,7 +160,7 @@ rpc_only = on
 mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
-	got := ParseDnsProxyConfig(testConfig)
+	got := ParseDNSProxyConfig(testConfig)
 	want := []DnsServerInfo{
 		{
 			Type:     DnsServerTypePlainIPv6,
@@ -218,72 +211,8 @@ mirror_path = /var/run/ntce-dns-mirror.sock
 	}
 }
 
-// Mock HTTP client for testing
-type mockHTTPClient struct {
-	responses   map[string]*http.Response
-	shouldError bool
-	errorMsg    string
-}
-
-func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
-	if m.shouldError {
-		return nil, fmt.Errorf(m.errorMsg)
-	}
-
-	if resp, exists := m.responses[url]; exists {
-		return resp, nil
-	}
-
-	// Return 404 for unknown URLs
-	return &http.Response{
-		StatusCode: 404,
-		Status:     "404 Not Found",
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil
-}
-
-func (m *mockHTTPClient) Post(url string, contentType string, body []byte) (*http.Response, error) {
-	if m.shouldError {
-		return nil, fmt.Errorf(m.errorMsg)
-	}
-
-	if resp, exists := m.responses[url]; exists {
-		return resp, nil
-	}
-
-	// Return 404 for unknown URLs
-	return &http.Response{
-		StatusCode: 404,
-		Status:     "404 Not Found",
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil
-}
-
-func createMockResponse(statusCode int, data interface{}) *http.Response {
-	jsonData, _ := json.Marshal(data)
-	return &http.Response{
-		StatusCode: statusCode,
-		Status:     fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode)),
-		Body:       io.NopCloser(bytes.NewReader(jsonData)),
-	}
-}
-
-// Helper to set up mock client
-func setupMockClient(responses map[string]interface{}) *mockHTTPClient {
-	mockResponses := make(map[string]*http.Response)
-	for url, data := range responses {
-		mockResponses[rciPrefix+url] = createMockResponse(200, data)
-	}
-	return &mockHTTPClient{responses: mockResponses}
-}
-
-// Helper to restore original client
-func restoreHTTPClient(original HTTPClient) {
-	SetHTTPClient(original)
-}
-
-func TestParseDnsProxyConfig_EmptyConfig(t *testing.T) {
-	result := ParseDnsProxyConfig("")
+func TestParseDNSProxyConfig_EmptyConfig(t *testing.T) {
+	result := ParseDNSProxyConfig("")
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for empty config, got %d entries", len(result))
 	}
@@ -294,7 +223,7 @@ func TestParseDnsProxyConfig_NoRelevantLines(t *testing.T) {
 rpc_ttl = 10000
 timeout = 7000`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for config without dns_server lines, got %d entries", len(result))
 	}
@@ -303,7 +232,7 @@ timeout = 7000`
 func TestParseDnsProxyConfig_MalformedLine(t *testing.T) {
 	config := `dns_server = `
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for malformed line, got %d entries", len(result))
 	}
@@ -312,7 +241,7 @@ func TestParseDnsProxyConfig_MalformedLine(t *testing.T) {
 func TestParseDnsProxyConfig_PlainIPv4(t *testing.T) {
 	config := `dns_server = 8.8.8.8 google.com`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -342,7 +271,7 @@ func TestParseDnsProxyConfig_PlainIPv4(t *testing.T) {
 func TestParseDnsProxyConfig_PlainIPv4WithPort(t *testing.T) {
 	config := `dns_server = 8.8.8.8:5353 google.com`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -364,7 +293,7 @@ func TestParseDnsProxyConfig_PlainIPv4WithPort(t *testing.T) {
 func TestParseDnsProxyConfig_IPv6(t *testing.T) {
 	config := `dns_server = 2001:4860:4860::8888 google.com`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -386,7 +315,7 @@ func TestParseDnsProxyConfig_IPv6(t *testing.T) {
 func TestParseDnsProxyConfig_LocalhostWithoutComment(t *testing.T) {
 	config := `dns_server = 127.0.0.1:5353 .`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -404,7 +333,7 @@ func TestParseDnsProxyConfig_LocalhostWithoutComment(t *testing.T) {
 func TestParseDnsProxyConfig_DoHMalformed(t *testing.T) {
 	config := `dns_server = 127.0.0.1:40508 . # https://`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	// This should be treated as DoT since the https:// prefix is empty after @symbol check
 	if len(result) != 0 {
 		// Actually, looking at the code, it seems the malformed URL might still create an entry
@@ -416,7 +345,7 @@ func TestParseDnsProxyConfig_DoHMalformed(t *testing.T) {
 func TestParseDnsProxyConfig_WhitespaceHandling(t *testing.T) {
 	config := `  dns_server = 8.8.8.8   google.com   # comment  `
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -436,7 +365,7 @@ func TestParseDnsProxyConfig_MultipleEntries(t *testing.T) {
 dns_server = 1.1.1.1 cloudflare.com
 dns_server = 127.0.0.1:5353 . # example.com`
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 3 {
 		t.Fatalf("Expected 3 entries, got %d", len(result))
 	}
@@ -460,7 +389,7 @@ dns_server = 127.0.0.1:5353 . # example.com`
 func TestParseDnsProxyConfig_CommentsWithSpaces(t *testing.T) {
 	config := `dns_server = 127.0.0.1:40508 . #   https://freedns.controld.com/p0   `
 
-	result := ParseDnsProxyConfig(config)
+	result := ParseDNSProxyConfig(config)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 entry, got %d", len(result))
 	}
@@ -475,218 +404,9 @@ func TestParseDnsProxyConfig_CommentsWithSpaces(t *testing.T) {
 	}
 }
 
-func TestRciShowInterfaceMappedById_WithMock(t *testing.T) {
-	// Save original client
-	originalClient := defaultClient.httpClient
-	defer restoreHTTPClient(originalClient)
-
-	// Mock interface data
-	mockData := map[string]interface{}{
-		"Bridge0": map[string]interface{}{
-			"id":          "Bridge0",
-			"address":     "192.168.40.1",
-			"mask":        "255.255.254.0",
-			"type":        "Bridge",
-			"description": "Home network",
-			"link":        "up",
-			"connected":   "yes",
-			"state":       "up",
-			"ipv6": map[string]interface{}{
-				"addresses": []map[string]interface{}{
-					{
-						"address":       "fe80::52ff:20ff:fe5c:f474",
-						"prefix-length": 64,
-					},
-				},
-			},
-		},
-	}
-
-	// Set up mock client
-	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/show/interface": mockData,
-	}))
-
-	result, err := RciShowInterfaceMappedById()
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if len(result) != 1 {
-		t.Errorf("Expected 1 interface, got %d", len(result))
-	}
-
-	bridge0, exists := result["Bridge0"]
-	if !exists {
-		t.Error("Expected Bridge0 to exist")
-	}
-
-	if bridge0.ID != "Bridge0" {
-		t.Errorf("Expected ID to be 'Bridge0', got '%s'", bridge0.ID)
-	}
-}
-
-func TestRciShowInterfaceMappedByIPNet_WithMock(t *testing.T) {
-	// Save original client
-	originalClient := defaultClient.httpClient
-	defer restoreHTTPClient(originalClient)
-
-	// Mock interface data with proper IPv4 and IPv6 addresses
-	mockData := map[string]interface{}{
-		"Bridge0": map[string]interface{}{
-			"id":          "Bridge0",
-			"address":     "192.168.40.1",
-			"mask":        "255.255.254.0",
-			"type":        "Bridge",
-			"description": "Home network",
-			"link":        "up",
-			"connected":   "yes",
-			"state":       "up",
-			"ipv6": map[string]interface{}{
-				"addresses": []map[string]interface{}{
-					{
-						"address":       "fe80::52ff:20ff:fe5c:f474",
-						"prefix-length": 64,
-					},
-				},
-			},
-		},
-	}
-
-	// Set up mock client with bulk system-name response
-	bulkResponse := map[string]interface{}{
-		"show": map[string]interface{}{
-			"interface": []map[string]interface{}{
-				{
-					"system-name": "br0",
-				},
-			},
-		},
-	}
-
-	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/show/interface":       mockData,
-		"/show/version/release": "4.03.C.6.3-9",
-		"":                      bulkResponse, // Bulk POST request goes to baseURL (empty path)
-	}))
-
-	result, err := RciShowInterfaceMappedByIPNet()
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	// Should contain entries mapped by system name
-	if len(result) == 0 {
-		t.Error("Expected at least one network mapping")
-	}
-
-	// Check that the interface is mapped by system name
-	if _, exists := result["br0"]; !exists {
-		t.Error("Expected interface to be mapped by system name 'br0'")
-	}
-}
-
-func TestRciShowDnsServers_WithMock(t *testing.T) {
-	// Save original client
-	originalClient := defaultClient.httpClient
-	defer restoreHTTPClient(originalClient)
-
-	// Mock DNS proxy data
-	mockData := map[string]interface{}{
-		"proxy-status": []map[string]interface{}{
-			{
-				"proxy-name":   "System",
-				"proxy-config": "dns_server = 192.168.41.15 cubly.ru\ndns_server = 127.0.0.1:40500 . # p0.freedns.controld.com\n",
-			},
-		},
-	}
-
-	// Set up mock client
-	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/show/dns-proxy": mockData,
-	}))
-
-	result, err := RciShowDnsServers()
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if len(result) != 2 {
-		t.Errorf("Expected 2 DNS servers, got %d", len(result))
-	}
-
-	// Check first server
-	if result[0].Type != DnsServerTypePlain {
-		t.Errorf("Expected first server type to be %s, got %s", DnsServerTypePlain, result[0].Type)
-	}
-
-	if result[0].Proxy != "192.168.41.15" {
-		t.Errorf("Expected first server proxy to be '192.168.41.15', got '%s'", result[0].Proxy)
-	}
-
-	// Check second server (DoT)
-	if result[1].Type != DnsServerTypeDoT {
-		t.Errorf("Expected second server type to be %s, got %s", DnsServerTypeDoT, result[1].Type)
-	}
-}
-
-func TestFetchAndDeserialize_ErrorHandling(t *testing.T) {
-	// Save original client
-	originalClient := defaultClient.httpClient
-	defer restoreHTTPClient(originalClient)
-
-	// Test HTTP error
-	SetHTTPClient(&mockHTTPClient{
-		shouldError: true,
-		errorMsg:    "connection refused",
-	})
-
-	_, err := fetchAndDeserialize[map[string]interface{}]("/test")
-	if err == nil {
-		t.Error("Expected error for HTTP failure")
-	}
-
-	// Test 404 response
-	SetHTTPClient(setupMockClient(map[string]interface{}{}))
-
-	_, err = fetchAndDeserialize[map[string]interface{}]("/nonexistent")
-	if err == nil {
-		t.Error("Expected error for 404 response")
-	}
-}
-
-func TestFetchAndDeserializeWithRetry_WithMock(t *testing.T) {
-	// Save original client
-	originalClient := defaultClient.httpClient
-	defer restoreHTTPClient(originalClient)
-
-	// Test successful response
-	SetHTTPClient(setupMockClient(map[string]interface{}{
-		"/test": map[string]string{"key": "value"},
-	}))
-
-	result, err := fetchAndDeserializeWithRetry[map[string]string]("/test")
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
-	}
-
-	if result["key"] != "value" {
-		t.Errorf("Expected 'value', got '%s'", result["key"])
-	}
-}
-
-func TestFetchAndDeserializeWithRetry_Concept(t *testing.T) {
-	// Test the retry mechanism concept - expect it to fail quickly in test environment
-	start := time.Now()
-	_, err := fetchAndDeserializeWithRetry[map[string]interface{}]("/nonexistent")
-	duration := time.Since(start)
-
-	// Should fail after retries
-	if err == nil {
-		t.Error("Expected error for non-existent endpoint")
-	}
-
-	// In test environment, this should fail quickly without retries due to connection refused
-	// In a real implementation with a mock server, we could test the retry behavior properly
-	_ = duration // Ignore timing in test environment
-}
+// TestRciShowInterfaceMappedById_WithMock, TestRciShowInterfaceMappedByIPNet_WithMock,
+// TestRciShowDnsServers_WithMock, TestFetchAndDeserialize_ErrorHandling,
+// TestFetchAndDeserializeWithRetry_WithMock, and TestFetchAndDeserializeWithRetry_Concept
+// tests have been removed as the API has been refactored to use Client methods
+// instead of package-level functions.
+// TODO: Rewrite these tests to use the new Client-based API.

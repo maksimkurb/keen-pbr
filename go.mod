@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 )

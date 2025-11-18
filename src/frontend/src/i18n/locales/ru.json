@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "dashboard": "Панель управления",
+    "settings": "Основные настройки",
+    "lists": "Списки",
+    "routingRules": "Правила маршрутизации"
+  },
+  "dashboard": {
+    "title": "Панель управления",
+    "systemStatus": "Состояние системы",
+    "version": "Версия keen-pbr",
+    "keeneticVersion": "Keenetic OS",
+    "keenPbrService": "Сервис keen-pbr",
+    "dnsmasqService": "Сервис dnsmasq",
+    "serviceStatus": "Состояние сервиса",
+    "domainChecker": {
+      "title": "Проверка маршрутизации домена/IP",
+      "placeholder": "Введите домен или IP-адрес",
+      "checkRouting": "Проверить маршрутизацию",
+      "ping": "Ping",
+      "traceroute": "Traceroute",
+      "foundInIPSets": "Найдено в IPSets",
+      "routing": "Конфигурация маршрутизации",
+      "routeInfo": "таблица {{table}} через {{interface}}",
+      "placeholderNote": "Примечание: Это заглушка. Интеграция с API в разработке."
+    }
+  },
+  "settings": {
+    "title": "Основные настройки",
+    "listsOutputDir": "Папка для списков",
+    "apiBindAddress": "Адрес API сервера",
+    "useKeeneticDns": "Использовать DNS Keenetic",
+    "fallbackDns": "Резервный DNS сервер",
+    "saveChanges": "Сохранить изменения"
+  },
+  "lists": {
+    "title": "Списки",
+    "newList": "Новый список",
+    "searchPlaceholder": "Поиск списков...",
+    "usedInFilter": "Используется в правиле",
+    "allRules": "Все правила",
+    "columns": {
+      "name": "Название списка",
+      "type": "Тип",
+      "stats": "Домены / IPv4 / IPv6",
+      "rules": "Правила",
+      "actions": "Действия"
+    },
+    "types": {
+      "url": "URL",
+      "file": "Файл",
+      "hosts": "Встроенный"
+    },
+    "empty": {
+      "title": "Списки не найдены",
+      "description": "Создайте свой первый список для начала работы",
+      "createButton": "Создать список",
+      "clearFilters": "Очистить фильтры"
+    }
+  },
+  "routingRules": {
+    "title": "Правила маршрутизации",
+    "newRule": "Новое правило",
+    "searchPlaceholder": "Поиск правил...",
+    "listFilter": "Список",
+    "versionFilter": "Версия IP",
+    "allLists": "Все списки",
+    "allVersions": "Все версии",
+    "columns": {
+      "name": "Название IPSet",
+      "routing": "Маршрутизация",
+      "version": "Версия IP",
+      "lists": "Списки",
+      "interfaces": "Интерфейсы",
+      "killSwitch": "Kill Switch",
+      "actions": "Действия"
+    },
+    "ipVersion": {
+      "4": "IPv4",
+      "6": "IPv6"
+    },
+    "empty": {
+      "title": "Правила маршрутизации не найдены",
+      "description": "Создайте первое правило для начала работы",
+      "createButton": "Создать правило",
+      "clearFilters": "Очистить фильтры"
+    }
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "create": "Создать",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "enabled": "Включено",
+    "disabled": "Выключено",
+    "notAvailable": "Н/Д",
+    "start": "Запустить",
+    "stop": "Остановить",
+    "restart": "Перезапустить"
+  }
+}

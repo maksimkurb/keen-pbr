@@ -7,7 +7,7 @@ import (
 )
 
 // ImportListsToIPSets processes the configuration and applies the lists to the appropriate ipsets.
-func ImportListsToIPSets(cfg *config.Config) error {
+func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 	listMapping := make(map[string][]DestIPSet)
 	defer func() {
 		for _, ipsets := range listMapping {
@@ -53,6 +53,8 @@ func ImportListsToIPSets(cfg *config.Config) error {
 
 	for listName, ipsets := range listMapping {
 		ipCount := 0
+		ipv4Count := 0
+		ipv6Count := 0
 		log.Infof("Processing list \"%s\" (ipsets: %v)...", listName, ipsets)
 		list, err := getListByName(cfg, listName)
 		if err != nil {
@@ -60,9 +62,21 @@ func ImportListsToIPSets(cfg *config.Config) error {
 		}
 
 		if err := iterateOverList(list, cfg, func(host string) error {
-			return appendIPOrCIDR(host, ipsets, &ipCount)
+			isIPv4, isIPv6, err := appendIPOrCIDR(host, ipsets, &ipCount)
+			if isIPv4 {
+				ipv4Count++
+			}
+			if isIPv6 {
+				ipv6Count++
+			}
+			return err
 		}); err != nil {
 			return err
+		}
+
+		// Update statistics cache once after processing
+		if listManager != nil {
+			listManager.UpdateStatistics(list, cfg, 0, ipv4Count, ipv6Count)
 		}
 
 		log.Infof("List \"%s\" processing finished: %d IPs/networks loaded to ipset", listName, ipCount)
