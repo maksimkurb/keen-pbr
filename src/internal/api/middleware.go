@@ -4,7 +4,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
