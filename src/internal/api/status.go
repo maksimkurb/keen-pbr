@@ -2,11 +2,7 @@ package api
 
 import (
 	"net/http"
-	"os"
 	"os/exec"
-	"strconv"
-	"strings"
-	"syscall"
 )
 
 var (
@@ -35,8 +31,8 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check keen-pbr service status (check PID file, not init script)
-	response.Services["keen-pbr"] = getKeenPbrServiceStatus()
+	// Check keen-pbr service status using ServiceManager
+	response.Services["keen-pbr"] = h.getKeenPbrServiceStatus()
 
 	// Check dnsmasq service status
 	response.Services["dnsmasq"] = getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")
@@ -44,51 +40,19 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSONData(w, response)
 }
 
-// getKeenPbrServiceStatus checks if the keen-pbr service process is running
-// by checking the PID file at /opt/var/run/keen-pbr.pid
-func getKeenPbrServiceStatus() ServiceInfo {
-	pidFile := "/opt/var/run/keen-pbr.pid"
-
-	// Read PID file
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
+// getKeenPbrServiceStatus checks if the keen-pbr service is running
+// using the ServiceManager
+func (h *Handler) getKeenPbrServiceStatus() ServiceInfo {
+	if h.serviceMgr.IsRunning() {
 		return ServiceInfo{
-			Status:  "stopped",
-			Message: "Service is not running (no PID file)",
-		}
-	}
-
-	// Parse PID
-	pidStr := strings.TrimSpace(string(data))
-	pid, err := strconv.Atoi(pidStr)
-	if err != nil {
-		return ServiceInfo{
-			Status:  "unknown",
-			Message: "Invalid PID file",
-		}
-	}
-
-	// Check if process is running (send signal 0 to check without killing)
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return ServiceInfo{
-			Status:  "stopped",
-			Message: "Process not found",
-		}
-	}
-
-	// Try to send signal 0 (does nothing, just checks if process exists)
-	err = process.Signal(syscall.Signal(0))
-	if err != nil {
-		return ServiceInfo{
-			Status:  "stopped",
-			Message: "Service is not running (stale PID file)",
+			Status:  "running",
+			Message: "Service is running",
 		}
 	}
 
 	return ServiceInfo{
-		Status:  "running",
-		Message: "Service is running",
+		Status:  "stopped",
+		Message: "Service is not running",
 	}
 }
 

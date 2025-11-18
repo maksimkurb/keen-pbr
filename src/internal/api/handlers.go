@@ -8,17 +8,28 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 )
 
+// ServiceManager is an interface for controlling the service lifecycle.
+// This allows the API to control the service without importing the commands package directly.
+type ServiceManager interface {
+	Start() error
+	Stop() error
+	Restart() error
+	IsRunning() bool
+}
+
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
 	configPath string
 	deps       *domain.AppDependencies
+	serviceMgr ServiceManager
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
-func NewHandler(configPath string, deps *domain.AppDependencies) *Handler {
+func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager) *Handler {
 	return &Handler{
 		configPath: configPath,
 		deps:       deps,
+		serviceMgr: serviceMgr,
 	}
 }
 

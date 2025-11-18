@@ -21,33 +21,23 @@ func (h *Handler) ControlService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scriptPath := "/opt/etc/init.d/S80keen-pbr"
-
-	// Check if init script exists
-	if _, err := os.Stat(scriptPath); err != nil {
-		WriteServiceError(w, "Init script not found at "+scriptPath)
-		return
-	}
-
-	var cmd *exec.Cmd
+	var err error
 	var action string
 
 	switch req.State {
 	case "started":
 		action = "start"
-		cmd = exec.Command(scriptPath, "start")
+		err = h.serviceMgr.Start()
 	case "stopped":
 		action = "stop"
-		cmd = exec.Command(scriptPath, "stop")
+		err = h.serviceMgr.Stop()
 	case "restarted":
 		action = "restart"
-		cmd = exec.Command(scriptPath, "restart")
+		err = h.serviceMgr.Restart()
 	}
 
-	// Run the command
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		WriteServiceError(w, "Failed to "+action+" service: "+err.Error()+". Output: "+string(output))
+		WriteServiceError(w, "Failed to "+action+" service: "+err.Error())
 		return
 	}
 

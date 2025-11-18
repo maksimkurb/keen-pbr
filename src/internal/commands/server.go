@@ -24,7 +24,11 @@ type ServerCommand struct {
 	deps *domain.AppDependencies
 
 	// Command-specific flags
-	bindAddr string
+	bindAddr        string
+	monitorInterval int
+
+	// Service manager for controlling the routing service
+	serviceMgr *ServiceManager
 }
 
 // CreateServerCommand creates a new server command.
@@ -44,6 +48,7 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 
 	// Define command-specific flags
 	c.fs.StringVar(&c.bindAddr, "bind", "0.0.0.0:8080", "Address to bind the HTTP server (e.g., 0.0.0.0:8080)")
+	c.fs.IntVar(&c.monitorInterval, "monitor-interval", 10, "Interval in seconds to monitor interface changes")
 
 	// Parse flags
 	if err := c.fs.Parse(args); err != nil {
@@ -65,6 +70,13 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	// Create dependencies
 	c.deps = domain.NewDefaultDependencies()
 
+	// Create service manager
+	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval)
+	if err != nil {
+		return fmt.Errorf("failed to create service manager: %w", err)
+	}
+	c.serviceMgr = serviceMgr
+
 	return nil
 }
 
@@ -79,8 +91,13 @@ func (c *ServerCommand) Run() error {
 	log.Infof("Requests from public IPs will be rejected with 403 Forbidden")
 	log.Infof("")
 
-	// Create router
-	router := api.NewRouter(c.ctx.ConfigPath, c.deps)
+	// Start the routing service
+	if err := c.serviceMgr.Start(); err != nil {
+		return fmt.Errorf("failed to start service: %w", err)
+	}
+
+	// Create router with service manager
+	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -109,11 +126,21 @@ func (c *ServerCommand) Run() error {
 	select {
 	case err := <-serverErrors:
 		if err != nil && err != http.ErrServerClosed {
+			// Stop the service before returning
+			if stopErr := c.serviceMgr.Stop(); stopErr != nil {
+				log.Errorf("Failed to stop service: %v", stopErr)
+			}
 			return fmt.Errorf("server error: %w", err)
 		}
 
 	case sig := <-shutdown:
 		log.Infof("Received signal %v, shutting down server...", sig)
+
+		// Stop the service first
+		log.Infof("Stopping routing service...")
+		if err := c.serviceMgr.Stop(); err != nil {
+			log.Errorf("Failed to stop service: %v", err)
+		}
 
 		// Create context with timeout for shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
