@@ -137,7 +137,7 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
   };
 
   // Get interface options - includes available interfaces and custom search
-  const interfaceOptions = interfacesData?.interfaces.map((i) => i.name) || [];
+  const interfaceOptions = (interfacesData?.interfaces || []).map((i) => i.name);
   const showCustomInterface = interfaceSearch && !interfaceOptions.includes(interfaceSearch);
 
   return (
