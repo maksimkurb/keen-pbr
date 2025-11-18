@@ -30,6 +30,16 @@ endef
 
 GO_TARGET:=./src/cmd/keen-pbr
 
+define Build/Compile
+	# Build frontend
+	cd $(PKG_BUILD_DIR)/src/frontend && \
+		bun install && \
+		bun run build
+
+	# Build Go binary
+	$(call Build/Compile/Default)
+endef
+
 define Package/keen-pbr/conffiles
 /opt/etc/keen-pbr/keen-pbr.conf
 /opt/etc/keen-pbr/local.lst

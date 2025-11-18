@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/maksimkurb/keen-pbr/src/frontend"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 )
 
@@ -49,6 +50,12 @@ func NewRouter(configPath string, deps *domain.AppDependencies) http.Handler {
 		// Health check endpoint
 		r.Get("/health", h.CheckHealth)
 	})
+
+	// Serve static frontend files
+	if staticFS, err := frontend.GetHTTPFileSystem(); err == nil {
+		fileServer := http.FileServer(staticFS)
+		r.Handle("/*", fileServer)
+	}
 
 	return r
 }
