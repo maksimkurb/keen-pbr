@@ -257,9 +257,9 @@ export class KeenPBRClient {
 
 	// Service Control API
 	async controlService(
-		up: boolean,
+		state: "started" | "stopped" | "restarted",
 	): Promise<ServiceControlResponse> {
-		return this.request<ServiceControlResponse>("POST", "/service", { up });
+		return this.request<ServiceControlResponse>("POST", "/service", { state });
 	}
 
 	// Dnsmasq Control API

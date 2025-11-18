@@ -24,14 +24,11 @@ export function ServiceStatusWidget() {
     try {
       if (service === 'keen-pbr') {
         if (action === 'start') {
-          await apiClient.controlService(true);
+          await apiClient.controlService('started');
         } else if (action === 'stop') {
-          await apiClient.controlService(false);
+          await apiClient.controlService('stopped');
         } else if (action === 'restart') {
-          // Restart by stopping then starting
-          await apiClient.controlService(false);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-          await apiClient.controlService(true);
+          await apiClient.controlService('restarted');
         }
       } else if (service === 'dnsmasq' && action === 'restart') {
         await apiClient.restartDnsmasq();

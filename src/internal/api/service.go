@@ -15,6 +15,12 @@ func (h *Handler) ControlService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate state
+	if req.State != "started" && req.State != "stopped" && req.State != "restarted" {
+		WriteInvalidRequest(w, "Invalid state. Must be one of: started, stopped, restarted")
+		return
+	}
+
 	scriptPath := "/opt/etc/init.d/S80keen-pbr"
 
 	// Check if init script exists
@@ -26,12 +32,16 @@ func (h *Handler) ControlService(w http.ResponseWriter, r *http.Request) {
 	var cmd *exec.Cmd
 	var action string
 
-	if req.Up {
+	switch req.State {
+	case "started":
 		action = "start"
 		cmd = exec.Command(scriptPath, "start")
-	} else {
+	case "stopped":
 		action = "stop"
 		cmd = exec.Command(scriptPath, "stop")
+	case "restarted":
+		action = "restart"
+		cmd = exec.Command(scriptPath, "restart")
 	}
 
 	// Run the command

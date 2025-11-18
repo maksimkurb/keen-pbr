@@ -65,7 +65,7 @@ type ServiceInfo struct {
 
 // ServiceControlRequest controls the keen-pbr service.
 type ServiceControlRequest struct {
-	Up bool `json:"up"`
+	State string `json:"state"` // "started", "stopped", "restarted"
 }
 
 // ServiceControlResponse returns the result of service control operation.
