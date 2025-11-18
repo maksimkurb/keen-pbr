@@ -156,7 +156,7 @@ export class KeenPBRClient {
 		const response = await fetch(url, {
 			method,
 			headers,
-			body: body ? JSON.stringify({ data: body }) : undefined,
+			body: body ? JSON.stringify(body) : undefined,
 		});
 
 		if (!response.ok) {
