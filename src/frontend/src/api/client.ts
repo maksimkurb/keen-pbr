@@ -134,54 +134,28 @@ export interface HealthCheckResponse {
 }
 
 // Network check types
-export interface IPSetMatch {
-	ipset_name: string;
-	match_type: string; // "domain", "ipv4", "ipv6"
+export interface HostnameRuleMatch {
+	rule_name: string;
+	pattern: string;
 }
 
-export interface RoutingInfo {
-	table?: string;
-	priority?: number;
-	fwmark?: string;
-	interface?: string;
-	dns_override?: string;
+export interface RuleCheckResult {
+	rule_name: string;
+	present_in_ipset: boolean;
+	should_be_present: boolean;
+	match_reason?: string;
+}
+
+export interface IPSetCheckResult {
+	ip: string;
+	rule_results: RuleCheckResult[];
 }
 
 export interface RoutingCheckResponse {
 	host: string;
 	resolved_ips?: string[];
-	matched_ipsets?: IPSetMatch[];
-	routing?: RoutingInfo;
-}
-
-export interface PingCheckResponse {
-	host: string;
-	resolved_ip?: string;
-	success: boolean;
-	packets_sent?: number;
-	packets_received?: number;
-	packet_loss?: number;
-	min_rtt?: number; // milliseconds
-	avg_rtt?: number; // milliseconds
-	max_rtt?: number; // milliseconds
-	output?: string;
-	error?: string;
-}
-
-export interface TracerouteHop {
-	hop: number;
-	ip?: string;
-	hostname?: string;
-	rtt?: number; // milliseconds
-}
-
-export interface TracerouteCheckResponse {
-	host: string;
-	resolved_ip?: string;
-	success: boolean;
-	hops?: TracerouteHop[];
-	output?: string;
-	error?: string;
+	matched_by_hostname?: HostnameRuleMatch[];
+	ipset_checks: IPSetCheckResult[];
 }
 
 // API Client class
@@ -330,14 +304,14 @@ export class KeenPBRClient {
 		});
 	}
 
-	async checkPing(host: string): Promise<PingCheckResponse> {
-		return this.request<PingCheckResponse>("POST", "/check/ping", { host });
+	// Get SSE URL for ping (client will handle EventSource)
+	getPingSSEUrl(host: string): string {
+		return `${this.baseURL}/api/v1/check/ping?host=${encodeURIComponent(host)}`;
 	}
 
-	async checkTraceroute(host: string): Promise<TracerouteCheckResponse> {
-		return this.request<TracerouteCheckResponse>("POST", "/check/traceroute", {
-			host,
-		});
+	// Get SSE URL for traceroute (client will handle EventSource)
+	getTracerouteSSEUrl(host: string): string {
+		return `${this.baseURL}/api/v1/check/traceroute?host=${encodeURIComponent(host)}`;
 	}
 }
 

@@ -1,16 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { Search, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Search, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { apiClient } from '../../src/api/client';
 import type {
 	RoutingCheckResponse,
-	PingCheckResponse,
-	TracerouteCheckResponse,
 } from '../../src/api/client';
 
 type CheckType = 'routing' | 'ping' | 'traceroute';
@@ -20,8 +18,7 @@ interface CheckState {
 	loading: boolean;
 	error: string | null;
 	routingResult: RoutingCheckResponse | null;
-	pingResult: PingCheckResponse | null;
-	tracerouteResult: TracerouteCheckResponse | null;
+	consoleOutput: string[];
 }
 
 export function DomainCheckerWidget() {
@@ -32,9 +29,26 @@ export function DomainCheckerWidget() {
 		loading: false,
 		error: null,
 		routingResult: null,
-		pingResult: null,
-		tracerouteResult: null,
+		consoleOutput: [],
 	});
+	const eventSourceRef = useRef<EventSource | null>(null);
+	const consoleEndRef = useRef<HTMLDivElement | null>(null);
+
+	// Auto-scroll console to bottom when new output arrives
+	useEffect(() => {
+		if (consoleEndRef.current) {
+			consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
+		}
+	}, [state.consoleOutput]);
+
+	// Cleanup EventSource on unmount
+	useEffect(() => {
+		return () => {
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close();
+			}
+		};
+	}, []);
 
 	const handleCheckRouting = async () => {
 		setState({
@@ -42,8 +56,7 @@ export function DomainCheckerWidget() {
 			loading: true,
 			error: null,
 			routingResult: null,
-			pingResult: null,
-			tracerouteResult: null,
+			consoleOutput: [],
 		});
 
 		try {
@@ -62,60 +75,103 @@ export function DomainCheckerWidget() {
 		}
 	};
 
-	const handlePing = async () => {
+	const handlePing = () => {
+		// Close any existing EventSource
+		if (eventSourceRef.current) {
+			eventSourceRef.current.close();
+		}
+
 		setState({
 			type: 'ping',
 			loading: true,
 			error: null,
 			routingResult: null,
-			pingResult: null,
-			tracerouteResult: null,
+			consoleOutput: [],
 		});
 
-		try {
-			const result = await apiClient.checkPing(host);
+		const url = apiClient.getPingSSEUrl(host);
+		const eventSource = new EventSource(url);
+		eventSourceRef.current = eventSource;
+
+		eventSource.onmessage = (event) => {
+			setState((prev) => ({
+				...prev,
+				consoleOutput: [...prev.consoleOutput, event.data],
+			}));
+		};
+
+		eventSource.onerror = (error) => {
+			console.error('SSE Error:', error);
+			eventSource.close();
 			setState((prev) => ({
 				...prev,
 				loading: false,
-				pingResult: result,
+				error: 'Connection to server lost',
 			}));
-		} catch (err) {
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				error: err instanceof Error ? err.message : 'Failed to ping',
-			}));
-		}
+		};
+
+		// Detect completion
+		eventSource.addEventListener('message', (event) => {
+			if (
+				event.data.includes('[Process completed') ||
+				event.data.includes('[Process exited')
+			) {
+				setTimeout(() => {
+					eventSource.close();
+					setState((prev) => ({ ...prev, loading: false }));
+				}, 100);
+			}
+		});
 	};
 
-	const handleTraceroute = async () => {
+	const handleTraceroute = () => {
+		// Close any existing EventSource
+		if (eventSourceRef.current) {
+			eventSourceRef.current.close();
+		}
+
 		setState({
 			type: 'traceroute',
 			loading: true,
 			error: null,
 			routingResult: null,
-			pingResult: null,
-			tracerouteResult: null,
+			consoleOutput: [],
 		});
 
-		try {
-			const result = await apiClient.checkTraceroute(host);
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				tracerouteResult: result,
-			}));
-		} catch (err) {
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				error: err instanceof Error ? err.message : 'Failed to traceroute',
-			}));
-		}
-	};
+		const url = apiClient.getTracerouteSSEUrl(host);
+		const eventSource = new EventSource(url);
+		eventSourceRef.current = eventSource;
 
-	const hasResults =
-		state.routingResult || state.pingResult || state.tracerouteResult;
+		eventSource.onmessage = (event) => {
+			setState((prev) => ({
+				...prev,
+				consoleOutput: [...prev.consoleOutput, event.data],
+			}));
+		};
+
+		eventSource.onerror = (error) => {
+			console.error('SSE Error:', error);
+			eventSource.close();
+			setState((prev) => ({
+				...prev,
+				loading: false,
+				error: 'Connection to server lost',
+			}));
+		};
+
+		// Detect completion
+		eventSource.addEventListener('message', (event) => {
+			if (
+				event.data.includes('[Process completed') ||
+				event.data.includes('[Process exited')
+			) {
+				setTimeout(() => {
+					eventSource.close();
+					setState((prev) => ({ ...prev, loading: false }));
+				}, 100);
+			}
+		});
+	};
 
 	return (
 		<Card>
@@ -152,11 +208,7 @@ export function DomainCheckerWidget() {
 						)}
 						{t('dashboard.domainChecker.checkRouting')}
 					</Button>
-					<Button
-						onClick={handlePing}
-						disabled={!host || state.loading}
-						variant="outline"
-					>
+					<Button onClick={handlePing} disabled={!host || state.loading} variant="outline">
 						{state.loading && state.type === 'ping' && (
 							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 						)}
@@ -177,240 +229,114 @@ export function DomainCheckerWidget() {
 				{state.error && (
 					<Alert variant="destructive">
 						<AlertCircle className="h-4 w-4" />
-						<AlertTitle>Error</AlertTitle>
 						<AlertDescription>{state.error}</AlertDescription>
 					</Alert>
 				)}
 
+				{/* Routing Check Results */}
 				{state.routingResult && (
-					<div className="space-y-3 rounded-lg border p-4">
+					<div className="space-y-4 rounded-lg border p-4">
 						<div className="flex items-center gap-2">
 							<CheckCircle2 className="h-5 w-5 text-green-600" />
-							<h3 className="font-semibold">Routing Check Results</h3>
+							<h3 className="font-semibold">
+								Host: {state.routingResult.host}
+							</h3>
 						</div>
 
-						{state.routingResult.resolved_ips &&
-							state.routingResult.resolved_ips.length > 0 && (
-								<div>
-									<div className="text-sm font-medium mb-2">Resolved IPs</div>
-									<div className="flex gap-2 flex-wrap">
-										{state.routingResult.resolved_ips.map((ip) => (
-											<Badge key={ip} variant="outline">
-												{ip}
-											</Badge>
-										))}
-									</div>
-								</div>
-							)}
-
-						{state.routingResult.matched_ipsets &&
-							state.routingResult.matched_ipsets.length > 0 && (
+						{/* Hostname Matches */}
+						{state.routingResult.matched_by_hostname &&
+							state.routingResult.matched_by_hostname.length > 0 && (
 								<div>
 									<div className="text-sm font-medium mb-2">
-										Found in IPSets
+										Present in Rules:
 									</div>
-									<div className="flex gap-2 flex-wrap">
-										{state.routingResult.matched_ipsets.map((match) => (
-											<Badge key={match.ipset_name} variant="secondary">
-												{match.ipset_name}
-												<span className="ml-1 text-xs opacity-70">
-													({match.match_type})
-												</span>
-											</Badge>
+									<ul className="list-disc list-inside text-sm space-y-1">
+										{state.routingResult.matched_by_hostname.map((match) => (
+											<li key={match.rule_name}>
+												<strong>{match.rule_name}</strong> (hostname "
+												{match.pattern}")
+											</li>
 										))}
-									</div>
+									</ul>
 								</div>
 							)}
 
-						{state.routingResult.routing && (
-							<div>
-								<div className="text-sm font-medium mb-2">
-									Routing Configuration
-								</div>
-								<div className="text-sm text-muted-foreground space-y-1">
-									{state.routingResult.routing.table && (
-										<div>
-											<strong>Table:</strong> {state.routingResult.routing.table}
-										</div>
-									)}
-									{state.routingResult.routing.priority !== undefined && (
-										<div>
-											<strong>Priority:</strong>{' '}
-											{state.routingResult.routing.priority}
-										</div>
-									)}
-									{state.routingResult.routing.fwmark && (
-										<div>
-											<strong>FwMark:</strong>{' '}
-											{state.routingResult.routing.fwmark}
-										</div>
-									)}
-									{state.routingResult.routing.interface && (
-										<div>
-											<strong>Interface:</strong>{' '}
-											{state.routingResult.routing.interface}
-										</div>
-									)}
-									{state.routingResult.routing.dns_override && (
-										<div>
-											<strong>DNS Override:</strong>{' '}
-											{state.routingResult.routing.dns_override}
-										</div>
-									)}
-								</div>
-							</div>
-						)}
-
-						{(!state.routingResult.matched_ipsets ||
-							state.routingResult.matched_ipsets.length === 0) && (
-							<Alert>
-								<AlertDescription>
-									This host is not found in any IPSets. It will use default
-									routing.
-								</AlertDescription>
-							</Alert>
-						)}
-					</div>
-				)}
-
-				{state.pingResult && (
-					<div className="space-y-3 rounded-lg border p-4">
-						<div className="flex items-center gap-2">
-							{state.pingResult.success ? (
-								<CheckCircle2 className="h-5 w-5 text-green-600" />
-							) : (
-								<AlertCircle className="h-5 w-5 text-red-600" />
-							)}
-							<h3 className="font-semibold">Ping Results</h3>
-						</div>
-
-						{state.pingResult.resolved_ip && (
-							<div className="text-sm">
-								<strong>Resolved IP:</strong>{' '}
-								<Badge variant="outline">{state.pingResult.resolved_ip}</Badge>
-							</div>
-						)}
-
-						{state.pingResult.success ? (
-							<div className="space-y-2">
-								<div className="grid grid-cols-2 gap-2 text-sm">
-									<div>
-										<strong>Packets:</strong>{' '}
-										{state.pingResult.packets_received || 0}/
-										{state.pingResult.packets_sent || 0} received
-									</div>
-									<div>
-										<strong>Packet Loss:</strong>{' '}
-										{state.pingResult.packet_loss?.toFixed(1) || 0}%
-									</div>
-								</div>
-								{(state.pingResult.min_rtt !== undefined ||
-									state.pingResult.avg_rtt !== undefined ||
-									state.pingResult.max_rtt !== undefined) && (
-									<div className="text-sm">
-										<strong>RTT:</strong> min={state.pingResult.min_rtt?.toFixed(2) || 'N/A'}ms
-										/ avg={state.pingResult.avg_rtt?.toFixed(2) || 'N/A'}ms / max=
-										{state.pingResult.max_rtt?.toFixed(2) || 'N/A'}ms
-									</div>
-								)}
-								{state.pingResult.output && (
-									<details className="text-xs">
-										<summary className="cursor-pointer font-medium">
-											Show full output
-										</summary>
-										<pre className="mt-2 rounded bg-muted p-2 overflow-x-auto whitespace-pre-wrap">
-											{state.pingResult.output}
-										</pre>
-									</details>
-								)}
-							</div>
-						) : (
-							<Alert variant="destructive">
-								<AlertDescription>
-									{state.pingResult.error || 'Ping failed'}
-								</AlertDescription>
-							</Alert>
-						)}
-					</div>
-				)}
-
-				{state.tracerouteResult && (
-					<div className="space-y-3 rounded-lg border p-4">
-						<div className="flex items-center gap-2">
-							{state.tracerouteResult.success ? (
-								<CheckCircle2 className="h-5 w-5 text-green-600" />
-							) : (
-								<AlertCircle className="h-5 w-5 text-red-600" />
-							)}
-							<h3 className="font-semibold">Traceroute Results</h3>
-						</div>
-
-						{state.tracerouteResult.resolved_ip && (
-							<div className="text-sm">
-								<strong>Resolved IP:</strong>{' '}
-								<Badge variant="outline">
-									{state.tracerouteResult.resolved_ip}
-								</Badge>
-							</div>
-						)}
-
-						{state.tracerouteResult.success ? (
-							<div className="space-y-2">
-								{state.tracerouteResult.hops &&
-									state.tracerouteResult.hops.length > 0 && (
-										<div>
-											<div className="text-sm font-medium mb-2">Hops</div>
-											<div className="space-y-1 text-sm">
-												{state.tracerouteResult.hops.map((hop) => (
-													<div
-														key={hop.hop}
-														className="flex gap-2 items-baseline font-mono"
-													>
-														<span className="text-muted-foreground w-6">
-															{hop.hop}.
-														</span>
-														<span className="flex-1">
-															{hop.hostname && hop.hostname !== hop.ip ? (
-																<>
-																	{hop.hostname}{' '}
-																	<span className="text-muted-foreground">
-																		({hop.ip})
-																	</span>
-																</>
-															) : (
-																hop.ip || '* * *'
+						{/* IP -> Rule -> Present Table */}
+						{state.routingResult.ipset_checks &&
+							state.routingResult.ipset_checks.length > 0 && (
+								<div className="overflow-x-auto">
+									<table className="w-full text-sm border-collapse">
+										<thead>
+											<tr className="border-b">
+												<th className="text-left p-2 font-medium">
+													IP Address
+												</th>
+												<th className="text-left p-2 font-medium">Rule</th>
+												<th className="text-left p-2 font-medium">
+													Present in IPset
+												</th>
+											</tr>
+										</thead>
+										<tbody>
+											{state.routingResult.ipset_checks.map((ipCheck) => (
+												<>
+													{ipCheck.rule_results.map((ruleResult, index) => (
+														<tr
+															key={`${ipCheck.ip}-${ruleResult.rule_name}`}
+															className="border-b"
+														>
+															{index === 0 && (
+																<td
+																	rowSpan={ipCheck.rule_results.length}
+																	className="p-2 font-mono border-r align-top"
+																>
+																	{ipCheck.ip}
+																</td>
 															)}
-														</span>
-														{hop.rtt !== undefined && (
-															<span className="text-muted-foreground">
-																{hop.rtt.toFixed(2)} ms
-															</span>
-														)}
-													</div>
-												))}
-											</div>
-										</div>
-									)}
-								{state.tracerouteResult.output && (
-									<details className="text-xs">
-										<summary className="cursor-pointer font-medium">
-											Show full output
-										</summary>
-										<pre className="mt-2 rounded bg-muted p-2 overflow-x-auto whitespace-pre-wrap">
-											{state.tracerouteResult.output}
-										</pre>
-									</details>
-								)}
-							</div>
-						) : (
-							<Alert variant="destructive">
-								<AlertDescription>
-									{state.tracerouteResult.error || 'Traceroute failed'}
-								</AlertDescription>
-							</Alert>
-						)}
+															<td className="p-2">{ruleResult.rule_name}</td>
+															<td className="p-2">
+																<div className="flex items-center gap-2">
+																	<span>
+																		{ruleResult.present_in_ipset
+																			? 'Yes'
+																			: 'No'}
+																	</span>
+																	{ruleResult.present_in_ipset ===
+																	ruleResult.should_be_present ? (
+																		<CheckCircle2 className="h-4 w-4 text-green-600" />
+																	) : (
+																		<X className="h-4 w-4 text-red-600" />
+																	)}
+																	{ruleResult.match_reason && (
+																		<span className="text-xs text-muted-foreground">
+																			({ruleResult.match_reason})
+																		</span>
+																	)}
+																</div>
+															</td>
+														</tr>
+													))}
+												</>
+											))}
+										</tbody>
+									</table>
+								</div>
+							)}
 					</div>
 				)}
+
+				{/* Console Output for Ping/Traceroute */}
+				{(state.type === 'ping' || state.type === 'traceroute') &&
+					state.consoleOutput.length > 0 && (
+						<div className="rounded-lg border bg-black p-4">
+							<div className="space-y-1 font-mono text-sm text-green-400">
+								{state.consoleOutput.map((line, index) => (
+									<div key={index}>{line}</div>
+								))}
+								<div ref={consoleEndRef} />
+							</div>
+						</div>
+					)}
 			</CardContent>
 		</Card>
 	);

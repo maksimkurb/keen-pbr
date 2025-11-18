@@ -54,8 +54,8 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 
 		// Network check endpoints
 		r.Post("/check/routing", h.CheckRouting)
-		r.Post("/check/ping", h.CheckPing)
-		r.Post("/check/traceroute", h.CheckTraceroute)
+		r.Get("/check/ping", h.CheckPing)          // SSE stream
+		r.Get("/check/traceroute", h.CheckTraceroute) // SSE stream
 	})
 
 	// Serve static frontend files

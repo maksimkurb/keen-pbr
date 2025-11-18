@@ -1,12 +1,12 @@
 package api
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os/exec"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
@@ -35,8 +35,9 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := RoutingCheckResponse{
-		Host:          req.Host,
-		MatchedIPSets: []IPSetMatch{},
+		Host:              req.Host,
+		MatchedByHostname: []HostnameRuleMatch{},
+		IPSetChecks:       []IPSetCheckResult{},
 	}
 
 	// Try to resolve the host
@@ -45,6 +46,7 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 		// It might be an IP address already
 		if ip := net.ParseIP(req.Host); ip != nil {
 			response.ResolvedIPs = []string{req.Host}
+			ips = []string{req.Host}
 		} else {
 			log.Debugf("Failed to resolve host %s: %v", req.Host, err)
 		}
@@ -52,45 +54,67 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 		response.ResolvedIPs = ips
 	}
 
-	// Check which IPSets contain this host
-	matchedIPSets := h.findMatchingIPSets(cfg, req.Host, response.ResolvedIPs)
-	response.MatchedIPSets = matchedIPSets
+	// Check which rules match by hostname pattern
+	hostnameMatches := h.findHostnameMatches(cfg, req.Host)
+	response.MatchedByHostname = hostnameMatches
 
-	// Get routing information from the first matched IPSet
-	if len(matchedIPSets) > 0 {
-		// Find the IPSet config for the first match
-		for _, ipsetConfig := range cfg.IPSets {
-			if ipsetConfig.IPSetName == matchedIPSets[0].IPSetName {
-				if ipsetConfig.Routing != nil {
-					response.Routing = &RoutingInfo{
-						Table:    fmt.Sprintf("%d", ipsetConfig.Routing.IpRouteTable),
-						Priority: ipsetConfig.Routing.IpRulePriority,
-					}
-					if ipsetConfig.Routing.FwMark != 0 {
-						response.Routing.FwMark = fmt.Sprintf("%d", ipsetConfig.Routing.FwMark)
-					}
-					if len(ipsetConfig.Routing.Interfaces) > 0 {
-						response.Routing.Interface = ipsetConfig.Routing.Interfaces[0]
-					}
-					if ipsetConfig.Routing.DNSOverride != "" {
-						response.Routing.DNSOverride = ipsetConfig.Routing.DNSOverride
-					}
-				}
-				break
-			}
+	// Build map of rules that should contain IPs (matched by hostname)
+	shouldContainByHostname := make(map[string]bool)
+	for _, match := range hostnameMatches {
+		shouldContainByHostname[match.RuleName] = true
+	}
+
+	// For each resolved IP, check against all rules
+	for _, ip := range ips {
+		ipCheck := IPSetCheckResult{
+			IP:          ip,
+			RuleResults: []RuleCheckResult{},
 		}
+
+		for _, ipsetConfig := range cfg.IPSets {
+			ruleName := ipsetConfig.IPSetName
+
+			// Test if IP is actually in the IPSet
+			presentInIPSet := h.testIPInIPSet(ruleName, ip)
+
+			// Determine if it should be present
+			shouldBePresent := false
+			matchReason := ""
+
+			// Should be present if hostname matched
+			if shouldContainByHostname[ruleName] {
+				shouldBePresent = true
+				matchReason = "hostname match"
+			}
+
+			// Should be present if IP matches a list in this rule
+			if !shouldBePresent {
+				if reason := h.checkIPMatchesLists(cfg, ipsetConfig, ip); reason != "" {
+					shouldBePresent = true
+					matchReason = reason
+				}
+			}
+
+			ipCheck.RuleResults = append(ipCheck.RuleResults, RuleCheckResult{
+				RuleName:        ruleName,
+				PresentInIPSet:  presentInIPSet,
+				ShouldBePresent: shouldBePresent,
+				MatchReason:     matchReason,
+			})
+		}
+
+		response.IPSetChecks = append(response.IPSetChecks, ipCheck)
 	}
 
 	writeJSONData(w, response)
 }
 
-// findMatchingIPSets checks which IPSets contain the given host or IPs
-func (h *Handler) findMatchingIPSets(cfg *config.Config, host string, ips []string) []IPSetMatch {
-	matches := []IPSetMatch{}
-	matchedIPSets := make(map[string]bool) // Track which IPSets we've already matched
+// findHostnameMatches finds which rules match the hostname by domain pattern
+func (h *Handler) findHostnameMatches(cfg *config.Config, host string) []HostnameRuleMatch {
+	matches := []HostnameRuleMatch{}
 
 	for _, ipsetConfig := range cfg.IPSets {
-		// Check each list in this IPSet for domain matches (inline hosts only)
+		// Check each list in this IPSet
 		for _, listName := range ipsetConfig.Lists {
 			// Find the list config
 			var listSource *config.ListSource
@@ -109,13 +133,10 @@ func (h *Handler) findMatchingIPSets(cfg *config.Config, host string, ips []stri
 			if listSource.Hosts != nil {
 				for _, domainPattern := range listSource.Hosts {
 					if h.matchesDomain(host, domainPattern) {
-						if !matchedIPSets[ipsetConfig.IPSetName] {
-							matches = append(matches, IPSetMatch{
-								IPSetName: ipsetConfig.IPSetName,
-								MatchType: "domain",
-							})
-							matchedIPSets[ipsetConfig.IPSetName] = true
-						}
+						matches = append(matches, HostnameRuleMatch{
+							RuleName: ipsetConfig.IPSetName,
+							Pattern:  domainPattern,
+						})
 						goto nextIPSet
 					}
 				}
@@ -124,31 +145,16 @@ func (h *Handler) findMatchingIPSets(cfg *config.Config, host string, ips []stri
 	nextIPSet:
 	}
 
-	// Check if any resolved IPs are actually in the IPSets using ipset test command
-	for _, ip := range ips {
-		for _, ipsetConfig := range cfg.IPSets {
-			// Skip if we already matched this IPSet
-			if matchedIPSets[ipsetConfig.IPSetName] {
-				continue
-			}
-
-			// Test if this IP is in the IPSet
-			if h.testIPInIPSet(ipsetConfig.IPSetName, ip) {
-				matchType := "ipv4"
-				if strings.Contains(ip, ":") {
-					matchType = "ipv6"
-				}
-
-				matches = append(matches, IPSetMatch{
-					IPSetName: ipsetConfig.IPSetName,
-					MatchType: matchType,
-				})
-				matchedIPSets[ipsetConfig.IPSetName] = true
-			}
-		}
-	}
-
 	return matches
+}
+
+// checkIPMatchesLists checks if an IP matches any list patterns in an IPSet
+// Returns the match reason if found, empty string otherwise
+func (h *Handler) checkIPMatchesLists(cfg *config.Config, ipsetConfig *config.IPSetConfig, ip string) string {
+	// For now, we can't easily check IP/CIDR matches without parsing all list files
+	// We rely on the ipset test command to tell us if it's present
+	// This function could be enhanced to check inline IP lists or CIDR ranges
+	return ""
 }
 
 // testIPInIPSet tests if an IP is in an IPSet using the ipset test command
@@ -179,156 +185,132 @@ func (h *Handler) matchesDomain(host, pattern string) bool {
 	return false
 }
 
-// CheckPing performs a ping to the given host.
-// POST /api/v1/check/ping
+// CheckPing performs a ping to the given host and streams output via SSE.
+// GET /api/v1/check/ping?host=example.com
 func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
-	var req CheckRequest
-	if err := decodeJSON(r, &req); err != nil {
-		WriteInvalidRequest(w, "Invalid JSON: "+err.Error())
+	host := r.URL.Query().Get("host")
+	if host == "" {
+		WriteInvalidRequest(w, "Host parameter is required")
 		return
 	}
 
-	if req.Host == "" {
-		WriteInvalidRequest(w, "Host is required")
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		WriteInternalError(w, "Streaming not supported")
 		return
-	}
-
-	response := PingCheckResponse{
-		Host:        req.Host,
-		PacketsSent: 4,
-	}
-
-	// Resolve IP if it's a domain
-	ips, err := net.LookupHost(req.Host)
-	if err == nil && len(ips) > 0 {
-		response.ResolvedIP = ips[0]
 	}
 
 	// Run ping command (4 packets, 2 second timeout)
-	cmd := exec.Command("ping", "-c", "4", "-W", "2", req.Host)
-	output, err := cmd.CombinedOutput()
-	response.Output = string(output)
+	cmd := exec.Command("ping", "-c", "4", "-W", "2", host)
 
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		response.Success = false
-		response.Error = fmt.Sprintf("Ping failed: %v", err)
-		writeJSONData(w, response)
+		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		flusher.Flush()
 		return
 	}
 
-	response.Success = true
-
-	// Parse ping output for statistics
-	h.parsePingOutput(string(output), &response)
-
-	writeJSONData(w, response)
-}
-
-// parsePingOutput extracts statistics from ping output
-func (h *Handler) parsePingOutput(output string, response *PingCheckResponse) {
-	// Example ping output:
-	// 4 packets transmitted, 4 received, 0% packet loss, time 3004ms
-	// rtt min/avg/max/mdev = 10.123/15.456/20.789/3.456 ms
-
-	// Parse packet statistics
-	packetRegex := regexp.MustCompile(`(\d+) packets transmitted, (\d+) received, ([\d.]+)% packet loss`)
-	if matches := packetRegex.FindStringSubmatch(output); len(matches) == 4 {
-		if sent, err := strconv.Atoi(matches[1]); err == nil {
-			response.PacketsSent = sent
-		}
-		if recv, err := strconv.Atoi(matches[2]); err == nil {
-			response.PacketsRecv = recv
-		}
-		if loss, err := strconv.ParseFloat(matches[3], 64); err == nil {
-			response.PacketLoss = loss
-		}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		flusher.Flush()
+		return
 	}
 
-	// Parse RTT statistics
-	rttRegex := regexp.MustCompile(`rtt min/avg/max/[^ ]+ = ([\d.]+)/([\d.]+)/([\d.]+)/[\d.]+ ms`)
-	if matches := rttRegex.FindStringSubmatch(output); len(matches) == 4 {
-		if min, err := strconv.ParseFloat(matches[1], 64); err == nil {
-			response.MinRTT = min
-		}
-		if avg, err := strconv.ParseFloat(matches[2], 64); err == nil {
-			response.AvgRTT = avg
-		}
-		if max, err := strconv.ParseFloat(matches[3], 64); err == nil {
-			response.MaxRTT = max
-		}
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(w, "data: Error starting ping: %s\n\n", err.Error())
+		flusher.Flush()
+		return
 	}
+
+	// Stream stdout
+	go h.streamOutput(stdout, w, flusher)
+
+	// Stream stderr
+	go h.streamOutput(stderr, w, flusher)
+
+	// Wait for command to finish
+	if err := cmd.Wait(); err != nil {
+		fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+	} else {
+		fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+	}
+	flusher.Flush()
 }
 
-// CheckTraceroute performs a traceroute to the given host.
-// POST /api/v1/check/traceroute
+// CheckTraceroute performs a traceroute to the given host and streams output via SSE.
+// GET /api/v1/check/traceroute?host=example.com
 func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
-	var req CheckRequest
-	if err := decodeJSON(r, &req); err != nil {
-		WriteInvalidRequest(w, "Invalid JSON: "+err.Error())
+	host := r.URL.Query().Get("host")
+	if host == "" {
+		WriteInvalidRequest(w, "Host parameter is required")
 		return
 	}
 
-	if req.Host == "" {
-		WriteInvalidRequest(w, "Host is required")
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		WriteInternalError(w, "Streaming not supported")
 		return
-	}
-
-	response := TracerouteCheckResponse{
-		Host: req.Host,
-		Hops: []TracerouteHop{},
-	}
-
-	// Resolve IP if it's a domain
-	ips, err := net.LookupHost(req.Host)
-	if err == nil && len(ips) > 0 {
-		response.ResolvedIP = ips[0]
 	}
 
 	// Run traceroute command (max 30 hops, 2 second timeout per hop)
-	cmd := exec.Command("traceroute", "-m", "30", "-w", "2", req.Host)
-	output, err := cmd.CombinedOutput()
-	response.Output = string(output)
+	cmd := exec.Command("traceroute", "-m", "30", "-w", "2", host)
 
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		response.Success = false
-		response.Error = fmt.Sprintf("Traceroute failed: %v", err)
-		writeJSONData(w, response)
+		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		flusher.Flush()
 		return
 	}
 
-	response.Success = true
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		flusher.Flush()
+		return
+	}
 
-	// Parse traceroute output
-	h.parseTracerouteOutput(string(output), &response)
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(w, "data: Error starting traceroute: %s\n\n", err.Error())
+		flusher.Flush()
+		return
+	}
 
-	writeJSONData(w, response)
+	// Stream stdout
+	go h.streamOutput(stdout, w, flusher)
+
+	// Stream stderr
+	go h.streamOutput(stderr, w, flusher)
+
+	// Wait for command to finish
+	if err := cmd.Wait(); err != nil {
+		fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+	} else {
+		fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+	}
+	flusher.Flush()
 }
 
-// parseTracerouteOutput extracts hops from traceroute output
-func (h *Handler) parseTracerouteOutput(output string, response *TracerouteCheckResponse) {
-	// Example traceroute output:
-	// 1  192.168.1.1 (192.168.1.1)  1.234 ms  1.123 ms  1.456 ms
-	// 2  10.0.0.1 (10.0.0.1)  5.678 ms  5.234 ms  5.890 ms
-
-	lines := strings.Split(output, "\n")
-	hopRegex := regexp.MustCompile(`^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)\s+([\d.]+)\s+ms`)
-
-	for _, line := range lines {
-		if matches := hopRegex.FindStringSubmatch(line); len(matches) >= 5 {
-			hop := TracerouteHop{}
-
-			if hopNum, err := strconv.Atoi(matches[1]); err == nil {
-				hop.Hop = hopNum
-			}
-
-			hop.Hostname = matches[2]
-			hop.IP = matches[3]
-
-			if rtt, err := strconv.ParseFloat(matches[4], 64); err == nil {
-				hop.RTT = rtt
-			}
-
-			response.Hops = append(response.Hops, hop)
-		}
+// streamOutput reads from a reader and streams each line as an SSE event
+func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher http.Flusher) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Escape any special characters for SSE
+		line = strings.ReplaceAll(line, "\n", "")
+		fmt.Fprintf(w, "data: %s\n\n", line)
+		flusher.Flush()
 	}
 }

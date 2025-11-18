@@ -97,27 +97,32 @@ type CheckRequest struct {
 	Host string `json:"host"`
 }
 
-// RoutingCheckResponse returns routing information for a host.
+// RoutingCheckResponse returns detailed routing information for a host.
 type RoutingCheckResponse struct {
-	Host         string              `json:"host"`
-	ResolvedIPs  []string            `json:"resolved_ips,omitempty"`
-	MatchedIPSets []IPSetMatch       `json:"matched_ipsets,omitempty"`
-	Routing      *RoutingInfo        `json:"routing,omitempty"`
+	Host              string                 `json:"host"`
+	ResolvedIPs       []string               `json:"resolved_ips,omitempty"`
+	MatchedByHostname []HostnameRuleMatch    `json:"matched_by_hostname,omitempty"`
+	IPSetChecks       []IPSetCheckResult     `json:"ipset_checks"`
 }
 
-// IPSetMatch contains information about an IPSet that matches the host.
-type IPSetMatch struct {
-	IPSetName string `json:"ipset_name"`
-	MatchType string `json:"match_type"` // "domain", "ipv4", "ipv6"
+// HostnameRuleMatch represents a rule that matched by hostname pattern.
+type HostnameRuleMatch struct {
+	RuleName string `json:"rule_name"`
+	Pattern  string `json:"pattern"`
 }
 
-// RoutingInfo contains routing configuration details.
-type RoutingInfo struct {
-	Table     string   `json:"table,omitempty"`
-	Priority  int      `json:"priority,omitempty"`
-	FwMark    string   `json:"fwmark,omitempty"`
-	Interface string   `json:"interface,omitempty"`
-	DNSOverride string `json:"dns_override,omitempty"`
+// IPSetCheckResult contains check results for one IP address.
+type IPSetCheckResult struct {
+	IP          string            `json:"ip"`
+	RuleResults []RuleCheckResult `json:"rule_results"`
+}
+
+// RuleCheckResult shows if an IP is present in a rule's IPSet.
+type RuleCheckResult struct {
+	RuleName       string `json:"rule_name"`
+	PresentInIPSet bool   `json:"present_in_ipset"`
+	ShouldBePresent bool   `json:"should_be_present"`
+	MatchReason    string `json:"match_reason,omitempty"` // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
 }
 
 // PingCheckResponse returns ping results for a host.
