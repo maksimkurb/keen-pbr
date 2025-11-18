@@ -90,16 +90,16 @@ export interface UpdateIPSetRequest {
 
 // Settings types
 export interface GeneralSettings {
-	ListsOutputDir: string;
-	UseKeeneticDNS: boolean;
-	FallbackDNS?: string;
-	APIBindAddress?: string; // Read-only, not configurable via UI
+	lists_output_dir: string;
+	use_keenetic_dns: boolean;
+	fallback_dns?: string;
+	api_bind_address?: string; // Read-only, not configurable via UI
 }
 
 export interface UpdateSettingsRequest {
-	ListsOutputDir?: string;
-	UseKeeneticDNS?: boolean;
-	FallbackDNS?: string;
+	lists_output_dir?: string;
+	use_keenetic_dns?: boolean;
+	fallback_dns?: string;
 }
 
 // Status types

@@ -47,6 +47,29 @@ Currently, the API does not implement authentication. **For security, the server
 
 ## Request/Response Format
 
+### Field Naming Convention
+
+**All API field names use snake_case** (e.g., `ipset_name`, `lists_output_dir`, `use_keenetic_dns`).
+
+This convention applies to:
+- Request bodies (POST, PUT, PATCH)
+- Response bodies (GET, POST, PUT, PATCH)
+- Query parameters
+- Path parameters
+
+**Example:**
+```json
+{
+  "ipset_name": "vpn1",
+  "ip_version": 4,
+  "flush_before_applying": true,
+  "routing": {
+    "interfaces": ["nwg0"],
+    "kill_switch": true
+  }
+}
+```
+
 ### Successful Responses
 
 All successful responses return JSON with a `data` wrapper:
