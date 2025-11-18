@@ -36,8 +36,11 @@ jobs:
 
       - name: Install Node.js
         run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-          apt-get install -y nodejs
+          # Download and install Node.js 20.x directly
+          NODE_VERSION=20.18.1
+          wget -q https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz
+          tar -xf node-v${NODE_VERSION}-linux-x64.tar.xz -C /usr/local --strip-components=1
+          rm node-v${NODE_VERSION}-linux-x64.tar.xz
           node --version
           npm --version
 
