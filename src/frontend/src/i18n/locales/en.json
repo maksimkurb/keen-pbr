@@ -1,0 +1,95 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "settings": "General Settings",
+    "lists": "Lists",
+    "routingRules": "Routing Rules"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "systemStatus": "System Status",
+    "version": "keen-pbr Version",
+    "keeneticVersion": "Keenetic OS",
+    "serviceStatus": "Service Status",
+    "domainChecker": {
+      "title": "Domain/IP Routing Checker",
+      "placeholder": "Enter domain or IP address",
+      "checkRouting": "Check Routing",
+      "ping": "Ping",
+      "traceroute": "Traceroute"
+    }
+  },
+  "settings": {
+    "title": "General Settings",
+    "listsOutputDir": "Lists Output Directory",
+    "apiBindAddress": "API Bind Address",
+    "useKeeneticDns": "Use Keenetic DNS",
+    "fallbackDns": "Fallback DNS Server",
+    "saveChanges": "Save Changes"
+  },
+  "lists": {
+    "title": "Lists",
+    "newList": "New List",
+    "searchPlaceholder": "Search lists...",
+    "usedInFilter": "Used in rule",
+    "allRules": "All rules",
+    "columns": {
+      "name": "List Name",
+      "type": "Type",
+      "stats": "Domains / IPv4 / IPv6",
+      "rules": "Rules",
+      "actions": "Actions"
+    },
+    "types": {
+      "url": "URL",
+      "file": "File",
+      "hosts": "Inline"
+    },
+    "empty": {
+      "title": "No lists found",
+      "description": "Create your first list to get started",
+      "createButton": "Create List",
+      "clearFilters": "Clear filters"
+    }
+  },
+  "routingRules": {
+    "title": "Routing Rules",
+    "newRule": "New Rule",
+    "searchPlaceholder": "Search rules...",
+    "listFilter": "List",
+    "versionFilter": "IP Version",
+    "allLists": "All lists",
+    "allVersions": "All versions",
+    "columns": {
+      "name": "IPSet Name",
+      "routing": "Routing",
+      "version": "IP Version",
+      "lists": "Lists",
+      "interfaces": "Interfaces",
+      "killSwitch": "Kill Switch",
+      "actions": "Actions"
+    },
+    "ipVersion": {
+      "4": "IPv4",
+      "6": "IPv6"
+    },
+    "empty": {
+      "title": "No routing rules found",
+      "description": "Create your first routing rule to get started",
+      "createButton": "Create Rule",
+      "clearFilters": "Clear filters"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  }
+}
