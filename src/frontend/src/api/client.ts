@@ -100,8 +100,14 @@ export interface ServiceInfo {
 	message?: string;
 }
 
-export interface StatusInfo {
+export interface VersionInfo {
 	version: string;
+	date: string;
+	commit: string;
+}
+
+export interface StatusInfo {
+	version: VersionInfo;
 	keenetic_version?: string;
 	services: Record<string, ServiceInfo>;
 }

@@ -1,59 +1,47 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
-	"strings"
+)
+
+var (
+	// Version information set via ldflags at build time
+	Version = "dev"
+	Date    = "n/a"
+	Commit  = "n/a"
 )
 
 // GetStatus returns system status information.
 // GET /api/v1/status
 func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	response := StatusResponse{
-		Version:  getVersion(),
+		Version: VersionInfo{
+			Version: Version,
+			Date:    Date,
+			Commit:  Commit,
+		},
 		Services: make(map[string]ServiceInfo),
 	}
 
-	// Get Keenetic version if available
+	// Get Keenetic version if available (raw version string)
 	if h.deps.KeeneticClient() != nil {
-		if version, err := h.deps.KeeneticClient().GetVersion(); err == nil {
-			response.KeeneticVersion = fmt.Sprintf("KeeneticOS %d.%d", version.Major, version.Minor)
+		if versionStr, err := h.deps.KeeneticClient().GetRawVersion(); err == nil {
+			response.KeeneticVersion = versionStr
 		}
 	}
 
 	// Check keen-pbr service status
-	response.Services["keen-pbr"] = getServiceStatus("keen-pbr")
+	response.Services["keen-pbr"] = getServiceStatus("keen-pbr", "/opt/etc/init.d/S80keen-pbr")
 
 	// Check dnsmasq service status
-	response.Services["dnsmasq"] = getServiceStatus("dnsmasq")
+	response.Services["dnsmasq"] = getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")
 
 	writeJSONData(w, response)
 }
 
-// getVersion reads the version from the VERSION file.
-func getVersion() string {
-	data, err := os.ReadFile("VERSION")
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(data))
-}
-
 // getServiceStatus checks if a service is running using init.d scripts.
-func getServiceStatus(serviceName string) ServiceInfo {
-	// Try to check service status using init.d script
-	scriptPath := "/opt/etc/init.d/S80" + serviceName
-
-	// Check if init script exists
-	if _, err := os.Stat(scriptPath); err != nil {
-		return ServiceInfo{
-			Status:  "unknown",
-			Message: "Init script not found",
-		}
-	}
-
+func getServiceStatus(serviceName string, scriptPath string) ServiceInfo {
 	// Run status check
 	cmd := exec.Command(scriptPath, "check")
 	err := cmd.Run()

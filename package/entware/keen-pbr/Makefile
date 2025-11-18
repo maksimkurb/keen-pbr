@@ -30,6 +30,14 @@ endef
 
 GO_TARGET:=./src/cmd/keen-pbr
 
+# Set build-time variables
+PKG_BUILD_DATE:=$(shell date -u +%Y-%m-%d)
+PKG_COMMIT:=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+GO_LDFLAGS += -X 'github.com/maksimkurb/keen-pbr/src/internal/api.Version=$(PKG_VERSION)' \
+	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Date=$(PKG_BUILD_DATE)' \
+	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Commit=$(PKG_COMMIT)'
+
 define Build/Compile
 	# Build frontend
 	cd $(PKG_BUILD_DIR)/src/frontend && \

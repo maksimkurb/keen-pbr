@@ -10,6 +10,12 @@ import (
 	"os"
 )
 
+var (
+	version = "dev"
+	commit  = "n/a"
+	date    = "n/a"
+)
+
 func main() {
 	ctx := &commands.AppContext{}
 

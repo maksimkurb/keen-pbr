@@ -26,6 +26,9 @@ type MockKeeneticClient struct {
 	// GetVersionFunc is called by GetVersion if not nil
 	GetVersionFunc func() (*keenetic.KeeneticVersion, error)
 
+	// GetRawVersionFunc is called by GetRawVersion if not nil
+	GetRawVersionFunc func() (string, error)
+
 	// GetInterfacesFunc is called by GetInterfaces if not nil
 	GetInterfacesFunc func() (map[string]keenetic.Interface, error)
 
@@ -43,6 +46,18 @@ func (m *MockKeeneticClient) GetVersion() (*keenetic.KeeneticVersion, error) {
 	}
 	// Default: return a modern version that supports all features
 	return &keenetic.KeeneticVersion{Major: 4, Minor: 3}, nil
+}
+
+// GetRawVersion returns the raw Keenetic OS version string.
+//
+// If GetRawVersionFunc is set, it calls that function.
+// Otherwise, returns a default version string "4.03.C.7.0-0".
+func (m *MockKeeneticClient) GetRawVersion() (string, error) {
+	if m.GetRawVersionFunc != nil {
+		return m.GetRawVersionFunc()
+	}
+	// Default: return a mock version string
+	return "4.03.C.7.0-0", nil
 }
 
 // GetInterfaces returns network interfaces from the Keenetic router.

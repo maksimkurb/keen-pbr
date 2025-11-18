@@ -57,7 +57,7 @@ export function ServiceStatusWidget() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatusCard
             title={t('dashboard.version')}
-            value={data.version}
+            value={`${data.version.version} (${data.version.commit})`}
           />
           <StatusCard
             title={t('dashboard.keeneticVersion')}

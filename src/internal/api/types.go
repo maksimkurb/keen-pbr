@@ -45,9 +45,16 @@ type SettingsResponse struct {
 
 // StatusResponse returns system status information.
 type StatusResponse struct {
-	Version         string                 `json:"version"`
+	Version         VersionInfo            `json:"version"`
 	KeeneticVersion string                 `json:"keenetic_version,omitempty"`
 	Services        map[string]ServiceInfo `json:"services"`
+}
+
+// VersionInfo contains build version information.
+type VersionInfo struct {
+	Version string `json:"version"`
+	Date    string `json:"date"`
+	Commit  string `json:"commit"`
 }
 
 // ServiceInfo contains information about a service.
