@@ -7,5 +7,8 @@ include packages.mk
 
 .DEFAULT_GOAL := packages
 
+test:
+	go test ./...
+
 clean:
 	rm -rf out/
