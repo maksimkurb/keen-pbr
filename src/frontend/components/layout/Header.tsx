@@ -26,7 +26,7 @@ export function Header() {
 
   return (
     <header className="border-b">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container max-w-7xl mx-auto px-4 flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <h1 className="text-xl font-bold">keen-pbr</h1>
 

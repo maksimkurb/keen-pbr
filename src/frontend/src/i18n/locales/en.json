@@ -10,13 +10,19 @@
     "systemStatus": "System Status",
     "version": "keen-pbr Version",
     "keeneticVersion": "Keenetic OS",
+    "keenPbrService": "keen-pbr Service",
+    "dnsmasqService": "dnsmasq Service",
     "serviceStatus": "Service Status",
     "domainChecker": {
       "title": "Domain/IP Routing Checker",
       "placeholder": "Enter domain or IP address",
       "checkRouting": "Check Routing",
       "ping": "Ping",
-      "traceroute": "Traceroute"
+      "traceroute": "Traceroute",
+      "foundInIPSets": "Found in IPSets",
+      "routing": "Routing Configuration",
+      "routeInfo": "table {{table}} via {{interface}}",
+      "placeholderNote": "Note: This is a placeholder. API integration is pending."
     }
   },
   "settings": {
@@ -90,6 +96,7 @@
     "error": "Error",
     "success": "Success",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "notAvailable": "N/A"
   }
 }
