@@ -91,3 +91,64 @@ type CheckResult struct {
 	Passed  bool   `json:"passed"`
 	Message string `json:"message,omitempty"`
 }
+
+// CheckRequest contains the host (domain or IP) to check.
+type CheckRequest struct {
+	Host string `json:"host"`
+}
+
+// RoutingCheckResponse returns routing information for a host.
+type RoutingCheckResponse struct {
+	Host         string              `json:"host"`
+	ResolvedIPs  []string            `json:"resolved_ips,omitempty"`
+	MatchedIPSets []IPSetMatch       `json:"matched_ipsets,omitempty"`
+	Routing      *RoutingInfo        `json:"routing,omitempty"`
+}
+
+// IPSetMatch contains information about an IPSet that matches the host.
+type IPSetMatch struct {
+	IPSetName string `json:"ipset_name"`
+	MatchType string `json:"match_type"` // "domain", "ipv4", "ipv6"
+}
+
+// RoutingInfo contains routing configuration details.
+type RoutingInfo struct {
+	Table     string   `json:"table,omitempty"`
+	Priority  int      `json:"priority,omitempty"`
+	FwMark    string   `json:"fwmark,omitempty"`
+	Interface string   `json:"interface,omitempty"`
+	DNSOverride string `json:"dns_override,omitempty"`
+}
+
+// PingCheckResponse returns ping results for a host.
+type PingCheckResponse struct {
+	Host        string   `json:"host"`
+	ResolvedIP  string   `json:"resolved_ip,omitempty"`
+	Success     bool     `json:"success"`
+	PacketsSent int      `json:"packets_sent,omitempty"`
+	PacketsRecv int      `json:"packets_received,omitempty"`
+	PacketLoss  float64  `json:"packet_loss,omitempty"`
+	MinRTT      float64  `json:"min_rtt,omitempty"` // milliseconds
+	AvgRTT      float64  `json:"avg_rtt,omitempty"` // milliseconds
+	MaxRTT      float64  `json:"max_rtt,omitempty"` // milliseconds
+	Output      string   `json:"output,omitempty"`
+	Error       string   `json:"error,omitempty"`
+}
+
+// TracerouteCheckResponse returns traceroute results for a host.
+type TracerouteCheckResponse struct {
+	Host       string          `json:"host"`
+	ResolvedIP string          `json:"resolved_ip,omitempty"`
+	Success    bool            `json:"success"`
+	Hops       []TracerouteHop `json:"hops,omitempty"`
+	Output     string          `json:"output,omitempty"`
+	Error      string          `json:"error,omitempty"`
+}
+
+// TracerouteHop represents a single hop in a traceroute.
+type TracerouteHop struct {
+	Hop      int     `json:"hop"`
+	IP       string  `json:"ip,omitempty"`
+	Hostname string  `json:"hostname,omitempty"`
+	RTT      float64 `json:"rtt,omitempty"` // milliseconds
+}

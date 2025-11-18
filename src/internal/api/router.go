@@ -51,6 +51,11 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 
 		// Health check endpoint
 		r.Get("/health", h.CheckHealth)
+
+		// Network check endpoints
+		r.Post("/check/routing", h.CheckRouting)
+		r.Post("/check/ping", h.CheckPing)
+		r.Post("/check/traceroute", h.CheckTraceroute)
 	})
 
 	// Serve static frontend files

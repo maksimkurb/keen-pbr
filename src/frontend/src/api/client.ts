@@ -133,6 +133,57 @@ export interface HealthCheckResponse {
 	checks: Record<string, CheckResult>;
 }
 
+// Network check types
+export interface IPSetMatch {
+	ipset_name: string;
+	match_type: string; // "domain", "ipv4", "ipv6"
+}
+
+export interface RoutingInfo {
+	table?: string;
+	priority?: number;
+	fwmark?: string;
+	interface?: string;
+	dns_override?: string;
+}
+
+export interface RoutingCheckResponse {
+	host: string;
+	resolved_ips?: string[];
+	matched_ipsets?: IPSetMatch[];
+	routing?: RoutingInfo;
+}
+
+export interface PingCheckResponse {
+	host: string;
+	resolved_ip?: string;
+	success: boolean;
+	packets_sent?: number;
+	packets_received?: number;
+	packet_loss?: number;
+	min_rtt?: number; // milliseconds
+	avg_rtt?: number; // milliseconds
+	max_rtt?: number; // milliseconds
+	output?: string;
+	error?: string;
+}
+
+export interface TracerouteHop {
+	hop: number;
+	ip?: string;
+	hostname?: string;
+	rtt?: number; // milliseconds
+}
+
+export interface TracerouteCheckResponse {
+	host: string;
+	resolved_ip?: string;
+	success: boolean;
+	hops?: TracerouteHop[];
+	output?: string;
+	error?: string;
+}
+
 // API Client class
 export class KeenPBRClient {
 	private baseURL: string;
@@ -270,6 +321,23 @@ export class KeenPBRClient {
 	// Health Check API
 	async checkHealth(): Promise<HealthCheckResponse> {
 		return this.request<HealthCheckResponse>("GET", "/health");
+	}
+
+	// Network Check API
+	async checkRouting(host: string): Promise<RoutingCheckResponse> {
+		return this.request<RoutingCheckResponse>("POST", "/check/routing", {
+			host,
+		});
+	}
+
+	async checkPing(host: string): Promise<PingCheckResponse> {
+		return this.request<PingCheckResponse>("POST", "/check/ping", { host });
+	}
+
+	async checkTraceroute(host: string): Promise<TracerouteCheckResponse> {
+		return this.request<TracerouteCheckResponse>("POST", "/check/traceroute", {
+			host,
+		});
 	}
 }
 
