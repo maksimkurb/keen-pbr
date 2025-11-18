@@ -11,7 +11,7 @@ test:
 	go test ./...
 
 build-frontend:
-	cd src/frontend && bun install && bun run build
+	cd src/frontend && npm install && npm run build
 
 build: build-frontend
 	go build -o keen-pbr ./src/cmd/keen-pbr
