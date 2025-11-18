@@ -92,36 +92,39 @@ export function DomainCheckerWidget() {
 		const url = apiClient.getPingSSEUrl(host);
 		const eventSource = new EventSource(url);
 		eventSourceRef.current = eventSource;
+		let completed = false;
 
 		eventSource.onmessage = (event) => {
 			setState((prev) => ({
 				...prev,
 				consoleOutput: [...prev.consoleOutput, event.data],
 			}));
-		};
 
-		eventSource.onerror = (error) => {
-			console.error('SSE Error:', error);
-			eventSource.close();
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				error: 'Connection to server lost',
-			}));
-		};
-
-		// Detect completion
-		eventSource.addEventListener('message', (event) => {
+			// Detect completion
 			if (
 				event.data.includes('[Process completed') ||
 				event.data.includes('[Process exited')
 			) {
+				completed = true;
 				setTimeout(() => {
 					eventSource.close();
 					setState((prev) => ({ ...prev, loading: false }));
 				}, 100);
 			}
-		});
+		};
+
+		eventSource.onerror = (error) => {
+			eventSource.close();
+			// Only show error if process didn't complete successfully
+			if (!completed) {
+				console.error('SSE Error:', error);
+				setState((prev) => ({
+					...prev,
+					loading: false,
+					error: 'Connection to server lost',
+				}));
+			}
+		};
 	};
 
 	const handleTraceroute = () => {
@@ -141,36 +144,39 @@ export function DomainCheckerWidget() {
 		const url = apiClient.getTracerouteSSEUrl(host);
 		const eventSource = new EventSource(url);
 		eventSourceRef.current = eventSource;
+		let completed = false;
 
 		eventSource.onmessage = (event) => {
 			setState((prev) => ({
 				...prev,
 				consoleOutput: [...prev.consoleOutput, event.data],
 			}));
-		};
 
-		eventSource.onerror = (error) => {
-			console.error('SSE Error:', error);
-			eventSource.close();
-			setState((prev) => ({
-				...prev,
-				loading: false,
-				error: 'Connection to server lost',
-			}));
-		};
-
-		// Detect completion
-		eventSource.addEventListener('message', (event) => {
+			// Detect completion
 			if (
 				event.data.includes('[Process completed') ||
 				event.data.includes('[Process exited')
 			) {
+				completed = true;
 				setTimeout(() => {
 					eventSource.close();
 					setState((prev) => ({ ...prev, loading: false }));
 				}, 100);
 			}
-		});
+		};
+
+		eventSource.onerror = (error) => {
+			eventSource.close();
+			// Only show error if process didn't complete successfully
+			if (!completed) {
+				console.error('SSE Error:', error);
+				setState((prev) => ({
+					...prev,
+					loading: false,
+					error: 'Connection to server lost',
+				}));
+			}
+		};
 	};
 
 	return (
