@@ -4,13 +4,13 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useCreateList } from '../../src/hooks/useLists';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '../ui/responsive-dialog';
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -71,14 +71,14 @@ export function CreateListDialog({ open, onOpenChange }: CreateListDialogProps) 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('lists.newList')}</DialogTitle>
-          <DialogDescription>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-2xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{t('lists.newList')}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Create a new list of domains, IPs, or CIDRs
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit}>
           <FieldGroup>
@@ -169,7 +169,7 @@ export function CreateListDialog({ open, onOpenChange }: CreateListDialogProps) 
             )}
           </FieldGroup>
 
-          <DialogFooter className="mt-6">
+          <ResponsiveDialogFooter className="mt-6">
             <Button
               type="button"
               variant="outline"
@@ -182,9 +182,9 @@ export function CreateListDialog({ open, onOpenChange }: CreateListDialogProps) 
               {createList.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.create')}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

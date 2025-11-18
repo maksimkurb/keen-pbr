@@ -6,13 +6,13 @@ import { useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '../ui/responsive-dialog';
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
@@ -149,13 +149,13 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Routing Rule</DialogTitle>
-          <DialogDescription>
+      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Edit Routing Rule</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Modify the routing rule configuration
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit}>
           <FieldGroup>
@@ -446,7 +446,7 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
             </div>
           </FieldGroup>
 
-          <DialogFooter className="mt-6">
+          <ResponsiveDialogFooter className="mt-6">
             <Button
               type="button"
               variant="outline"
@@ -459,9 +459,9 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
               {updateIPSet.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.save')}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }

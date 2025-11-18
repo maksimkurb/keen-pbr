@@ -6,13 +6,13 @@ import { useUpdateList } from '../../src/hooks/useLists';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../src/api/client';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '../ui/responsive-dialog';
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -98,13 +98,13 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit List</DialogTitle>
-          <DialogDescription>
+      <ResponsiveDialogContent className="max-w-2xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Edit List</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Update the list configuration
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit}>
           <FieldGroup>
@@ -196,7 +196,7 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
             )}
           </FieldGroup>
 
-          <DialogFooter className="mt-6">
+          <ResponsiveDialogFooter className="mt-6">
             <Button
               type="button"
               variant="outline"
@@ -209,9 +209,9 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
               {updateList.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.save')}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }

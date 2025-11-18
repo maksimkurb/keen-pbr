@@ -5,13 +5,13 @@ import { Loader2, X, Plus, Check, ChevronsUpDown } from 'lucide-react';
 import { useCreateIPSet } from '../../src/hooks/useIPSets';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '../ui/responsive-dialog';
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
@@ -142,13 +142,13 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t('routingRules.newRule')}</DialogTitle>
-          <DialogDescription>
+      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{t('routingRules.newRule')}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Create a new routing rule for policy-based routing
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit}>
           <FieldGroup>
@@ -442,7 +442,7 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
             </div>
           </FieldGroup>
 
-          <DialogFooter className="mt-6">
+          <ResponsiveDialogFooter className="mt-6">
             <Button
               type="button"
               variant="outline"
@@ -455,9 +455,9 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
               {createIPSet.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.create')}
             </Button>
-          </DialogFooter>
+          </ResponsiveDialogFooter>
         </form>
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }
