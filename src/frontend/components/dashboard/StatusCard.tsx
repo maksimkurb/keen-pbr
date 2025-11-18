@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 
@@ -5,8 +6,9 @@ type ServiceStatus = 'running' | 'stopped' | 'unknown';
 
 interface StatusCardProps {
   title: string;
-  value: string;
+  value?: string;
   status?: ServiceStatus;
+  actions?: ReactNode;
 }
 
 const statusVariants: Record<ServiceStatus, 'default' | 'destructive' | 'secondary'> = {
@@ -15,7 +17,7 @@ const statusVariants: Record<ServiceStatus, 'default' | 'destructive' | 'seconda
   unknown: 'secondary',
 };
 
-export function StatusCard({ title, value, status }: StatusCardProps) {
+export function StatusCard({ title, value, status, actions }: StatusCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -24,12 +26,19 @@ export function StatusCard({ title, value, status }: StatusCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div className="text-2xl font-bold">{value}</div>
+        <div className="space-y-3">
+          {value && (
+            <div className="text-2xl font-bold">{value}</div>
+          )}
           {status && (
-            <Badge variant={statusVariants[status]}>
+            <Badge variant={statusVariants[status]} className="text-xs">
               {status}
             </Badge>
+          )}
+          {actions && (
+            <div className="flex gap-2">
+              {actions}
+            </div>
           )}
         </div>
       </CardContent>

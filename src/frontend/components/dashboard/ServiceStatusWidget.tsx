@@ -1,18 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/src/api/client';
 import { StatusCard } from './StatusCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Play, Square, RotateCw } from 'lucide-react';
 
 export function ServiceStatusWidget() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [controlLoading, setControlLoading] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['status'],
     queryFn: () => apiClient.getStatus(),
     refetchInterval: 5000, // Refresh every 5 seconds
   });
+
+  const handleServiceControl = async (service: string, action: 'start' | 'stop' | 'restart') => {
+    setControlLoading(`${service}-${action}`);
+    try {
+      // TODO: Implement API calls for service control
+      console.log(`${action} ${service}`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
+      queryClient.invalidateQueries({ queryKey: ['status'] });
+    } catch (err) {
+      console.error(`Failed to ${action} ${service}:`, err);
+    } finally {
+      setControlLoading(null);
+    }
+  };
 
   if (error) {
     return (
@@ -48,6 +67,9 @@ export function ServiceStatusWidget() {
     );
   }
 
+  const keenPbrStatus = data.services['keen-pbr']?.status || 'unknown';
+  const dnsmasqStatus = data.services.dnsmasq?.status || 'unknown';
+
   return (
     <Card>
       <CardHeader>
@@ -65,13 +87,53 @@ export function ServiceStatusWidget() {
           />
           <StatusCard
             title={t('dashboard.keenPbrService')}
-            value={data.services['keen-pbr']?.status || 'unknown'}
-            status={data.services['keen-pbr']?.status || 'unknown'}
+            status={keenPbrStatus}
+            actions={
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceControl('keen-pbr', 'start')}
+                  disabled={keenPbrStatus === 'running' || controlLoading === 'keen-pbr-start'}
+                >
+                  <Play className="h-3 w-3 mr-1" />
+                  {t('common.start')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceControl('keen-pbr', 'stop')}
+                  disabled={keenPbrStatus === 'stopped' || controlLoading === 'keen-pbr-stop'}
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  {t('common.stop')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleServiceControl('keen-pbr', 'restart')}
+                  disabled={controlLoading === 'keen-pbr-restart'}
+                >
+                  <RotateCw className="h-3 w-3 mr-1" />
+                  {t('common.restart')}
+                </Button>
+              </>
+            }
           />
           <StatusCard
             title={t('dashboard.dnsmasqService')}
-            value={data.services.dnsmasq?.status || 'unknown'}
-            status={data.services.dnsmasq?.status || 'unknown'}
+            status={dnsmasqStatus}
+            actions={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleServiceControl('dnsmasq', 'restart')}
+                disabled={controlLoading === 'dnsmasq-restart'}
+              >
+                <RotateCw className="h-3 w-3 mr-1" />
+                {t('common.restart')}
+              </Button>
+            }
           />
         </div>
       </CardContent>

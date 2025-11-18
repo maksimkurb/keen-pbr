@@ -97,6 +97,9 @@
     "success": "Success",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "notAvailable": "N/A"
+    "notAvailable": "N/A",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart"
   }
 }

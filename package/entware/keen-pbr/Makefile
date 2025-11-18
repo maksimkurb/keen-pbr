@@ -32,7 +32,9 @@ GO_TARGET:=./src/cmd/keen-pbr
 
 # Set build-time variables
 PKG_BUILD_DATE:=$(shell date -u +%Y-%m-%d)
-PKG_COMMIT:=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Use PKG_SOURCE_VERSION which contains the git commit from the source checkout
+# If PKG_SOURCE_VERSION is not set (local builds), try git rev-parse
+PKG_COMMIT:=$(if $(PKG_SOURCE_VERSION),$(shell echo $(PKG_SOURCE_VERSION) | cut -c1-7),$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown"))
 
 GO_LDFLAGS += -X 'github.com/maksimkurb/keen-pbr/src/internal/api.Version=$(PKG_VERSION)' \
 	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Date=$(PKG_BUILD_DATE)' \

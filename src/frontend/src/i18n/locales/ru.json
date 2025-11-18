@@ -97,6 +97,9 @@
     "success": "Успешно",
     "enabled": "Включено",
     "disabled": "Выключено",
-    "notAvailable": "Н/Д"
+    "notAvailable": "Н/Д",
+    "start": "Запустить",
+    "stop": "Остановить",
+    "restart": "Перезапустить"
   }
 }
