@@ -18,10 +18,9 @@ export function SettingsForm() {
 
   // Form state
   const [formData, setFormData] = useState<GeneralSettings>({
-    lists_output_dir: '',
-    use_keenetic_dns: true,
-    fallback_dns: '',
-    api_bind_address: '',
+    ListsOutputDir: '',
+    UseKeeneticDNS: true,
+    FallbackDNS: '',
   });
 
   // Sync form data with fetched settings
@@ -99,36 +98,19 @@ export function SettingsForm() {
           <FieldGroup>
             {/* Lists Output Directory */}
             <Field>
-              <FieldLabel htmlFor="lists_output_dir">
+              <FieldLabel htmlFor="ListsOutputDir">
                 {t('settings.listsOutputDir')}
               </FieldLabel>
               <FieldDescription>
                 Directory where downloaded list files will be stored
               </FieldDescription>
               <Input
-                id="lists_output_dir"
+                id="ListsOutputDir"
                 type="text"
-                value={formData.lists_output_dir}
-                onChange={handleInputChange('lists_output_dir')}
+                value={formData.ListsOutputDir}
+                onChange={handleInputChange('ListsOutputDir')}
                 placeholder="/opt/etc/keen-pbr/lists.d"
                 required
-              />
-            </Field>
-
-            {/* API Bind Address */}
-            <Field>
-              <FieldLabel htmlFor="api_bind_address">
-                {t('settings.apiBindAddress')}
-              </FieldLabel>
-              <FieldDescription>
-                API server bind address (optional). Leave empty to use default.
-              </FieldDescription>
-              <Input
-                id="api_bind_address"
-                type="text"
-                value={formData.api_bind_address || ''}
-                onChange={handleInputChange('api_bind_address')}
-                placeholder="0.0.0.0:8080"
               />
             </Field>
 
@@ -136,12 +118,12 @@ export function SettingsForm() {
             <Field orientation="horizontal">
               <div className="flex items-center space-x-3">
                 <Checkbox
-                  id="use_keenetic_dns"
-                  checked={formData.use_keenetic_dns}
-                  onCheckedChange={handleCheckboxChange('use_keenetic_dns')}
+                  id="UseKeeneticDNS"
+                  checked={formData.UseKeeneticDNS}
+                  onCheckedChange={handleCheckboxChange('UseKeeneticDNS')}
                 />
                 <div className="flex flex-col">
-                  <FieldLabel htmlFor="use_keenetic_dns" className="cursor-pointer">
+                  <FieldLabel htmlFor="UseKeeneticDNS" className="cursor-pointer">
                     {t('settings.useKeeneticDns')}
                   </FieldLabel>
                   <FieldDescription>
@@ -153,17 +135,17 @@ export function SettingsForm() {
 
             {/* Fallback DNS */}
             <Field>
-              <FieldLabel htmlFor="fallback_dns">
+              <FieldLabel htmlFor="FallbackDNS">
                 {t('settings.fallbackDns')}
               </FieldLabel>
               <FieldDescription>
                 Fallback DNS server to use if Keenetic RCI call fails (e.g., 8.8.8.8 or 1.1.1.1). Leave empty to disable.
               </FieldDescription>
               <Input
-                id="fallback_dns"
+                id="FallbackDNS"
                 type="text"
-                value={formData.fallback_dns || ''}
-                onChange={handleInputChange('fallback_dns')}
+                value={formData.FallbackDNS || ''}
+                onChange={handleInputChange('FallbackDNS')}
                 placeholder="8.8.8.8"
               />
             </Field>
