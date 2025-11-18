@@ -110,9 +110,6 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="list_name">List Name</FieldLabel>
-              <FieldDescription>
-                Cannot be changed after creation
-              </FieldDescription>
               <Input
                 id="list_name"
                 value={formData.list_name}
@@ -121,6 +118,9 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
                 required
                 disabled
               />
+              <FieldDescription>
+                Cannot be changed after creation
+              </FieldDescription>
             </Field>
 
             <Field>

@@ -93,6 +93,11 @@ export interface UpdateIPSetRequest {
 	iptables_rule?: IPTablesRule[];
 }
 
+// Interface types
+export interface InterfaceInfo {
+	name: string;
+}
+
 // Settings types
 export interface GeneralSettings {
 	lists_output_dir: string;
@@ -279,6 +284,15 @@ export class KeenPBRClient {
 
 	async deleteIPSet(name: string): Promise<void> {
 		await this.request<void>("DELETE", `/ipsets/${encodeURIComponent(name)}`);
+	}
+
+	// Interfaces API
+	async getInterfaces(): Promise<InterfaceInfo[]> {
+		const result = await this.request<{ interfaces: InterfaceInfo[] }>(
+			"GET",
+			"/interfaces",
+		);
+		return result.interfaces;
 	}
 
 	// Settings API

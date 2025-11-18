@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown } from 'lucide-react';
 import { useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
+import { useInterfaces } from '../../src/hooks/useInterfaces';
 import {
   Dialog,
   DialogContent,
@@ -14,10 +15,13 @@ import {
 } from '../ui/dialog';
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { cn } from '../../src/lib/utils';
 import type { IPSetConfig, CreateIPSetRequest } from '../../src/api/client';
 
 interface EditRuleDialogProps {
@@ -30,6 +34,12 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
   const { t } = useTranslation();
   const updateIPSet = useUpdateIPSet();
   const { data: lists } = useLists();
+  const [interfacesOpen, setInterfacesOpen] = useState(false);
+  const [listsOpen, setListsOpen] = useState(false);
+  const [interfaceSearch, setInterfaceSearch] = useState('');
+
+  // Fetch interfaces when combobox is opened
+  const { data: interfacesData } = useInterfaces(interfacesOpen);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
@@ -44,8 +54,6 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
       priority: 100,
     },
   });
-
-  const [interfaceInput, setInterfaceInput] = useState('');
 
   const availableLists = lists?.map((l) => l.list_name) || [];
 
@@ -92,26 +100,35 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
     }
   };
 
-  const toggleList = (listName: string) => {
+  const addList = (listName: string) => {
+    if (!formData.lists.includes(listName)) {
+      setFormData({
+        ...formData,
+        lists: [...formData.lists, listName],
+      });
+    }
+    setListsOpen(false);
+  };
+
+  const removeList = (listName: string) => {
     setFormData({
       ...formData,
-      lists: formData.lists.includes(listName)
-        ? formData.lists.filter((l) => l !== listName)
-        : [...formData.lists, listName],
+      lists: formData.lists.filter((l) => l !== listName),
     });
   };
 
-  const addInterface = () => {
-    if (interfaceInput.trim() && formData.routing) {
+  const addInterface = (iface: string) => {
+    if (formData.routing && !formData.routing.interfaces.includes(iface)) {
       setFormData({
         ...formData,
         routing: {
           ...formData.routing,
-          interfaces: [...formData.routing.interfaces, interfaceInput.trim()],
+          interfaces: [...formData.routing.interfaces, iface],
         },
       });
-      setInterfaceInput('');
     }
+    setInterfacesOpen(false);
+    setInterfaceSearch('');
   };
 
   const removeInterface = (iface: string) => {
@@ -125,6 +142,10 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
       });
     }
   };
+
+  // Get interface options - includes available interfaces and custom search
+  const interfaceOptions = interfacesData?.interfaces.map((i) => i.name) || [];
+  const showCustomInterface = interfaceSearch && !interfaceOptions.includes(interfaceSearch);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,30 +165,33 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
 
               <Field>
                 <FieldLabel htmlFor="ipset_name">IPSet Name</FieldLabel>
-                <FieldDescription>
-                  Cannot be changed after creation
-                </FieldDescription>
                 <Input
                   id="ipset_name"
                   value={formData.ipset_name}
                   disabled
                 />
+                <FieldDescription>
+                  Cannot be changed after creation
+                </FieldDescription>
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="ip_version">IP Version</FieldLabel>
-                <Select
+                <FieldLabel>IP Version</FieldLabel>
+                <RadioGroup
                   value={formData.ip_version.toString()}
                   onValueChange={(value) => setFormData({ ...formData, ip_version: parseInt(value) as 4 | 6 })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">IPv4</SelectItem>
-                    <SelectItem value="6">IPv6</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="4" id="ipv4" />
+                      <Label htmlFor="ipv4">IPv4</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="6" id="ipv6" />
+                      <Label htmlFor="ipv6">IPv6</Label>
+                    </div>
+                  </div>
+                </RadioGroup>
               </Field>
             </div>
 
@@ -179,24 +203,61 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
                 <FieldDescription>
                   Choose which lists to include in this routing rule
                 </FieldDescription>
-                <div className="flex flex-wrap gap-2 border rounded-md p-3 min-h-[60px]">
-                  {availableLists.map((list) => (
-                    <Badge
-                      key={list}
-                      variant={formData.lists.includes(list) ? 'default' : 'outline'}
-                      className="cursor-pointer"
-                      onClick={() => toggleList(list)}
+
+                <Popover open={listsOpen} onOpenChange={setListsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={listsOpen}
+                      className="w-full justify-between"
                     >
-                      {list}
-                      {formData.lists.includes(list) && (
-                        <X className="ml-1 h-3 w-3" />
-                      )}
-                    </Badge>
-                  ))}
-                  {availableLists.length === 0 && (
-                    <span className="text-sm text-muted-foreground">No lists available</span>
-                  )}
-                </div>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add list
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search lists..." />
+                      <CommandList>
+                        <CommandEmpty>No lists found.</CommandEmpty>
+                        <CommandGroup>
+                          {availableLists.map((list) => (
+                            <CommandItem
+                              key={list}
+                              value={list}
+                              onSelect={() => addList(list)}
+                              disabled={formData.lists.includes(list)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.lists.includes(list) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {list}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {formData.lists.length > 0 && (
+                  <ul className="mt-2 space-y-1 border rounded-md p-2">
+                    {formData.lists.map((list) => (
+                      <li key={list} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
+                        <span>{list}</span>
+                        <X
+                          className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                          onClick={() => removeList(list)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </Field>
             </div>
 
@@ -210,35 +271,74 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
                   <FieldDescription>
                     Add interfaces in priority order (first = highest priority)
                   </FieldDescription>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={interfaceInput}
-                        onChange={(e) => setInterfaceInput(e.target.value)}
-                        placeholder="nwg0"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addInterface();
-                          }
-                        }}
-                      />
-                      <Button type="button" size="sm" onClick={addInterface}>
-                        <Plus className="h-4 w-4" />
+
+                  <Popover open={interfacesOpen} onOpenChange={setInterfacesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={interfacesOpen}
+                        className="w-full justify-between"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add interface
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search or type custom interface..."
+                          value={interfaceSearch}
+                          onValueChange={setInterfaceSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No interfaces found.</CommandEmpty>
+                          <CommandGroup>
+                            {showCustomInterface && (
+                              <CommandItem
+                                value={interfaceSearch}
+                                onSelect={() => addInterface(interfaceSearch)}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                {interfaceSearch} <span className="ml-2 text-muted-foreground">(Not exists)</span>
+                              </CommandItem>
+                            )}
+                            {interfaceOptions.map((iface) => (
+                              <CommandItem
+                                key={iface}
+                                value={iface}
+                                onSelect={() => addInterface(iface)}
+                                disabled={formData.routing?.interfaces.includes(iface)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.routing?.interfaces.includes(iface) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {iface}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
+                  {formData.routing.interfaces.length > 0 && (
+                    <ol className="mt-2 space-y-1 border rounded-md p-2 list-decimal list-inside">
                       {formData.routing.interfaces.map((iface, index) => (
-                        <Badge key={`${iface}-${index}`} variant="secondary">
-                          {index + 1}. {iface}
+                        <li key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
+                          <span>{iface}</span>
                           <X
-                            className="ml-1 h-3 w-3 cursor-pointer"
+                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
                             onClick={() => removeInterface(iface)}
                           />
-                        </Badge>
+                        </li>
                       ))}
-                    </div>
-                  </div>
+                    </ol>
+                  )}
                 </Field>
 
                 <div className="grid grid-cols-3 gap-4">
