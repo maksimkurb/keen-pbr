@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -129,7 +130,7 @@ func (h *Handler) findHostnameMatches(cfg *config.Config, host string) []Hostnam
 				continue
 			}
 
-			// Check if this is a domain match (only for inline hosts)
+			// Check inline hosts
 			if listSource.Hosts != nil {
 				for _, domainPattern := range listSource.Hosts {
 					if h.matchesDomain(host, domainPattern) {
@@ -141,11 +142,57 @@ func (h *Handler) findHostnameMatches(cfg *config.Config, host string) []Hostnam
 					}
 				}
 			}
+
+			// Check file-based or URL-based lists
+			if listSource.URL != "" || listSource.File != "" {
+				if pattern := h.checkHostInListFile(cfg, listSource, host); pattern != "" {
+					matches = append(matches, HostnameRuleMatch{
+						RuleName: ipsetConfig.IPSetName,
+						Pattern:  pattern,
+					})
+					goto nextIPSet
+				}
+			}
 		}
 	nextIPSet:
 	}
 
 	return matches
+}
+
+// checkHostInListFile checks if a host matches any domain pattern in a list file
+func (h *Handler) checkHostInListFile(cfg *config.Config, listSource *config.ListSource, host string) string {
+	// Get the file path
+	filePath, err := listSource.GetAbsolutePathAndCheckExists(cfg)
+	if err != nil {
+		log.Debugf("Failed to get list file path: %v", err)
+		return ""
+	}
+
+	// Open and read the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Debugf("Failed to open list file %s: %v", filePath, err)
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Check if this line is a domain pattern that matches
+		if h.matchesDomain(host, line) {
+			return line
+		}
+	}
+
+	return ""
 }
 
 // checkIPMatchesLists checks if an IP matches any list patterns in an IPSet

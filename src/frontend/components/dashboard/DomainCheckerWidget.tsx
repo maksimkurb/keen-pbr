@@ -244,22 +244,24 @@ export function DomainCheckerWidget() {
 						</div>
 
 						{/* Hostname Matches */}
-						{state.routingResult.matched_by_hostname &&
-							state.routingResult.matched_by_hostname.length > 0 && (
-								<div>
-									<div className="text-sm font-medium mb-2">
-										Present in Rules:
-									</div>
-									<ul className="list-disc list-inside text-sm space-y-1">
-										{state.routingResult.matched_by_hostname.map((match) => (
-											<li key={match.rule_name}>
-												<strong>{match.rule_name}</strong> (hostname "
-												{match.pattern}")
-											</li>
-										))}
-									</ul>
+						<div>
+							<div className="text-sm font-medium mb-2">Present in Rules:</div>
+							{state.routingResult.matched_by_hostname &&
+							state.routingResult.matched_by_hostname.length > 0 ? (
+								<ul className="list-disc list-inside text-sm space-y-1">
+									{state.routingResult.matched_by_hostname.map((match) => (
+										<li key={match.rule_name}>
+											<strong>{match.rule_name}</strong> (hostname "
+											{match.pattern}")
+										</li>
+									))}
+								</ul>
+							) : (
+								<div className="text-sm text-muted-foreground italic">
+									Host was not found in any rules
 								</div>
 							)}
+						</div>
 
 						{/* IP -> Rule -> Present Table */}
 						{state.routingResult.ipset_checks &&
