@@ -25,34 +25,34 @@ type GeneralConfig struct {
 }
 
 type IPSetConfig struct {
-	IPSetName           string          `toml:"ipset_name" comment:"Name of the ipset."`
-	Lists               []string        `toml:"lists" comment:"Add all hosts from the following lists to this ipset."`
-	IPVersion           IpFamily        `toml:"ip_version" comment:"IP version (4 or 6)"`
-	FlushBeforeApplying bool            `toml:"flush_before_applying" comment:"Clear ipset each time before filling it"`
-	Routing             *RoutingConfig  `toml:"routing"`
-	IPTablesRules       []*IPTablesRule `toml:"iptables_rule,omitempty" comment:"An iptables rule for this ipset (you can provide multiple rules).\nAvailable variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}."`
+	IPSetName           string          `toml:"ipset_name" json:"ipset_name" comment:"Name of the ipset."`
+	Lists               []string        `toml:"lists" json:"lists" comment:"Add all hosts from the following lists to this ipset."`
+	IPVersion           IpFamily        `toml:"ip_version" json:"ip_version" comment:"IP version (4 or 6)"`
+	FlushBeforeApplying bool            `toml:"flush_before_applying" json:"flush_before_applying" comment:"Clear ipset each time before filling it"`
+	Routing             *RoutingConfig  `toml:"routing" json:"routing,omitempty"`
+	IPTablesRules       []*IPTablesRule `toml:"iptables_rule,omitempty" json:"iptables_rule,omitempty" comment:"An iptables rule for this ipset (you can provide multiple rules).\nAvailable variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}."`
 }
 
 type IPTablesRule struct {
-	Chain string   `toml:"chain"`
-	Table string   `toml:"table"`
-	Rule  []string `toml:"rule"`
+	Chain string   `toml:"chain" json:"chain"`
+	Table string   `toml:"table" json:"table"`
+	Rule  []string `toml:"rule" json:"rule"`
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
-	KillSwitch     *bool    `toml:"kill_switch" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
-	FwMark         uint32   `toml:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
-	IpRouteTable   int      `toml:"table" comment:"iptables routing table number"`
-	IpRulePriority int      `toml:"priority" comment:"iptables routing rule priority"`
-	DNSOverride    string   `toml:"override_dns" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
+	Interfaces     []string `toml:"interfaces" json:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
+	KillSwitch     *bool    `toml:"kill_switch" json:"kill_switch,omitempty" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
+	FwMark         uint32   `toml:"fwmark" json:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
+	IpRouteTable   int      `toml:"table" json:"table" comment:"iptables routing table number"`
+	IpRulePriority int      `toml:"priority" json:"priority" comment:"iptables routing rule priority"`
+	DNSOverride    string   `toml:"override_dns" json:"override_dns,omitempty" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
 }
 
 type ListSource struct {
-	ListName string   `toml:"list_name"`
-	URL      string   `toml:"url,omitempty"`
-	File     string   `toml:"file,omitempty"`
-	Hosts    []string `toml:"hosts,multiline,omitempty"`
+	ListName string   `toml:"list_name" json:"list_name"`
+	URL      string   `toml:"url,omitempty" json:"url,omitempty"`
+	File     string   `toml:"file,omitempty" json:"file,omitempty"`
+	Hosts    []string `toml:"hosts,multiline,omitempty" json:"hosts,omitempty"`
 }
 
 func (c *Config) GetConfigDir() string {

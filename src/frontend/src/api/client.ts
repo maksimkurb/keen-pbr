@@ -48,12 +48,18 @@ export interface UpdateListRequest {
 
 // IPSet types
 export interface RoutingConfig {
-	interface: string;
-	table: string;
-	priority: number;
-	fwmark?: string;
-	dns_override?: string;
+	interfaces: string[];
 	kill_switch?: boolean;
+	fwmark: number;
+	table: number;
+	priority: number;
+	override_dns?: string;
+}
+
+export interface IPTablesRule {
+	chain: string;
+	table: string;
+	rule: string[];
 }
 
 export interface IPSetConfig {
@@ -62,6 +68,7 @@ export interface IPSetConfig {
 	ip_version: 4 | 6;
 	flush_before_applying: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
 }
 
 export interface CreateIPSetRequest {
@@ -70,6 +77,7 @@ export interface CreateIPSetRequest {
 	ip_version: 4 | 6;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
 }
 
 export interface UpdateIPSetRequest {
@@ -77,6 +85,7 @@ export interface UpdateIPSetRequest {
 	ip_version?: 4 | 6;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
 }
 
 // Settings types
