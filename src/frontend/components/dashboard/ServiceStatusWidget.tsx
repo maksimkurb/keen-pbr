@@ -22,12 +22,27 @@ export function ServiceStatusWidget() {
   const handleServiceControl = async (service: string, action: 'start' | 'stop' | 'restart') => {
     setControlLoading(`${service}-${action}`);
     try {
-      // TODO: Implement API calls for service control
-      console.log(`${action} ${service}`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated delay
+      if (service === 'keen-pbr') {
+        if (action === 'start') {
+          await apiClient.controlService(true);
+        } else if (action === 'stop') {
+          await apiClient.controlService(false);
+        } else if (action === 'restart') {
+          // Restart by stopping then starting
+          await apiClient.controlService(false);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          await apiClient.controlService(true);
+        }
+      } else if (service === 'dnsmasq' && action === 'restart') {
+        await apiClient.restartDnsmasq();
+      }
+
+      // Wait a bit before refreshing status to allow service to change state
+      await new Promise(resolve => setTimeout(resolve, 500));
       queryClient.invalidateQueries({ queryKey: ['status'] });
     } catch (err) {
       console.error(`Failed to ${action} ${service}:`, err);
+      // TODO: Show error toast notification
     } finally {
       setControlLoading(null);
     }

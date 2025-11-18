@@ -262,6 +262,11 @@ export class KeenPBRClient {
 		return this.request<ServiceControlResponse>("POST", "/service", { up });
 	}
 
+	// Dnsmasq Control API
+	async restartDnsmasq(): Promise<ServiceControlResponse> {
+		return this.request<ServiceControlResponse>("POST", "/dnsmasq", {});
+	}
+
 	// Health Check API
 	async checkHealth(): Promise<HealthCheckResponse> {
 		return this.request<HealthCheckResponse>("GET", "/health");

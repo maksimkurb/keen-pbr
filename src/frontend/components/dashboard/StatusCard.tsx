@@ -36,7 +36,7 @@ export function StatusCard({ title, value, status, actions }: StatusCardProps) {
             </Badge>
           )}
           {actions && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {actions}
             </div>
           )}

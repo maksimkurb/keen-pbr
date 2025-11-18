@@ -45,8 +45,9 @@ func NewRouter(configPath string, deps *domain.AppDependencies) http.Handler {
 		// Status endpoint
 		r.Get("/status", h.GetStatus)
 
-		// Service control endpoint
+		// Service control endpoints
 		r.Post("/service", h.ControlService)
+		r.Post("/dnsmasq", h.ControlDnsmasq)
 
 		// Health check endpoint
 		r.Get("/health", h.CheckHealth)
