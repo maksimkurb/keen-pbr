@@ -144,7 +144,7 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
   };
 
   // Get interface options - includes available interfaces and custom search
-  const interfaceOptions = (interfacesData?.interfaces || []).map((i) => i.name);
+  const interfaceOptions = (interfacesData || []).map((i) => i.name);
   const showCustomInterface = interfaceSearch && !interfaceOptions.includes(interfaceSearch);
 
   return (
