@@ -84,12 +84,14 @@ export interface GeneralSettings {
 	lists_output_dir: string;
 	use_keenetic_dns: boolean;
 	fallback_dns?: string;
+	api_bind_address?: string;
 }
 
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
 	use_keenetic_dns?: boolean;
 	fallback_dns?: string;
+	api_bind_address?: string;
 }
 
 // Status types

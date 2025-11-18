@@ -21,6 +21,7 @@ type GeneralConfig struct {
 	ListsOutputDir string `toml:"lists_output_dir" comment:"Directory for downloaded lists"`
 	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
 	FallbackDNS    string `toml:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	APIBindAddress string `toml:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
 }
 
 type IPSetConfig struct {

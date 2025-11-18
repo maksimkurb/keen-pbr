@@ -57,6 +57,11 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	}
 	c.cfg = cfg
 
+	// Use config value if provided, otherwise use flag value
+	if cfg.General.APIBindAddress != "" {
+		c.bindAddr = cfg.General.APIBindAddress
+	}
+
 	// Create dependencies
 	c.deps = domain.NewDefaultDependencies()
 
@@ -67,6 +72,12 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 func (c *ServerCommand) Run() error {
 	log.Infof("Starting keen-pbr API server on %s", c.bindAddr)
 	log.Infof("Configuration loaded from: %s", c.ctx.ConfigPath)
+	log.Infof("")
+	log.Infof("Access restricted to private subnets only:")
+	log.Infof("  IPv4: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8")
+	log.Infof("  IPv6: fc00::/7, fe80::/10, ::1/128")
+	log.Infof("Requests from public IPs will be rejected with 403 Forbidden")
+	log.Infof("")
 
 	// Create router
 	router := api.NewRouter(c.ctx.ConfigPath, c.deps)
