@@ -56,10 +56,17 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	// Load and validate configuration
-	cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath)
+	// Load configuration (but allow starting even if validation fails)
+	// Interface validation will be done when actually starting the service
+	cfg, err := config.LoadConfig(ctx.ConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration file: %w", err)
+	}
+
+	// Validate config structure (but not runtime requirements like interfaces)
+	if err := cfg.ValidateConfig(); err != nil {
+		log.Warnf("Configuration validation failed: %v", err)
+		log.Warnf("Server will start, but service cannot be started until config is fixed")
 	}
 	c.cfg = cfg
 
@@ -98,9 +105,11 @@ func (c *ServerCommand) Run() error {
 	log.Infof("Requests from public IPs will be rejected with 403 Forbidden")
 	log.Infof("")
 
-	// Start the routing service
+	// Try to start the routing service (but don't fail if it can't start)
+	// The user can see the error in the UI and fix the config
 	if err := c.serviceMgr.Start(); err != nil {
-		return fmt.Errorf("failed to start service: %w", err)
+		log.Errorf("Failed to start routing service: %v", err)
+		log.Warnf("API server will start anyway. Fix the configuration and try starting the service again.")
 	}
 
 	// Create router with service manager and config hasher

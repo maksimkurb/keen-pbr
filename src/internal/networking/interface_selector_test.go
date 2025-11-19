@@ -24,13 +24,14 @@ func TestInterfaceSelector_WithMockKeenetic(t *testing.T) {
 		}
 
 		// This should work without Keenetic API
-		iface, err := selector.ChooseBest(ipsetConfig)
+		iface, idx, err := selector.ChooseBest(ipsetConfig)
 		if err != nil {
 			t.Fatalf("Expected no error with nil client, got: %v", err)
 		}
 
 		// Loopback should be found (may or may not be chosen depending on state)
 		_ = iface
+		_ = idx
 	})
 
 	// Note: Tests with MockKeeneticClient are not included here to avoid import cycles.

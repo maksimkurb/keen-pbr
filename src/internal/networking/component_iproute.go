@@ -27,11 +27,25 @@ type IPRouteComponent struct {
 
 // NewDefaultRouteComponent creates a new default route component for a specific interface
 func NewDefaultRouteComponent(cfg *config.IPSetConfig, iface *Interface, selector *InterfaceSelector) *IPRouteComponent {
-	route := BuildDefaultRoute(cfg.IPVersion, *iface, cfg.Routing.IpRouteTable)
+	// Find the index of this interface in the ipset's interface list
+	ifaceIndex := -1
+	ifaceName := iface.Attrs().Name
+	for idx, name := range cfg.Routing.Interfaces {
+		if name == ifaceName {
+			ifaceIndex = idx
+			break
+		}
+	}
+	// If interface not found in config, use 0 as default
+	if ifaceIndex == -1 {
+		ifaceIndex = 0
+	}
+
+	route := BuildDefaultRoute(cfg.IPVersion, *iface, cfg.Routing.IpRouteTable, ifaceIndex)
 	return &IPRouteComponent{
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
-			componentType: ComponentTypeIPRoute,
+			componentType:  ComponentTypeIPRoute,
 			description:   "IP routes define the gateway/interface for packets in the custom routing table",
 		},
 		route:         route,
@@ -85,7 +99,7 @@ func (c *IPRouteComponent) IsExists() (bool, error) {
 func (c *IPRouteComponent) ShouldExist() bool {
 	if c.routeType == RouteTypeDefault {
 		// Check current interface availability
-		bestIface, err := c.selector.ChooseBest(c.cfg)
+		bestIface, _, err := c.selector.ChooseBest(c.cfg)
 		if err != nil {
 			// If we can't determine best interface, be conservative
 			return false

@@ -29,21 +29,14 @@ type ServiceManager struct {
 }
 
 // NewServiceManager creates a new service manager
+// Note: This does not validate runtime requirements (like interface presence)
+// Those validations happen in Start() to allow the API server to start even with invalid config
 func NewServiceManager(ctx *AppContext, monitorInterval int, configHasher *config.ConfigHasher) (*ServiceManager, error) {
-	cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	if err := networking.ValidateInterfacesArePresent(cfg, ctx.Interfaces); err != nil {
-		return nil, fmt.Errorf("failed to validate interfaces: %w", err)
-	}
-
 	deps := domain.NewDefaultDependencies()
 
 	return &ServiceManager{
 		ctx:             ctx,
-		cfg:             cfg,
+		cfg:             nil, // Will be loaded in Start()
 		monitorInterval: monitorInterval,
 		running:         false,
 		deps:            deps,
@@ -74,6 +67,21 @@ func (sm *ServiceManager) Start() error {
 		return fmt.Errorf("service is already running")
 	}
 
+	// Load and validate configuration before starting
+	cfg, err := loadAndValidateConfigOrFail(sm.ctx.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Validate that required interfaces exist
+	if err := networking.ValidateInterfacesArePresent(cfg, sm.ctx.Interfaces); err != nil {
+		networking.PrintMissingInterfacesHelp()
+		return fmt.Errorf("interface validation failed: %w", err)
+	}
+
+	// Store validated config
+	sm.cfg = cfg
+
 	// Create context for service control
 	ctx, cancel := context.WithCancel(context.Background())
 	sm.cancel = cancel
@@ -89,34 +97,46 @@ func (sm *ServiceManager) Start() error {
 
 // Stop stops the running service gracefully
 func (sm *ServiceManager) Stop() error {
+	// Phase 1: Cancel the context (with lock held)
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
 	if !sm.running {
+		sm.mu.Unlock()
 		return fmt.Errorf("service is not running")
 	}
 
 	log.Infof("Stopping service...")
 
 	// Cancel the context to signal shutdown
-	if sm.cancel != nil {
-		sm.cancel()
+	cancel := sm.cancel
+	done := sm.done
+	sm.mu.Unlock()
+
+	// Phase 2: Wait for service to finish (WITHOUT holding lock)
+	// This allows API handlers to check service status without deadlocking
+	if cancel != nil {
+		cancel()
 	}
 
-	// Wait for service to finish with timeout
+	var stopErr error
 	select {
-	case err := <-sm.done:
+	case err := <-done:
 		if err != nil {
 			log.Errorf("Service stopped with error: %v", err)
-			sm.running = false
-			return err
+			stopErr = err
 		}
 	case <-time.After(30 * time.Second):
-		sm.running = false
-		return fmt.Errorf("timeout waiting for service to stop")
+		stopErr = fmt.Errorf("timeout waiting for service to stop")
 	}
 
+	// Phase 3: Update running state (with lock held)
+	sm.mu.Lock()
 	sm.running = false
+	sm.mu.Unlock()
+
+	if stopErr != nil {
+		return stopErr
+	}
+
 	log.Infof("Service stopped successfully")
 	return nil
 }
@@ -133,22 +153,7 @@ func (sm *ServiceManager) Restart() error {
 	// Small delay to ensure cleanup is complete
 	time.Sleep(500 * time.Millisecond)
 
-	// Reload configuration from disk before starting
-	// This ensures the new service instance uses the latest config
-	cfg, err := loadAndValidateConfigOrFail(sm.ctx.ConfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to reload configuration: %w", err)
-	}
-
-	if err := networking.ValidateInterfacesArePresent(cfg, sm.ctx.Interfaces); err != nil {
-		return fmt.Errorf("failed to validate interfaces: %w", err)
-	}
-
-	// Update config for the new service instance
-	sm.mu.Lock()
-	sm.cfg = cfg
-	sm.mu.Unlock()
-
+	// Start() will handle config loading and validation
 	return sm.Start()
 }
 

@@ -39,8 +39,12 @@ func NewInterfaceSelector(keeneticClient *keenetic.Client) *InterfaceSelector {
 // 2. The first interface that is UP and working is selected
 // 3. If Keenetic API is available, the interface must also have connected=yes
 // 4. If no interface is available, nil is returned (caller should add blackhole route)
-func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, error) {
+//
+// Returns the chosen interface and its index in the ipset's interface list (0-based).
+// If no interface is chosen, returns (nil, -1, nil).
+func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, int, error) {
 	var chosenIface *Interface
+	var chosenIndex int = -1
 
 	// Get Keenetic interfaces if available
 	var keeneticIfaces map[string]keenetic.Interface
@@ -55,7 +59,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 	log.Debugf("Choosing best interface for ipset \"%s\" from the following list: %v",
 		ipset.IPSetName, ipset.Routing.Interfaces)
 
-	for _, interfaceName := range ipset.Routing.Interfaces {
+	for idx, interfaceName := range ipset.Routing.Interfaces {
 		iface, err := GetInterface(interfaceName)
 		if err != nil {
 			log.Errorf("Failed to get interface \"%s\" status: %v", interfaceName, err)
@@ -69,6 +73,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 		// Check if this interface should be chosen
 		if chosenIface == nil && s.IsUsable(iface, keeneticIface) {
 			chosenIface = iface
+			chosenIndex = idx
 		}
 
 		// Log interface status at debug level
@@ -80,7 +85,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, e
 			ipset.IPSetName)
 	}
 
-	return chosenIface, nil
+	return chosenIface, chosenIndex, nil
 }
 
 // IsUsable determines if an interface can be used for routing.

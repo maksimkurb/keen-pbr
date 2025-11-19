@@ -9,7 +9,11 @@ import (
 	"net"
 )
 
-const BLACKHOLE_ROUTE_METRIC = 200
+const (
+	BLACKHOLE_ROUTE_METRIC = 1000
+	GATEWAY_ROUTE_METRIC   = 500
+	INTERFACE_ROUTE_BASE   = 100
+)
 
 type IpRoute struct {
 	*netlink.Route
@@ -39,14 +43,14 @@ func (r *IpRoute) String() string {
 		r.Table, from, to, linkName, r.LinkIndex, r.Priority)
 }
 
-func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int) *IpRoute {
+func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int, ipsetInterfaceIndex int) *IpRoute {
 	ipr := netlink.Route{}
 
 	ipr.Table = table
 	ipr.LinkIndex = iface.Link.Attrs().Index
-	// Use interface index as metric to ensure unique metrics for different interfaces
-	// This prevents "file exists" errors when switching between interfaces
-	ipr.Priority = iface.Link.Attrs().Index
+	// Use ipset interface index (position in config) as metric
+	// metric = 100 + position (0-based), so first interface = 100, second = 101, etc.
+	ipr.Priority = INTERFACE_ROUTE_BASE + ipsetInterfaceIndex
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
 		ipr.Dst = &net.IPNet{
@@ -90,7 +94,7 @@ func BuildDefaultRouteViaGateway(ipFamily config.IpFamily, gateway net.IP, table
 
 	ipr.Table = table
 	// Use a fixed metric for gateway routes (lower than blackhole but higher than interface)
-	ipr.Priority = 100
+	ipr.Priority = GATEWAY_ROUTE_METRIC
 	ipr.Gw = gateway
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
