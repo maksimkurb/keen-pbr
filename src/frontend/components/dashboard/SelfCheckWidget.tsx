@@ -189,10 +189,29 @@ export function SelfCheckWidget() {
                   </tr>
                 </thead>
                 <tbody>
-                  {results
-                    .filter((result) => result.check !== 'complete')
-                    .map((result, index) => {
+                  {(() => {
+                    const filteredResults = results.filter((result) => result.check !== 'complete');
+
+                    // Calculate rowspan for each rule
+                    const ruleRowSpans = new Map<string, number>();
+                    filteredResults.forEach((result) => {
+                      const rule = result.ipset_name || 'global';
+                      // Each check takes 1 row, plus 1 for command if present
+                      const rows = result.command ? 2 : 1;
+                      ruleRowSpans.set(rule, (ruleRowSpans.get(rule) || 0) + rows);
+                    });
+
+                    // Track which rule was last rendered
+                    let lastRule: string | null = null;
+
+                    return filteredResults.map((result, index) => {
+                      const rule = result.ipset_name || 'global';
                       const actualStatus = getActualStatus(result);
+                      const isFirstInGroup = rule !== lastRule;
+                      const rowSpan = isFirstInGroup ? ruleRowSpans.get(rule) || 1 : 0;
+
+                      lastRule = rule;
+
                       return (
                         <>
                           <tr
@@ -201,11 +220,13 @@ export function SelfCheckWidget() {
                               !result.ok ? 'bg-destructive/5' : ''
                             }`}
                           >
-                            <td className="py-3 px-4">
-                              <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
-                                {result.ipset_name || 'global'}
-                              </span>
-                            </td>
+                            {isFirstInGroup && (
+                              <td rowSpan={rowSpan} className="py-3 px-4 align-top">
+                                <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
+                                  {rule}
+                                </span>
+                              </td>
+                            )}
                             <td className="py-3 px-4">{getCheckTypeLabel(result.check)}</td>
                             <td className="py-3 px-4 text-muted-foreground">
                               {getExpectedStatus(result.check)}
@@ -228,7 +249,7 @@ export function SelfCheckWidget() {
                                 !result.ok ? 'bg-destructive/5' : ''
                               }`}
                             >
-                              <td colSpan={4} className="py-2 px-4 text-xs">
+                              <td colSpan={3} className="py-2 px-4 text-xs">
                                 <code className="text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
                                   {result.command}
                                 </code>
@@ -237,7 +258,8 @@ export function SelfCheckWidget() {
                           )}
                         </>
                       );
-                    })}
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
