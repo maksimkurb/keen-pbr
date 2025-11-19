@@ -18,10 +18,31 @@ type Config struct {
 }
 
 type GeneralConfig struct {
-	ListsOutputDir string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
-	FallbackDNS    string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
-	APIBindAddress string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
+	ListsOutputDir      string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
+	UseKeeneticDNS      *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
+	FallbackDNS         string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	APIBindAddress      string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
+	AutoUpdateLists     *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
+	UpdateIntervalHours int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
+}
+
+// IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
+func (gc *GeneralConfig) IsAutoUpdateEnabled() bool {
+	if gc.AutoUpdateLists == nil {
+		return true // Default to enabled
+	}
+	return *gc.AutoUpdateLists
+}
+
+// GetUpdateIntervalHours returns the update interval in hours (default: 24, min: 1).
+func (gc *GeneralConfig) GetUpdateIntervalHours() int {
+	if gc.UpdateIntervalHours <= 0 {
+		return 24 // Default to 24 hours
+	}
+	if gc.UpdateIntervalHours < 1 {
+		return 1 // Minimum 1 hour
+	}
+	return gc.UpdateIntervalHours
 }
 
 type IPSetConfig struct {

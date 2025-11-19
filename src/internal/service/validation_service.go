@@ -113,12 +113,7 @@ func (v *ValidationService) validateRoutingConfig(ipset *config.IPSetConfig) err
 		)
 	}
 
-	if len(ipset.Routing.Interfaces) == 0 {
-		return errors.NewConfigError(
-			fmt.Sprintf("No interfaces defined for ipset %s", ipset.IPSetName),
-			nil,
-		)
-	}
+	// Interfaces are optional - if not specified, only blackhole route will be used
 
 	return nil
 }

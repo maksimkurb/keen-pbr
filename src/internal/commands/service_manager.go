@@ -198,8 +198,19 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	log.Infof("Service started successfully. Monitoring interface changes every %d seconds...", sm.monitorInterval)
 
 	// Start monitoring loop
-	ticker := time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
-	defer ticker.Stop()
+	interfaceTicker := time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
+	defer interfaceTicker.Stop()
+
+	// Start auto-update timer if enabled
+	var updateTicker *time.Ticker
+	if startupCfg.General.IsAutoUpdateEnabled() {
+		interval := startupCfg.General.GetUpdateIntervalHours()
+		log.Infof("List auto-update enabled. Will check for updates every %d hour(s)", interval)
+		updateTicker = time.NewTicker(time.Duration(interval) * time.Hour)
+		defer updateTicker.Stop()
+	} else {
+		log.Infof("List auto-update disabled")
+	}
 
 	for {
 		select {
@@ -208,7 +219,7 @@ func (sm *ServiceManager) run(ctx context.Context) {
 			sm.done <- sm.shutdownWithConfig(startupCfg)
 			return
 
-		case <-ticker.C:
+		case <-interfaceTicker.C:
 			// Update interface list
 			var err error
 			if sm.ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
@@ -221,8 +232,39 @@ func (sm *ServiceManager) run(ctx context.Context) {
 			if _, err := sm.networkMgr.UpdateRoutingIfChanged(startupCfg.IPSets); err != nil {
 				log.Errorf("Failed to update routing configuration: %v", err)
 			}
+
+		case <-func() <-chan time.Time {
+			if updateTicker != nil {
+				return updateTicker.C
+			}
+			// Return a channel that never sends if auto-update is disabled
+			return make(<-chan time.Time)
+		}():
+			// Auto-update lists
+			log.Infof("Running scheduled list update...")
+			if err := sm.updateLists(startupCfg); err != nil {
+				log.Errorf("Failed to update lists: %v", err)
+			}
 		}
 	}
+}
+
+// updateLists downloads and re-imports lists
+func (sm *ServiceManager) updateLists(cfg *config.Config) error {
+	// Download all lists (forced update)
+	log.Infof("Downloading updated lists...")
+	if err := lists.DownloadListsForced(cfg); err != nil {
+		return fmt.Errorf("failed to download lists: %w", err)
+	}
+
+	// Re-import lists to ipsets
+	log.Infof("Re-importing lists to ipsets...")
+	if err := lists.ImportListsToIPSets(cfg, sm.deps.ListManager()); err != nil {
+		return fmt.Errorf("failed to re-import lists: %w", err)
+	}
+
+	log.Infof("List update completed successfully")
+	return nil
 }
 
 // shutdownWithConfig performs cleanup when the service stops

@@ -66,7 +66,37 @@ func DownloadList(list *config.ListSource, cfg *config.Config) (bool, error) {
 	return true, nil
 }
 
+// DownloadLists downloads all lists that have URLs configured.
+// Only downloads lists whose files don't exist yet (missing lists).
+// Use DownloadListsForced to re-download all lists regardless of file existence.
 func DownloadLists(config *config.Config) error {
+	for _, list := range config.Lists {
+		if list.URL == "" {
+			continue
+		}
+
+		// Check if file already exists
+		if filePath, err := list.GetAbsolutePath(config); err == nil {
+			if _, err := os.Stat(filePath); err == nil {
+				log.Debugf("List \"%s\" file already exists at %s, skipping download", list.ListName, filePath)
+				continue
+			} else {
+				log.Infof("List \"%s\" file not found at %s, downloading...", list.ListName, filePath)
+			}
+		}
+
+		if _, err := DownloadList(list, config); err != nil {
+			log.Errorf("Error downloading list \"%s\": %v", list.ListName, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+// DownloadListsForced downloads all lists with URLs regardless of file existence.
+// This is useful for forcing a re-download/update of all lists.
+func DownloadListsForced(config *config.Config) error {
 	for _, list := range config.Lists {
 		if list.URL == "" {
 			continue

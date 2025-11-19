@@ -35,14 +35,12 @@ func (c *Config) validateIPSets() error {
 			return err
 		}
 
-		// Validate interfaces
-		if len(ipset.Routing.Interfaces) == 0 {
-			return fmt.Errorf("ipset %s routing configuration should contain \"interfaces\" field", ipset.IPSetName)
-		}
-
-		// check duplicate interfaces
-		if err := checkIsDistinct(ipset.Routing.Interfaces, func(iface string) string { return iface }); err != nil {
-			return fmt.Errorf("there are duplicate interfaces in ipset %s: %v", ipset.IPSetName, err)
+		// Interfaces are optional - if not specified, only blackhole route will be used
+		// Check duplicate interfaces only if any are specified
+		if len(ipset.Routing.Interfaces) > 0 {
+			if err := checkIsDistinct(ipset.Routing.Interfaces, func(iface string) string { return iface }); err != nil {
+				return fmt.Errorf("there are duplicate interfaces in ipset %s: %v", ipset.IPSetName, err)
+			}
 		}
 
 		if len(ipset.Lists) == 0 {
