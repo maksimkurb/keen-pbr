@@ -89,7 +89,9 @@ export function ServiceStatusWidget() {
   const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
 
   // Override dnsmasq status if not configured to read keen-pbr config
-  const effectiveDnsmasqStatus = dnsmasqNotConfigured ? 'stopped' : dnsmasqStatus;
+  const effectiveDnsmasqStatus = dnsmasqNotConfigured && dnsmasqStatus === 'running'
+    ? 'running, misconfigured'
+    : dnsmasqStatus;
 
   // Check if any service is out of sync
   const anyServiceOutdated = configOutdated || dnsmasqOutdated || dnsmasqNotConfigured;
