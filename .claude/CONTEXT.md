@@ -355,6 +355,7 @@ Network Diagnostics:
   POST   /api/v1/check/routing      # Check routing for host
   GET    /api/v1/check/ping         # SSE stream for ping
   GET    /api/v1/check/traceroute   # SSE stream for traceroute
+  GET    /api/v1/check/self         # SSE stream for self-check (config validation, iptables, ip rules, ipsets)
 ```
 
 **JSON Field Naming**: All API responses use `snake_case` for field names (e.g., `list_name`, `ip_version`, `flush_before_applying`).
@@ -466,10 +467,17 @@ src/frontend/
    - Multi-section form with RadioGroup for IP version
    - Combobox for list selection with searchable dropdown
    - Combobox for interface selection (fetches live network interfaces)
-   - Custom interface names supported (shows "Not exists" indicator)
+   - Custom interface names supported (can type interfaces that don't exist)
+   - Interface reordering with up/down arrow buttons to control priority
    - Lists displayed as unordered list (UL)
    - Interfaces displayed as ordered list (OL) showing priority
    - Routing configuration: priority, table, fwmark, DNS override
+   - Advanced IPTables Rules section (collapsible accordion):
+     - Supports multiple custom iptables rules
+     - Chain, table, and rule arguments configuration
+     - Template variable insertion dropdown ({{ipset_name}}, {{fwmark}}, {{table}}, {{priority}})
+     - Pre-populated with default PREROUTING/mangle rule
+     - Fully internationalized (English + Russian)
    - Options: flush_before_applying, kill_switch
    - Filters: search by name, filter by list, filter by IP version
    - URL state persistence for filters
@@ -1213,4 +1221,4 @@ The project underwent a comprehensive refactoring to improve modularity, testabi
 
 ---
 
-*Last Updated: November 2024 - After complete refactoring (all 10 phases) and web interface addition*
+*Last Updated: November 2024 - After complete refactoring (all 10 phases), web interface addition, and advanced IPTables Rules UI*

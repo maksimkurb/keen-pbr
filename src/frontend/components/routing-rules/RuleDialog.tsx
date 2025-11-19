@@ -635,7 +635,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           <Textarea
                             value={rule.rule.join(' ')}
                             onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
-                            placeholder={t('routingRules.dialog.iptablesRulePlaceholder')}
+                            placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
                             rows={3}
                             className="font-mono text-xs"
                           />

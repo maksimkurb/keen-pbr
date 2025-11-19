@@ -209,7 +209,6 @@
       "iptablesTablePlaceholder": "mangle, nat, filter, etc.",
       "iptablesRuleArguments": "Rule Arguments",
       "iptablesInsertVariable": "Insert variable",
-      "iptablesRulePlaceholder": "-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}",
       "iptablesRuleDescription": "Space-separated iptables rule arguments",
       "iptablesAddRule": "Add IPTables Rule",
       "selectListsError": "At least one list must be selected",

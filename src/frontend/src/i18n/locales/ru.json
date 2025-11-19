@@ -209,7 +209,6 @@
       "iptablesTablePlaceholder": "mangle, nat, filter и т.д.",
       "iptablesRuleArguments": "Аргументы правила",
       "iptablesInsertVariable": "Вставить переменную",
-      "iptablesRulePlaceholder": "-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}",
       "iptablesRuleDescription": "Аргументы правила iptables, разделенные пробелами",
       "iptablesAddRule": "Добавить правило IPTables",
       "selectListsError": "Необходимо выбрать хотя бы один список",
