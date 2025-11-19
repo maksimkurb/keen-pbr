@@ -32,7 +32,7 @@ export function SelfCheckWidget() {
 
     // Create EventSource to connect to SSE endpoint
     const apiBaseUrl = window.location.protocol + '//' + window.location.host;
-    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self`);
+    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self?sse=true`);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {
