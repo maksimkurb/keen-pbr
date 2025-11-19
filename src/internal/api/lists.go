@@ -1,12 +1,17 @@
 package api
 
 import (
+	"bufio"
 	"net/http"
+	"net/netip"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/lists"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // GetLists returns all lists in the configuration.
@@ -18,10 +23,10 @@ func (h *Handler) GetLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to ListInfo with statistics
+	// Convert to ListInfo with statistics (don't include hosts array for GET all)
 	listInfos := make([]*ListInfo, 0, len(cfg.Lists))
 	for _, list := range cfg.Lists {
-		listInfo := h.convertToListInfo(list, cfg)
+		listInfo := h.convertToListInfo(list, cfg, false)
 		listInfos = append(listInfos, listInfo)
 	}
 
@@ -42,7 +47,7 @@ func (h *Handler) GetList(w http.ResponseWriter, r *http.Request) {
 	// Find the list
 	for _, list := range cfg.Lists {
 		if list.ListName == name {
-			listInfo := h.convertToListInfo(list, cfg)
+			listInfo := h.convertToListInfo(list, cfg, true)
 			writeJSONData(w, listInfo)
 			return
 		}
@@ -80,6 +85,17 @@ func (h *Handler) CreateList(w http.ResponseWriter, r *http.Request) {
 	if sourceCount != 1 {
 		WriteInvalidRequest(w, "Exactly one of url, file, or hosts must be specified")
 		return
+	}
+
+	// Auto-remove empty lines from hosts
+	if list.Hosts != nil {
+		filtered := make([]string, 0, len(list.Hosts))
+		for _, host := range list.Hosts {
+			if trimmed := strings.TrimSpace(host); trimmed != "" {
+				filtered = append(filtered, trimmed)
+			}
+		}
+		list.Hosts = filtered
 	}
 
 	cfg, err := h.loadConfig()
@@ -128,9 +144,9 @@ func (h *Handler) UpdateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate list has a name
-	if updatedList.ListName == "" {
-		WriteInvalidRequest(w, "list_name is required")
+	// Prevent renaming - list_name must match the URL parameter
+	if updatedList.ListName != name {
+		WriteInvalidRequest(w, "Cannot rename list. list_name must match the URL parameter '"+name+"'")
 		return
 	}
 
@@ -150,6 +166,17 @@ func (h *Handler) UpdateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-remove empty lines from hosts
+	if updatedList.Hosts != nil {
+		filtered := make([]string, 0, len(updatedList.Hosts))
+		for _, host := range updatedList.Hosts {
+			if trimmed := strings.TrimSpace(host); trimmed != "" {
+				filtered = append(filtered, trimmed)
+			}
+		}
+		updatedList.Hosts = filtered
+	}
+
 	cfg, err := h.loadConfig()
 	if err != nil {
 		WriteInternalError(w, "Failed to load configuration: "+err.Error())
@@ -160,16 +187,6 @@ func (h *Handler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	found := false
 	for i, list := range cfg.Lists {
 		if list.ListName == name {
-			// Check if renaming to an existing name
-			if updatedList.ListName != name {
-				for _, existingList := range cfg.Lists {
-					if existingList.ListName == updatedList.ListName {
-						WriteConflict(w, "List with name '"+updatedList.ListName+"' already exists")
-						return
-					}
-				}
-			}
-
 			cfg.Lists[i] = &updatedList
 			found = true
 			break
@@ -258,8 +275,10 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 }
 
 // convertToListInfo converts a config.ListSource to ListInfo with statistics.
-// Uses the list manager's cache for counts, but gets download status from file stats.
-func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config) *ListInfo {
+// For file and URL-based lists, parses the file to calculate statistics on-demand.
+// For inline hosts, counts directly from the hosts array.
+// If includeHosts is true, includes the hosts array for inline hosts lists.
+func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config, includeHosts bool) *ListInfo {
 	info := &ListInfo{
 		ListName: list.ListName,
 		Type:     list.Type(),
@@ -267,26 +286,39 @@ func (h *Handler) convertToListInfo(list *config.ListSource, cfg *config.Config)
 		File:     list.File,
 	}
 
-	// Get cached statistics from list manager (only counts)
-	managedStats := h.deps.ListManager().GetStatistics(list, cfg)
+	// Include hosts array only for GET single list endpoint
+	if includeHosts && list.Hosts != nil {
+		info.Hosts = list.Hosts
+	}
 
 	// Build statistics object
 	stats := &ListStatistics{}
 
-	// Set counts if available (nil values indicate not yet calculated)
-	if managedStats != nil {
-		stats.TotalHosts = &managedStats.TotalHosts
-		stats.IPv4Subnets = &managedStats.IPv4Subnets
-		stats.IPv6Subnets = &managedStats.IPv6Subnets
-	}
-
-	// Always get download status for URL-based lists (not cached)
-	if list.URL != "" {
+	// Calculate statistics based on list type
+	if list.Hosts != nil {
+		// For inline hosts, count directly
+		totalHosts, ipv4Count, ipv6Count := h.calculateInlineStatistics(list.Hosts)
+		stats.TotalHosts = &totalHosts
+		stats.IPv4Subnets = &ipv4Count
+		stats.IPv6Subnets = &ipv6Count
+	} else if list.URL != "" || list.File != "" {
+		// For file and URL-based lists, parse the file if it exists
 		downloaded, lastModified := h.getFileStats(list, cfg)
-		stats.Downloaded = downloaded
+
+		if list.URL != "" {
+			stats.Downloaded = downloaded
+			if downloaded {
+				lastModifiedStr := lastModified.Format(time.RFC3339)
+				stats.LastModified = &lastModifiedStr
+			}
+		}
+
 		if downloaded {
-			lastModifiedStr := lastModified.Format(time.RFC3339)
-			stats.LastModified = &lastModifiedStr
+			// Parse the file to calculate statistics
+			totalHosts, ipv4Count, ipv6Count := h.calculateFileStatistics(list, cfg)
+			stats.TotalHosts = &totalHosts
+			stats.IPv4Subnets = &ipv4Count
+			stats.IPv6Subnets = &ipv6Count
 		}
 	}
 
@@ -320,4 +352,166 @@ func (h *Handler) getFileStats(list *config.ListSource, cfg *config.Config) (boo
 	}
 
 	return false, time.Time{}
+}
+
+// calculateInlineStatistics counts domains, IPv4, and IPv6 entries in an inline hosts array.
+// Returns (totalHosts, ipv4Count, ipv6Count).
+func (h *Handler) calculateInlineStatistics(hosts []string) (int, int, int) {
+	totalHosts := 0
+	ipv4Count := 0
+	ipv6Count := 0
+
+	for _, host := range hosts {
+		line := strings.TrimSpace(host)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Check if it's a domain name
+		if utils.IsDNSName(line) {
+			totalHosts++
+			continue
+		}
+
+		// Try to parse as IP/CIDR
+		cidr := line
+		if !strings.Contains(line, "/") {
+			cidr = line + "/32"
+		}
+
+		if netPrefix, err := netip.ParsePrefix(cidr); err == nil && netPrefix.IsValid() {
+			totalHosts++
+			if netPrefix.Addr().Is4() {
+				ipv4Count++
+			} else if netPrefix.Addr().Is6() {
+				ipv6Count++
+			}
+		}
+	}
+
+	return totalHosts, ipv4Count, ipv6Count
+}
+
+// calculateFileStatistics parses a list file and counts domains, IPv4, and IPv6 entries.
+// Returns (totalHosts, ipv4Count, ipv6Count).
+func (h *Handler) calculateFileStatistics(list *config.ListSource, cfg *config.Config) (int, int, int) {
+	totalHosts := 0
+	ipv4Count := 0
+	ipv6Count := 0
+
+	listPath, err := list.GetAbsolutePathAndCheckExists(cfg)
+	if err != nil {
+		return 0, 0, 0
+	}
+
+	file, err := os.Open(listPath)
+	if err != nil {
+		return 0, 0, 0
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Check if it's a domain name
+		if utils.IsDNSName(line) {
+			totalHosts++
+			continue
+		}
+
+		// Try to parse as IP/CIDR
+		cidr := line
+		if !strings.Contains(line, "/") {
+			cidr = line + "/32"
+		}
+
+		if netPrefix, err := netip.ParsePrefix(cidr); err == nil && netPrefix.IsValid() {
+			totalHosts++
+			if netPrefix.Addr().Is4() {
+				ipv4Count++
+			} else if netPrefix.Addr().Is6() {
+				ipv6Count++
+			}
+		}
+	}
+
+	return totalHosts, ipv4Count, ipv6Count
+}
+
+// DownloadList downloads a specific list from its URL.
+// POST /api/v1/lists-download/:name
+func (h *Handler) DownloadList(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+
+	cfg, err := h.loadConfig()
+	if err != nil {
+		WriteInternalError(w, "Failed to load configuration: "+err.Error())
+		return
+	}
+
+	// Find the list
+	var list *config.ListSource
+	for _, l := range cfg.Lists {
+		if l.ListName == name {
+			list = l
+			break
+		}
+	}
+
+	if list == nil {
+		WriteNotFound(w, "List")
+		return
+	}
+
+	// Check if list has a URL
+	if list.URL == "" {
+		WriteInvalidRequest(w, "List does not have a URL configured")
+		return
+	}
+
+	// Download the list
+	changed, err := lists.DownloadList(list, cfg)
+	if err != nil {
+		WriteInternalError(w, "Failed to download list: "+err.Error())
+		return
+	}
+
+	// Invalidate cache for this list
+	h.deps.ListManager().InvalidateCache(list, cfg)
+
+	// Return the updated list info with changed status
+	listInfo := h.convertToListInfo(list, cfg, false)
+	response := &ListDownloadResponse{
+		ListInfo: listInfo,
+		Changed:  changed,
+	}
+	writeJSONData(w, response)
+}
+
+// DownloadAllLists downloads all lists from their URLs.
+// POST /api/v1/lists-download
+func (h *Handler) DownloadAllLists(w http.ResponseWriter, r *http.Request) {
+	cfg, err := h.loadConfig()
+	if err != nil {
+		WriteInternalError(w, "Failed to load configuration: "+err.Error())
+		return
+	}
+
+	// Download all lists
+	if err := lists.DownloadLists(cfg); err != nil {
+		WriteInternalError(w, "Failed to download lists: "+err.Error())
+		return
+	}
+
+	// Invalidate all caches
+	h.deps.ListManager().InvalidateAll()
+
+	// Return success message
+	writeJSONData(w, map[string]string{
+		"message": "All lists downloaded successfully",
+	})
 }

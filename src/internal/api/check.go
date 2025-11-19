@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -360,4 +361,195 @@ func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher 
 		fmt.Fprintf(w, "data: %s\n\n", line)
 		flusher.Flush()
 	}
+}
+
+// CheckSelf performs a self-check similar to the self-check command and streams results via SSE.
+// GET /api/v1/check/self
+func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		WriteInternalError(w, "Streaming not supported")
+		return
+	}
+
+	// Track if any check failed
+	hasFailures := false
+
+	// Load configuration
+	cfg, err := h.loadConfig()
+	if err != nil {
+		h.sendCheckEventWithContext(w, flusher, "config", "", false, "Global configuration check", fmt.Sprintf("Failed to load configuration: %v", err), "")
+		return
+	}
+
+	// Validate configuration
+	if err := cfg.ValidateConfig(); err != nil {
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", false, "Configuration validation ensures all required fields are present and valid", fmt.Sprintf("Configuration validation failed: %v", err), "")
+		hasFailures = true
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid", "")
+	}
+
+	// Check each IPSet
+	for _, ipsetCfg := range cfg.IPSets {
+		if !h.checkIPSetSelf(w, flusher, cfg, ipsetCfg) {
+			hasFailures = true
+		}
+	}
+
+	// Send completion message
+	if hasFailures {
+		h.sendCheckEventWithContext(w, flusher, "complete", "", false, "", "Self-check completed with failures", "")
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "complete", "", true, "", "Self-check completed successfully", "")
+	}
+}
+
+// checkIPSetSelf checks a single IPSet configuration and streams results
+// Returns true if all checks passed, false if any failed
+func (h *Handler) checkIPSetSelf(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
+	hasFailures := false
+	ipsetName := ipsetCfg.IPSetName
+
+	h.sendCheckEventWithContext(w, flusher, "ipset_start", ipsetName, true, "", fmt.Sprintf("Checking IPSet: %s", ipsetName), "")
+
+	// Check if ipset exists
+	cmd := exec.Command("ipset", "list", ipsetName)
+	err := cmd.Run()
+	ipsetCommand := fmt.Sprintf("ipset list %s", ipsetName)
+	if err != nil {
+		h.sendCheckEventWithContext(w, flusher, "ipset", ipsetName, false, "IPSet must exist to store IP addresses/subnets for policy routing", fmt.Sprintf("IPSet [%s] does NOT exist", ipsetName), ipsetCommand)
+		hasFailures = true
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "ipset", ipsetName, true, "IPSet must exist to store IP addresses/subnets for policy routing", fmt.Sprintf("IPSet [%s] exists", ipsetName), ipsetCommand)
+	}
+
+	// Check ip rule
+	ipRuleCommand := fmt.Sprintf("ip rule add from all fwmark 0x%x lookup %d prio %d",
+		ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable, ipsetCfg.Routing.IpRulePriority)
+	cmd = exec.Command("ip", "rule", "show")
+	output, err := cmd.Output()
+	if err != nil {
+		h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, false, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("Failed to check IP rule: %v", err), ipRuleCommand)
+		hasFailures = true
+	} else {
+		if strings.Contains(string(output), fmt.Sprintf("fwmark 0x%x", ipsetCfg.Routing.FwMark)) {
+			h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, true, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists", ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable), ipRuleCommand)
+		} else {
+			h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, false, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist", ipsetCfg.Routing.FwMark), ipRuleCommand)
+			hasFailures = true
+		}
+	}
+
+	// Check ip routes - list all routes in the table
+	cmd = exec.Command("ip", "route", "show", "table", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
+	output, err = cmd.Output()
+	if err != nil {
+		ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
+		h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, false, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("Failed to check IP routes in table %d: %v", ipsetCfg.Routing.IpRouteTable, err), ipRouteCommand)
+		hasFailures = true
+	} else {
+		// Parse each route and send individual events
+		routes := strings.Split(strings.TrimSpace(string(output)), "\n")
+		if len(routes) == 0 || (len(routes) == 1 && routes[0] == "") {
+			ipRouteCommand := fmt.Sprintf("ip route add default via <gateway> dev <interface> table %d", ipsetCfg.Routing.IpRouteTable)
+			h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, false, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("No routes found in table %d", ipsetCfg.Routing.IpRouteTable), ipRouteCommand)
+			hasFailures = true
+		} else {
+			for _, route := range routes {
+				if route == "" {
+					continue
+				}
+				ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
+				h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, true, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("Route in table %d: %s", ipsetCfg.Routing.IpRouteTable, route), ipRouteCommand)
+			}
+		}
+	}
+
+	// Check iptables rules
+	if ipsetCfg.IPTablesRules != nil && len(ipsetCfg.IPTablesRules) > 0 {
+		for idx, rule := range ipsetCfg.IPTablesRules {
+			if !h.checkIPTablesRule(w, flusher, ipsetCfg, rule, idx) {
+				hasFailures = true
+			}
+		}
+	}
+
+	h.sendCheckEventWithContext(w, flusher, "ipset_end", ipsetName, true, "", fmt.Sprintf("Completed checking IPSet: %s", ipsetName), "")
+	return !hasFailures
+}
+
+// checkIPTablesRule checks if an iptables rule exists
+// Returns true if rule exists, false otherwise
+func (h *Handler) checkIPTablesRule(w http.ResponseWriter, flusher http.Flusher, ipsetCfg *config.IPSetConfig, rule *config.IPTablesRule, idx int) bool {
+	// Build the iptables check command
+	args := []string{"-t", rule.Table, "-C", rule.Chain}
+
+	// Expand template variables in rule
+	expandedRule := make([]string, len(rule.Rule))
+	for i, arg := range rule.Rule {
+		expanded := arg
+		expanded = strings.ReplaceAll(expanded, "{{ipset_name}}", ipsetCfg.IPSetName)
+		expanded = strings.ReplaceAll(expanded, "{{fwmark}}", fmt.Sprintf("0x%x", ipsetCfg.Routing.FwMark))
+		expanded = strings.ReplaceAll(expanded, "{{table}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
+		expanded = strings.ReplaceAll(expanded, "{{priority}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRulePriority))
+		expandedRule[i] = expanded
+	}
+
+	args = append(args, expandedRule...)
+
+	var cmd *exec.Cmd
+	var iptablesCmd string
+	if ipsetCfg.IPVersion == 4 {
+		cmd = exec.Command("iptables", args...)
+		// Build the command for manual execution (using -A for add instead of -C for check)
+		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
+		iptablesCmd = "iptables " + strings.Join(addArgs, " ")
+	} else {
+		cmd = exec.Command("ip6tables", args...)
+		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
+		iptablesCmd = "ip6tables " + strings.Join(addArgs, " ")
+	}
+
+	err := cmd.Run()
+	ruleDesc := fmt.Sprintf("%s/%s rule #%d", rule.Table, rule.Chain, idx+1)
+
+	if err != nil {
+		h.sendCheckEventWithContext(w, flusher, "iptables", ipsetCfg.IPSetName, false, "IPTables rule marks packets matching the ipset with fwmark for policy routing", fmt.Sprintf("IPTables %s does NOT exist", ruleDesc), iptablesCmd)
+		return false
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "iptables", ipsetCfg.IPSetName, true, "IPTables rule marks packets matching the ipset with fwmark for policy routing", fmt.Sprintf("IPTables %s exists", ruleDesc), iptablesCmd)
+		return true
+	}
+}
+
+// sendCheckEventWithContext sends a JSON check event via SSE with additional context
+func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.Flusher, check string, ipsetName string, ok bool, reason string, logMsg string, command string) {
+	event := map[string]interface{}{
+		"check":   check,
+		"ok":      ok,
+		"log":     logMsg,
+		"reason":  reason,
+		"command": command,
+	}
+
+	// Add ipset_name only if it's not empty
+	if ipsetName != "" {
+		event["ipset_name"] = ipsetName
+	}
+
+	jsonData, err := json.Marshal(event)
+	if err != nil {
+		log.Errorf("Failed to marshal check event: %v", err)
+		return
+	}
+
+	fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+	flusher.Flush()
 }

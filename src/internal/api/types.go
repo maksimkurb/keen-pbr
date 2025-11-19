@@ -13,7 +13,8 @@ type ListInfo struct {
 	Type     string          `json:"type"` // "url", "file", "hosts"
 	URL      string          `json:"url,omitempty"`
 	File     string          `json:"file,omitempty"`
-	Stats    *ListStatistics `json:"stats"` // nil if statistics not yet calculated
+	Hosts    []string        `json:"hosts,omitempty"` // Only included for GET single list of type "hosts"
+	Stats    *ListStatistics `json:"stats"`           // nil if statistics not yet calculated
 }
 
 // ListStatistics contains statistics about list content and download status.
@@ -31,6 +32,12 @@ type ListStatistics struct {
 // ListsResponse returns all lists in the configuration.
 type ListsResponse struct {
 	Lists []*ListInfo `json:"lists"`
+}
+
+// ListDownloadResponse returns the result of downloading a list.
+type ListDownloadResponse struct {
+	*ListInfo
+	Changed bool `json:"changed"` // true if the list was updated, false if unchanged
 }
 
 // IPSetsResponse returns all ipsets in the configuration.

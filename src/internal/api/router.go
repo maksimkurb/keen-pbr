@@ -31,6 +31,10 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		r.Put("/lists/{name}", h.UpdateList)
 		r.Delete("/lists/{name}", h.DeleteList)
 
+		// List download endpoints
+		r.Post("/lists-download", h.DownloadAllLists)
+		r.Post("/lists-download/{name}", h.DownloadList)
+
 		// IPSets endpoints
 		r.Get("/ipsets", h.GetIPSets)
 		r.Post("/ipsets", h.CreateIPSet)
@@ -41,6 +45,9 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		// Settings endpoints
 		r.Get("/settings", h.GetSettings)
 		r.Patch("/settings", h.UpdateSettings)
+
+		// Interfaces endpoint
+		r.Get("/interfaces", h.GetInterfaces)
 
 		// Status endpoint
 		r.Get("/status", h.GetStatus)
@@ -56,6 +63,7 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		r.Post("/check/routing", h.CheckRouting)
 		r.Get("/check/ping", h.CheckPing)          // SSE stream
 		r.Get("/check/traceroute", h.CheckTraceroute) // SSE stream
+		r.Get("/check/self", h.CheckSelf)          // SSE stream
 	})
 
 	// Serve static frontend files

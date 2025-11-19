@@ -20,7 +20,36 @@ keen-pbr/
 │   │   └── keen-pbr/
 │   │       └── main.go               # CLI flag parsing and command dispatch
 │   │
+│   ├── frontend/                     # React web UI (embedded in binary)
+│   │   ├── src/                      # React source code
+│   │   │   ├── App.tsx               # Main application
+│   │   │   ├── api/client.ts         # API client
+│   │   │   ├── hooks/                # React Query hooks
+│   │   │   ├── pages/                # Page components
+│   │   │   └── i18n/                 # Internationalization
+│   │   ├── components/               # UI components
+│   │   │   ├── ui/                   # shadcn/ui components
+│   │   │   ├── lists/                # Lists page components
+│   │   │   └── routing-rules/        # Routing rules components
+│   │   ├── package.json              # NPM dependencies
+│   │   └── embed.go                  # Embed dist/ into binary
+│   │
 │   └── internal/                     # Private application packages (not importable)
+│       ├── api/                      # REST API server (chi router)
+│       │   ├── router.go             # Route definitions
+│       │   ├── handlers.go           # Handler struct
+│       │   ├── lists.go              # Lists endpoints
+│       │   ├── ipsets.go             # IPSets endpoints
+│       │   ├── settings.go           # Settings endpoints
+│       │   ├── status.go             # Status endpoints
+│       │   ├── interfaces.go         # Interfaces endpoint
+│       │   ├── service.go            # Service control
+│       │   ├── dnsmasq.go            # Dnsmasq control
+│       │   ├── network_check.go      # Network diagnostics
+│       │   ├── types.go              # API types
+│       │   ├── middleware.go         # HTTP middleware
+│       │   └── response.go           # Response helpers
+│       │
 │       ├── commands/                 # CLI command handlers (thin wrappers)
 │       │   ├── doc.go                # Package documentation
 │       │   ├── common.go             # Runner interface, AppContext, config loading
@@ -242,6 +271,298 @@ See:
 - `src/internal/domain/container.go` - AppDependencies implementation
 - `src/internal/keenetic/client.go:39-59` - NewClientWithBaseURL for custom URLs
 - `src/internal/commands/apply.go:70-76` - Example usage in commands
+
+---
+
+## Web Interface & REST API
+
+### Overview
+
+In addition to the CLI, keen-pbr provides a web-based management interface with a REST API backend. The web UI is built with React 19 and integrates seamlessly with the daemon mode.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Web UI (React 19)                         │
+│  Components: Lists, Routing Rules, Settings, Status         │
+│  State Management: React Query (TanStack Query)             │
+│  UI Framework: shadcn/ui components                         │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ HTTP/JSON
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              REST API (internal/api/)                        │
+│  Router: chi/v5 with middleware (auth, CORS, logging)       │
+│  Endpoints: Lists, IPSets, Settings, Status, Interfaces     │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│          Backend Services (service/, networking/)            │
+│  Same business logic layer used by CLI commands             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### REST API Structure (`src/internal/api/`)
+
+**Files**:
+- `router.go`: HTTP router with middleware stack and route definitions
+- `handlers.go`: Handler struct with dependency injection
+- `lists.go`: Lists CRUD endpoints
+- `ipsets.go`: IPSets (routing rules) CRUD endpoints
+- `settings.go`: General settings endpoints
+- `status.go`: Service status and version info
+- `interfaces.go`: Network interfaces endpoint
+- `service.go`: Service control (start/stop/restart)
+- `dnsmasq.go`: Dnsmasq control
+- `network_check.go`: Network diagnostics (ping, traceroute, routing checks)
+- `types.go`: Request/response type definitions
+- `middleware.go`: CORS, logging, error recovery, private subnet restrictions
+- `response.go`: Standardized JSON response wrappers
+
+**API Endpoints (v1)**:
+
+```
+Lists Management:
+  GET    /api/v1/lists              # List all lists
+  POST   /api/v1/lists              # Create new list
+  GET    /api/v1/lists/{name}       # Get list details (includes inline hosts)
+  PUT    /api/v1/lists/{name}       # Update list
+  DELETE /api/v1/lists/{name}       # Delete list
+  POST   /api/v1/lists-download     # Download all URL-based lists
+  POST   /api/v1/lists-download/{name}  # Download specific list
+
+IPSets (Routing Rules):
+  GET    /api/v1/ipsets             # List all routing rules
+  POST   /api/v1/ipsets             # Create routing rule
+  GET    /api/v1/ipsets/{name}      # Get routing rule details
+  PUT    /api/v1/ipsets/{name}      # Update routing rule
+  DELETE /api/v1/ipsets/{name}      # Delete routing rule
+
+Settings:
+  GET    /api/v1/settings           # Get general settings
+  PATCH  /api/v1/settings           # Update general settings
+
+System:
+  GET    /api/v1/interfaces         # List network interfaces
+  GET    /api/v1/status             # Service status and version
+  GET    /api/v1/health             # Health check
+  POST   /api/v1/service            # Control service (start/stop/restart)
+  POST   /api/v1/dnsmasq            # Restart dnsmasq
+
+Network Diagnostics:
+  POST   /api/v1/check/routing      # Check routing for host
+  GET    /api/v1/check/ping         # SSE stream for ping
+  GET    /api/v1/check/traceroute   # SSE stream for traceroute
+  GET    /api/v1/check/self         # SSE stream for self-check (config validation, iptables, ip rules, ipsets)
+```
+
+**JSON Field Naming**: All API responses use `snake_case` for field names (e.g., `list_name`, `ip_version`, `flush_before_applying`).
+
+**Response Format**:
+```json
+{
+  "data": {
+    "lists": [...],
+    "ipsets": [...]
+  }
+}
+```
+
+**Error Format**:
+```json
+{
+  "error": {
+    "code": "CONFIG_INVALID",
+    "message": "List name already exists",
+    "details": {}
+  }
+}
+```
+
+### Frontend Structure (`src/frontend/`)
+
+**Technology Stack**:
+- **React 19**: Latest React with concurrent features
+- **TypeScript**: Full type safety
+- **React Router v6**: Hash-based routing for static deployment
+- **React Query (TanStack Query)**: Server state management with cache invalidation
+- **shadcn/ui**: Modern component library (Button, Dialog, Input, Select, etc.)
+- **Tailwind CSS**: Utility-first styling
+- **react-i18next**: Internationalization (English + Russian)
+- **sonner**: Toast notifications
+- **Lucide React**: Icon library
+- **Rsbuild**: Fast build tool (Rspack-based)
+
+**Directory Structure**:
+```
+src/frontend/
+├── src/
+│   ├── App.tsx                    # Main app with routing
+│   ├── index.tsx                  # Entry point
+│   ├── api/
+│   │   └── client.ts              # API client with typed methods
+│   ├── hooks/
+│   │   ├── useLists.ts            # Lists CRUD hooks
+│   │   ├── useIPSets.ts           # IPSets CRUD hooks
+│   │   ├── useSettings.ts         # Settings hooks
+│   │   └── useInterfaces.ts       # Network interfaces hook
+│   ├── i18n/
+│   │   ├── config.ts              # i18n configuration
+│   │   └── locales/
+│   │       ├── en.json            # English translations
+│   │       └── ru.json            # Russian translations
+│   ├── pages/
+│   │   ├── Lists.tsx              # Lists management page
+│   │   ├── RoutingRules.tsx       # Routing rules page
+│   │   ├── Settings.tsx           # General settings page
+│   │   └── Status.tsx             # Service status page
+│   └── lib/
+│       └── utils.ts               # Utility functions
+│
+├── components/
+│   ├── ui/                        # shadcn/ui components
+│   │   ├── button.tsx
+│   │   ├── dialog.tsx
+│   │   ├── input.tsx
+│   │   ├── select.tsx
+│   │   ├── checkbox.tsx
+│   │   ├── badge.tsx
+│   │   ├── radio-group.tsx
+│   │   ├── command.tsx            # Combobox command palette
+│   │   ├── popover.tsx            # Popover container
+│   │   └── ...
+│   │
+│   ├── lists/                     # Lists page components
+│   │   ├── ListsTable.tsx         # Table with filters and actions
+│   │   ├── ListFilters.tsx        # Search and type filters
+│   │   ├── CreateListDialog.tsx   # Create list modal
+│   │   └── EditListDialog.tsx     # Edit list modal
+│   │
+│   └── routing-rules/             # Routing rules components
+│       ├── RoutingRulesTable.tsx  # Table with 7 columns
+│       ├── RuleFilters.tsx        # Search, list, version filters
+│       ├── CreateRuleDialog.tsx   # Multi-section create form
+│       ├── EditRuleDialog.tsx     # Multi-section edit form
+│       └── DeleteRuleConfirmation.tsx  # Delete confirmation dialog
+│
+├── package.json                   # Dependencies
+├── rsbuild.config.ts              # Build configuration
+├── tsconfig.json                  # TypeScript configuration
+└── tailwind.config.ts             # Tailwind configuration
+```
+
+**Key Features**:
+
+1. **Lists Management**:
+   - CRUD operations for URL, file, and inline hosts lists
+   - On-demand list downloads with MD5 change detection
+   - Display last modified date for URL lists
+   - Inline hosts editing (up to 1000 hosts)
+   - Statistics: total hosts, IPv4/IPv6 subnet counts
+   - Type and search filtering
+
+2. **Routing Rules (IPSets)**:
+   - Multi-section form with RadioGroup for IP version
+   - Combobox for list selection with searchable dropdown
+   - Combobox for interface selection (fetches live network interfaces)
+   - Custom interface names supported (can type interfaces that don't exist)
+   - Interface reordering with up/down arrow buttons to control priority
+   - Lists displayed as unordered list (UL)
+   - Interfaces displayed as ordered list (OL) showing priority
+   - Routing configuration: priority, table, fwmark, DNS override
+   - Advanced IPTables Rules section (collapsible accordion):
+     - Supports multiple custom iptables rules
+     - Chain, table, and rule arguments configuration
+     - Template variable insertion dropdown ({{ipset_name}}, {{fwmark}}, {{table}}, {{priority}})
+     - Pre-populated with default PREROUTING/mangle rule
+     - Fully internationalized (English + Russian)
+   - Options: flush_before_applying, kill_switch
+   - Filters: search by name, filter by list, filter by IP version
+   - URL state persistence for filters
+
+3. **General Settings**:
+   - Lists output directory configuration
+   - Keenetic DNS integration toggle
+   - Fallback DNS server
+
+4. **Service Status**:
+   - Version information (keen-pbr, Keenetic)
+   - Service running status (keen-pbr, dnsmasq)
+   - Service control (start/stop/restart)
+
+**UI Patterns**:
+
+- **Dialogs**: All create/edit forms use Dialog component with FieldGroup/Field structure
+- **Toast Notifications**: Success (green), Info (blue), Error (red) for user feedback
+- **Loading States**: Skeleton loaders and disabled states during operations
+- **Empty States**: Context-aware empty state messages
+- **Validation**: Client-side validation before API calls
+- **Cache Invalidation**: React Query automatically refetches after mutations
+- **Description Placement**: Field descriptions shown below inputs for "Cannot be changed" messages
+
+**Build Output**:
+- Total size: ~650 KB (gzipped: ~190 KB)
+- Static files served from embedded filesystem
+- Hash-based routing for direct URL access
+- Automatic code splitting
+
+### Integration with CLI
+
+The web interface and CLI share the same backend services:
+
+```go
+// API Handler reuses service layer
+func (h *Handler) CreateList(w http.ResponseWriter, r *http.Request) {
+    // Same config loading as CLI
+    cfg, err := h.loadConfig()
+
+    // Same validation as CLI
+    if err := cfg.ValidateConfig(); err != nil {
+        WriteError(w, err)
+        return
+    }
+
+    // Save and restart (same as CLI apply)
+    h.saveConfig(cfg)
+    h.serviceMgr.Restart()
+}
+```
+
+**Benefits**:
+- Single source of truth for business logic
+- Consistent behavior between CLI and web
+- CLI can be used for automation/scripting
+- Web UI for user-friendly management
+- Both modes use same configuration file
+
+### Deployment
+
+**Embedded Static Files**:
+```go
+// src/frontend/embed.go
+//go:embed dist/*
+var distFS embed.FS
+
+func GetHTTPFileSystem() (http.FileSystem, error) {
+    return http.FS(distFS), nil
+}
+```
+
+**Router Integration**:
+```go
+// Serve static frontend files (catch-all route)
+if staticFS, err := frontend.GetHTTPFileSystem(); err == nil {
+    fileServer := http.FileServer(staticFS)
+    r.Handle("/*", fileServer)
+}
+```
+
+**Access**:
+- Web UI: `http://<router-ip>:8080/`
+- API: `http://<router-ip>:8080/api/v1/`
+- Restricted to private subnet IPs (middleware)
 
 ---
 
@@ -900,4 +1221,4 @@ The project underwent a comprehensive refactoring to improve modularity, testabi
 
 ---
 
-*Last Updated: November 2024 - After complete refactoring (all 10 phases)*
+*Last Updated: November 2024 - After complete refactoring (all 10 phases), web interface addition, and advanced IPTables Rules UI*

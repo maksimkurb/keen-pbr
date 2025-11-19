@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Search, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Search, Loader2, AlertCircle, CheckCircle2, X, RouteIcon } from 'lucide-react';
 import { apiClient } from '../../src/api/client';
 import type {
 	RoutingCheckResponse,
 } from '../../src/api/client';
+import { Route } from 'react-router-dom';
 
 type CheckType = 'routing' | 'ping' | 'traceroute';
 
@@ -70,7 +70,7 @@ export function DomainCheckerWidget() {
 			setState((prev) => ({
 				...prev,
 				loading: false,
-				error: err instanceof Error ? err.message : 'Failed to check routing',
+				error: err instanceof Error ? err.message : t('dashboard.domainChecker.checkError'),
 			}));
 		}
 	};
@@ -121,7 +121,7 @@ export function DomainCheckerWidget() {
 				setState((prev) => ({
 					...prev,
 					loading: false,
-					error: 'Connection to server lost',
+					error: t('dashboard.domainChecker.pingError'),
 				}));
 			}
 		};
@@ -173,7 +173,7 @@ export function DomainCheckerWidget() {
 				setState((prev) => ({
 					...prev,
 					loading: false,
-					error: 'Connection to server lost',
+					error: t('dashboard.domainChecker.tracerouteError'),
 				}));
 			}
 		};
@@ -243,28 +243,28 @@ export function DomainCheckerWidget() {
 				{state.routingResult && (
 					<div className="space-y-4 rounded-lg border p-4">
 						<div className="flex items-center gap-2">
-							<CheckCircle2 className="h-5 w-5 text-green-600" />
+							<RouteIcon className="h-5 w-5" />
 							<h3 className="font-semibold">
-								Host: {state.routingResult.host}
+								{t('dashboard.domainChecker.host')} {state.routingResult.host}
 							</h3>
 						</div>
 
 						{/* Hostname Matches */}
 						<div>
-							<div className="text-sm font-medium mb-2">Present in Rules:</div>
+							<div className="text-sm font-medium mb-2">{t('dashboard.domainChecker.presentInRules')}</div>
 							{state.routingResult.matched_by_hostname &&
 							state.routingResult.matched_by_hostname.length > 0 ? (
 								<ul className="list-disc list-inside text-sm space-y-1">
 									{state.routingResult.matched_by_hostname.map((match) => (
 										<li key={match.rule_name}>
-											<strong>{match.rule_name}</strong> (hostname "
+											<strong>{match.rule_name}</strong> {t('dashboard.domainChecker.hostname')}
 											{match.pattern}")
 										</li>
 									))}
 								</ul>
 							) : (
 								<div className="text-sm text-muted-foreground italic">
-									Host was not found in any rules
+									{t('dashboard.domainChecker.notFoundInRules')}
 								</div>
 							)}
 						</div>
@@ -277,11 +277,11 @@ export function DomainCheckerWidget() {
 										<thead>
 											<tr className="border-b">
 												<th className="text-left p-2 font-medium">
-													IP Address
+													{t('dashboard.domainChecker.ipAddress')}
 												</th>
-												<th className="text-left p-2 font-medium">Rule</th>
+												<th className="text-left p-2 font-medium">{t('dashboard.domainChecker.rule')}</th>
 												<th className="text-left p-2 font-medium">
-													Present in IPset
+													{t('dashboard.domainChecker.presentInIPSet')}
 												</th>
 											</tr>
 										</thead>
@@ -306,8 +306,8 @@ export function DomainCheckerWidget() {
 																<div className="flex items-center gap-2">
 																	<span>
 																		{ruleResult.present_in_ipset
-																			? 'Yes'
-																			: 'No'}
+																			? t('dashboard.domainChecker.yes')
+																			: t('dashboard.domainChecker.no')}
 																	</span>
 																	{ruleResult.present_in_ipset ===
 																	ruleResult.should_be_present ? (

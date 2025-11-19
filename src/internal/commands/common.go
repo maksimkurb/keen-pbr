@@ -25,6 +25,11 @@ func loadAndValidateConfigOrFail(configPath string) (*config.Config, error) {
 		return nil, fmt.Errorf("failed to load configuration: %v", err)
 	}
 
+	// Call config's own validation first (includes prefilling default iptables rules)
+	if err := cfg.ValidateConfig(); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %v", err)
+	}
+
 	// Validate configuration using ValidationService
 	validator := service.NewValidationService()
 	if err = validator.ValidateConfig(cfg); err != nil {

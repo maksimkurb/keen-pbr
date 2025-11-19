@@ -11,6 +11,16 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  server: {
+    proxy: {
+      '/api': 'http://192.168.54.1:8080',
+    },
+  },
+  html: {
+    meta: {
+      viewport: 'width=device-width, initial-scale=1.0, maximum-scale=5.0',
+    },
+  },
   tools: {
     postcss: (config, { addPlugins }) => {
       addPlugins([

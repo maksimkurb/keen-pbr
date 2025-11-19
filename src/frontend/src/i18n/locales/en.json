@@ -7,6 +7,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "description": "System status and domain routing checker",
     "systemStatus": "System Status",
     "version": "keen-pbr Version",
     "keeneticVersion": "Keenetic OS",
@@ -22,19 +23,64 @@
       "foundInIPSets": "Found in IPSets",
       "routing": "Routing Configuration",
       "routeInfo": "table {{table}} via {{interface}}",
-      "placeholderNote": "Note: This is a placeholder. API integration is pending."
+      "placeholderNote": "Note: This is a placeholder. API integration is pending.",
+      "host": "Host:",
+      "presentInRules": "Present in Rules:",
+      "hostname": "hostname \"",
+      "notFoundInRules": "Host was not found in any rules",
+      "ipAddress": "IP Address",
+      "rule": "Rule",
+      "presentInIPSet": "Present in IPset",
+      "yes": "Yes",
+      "no": "No",
+      "checkError": "Failed to check routing",
+      "pingError": "Connection to server lost",
+      "tracerouteError": "Connection to server lost"
+    },
+    "selfCheck": {
+      "title": "Configuration Self-Check",
+      "description": "Validate your configuration and verify that iptables, ip rules, ip routes, and ipsets are correctly configured",
+      "runCheck": "Run Self-Check",
+      "checking": "Running checks...",
+      "completed": "Self-check completed successfully",
+      "failed": "Self-check completed with failures",
+      "noResults": "No results yet. Click 'Run Self-Check' to start validation.",
+      "stopCheck": "Stop",
+      "copyAll": "Copy All",
+      "copied": "Check results copied to clipboard",
+      "copyFailed": "Failed to copy to clipboard",
+      "checkTypes": {
+        "config_validation": "Configuration Validation",
+        "ipset_start": "IPSet Check",
+        "ipset": "IPSet Existence",
+        "ip_rule": "IP Rule",
+        "ip_route": "IP Routes",
+        "iptables": "IPTables Rules",
+        "ipset_end": "IPSet Complete",
+        "complete": "All Checks Complete"
+      }
     }
   },
   "settings": {
     "title": "General Settings",
+    "description": "Manage global configuration settings for keen-pbr",
     "listsOutputDir": "Lists Output Directory",
+    "listsOutputDirDescription": "Directory where downloaded list files will be stored",
+    "listsOutputDirPlaceholder": "/opt/etc/keen-pbr/lists.d",
     "apiBindAddress": "API Bind Address",
     "useKeeneticDns": "Use Keenetic DNS",
+    "useKeeneticDnsDescription": "Use Keenetic DNS from System profile as upstream in generated dnsmasq config",
     "fallbackDns": "Fallback DNS Server",
-    "saveChanges": "Save Changes"
+    "fallbackDnsDescription": "Fallback DNS server to use if Keenetic RCI call fails (e.g., 8.8.8.8 or 1.1.1.1). Leave empty to disable.",
+    "fallbackDnsPlaceholder": "8.8.8.8",
+    "saveChanges": "Save Changes",
+    "saveSuccess": "Settings saved successfully",
+    "saveError": "Failed to save settings",
+    "loadError": "Failed to load settings"
   },
   "lists": {
     "title": "Lists",
+    "description": "Manage IP/domain lists ({{count}})",
     "newList": "New List",
     "searchPlaceholder": "Search lists...",
     "usedInFilter": "Used in rule",
@@ -56,10 +102,64 @@
       "description": "Create your first list to get started",
       "createButton": "Create List",
       "clearFilters": "Clear filters"
+    },
+    "download": {
+      "success": "List \"{{name}}\" downloaded successfully",
+      "unchanged": "List \"{{name}}\" is up to date (no changes)",
+      "error": "Failed to download list: {{error}}"
+    },
+    "downloadAll": {
+      "button": "Download All Lists",
+      "buttonShort": "Download All",
+      "success": "All lists downloaded successfully",
+      "error": "Failed to download lists: {{error}}"
+    },
+    "lastUpdated": "Last updated:",
+    "ruleCount": "{{count}} rule",
+    "ruleCount_plural": "{{count}} rules",
+    "refreshTitle": "Refresh list",
+    "loadError": "Failed to load lists",
+    "dialog": {
+      "editTitle": "Edit List",
+      "createTitle": "New List",
+      "editDescription": "Update the list configuration",
+      "createDescription": "Create a new list of domains, IPs, or CIDRs",
+      "listName": "List Name",
+      "listNamePlaceholder": "my-list",
+      "listNameDescriptionLocked": "Cannot be changed after creation",
+      "listNameDescription": "A unique name for this list",
+      "listType": "List Type",
+      "listTypeDescription": "Where the list data comes from",
+      "url": "URL",
+      "urlDescription": "HTTP(S) URL to download the list from",
+      "urlPlaceholder": "https://example.com/list.txt",
+      "filePath": "File Path",
+      "filePathDescription": "Absolute path to the list file on the system",
+      "filePathPlaceholder": "/opt/etc/keen-pbr/my-list.txt",
+      "hosts": "Hosts",
+      "hostsDescription": "Enter one domain/IP/CIDR per line",
+      "hostsPlaceholder": "example.com\n192.168.1.0/24\n10.0.0.1",
+      "updateSuccess": "List \"{{name}}\" updated successfully",
+      "createSuccess": "List \"{{name}}\" created successfully",
+      "saveError": "Failed to {{action}} list: {{error}}"
+    },
+    "delete": {
+      "title": "Delete List",
+      "description": "Are you sure you want to delete the list \"{{name}}\"?",
+      "warning": "Warning:",
+      "warningMessage": "This list is referenced by the following IPSets:",
+      "warningInstruction": "You must remove these references before deleting this list.",
+      "confirmation": "This action cannot be undone. The list configuration will be permanently deleted.",
+      "success": "List \"{{name}}\" deleted successfully",
+      "error": "Failed to delete list: {{error}}"
+    },
+    "filters": {
+      "clearFilters": "Clear filters"
     }
   },
   "routingRules": {
     "title": "Routing Rules",
+    "description": "Manage IPSet routing configurations for policy-based routing",
     "newRule": "New Rule",
     "searchPlaceholder": "Search rules...",
     "listFilter": "List",
@@ -75,6 +175,11 @@
       "killSwitch": "Kill Switch",
       "actions": "Actions"
     },
+    "routingConfig": {
+      "priority": "priority:",
+      "table": "table:",
+      "fwmark": "fwmark:"
+    },
     "ipVersion": {
       "4": "IPv4",
       "6": "IPv6"
@@ -84,6 +189,62 @@
       "description": "Create your first routing rule to get started",
       "createButton": "Create Rule",
       "clearFilters": "Clear filters"
+    },
+    "dialog": {
+      "editTitle": "Edit Routing Rule",
+      "createTitle": "New Rule",
+      "editDescription": "Modify the routing rule configuration",
+      "createDescription": "Create a new routing rule for policy-based routing",
+      "basicInfo": "Basic Information",
+      "ipsetName": "IPSet Name",
+      "ipsetNamePlaceholder": "my_vpn_ipset",
+      "ipsetNameDescriptionLocked": "Cannot be changed after creation",
+      "ipVersion": "IP Version",
+      "ipv4": "IPv4",
+      "ipv6": "IPv6",
+      "lists": "Lists",
+      "selectLists": "Select Lists",
+      "selectListsDescription": "Choose which lists to include in this routing rule",
+      "addList": "Add list",
+      "searchLists": "Search lists...",
+      "noLists": "No lists found.",
+      "routingConfig": "Routing Configuration",
+      "interfaces": "Interfaces",
+      "interfacesDescription": "Add interfaces in priority order (first = highest priority)",
+      "addInterface": "Add interface",
+      "searchInterfaces": "Search interfaces...",
+      "noInterfaces": "No interfaces found.",
+      "priority": "Priority",
+      "table": "Table",
+      "fwMark": "FW Mark",
+      "dnsOverride": "DNS Override (Optional)",
+      "dnsOverrideDescription": "Format: server#port (e.g., 1.1.1.1#53)",
+      "dnsOverridePlaceholder": "1.1.1.1#53",
+      "options": "Options",
+      "flushBeforeApplying": "Flush before applying",
+      "killSwitch": "Kill switch (block traffic when all interfaces are down)",
+      "iptablesTitle": "IPTables Rules (Advanced)",
+      "iptablesDescription": "Configure custom iptables rules. Variables: {{vars}}",
+      "iptablesRuleNumber": "Rule {{number}}",
+      "iptablesChain": "Chain",
+      "iptablesChainPlaceholder": "PREROUTING, OUTPUT, etc.",
+      "iptablesTable": "Table",
+      "iptablesTablePlaceholder": "mangle, nat, filter, etc.",
+      "iptablesRuleArguments": "Rule Arguments",
+      "iptablesInsertVariable": "Insert variable",
+      "iptablesRuleDescription": "Space-separated iptables rule arguments",
+      "iptablesAddRule": "Add IPTables Rule",
+      "selectListsError": "At least one list must be selected",
+      "selectInterfacesError": "At least one interface must be specified",
+      "updateSuccess": "Routing rule \"{{name}}\" updated successfully",
+      "createSuccess": "Routing rule \"{{name}}\" created successfully",
+      "saveError": "Failed to {{action}} routing rule: {{error}}"
+    },
+    "delete": {
+      "title": "Delete Routing Rule",
+      "description": "Are you sure you want to delete the routing rule \"{{name}}\"? This action cannot be undone and will remove all associated IPSet and routing configurations.",
+      "success": "Routing rule \"{{name}}\" deleted successfully",
+      "error": "Failed to delete routing rule: {{error}}"
     }
   },
   "common": {
@@ -100,6 +261,11 @@
     "notAvailable": "N/A",
     "start": "Start",
     "stop": "Stop",
-    "restart": "Restart"
+    "restart": "Restart",
+    "update": "update",
+    "language": {
+      "en": "English",
+      "ru": "Русский"
+    }
   }
 }

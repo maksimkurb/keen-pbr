@@ -30,6 +30,7 @@ export interface ListInfo {
 	type: "url" | "file" | "hosts";
 	url?: string;
 	file?: string;
+	hosts?: string[]; // Only populated in GET single list endpoint for inline hosts
 	stats: ListStatistics | null;
 }
 
@@ -46,14 +47,24 @@ export interface UpdateListRequest {
 	hosts?: string[];
 }
 
+export interface ListDownloadResponse extends ListInfo {
+	changed: boolean; // true if the list was updated, false if unchanged
+}
+
 // IPSet types
 export interface RoutingConfig {
-	interface: string;
-	table: string;
-	priority: number;
-	fwmark?: string;
-	dns_override?: string;
+	interfaces: string[];
 	kill_switch?: boolean;
+	fwmark: number;
+	table: number;
+	priority: number;
+	override_dns?: string;
+}
+
+export interface IPTablesRule {
+	chain: string;
+	table: string;
+	rule: string[];
 }
 
 export interface IPSetConfig {
@@ -62,6 +73,7 @@ export interface IPSetConfig {
 	ip_version: 4 | 6;
 	flush_before_applying: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
 }
 
 export interface CreateIPSetRequest {
@@ -70,6 +82,7 @@ export interface CreateIPSetRequest {
 	ip_version: 4 | 6;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
 }
 
 export interface UpdateIPSetRequest {
@@ -77,6 +90,12 @@ export interface UpdateIPSetRequest {
 	ip_version?: 4 | 6;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
+	iptables_rule?: IPTablesRule[];
+}
+
+// Interface types
+export interface InterfaceInfo {
+	name: string;
 }
 
 // Settings types
@@ -84,14 +103,13 @@ export interface GeneralSettings {
 	lists_output_dir: string;
 	use_keenetic_dns: boolean;
 	fallback_dns?: string;
-	api_bind_address?: string;
+	api_bind_address?: string; // Read-only, not configurable via UI
 }
 
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
 	use_keenetic_dns?: boolean;
 	fallback_dns?: string;
-	api_bind_address?: string;
 }
 
 // Status types
@@ -222,6 +240,17 @@ export class KeenPBRClient {
 		await this.request<void>("DELETE", `/lists/${encodeURIComponent(name)}`);
 	}
 
+	async downloadList(name: string): Promise<ListDownloadResponse> {
+		return this.request<ListDownloadResponse>(
+			"POST",
+			`/lists-download/${encodeURIComponent(name)}`,
+		);
+	}
+
+	async downloadAllLists(): Promise<{ message: string }> {
+		return this.request<{ message: string }>("POST", "/lists-download");
+	}
+
 	// IPSets API
 	async getIPSets(): Promise<IPSetConfig[]> {
 		const result = await this.request<{ ipsets: IPSetConfig[] }>(
@@ -255,6 +284,15 @@ export class KeenPBRClient {
 
 	async deleteIPSet(name: string): Promise<void> {
 		await this.request<void>("DELETE", `/ipsets/${encodeURIComponent(name)}`);
+	}
+
+	// Interfaces API
+	async getInterfaces(): Promise<InterfaceInfo[]> {
+		const result = await this.request<{ interfaces: InterfaceInfo[] }>(
+			"GET",
+			"/interfaces",
+		);
+		return result.interfaces;
 	}
 
 	// Settings API
