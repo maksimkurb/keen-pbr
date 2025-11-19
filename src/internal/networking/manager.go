@@ -77,33 +77,15 @@ func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 // This updates ip routes based on current interface states. This method
 // should be called periodically to adjust routes when interfaces go up/down.
 //
-// This implementation uses the NetworkingComponent abstraction for unified logic.
+// Uses the routing manager's Apply method which properly handles interface
+// selection and route management.
 func (m *Manager) ApplyRoutingConfig(ipsets []*config.IPSetConfig) error {
 	log.Debugf("Updating routing configuration based on interface states...")
 
 	for _, ipset := range ipsets {
-		// Build all components for this ipset
-		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
-		components, err := builder.BuildComponents(ipset)
-		if err != nil {
+		if err := m.routingConfig.Apply(ipset); err != nil {
+			log.Errorf("Failed to apply routing for %s: %v", ipset.IPSetName, err)
 			return err
-		}
-
-		// Apply only routing components
-		for _, component := range components {
-			if component.GetType() == ComponentTypeIPRoute {
-				if component.ShouldExist() {
-					if err := component.CreateIfNotExists(); err != nil {
-						log.Errorf("Failed to create route for %s: %v", ipset.IPSetName, err)
-						return err
-					}
-				} else {
-					// Delete route if it exists but shouldn't
-					if err := component.DeleteIfExists(); err != nil {
-						log.Warnf("Failed to delete stale route for %s: %v", ipset.IPSetName, err)
-					}
-				}
-			}
 		}
 	}
 
