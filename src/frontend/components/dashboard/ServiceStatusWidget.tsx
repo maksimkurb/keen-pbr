@@ -85,10 +85,14 @@ export function ServiceStatusWidget() {
 
   // Check if dnsmasq config is outdated
   const dnsmasqConfigHash = data.services.dnsmasq?.config_hash;
+  const dnsmasqNotConfigured = !dnsmasqConfigHash; // Empty hash means not configured
   const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
 
+  // Override dnsmasq status if not configured to read keen-pbr config
+  const effectiveDnsmasqStatus = dnsmasqNotConfigured ? 'stopped' : dnsmasqStatus;
+
   // Check if any service is out of sync
-  const anyServiceOutdated = configOutdated || dnsmasqOutdated;
+  const anyServiceOutdated = configOutdated || dnsmasqOutdated || dnsmasqNotConfigured;
 
   return (
     <Card>
@@ -99,10 +103,12 @@ export function ServiceStatusWidget() {
         <div className="space-y-4">
           {/* Configuration outdated warning */}
           {anyServiceOutdated && (
-            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                {configOutdated && dnsmasqOutdated
+            <Alert className={dnsmasqNotConfigured ? "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800" : "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800"}>
+              <AlertTriangle className={dnsmasqNotConfigured ? "h-4 w-4 text-red-600 dark:text-red-400" : "h-4 w-4 text-yellow-600 dark:text-yellow-400"} />
+              <AlertDescription className={dnsmasqNotConfigured ? "text-red-800 dark:text-red-200" : "text-yellow-800 dark:text-yellow-200"}>
+                {dnsmasqNotConfigured
+                  ? t('dashboard.dnsmasqNotConfigured')
+                  : configOutdated && dnsmasqOutdated
                   ? t('dashboard.configurationOutdatedBoth')
                   : configOutdated
                   ? t('dashboard.configurationOutdated')
@@ -158,8 +164,8 @@ export function ServiceStatusWidget() {
           />
           <StatusCard
             title={t('dashboard.dnsmasqService')}
-            status={dnsmasqStatus}
-            className={dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
+            status={effectiveDnsmasqStatus}
+            className={dnsmasqNotConfigured ? 'bg-red-50 dark:bg-red-950' : dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <Button
                 size="sm"

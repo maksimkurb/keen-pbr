@@ -11,6 +11,7 @@
     "systemStatus": "Состояние системы",
     "configurationOutdated": "Конфигурация была изменена. Перезапустите службу keen-pbr для применения изменений.",
     "dnsmasqConfigurationOutdated": "Конфигурация dnsmasq устарела. Перезапустите службу dnsmasq для применения изменений.",
+    "dnsmasqNotConfigured": "Dnsmasq не настроен для чтения конфигурации keen-pbr. Выполните: keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
     "configurationOutdatedBoth": "Конфигурация была изменена. Перезапустите обе службы keen-pbr и dnsmasq для применения изменений.",
     "version": "Версия keen-pbr",
     "keeneticVersion": "Keenetic OS",

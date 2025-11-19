@@ -440,6 +440,45 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Check dnsmasq configuration (verify it reads keen-pbr config)
+	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
+	if dnsmasqHash == "" {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq_config",
+			Comment:    "Dnsmasq must be configured to read keen-pbr configuration",
+			State:      false,
+			Message:    "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)",
+			Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+		})
+	} else {
+		// Get current config hash
+		currentHash, err := h.configHasher.GetCurrentConfigHash()
+		if err != nil {
+			currentHash = "error"
+		}
+
+		if dnsmasqHash == currentHash {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      "",
+				Validation: "dnsmasq_config",
+				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
+				State:      true,
+				Message:    fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash),
+				Command:    "nslookup config-md5.keen-pbr.internal 127.0.0.1",
+			})
+		} else {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      "",
+				Validation: "dnsmasq_config",
+				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
+				State:      false,
+				Message:    fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash),
+				Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+			})
+		}
+	}
+
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
 		ipsetChecks := h.checkIPSetSelfJSON(cfg, ipsetCfg)
@@ -488,6 +527,26 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 		hasFailures = true
 	} else {
 		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running", "pidof dnsmasq")
+	}
+
+	// Check dnsmasq configuration (verify it reads keen-pbr config)
+	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
+	if dnsmasqHash == "" {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured to read keen-pbr configuration", "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)", "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+		hasFailures = true
+	} else {
+		// Get current config hash
+		currentHash, err := h.configHasher.GetCurrentConfigHash()
+		if err != nil {
+			currentHash = "error"
+		}
+
+		if dnsmasqHash == currentHash {
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", true, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash), "nslookup config-md5.keen-pbr.internal 127.0.0.1")
+		} else {
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash), "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+			hasFailures = true
+		}
 	}
 
 	// Check each IPSet
