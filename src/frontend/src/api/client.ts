@@ -108,6 +108,7 @@ export interface GeneralSettings {
 	api_bind_address?: string; // Read-only, not configurable via UI
 	auto_update_lists?: boolean; // Auto-update lists with URLs
 	update_interval_hours?: number; // Interval in hours for auto-updates
+	enable_interface_monitoring?: boolean; // Enable periodic interface monitoring in web UI
 }
 
 export interface UpdateSettingsRequest {
@@ -116,6 +117,7 @@ export interface UpdateSettingsRequest {
 	fallback_dns?: string;
 	auto_update_lists?: boolean;
 	update_interval_hours?: number;
+	enable_interface_monitoring?: boolean;
 }
 
 // Status types

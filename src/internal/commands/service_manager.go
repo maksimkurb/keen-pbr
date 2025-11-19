@@ -244,11 +244,17 @@ func (sm *ServiceManager) run(ctx context.Context) {
 		return
 	}
 
-	log.Infof("Service started successfully. Monitoring interface changes every %d seconds...", sm.monitorInterval)
+	log.Infof("Service started successfully.")
 
-	// Start monitoring loop
-	interfaceTicker := time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
-	defer interfaceTicker.Stop()
+	// Start interface monitoring if enabled
+	var interfaceTicker *time.Ticker
+	if startupCfg.General.IsInterfaceMonitoringEnabled() {
+		log.Infof("Interface monitoring enabled. Will check interface changes every %d seconds", sm.monitorInterval)
+		interfaceTicker = time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
+		defer interfaceTicker.Stop()
+	} else {
+		log.Infof("Interface monitoring disabled")
+	}
 
 	// Start auto-update timer if enabled
 	var updateTicker *time.Ticker
@@ -268,7 +274,13 @@ func (sm *ServiceManager) run(ctx context.Context) {
 			sm.done <- sm.shutdownWithConfig(startupCfg)
 			return
 
-		case <-interfaceTicker.C:
+		case <-func() <-chan time.Time {
+			if interfaceTicker != nil {
+				return interfaceTicker.C
+			}
+			// Return a channel that never sends if interface monitoring is disabled
+			return make(<-chan time.Time)
+		}():
 			// Update interface list
 			var err error
 			if sm.ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {

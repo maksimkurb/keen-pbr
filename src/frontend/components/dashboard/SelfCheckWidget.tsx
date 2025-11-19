@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { CheckCircle2, XCircle, Play, Square, Loader2, Copy, Check } from 'lucide-react';
+import { CheckCircle2, XCircle, Play, Square, Loader2, Download, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiClient } from '../../src/api/client';
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
 
 interface CheckEvent {
   check: string;
@@ -107,25 +109,58 @@ export function SelfCheckWidget() {
     }
   };
 
-  const copyAllChecks = () => {
-    const text = results
-      .map((result) => {
-        const rule = result.ipset_name || 'global';
-        const check = getCheckTypeLabel(result.check);
-        const expected = getExpectedStatus(result.check);
-        const actual = getActualStatus(result);
-        return `${rule} | ${check} | ${expected} | ${actual.text} ${actual.icon === 'check' ? '✓' : '✗'}`;
-      })
-      .join('\n');
+  const downloadResults = async () => {
+    try {
+      // Fetch status info including DNS servers
+      const status = await apiClient.getStatus();
 
-    navigator.clipboard.writeText(text).then(
-      () => {
-        toast.success(t('dashboard.selfCheck.copied'));
-      },
-      () => {
-        toast.error(t('dashboard.selfCheck.copyFailed'));
-      }
-    );
+      // Format self-check results
+      const formattedResults = results
+        .filter((result) => result.check !== 'complete')
+        .map((result) => ({
+          rule: result.ipset_name || 'global',
+          check: result.check,
+          ok: result.ok,
+          log: result.log,
+          reason: result.reason,
+          command: result.command,
+        }));
+
+      // Create export object
+      const exportData = {
+        timestamp: new Date().toISOString(),
+        selfCheck: {
+          status: status === 'completed' ? 'passed' : status === 'failed' ? 'failed' : status,
+          results: formattedResults,
+        },
+        status: {
+          version: status.version,
+          keenetic_version: status.keenetic_version,
+          services: status.services,
+          current_config_hash: status.current_config_hash,
+          configuration_outdated: status.configuration_outdated,
+        },
+        dns_servers: status.dns_servers || [],
+      };
+
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `keen-pbr-self-check-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(t('dashboard.selfCheck.downloaded', { defaultValue: 'Results downloaded' }));
+    } catch (error) {
+      console.error('Failed to download results:', error);
+      toast.error(t('dashboard.selfCheck.downloadFailed', { defaultValue: 'Failed to download results' }));
+    }
   };
 
   return (
@@ -137,7 +172,7 @@ export function SelfCheckWidget() {
       <CardContent>
         <div className="space-y-4">
           {/* Control buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               onClick={startSelfCheck}
               disabled={status === 'running'}
@@ -162,9 +197,9 @@ export function SelfCheckWidget() {
               </Button>
             )}
             {results.length > 0 && (
-              <Button onClick={copyAllChecks} variant="outline" size="default">
-                <Copy className="mr-2 h-4 w-4" />
-                {t('dashboard.selfCheck.copyAll')}
+              <Button onClick={downloadResults} variant="outline" size="default">
+                <Download className="mr-2 h-4 w-4" />
+                {t('dashboard.selfCheck.download', { defaultValue: 'Download' })}
               </Button>
             )}
           </div>
@@ -264,9 +299,16 @@ export function SelfCheckWidget() {
               </table>
             </div>
           ) : status === 'idle' ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm border rounded-md">
-              {t('dashboard.selfCheck.noResults')}
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ListChecks />
+                </EmptyMedia>
+                <EmptyDescription>
+                  {t('dashboard.selfCheck.noResults')}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : null}
 
           {/* Status message */}

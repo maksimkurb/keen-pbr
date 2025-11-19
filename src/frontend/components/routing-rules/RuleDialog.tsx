@@ -5,7 +5,6 @@ import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
-import { useSettings } from '../../src/hooks/useSettings';
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -77,13 +76,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const [tableManuallySet, setTableManuallySet] = useState(false);
   const [fwmarkManuallySet, setFwmarkManuallySet] = useState(false);
 
-  // Get settings to check if interface monitoring is enabled
-  const { data: settings } = useSettings();
-  const interfaceMonitoringEnabled = settings?.enable_interface_monitoring ?? false;
-
-  // Fetch and refresh interfaces while dialog is open
-  // Auto-refresh is only enabled if monitoring is enabled in settings
-  const { data: interfacesData } = useInterfaces(open, interfaceMonitoringEnabled);
+  // Fetch interfaces while dialog is open
+  const { data: interfacesData } = useInterfaces(open);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',

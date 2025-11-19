@@ -210,7 +210,7 @@ export function SettingsForm() {
                     {t('settings.enableInterfaceMonitoring', { defaultValue: 'Enable Interface Monitoring' })}
                   </FieldLabel>
                   <FieldDescription>
-                    {t('settings.enableInterfaceMonitoringDescription', { defaultValue: 'Periodically check interface status in the web UI (updates every 5 seconds)' })}
+                    {t('settings.enableInterfaceMonitoringDescription', { defaultValue: 'Enable keen-pbr service to monitor interface state changes and automatically reapply routing (checks every 10 seconds)' })}
                   </FieldDescription>
                 </div>
               </div>
