@@ -112,7 +112,7 @@ export function SelfCheckWidget() {
   const downloadResults = async () => {
     try {
       // Fetch status info including DNS servers
-      const status = await apiClient.getStatus();
+      const statusInfo = await apiClient.getStatus();
 
       // Format self-check results
       const formattedResults = results
@@ -133,14 +133,14 @@ export function SelfCheckWidget() {
           status: status === 'completed' ? 'passed' : status === 'failed' ? 'failed' : status,
           results: formattedResults,
         },
-        status: {
-          version: status.version,
-          keenetic_version: status.keenetic_version,
-          services: status.services,
-          current_config_hash: status.current_config_hash,
-          configuration_outdated: status.configuration_outdated,
+        system: {
+          version: statusInfo.version,
+          keenetic_version: statusInfo.keenetic_version,
+          services: statusInfo.services,
+          current_config_hash: statusInfo.current_config_hash,
+          configuration_outdated: statusInfo.configuration_outdated,
         },
-        dns_servers: status.dns_servers || [],
+        dns_servers: statusInfo.dns_servers || [],
       };
 
       // Create blob and download

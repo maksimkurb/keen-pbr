@@ -355,13 +355,38 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 
 // streamOutput reads from a reader and streams each line as an SSE event
 func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher http.Flusher) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("Panic in streamOutput: %v", r)
+		}
+	}()
+
+	if reader == nil || w == nil || flusher == nil {
+		log.Errorf("streamOutput called with nil parameters")
+		return
+	}
+
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
 		// Escape any special characters for SSE
 		line = strings.ReplaceAll(line, "\n", "")
-		fmt.Fprintf(w, "data: %s\n\n", line)
-		flusher.Flush()
+
+		// Safely write and flush
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", line); err != nil {
+			log.Debugf("Failed to write to response: %v", err)
+			return
+		}
+
+		// Recover from flush panics
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Debugf("Panic during flush (client likely disconnected): %v", r)
+				}
+			}()
+			flusher.Flush()
+		}()
 	}
 }
 
