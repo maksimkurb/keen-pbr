@@ -16,12 +16,13 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Normalize settings to return proper defaults
+	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
 	response := config.GeneralConfig{
 		ListsOutputDir:      cfg.General.ListsOutputDir,
 		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
 		FallbackDNS:         cfg.General.FallbackDNS,
 		APIBindAddress:      cfg.General.APIBindAddress,
-		AutoUpdateLists:     cfg.General.AutoUpdateLists,
+		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
 		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
 	}
 
@@ -78,12 +79,13 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Normalize settings to return proper defaults
+	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
 	response := config.GeneralConfig{
 		ListsOutputDir:      cfg.General.ListsOutputDir,
 		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
 		FallbackDNS:         cfg.General.FallbackDNS,
 		APIBindAddress:      cfg.General.APIBindAddress,
-		AutoUpdateLists:     cfg.General.AutoUpdateLists,
+		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
 		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
 	}
 
