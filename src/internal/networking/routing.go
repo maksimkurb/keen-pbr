@@ -79,11 +79,19 @@ func (r *RoutingConfigManager) ApplyIfChanged(ipset *config.IPSetConfig) (bool, 
 		return false, nil
 	}
 
-	// Interface changed - apply new routes
-	log.Infof("Interface for ipset [%s] changed: %s -> %s, updating routes",
-		ipset.IPSetName,
-		ifaceNameOrBlackhole(currentIface),
-		ifaceNameOrBlackhole(targetIface))
+	// Log appropriately based on whether this is first time or a change
+	if !exists {
+		// First time - interface is being selected
+		log.Infof("[ipset %s] Selected interface: %s",
+			ipset.IPSetName,
+			ifaceNameOrBlackhole(targetIface))
+	} else {
+		// Interface changed from previous selection
+		log.Infof("[ipset %s] Interface changed: %s -> %s, updating routes",
+			ipset.IPSetName,
+			ifaceNameOrBlackhole(currentIface),
+			ifaceNameOrBlackhole(targetIface))
+	}
 
 	if err := r.applyRoutes(ipset, chosenIface); err != nil {
 		return false, err

@@ -42,9 +42,9 @@ func NewManager(keeneticClient *keenetic.Client) *Manager {
 //
 // This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
-	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
-
 	for _, ipset := range ipsets {
+		log.Infof("[ipset %s] Applying persistent configuration (iptables rules and ip rules)...", ipset.IPSetName)
+
 		// Build all components for this ipset
 		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
 		components, err := builder.BuildComponents(ipset)
@@ -61,7 +61,7 @@ func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 			if compType == ComponentTypeIPSet || compType == ComponentTypeIPRule || compType == ComponentTypeIPTables {
 				if component.ShouldExist() {
 					if err := component.CreateIfNotExists(); err != nil {
-						log.Errorf("Failed to create %s for %s: %v", compType, ipset.IPSetName, err)
+						log.Errorf("[ipset %s] Failed to create %s: %v", ipset.IPSetName, compType, err)
 						return err
 					}
 				}

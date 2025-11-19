@@ -33,7 +33,7 @@ func PrintDnsmasqConfig(cfg *config.Config, configPath string, keeneticClient *k
 	}
 
 	for listName, ipsets := range listMapping {
-		log.Infof("Processing list \"%s\" (ipsets: %v)...", listName, ipsets)
+		log.Infof("[list %s] Processing (ipsets: %v)...", listName, ipsets)
 		list, err := getListByName(cfg, listName)
 		if err != nil {
 			return err
@@ -50,7 +50,7 @@ func PrintDnsmasqConfig(cfg *config.Config, configPath string, keeneticClient *k
 			return err
 		}); err != nil {
 			// Log error but continue processing other lists
-			log.Errorf("Failed to process list \"%s\": %v. Skipping this list in dnsmasq config.", listName, err)
+			log.Errorf("[list %s] Failed to process: %v. Skipping this list in dnsmasq config.", listName, err)
 			continue
 		}
 
@@ -149,7 +149,7 @@ func printDnsmasqConfig(cfg *config.Config, configPath string, domains *DomainSt
 				return printDnsmasqIPSetEntry(cfg, stdoutBuffer, host, domains, ipset)
 			}); err != nil {
 				// Log error but continue processing other lists
-				log.Errorf("Failed to process list \"%s\" for ipset \"%s\": %v. Skipping this list in dnsmasq config.", listName, ipset.IPSetName, err)
+				log.Errorf("[list %s] [ipset %s] Failed to process: %v. Skipping this list in dnsmasq config.", listName, ipset.IPSetName, err)
 				continue
 			}
 		}

@@ -88,7 +88,6 @@ func (s *ServiceCommand) Run() error {
 	}
 
 	// Apply persistent network configuration (iptables rules and ip rules)
-	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
 	if err := s.networkMgr.ApplyPersistentConfig(s.cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
 	}

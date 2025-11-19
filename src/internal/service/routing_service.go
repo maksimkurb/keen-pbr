@@ -78,14 +78,12 @@ func (s *RoutingService) Apply(cfg *config.Config, opts ApplyOptions) error {
 		}
 
 		// Apply persistent configuration (iptables rules, ip rules)
-		log.Infof("Applying persistent network configuration...")
 		if err := s.networkManager.ApplyPersistentConfig(ipsets); err != nil {
 			log.Errorf("Failed to apply persistent config: %v", err)
 			return err
 		}
 
 		// Apply routing configuration (ip routes)
-		log.Infof("Applying routing configuration...")
 		if err := s.networkManager.ApplyRoutingConfig(ipsets); err != nil {
 			log.Errorf("Failed to apply routing config: %v", err)
 			return err
