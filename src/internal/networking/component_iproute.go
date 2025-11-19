@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
 // RouteType identifies the type of routing entry
@@ -138,15 +136,4 @@ func (c *IPRouteComponent) GetInterfaceName() string {
 // GetRouteType returns the type of this route
 func (c *IPRouteComponent) GetRouteType() RouteType {
 	return c.routeType
-}
-
-// NewInterfaceSelectorFromDeps creates an InterfaceSelector from AppDependencies
-func NewInterfaceSelectorFromDeps(deps domain.AppDependencies) *InterfaceSelector {
-	keeneticClient := deps.KeeneticClient()
-	// Convert domain.KeeneticClient to *keenetic.Client if it's the concrete type
-	// This is a temporary bridge until we fully migrate to using domain interfaces
-	if concreteClient, ok := keeneticClient.(*keenetic.Client); ok {
-		return NewInterfaceSelector(concreteClient)
-	}
-	return NewInterfaceSelector(nil)
 }

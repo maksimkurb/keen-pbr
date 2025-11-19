@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -13,23 +12,15 @@ import (
 // It provides a centralized way to generate all required network primitives
 // (IPSets, IP rules, IP routes, IPTables rules) from configuration.
 type ComponentBuilder struct {
-	keeneticClient domain.KeeneticClient
-	selector       *InterfaceSelector
+	selector *InterfaceSelector
 }
 
-// NewComponentBuilder creates a new component builder with the given dependencies
-func NewComponentBuilder(keeneticClient domain.KeeneticClient) *ComponentBuilder {
-	// Convert domain.KeeneticClient to concrete type for InterfaceSelector
-	var selector *InterfaceSelector
-	if concreteClient, ok := keeneticClient.(*keenetic.Client); ok {
-		selector = NewInterfaceSelector(concreteClient)
-	} else {
-		selector = NewInterfaceSelector(nil)
-	}
-
+// NewComponentBuilder creates a new component builder with the given keenetic client.
+// Pass nil for keeneticClient if Keenetic integration is not available.
+func NewComponentBuilder(keeneticClient *keenetic.Client) *ComponentBuilder {
+	selector := NewInterfaceSelector(keeneticClient)
 	return &ComponentBuilder{
-		keeneticClient: keeneticClient,
-		selector:       selector,
+		selector: selector,
 	}
 }
 
