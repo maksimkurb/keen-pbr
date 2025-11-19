@@ -164,3 +164,18 @@ type TracerouteHop struct {
 	Hostname string  `json:"hostname,omitempty"`
 	RTT      float64 `json:"rtt,omitempty"` // milliseconds
 }
+
+// SelfCheckResponse returns self-check results as a table.
+type SelfCheckResponse struct {
+	Checks []SelfCheckRow `json:"checks"`
+}
+
+// SelfCheckRow represents a single row in the self-check table.
+type SelfCheckRow struct {
+	IPSet      string `json:"ipset"`      // IPSet name (empty for global checks)
+	Validation string `json:"validation"` // Type of check (e.g., "ipset", "ip_rule", "iptables")
+	Comment    string `json:"comment"`    // Explanation of what is being validated
+	State      bool   `json:"state"`      // true = pass (✓), false = fail (✗)
+	Message    string `json:"message"`    // Detailed message
+	Command    string `json:"command"`    // Command to run for debugging
+}

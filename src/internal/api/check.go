@@ -363,9 +363,92 @@ func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher 
 	}
 }
 
-// CheckSelf performs a self-check similar to the self-check command and streams results via SSE.
-// GET /api/v1/check/self
+// CheckSelf performs a self-check similar to the self-check command.
+// GET /api/v1/check/self?sse=true (SSE streaming) or ?sse=false (JSON table, default)
 func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
+	// Check if SSE mode is requested
+	sseMode := r.URL.Query().Get("sse") == "true"
+
+	if sseMode {
+		h.checkSelfSSE(w, r)
+	} else {
+		h.checkSelfJSON(w, r)
+	}
+}
+
+// checkSelfJSON performs self-check and returns results as a JSON table
+func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
+	checks := []SelfCheckRow{}
+
+	// Load configuration
+	cfg, err := h.loadConfig()
+	if err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config",
+			Comment:    "Global configuration check",
+			State:      false,
+			Message:    fmt.Sprintf("Failed to load configuration: %v", err),
+			Command:    "",
+		})
+		writeJSONData(w, SelfCheckResponse{Checks: checks})
+		return
+	}
+
+	// Validate configuration
+	if err := cfg.ValidateConfig(); err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config_validation",
+			Comment:    "Configuration validation ensures all required fields are present and valid",
+			State:      false,
+			Message:    fmt.Sprintf("Configuration validation failed: %v", err),
+			Command:    "",
+		})
+	} else {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config_validation",
+			Comment:    "Configuration validation ensures all required fields are present and valid",
+			State:      true,
+			Message:    "Configuration is valid",
+			Command:    "",
+		})
+	}
+
+	// Check dnsmasq service
+	cmd := exec.Command("pidof", "dnsmasq")
+	if err := cmd.Run(); err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq",
+			Comment:    "Dnsmasq service must be running for domain-based routing to work",
+			State:      false,
+			Message:    "Dnsmasq service is NOT running",
+			Command:    "/opt/etc/init.d/S56dnsmasq start",
+		})
+	} else {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq",
+			Comment:    "Dnsmasq service must be running for domain-based routing to work",
+			State:      true,
+			Message:    "Dnsmasq service is running",
+			Command:    "pidof dnsmasq",
+		})
+	}
+
+	// Check each IPSet
+	for _, ipsetCfg := range cfg.IPSets {
+		ipsetChecks := h.checkIPSetSelfJSON(cfg, ipsetCfg)
+		checks = append(checks, ipsetChecks...)
+	}
+
+	writeJSONData(w, SelfCheckResponse{Checks: checks})
+}
+
+// checkSelfSSE performs self-check and streams results via SSE
+func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -396,9 +479,18 @@ func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
 		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid", "")
 	}
 
+	// Check dnsmasq service
+	cmd := exec.Command("pidof", "dnsmasq")
+	if err := cmd.Run(); err != nil {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", false, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is NOT running", "/opt/etc/init.d/S56dnsmasq start")
+		hasFailures = true
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running", "pidof dnsmasq")
+	}
+
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
-		if !h.checkIPSetSelf(w, flusher, cfg, ipsetCfg) {
+		if !h.checkIPSetSelfSSE(w, flusher, cfg, ipsetCfg) {
 			hasFailures = true
 		}
 	}
@@ -411,13 +503,11 @@ func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// checkIPSetSelf checks a single IPSet configuration and streams results
+// checkIPSetSelfSSE checks a single IPSet configuration and streams results via SSE
 // Returns true if all checks passed, false if any failed
-func (h *Handler) checkIPSetSelf(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
+func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
 	hasFailures := false
 	ipsetName := ipsetCfg.IPSetName
-
-	h.sendCheckEventWithContext(w, flusher, "ipset_start", ipsetName, true, "", fmt.Sprintf("Checking IPSet: %s", ipsetName), "")
 
 	// Check if ipset exists
 	cmd := exec.Command("ipset", "list", ipsetName)
@@ -481,8 +571,127 @@ func (h *Handler) checkIPSetSelf(w http.ResponseWriter, flusher http.Flusher, cf
 		}
 	}
 
-	h.sendCheckEventWithContext(w, flusher, "ipset_end", ipsetName, true, "", fmt.Sprintf("Completed checking IPSet: %s", ipsetName), "")
 	return !hasFailures
+}
+
+// checkIPSetSelfJSON checks a single IPSet configuration and returns results as table rows
+func (h *Handler) checkIPSetSelfJSON(cfg *config.Config, ipsetCfg *config.IPSetConfig) []SelfCheckRow {
+	checks := []SelfCheckRow{}
+	ipsetName := ipsetCfg.IPSetName
+
+	// Check if ipset exists
+	cmd := exec.Command("ipset", "list", ipsetName)
+	err := cmd.Run()
+	ipsetCommand := fmt.Sprintf("ipset list %s", ipsetName)
+	if err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      ipsetName,
+			Validation: "ipset",
+			Comment:    "IPSet must exist to store IP addresses/subnets for policy routing",
+			State:      false,
+			Message:    fmt.Sprintf("IPSet [%s] does NOT exist", ipsetName),
+			Command:    ipsetCommand,
+		})
+	} else {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      ipsetName,
+			Validation: "ipset",
+			Comment:    "IPSet must exist to store IP addresses/subnets for policy routing",
+			State:      true,
+			Message:    fmt.Sprintf("IPSet [%s] exists", ipsetName),
+			Command:    ipsetCommand,
+		})
+	}
+
+	// Check ip rule
+	ipRuleCommand := fmt.Sprintf("ip rule add from all fwmark 0x%x lookup %d prio %d",
+		ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable, ipsetCfg.Routing.IpRulePriority)
+	cmd = exec.Command("ip", "rule", "show")
+	output, err := cmd.Output()
+	if err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      ipsetName,
+			Validation: "ip_rule",
+			Comment:    "IP rule routes packets marked by iptables to the custom routing table",
+			State:      false,
+			Message:    fmt.Sprintf("Failed to check IP rule: %v", err),
+			Command:    ipRuleCommand,
+		})
+	} else {
+		if strings.Contains(string(output), fmt.Sprintf("fwmark 0x%x", ipsetCfg.Routing.FwMark)) {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      ipsetName,
+				Validation: "ip_rule",
+				Comment:    "IP rule routes packets marked by iptables to the custom routing table",
+				State:      true,
+				Message:    fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists", ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable),
+				Command:    ipRuleCommand,
+			})
+		} else {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      ipsetName,
+				Validation: "ip_rule",
+				Comment:    "IP rule routes packets marked by iptables to the custom routing table",
+				State:      false,
+				Message:    fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist", ipsetCfg.Routing.FwMark),
+				Command:    ipRuleCommand,
+			})
+		}
+	}
+
+	// Check ip routes - list all routes in the table
+	cmd = exec.Command("ip", "route", "show", "table", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
+	output, err = cmd.Output()
+	if err != nil {
+		ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
+		checks = append(checks, SelfCheckRow{
+			IPSet:      ipsetName,
+			Validation: "ip_route",
+			Comment:    "IP routes define the gateway/interface for packets in the custom routing table",
+			State:      false,
+			Message:    fmt.Sprintf("Failed to check IP routes in table %d: %v", ipsetCfg.Routing.IpRouteTable, err),
+			Command:    ipRouteCommand,
+		})
+	} else {
+		// Parse each route and add individual checks
+		routes := strings.Split(strings.TrimSpace(string(output)), "\n")
+		if len(routes) == 0 || (len(routes) == 1 && routes[0] == "") {
+			ipRouteCommand := fmt.Sprintf("ip route add default via <gateway> dev <interface> table %d", ipsetCfg.Routing.IpRouteTable)
+			checks = append(checks, SelfCheckRow{
+				IPSet:      ipsetName,
+				Validation: "ip_route",
+				Comment:    "IP routes define the gateway/interface for packets in the custom routing table",
+				State:      false,
+				Message:    fmt.Sprintf("No routes found in table %d", ipsetCfg.Routing.IpRouteTable),
+				Command:    ipRouteCommand,
+			})
+		} else {
+			for _, route := range routes {
+				if route == "" {
+					continue
+				}
+				ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
+				checks = append(checks, SelfCheckRow{
+					IPSet:      ipsetName,
+					Validation: "ip_route",
+					Comment:    "IP routes define the gateway/interface for packets in the custom routing table",
+					State:      true,
+					Message:    fmt.Sprintf("Route in table %d: %s", ipsetCfg.Routing.IpRouteTable, route),
+					Command:    ipRouteCommand,
+				})
+			}
+		}
+	}
+
+	// Check iptables rules
+	if ipsetCfg.IPTablesRules != nil && len(ipsetCfg.IPTablesRules) > 0 {
+		for idx, rule := range ipsetCfg.IPTablesRules {
+			check := h.checkIPTablesRuleJSON(ipsetCfg, rule, idx)
+			checks = append(checks, check)
+		}
+	}
+
+	return checks
 }
 
 // checkIPTablesRule checks if an iptables rule exists
@@ -526,6 +735,61 @@ func (h *Handler) checkIPTablesRule(w http.ResponseWriter, flusher http.Flusher,
 	} else {
 		h.sendCheckEventWithContext(w, flusher, "iptables", ipsetCfg.IPSetName, true, "IPTables rule marks packets matching the ipset with fwmark for policy routing", fmt.Sprintf("IPTables %s exists", ruleDesc), iptablesCmd)
 		return true
+	}
+}
+
+// checkIPTablesRuleJSON checks if an iptables rule exists and returns a table row
+func (h *Handler) checkIPTablesRuleJSON(ipsetCfg *config.IPSetConfig, rule *config.IPTablesRule, idx int) SelfCheckRow {
+	// Build the iptables check command
+	args := []string{"-t", rule.Table, "-C", rule.Chain}
+
+	// Expand template variables in rule
+	expandedRule := make([]string, len(rule.Rule))
+	for i, arg := range rule.Rule {
+		expanded := arg
+		expanded = strings.ReplaceAll(expanded, "{{ipset_name}}", ipsetCfg.IPSetName)
+		expanded = strings.ReplaceAll(expanded, "{{fwmark}}", fmt.Sprintf("0x%x", ipsetCfg.Routing.FwMark))
+		expanded = strings.ReplaceAll(expanded, "{{table}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
+		expanded = strings.ReplaceAll(expanded, "{{priority}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRulePriority))
+		expandedRule[i] = expanded
+	}
+
+	args = append(args, expandedRule...)
+
+	var cmd *exec.Cmd
+	var iptablesCmd string
+	if ipsetCfg.IPVersion == 4 {
+		cmd = exec.Command("iptables", args...)
+		// Build the command for manual execution (using -A for add instead of -C for check)
+		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
+		iptablesCmd = "iptables " + strings.Join(addArgs, " ")
+	} else {
+		cmd = exec.Command("ip6tables", args...)
+		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
+		iptablesCmd = "ip6tables " + strings.Join(addArgs, " ")
+	}
+
+	err := cmd.Run()
+	ruleDesc := fmt.Sprintf("%s/%s rule #%d", rule.Table, rule.Chain, idx+1)
+
+	if err != nil {
+		return SelfCheckRow{
+			IPSet:      ipsetCfg.IPSetName,
+			Validation: "iptables",
+			Comment:    "IPTables rule marks packets matching the ipset with fwmark for policy routing",
+			State:      false,
+			Message:    fmt.Sprintf("IPTables %s does NOT exist", ruleDesc),
+			Command:    iptablesCmd,
+		}
+	} else {
+		return SelfCheckRow{
+			IPSet:      ipsetCfg.IPSetName,
+			Validation: "iptables",
+			Comment:    "IPTables rule marks packets matching the ipset with fwmark for policy routing",
+			State:      true,
+			Message:    fmt.Sprintf("IPTables %s exists", ruleDesc),
+			Command:    iptablesCmd,
+		}
 	}
 }
 
