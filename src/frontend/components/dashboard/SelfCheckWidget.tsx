@@ -133,14 +133,7 @@ export function SelfCheckWidget() {
           status: status === 'completed' ? 'passed' : status === 'failed' ? 'failed' : status,
           results: formattedResults,
         },
-        system: {
-          version: statusInfo.version,
-          keenetic_version: statusInfo.keenetic_version,
-          services: statusInfo.services,
-          current_config_hash: statusInfo.current_config_hash,
-          configuration_outdated: statusInfo.configuration_outdated,
-        },
-        dns_servers: statusInfo.dns_servers || [],
+        system: statusInfo,
       };
 
       // Create blob and download
