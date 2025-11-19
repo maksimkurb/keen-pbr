@@ -155,14 +155,13 @@ func (c *Client) GetInterfaces() (map[string]Interface, error) {
 
 // GetDNSServers retrieves the list of DNS servers configured on the router.
 func (c *Client) GetDNSServers() ([]DnsServerInfo, error) {
-	dnsProxyConfig, err := fetchAndDeserializeForClient[string](c, "/show/dns/proxy")
+	dnsProxyConfig, err := fetchAndDeserializeForClient[string](c, "/show/dns-proxy")
 	if err != nil {
 		return nil, err
 	}
 
 	return ParseDNSProxyConfig(dnsProxyConfig), nil
 }
-
 
 // ClearCache clears all cached data.
 //
