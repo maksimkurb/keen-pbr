@@ -39,12 +39,33 @@ func NewManager(keeneticClient *keenetic.Client) *Manager {
 // This includes iptables rules and ip rules that should remain active
 // regardless of interface state. This method should be called once on
 // service start.
+//
+// This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
 
 	for _, ipset := range ipsets {
-		if err := m.persistentConfig.Apply(ipset); err != nil {
+		// Build all components for this ipset
+		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
+		components, err := builder.BuildComponents(ipset)
+		if err != nil {
 			return err
+		}
+
+		// Apply only persistent components (IPSet, IPRule, IPTables)
+		// Skip route components as they're handled by ApplyRoutingConfig
+		for _, component := range components {
+			compType := component.GetType()
+
+			// Only apply persistent components
+			if compType == ComponentTypeIPSet || compType == ComponentTypeIPRule || compType == ComponentTypeIPTables {
+				if component.ShouldExist() {
+					if err := component.CreateIfNotExists(); err != nil {
+						log.Errorf("Failed to create %s for %s: %v", compType, ipset.IPSetName, err)
+						return err
+					}
+				}
+			}
 		}
 	}
 
@@ -55,12 +76,34 @@ func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 //
 // This updates ip routes based on current interface states. This method
 // should be called periodically to adjust routes when interfaces go up/down.
+//
+// This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) ApplyRoutingConfig(ipsets []*config.IPSetConfig) error {
 	log.Debugf("Updating routing configuration based on interface states...")
 
 	for _, ipset := range ipsets {
-		if err := m.routingConfig.Apply(ipset); err != nil {
+		// Build all components for this ipset
+		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
+		components, err := builder.BuildComponents(ipset)
+		if err != nil {
 			return err
+		}
+
+		// Apply only routing components
+		for _, component := range components {
+			if component.GetType() == ComponentTypeIPRoute {
+				if component.ShouldExist() {
+					if err := component.CreateIfNotExists(); err != nil {
+						log.Errorf("Failed to create route for %s: %v", ipset.IPSetName, err)
+						return err
+					}
+				} else {
+					// Delete route if it exists but shouldn't
+					if err := component.DeleteIfExists(); err != nil {
+						log.Warnf("Failed to delete stale route for %s: %v", ipset.IPSetName, err)
+					}
+				}
+			}
 		}
 	}
 
@@ -103,19 +146,38 @@ func (m *Manager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, err
 // - IP routes (both default and blackhole)
 // - IP rules for routing table selection
 // - IPTables rules for packet marking
+//
+// This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 	log.Infof("Removing all iptables rules, ip rules and ip routes...")
 
 	for _, ipset := range ipsets {
-		// Delete IP routes
-		log.Infof("Deleting IP route table %d", ipset.Routing.IpRouteTable)
-		if err := DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
-			return err
+		// Build all components for this ipset
+		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
+		components, err := builder.BuildComponents(ipset)
+		if err != nil {
+			log.Warnf("Failed to build components for %s during undo: %v", ipset.IPSetName, err)
+			// Continue with fallback method
+			if err := DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
+				return err
+			}
+			if err := m.persistentConfig.Remove(ipset); err != nil {
+				return err
+			}
+			continue
 		}
 
-		// Delete persistent configuration (ip rules and iptables rules)
-		if err := m.persistentConfig.Remove(ipset); err != nil {
-			return err
+		// Delete all components (except IPSet itself)
+		for _, component := range components {
+			// Skip IPSet deletion - we don't want to remove the ipset itself
+			if component.GetType() == ComponentTypeIPSet {
+				continue
+			}
+
+			if err := component.DeleteIfExists(); err != nil {
+				log.Warnf("Failed to delete %s for %s: %v", component.GetType(), ipset.IPSetName, err)
+				// Continue with other components
+			}
 		}
 	}
 
