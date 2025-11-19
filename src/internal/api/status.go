@@ -1,8 +1,14 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"os/exec"
+	"sync"
+	"time"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 var (
@@ -11,6 +17,58 @@ var (
 	Date    = "n/a"
 	Commit  = "n/a"
 )
+
+// hashCache holds cached config hash with expiration
+type hashCache struct {
+	hash      string
+	timestamp time.Time
+	mu        sync.RWMutex
+}
+
+var currentConfigHashCache = &hashCache{}
+
+const hashCacheTTL = 5 * time.Minute
+
+// getCachedConfigHash returns cached hash or recalculates if expired
+func (h *Handler) getCachedConfigHash() (string, error) {
+	currentConfigHashCache.mu.RLock()
+	if time.Since(currentConfigHashCache.timestamp) < hashCacheTTL &&
+		currentConfigHashCache.hash != "" {
+		hash := currentConfigHashCache.hash
+		currentConfigHashCache.mu.RUnlock()
+		return hash, nil
+	}
+	currentConfigHashCache.mu.RUnlock()
+
+	// Need to recalculate
+	currentConfigHashCache.mu.Lock()
+	defer currentConfigHashCache.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if time.Since(currentConfigHashCache.timestamp) < hashCacheTTL &&
+		currentConfigHashCache.hash != "" {
+		return currentConfigHashCache.hash, nil
+	}
+
+	// Load current config from file
+	cfg, err := config.LoadConfig(h.deps.ConfigPath())
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Calculate hash
+	hasher := config.NewConfigHasher(cfg)
+	hash, err := hasher.CalculateHash()
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate hash: %w", err)
+	}
+
+	// Update cache
+	currentConfigHashCache.hash = hash
+	currentConfigHashCache.timestamp = time.Now()
+
+	return hash, nil
+}
 
 // GetStatus returns system status information.
 // GET /api/v1/status
@@ -31,8 +89,28 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Calculate current config hash (cached)
+	currentHash, err := h.getCachedConfigHash()
+	if err != nil {
+		log.Warnf("Failed to get current config hash: %v", err)
+		currentHash = "error"
+	}
+	response.CurrentConfigHash = currentHash
+
+	// Get applied config hash from service
+	appliedHash := h.serviceMgr.GetAppliedConfigHash()
+	response.AppliedConfigHash = appliedHash
+
+	// Compare hashes to determine if config is outdated
+	response.ConfigurationOutdated = (currentHash != "" &&
+		appliedHash != "" &&
+		currentHash != appliedHash &&
+		currentHash != "error")
+
 	// Check keen-pbr service status using ServiceManager
-	response.Services["keen-pbr"] = h.getKeenPbrServiceStatus()
+	keenPbrInfo := h.getKeenPbrServiceStatus()
+	keenPbrInfo.ConfigHash = appliedHash
+	response.Services["keen-pbr"] = keenPbrInfo
 
 	// Check dnsmasq service status
 	response.Services["dnsmasq"] = getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")

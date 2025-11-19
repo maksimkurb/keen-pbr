@@ -6,7 +6,7 @@ import { StatusCard } from './StatusCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
-import { Play, Square, RotateCw } from 'lucide-react';
+import { Play, Square, RotateCw, AlertTriangle } from 'lucide-react';
 
 export function ServiceStatusWidget() {
   const { t } = useTranslation();
@@ -81,6 +81,7 @@ export function ServiceStatusWidget() {
 
   const keenPbrStatus = data.services['keen-pbr']?.status || 'unknown';
   const dnsmasqStatus = data.services.dnsmasq?.status || 'unknown';
+  const configOutdated = data.configuration_outdated || false;
 
   return (
     <Card>
@@ -88,6 +89,17 @@ export function ServiceStatusWidget() {
         <CardTitle>{t('dashboard.systemStatus')}</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="space-y-4">
+          {/* Configuration outdated warning */}
+          {configOutdated && (
+            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                {t('dashboard.configurationOutdated')}
+              </AlertDescription>
+            </Alert>
+          )}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatusCard
             title={t('dashboard.version')}
@@ -100,6 +112,7 @@ export function ServiceStatusWidget() {
           <StatusCard
             title={t('dashboard.keenPbrService')}
             status={keenPbrStatus}
+            className={configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <>
                 <Button
@@ -147,6 +160,7 @@ export function ServiceStatusWidget() {
               </Button>
             }
           />
+        </div>
         </div>
       </CardContent>
     </Card>

@@ -9,6 +9,7 @@
     "title": "Панель управления",
     "description": "Состояние системы и проверка маршрутизации доменов",
     "systemStatus": "Состояние системы",
+    "configurationOutdated": "Конфигурация была изменена. Перезапустите службу keen-pbr для применения изменений.",
     "version": "Версия keen-pbr",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "Сервис keen-pbr",

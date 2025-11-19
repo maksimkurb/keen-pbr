@@ -52,9 +52,12 @@ type SettingsResponse struct {
 
 // StatusResponse returns system status information.
 type StatusResponse struct {
-	Version         VersionInfo            `json:"version"`
-	KeeneticVersion string                 `json:"keenetic_version,omitempty"`
-	Services        map[string]ServiceInfo `json:"services"`
+	Version               VersionInfo            `json:"version"`
+	KeeneticVersion       string                 `json:"keenetic_version,omitempty"`
+	Services              map[string]ServiceInfo `json:"services"`
+	CurrentConfigHash     string                 `json:"current_config_hash"`
+	AppliedConfigHash     string                 `json:"applied_config_hash"`
+	ConfigurationOutdated bool                   `json:"configuration_outdated"`
 }
 
 // VersionInfo contains build version information.
@@ -66,8 +69,9 @@ type VersionInfo struct {
 
 // ServiceInfo contains information about a service.
 type ServiceInfo struct {
-	Status  string `json:"status"`  // "running", "stopped", "unknown"
-	Message string `json:"message,omitempty"`
+	Status     string `json:"status"`  // "running", "stopped", "unknown"
+	Message    string `json:"message,omitempty"`
+	ConfigHash string `json:"config_hash,omitempty"` // Hash of applied config (keen-pbr service only)
 }
 
 // ServiceControlRequest controls the keen-pbr service.

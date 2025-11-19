@@ -9,6 +9,7 @@ interface StatusCardProps {
   value?: string;
   status?: ServiceStatus;
   actions?: ReactNode;
+  className?: string;
 }
 
 const statusVariants: Record<ServiceStatus, 'default' | 'destructive' | 'secondary'> = {
@@ -17,9 +18,9 @@ const statusVariants: Record<ServiceStatus, 'default' | 'destructive' | 'seconda
   unknown: 'secondary',
 };
 
-export function StatusCard({ title, value, status, actions }: StatusCardProps) {
+export function StatusCard({ title, value, status, actions, className }: StatusCardProps) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}

@@ -16,15 +16,16 @@ import (
 // ServiceManager manages the lifecycle of the keen-pbr service
 // allowing it to be started, stopped, and restarted as a goroutine
 type ServiceManager struct {
-	mu              sync.RWMutex
-	ctx             *AppContext
-	cfg             *config.Config
-	monitorInterval int
-	running         bool
-	cancel          context.CancelFunc
-	networkMgr      domain.NetworkManager
-	deps            *domain.AppDependencies
-	done            chan error
+	mu                sync.RWMutex
+	ctx               *AppContext
+	cfg               *config.Config
+	monitorInterval   int
+	running           bool
+	cancel            context.CancelFunc
+	networkMgr        domain.NetworkManager
+	deps              *domain.AppDependencies
+	done              chan error
+	appliedConfigHash string // Hash of config when service started
 }
 
 // NewServiceManager creates a new service manager
@@ -55,6 +56,21 @@ func (sm *ServiceManager) IsRunning() bool {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 	return sm.running
+}
+
+// SetAppliedConfigHash stores the hash of configuration
+// that's currently applied and running
+func (sm *ServiceManager) SetAppliedConfigHash(hash string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.appliedConfigHash = hash
+}
+
+// GetAppliedConfigHash returns the hash of applied configuration
+func (sm *ServiceManager) GetAppliedConfigHash() string {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.appliedConfigHash
 }
 
 // Start starts the service in a goroutine
@@ -133,6 +149,16 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	defer close(sm.done)
 
 	log.Infof("Starting keen-pbr service...")
+
+	// Calculate and store config hash at startup
+	hasher := config.NewConfigHasher(sm.cfg)
+	configHash, err := hasher.CalculateHash()
+	if err != nil {
+		log.Warnf("Failed to calculate config hash: %v", err)
+		configHash = "unknown"
+	}
+	sm.SetAppliedConfigHash(configHash)
+	log.Infof("Service started with config hash: %s", configHash)
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")

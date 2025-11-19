@@ -116,6 +116,7 @@ export interface UpdateSettingsRequest {
 export interface ServiceInfo {
 	status: "running" | "stopped" | "unknown";
 	message?: string;
+	config_hash?: string; // Hash of applied config (keen-pbr service only)
 }
 
 export interface VersionInfo {
@@ -128,6 +129,9 @@ export interface StatusInfo {
 	version: VersionInfo;
 	keenetic_version?: string;
 	services: Record<string, ServiceInfo>;
+	current_config_hash: string;
+	applied_config_hash: string;
+	configuration_outdated: boolean;
 }
 
 // Service control types
