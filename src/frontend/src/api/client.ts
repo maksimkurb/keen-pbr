@@ -130,7 +130,6 @@ export interface StatusInfo {
 	keenetic_version?: string;
 	services: Record<string, ServiceInfo>;
 	current_config_hash: string;
-	applied_config_hash: string;
 	configuration_outdated: boolean;
 }
 

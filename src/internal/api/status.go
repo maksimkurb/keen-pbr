@@ -41,19 +41,19 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	response.CurrentConfigHash = currentHash
 
-	// Get active config hash from ConfigHasher (via ServiceManager)
-	appliedHash := h.serviceMgr.GetAppliedConfigHash()
-	response.AppliedConfigHash = appliedHash
-
-	// Compare hashes to determine if config is outdated
-	response.ConfigurationOutdated = (currentHash != "" &&
-		appliedHash != "" &&
-		currentHash != appliedHash &&
-		currentHash != "error")
-
 	// Check keen-pbr service status using ServiceManager
 	keenPbrInfo := h.getKeenPbrServiceStatus()
-	keenPbrInfo.ConfigHash = appliedHash
+
+	// Get active config hash from service
+	activeHash := h.serviceMgr.GetAppliedConfigHash()
+	keenPbrInfo.ConfigHash = activeHash
+
+	// Compare current config hash with keen-pbr service active hash
+	response.ConfigurationOutdated = (currentHash != "" &&
+		activeHash != "" &&
+		currentHash != activeHash &&
+		currentHash != "error")
+
 	response.Services["keen-pbr"] = keenPbrInfo
 
 	// Check dnsmasq service status

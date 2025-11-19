@@ -52,14 +52,10 @@ func (h *ConfigHasher) GetCurrentConfigHash() (string, error) {
 }
 
 // UpdateCurrentConfigHash recalculates config hash and resets cache
+// Always recalculates regardless of cache state (called after config changes)
 func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if time.Since(h.currentHashTime) < hashCacheTTL && h.currentHash != "" {
-		return h.currentHash, nil
-	}
 
 	// Load config from file
 	cfg, err := LoadConfig(h.configPath)

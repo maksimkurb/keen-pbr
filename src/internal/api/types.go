@@ -56,7 +56,6 @@ type StatusResponse struct {
 	KeeneticVersion       string                 `json:"keenetic_version,omitempty"`
 	Services              map[string]ServiceInfo `json:"services"`
 	CurrentConfigHash     string                 `json:"current_config_hash"`
-	AppliedConfigHash     string                 `json:"applied_config_hash"`
 	ConfigurationOutdated bool                   `json:"configuration_outdated"`
 }
 
