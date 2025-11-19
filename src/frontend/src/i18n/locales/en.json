@@ -18,6 +18,11 @@
     "keenPbrService": "keen-pbr Service",
     "dnsmasqService": "dnsmasq Service",
     "serviceStatus": "Service Status",
+    "statusRunning": "running",
+    "statusStopped": "stopped",
+    "statusUnknown": "unknown",
+    "badgeMisconfigured": "misconfigured",
+    "badgeStale": "stale",
     "domainChecker": {
       "title": "Domain/IP Routing Checker",
       "placeholder": "Enter domain or IP address",

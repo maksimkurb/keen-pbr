@@ -88,13 +88,21 @@ export function ServiceStatusWidget() {
   const dnsmasqNotConfigured = !dnsmasqConfigHash; // Empty hash means not configured
   const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
 
-  // Override dnsmasq status if not configured to read keen-pbr config
-  const effectiveDnsmasqStatus = dnsmasqNotConfigured && dnsmasqStatus === 'running'
-    ? 'running, misconfigured'
-    : dnsmasqStatus;
-
   // Check if any service is out of sync
   const anyServiceOutdated = configOutdated || dnsmasqOutdated || dnsmasqNotConfigured;
+
+  // Prepare badges for keen-pbr service
+  const keenPbrBadges = configOutdated
+    ? [{ label: t('dashboard.badgeStale'), variant: 'outline' as const }]
+    : undefined;
+
+  // Prepare badges for dnsmasq service
+  const dnsmasqBadges = [];
+  if (dnsmasqNotConfigured) {
+    dnsmasqBadges.push({ label: t('dashboard.badgeMisconfigured'), variant: 'destructive' as const });
+  } else if (dnsmasqOutdated) {
+    dnsmasqBadges.push({ label: t('dashboard.badgeStale'), variant: 'outline' as const });
+  }
 
   return (
     <Card>
@@ -131,6 +139,7 @@ export function ServiceStatusWidget() {
           <StatusCard
             title={t('dashboard.keenPbrService')}
             status={keenPbrStatus}
+            badges={keenPbrBadges}
             className={configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <>
@@ -166,7 +175,8 @@ export function ServiceStatusWidget() {
           />
           <StatusCard
             title={t('dashboard.dnsmasqService')}
-            status={effectiveDnsmasqStatus}
+            status={dnsmasqStatus}
+            badges={dnsmasqBadges.length > 0 ? dnsmasqBadges : undefined}
             className={dnsmasqNotConfigured ? 'bg-red-50 dark:bg-red-950' : dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <Button

@@ -18,6 +18,11 @@
     "keenPbrService": "Сервис keen-pbr",
     "dnsmasqService": "Сервис dnsmasq",
     "serviceStatus": "Состояние сервиса",
+    "statusRunning": "работает",
+    "statusStopped": "остановлен",
+    "statusUnknown": "неизвестно",
+    "badgeMisconfigured": "не настроен",
+    "badgeStale": "устарел",
     "domainChecker": {
       "title": "Проверка маршрутизации домена/IP",
       "placeholder": "Введите домен или IP-адрес",
