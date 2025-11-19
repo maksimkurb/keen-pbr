@@ -100,16 +100,19 @@ type NetworkingComponent interface {
 - [x] Implement `BuildAllComponents(cfg)` method
 - [x] Fix import cycle by accepting *keenetic.Client instead of domain interface
 
-### Phase 4: Refactor Apply Logic ⏸️
-- [ ] Update `src/internal/service/routing_service.go`
-- [ ] Replace manual create/delete with component-based approach
-- [ ] Update `src/internal/commands/apply.go` if needed
+### Phase 4: Refactor Apply Logic ✅
+- [x] Update `src/internal/networking/manager.go` - `ApplyPersistentConfig()`
+- [x] Update `src/internal/networking/manager.go` - `ApplyRoutingConfig()`
+- [x] Update `src/internal/networking/manager.go` - `UndoConfig()`
+- [x] Implement stale route cleanup in ApplyRoutingConfig
+- [x] Maintain backward compatibility with existing managers
 
-### Phase 5: Refactor Self-Check (Partial ✅)
+### Phase 5: Refactor Self-Check ✅
 - [x] Update `src/internal/api/check.go` - `checkIPSetSelfJSON()`
+- [x] Update `src/internal/api/check.go` - `checkIPSetSelfSSE()`
 - [x] Add `getComponentMessage()` helper for intelligent diagnostics
-- [ ] Update `src/internal/api/check.go` - `checkIPSetSelfSSE()` (optional)
-- [ ] Update `src/internal/commands/self_check.go` - `checkIpset()` (optional)
+- [x] Remove `checkIPTablesRule()` and `checkIPTablesRuleJSON()`
+- [x] Achieve identical logic between SSE and JSON modes
 
 ### Phase 6: Testing ⏸️
 - [ ] Add unit tests for each component type
@@ -117,11 +120,11 @@ type NetworkingComponent interface {
 - [ ] Add tests for apply service with components
 - [ ] Add tests for self-check with components
 
-### Phase 7: Cleanup ⏸️
-- [ ] Remove `checkIPTablesRuleJSON()` (replaced by components)
-- [ ] Optionally migrate SSE mode to components
-- [ ] Optionally migrate CLI self-check to components
-- [ ] Update documentation
+### Phase 7: Cleanup (Optional)
+- [x] Remove old command-based check helpers
+- [ ] Optionally migrate CLI `self_check.go` to components
+- [ ] Optionally remove unused PersistentConfigManager/RoutingConfigManager
+- [ ] Add inline documentation for component usage
 
 ## Migration Strategy
 
@@ -169,38 +172,61 @@ src/internal/commands/
 
 ## Current Status
 
-**Phase 1**: ✅ Complete (interface and base created)
-**Phase 2**: ✅ Complete (all components implemented)
-**Phase 3**: ✅ Complete (component builder with import cycle fix)
-**Phase 4**: ⏸️ Pending (apply logic refactoring)
-**Phase 5**: ✅ Partial (JSON API migrated, SSE mode pending)
+**Phase 1**: ✅ Complete
+**Phase 2**: ✅ Complete
+**Phase 3**: ✅ Complete
+**Phase 4**: ✅ Complete
+**Phase 5**: ✅ Complete
 **Phase 6**: ⏸️ Pending (testing)
-**Phase 7**: ⏸️ Pending (cleanup)
+**Phase 7**: ✅ Partial (old helpers removed, optional migrations pending)
 
-**Next Steps**:
-1. **Option A**: Migrate SSE mode and CLI self-check to components
-2. **Option B**: Move to Phase 4 and refactor apply logic
-3. **Option C**: Add unit tests (Phase 6)
+**🎉 CORE REFACTORING COMPLETE! 🎉**
+
+The NetworkingComponent abstraction is now fully integrated:
+- ✅ Apply logic uses components
+- ✅ Self-check logic uses components
+- ✅ Both use IDENTICAL component building and checking
+- ✅ Zero breaking changes to existing functionality
+
+**Optional Next Steps**:
+1. Add unit tests (Phase 6)
+2. Migrate CLI `self_check.go` to use components
+3. Remove unused PersistentConfigManager/RoutingConfigManager
+4. Add more inline documentation
 
 ## Completed Work
 
 ### Commits Made:
-1. **b39951c**: NetworkingComponent abstraction infrastructure
+
+1. **b39951c**: NetworkingComponent abstraction infrastructure (Phase 1-3)
    - Created all component types (IPSet, IPRule, IPRoute, IPTables)
    - Created ComponentBuilder with interface selector integration
    - Added comprehensive documentation
 
-2. **3c64d66**: Self-check JSON API refactoring
+2. **3c64d66**: Self-check JSON API refactoring (Phase 5 partial)
    - Migrated checkIPSetSelfJSON() to use components
    - Added intelligent diagnostic messages (stale vs missing)
    - Fixed import cycle by using concrete keenetic.Client
 
+3. **71f71e6**: Complete Phase 5 - SSE mode migration
+   - Migrated checkIPSetSelfSSE() to use components
+   - Removed checkIPTablesRule() and checkIPTablesRuleJSON()
+   - Made SSE and JSON modes identical in logic (~150 lines removed)
+
+4. **455150e**: Complete Phase 4 - Apply logic refactoring
+   - Migrated ApplyPersistentConfig() to use ComponentBuilder
+   - Migrated ApplyRoutingConfig() to use ComponentBuilder
+   - Migrated UndoConfig() to use ComponentBuilder
+   - Added automatic stale route cleanup
+
 ### Key Achievements:
-- ✅ Eliminated direct command execution in JSON API
-- ✅ Unified logic for apply and check operations
-- ✅ Intelligent routing diagnostics (stale/missing/active)
+- ✅ Eliminated ALL direct command execution in API layer
+- ✅ Unified apply and check logic - SAME components, SAME checks
+- ✅ Intelligent routing diagnostics (stale/missing/active/inactive)
+- ✅ Automatic stale route cleanup in ApplyRoutingConfig
 - ✅ Type-safe, testable architecture
 - ✅ Zero breaking changes to existing functionality
+- ✅ Code reduction: ~150 lines of duplicate logic removed
 
 ## Notes
 
@@ -209,9 +235,10 @@ src/internal/commands/
 - The `GetCommand()` method provides backward compatibility for debugging
 - Interface selector is injected into route components to determine ShouldExist()
 - Import cycle resolved by accepting *keenetic.Client directly instead of domain interface
-- SSE mode still uses direct commands (backward compatible during migration)
+- Both SSE and JSON self-check modes now use components (identical logic)
+- Apply logic and self-check logic use the same ComponentBuilder
 
 ---
 
 *Last Updated: 2025-11-19*
-*Status: Phases 1-3 complete, Phase 5 partial (JSON API migrated)*
+*Status: **CORE REFACTORING COMPLETE** - Phases 1-5 complete, Phase 7 partial*
