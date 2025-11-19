@@ -10,12 +10,14 @@ import {
 } from './dialog';
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerFooter,
 } from './drawer';
+import { cn } from '../../lib/utils';
 
 interface ResponsiveDialogProps {
   open: boolean;
@@ -53,10 +55,8 @@ export function ResponsiveDialogContent({ className, children, ...props }: React
   }
 
   return (
-    <DrawerContent className={className} {...props}>
-      <div className="max-h-[85vh] overflow-y-auto px-4 pb-4">
-        {children}
-      </div>
+    <DrawerContent className={cn(className, "w-full max-w-full")} {...props}>
+      {children}
     </DrawerContent>
   );
 }
@@ -68,7 +68,7 @@ export function ResponsiveDialogHeader({ className, ...props }: React.HTMLAttrib
     return <DialogHeader className={className} {...props} />;
   }
 
-  return <DrawerHeader className={className} {...props} />;
+  return <DrawerHeader className={`text-left ${className || ''}`} {...props} />;
 }
 
 export function ResponsiveDialogTitle({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogTitle>) {
@@ -100,3 +100,6 @@ export function ResponsiveDialogFooter({ className, ...props }: React.HTMLAttrib
 
   return <DrawerFooter className={className} {...props} />;
 }
+
+// Re-export DrawerClose for use in mobile drawer footers
+export { DrawerClose };

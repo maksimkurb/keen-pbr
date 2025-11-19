@@ -22,6 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { cn } from '../../src/lib/utils';
 import type { CreateIPSetRequest } from '../../src/api/client';
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
 
 interface CreateRuleDialogProps {
   open: boolean;
@@ -139,7 +141,7 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t('routingRules.newRule')}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

@@ -146,7 +146,7 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Edit Routing Rule</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
