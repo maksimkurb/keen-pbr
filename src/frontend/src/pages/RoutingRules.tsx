@@ -41,7 +41,7 @@ export default function RoutingRules() {
         <div className="flex-1">
           <h1 className="text-2xl md:text-3xl font-bold">{t('routingRules.title')}</h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
-            Manage IPSet routing configurations for policy-based routing
+            {t('routingRules.description')}
           </p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)} className="w-full md:w-auto">

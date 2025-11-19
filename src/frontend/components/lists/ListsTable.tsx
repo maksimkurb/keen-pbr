@@ -140,7 +140,7 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                     )}
                     {list.url && list.stats?.last_modified && (
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Last updated: {formatLastModified(list.stats.last_modified)}
+                        {t('lists.lastUpdated')} {formatLastModified(list.stats.last_modified)}
                       </div>
                     )}
                   </td>
@@ -163,7 +163,7 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                   <td className="p-3">
                     {usedByIPSets.length > 0 ? (
                       <span className="text-sm text-muted-foreground">
-                        {usedByIPSets.length} rule{usedByIPSets.length !== 1 ? 's' : ''}
+                        {t('lists.ruleCount', { count: usedByIPSets.length })}
                       </span>
                     ) : (
                       <span className="text-sm text-muted-foreground">-</span>
@@ -177,7 +177,7 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                           size="sm"
                           onClick={() => handleDownloadList(list.list_name)}
                           disabled={downloadList.isPending}
-                          title="Refresh list"
+                          title={t('lists.refreshTitle')}
                         >
                           <RefreshCw className={`h-4 w-4 ${downloadList.isPending ? 'animate-spin' : ''}`} />
                         </Button>

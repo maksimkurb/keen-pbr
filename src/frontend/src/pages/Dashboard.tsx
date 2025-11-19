@@ -10,7 +10,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold">{t('dashboard.title')}</h1>
         <p className="text-muted-foreground mt-2">
-          System status and domain routing checker
+          {t('dashboard.description')}
         </p>
       </div>
 

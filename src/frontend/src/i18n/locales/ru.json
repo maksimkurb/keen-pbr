@@ -7,6 +7,7 @@
   },
   "dashboard": {
     "title": "Панель управления",
+    "description": "Состояние системы и проверка маршрутизации доменов",
     "systemStatus": "Состояние системы",
     "version": "Версия keen-pbr",
     "keeneticVersion": "Keenetic OS",
@@ -22,19 +23,41 @@
       "foundInIPSets": "Найдено в IPSets",
       "routing": "Конфигурация маршрутизации",
       "routeInfo": "таблица {{table}} через {{interface}}",
-      "placeholderNote": "Примечание: Это заглушка. Интеграция с API в разработке."
+      "placeholderNote": "Примечание: Это заглушка. Интеграция с API в разработке.",
+      "host": "Хост:",
+      "presentInRules": "Присутствует в правилах:",
+      "hostname": "имя хоста \"",
+      "notFoundInRules": "Хост не найден ни в одном правиле",
+      "ipAddress": "IP-адрес",
+      "rule": "Правило",
+      "presentInIPSet": "Присутствует в IPset",
+      "yes": "Да",
+      "no": "Нет",
+      "checkError": "Не удалось проверить маршрутизацию",
+      "pingError": "Потеряно соединение с сервером",
+      "tracerouteError": "Потеряно соединение с сервером"
     }
   },
   "settings": {
     "title": "Основные настройки",
+    "description": "Управление глобальными настройками конфигурации keen-pbr",
     "listsOutputDir": "Папка для списков",
+    "listsOutputDirDescription": "Папка, в которой будут сохраняться загруженные файлы списков",
+    "listsOutputDirPlaceholder": "/opt/etc/keen-pbr/lists.d",
     "apiBindAddress": "Адрес API сервера",
     "useKeeneticDns": "Использовать DNS Keenetic",
+    "useKeeneticDnsDescription": "Использовать DNS Keenetic из системного профиля в качестве upstream в сгенерированной конфигурации dnsmasq",
     "fallbackDns": "Резервный DNS сервер",
-    "saveChanges": "Сохранить изменения"
+    "fallbackDnsDescription": "Резервный DNS сервер для использования при сбое вызова Keenetic RCI (например, 8.8.8.8 или 1.1.1.1). Оставьте пустым для отключения.",
+    "fallbackDnsPlaceholder": "8.8.8.8",
+    "saveChanges": "Сохранить изменения",
+    "saveSuccess": "Настройки успешно сохранены",
+    "saveError": "Не удалось сохранить настройки",
+    "loadError": "Не удалось загрузить настройки"
   },
   "lists": {
     "title": "Списки",
+    "description": "Управление списками IP/доменов ({{count}})",
     "newList": "Новый список",
     "searchPlaceholder": "Поиск списков...",
     "usedInFilter": "Используется в правиле",
@@ -63,12 +86,57 @@
       "error": "Не удалось загрузить список: {{error}}"
     },
     "downloadAll": {
+      "button": "Загрузить все списки",
+      "buttonShort": "Загрузить все",
       "success": "Все списки успешно загружены",
       "error": "Не удалось загрузить списки: {{error}}"
+    },
+    "lastUpdated": "Последнее обновление:",
+    "ruleCount": "{{count}} правило",
+    "ruleCount_plural": "{{count}} правил",
+    "refreshTitle": "Обновить список",
+    "loadError": "Не удалось загрузить списки",
+    "dialog": {
+      "editTitle": "Редактировать список",
+      "createTitle": "Новый список",
+      "editDescription": "Обновить конфигурацию списка",
+      "createDescription": "Создать новый список доменов, IP-адресов или CIDR",
+      "listName": "Название списка",
+      "listNamePlaceholder": "my-list",
+      "listNameDescriptionLocked": "Невозможно изменить после создания",
+      "listNameDescription": "Уникальное имя для этого списка",
+      "listType": "Тип списка",
+      "listTypeDescription": "Источник данных списка",
+      "url": "URL",
+      "urlDescription": "HTTP(S) URL для загрузки списка",
+      "urlPlaceholder": "https://example.com/list.txt",
+      "filePath": "Путь к файлу",
+      "filePathDescription": "Абсолютный путь к файлу списка в системе",
+      "filePathPlaceholder": "/opt/etc/keen-pbr/my-list.txt",
+      "hosts": "Хосты",
+      "hostsDescription": "Введите один домен/IP/CIDR на строку",
+      "hostsPlaceholder": "example.com\n192.168.1.0/24\n10.0.0.1",
+      "updateSuccess": "Список \"{{name}}\" успешно обновлен",
+      "createSuccess": "Список \"{{name}}\" успешно создан",
+      "saveError": "Не удалось {{action}} список: {{error}}"
+    },
+    "delete": {
+      "title": "Удалить список",
+      "description": "Вы уверены, что хотите удалить список \"{{name}}\"?",
+      "warning": "Предупреждение:",
+      "warningMessage": "На этот список ссылаются следующие IPSets:",
+      "warningInstruction": "Необходимо удалить эти ссылки перед удалением списка.",
+      "confirmation": "Это действие нельзя отменить. Конфигурация списка будет удалена навсегда.",
+      "success": "Список \"{{name}}\" успешно удален",
+      "error": "Не удалось удалить список: {{error}}"
+    },
+    "filters": {
+      "clearFilters": "Очистить фильтры"
     }
   },
   "routingRules": {
     "title": "Правила маршрутизации",
+    "description": "Управление конфигурациями IPSet для политической маршрутизации",
     "newRule": "Новое правило",
     "searchPlaceholder": "Поиск правил...",
     "listFilter": "Список",
@@ -84,6 +152,11 @@
       "killSwitch": "Kill Switch",
       "actions": "Действия"
     },
+    "routingConfig": {
+      "priority": "приоритет:",
+      "table": "таблица:",
+      "fwmark": "fwmark:"
+    },
     "ipVersion": {
       "4": "IPv4",
       "6": "IPv6"
@@ -93,6 +166,51 @@
       "description": "Создайте первое правило для начала работы",
       "createButton": "Создать правило",
       "clearFilters": "Очистить фильтры"
+    },
+    "dialog": {
+      "editTitle": "Редактировать правило маршрутизации",
+      "createTitle": "Новое правило",
+      "editDescription": "Изменить конфигурацию правила маршрутизации",
+      "createDescription": "Создать новое правило маршрутизации для политической маршрутизации",
+      "basicInfo": "Основная информация",
+      "ipsetName": "Название IPSet",
+      "ipsetNamePlaceholder": "my_vpn_ipset",
+      "ipsetNameDescriptionLocked": "Невозможно изменить после создания",
+      "ipVersion": "Версия IP",
+      "ipv4": "IPv4",
+      "ipv6": "IPv6",
+      "lists": "Списки",
+      "selectLists": "Выбрать списки",
+      "selectListsDescription": "Выберите списки для включения в это правило маршрутизации",
+      "addList": "Добавить список",
+      "searchLists": "Поиск списков...",
+      "noLists": "Списки не найдены.",
+      "routingConfig": "Конфигурация маршрутизации",
+      "interfaces": "Интерфейсы",
+      "interfacesDescription": "Добавьте интерфейсы в порядке приоритета (первый = наивысший приоритет)",
+      "addInterface": "Добавить интерфейс",
+      "searchInterfaces": "Поиск интерфейсов...",
+      "noInterfaces": "Интерфейсы не найдены.",
+      "priority": "Приоритет",
+      "table": "Таблица",
+      "fwMark": "FW Mark",
+      "dnsOverride": "Переопределение DNS (опционально)",
+      "dnsOverrideDescription": "Формат: сервер#порт (например, 1.1.1.1#53)",
+      "dnsOverridePlaceholder": "1.1.1.1#53",
+      "options": "Параметры",
+      "flushBeforeApplying": "Очистить перед применением",
+      "killSwitch": "Kill switch (блокировка трафика при отключении всех интерфейсов)",
+      "selectListsError": "Необходимо выбрать хотя бы один список",
+      "selectInterfacesError": "Необходимо указать хотя бы один интерфейс",
+      "updateSuccess": "Правило маршрутизации \"{{name}}\" успешно обновлено",
+      "createSuccess": "Правило маршрутизации \"{{name}}\" успешно создано",
+      "saveError": "Не удалось {{action}} правило маршрутизации: {{error}}"
+    },
+    "delete": {
+      "title": "Удалить правило маршрутизации",
+      "description": "Вы уверены, что хотите удалить правило маршрутизации \"{{name}}\"? Это действие нельзя отменить и будут удалены все связанные конфигурации IPSet и маршрутизации.",
+      "success": "Правило маршрутизации \"{{name}}\" успешно удалено",
+      "error": "Не удалось удалить правило маршрутизации: {{error}}"
     }
   },
   "common": {
@@ -109,6 +227,11 @@
     "notAvailable": "Н/Д",
     "start": "Запустить",
     "stop": "Остановить",
-    "restart": "Перезапустить"
+    "restart": "Перезапустить",
+    "update": "обновить",
+    "language": {
+      "en": "English",
+      "ru": "Русский"
+    }
   }
 }

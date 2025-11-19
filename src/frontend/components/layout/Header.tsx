@@ -54,8 +54,8 @@ export function Header() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="ru">Русский</SelectItem>
+              <SelectItem value="en">{t('common.language.en')}</SelectItem>
+              <SelectItem value="ru">{t('common.language.ru')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -95,8 +95,8 @@ export function Header() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="ru">Русский</SelectItem>
+                <SelectItem value="en">{t('common.language.en')}</SelectItem>
+                <SelectItem value="ru">{t('common.language.ru')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
