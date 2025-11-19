@@ -53,8 +53,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const [listsOpen, setListsOpen] = useState(false);
   const [customInterface, setCustomInterface] = useState('');
 
-  // Fetch interfaces when combobox is opened
-  const { data: interfacesData } = useInterfaces(interfacesOpen);
+  // Fetch and refresh interfaces while dialog is open (cached for 5s, auto-refresh every 5s)
+  const { data: interfacesData } = useInterfaces(open);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
