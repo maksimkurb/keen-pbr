@@ -569,18 +569,18 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
             <Accordion type="single" collapsible className="border rounded-md">
               <AccordionItem value="iptables" className="border-0">
                 <AccordionTrigger className="px-4 hover:no-underline">
-                  <h3 className="text-sm font-medium">IPTables Rules (Advanced)</h3>
+                  <h3 className="text-sm font-medium">{t('routingRules.dialog.iptablesTitle')}</h3>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Configure custom iptables rules. Variables: {TEMPLATE_VARS.join(', ')}
+                      {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
                     </p>
 
                     {formData.iptables_rule?.map((rule, index) => (
                       <div key={index} className="border rounded-md p-4 space-y-3">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Rule {index + 1}</span>
+                          <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
                           {formData.iptables_rule && formData.iptables_rule.length > 1 && (
                             <Button
                               type="button"
@@ -595,30 +595,33 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
                         <div className="grid grid-cols-2 gap-3">
                           <Field>
-                            <FieldLabel>Chain</FieldLabel>
+                            <FieldLabel>{t('routingRules.dialog.iptablesChain')}</FieldLabel>
                             <Input
                               value={rule.chain}
                               onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
-                              placeholder="PREROUTING, OUTPUT, etc."
+                              placeholder={t('routingRules.dialog.iptablesChainPlaceholder')}
                             />
                           </Field>
 
                           <Field>
-                            <FieldLabel>Table</FieldLabel>
+                            <FieldLabel>{t('routingRules.dialog.iptablesTable')}</FieldLabel>
                             <Input
                               value={rule.table}
                               onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
-                              placeholder="mangle, nat, filter, etc."
+                              placeholder={t('routingRules.dialog.iptablesTablePlaceholder')}
                             />
                           </Field>
                         </div>
 
                         <Field>
                           <div className="flex items-center justify-between mb-2">
-                            <FieldLabel>Rule Arguments</FieldLabel>
-                            <Select onValueChange={(value) => insertTemplateVar(index, value)}>
+                            <FieldLabel>{t('routingRules.dialog.iptablesRuleArguments')}</FieldLabel>
+                            <Select
+                              key={`select-${index}-${rule.rule.join(' ')}`}
+                              onValueChange={(value) => insertTemplateVar(index, value)}
+                            >
                               <SelectTrigger className="w-[180px] h-8">
-                                <SelectValue placeholder="Insert variable" />
+                                <SelectValue placeholder={t('routingRules.dialog.iptablesInsertVariable')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {TEMPLATE_VARS.map((varName) => (
@@ -632,12 +635,12 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           <Textarea
                             value={rule.rule.join(' ')}
                             onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
-                            placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
+                            placeholder={t('routingRules.dialog.iptablesRulePlaceholder')}
                             rows={3}
                             className="font-mono text-xs"
                           />
                           <FieldDescription className="text-xs">
-                            Space-separated iptables rule arguments
+                            {t('routingRules.dialog.iptablesRuleDescription')}
                           </FieldDescription>
                         </Field>
                       </div>
@@ -651,7 +654,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       className="w-full"
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add IPTables Rule
+                      {t('routingRules.dialog.iptablesAddRule')}
                     </Button>
                   </div>
                 </AccordionContent>
