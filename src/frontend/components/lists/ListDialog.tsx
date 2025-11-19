@@ -155,7 +155,7 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
     // Block saving if there are validation errors
     if (hasHostsErrors) {
       toast.error(t('common.error'), {
-        description: 'Please fix validation errors before saving',
+        description: t('lists.dialog.validationError'),
       });
       return;
     }
@@ -306,7 +306,7 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
                 />
                 {hasHostsErrors && (
                   <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                    {Object.keys(hostsErrors).length} validation error{Object.keys(hostsErrors).length > 1 ? 's' : ''} found. Please fix errors before saving.
+                    {t('lists.dialog.validationErrors', { count: Object.keys(hostsErrors).length })}
                   </p>
                 )}
               </Field>

@@ -392,9 +392,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       <EmptyMedia variant="icon">
                         <ListPlus className="h-5 w-5" />
                       </EmptyMedia>
-                      <EmptyTitle className="text-base">No lists selected</EmptyTitle>
+                      <EmptyTitle className="text-base">{t('routingRules.dialog.emptyLists.title')}</EmptyTitle>
                       <EmptyDescription>
-                        Click "Add list" above to select at least one list for this routing rule.
+                        {t('routingRules.dialog.emptyLists.description')}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -529,9 +529,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                         <EmptyMedia variant="icon">
                           <Network className="h-5 w-5" />
                         </EmptyMedia>
-                        <EmptyTitle className="text-base">No interfaces selected</EmptyTitle>
+                        <EmptyTitle className="text-base">{t('routingRules.dialog.emptyInterfaces.title')}</EmptyTitle>
                         <EmptyDescription>
-                          Click "Add interface" above to select interfaces for routing (optional).
+                          {t('routingRules.dialog.emptyInterfaces.description')}
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>

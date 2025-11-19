@@ -150,7 +150,10 @@
       "hostsPlaceholder": "example.com\n192.168.1.0/24\n10.0.0.1",
       "updateSuccess": "List \"{{name}}\" updated successfully",
       "createSuccess": "List \"{{name}}\" created successfully",
-      "saveError": "Failed to {{action}} list: {{error}}"
+      "saveError": "Failed to {{action}} list: {{error}}",
+      "validationError": "Please fix validation errors before saving",
+      "validationErrors": "{{count}} validation error found. Please fix errors before saving.",
+      "validationErrors_plural": "{{count}} validation errors found. Please fix errors before saving."
     },
     "delete": {
       "title": "Delete List",
@@ -247,7 +250,15 @@
       "selectInterfacesError": "At least one interface must be specified",
       "updateSuccess": "Routing rule \"{{name}}\" updated successfully",
       "createSuccess": "Routing rule \"{{name}}\" created successfully",
-      "saveError": "Failed to {{action}} routing rule: {{error}}"
+      "saveError": "Failed to {{action}} routing rule: {{error}}",
+      "emptyLists": {
+        "title": "No lists selected",
+        "description": "Click \"Add list\" above to select at least one list for this routing rule."
+      },
+      "emptyInterfaces": {
+        "title": "No interfaces selected",
+        "description": "Click \"Add interface\" above to select interfaces for routing (optional)."
+      }
     },
     "delete": {
       "title": "Delete Routing Rule",

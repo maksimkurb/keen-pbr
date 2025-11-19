@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { cn } from '../../src/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 export interface LineError {
   [lineNumber: number]: string[];
@@ -43,34 +44,54 @@ export const LineNumberedTextarea = forwardRef<HTMLTextareaElement, LineNumbered
     const hasErrors = errors && Object.keys(errors).length > 0;
 
     return (
-      <div className="relative flex border rounded-md overflow-hidden">
-        {/* Line numbers */}
-        <div
-          ref={lineNumbersRef}
-          className="flex flex-col bg-muted text-muted-foreground text-sm leading-6 py-2 px-2 overflow-hidden select-none"
-          style={{
-            minWidth: '3rem',
-            textAlign: 'right',
-            fontFamily: 'monospace',
-          }}
-        >
-          {Array.from({ length: lineCount }, (_, i) => {
-            const lineNum = i + 1;
-            const hasError = errors && errors[lineNum];
-            return (
-              <div
-                key={lineNum}
-                className={cn(
-                  "leading-6",
-                  hasError && "text-red-600 dark:text-red-400 font-semibold"
-                )}
-                title={hasError ? errors[lineNum].join(', ') : undefined}
-              >
-                {lineNum}
-              </div>
-            );
-          })}
-        </div>
+      <TooltipProvider>
+        <div className="relative flex border rounded-md overflow-hidden">
+          {/* Line numbers */}
+          <div
+            ref={lineNumbersRef}
+            className="flex flex-col bg-muted text-muted-foreground text-sm leading-6 py-2 px-2 overflow-hidden select-none"
+            style={{
+              minWidth: '3rem',
+              textAlign: 'right',
+              fontFamily: 'monospace',
+            }}
+          >
+            {Array.from({ length: lineCount }, (_, i) => {
+              const lineNum = i + 1;
+              const lineErrors = errors && errors[lineNum];
+              const hasError = lineErrors && lineErrors.length > 0;
+
+              const lineNumberElement = (
+                <div
+                  className={cn(
+                    "leading-6",
+                    hasError && "text-red-400 dark:text-red-400"
+                  )}
+                >
+                  {lineNum}
+                </div>
+              );
+
+              if (hasError) {
+                return (
+                  <Tooltip key={lineNum}>
+                    <TooltipTrigger asChild>
+                      {lineNumberElement}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <div className="space-y-1">
+                        {lineErrors.map((error, idx) => (
+                          <div key={idx} className="text-sm">{error}</div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return <div key={lineNum}>{lineNumberElement}</div>;
+            })}
+          </div>
 
         {/* Textarea */}
         <textarea
@@ -89,7 +110,8 @@ export const LineNumberedTextarea = forwardRef<HTMLTextareaElement, LineNumbered
           }}
           {...props}
         />
-      </div>
+        </div>
+      </TooltipProvider>
     );
   }
 );
