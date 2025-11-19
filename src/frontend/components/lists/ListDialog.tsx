@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { useUpdateList } from '../../src/hooks/useLists';
+import { useCreateList, useUpdateList } from '../../src/hooks/useLists';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../src/api/client';
 import {
@@ -20,15 +20,18 @@ import { Textarea } from '../ui/textarea';
 import { Button } from '../ui/button';
 import type { ListInfo, CreateListRequest } from '../../src/api/client';
 
-interface EditListDialogProps {
-  list: ListInfo | null;
+interface ListDialogProps {
+  list?: ListInfo | null; // If provided, dialog is in edit mode
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps) {
+export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
   const { t } = useTranslation();
+  const createList = useCreateList();
   const updateList = useUpdateList();
+
+  const isEditMode = !!list;
 
   const [formData, setFormData] = useState<{
     list_name: string;
@@ -45,10 +48,10 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
   const { data: fullListData } = useQuery({
     queryKey: ['list', list?.list_name],
     queryFn: () => apiClient.getList(list!.list_name),
-    enabled: !!list && list.type === 'hosts',
+    enabled: isEditMode && list.type === 'hosts',
   });
 
-  // Initialize form when list changes
+  // Initialize form when list changes (edit mode)
   useEffect(() => {
     if (list) {
       setFormData({
@@ -58,13 +61,17 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
         file: list.file,
         hosts: fullListData?.hosts ? fullListData.hosts.join('\n') : '',
       });
+    } else {
+      // Reset form when switching to create mode
+      setFormData({
+        list_name: '',
+        type: 'url',
+      });
     }
   }, [list, fullListData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!list) return;
 
     try {
       const requestData: CreateListRequest = {
@@ -79,30 +86,42 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
         requestData.hosts = formData.hosts.split('\n').filter((h) => h.trim());
       }
 
-      await updateList.mutateAsync({
-        name: list.list_name,
-        data: requestData,
-      });
-
-      toast.success(t('common.success'), {
-        description: `List "${formData.list_name}" updated successfully`,
-      });
+      if (isEditMode) {
+        await updateList.mutateAsync({
+          name: list.list_name,
+          data: requestData,
+        });
+        toast.success(t('common.success'), {
+          description: `List "${formData.list_name}" updated successfully`,
+        });
+      } else {
+        await createList.mutateAsync(requestData);
+        toast.success(t('common.success'), {
+          description: `List "${formData.list_name}" created successfully`,
+        });
+        // Reset form after create
+        setFormData({ list_name: '', type: 'url' });
+      }
 
       onOpenChange(false);
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : 'Failed to update list',
+        description: error instanceof Error ? error.message : `Failed to ${isEditMode ? 'update' : 'create'} list`,
       });
     }
   };
+
+  const isPending = isEditMode ? updateList.isPending : createList.isPending;
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Edit List</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>
+            {isEditMode ? 'Edit List' : t('lists.newList')}
+          </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Update the list configuration
+            {isEditMode ? 'Update the list configuration' : 'Create a new list of domains, IPs, or CIDRs'}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -116,11 +135,17 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
                 onChange={(e) => setFormData({ ...formData, list_name: e.target.value })}
                 placeholder="my-list"
                 required
-                disabled
+                disabled={isEditMode}
               />
-              <FieldDescription>
-                Cannot be changed after creation
-              </FieldDescription>
+              {isEditMode ? (
+                <FieldDescription>
+                  Cannot be changed after creation
+                </FieldDescription>
+              ) : (
+                <FieldDescription>
+                  A unique name for this list
+                </FieldDescription>
+              )}
             </Field>
 
             <Field>
@@ -201,13 +226,13 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={updateList.isPending}
+              disabled={isPending}
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={updateList.isPending}>
-              {updateList.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('common.save')}
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditMode ? t('common.save') : t('common.create')}
             </Button>
           </ResponsiveDialogFooter>
         </form>

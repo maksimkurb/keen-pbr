@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/alert';
 import { ListFilters } from '../../components/lists/ListFilters';
 import { ListsTable } from '../../components/lists/ListsTable';
-import { CreateListDialog } from '../../components/lists/CreateListDialog';
+import { ListDialog } from '../../components/lists/ListDialog';
 
 export default function Lists() {
   const { t } = useTranslation();
@@ -88,7 +88,7 @@ export default function Lists() {
       )}
 
       {/* Create Dialog */}
-      <CreateListDialog
+      <ListDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />

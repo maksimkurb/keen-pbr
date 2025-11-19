@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Loader2, X, Plus, Check, ChevronsUpDown } from 'lucide-react';
-import { useCreateIPSet } from '../../src/hooks/useIPSets';
+import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
+import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
 import {
   ResponsiveDialog,
@@ -21,19 +22,20 @@ import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { cn } from '../../src/lib/utils';
-import type { CreateIPSetRequest } from '../../src/api/client';
-import { ScrollArea } from '../ui/scroll-area';
-import { Separator } from '../ui/separator';
+import type { IPSetConfig, CreateIPSetRequest } from '../../src/api/client';
 
-interface CreateRuleDialogProps {
+interface RuleDialogProps {
+  ipset?: IPSetConfig | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availableLists: string[];
 }
 
-export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateRuleDialogProps) {
+export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
   const { t } = useTranslation();
+  const isEditMode = !!ipset;
   const createIPSet = useCreateIPSet();
+  const updateIPSet = useUpdateIPSet();
   const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
 
@@ -54,6 +56,40 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
     },
   });
 
+  // Initialize form when ipset changes (edit mode) or reset (create mode)
+  useEffect(() => {
+    if (ipset) {
+      setFormData({
+        ipset_name: ipset.ipset_name,
+        lists: ipset.lists,
+        ip_version: ipset.ip_version,
+        flush_before_applying: ipset.flush_before_applying,
+        routing: ipset.routing || {
+          interfaces: [],
+          kill_switch: true,
+          fwmark: 100,
+          table: 100,
+          priority: 100,
+        },
+      });
+    } else if (!open) {
+      // Reset form when dialog closes in create mode
+      setFormData({
+        ipset_name: '',
+        lists: [],
+        ip_version: 4,
+        flush_before_applying: false,
+        routing: {
+          interfaces: [],
+          kill_switch: true,
+          fwmark: 100,
+          table: 100,
+          priority: 100,
+        },
+      });
+    }
+  }, [ipset, open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -68,30 +104,17 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
     }
 
     try {
-      await createIPSet.mutateAsync(formData);
-      toast.success(`Routing rule "${formData.ipset_name}" created successfully`);
+      if (isEditMode) {
+        await updateIPSet.mutateAsync({ name: ipset.ipset_name, data: formData });
+        toast.success(`Routing rule "${formData.ipset_name}" updated successfully`);
+      } else {
+        await createIPSet.mutateAsync(formData);
+        toast.success(`Routing rule "${formData.ipset_name}" created successfully`);
+      }
       onOpenChange(false);
-      resetForm();
     } catch (error) {
-      toast.error(`Failed to create routing rule: ${String(error)}`);
+      toast.error(`Failed to ${isEditMode ? 'update' : 'create'} routing rule: ${String(error)}`);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      ipset_name: '',
-      lists: [],
-      ip_version: 4,
-      flush_before_applying: false,
-      routing: {
-        interfaces: [],
-        kill_switch: true,
-        fwmark: 100,
-        table: 100,
-        priority: 100,
-      },
-    });
-    setInterfaceSearch('');
   };
 
   const addList = (listName: string) => {
@@ -139,13 +162,17 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
   // Get interface options
   const interfaceOptions = (interfacesData || []).map((i) => i.name);
 
+  const isPending = isEditMode ? updateIPSet.isPending : createIPSet.isPending;
+
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t('routingRules.newRule')}</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>
+            {isEditMode ? 'Edit Routing Rule' : t('routingRules.newRule')}
+          </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Create a new routing rule for policy-based routing
+            {isEditMode ? 'Modify the routing rule configuration' : 'Create a new routing rule for policy-based routing'}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -163,6 +190,7 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
                   onChange={(e) => setFormData({ ...formData, ipset_name: e.target.value })}
                   placeholder="my_vpn_ipset"
                   pattern="^[a-z][a-z0-9_]*$"
+                  disabled={isEditMode}
                   required
                 />
                 <FieldDescription>
@@ -433,13 +461,13 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={createIPSet.isPending}
+              disabled={isPending}
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={createIPSet.isPending}>
-              {createIPSet.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('common.create')}
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditMode ? t('common.save') : t('common.create')}
             </Button>
           </ResponsiveDialogFooter>
         </form>

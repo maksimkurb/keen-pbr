@@ -6,7 +6,7 @@ import { useIPSets } from '../hooks/useIPSets';
 import { useLists } from '../hooks/useLists';
 import { RuleFilters } from '../../components/routing-rules/RuleFilters';
 import { RoutingRulesTable } from '../../components/routing-rules/RoutingRulesTable';
-import { CreateRuleDialog } from '../../components/routing-rules/CreateRuleDialog';
+import { RuleDialog } from '../../components/routing-rules/RuleDialog';
 
 export default function RoutingRules() {
   const { t } = useTranslation();
@@ -57,7 +57,7 @@ export default function RoutingRules() {
       <RoutingRulesTable ipsets={ipsets || []} />
 
       {/* Create Dialog */}
-      <CreateRuleDialog
+      <RuleDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         availableLists={availableLists}

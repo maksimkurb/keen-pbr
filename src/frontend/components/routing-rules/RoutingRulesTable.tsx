@@ -4,8 +4,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { EditRuleDialog } from './EditRuleDialog';
+import { RuleDialog } from './RuleDialog';
 import { DeleteRuleConfirmation } from './DeleteRuleConfirmation';
+import { useLists } from '../../src/hooks/useLists';
 import type { IPSetConfig } from '../../src/api/client';
 
 interface RoutingRulesTableProps {
@@ -18,6 +19,9 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   const [searchParams] = useSearchParams();
   const [editingIPSet, setEditingIPSet] = useState<IPSetConfig | null>(null);
   const [deletingIPSet, setDeletingIPSet] = useState<string | null>(null);
+  const { data: lists } = useLists();
+
+  const availableLists = lists?.map((l) => l.list_name) || [];
 
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
@@ -165,10 +169,11 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
         </table>
       </div>
 
-      <EditRuleDialog
+      <RuleDialog
         ipset={editingIPSet}
         open={!!editingIPSet}
         onOpenChange={(open) => !open && setEditingIPSet(null)}
+        availableLists={availableLists}
       />
 
       <DeleteRuleConfirmation

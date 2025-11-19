@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { StatsDisplay } from '../shared/StatsDisplay';
-import { EditListDialog } from './EditListDialog';
+import { ListDialog } from './ListDialog';
 import { DeleteListConfirmation } from './DeleteListConfirmation';
 import { useDownloadList } from '../../src/hooks/useLists';
 import type { ListInfo, IPSetConfig } from '../../src/api/client';
@@ -205,7 +205,7 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
         </table>
       </div>
 
-      <EditListDialog
+      <ListDialog
         list={editingList}
         open={!!editingList}
         onOpenChange={(open) => !open && setEditingList(null)}
