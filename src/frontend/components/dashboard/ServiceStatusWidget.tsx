@@ -6,6 +6,7 @@ import { StatusCard } from './StatusCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { Play, Square, RotateCw, AlertTriangle } from 'lucide-react';
 
 export function ServiceStatusWidget() {
