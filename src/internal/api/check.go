@@ -651,16 +651,16 @@ func (h *Handler) getComponentMessage(component networking.NetworkingComponent, 
 		if routeComp, ok := component.(*networking.IPRouteComponent); ok {
 			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
 				if exists && shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists (all interfaces down)",
+					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
 						ipsetCfg.Routing.IpRouteTable)
 				} else if !exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d not present (interfaces are up)",
+					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
 						ipsetCfg.Routing.IpRouteTable)
 				} else if exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists but interfaces are UP (stale)",
+					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
 						ipsetCfg.Routing.IpRouteTable)
 				}
-				return fmt.Sprintf("Blackhole route in table %d missing but all interfaces DOWN (missing)",
+				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
 					ipsetCfg.Routing.IpRouteTable)
 			} else {
 				ifaceName := routeComp.GetInterfaceName()

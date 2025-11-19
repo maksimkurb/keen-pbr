@@ -49,7 +49,7 @@ func NewBlackholeRouteComponent(cfg *config.IPSetConfig, selector *InterfaceSele
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
 			componentType: ComponentTypeIPRoute,
-			description:   "Blackhole route blocks traffic when all interfaces are down",
+			description:   "Blackhole route blocks traffic when kill-switch is enabled (prevents leaks)",
 		},
 		route:     route,
 		routeType: RouteTypeBlackhole,
@@ -73,30 +73,33 @@ func (c *IPRouteComponent) IsExists() (bool, error) {
 	return c.route.IsExists()
 }
 
-// ShouldExist determines if this route should be present based on interface availability.
+// ShouldExist determines if this route should be present.
 //
 // For default routes:
 //   - Should exist only if this interface is the best available interface
 //
 // For blackhole routes:
-//   - Should exist only when no interfaces are available
+//   - Should exist if kill-switch is enabled (true/default)
+//   - Should NOT exist if kill-switch is disabled (false)
+//   - Kill-switch controls whether traffic is blocked (blackhole) or leaked (no route)
 func (c *IPRouteComponent) ShouldExist() bool {
-	// Check current interface availability
-	bestIface, err := c.selector.ChooseBest(c.cfg)
-	if err != nil {
-		// If we can't determine best interface, be conservative
-		return false
-	}
-
 	if c.routeType == RouteTypeDefault {
+		// Check current interface availability
+		bestIface, err := c.selector.ChooseBest(c.cfg)
+		if err != nil {
+			// If we can't determine best interface, be conservative
+			return false
+		}
 		// Default route should exist if this is the best interface
 		if bestIface != nil && bestIface.Attrs().Name == c.interfaceName {
 			return true
 		}
 		return false
 	} else if c.routeType == RouteTypeBlackhole {
-		// Blackhole should exist only when no interface is available
-		return bestIface == nil
+		// Blackhole route should exist based on kill-switch setting
+		// If enabled (true/default): block traffic with blackhole route
+		// If disabled (false): allow traffic to leak (no blackhole route)
+		return c.cfg.Routing.IsKillSwitchEnabled()
 	}
 
 	return false
