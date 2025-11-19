@@ -15,6 +15,7 @@ type ServiceManager interface {
 	Stop() error
 	Restart() error
 	IsRunning() bool
+	GetAppliedConfigHash() string
 }
 
 // Handler manages all API endpoints and dependencies.

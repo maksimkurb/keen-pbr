@@ -51,7 +51,7 @@ func (h *Handler) getCachedConfigHash() (string, error) {
 	}
 
 	// Load current config from file
-	cfg, err := config.LoadConfig(h.deps.ConfigPath())
+	cfg, err := config.LoadConfig(h.configPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
