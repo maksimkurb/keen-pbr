@@ -93,8 +93,8 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('routingRules.allVersions')}</SelectItem>
-              <SelectItem value="4">IPv4</SelectItem>
-              <SelectItem value="6">IPv6</SelectItem>
+              <SelectItem value="4">{t('routingRules.ipVersion.4')}</SelectItem>
+              <SelectItem value="6">{t('routingRules.ipVersion.6')}</SelectItem>
             </SelectContent>
           </Select>
         </div>

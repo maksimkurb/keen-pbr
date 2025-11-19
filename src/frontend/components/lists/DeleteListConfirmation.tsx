@@ -37,13 +37,13 @@ export function DeleteListConfirmation({
       await deleteList.mutateAsync(listName);
 
       toast.success(t('common.success'), {
-        description: `List "${listName}" deleted successfully`,
+        description: t('lists.delete.success', { name: listName }),
       });
 
       onOpenChange(false);
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : 'Failed to delete list',
+        description: error instanceof Error ? error.message : t('lists.delete.error'),
       });
     }
   };
@@ -54,9 +54,9 @@ export function DeleteListConfirmation({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete List</AlertDialogTitle>
+          <AlertDialogTitle>{t('lists.delete.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the list "{listName}"?
+            {t('lists.delete.description', { name: listName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -64,14 +64,14 @@ export function DeleteListConfirmation({
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <div className="ml-3">
-              <strong>Warning:</strong> This list is referenced by the following IPSets:
+              <strong>{t('lists.delete.warning')}</strong> {t('lists.delete.warningMessage')}
               <ul className="mt-2 list-disc pl-4">
                 {usedByIPSets.map((ipset) => (
                   <li key={ipset}>{ipset}</li>
                 ))}
               </ul>
               <p className="mt-2 text-sm">
-                You must remove these references before deleting this list.
+                {t('lists.delete.warningInstruction')}
               </p>
             </div>
           </Alert>
@@ -79,7 +79,7 @@ export function DeleteListConfirmation({
 
         {!isUsedByIPSets && (
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. The list configuration will be permanently deleted.
+            {t('lists.delete.confirmation')}
           </p>
         )}
 

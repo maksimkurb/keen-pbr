@@ -36,11 +36,11 @@ export function SettingsForm() {
     try {
       await updateSettings.mutateAsync(formData);
       toast.success(t('common.success'), {
-        description: 'Settings saved successfully',
+        description: t('settings.saveSuccess'),
       });
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : 'Failed to save settings',
+        description: error instanceof Error ? error.message : t('settings.saveError'),
       });
     }
   };
@@ -77,7 +77,7 @@ export function SettingsForm() {
         <div>
           <strong>{t('common.error')}</strong>
           <p className="mt-1 text-sm">
-            {error instanceof Error ? error.message : 'Failed to load settings'}
+            {error instanceof Error ? error.message : t('settings.loadError')}
           </p>
         </div>
       </Alert>
@@ -90,7 +90,7 @@ export function SettingsForm() {
         <CardHeader>
           <CardTitle>{t('settings.title')}</CardTitle>
           <CardDescription>
-            Manage global configuration settings for keen-pbr
+            {t('settings.description')}
           </CardDescription>
         </CardHeader>
 
@@ -102,14 +102,14 @@ export function SettingsForm() {
                 {t('settings.listsOutputDir')}
               </FieldLabel>
               <FieldDescription>
-                Directory where downloaded list files will be stored
+                {t('settings.listsOutputDirDescription')}
               </FieldDescription>
               <Input
                 id="lists_output_dir"
                 type="text"
                 value={formData.lists_output_dir}
                 onChange={handleInputChange('lists_output_dir')}
-                placeholder="/opt/etc/keen-pbr/lists.d"
+                placeholder={t('settings.listsOutputDirPlaceholder')}
                 required
               />
             </Field>
@@ -127,7 +127,7 @@ export function SettingsForm() {
                     {t('settings.useKeeneticDns')}
                   </FieldLabel>
                   <FieldDescription>
-                    Use Keenetic DNS from System profile as upstream in generated dnsmasq config
+                    {t('settings.useKeeneticDnsDescription')}
                   </FieldDescription>
                 </div>
               </div>
@@ -139,14 +139,14 @@ export function SettingsForm() {
                 {t('settings.fallbackDns')}
               </FieldLabel>
               <FieldDescription>
-                Fallback DNS server to use if Keenetic RCI call fails (e.g., 8.8.8.8 or 1.1.1.1). Leave empty to disable.
+                {t('settings.fallbackDnsDescription')}
               </FieldDescription>
               <Input
                 id="fallback_dns"
                 type="text"
                 value={formData.fallback_dns || ''}
                 onChange={handleInputChange('fallback_dns')}
-                placeholder="8.8.8.8"
+                placeholder={t('settings.fallbackDnsPlaceholder')}
               />
             </Field>
           </FieldGroup>

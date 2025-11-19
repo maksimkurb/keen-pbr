@@ -92,12 +92,12 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
           data: requestData,
         });
         toast.success(t('common.success'), {
-          description: `List "${formData.list_name}" updated successfully`,
+          description: t('lists.dialog.updateSuccess', { name: formData.list_name }),
         });
       } else {
         await createList.mutateAsync(requestData);
         toast.success(t('common.success'), {
-          description: `List "${formData.list_name}" created successfully`,
+          description: t('lists.dialog.createSuccess', { name: formData.list_name }),
         });
         // Reset form after create
         setFormData({ list_name: '', type: 'url' });
@@ -106,7 +106,7 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
       onOpenChange(false);
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : `Failed to ${isEditMode ? 'update' : 'create'} list`,
+        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: error instanceof Error ? error.message : String(error) }),
       });
     }
   };
@@ -118,40 +118,40 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
       <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {isEditMode ? 'Edit List' : t('lists.newList')}
+            {isEditMode ? t('lists.dialog.editTitle') : t('lists.dialog.createTitle')}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {isEditMode ? 'Update the list configuration' : 'Create a new list of domains, IPs, or CIDRs'}
+            {isEditMode ? t('lists.dialog.editDescription') : t('lists.dialog.createDescription')}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         <form onSubmit={handleSubmit}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="list_name">List Name</FieldLabel>
+              <FieldLabel htmlFor="list_name">{t('lists.dialog.listName')}</FieldLabel>
               <Input
                 id="list_name"
                 value={formData.list_name}
                 onChange={(e) => setFormData({ ...formData, list_name: e.target.value })}
-                placeholder="my-list"
+                placeholder={t('lists.dialog.listNamePlaceholder')}
                 required
                 disabled={isEditMode}
               />
               {isEditMode ? (
                 <FieldDescription>
-                  Cannot be changed after creation
+                  {t('lists.dialog.listNameDescriptionLocked')}
                 </FieldDescription>
               ) : (
                 <FieldDescription>
-                  A unique name for this list
+                  {t('lists.dialog.listNameDescription')}
                 </FieldDescription>
               )}
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="type">List Type</FieldLabel>
+              <FieldLabel htmlFor="type">{t('lists.dialog.listType')}</FieldLabel>
               <FieldDescription>
-                Where the list data comes from
+                {t('lists.dialog.listTypeDescription')}
               </FieldDescription>
               <Select
                 value={formData.type}
@@ -172,16 +172,16 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
 
             {formData.type === 'url' && (
               <Field>
-                <FieldLabel htmlFor="url">URL</FieldLabel>
+                <FieldLabel htmlFor="url">{t('lists.dialog.url')}</FieldLabel>
                 <FieldDescription>
-                  HTTP(S) URL to download the list from
+                  {t('lists.dialog.urlDescription')}
                 </FieldDescription>
                 <Input
                   id="url"
                   type="url"
                   value={formData.url || ''}
                   onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                  placeholder="https://example.com/list.txt"
+                  placeholder={t('lists.dialog.urlPlaceholder')}
                   required
                 />
               </Field>
@@ -189,15 +189,15 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
 
             {formData.type === 'file' && (
               <Field>
-                <FieldLabel htmlFor="file">File Path</FieldLabel>
+                <FieldLabel htmlFor="file">{t('lists.dialog.filePath')}</FieldLabel>
                 <FieldDescription>
-                  Absolute path to the list file on the system
+                  {t('lists.dialog.filePathDescription')}
                 </FieldDescription>
                 <Input
                   id="file"
                   value={formData.file || ''}
                   onChange={(e) => setFormData({ ...formData, file: e.target.value })}
-                  placeholder="/opt/etc/keen-pbr/my-list.txt"
+                  placeholder={t('lists.dialog.filePathPlaceholder')}
                   required
                 />
               </Field>
@@ -205,15 +205,15 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
 
             {formData.type === 'hosts' && (
               <Field>
-                <FieldLabel htmlFor="hosts">Hosts</FieldLabel>
+                <FieldLabel htmlFor="hosts">{t('lists.dialog.hosts')}</FieldLabel>
                 <FieldDescription>
-                  Enter one domain/IP/CIDR per line
+                  {t('lists.dialog.hostsDescription')}
                 </FieldDescription>
                 <Textarea
                   id="hosts"
                   value={formData.hosts || ''}
                   onChange={(e) => setFormData({ ...formData, hosts: e.target.value })}
-                  placeholder="example.com&#10;192.168.1.0/24&#10;10.0.0.1"
+                  placeholder={t('lists.dialog.hostsPlaceholder')}
                   rows={6}
                   required
                 />

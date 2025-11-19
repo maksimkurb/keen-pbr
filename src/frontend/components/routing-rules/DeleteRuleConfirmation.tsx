@@ -28,10 +28,10 @@ export function DeleteRuleConfirmation({ ipsetName, open, onOpenChange }: Delete
 
     try {
       await deleteIPSet.mutateAsync(ipsetName);
-      toast.success(`Routing rule "${ipsetName}" deleted successfully`);
+      toast.success(t('routingRules.delete.success', { name: ipsetName }));
       onOpenChange(false);
     } catch (error) {
-      toast.error(`Failed to delete routing rule: ${String(error)}`);
+      toast.error(t('routingRules.delete.error', { error: String(error) }));
     }
   };
 
@@ -39,9 +39,9 @@ export function DeleteRuleConfirmation({ ipsetName, open, onOpenChange }: Delete
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Routing Rule</AlertDialogTitle>
+          <AlertDialogTitle>{t('routingRules.delete.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the routing rule "{ipsetName}"? This action cannot be undone and will remove all associated IPSet and routing configurations.
+            {t('routingRules.delete.description', { name: ipsetName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

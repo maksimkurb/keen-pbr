@@ -95,8 +95,8 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
                 <td className="p-3">
                   {ipset.routing ? (
                     <div className="text-sm">
-                      <div>priority: {ipset.routing.priority}, table: {ipset.routing.table}</div>
-                      <div className="text-muted-foreground">fwmark: {ipset.routing.fwmark}</div>
+                      <div>{t('routingRules.routingConfig.priority')}: {ipset.routing.priority}, {t('routingRules.routingConfig.table')}: {ipset.routing.table}</div>
+                      <div className="text-muted-foreground">{t('routingRules.routingConfig.fwmark')}: {ipset.routing.fwmark}</div>
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">-</span>

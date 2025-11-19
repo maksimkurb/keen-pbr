@@ -94,26 +94,26 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     e.preventDefault();
 
     if (formData.lists.length === 0) {
-      toast.error('At least one list must be selected');
+      toast.error(t('routingRules.dialog.selectListsError'));
       return;
     }
 
     if (formData.routing && formData.routing.interfaces.length === 0) {
-      toast.error('At least one interface must be specified');
+      toast.error(t('routingRules.dialog.selectInterfacesError'));
       return;
     }
 
     try {
       if (isEditMode) {
         await updateIPSet.mutateAsync({ name: ipset.ipset_name, data: formData });
-        toast.success(`Routing rule "${formData.ipset_name}" updated successfully`);
+        toast.success(t('routingRules.dialog.updateSuccess', { name: formData.ipset_name }));
       } else {
         await createIPSet.mutateAsync(formData);
-        toast.success(`Routing rule "${formData.ipset_name}" created successfully`);
+        toast.success(t('routingRules.dialog.createSuccess', { name: formData.ipset_name }));
       }
       onOpenChange(false);
     } catch (error) {
-      toast.error(`Failed to ${isEditMode ? 'update' : 'create'} routing rule: ${String(error)}`);
+      toast.error(t('routingRules.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: String(error) }));
     }
   };
 
@@ -169,10 +169,10 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
       <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {isEditMode ? 'Edit Routing Rule' : t('routingRules.newRule')}
+            {isEditMode ? t('routingRules.dialog.editTitle') : t('routingRules.dialog.createTitle')}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {isEditMode ? 'Modify the routing rule configuration' : 'Create a new routing rule for policy-based routing'}
+            {isEditMode ? t('routingRules.dialog.editDescription') : t('routingRules.dialog.createDescription')}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -180,26 +180,26 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
           <FieldGroup>
             {/* Basic Info Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Basic Information</h3>
+              <h3 className="text-sm font-medium">{t('routingRules.dialog.basicInfo')}</h3>
 
               <Field>
-                <FieldLabel htmlFor="ipset_name">IPSet Name</FieldLabel>
+                <FieldLabel htmlFor="ipset_name">{t('routingRules.dialog.ipsetName')}</FieldLabel>
                 <Input
                   id="ipset_name"
                   value={formData.ipset_name}
                   onChange={(e) => setFormData({ ...formData, ipset_name: e.target.value })}
-                  placeholder="my_vpn_ipset"
+                  placeholder={t('routingRules.dialog.ipsetNamePlaceholder')}
                   pattern="^[a-z][a-z0-9_]*$"
                   disabled={isEditMode}
                   required
                 />
                 <FieldDescription>
-                  Cannot be changed after creation
+                  {t('routingRules.dialog.ipsetNameDescriptionLocked')}
                 </FieldDescription>
               </Field>
 
               <Field>
-                <FieldLabel>IP Version</FieldLabel>
+                <FieldLabel>{t('routingRules.dialog.ipVersion')}</FieldLabel>
                 <RadioGroup
                   value={formData.ip_version.toString()}
                   onValueChange={(value) => setFormData({ ...formData, ip_version: parseInt(value) as 4 | 6 })}
@@ -207,11 +207,11 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="4" id="ipv4" />
-                      <Label htmlFor="ipv4">IPv4</Label>
+                      <Label htmlFor="ipv4">{t('routingRules.dialog.ipv4')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="6" id="ipv6" />
-                      <Label htmlFor="ipv6">IPv6</Label>
+                      <Label htmlFor="ipv6">{t('routingRules.dialog.ipv6')}</Label>
                     </div>
                   </div>
                 </RadioGroup>
@@ -220,11 +220,11 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
             {/* Lists Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Lists</h3>
+              <h3 className="text-sm font-medium">{t('routingRules.dialog.lists')}</h3>
               <Field>
-                <FieldLabel>Select Lists</FieldLabel>
+                <FieldLabel>{t('routingRules.dialog.selectLists')}</FieldLabel>
                 <FieldDescription>
-                  Choose which lists to include in this routing rule
+                  {t('routingRules.dialog.selectListsDescription')}
                 </FieldDescription>
 
                 <Popover open={listsOpen} onOpenChange={setListsOpen}>
@@ -236,15 +236,15 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       className="w-full justify-between"
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add list
+                      {t('routingRules.dialog.addList')}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
                     <Command>
-                      <CommandInput placeholder="Search lists..." />
+                      <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
                       <CommandList>
-                        <CommandEmpty>No lists found.</CommandEmpty>
+                        <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
                         <CommandGroup>
                           {availableLists.map((list) => (
                             <CommandItem
@@ -287,12 +287,12 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
             {/* Routing Section */}
             {formData.routing && (
               <div className="space-y-4">
-                <h3 className="text-sm font-medium">Routing Configuration</h3>
+                <h3 className="text-sm font-medium">{t('routingRules.dialog.routingConfig')}</h3>
 
                 <Field>
-                  <FieldLabel>Interfaces</FieldLabel>
+                  <FieldLabel>{t('routingRules.dialog.interfaces')}</FieldLabel>
                   <FieldDescription>
-                    Add interfaces in priority order (first = highest priority)
+                    {t('routingRules.dialog.interfacesDescription')}
                   </FieldDescription>
 
                   <Popover open={interfacesOpen} onOpenChange={setInterfacesOpen}>
@@ -304,15 +304,15 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                         className="w-full justify-between"
                       >
                         <Plus className="mr-2 h-4 w-4" />
-                        Add interface
+                        {t('routingRules.dialog.addInterface')}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0">
                       <Command>
-                        <CommandInput placeholder="Search interfaces..." />
+                        <CommandInput placeholder={t('routingRules.dialog.searchInterfaces')} />
                         <CommandList className="max-h-[200px]">
-                          <CommandEmpty>No interfaces found.</CommandEmpty>
+                          <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
                           <CommandGroup>
                             {interfaceOptions.map((iface) => (
                               <CommandItem
@@ -353,7 +353,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
                 <div className="grid grid-cols-3 gap-4">
                   <Field>
-                    <FieldLabel htmlFor="priority">Priority</FieldLabel>
+                    <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
                     <Input
                       id="priority"
                       type="number"
@@ -367,7 +367,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="table">Table</FieldLabel>
+                    <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
                     <Input
                       id="table"
                       type="number"
@@ -381,7 +381,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="fwmark">FW Mark</FieldLabel>
+                    <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
                     <Input
                       id="fwmark"
                       type="number"
@@ -396,9 +396,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                 </div>
 
                 <Field>
-                  <FieldLabel htmlFor="override_dns">DNS Override (Optional)</FieldLabel>
+                  <FieldLabel htmlFor="override_dns">{t('routingRules.dialog.dnsOverride')}</FieldLabel>
                   <FieldDescription>
-                    Format: server#port (e.g., 1.1.1.1#53)
+                    {t('routingRules.dialog.dnsOverrideDescription')}
                   </FieldDescription>
                   <Input
                     id="override_dns"
@@ -407,7 +407,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       ...formData,
                       routing: { ...formData.routing!, override_dns: e.target.value || undefined },
                     })}
-                    placeholder="1.1.1.1#53"
+                    placeholder={t('routingRules.dialog.dnsOverridePlaceholder')}
                   />
                 </Field>
               </div>
@@ -415,7 +415,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
             {/* Options Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Options</h3>
+              <h3 className="text-sm font-medium">{t('routingRules.dialog.options')}</h3>
 
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -429,7 +429,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   htmlFor="flush_before_applying"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Flush before applying
+                  {t('routingRules.dialog.flushBeforeApplying')}
                 </label>
               </div>
 
@@ -449,7 +449,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     htmlFor="kill_switch"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    Kill switch (block traffic when all interfaces are down)
+                    {t('routingRules.dialog.killSwitch')}
                   </label>
                 </div>
               )}
