@@ -73,6 +73,11 @@ func (h *ConfigHasher) GetCurrentConfigHash() (string, error) {
 // UpdateCurrentConfigHash recalculates config hash and resets cache
 // Always recalculates regardless of cache state (called after config changes)
 func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
+	// Read keeneticClient BEFORE acquiring write lock to avoid deadlock
+	h.mu.RLock()
+	keeneticClient := h.keeneticClient
+	h.mu.RUnlock()
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -82,8 +87,8 @@ func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Calculate hash
-	hash, err := h.calculateHashForConfig(cfg)
+	// Calculate hash (pass keeneticClient to avoid nested lock)
+	hash, err := h.calculateHashForConfig(cfg, keeneticClient)
 	if err != nil {
 		return "", fmt.Errorf("failed to calculate hash: %w", err)
 	}
@@ -165,15 +170,13 @@ func (h *ConfigHasher) GetDnsmasqActiveConfigHash() string {
 
 // calculateHashForConfig generates MD5 hash of entire configuration
 // This is the internal method that does the actual hashing
-func (h *ConfigHasher) calculateHashForConfig(config *Config) (string, error) {
+// The keeneticClient parameter is passed to avoid mutex deadlock
+func (h *ConfigHasher) calculateHashForConfig(config *Config, keeneticClient KeeneticClientInterface) (string, error) {
 	// 1. Get used list names from all ipsets
 	usedLists := h.getUsedListNamesForConfig(config)
 
 	// 2. Get DNS servers if Keenetic client is available and use_keenetic_dns is enabled
 	var dnsServers []DNSServerHashData
-	h.mu.RLock()
-	keeneticClient := h.keeneticClient
-	h.mu.RUnlock()
 
 	if config.General.UseKeeneticDNS != nil && *config.General.UseKeeneticDNS && keeneticClient != nil {
 		// Use a channel to implement timeout for DNS server retrieval

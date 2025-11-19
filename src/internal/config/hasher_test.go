@@ -35,12 +35,12 @@ func TestConfigHasher_DeterministicHash(t *testing.T) {
 	}
 
 	hasher := NewConfigHasher("")
-	hash1, err := hasher.calculateHashForConfig(cfg)
+	hash1, err := hasher.calculateHashForConfig(cfg, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash: %v", err)
 	}
 
-	hash2, err := hasher.calculateHashForConfig(cfg)
+	hash2, err := hasher.calculateHashForConfig(cfg, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash: %v", err)
 	}
@@ -98,12 +98,12 @@ func TestConfigHasher_UnusedListsIgnored(t *testing.T) {
 	}
 
 	hasher := NewConfigHasher("")
-	hash1, err := hasher.calculateHashForConfig(cfg1)
+	hash1, err := hasher.calculateHashForConfig(cfg1, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 1: %v", err)
 	}
 
-	hash2, err := hasher.calculateHashForConfig(cfg2)
+	hash2, err := hasher.calculateHashForConfig(cfg2, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 2: %v", err)
 	}
@@ -153,12 +153,12 @@ func TestConfigHasher_UsedListsIncluded(t *testing.T) {
 	}
 
 	hasher := NewConfigHasher("")
-	hash1, err := hasher.calculateHashForConfig(cfg1)
+	hash1, err := hasher.calculateHashForConfig(cfg1, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 1: %v", err)
 	}
 
-	hash2, err := hasher.calculateHashForConfig(cfg2)
+	hash2, err := hasher.calculateHashForConfig(cfg2, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 2: %v", err)
 	}
@@ -216,12 +216,12 @@ func TestConfigHasher_OrderIndependent(t *testing.T) {
 	}
 
 	hasher := NewConfigHasher("")
-	hash1, err := hasher.calculateHashForConfig(cfg1)
+	hash1, err := hasher.calculateHashForConfig(cfg1, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 1: %v", err)
 	}
 
-	hash2, err := hasher.calculateHashForConfig(cfg2)
+	hash2, err := hasher.calculateHashForConfig(cfg2, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 2: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 
 	// Get base hash
 	hasher := NewConfigHasher("")
-	baseHash, err := hasher.calculateHashForConfig(baseConfig)
+	baseHash, err := hasher.calculateHashForConfig(baseConfig, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate base hash: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 			IPSets: baseConfig.IPSets,
 			Lists:  baseConfig.Lists,
 		}
-		hash, _ := hasher.calculateHashForConfig(modifiedConfig)
+		hash, _ := hasher.calculateHashForConfig(modifiedConfig, nil)
 		if hash == baseHash {
 			t.Error("Hash should change when general settings change")
 		}
@@ -298,7 +298,7 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 			},
 			Lists: baseConfig.Lists,
 		}
-		hash, _ := hasher.calculateHashForConfig(modifiedConfig)
+		hash, _ := hasher.calculateHashForConfig(modifiedConfig, nil)
 		if hash == baseHash {
 			t.Error("Hash should change when routing interface changes")
 		}
@@ -323,7 +323,7 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 			},
 			Lists: baseConfig.Lists,
 		}
-		hash, _ := hasher.calculateHashForConfig(modifiedConfig)
+		hash, _ := hasher.calculateHashForConfig(modifiedConfig, nil)
 		if hash == baseHash {
 			t.Error("Hash should change when fwmark changes")
 		}
@@ -361,13 +361,13 @@ func TestConfigHasher_FileListHash(t *testing.T) {
 	}
 
 	hasher := NewConfigHasher("")
-	hash1, err := hasher.calculateHashForConfig(cfg)
+	hash1, err := hasher.calculateHashForConfig(cfg, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash: %v", err)
 	}
 
 	// Hash should be consistent
-	hash2, err := hasher.calculateHashForConfig(cfg)
+	hash2, err := hasher.calculateHashForConfig(cfg, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 2: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestConfigHasher_FileListHash(t *testing.T) {
 		t.Fatalf("Failed to modify test file: %v", err)
 	}
 
-	hash3, err := hasher.calculateHashForConfig(cfg)
+	hash3, err := hasher.calculateHashForConfig(cfg, nil)
 	if err != nil {
 		t.Fatalf("Failed to calculate hash 3: %v", err)
 	}
