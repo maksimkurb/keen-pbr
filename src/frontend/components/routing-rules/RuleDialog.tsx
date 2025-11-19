@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
@@ -21,8 +21,11 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Textarea } from '../ui/textarea';
 import { cn } from '../../src/lib/utils';
-import type { IPSetConfig, CreateIPSetRequest } from '../../src/api/client';
+import type { IPSetConfig, CreateIPSetRequest, IPTablesRule } from '../../src/api/client';
 
 interface RuleDialogProps {
   ipset?: IPSetConfig | null;
@@ -31,6 +34,16 @@ interface RuleDialogProps {
   availableLists: string[];
 }
 
+// Default iptables rule
+const DEFAULT_IPTABLES_RULE: IPTablesRule = {
+  chain: 'PREROUTING',
+  table: 'mangle',
+  rule: ['-m', 'mark', '--mark', '0x0/0xffffffff', '-m', 'set', '--match-set', '{{ipset_name}}', 'dst,src', '-j', 'MARK', '--set-mark', '{{fwmark}}'],
+};
+
+// Available template variables
+const TEMPLATE_VARS = ['{{ipset_name}}', '{{fwmark}}', '{{table}}', '{{priority}}'];
+
 export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
   const { t } = useTranslation();
   const isEditMode = !!ipset;
@@ -38,6 +51,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const updateIPSet = useUpdateIPSet();
   const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
+  const [customInterface, setCustomInterface] = useState('');
 
   // Fetch interfaces when combobox is opened
   const { data: interfacesData } = useInterfaces(interfacesOpen);
@@ -54,6 +68,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
       table: 100,
       priority: 100,
     },
+    iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
   });
 
   // Initialize form when ipset changes (edit mode) or reset (create mode)
@@ -71,6 +86,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
           table: 100,
           priority: 100,
         },
+        iptables_rule: ipset.iptables_rule && ipset.iptables_rule.length > 0
+          ? ipset.iptables_rule
+          : [{ ...DEFAULT_IPTABLES_RULE }],
       });
     } else if (!open) {
       // Reset form when dialog closes in create mode
@@ -86,7 +104,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
           table: 100,
           priority: 100,
         },
+        iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
       });
+      setCustomInterface('');
     }
   }, [ipset, open]);
 
@@ -147,6 +167,21 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     setInterfacesOpen(false);
   };
 
+  const addCustomInterface = () => {
+    const trimmedInterface = customInterface.trim();
+    if (trimmedInterface && formData.routing && !formData.routing.interfaces.includes(trimmedInterface)) {
+      setFormData({
+        ...formData,
+        routing: {
+          ...formData.routing,
+          interfaces: [...formData.routing.interfaces, trimmedInterface],
+        },
+      });
+      setCustomInterface('');
+      setInterfacesOpen(false);
+    }
+  };
+
   const removeInterface = (iface: string) => {
     if (formData.routing) {
       setFormData({
@@ -159,6 +194,78 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     }
   };
 
+  const moveInterfaceUp = (index: number) => {
+    if (index > 0 && formData.routing) {
+      const newInterfaces = [...formData.routing.interfaces];
+      [newInterfaces[index - 1], newInterfaces[index]] = [newInterfaces[index], newInterfaces[index - 1]];
+      setFormData({
+        ...formData,
+        routing: {
+          ...formData.routing,
+          interfaces: newInterfaces,
+        },
+      });
+    }
+  };
+
+  const moveInterfaceDown = (index: number) => {
+    if (formData.routing && index < formData.routing.interfaces.length - 1) {
+      const newInterfaces = [...formData.routing.interfaces];
+      [newInterfaces[index], newInterfaces[index + 1]] = [newInterfaces[index + 1], newInterfaces[index]];
+      setFormData({
+        ...formData,
+        routing: {
+          ...formData.routing,
+          interfaces: newInterfaces,
+        },
+      });
+    }
+  };
+
+  // IPTables Rules functions
+  const addIPTablesRule = () => {
+    setFormData({
+      ...formData,
+      iptables_rule: [
+        ...(formData.iptables_rule || []),
+        { chain: '', table: '', rule: [] },
+      ],
+    });
+  };
+
+  const removeIPTablesRule = (index: number) => {
+    if (formData.iptables_rule && formData.iptables_rule.length > 1) {
+      setFormData({
+        ...formData,
+        iptables_rule: formData.iptables_rule.filter((_, i) => i !== index),
+      });
+    }
+  };
+
+  const updateIPTablesRule = (index: number, field: keyof IPTablesRule, value: string | string[]) => {
+    if (!formData.iptables_rule) return;
+
+    const newRules = [...formData.iptables_rule];
+    newRules[index] = {
+      ...newRules[index],
+      [field]: value,
+    };
+    setFormData({
+      ...formData,
+      iptables_rule: newRules,
+    });
+  };
+
+  const insertTemplateVar = (ruleIndex: number, templateVar: string) => {
+    if (!formData.iptables_rule) return;
+
+    const currentRule = formData.iptables_rule[ruleIndex];
+    const ruleString = currentRule.rule.join(' ');
+    const newRuleString = ruleString ? `${ruleString} ${templateVar}` : templateVar;
+
+    updateIPTablesRule(ruleIndex, 'rule', newRuleString.split(' '));
+  };
+
   // Get interface options
   const interfaceOptions = (interfacesData || []).map((i) => i.name);
 
@@ -166,7 +273,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-2xl">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
             {isEditMode ? t('routingRules.dialog.editTitle') : t('routingRules.dialog.createTitle')}
@@ -310,9 +417,24 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0">
                       <Command>
-                        <CommandInput placeholder={t('routingRules.dialog.searchInterfaces')} />
+                        <CommandInput
+                          placeholder={t('routingRules.dialog.searchInterfaces')}
+                          value={customInterface}
+                          onValueChange={setCustomInterface}
+                        />
                         <CommandList className="max-h-[200px]">
-                          <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
+                          {customInterface && !interfaceOptions.includes(customInterface) && (
+                            <CommandItem
+                              onSelect={() => addCustomInterface()}
+                              className="text-sm"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add custom: <span className="font-mono ml-1">{customInterface}</span>
+                            </CommandItem>
+                          )}
+                          {interfaceOptions.length === 0 && !customInterface && (
+                            <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
+                          )}
                           <CommandGroup>
                             {interfaceOptions.map((iface) => (
                               <CommandItem
@@ -337,17 +459,47 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   </Popover>
 
                   {formData.routing.interfaces.length > 0 && (
-                    <ol className="mt-2 space-y-1 border rounded-md p-2 list-decimal list-inside">
+                    <div className="mt-2 space-y-1 border rounded-md p-2">
                       {formData.routing.interfaces.map((iface, index) => (
-                        <li key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
-                          <span>{iface}</span>
-                          <X
-                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
-                            onClick={() => removeInterface(iface)}
-                          />
-                        </li>
+                        <div key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            <span className="font-mono">{iface}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => moveInterfaceUp(index)}
+                              disabled={index === 0}
+                            >
+                              <ChevronUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => moveInterfaceDown(index)}
+                              disabled={index === formData.routing!.interfaces.length - 1}
+                            >
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => removeInterface(iface)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
-                    </ol>
+                    </div>
                   )}
                 </Field>
 
@@ -412,6 +564,99 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                 </Field>
               </div>
             )}
+
+            {/* IPTables Rules Section */}
+            <Accordion type="single" collapsible className="border rounded-md">
+              <AccordionItem value="iptables" className="border-0">
+                <AccordionTrigger className="px-4 hover:no-underline">
+                  <h3 className="text-sm font-medium">IPTables Rules (Advanced)</h3>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Configure custom iptables rules. Variables: {TEMPLATE_VARS.join(', ')}
+                    </p>
+
+                    {formData.iptables_rule?.map((rule, index) => (
+                      <div key={index} className="border rounded-md p-4 space-y-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Rule {index + 1}</span>
+                          {formData.iptables_rule && formData.iptables_rule.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeIPTablesRule(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field>
+                            <FieldLabel>Chain</FieldLabel>
+                            <Input
+                              value={rule.chain}
+                              onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
+                              placeholder="PREROUTING, OUTPUT, etc."
+                            />
+                          </Field>
+
+                          <Field>
+                            <FieldLabel>Table</FieldLabel>
+                            <Input
+                              value={rule.table}
+                              onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
+                              placeholder="mangle, nat, filter, etc."
+                            />
+                          </Field>
+                        </div>
+
+                        <Field>
+                          <div className="flex items-center justify-between mb-2">
+                            <FieldLabel>Rule Arguments</FieldLabel>
+                            <Select onValueChange={(value) => insertTemplateVar(index, value)}>
+                              <SelectTrigger className="w-[180px] h-8">
+                                <SelectValue placeholder="Insert variable" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TEMPLATE_VARS.map((varName) => (
+                                  <SelectItem key={varName} value={varName}>
+                                    <code className="text-xs">{varName}</code>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Textarea
+                            value={rule.rule.join(' ')}
+                            onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
+                            placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
+                            rows={3}
+                            className="font-mono text-xs"
+                          />
+                          <FieldDescription className="text-xs">
+                            Space-separated iptables rule arguments
+                          </FieldDescription>
+                        </Field>
+                      </div>
+                    ))}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addIPTablesRule}
+                      className="w-full"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add IPTables Rule
+                    </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {/* Options Section */}
             <div className="space-y-4">
