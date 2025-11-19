@@ -85,6 +85,9 @@ func printDnsmasqConfig(cfg *config.Config, configPath string, domains *DomainSt
 
 	// Calculate and print config hash as CNAME record for dnsmasq tracking
 	hasher := config.NewConfigHasher(configPath)
+	// Set Keenetic client to ensure hash calculation includes DNS servers (if enabled)
+	// This ensures consistency with the hash calculated during service startup
+	hasher.SetKeeneticClient(keeneticClient)
 	configHash, err := hasher.UpdateCurrentConfigHash()
 	if err != nil {
 		log.Warnf("Failed to calculate config hash: %v", err)
