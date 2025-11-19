@@ -75,6 +75,12 @@ func (s *ServiceCommand) Run() error {
 	deps := domain.NewDefaultDependencies()
 	s.networkMgr = deps.NetworkManager()
 
+	// Initial setup: download lists if not present
+	log.Infof("Checking and downloading URL lists if not present...")
+	if err := lists.DownloadLists(s.cfg); err != nil {
+		log.Warnf("Some lists failed to download: %v", err)
+	}
+
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
 	if err := lists.ImportListsToIPSets(s.cfg, deps.ListManager()); err != nil {
