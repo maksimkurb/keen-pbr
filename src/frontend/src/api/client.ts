@@ -105,12 +105,16 @@ export interface GeneralSettings {
 	use_keenetic_dns: boolean;
 	fallback_dns?: string;
 	api_bind_address?: string; // Read-only, not configurable via UI
+	auto_update_lists?: boolean; // Auto-update lists with URLs
+	update_interval_hours?: number; // Interval in hours for auto-updates
 }
 
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
 	use_keenetic_dns?: boolean;
 	fallback_dns?: string;
+	auto_update_lists?: boolean;
+	update_interval_hours?: number;
 }
 
 // Status types
