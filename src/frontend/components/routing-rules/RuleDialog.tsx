@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug, ListPlus, Network } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
@@ -24,6 +24,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '../ui/empty';
 import { cn } from '../../src/lib/utils';
 import type { IPSetConfig, CreateIPSetRequest, IPTablesRule } from '../../src/api/client';
 
@@ -113,15 +114,13 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // At least one list is required
     if (formData.lists.length === 0) {
       toast.error(t('routingRules.dialog.selectListsError'));
       return;
     }
 
-    if (formData.routing && formData.routing.interfaces.length === 0) {
-      toast.error(t('routingRules.dialog.selectInterfacesError'));
-      return;
-    }
+    // Interfaces are optional - no validation needed
 
     try {
       if (isEditMode) {
@@ -375,7 +374,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   </PopoverContent>
                 </Popover>
 
-                {formData.lists.length > 0 && (
+                {formData.lists.length > 0 ? (
                   <ul className="mt-2 space-y-1 border rounded-md p-2">
                     {formData.lists.map((list) => (
                       <li key={list} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
@@ -387,6 +386,18 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       </li>
                     ))}
                   </ul>
+                ) : (
+                  <Empty className="mt-2 border">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <ListPlus className="h-5 w-5" />
+                      </EmptyMedia>
+                      <EmptyTitle className="text-base">No lists selected</EmptyTitle>
+                      <EmptyDescription>
+                        Click "Add list" above to select at least one list for this routing rule.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 )}
               </Field>
             </div>
@@ -463,7 +474,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     </PopoverContent>
                   </Popover>
 
-                  {formData.routing.interfaces.length > 0 && (
+                  {formData.routing.interfaces.length > 0 ? (
                     <div className="mt-2 space-y-1 border rounded-md p-2">
                       {formData.routing.interfaces.map((iface, index) => {
                         const interfaceInfo = interfaceOptions.find(i => i.name === iface);
@@ -512,6 +523,18 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                         </div>
                       )})}
                     </div>
+                  ) : (
+                    <Empty className="mt-2 border">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <Network className="h-5 w-5" />
+                        </EmptyMedia>
+                        <EmptyTitle className="text-base">No interfaces selected</EmptyTitle>
+                        <EmptyDescription>
+                          Click "Add interface" above to select interfaces for routing (optional).
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   )}
                 </Field>
 
