@@ -176,19 +176,39 @@ func (h *ConfigHasher) calculateHashForConfig(config *Config) (string, error) {
 	h.mu.RUnlock()
 
 	if config.General.UseKeeneticDNS != nil && *config.General.UseKeeneticDNS && keeneticClient != nil {
-		servers, err := keeneticClient.GetDNSServers()
-		if err == nil && len(servers) > 0 {
-			// Convert to hashable format
-			dnsServers = make([]DNSServerHashData, len(servers))
-			for i, server := range servers {
-				dnsServers[i] = DNSServerHashData{
-					Type:     string(server.Type),
-					Proxy:    server.Proxy,
-					Endpoint: server.Endpoint,
-					Port:     server.Port,
-					Domain:   server.Domain,
+		// Use a channel to implement timeout for DNS server retrieval
+		// This prevents blocking indefinitely if Keenetic router is not accessible
+		type dnsResult struct {
+			servers []keenetic.DnsServerInfo
+			err     error
+		}
+		resultCh := make(chan dnsResult, 1)
+
+		// Launch DNS retrieval in a goroutine
+		go func() {
+			servers, err := keeneticClient.GetDNSServers()
+			resultCh <- dnsResult{servers: servers, err: err}
+		}()
+
+		// Wait for result with timeout
+		select {
+		case result := <-resultCh:
+			if result.err == nil && len(result.servers) > 0 {
+				// Convert to hashable format
+				dnsServers = make([]DNSServerHashData, len(result.servers))
+				for i, server := range result.servers {
+					dnsServers[i] = DNSServerHashData{
+						Type:     string(server.Type),
+						Proxy:    server.Proxy,
+						Endpoint: server.Endpoint,
+						Port:     server.Port,
+						Domain:   server.Domain,
+					}
 				}
 			}
+		case <-time.After(5 * time.Second):
+			// Timeout: continue without DNS servers
+			// This prevents service startup from hanging if Keenetic is unavailable
 		}
 	}
 
