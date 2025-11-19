@@ -49,13 +49,15 @@ func (b *ComponentBuilder) BuildComponents(cfg *config.IPSetConfig) ([]Networkin
 	// 2. IP Rule component
 	components = append(components, NewIPRuleComponent(cfg))
 
-	// 3. IPTables components
-	iptablesComponents, err := NewIPTablesRuleComponents(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build iptables components for %s: %w", cfg.IPSetName, err)
-	}
-	for _, comp := range iptablesComponents {
-		components = append(components, comp)
+	// 3. IPTables components (only if rules are configured)
+	if len(cfg.IPTablesRules) > 0 {
+		iptablesComponents, err := NewIPTablesRuleComponents(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build iptables components for %s: %w", cfg.IPSetName, err)
+		}
+		for _, comp := range iptablesComponents {
+			components = append(components, comp)
+		}
 	}
 
 	// 4. IP Route components
