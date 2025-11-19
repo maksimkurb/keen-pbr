@@ -15,7 +15,17 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONData(w, SettingsResponse{General: cfg.General})
+	// Normalize settings to return proper defaults
+	response := config.GeneralConfig{
+		ListsOutputDir:      cfg.General.ListsOutputDir,
+		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
+		FallbackDNS:         cfg.General.FallbackDNS,
+		APIBindAddress:      cfg.General.APIBindAddress,
+		AutoUpdateLists:     cfg.General.AutoUpdateLists,
+		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+	}
+
+	writeJSONData(w, SettingsResponse{General: &response})
 }
 
 // UpdateSettings updates general settings (supports partial updates).
@@ -48,6 +58,12 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if updates.FallbackDNS != "" {
 		cfg.General.FallbackDNS = updates.FallbackDNS
 	}
+	if updates.AutoUpdateLists != nil {
+		cfg.General.AutoUpdateLists = updates.AutoUpdateLists
+	}
+	if updates.UpdateIntervalHours > 0 {
+		cfg.General.UpdateIntervalHours = updates.UpdateIntervalHours
+	}
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
@@ -61,5 +77,15 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONData(w, SettingsResponse{General: cfg.General})
+	// Normalize settings to return proper defaults
+	response := config.GeneralConfig{
+		ListsOutputDir:      cfg.General.ListsOutputDir,
+		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
+		FallbackDNS:         cfg.General.FallbackDNS,
+		APIBindAddress:      cfg.General.APIBindAddress,
+		AutoUpdateLists:     cfg.General.AutoUpdateLists,
+		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+	}
+
+	writeJSONData(w, SettingsResponse{General: &response})
 }
