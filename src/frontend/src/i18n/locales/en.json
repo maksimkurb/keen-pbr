@@ -10,6 +10,8 @@
     "description": "System status and domain routing checker",
     "systemStatus": "System Status",
     "configurationOutdated": "Configuration has been modified. Restart keen-pbr service to apply changes.",
+    "dnsmasqConfigurationOutdated": "Dnsmasq configuration is outdated. Restart dnsmasq service to apply changes.",
+    "configurationOutdatedBoth": "Configuration has been modified. Restart both keen-pbr and dnsmasq services to apply changes.",
     "version": "keen-pbr Version",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "keen-pbr Service",

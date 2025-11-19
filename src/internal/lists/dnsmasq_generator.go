@@ -12,7 +12,7 @@ import (
 )
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
-func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, listManager *Manager) error {
+func PrintDnsmasqConfig(cfg *config.Config, configPath string, keeneticClient *keenetic.Client, listManager *Manager) error {
 	if err := CreateIPSetsIfAbsent(cfg); err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 	log.Infof("Parsed %d domains. Producing dnsmasq config into stdout...", domainStore.Count())
 
 	if domainStore.Count() > 0 {
-		if err := printDnsmasqConfig(cfg, domainStore, keeneticClient); err != nil {
+		if err := printDnsmasqConfig(cfg, configPath, domainStore, keeneticClient); err != nil {
 			return err
 		}
 	}
@@ -70,7 +70,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 }
 
 // printDnsmasqConfig writes the dnsmasq configuration to stdout.
-func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient *keenetic.Client) error {
+func printDnsmasqConfig(cfg *config.Config, configPath string, domains *DomainStore, keeneticClient *keenetic.Client) error {
 	startTime := time.Now().UnixMilli()
 
 	stdoutBuffer := bufio.NewWriter(os.Stdout)
@@ -80,6 +80,21 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient
 			log.Errorf("Failed to flush stdout: %v", err)
 		}
 	}(stdoutBuffer)
+
+	// Calculate and print config hash as CNAME record for dnsmasq tracking
+	hasher := config.NewConfigHasher(configPath)
+	configHash, err := hasher.UpdateCurrentConfigHash()
+	if err != nil {
+		log.Warnf("Failed to calculate config hash: %v", err)
+		configHash = "unknown"
+	}
+
+	// Print CNAME record: cname=config-md5.keen-pbr.internal,<MD5>.value.keen-pbr.internal,1
+	cnameRecord := fmt.Sprintf("cname=config-md5.keen-pbr.internal,%s.value.keen-pbr.internal,1\n", configHash)
+	if _, err := stdoutBuffer.WriteString(cnameRecord); err != nil {
+		return fmt.Errorf("failed to write config hash CNAME to dnsmasq cfg: %v", err)
+	}
+	log.Infof("Dnsmasq config hash: %s", configHash)
 
 	if *cfg.General.UseKeeneticDNS {
 		// Import keenetic DNS servers

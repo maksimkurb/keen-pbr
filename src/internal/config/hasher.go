@@ -1,13 +1,16 @@
 package config
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -88,6 +91,60 @@ func (h *ConfigHasher) SetKeenPbrActiveConfigHash(hash string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.activeHash = hash
+}
+
+// GetDnsmasqActiveConfigHash queries dnsmasq for the active config hash
+// It performs a DNS lookup for config-md5.keen-pbr.internal against 127.0.0.1:53
+// and extracts the hash from the CNAME response (e.g., <hash>.value.keen-pbr.internal)
+// Returns empty string if DNS query fails or hash cannot be extracted
+func (h *ConfigHasher) GetDnsmasqActiveConfigHash() string {
+	// Create custom resolver pointing to local dnsmasq
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: 2 * time.Second,
+			}
+			return d.DialContext(ctx, "udp", "127.0.0.1:53")
+		},
+	}
+
+	// Perform CNAME lookup with 2-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cname, err := resolver.LookupCNAME(ctx, "config-md5.keen-pbr.internal")
+	if err != nil {
+		// DNS query failed or domain doesn't exist
+		return ""
+	}
+
+	// Parse CNAME response: expect <hash>.value.keen-pbr.internal.
+	// Remove trailing dot if present
+	cname = strings.TrimSuffix(cname, ".")
+
+	// Check if it matches the expected pattern
+	if !strings.HasSuffix(cname, ".value.keen-pbr.internal") {
+		// Invalid CNAME format
+		return ""
+	}
+
+	// Extract hash from the beginning
+	hash := strings.TrimSuffix(cname, ".value.keen-pbr.internal")
+
+	// Validate that hash is not empty and looks like an MD5 (32 hex characters)
+	if len(hash) != 32 {
+		return ""
+	}
+
+	// Verify it's all hexadecimal
+	for _, c := range hash {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return ""
+		}
+	}
+
+	return strings.ToLower(hash)
 }
 
 // calculateHashForConfig generates MD5 hash of entire configuration

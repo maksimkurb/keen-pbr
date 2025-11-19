@@ -83,6 +83,13 @@ export function ServiceStatusWidget() {
   const dnsmasqStatus = data.services.dnsmasq?.status || 'unknown';
   const configOutdated = data.configuration_outdated || false;
 
+  // Check if dnsmasq config is outdated
+  const dnsmasqConfigHash = data.services.dnsmasq?.config_hash;
+  const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
+
+  // Check if any service is out of sync
+  const anyServiceOutdated = configOutdated || dnsmasqOutdated;
+
   return (
     <Card>
       <CardHeader>
@@ -91,11 +98,15 @@ export function ServiceStatusWidget() {
       <CardContent>
         <div className="space-y-4">
           {/* Configuration outdated warning */}
-          {configOutdated && (
+          {anyServiceOutdated && (
             <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
               <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                {t('dashboard.configurationOutdated')}
+                {configOutdated && dnsmasqOutdated
+                  ? t('dashboard.configurationOutdatedBoth')
+                  : configOutdated
+                  ? t('dashboard.configurationOutdated')
+                  : t('dashboard.dnsmasqConfigurationOutdated')}
               </AlertDescription>
             </Alert>
           )}
@@ -148,6 +159,7 @@ export function ServiceStatusWidget() {
           <StatusCard
             title={t('dashboard.dnsmasqService')}
             status={dnsmasqStatus}
+            className={dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <Button
                 size="sm"

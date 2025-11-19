@@ -10,6 +10,8 @@
     "description": "Состояние системы и проверка маршрутизации доменов",
     "systemStatus": "Состояние системы",
     "configurationOutdated": "Конфигурация была изменена. Перезапустите службу keen-pbr для применения изменений.",
+    "dnsmasqConfigurationOutdated": "Конфигурация dnsmasq устарела. Перезапустите службу dnsmasq для применения изменений.",
+    "configurationOutdatedBoth": "Конфигурация была изменена. Перезапустите обе службы keen-pbr и dnsmasq для применения изменений.",
     "version": "Версия keen-pbr",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "Сервис keen-pbr",

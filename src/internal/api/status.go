@@ -57,7 +57,15 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	response.Services["keen-pbr"] = keenPbrInfo
 
 	// Check dnsmasq service status
-	response.Services["dnsmasq"] = getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")
+	dnsmasqInfo := getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")
+
+	// Get dnsmasq active config hash via DNS lookup
+	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
+	if dnsmasqHash != "" {
+		dnsmasqInfo.ConfigHash = dnsmasqHash
+	}
+
+	response.Services["dnsmasq"] = dnsmasqInfo
 
 	writeJSONData(w, response)
 }
