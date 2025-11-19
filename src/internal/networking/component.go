@@ -13,6 +13,29 @@ const (
 // NetworkingComponent represents any network configuration element.
 // This abstraction unifies apply and self-check logic by providing
 // a consistent interface for all networking primitives.
+//
+// Key Design Principles:
+//   - Declarative: ShouldExist() encodes desired state based on runtime conditions
+//   - Self-Contained: Each component knows how to create, check, and delete itself
+//   - Debuggable: GetCommand() provides CLI command for manual inspection
+//   - Unified: Same components used for both apply operations and self-check validation
+//
+// Usage Example:
+//
+//	// Create a component
+//	component := NewIPSetComponent(cfg)
+//
+//	// Check if it should exist and create if needed
+//	if component.ShouldExist() {
+//	    if err := component.CreateIfNotExists(); err != nil {
+//	        return err
+//	    }
+//	}
+//
+//	// Self-check validation
+//	exists, _ := component.IsExists()
+//	shouldExist := component.ShouldExist()
+//	healthy := (exists == shouldExist)
 type NetworkingComponent interface {
 	// IsExists checks if the component currently exists in the system
 	IsExists() (bool, error)

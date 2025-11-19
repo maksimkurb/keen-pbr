@@ -3,6 +3,17 @@ package networking
 // ComponentBase provides common fields for all networking components.
 // This struct is embedded in all concrete component implementations
 // to provide basic metadata functionality.
+//
+// Embedding Pattern:
+//
+//	type IPSetComponent struct {
+//	    ComponentBase  // Provides GetIPSetName, GetType, GetDescription
+//	    ipset *IPSet   // Specific implementation details
+//	}
+//
+// This approach reduces code duplication while allowing each component
+// type to implement its own IsExists, ShouldExist, CreateIfNotExists,
+// DeleteIfExists, and GetCommand methods.
 type ComponentBase struct {
 	ipsetName     string
 	componentType ComponentType

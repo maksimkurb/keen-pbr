@@ -11,6 +11,22 @@ import (
 // ComponentBuilder builds all networking components for IPSet configurations.
 // It provides a centralized way to generate all required network primitives
 // (IPSets, IP rules, IP routes, IPTables rules) from configuration.
+//
+// The builder ensures components are created in the correct order:
+//  1. IPSet - must exist before IPTables rules can reference it
+//  2. IP Rule - routes marked packets to custom routing table
+//  3. IPTables Rules - mark packets matching the ipset (only if configured)
+//  4. IP Routes - define routes in custom table (per interface + blackhole)
+//
+// Usage:
+//
+//	builder := NewComponentBuilder(keeneticClient)
+//	components, err := builder.BuildComponents(ipsetConfig)
+//	for _, component := range components {
+//	    if component.ShouldExist() {
+//	        component.CreateIfNotExists()
+//	    }
+//	}
 type ComponentBuilder struct {
 	selector *InterfaceSelector
 }
