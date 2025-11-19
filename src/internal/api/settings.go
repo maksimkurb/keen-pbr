@@ -21,7 +21,7 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		ListsOutputDir:      cfg.General.ListsOutputDir,
 		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
 		FallbackDNS:         cfg.General.FallbackDNS,
-		APIBindAddress:      cfg.General.APIBindAddress,
+		// APIBindAddress is excluded - not configurable via API
 		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
 		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
 	}
@@ -84,7 +84,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		ListsOutputDir:      cfg.General.ListsOutputDir,
 		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
 		FallbackDNS:         cfg.General.FallbackDNS,
-		APIBindAddress:      cfg.General.APIBindAddress,
+		// APIBindAddress is excluded - not configurable via API
 		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
 		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
 	}

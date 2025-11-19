@@ -174,6 +174,12 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	sm.configHasher.SetKeenPbrActiveConfigHash(configHash)
 	log.Infof("Service started with config hash: %s", configHash)
 
+	// Download missing lists (only downloads if files don't exist)
+	log.Infof("Checking and downloading missing lists...")
+	if err := lists.DownloadLists(startupCfg); err != nil {
+		log.Warnf("Some lists failed to download: %v", err)
+	}
+
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
 	if err := lists.ImportListsToIPSets(startupCfg, sm.deps.ListManager()); err != nil {
