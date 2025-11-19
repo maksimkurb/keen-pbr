@@ -34,7 +34,6 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
   const createIPSet = useCreateIPSet();
   const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
-  const [interfaceSearch, setInterfaceSearch] = useState('');
 
   // Fetch interfaces when combobox is opened
   const { data: interfacesData } = useInterfaces(interfacesOpen);
@@ -121,7 +120,6 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
       });
     }
     setInterfacesOpen(false);
-    setInterfaceSearch('');
   };
 
   const removeInterface = (iface: string) => {
@@ -136,9 +134,8 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
     }
   };
 
-  // Get interface options - includes available interfaces and custom search
+  // Get interface options
   const interfaceOptions = (interfacesData || []).map((i) => i.name);
-  const showCustomInterface = interfaceSearch && !interfaceOptions.includes(interfaceSearch);
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -282,24 +279,11 @@ export function CreateRuleDialog({ open, onOpenChange, availableLists }: CreateR
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0">
-                      <Command shouldFilter={false}>
-                        <CommandInput
-                          placeholder="Search or type custom interface..."
-                          value={interfaceSearch}
-                          onValueChange={setInterfaceSearch}
-                        />
-                        <CommandList>
+                      <Command>
+                        <CommandInput placeholder="Search interfaces..." />
+                        <CommandList className="max-h-[200px]">
                           <CommandEmpty>No interfaces found.</CommandEmpty>
                           <CommandGroup>
-                            {showCustomInterface && (
-                              <CommandItem
-                                value={interfaceSearch}
-                                onSelect={() => addInterface(interfaceSearch)}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                {interfaceSearch} <span className="ml-2 text-muted-foreground">(Not exists)</span>
-                              </CommandItem>
-                            )}
                             {interfaceOptions.map((iface) => (
                               <CommandItem
                                 key={iface}
