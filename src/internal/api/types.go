@@ -57,6 +57,15 @@ type StatusResponse struct {
 	Services              map[string]ServiceInfo `json:"services"`
 	CurrentConfigHash     string                 `json:"current_config_hash"`
 	ConfigurationOutdated bool                   `json:"configuration_outdated"`
+	DNSServers            []DNSServerInfo        `json:"dns_servers,omitempty"` // Upstream DNS servers
+}
+
+// DNSServerInfo contains information about a DNS server.
+type DNSServerInfo struct {
+	Type     string  `json:"type"`               // "IP4", "IP6", "DoT", "DoH"
+	Endpoint string  `json:"endpoint"`           // IP for plain DNS, SNI for DoT, URI for DoH
+	Port     string  `json:"port,omitempty"`     // Port for DoT/DoH
+	Domain   *string `json:"domain,omitempty"`   // Domain scope (if any)
 }
 
 // VersionInfo contains build version information.

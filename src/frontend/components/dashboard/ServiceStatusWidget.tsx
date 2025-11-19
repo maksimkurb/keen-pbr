@@ -191,6 +191,33 @@ export function ServiceStatusWidget() {
             }
           />
         </div>
+
+          {/* DNS Servers section */}
+          {data.dns_servers && data.dns_servers.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                {t('dashboard.dnsServers')}
+              </h3>
+              <div className="space-y-2">
+                {data.dns_servers.map((server, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline" className="text-xs">
+                      {t(`dashboard.dnsServerTypes.${server.type}`) || server.type}
+                    </Badge>
+                    <span className="font-mono text-muted-foreground">
+                      {server.endpoint}
+                      {server.port && `:${server.port}`}
+                    </span>
+                    {server.domain && (
+                      <span className="text-xs text-muted-foreground">
+                        ({server.domain})
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

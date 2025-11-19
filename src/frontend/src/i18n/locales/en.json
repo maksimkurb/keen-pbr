@@ -23,6 +23,14 @@
     "statusUnknown": "unknown",
     "badgeMisconfigured": "misconfigured",
     "badgeStale": "stale",
+    "dnsServers": "DNS Servers",
+    "noDnsServers": "No DNS servers configured",
+    "dnsServerTypes": {
+      "IP4": "IPv4",
+      "IP6": "IPv6",
+      "DoT": "DNS over TLS",
+      "DoH": "DNS over HTTPS"
+    },
     "domainChecker": {
       "title": "Domain/IP Routing Checker",
       "placeholder": "Enter domain or IP address",

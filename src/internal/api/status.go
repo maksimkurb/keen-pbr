@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os/exec"
 
+	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -31,6 +32,29 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		if versionStr, err := h.deps.KeeneticClient().GetRawVersion(); err == nil {
 			response.KeeneticVersion = versionStr
 		}
+	}
+
+	// Load config to resolve DNS servers
+	cfg, err := h.loadConfig()
+	if err == nil {
+		// Get DNS servers using centralized resolution method
+		dnsServers := lists.ResolveDNSServers(cfg, h.deps.KeeneticClient())
+
+		// Convert to API types
+		if len(dnsServers) > 0 {
+			apiDNSServers := make([]DNSServerInfo, len(dnsServers))
+			for i, server := range dnsServers {
+				apiDNSServers[i] = DNSServerInfo{
+					Type:     string(server.Type),
+					Endpoint: server.Endpoint,
+					Port:     server.Port,
+					Domain:   server.Domain,
+				}
+			}
+			response.DNSServers = apiDNSServers
+		}
+	} else {
+		log.Warnf("Failed to load config for DNS servers: %v", err)
 	}
 
 	// Get current config hash (cached) from ConfigHasher

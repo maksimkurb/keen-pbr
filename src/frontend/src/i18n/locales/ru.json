@@ -23,6 +23,14 @@
     "statusUnknown": "неизвестно",
     "badgeMisconfigured": "не настроен",
     "badgeStale": "устарел",
+    "dnsServers": "DNS серверы",
+    "noDnsServers": "DNS серверы не настроены",
+    "dnsServerTypes": {
+      "IP4": "IPv4",
+      "IP6": "IPv6",
+      "DoT": "DNS через TLS",
+      "DoH": "DNS через HTTPS"
+    },
     "domainChecker": {
       "title": "Проверка маршрутизации домена/IP",
       "placeholder": "Введите домен или IP-адрес",

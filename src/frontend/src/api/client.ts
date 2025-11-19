@@ -130,12 +130,20 @@ export interface VersionInfo {
 	commit: string;
 }
 
+export interface DNSServerInfo {
+	type: string; // "IP4", "IP6", "DoT", "DoH"
+	endpoint: string; // IP for plain DNS, SNI for DoT, URI for DoH
+	port?: string; // Port for DoT/DoH
+	domain?: string; // Domain scope (if any)
+}
+
 export interface StatusInfo {
 	version: VersionInfo;
 	keenetic_version?: string;
 	services: Record<string, ServiceInfo>;
 	current_config_hash: string;
 	configuration_outdated: boolean;
+	dns_servers?: DNSServerInfo[]; // Upstream DNS servers
 }
 
 // Service control types

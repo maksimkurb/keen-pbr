@@ -74,6 +74,9 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	// Create ConfigHasher DI component
 	c.configHasher = config.NewConfigHasher(ctx.ConfigPath)
 
+	// Set Keenetic client on ConfigHasher for DNS server tracking
+	c.configHasher.SetKeeneticClient(c.deps.KeeneticClient())
+
 	// Create service manager
 	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval, c.configHasher)
 	if err != nil {

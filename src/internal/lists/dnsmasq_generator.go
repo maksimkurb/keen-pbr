@@ -98,44 +98,28 @@ func printDnsmasqConfig(cfg *config.Config, configPath string, domains *DomainSt
 	}
 	log.Infof("Dnsmasq config hash: %s", configHash)
 
-	if *cfg.General.UseKeeneticDNS {
-		// Import keenetic DNS servers
-		var keeneticServers []keenetic.DnsServerInfo
-		var err error
-		if keeneticClient != nil {
-			keeneticServers, err = keeneticClient.GetDNSServers()
-		} else {
-			err = fmt.Errorf("keenetic client not available")
-		}
-		if err != nil {
-			if cfg.General.FallbackDNS != "" {
-				log.Warnf("Failed to fetch Keenetic DNS servers, using fallback DNS: %s", cfg.General.FallbackDNS)
-				row := "server=" + cfg.General.FallbackDNS + "\n"
-				if _, err := stdoutBuffer.WriteString(row); err != nil {
-					return fmt.Errorf("failed to print fallback DNS to dnsmasq cfg file: %v", err)
-				}
-			} else {
-				log.Warnf("Failed to fetch Keenetic DNS servers, no fallback DNS provided")
-			}
-		} else {
-			log.Infof("Found %d Keenetic DNS servers", len(keeneticServers))
-			for _, server := range keeneticServers {
-				ip := server.Proxy
-				port := server.Port
+	// Get upstream DNS servers using centralized resolution logic
+	upstreamServers := ResolveDNSServers(cfg, keeneticClient)
+	if len(upstreamServers) > 0 {
+		log.Infof("Using %d upstream DNS server(s)", len(upstreamServers))
+		for _, server := range upstreamServers {
+			ip := server.Proxy
+			port := server.Port
 
-				row := "server="
-				if server.Domain != nil && *server.Domain != "" {
-					row += "/" + *server.Domain + "/"
-				}
-				row += ip
-				if port != "" {
-					row += "#" + port
-				}
-				if _, err := stdoutBuffer.WriteString(row + "\n"); err != nil {
-					return fmt.Errorf("failed to print DNS to dnsmasq cfg file: %v", err)
-				}
+			row := "server="
+			if server.Domain != nil && *server.Domain != "" {
+				row += "/" + *server.Domain + "/"
+			}
+			row += ip
+			if port != "" {
+				row += "#" + port
+			}
+			if _, err := stdoutBuffer.WriteString(row + "\n"); err != nil {
+				return fmt.Errorf("failed to print DNS to dnsmasq cfg file: %v", err)
 			}
 		}
+	} else {
+		log.Infof("No upstream DNS servers configured")
 	}
 
 	for _, ipset := range cfg.IPSets {

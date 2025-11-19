@@ -13,14 +13,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
 const hashCacheTTL = 5 * time.Minute
 
+// KeeneticClientInterface defines minimal interface for DNS server retrieval
+// This avoids circular dependency with domain package
+type KeeneticClientInterface interface {
+	GetDNSServers() ([]keenetic.DnsServerInfo, error)
+}
+
 // ConfigHasher calculates MD5 hash of configuration state
 // It acts as a DI component that maintains cached current hash and active hash
 type ConfigHasher struct {
-	configPath string
+	configPath     string
+	keeneticClient KeeneticClientInterface
 
 	// Current hash (from config file) with caching
 	currentHash      string
@@ -37,6 +46,13 @@ func NewConfigHasher(configPath string) *ConfigHasher {
 	return &ConfigHasher{
 		configPath: configPath,
 	}
+}
+
+// SetKeeneticClient sets the Keenetic client for DNS server tracking
+func (h *ConfigHasher) SetKeeneticClient(client KeeneticClientInterface) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.keeneticClient = client
 }
 
 // GetCurrentConfigHash returns cached hash of current config file
@@ -153,20 +169,44 @@ func (h *ConfigHasher) calculateHashForConfig(config *Config) (string, error) {
 	// 1. Get used list names from all ipsets
 	usedLists := h.getUsedListNamesForConfig(config)
 
-	// 2. Build hashable structure
-	hashData := &ConfigHashData{
-		General:  config.General,
-		IPSets:   h.buildIPSetHashDataForConfig(config),
-		ListMD5s: h.calculateListHashesForConfig(config, usedLists),
+	// 2. Get DNS servers if Keenetic client is available and use_keenetic_dns is enabled
+	var dnsServers []DNSServerHashData
+	h.mu.RLock()
+	keeneticClient := h.keeneticClient
+	h.mu.RUnlock()
+
+	if config.General.UseKeeneticDNS != nil && *config.General.UseKeeneticDNS && keeneticClient != nil {
+		servers, err := keeneticClient.GetDNSServers()
+		if err == nil && len(servers) > 0 {
+			// Convert to hashable format
+			dnsServers = make([]DNSServerHashData, len(servers))
+			for i, server := range servers {
+				dnsServers[i] = DNSServerHashData{
+					Type:     string(server.Type),
+					Proxy:    server.Proxy,
+					Endpoint: server.Endpoint,
+					Port:     server.Port,
+					Domain:   server.Domain,
+				}
+			}
+		}
 	}
 
-	// 3. Serialize to JSON (sorted keys for determinism)
+	// 3. Build hashable structure
+	hashData := &ConfigHashData{
+		General:    config.General,
+		IPSets:     h.buildIPSetHashDataForConfig(config),
+		ListMD5s:   h.calculateListHashesForConfig(config, usedLists),
+		DNSServers: dnsServers,
+	}
+
+	// 4. Serialize to JSON (sorted keys for determinism)
 	jsonBytes, err := json.Marshal(hashData)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal config data: %w", err)
 	}
 
-	// 4. Calculate MD5
+	// 5. Calculate MD5
 	hash := md5.Sum(jsonBytes)
 	return hex.EncodeToString(hash[:]), nil
 }
@@ -275,9 +315,10 @@ func (h *ConfigHasher) hashInlineHosts(list *ListSource) (string, error) {
 
 // ConfigHashData represents the structure used for hashing
 type ConfigHashData struct {
-	General  *GeneralConfig            `json:"general"`
-	IPSets   []*IPSetHashData          `json:"ipsets"`
-	ListMD5s map[string]string         `json:"list_md5s"`
+	General    *GeneralConfig      `json:"general"`
+	IPSets     []*IPSetHashData    `json:"ipsets"`
+	ListMD5s   map[string]string   `json:"list_md5s"`
+	DNSServers []DNSServerHashData `json:"dns_servers,omitempty"` // From Keenetic if enabled
 }
 
 // IPSetHashData represents hashable IPSet configuration
@@ -288,6 +329,15 @@ type IPSetHashData struct {
 	FlushBeforeApplying bool            `json:"flush_before_applying"`
 	Routing             *RoutingConfig  `json:"routing,omitempty"`
 	IPTablesRules       []*IPTablesRule `json:"iptables_rules,omitempty"`
+}
+
+// DNSServerHashData represents hashable DNS server information
+type DNSServerHashData struct {
+	Type     string  `json:"type"`               // "IP4", "IP6", "DoT", "DoH"
+	Proxy    string  `json:"proxy"`              // Proxy IP address
+	Endpoint string  `json:"endpoint"`           // Endpoint (IP/SNI/URI)
+	Port     string  `json:"port"`               // Port
+	Domain   *string `json:"domain,omitempty"`   // Domain scope
 }
 
 // sortedStrings returns a sorted copy of a string slice
