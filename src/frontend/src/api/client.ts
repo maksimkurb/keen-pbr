@@ -96,6 +96,7 @@ export interface UpdateIPSetRequest {
 // Interface types
 export interface InterfaceInfo {
 	name: string;
+	is_up: boolean;
 }
 
 // Settings types

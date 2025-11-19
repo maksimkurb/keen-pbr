@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
@@ -266,8 +266,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     updateIPTablesRule(ruleIndex, 'rule', newRuleString.split(' '));
   };
 
-  // Get interface options
-  const interfaceOptions = (interfacesData || []).map((i) => i.name);
+  // Get interface options (keep full objects for UP/DOWN state)
+  const interfaceOptions = interfacesData || [];
 
   const isPending = isEditMode ? updateIPSet.isPending : createIPSet.isPending;
 
@@ -423,7 +423,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           onValueChange={setCustomInterface}
                         />
                         <CommandList className="max-h-[200px]">
-                          {customInterface && !interfaceOptions.includes(customInterface) && (
+                          {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
                             <CommandItem
                               onSelect={() => addCustomInterface()}
                               className="text-sm"
@@ -438,18 +438,23 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           <CommandGroup>
                             {interfaceOptions.map((iface) => (
                               <CommandItem
-                                key={iface}
-                                value={iface}
-                                onSelect={() => addInterface(iface)}
-                                disabled={formData.routing?.interfaces.includes(iface)}
+                                key={iface.name}
+                                value={iface.name}
+                                onSelect={() => addInterface(iface.name)}
+                                disabled={formData.routing?.interfaces.includes(iface.name)}
                               >
+                                {iface.is_up ? (
+                                  <ArrowUp className="mr-2 h-4 w-4 text-green-600" />
+                                ) : (
+                                  <ArrowDown className="mr-2 h-4 w-4 text-gray-400" />
+                                )}
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    formData.routing?.interfaces.includes(iface) ? "opacity-100" : "opacity-0"
+                                    formData.routing?.interfaces.includes(iface.name) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                {iface}
+                                {iface.name}
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -460,10 +465,17 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
                   {formData.routing.interfaces.length > 0 && (
                     <div className="mt-2 space-y-1 border rounded-md p-2">
-                      {formData.routing.interfaces.map((iface, index) => (
+                      {formData.routing.interfaces.map((iface, index) => {
+                        const interfaceInfo = interfaceOptions.find(i => i.name === iface);
+                        return (
                         <div key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            {interfaceInfo?.is_up ? (
+                              <ArrowUp className="h-4 w-4 text-green-600" />
+                            ) : interfaceInfo ? (
+                              <ArrowDown className="h-4 w-4 text-gray-400" />
+                            ) : null}
                             <span className="font-mono">{iface}</span>
                           </div>
                           <div className="flex items-center gap-1">
@@ -498,7 +510,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                             </Button>
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </Field>

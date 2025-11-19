@@ -8,6 +8,7 @@ import (
 // InterfaceInfo represents a network interface.
 type InterfaceInfo struct {
 	Name string `json:"name"`
+	IsUp bool   `json:"is_up"`
 }
 
 // InterfacesResponse represents the response for the interfaces list endpoint.
@@ -26,12 +27,13 @@ func (h *Handler) GetInterfaces(w http.ResponseWriter, r *http.Request) {
 
 	interfaceInfos := make([]InterfaceInfo, 0, len(interfaces))
 	for _, iface := range interfaces {
-		// Skip loopback and down interfaces
-		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+		// Skip loopback interfaces
+		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 		interfaceInfos = append(interfaceInfos, InterfaceInfo{
 			Name: iface.Name,
+			IsUp: iface.Flags&net.FlagUp != 0,
 		})
 	}
 
