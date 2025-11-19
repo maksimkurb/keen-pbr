@@ -141,6 +141,44 @@ func (sm *ServiceManager) Stop() error {
 	return nil
 }
 
+// Reload reloads the configuration and reapplies network settings
+// This is typically triggered by SIGHUP signal
+func (sm *ServiceManager) Reload() error {
+	sm.mu.RLock()
+	if !sm.running {
+		sm.mu.RUnlock()
+		return fmt.Errorf("service is not running")
+	}
+	cfg := sm.cfg
+	ctx := sm.ctx
+	networkMgr := sm.networkMgr
+	sm.mu.RUnlock()
+
+	log.Infof("Reloading configuration (triggered by SIGHUP)...")
+
+	// Update interface list
+	var err error
+	if ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
+		return fmt.Errorf("failed to get interfaces list: %v", err)
+	}
+
+	// Reapply persistent network configuration (iptables rules and ip rules)
+	log.Infof("Reapplying persistent network configuration...")
+	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	}
+
+	// Force update routing configuration (ip routes)
+	// SIGHUP forces a full refresh, not just changed interfaces
+	log.Infof("Forcing routing configuration update...")
+	if err := networkMgr.ApplyRoutingConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply routing configuration: %v", err)
+	}
+
+	log.Infof("Configuration reloaded successfully")
+	return nil
+}
+
 // Restart restarts the service
 func (sm *ServiceManager) Restart() error {
 	if err := sm.Stop(); err != nil {

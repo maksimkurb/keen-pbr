@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug, ListPlus, Network } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug, ListPlus, Network, File, Globe, List } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
+import { useSettings } from '../../src/hooks/useSettings';
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -17,6 +18,7 @@ import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -26,13 +28,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '../ui/empty';
 import { cn } from '../../src/lib/utils';
-import type { IPSetConfig, CreateIPSetRequest, IPTablesRule } from '../../src/api/client';
+import type { IPSetConfig, CreateIPSetRequest, IPTablesRule, ListInfo } from '../../src/api/client';
 
 interface RuleDialogProps {
   ipset?: IPSetConfig | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  availableLists: string[];
+  availableLists: ListInfo[];
 }
 
 // Default iptables rule
@@ -45,6 +47,25 @@ const DEFAULT_IPTABLES_RULE: IPTablesRule = {
 // Available template variables
 const TEMPLATE_VARS = ['{{ipset_name}}', '{{fwmark}}', '{{table}}', '{{priority}}'];
 
+// Helper function to get icon for list type
+const getListIcon = (type: string) => {
+  switch (type) {
+    case 'url':
+      return Globe;
+    case 'file':
+      return File;
+    case 'hosts':
+      return List;
+    default:
+      return ListPlus;
+  }
+};
+
+// Helper function to get type label
+const getListTypeLabel = (type: string) => {
+  return type || 'inline';
+};
+
 export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
   const { t } = useTranslation();
   const isEditMode = !!ipset;
@@ -53,9 +74,16 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [customInterface, setCustomInterface] = useState('');
+  const [tableManuallySet, setTableManuallySet] = useState(false);
+  const [fwmarkManuallySet, setFwmarkManuallySet] = useState(false);
 
-  // Fetch and refresh interfaces while dialog is open (cached for 5s, auto-refresh every 5s)
-  const { data: interfacesData } = useInterfaces(open);
+  // Get settings to check if interface monitoring is enabled
+  const { data: settings } = useSettings();
+  const interfaceMonitoringEnabled = settings?.enable_interface_monitoring ?? false;
+
+  // Fetch and refresh interfaces while dialog is open
+  // Auto-refresh is only enabled if monitoring is enabled in settings
+  const { data: interfacesData } = useInterfaces(open, interfaceMonitoringEnabled);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
@@ -75,22 +103,26 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   // Initialize form when ipset changes (edit mode) or reset (create mode)
   useEffect(() => {
     if (ipset) {
+      const routing = ipset.routing || {
+        interfaces: [],
+        kill_switch: true,
+        fwmark: 100,
+        table: 100,
+        priority: 100,
+      };
       setFormData({
         ipset_name: ipset.ipset_name,
         lists: ipset.lists,
         ip_version: ipset.ip_version,
         flush_before_applying: ipset.flush_before_applying,
-        routing: ipset.routing || {
-          interfaces: [],
-          kill_switch: true,
-          fwmark: 100,
-          table: 100,
-          priority: 100,
-        },
+        routing,
         iptables_rule: ipset.iptables_rule && ipset.iptables_rule.length > 0
           ? ipset.iptables_rule
           : [{ ...DEFAULT_IPTABLES_RULE }],
       });
+      // If table/fwmark differ from priority, mark as manually set
+      setTableManuallySet(routing.table !== routing.priority);
+      setFwmarkManuallySet(routing.fwmark !== routing.priority);
     } else if (!open) {
       // Reset form when dialog closes in create mode
       setFormData({
@@ -108,6 +140,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
         iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
       });
       setCustomInterface('');
+      setTableManuallySet(false);
+      setFwmarkManuallySet(false);
     }
   }, [ipset, open]);
 
@@ -349,25 +383,32 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   <PopoverContent className="w-full p-0">
                     <Command>
                       <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
-                      <CommandList>
+                      <CommandList className="max-h-[300px] overflow-y-auto">
                         <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
                         <CommandGroup>
-                          {availableLists.map((list) => (
-                            <CommandItem
-                              key={list}
-                              value={list}
-                              onSelect={() => addList(list)}
-                              disabled={formData.lists.includes(list)}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.lists.includes(list) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {list}
-                            </CommandItem>
-                          ))}
+                          {availableLists.map((list) => {
+                            const ListIcon = getListIcon(list.type);
+                            return (
+                              <CommandItem
+                                key={list.list_name}
+                                value={list.list_name}
+                                onSelect={() => addList(list.list_name)}
+                                disabled={formData.lists.includes(list.list_name)}
+                              >
+                                <ListIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.lists.includes(list.list_name) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="flex-1">{list.list_name}</span>
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {getListTypeLabel(list.type)}
+                                </Badge>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -375,17 +416,30 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                 </Popover>
 
                 {formData.lists.length > 0 ? (
-                  <ul className="mt-2 space-y-1 border rounded-md p-2">
-                    {formData.lists.map((list) => (
-                      <li key={list} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
-                        <span>{list}</span>
-                        <X
-                          className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => removeList(list)}
-                        />
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-2 space-y-1 border rounded-md p-2">
+                    {formData.lists.map((listName, index) => {
+                      const listInfo = availableLists.find(l => l.list_name === listName);
+                      const ListIcon = listInfo ? getListIcon(listInfo.type) : ListPlus;
+                      return (
+                        <div key={`${listName}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            <ListIcon className="h-4 w-4 text-muted-foreground" />
+                            <span>{listName}</span>
+                            {listInfo && (
+                              <Badge variant="outline" className="text-xs">
+                                {getListTypeLabel(listInfo.type)}
+                              </Badge>
+                            )}
+                          </div>
+                          <X
+                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                            onClick={() => removeList(listName)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <Empty className="mt-2 border">
                     <EmptyHeader>
@@ -433,7 +487,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           value={customInterface}
                           onValueChange={setCustomInterface}
                         />
-                        <CommandList className="max-h-[200px]">
+                        <CommandList className="max-h-[300px] overflow-y-auto">
                           {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
                             <CommandItem
                               onSelect={() => addCustomInterface()}
@@ -545,12 +599,24 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       id="priority"
                       type="number"
                       value={formData.routing.priority}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, priority: parseInt(e.target.value) },
-                      })}
+                      onChange={(e) => {
+                        const newPriority = parseInt(e.target.value) || 100;
+                        setFormData({
+                          ...formData,
+                          routing: {
+                            ...formData.routing!,
+                            priority: newPriority,
+                            // Auto-sync table/fwmark if not manually set
+                            table: tableManuallySet ? formData.routing!.table : newPriority,
+                            fwmark: fwmarkManuallySet ? formData.routing!.fwmark : newPriority,
+                          },
+                        });
+                      }}
                       required
                     />
+                    <FieldDescription className="text-xs">
+                      {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
+                    </FieldDescription>
                   </Field>
 
                   <Field>
@@ -558,13 +624,32 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     <Input
                       id="table"
                       type="number"
-                      value={formData.routing.table}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, table: parseInt(e.target.value) },
-                      })}
-                      required
+                      value={tableManuallySet ? formData.routing.table : ''}
+                      placeholder={!tableManuallySet ? formData.routing.priority.toString() : undefined}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value) {
+                          setTableManuallySet(true);
+                          setFormData({
+                            ...formData,
+                            routing: { ...formData.routing!, table: parseInt(value) },
+                          });
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // If clicking on field with placeholder, pre-fill with priority value
+                        if (!tableManuallySet && e.target.value === '') {
+                          setTableManuallySet(true);
+                          setFormData({
+                            ...formData,
+                            routing: { ...formData.routing!, table: formData.routing.priority },
+                          });
+                        }
+                      }}
                     />
+                    <FieldDescription className="text-xs">
+                      {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
+                    </FieldDescription>
                   </Field>
 
                   <Field>
@@ -572,13 +657,32 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     <Input
                       id="fwmark"
                       type="number"
-                      value={formData.routing.fwmark}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, fwmark: parseInt(e.target.value) },
-                      })}
-                      required
+                      value={fwmarkManuallySet ? formData.routing.fwmark : ''}
+                      placeholder={!fwmarkManuallySet ? formData.routing.priority.toString() : undefined}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value) {
+                          setFwmarkManuallySet(true);
+                          setFormData({
+                            ...formData,
+                            routing: { ...formData.routing!, fwmark: parseInt(value) },
+                          });
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // If clicking on field with placeholder, pre-fill with priority value
+                        if (!fwmarkManuallySet && e.target.value === '') {
+                          setFwmarkManuallySet(true);
+                          setFormData({
+                            ...formData,
+                            routing: { ...formData.routing!, fwmark: formData.routing.priority },
+                          });
+                        }
+                      }}
                     />
+                    <FieldDescription className="text-xs">
+                      {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
+                    </FieldDescription>
                   </Field>
                 </div>
 

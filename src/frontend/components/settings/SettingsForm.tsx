@@ -23,6 +23,7 @@ export function SettingsForm() {
     fallback_dns: '',
     auto_update_lists: true,
     update_interval_hours: 24,
+    enable_interface_monitoring: false,
   });
 
   // Sync form data with fetched settings
@@ -194,6 +195,25 @@ export function SettingsForm() {
                 placeholder="24"
                 disabled={!formData.auto_update_lists}
               />
+            </Field>
+
+            {/* Enable Interface Monitoring */}
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="enable_interface_monitoring"
+                  checked={formData.enable_interface_monitoring ?? false}
+                  onCheckedChange={handleCheckboxChange('enable_interface_monitoring')}
+                />
+                <div className="flex flex-col">
+                  <FieldLabel htmlFor="enable_interface_monitoring" className="cursor-pointer">
+                    {t('settings.enableInterfaceMonitoring', { defaultValue: 'Enable Interface Monitoring' })}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t('settings.enableInterfaceMonitoringDescription', { defaultValue: 'Periodically check interface status in the web UI (updates every 5 seconds)' })}
+                  </FieldDescription>
+                </div>
+              </div>
             </Field>
           </FieldGroup>
         </CardContent>

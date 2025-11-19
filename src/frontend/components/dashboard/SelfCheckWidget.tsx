@@ -178,8 +178,8 @@ export function SelfCheckWidget() {
 
           {/* Results Table */}
           {results.length > 0 ? (
-            <div className="w-full rounded-md border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="w-full rounded-md border overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
                     <th className="text-left py-3 px-4 font-medium">Rule</th>

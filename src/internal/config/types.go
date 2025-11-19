@@ -18,12 +18,13 @@ type Config struct {
 }
 
 type GeneralConfig struct {
-	ListsOutputDir      string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticDNS      *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
-	FallbackDNS         string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
-	APIBindAddress      string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
-	AutoUpdateLists     *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
-	UpdateIntervalHours int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
+	ListsOutputDir            string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
+	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
+	FallbackDNS               string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	APIBindAddress            string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
+	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
+	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
+	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
 }
 
 // IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
@@ -43,6 +44,14 @@ func (gc *GeneralConfig) GetUpdateIntervalHours() int {
 		return 1 // Minimum 1 hour
 	}
 	return gc.UpdateIntervalHours
+}
+
+// IsInterfaceMonitoringEnabled returns whether interface monitoring is enabled (default: false).
+func (gc *GeneralConfig) IsInterfaceMonitoringEnabled() bool {
+	if gc.EnableInterfaceMonitoring == nil {
+		return false // Default to disabled
+	}
+	return *gc.EnableInterfaceMonitoring
 }
 
 type IPSetConfig struct {

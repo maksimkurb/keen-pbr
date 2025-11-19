@@ -134,46 +134,58 @@ func (c *ServerCommand) Run() error {
 		serverErrors <- server.ListenAndServe()
 	}()
 
-	// Channel to listen for interrupt signals
+	// Channels to listen for signals
 	shutdown := make(chan os.Signal, 1)
+	reload := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(reload, syscall.SIGHUP)
 
-	// Block until we receive a signal or an error
-	select {
-	case err := <-serverErrors:
-		if err != nil && err != http.ErrServerClosed {
-			// Stop the service before returning
-			if stopErr := c.serviceMgr.Stop(); stopErr != nil {
-				log.Errorf("Failed to stop service: %v", stopErr)
+	// Run signal handling loop
+	for {
+		select {
+		case err := <-serverErrors:
+			if err != nil && err != http.ErrServerClosed {
+				// Stop the service before returning
+				if stopErr := c.serviceMgr.Stop(); stopErr != nil {
+					log.Errorf("Failed to stop service: %v", stopErr)
+				}
+				return fmt.Errorf("server error: %w", err)
 			}
-			return fmt.Errorf("server error: %w", err)
-		}
+			return nil
 
-	case sig := <-shutdown:
-		log.Infof("Received signal %v, shutting down server...", sig)
-
-		// Stop the service first
-		log.Infof("Stopping routing service...")
-		if err := c.serviceMgr.Stop(); err != nil {
-			log.Errorf("Failed to stop service: %v", err)
-		}
-
-		// Create context with timeout for shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		// Attempt graceful shutdown
-		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Error during server shutdown: %v", err)
-			// Force close if graceful shutdown fails
-			if err := server.Close(); err != nil {
-				return fmt.Errorf("failed to close server: %w", err)
+		case <-reload:
+			log.Infof("Received SIGHUP signal, reloading configuration...")
+			if err := c.serviceMgr.Reload(); err != nil {
+				log.Errorf("Failed to reload configuration: %v", err)
+			} else {
+				log.Infof("Configuration reloaded successfully")
 			}
-			return fmt.Errorf("server shutdown failed: %w", err)
-		}
 
-		log.Infof("Server stopped gracefully")
+		case sig := <-shutdown:
+			log.Infof("Received signal %v, shutting down server...", sig)
+
+			// Stop the service first
+			log.Infof("Stopping routing service...")
+			if err := c.serviceMgr.Stop(); err != nil {
+				log.Errorf("Failed to stop service: %v", err)
+			}
+
+			// Create context with timeout for shutdown
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			// Attempt graceful shutdown
+			if err := server.Shutdown(ctx); err != nil {
+				log.Errorf("Error during server shutdown: %v", err)
+				// Force close if graceful shutdown fails
+				if err := server.Close(); err != nil {
+					return fmt.Errorf("failed to close server: %w", err)
+				}
+				return fmt.Errorf("server shutdown failed: %w", err)
+			}
+
+			log.Infof("Server stopped gracefully")
+			return nil
+		}
 	}
-
-	return nil
 }
