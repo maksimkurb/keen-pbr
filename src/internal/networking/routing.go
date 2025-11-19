@@ -120,18 +120,36 @@ func (r *RoutingConfigManager) Apply(ipset *config.IPSetConfig) error {
 		return err
 	}
 
-	// Apply routes
-	if err := r.applyRoutes(ipset, chosenIface); err != nil {
-		return err
-	}
-
-	// Update tracked state
+	// Determine target interface name
 	var targetIface string
 	if chosenIface == nil {
 		targetIface = ""
 	} else {
 		targetIface = chosenIface.Attrs().Name
 	}
+
+	// Log interface selection
+	// Check if this is first time or if interface changed
+	currentIface, exists := r.activeInterfaces[ipset.IPSetName]
+	if !exists {
+		// First time - interface is being selected
+		log.Infof("[ipset %s] Selected interface: %s",
+			ipset.IPSetName,
+			ifaceNameOrBlackhole(targetIface))
+	} else if currentIface != targetIface {
+		// Interface changed from previous selection
+		log.Infof("[ipset %s] Interface changed: %s -> %s, updating routes",
+			ipset.IPSetName,
+			ifaceNameOrBlackhole(currentIface),
+			ifaceNameOrBlackhole(targetIface))
+	}
+
+	// Apply routes
+	if err := r.applyRoutes(ipset, chosenIface); err != nil {
+		return err
+	}
+
+	// Update tracked state
 	r.activeInterfaces[ipset.IPSetName] = targetIface
 
 	return nil
