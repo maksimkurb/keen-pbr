@@ -97,7 +97,7 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="max-w-2xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Edit List</ResponsiveDialogTitle>
@@ -212,6 +212,6 @@ export function EditListDialog({ list, open, onOpenChange }: EditListDialogProps
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

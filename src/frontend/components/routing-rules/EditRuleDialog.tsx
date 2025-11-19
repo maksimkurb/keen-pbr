@@ -148,7 +148,7 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
   const showCustomInterface = interfaceSearch && !interfaceOptions.includes(interfaceSearch);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Edit Routing Rule</ResponsiveDialogTitle>
@@ -462,6 +462,6 @@ export function EditRuleDialog({ ipset, open, onOpenChange }: EditRuleDialogProp
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
