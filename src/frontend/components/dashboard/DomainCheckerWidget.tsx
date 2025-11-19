@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Search, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Search, Loader2, AlertCircle, CheckCircle2, X, RouteIcon } from 'lucide-react';
 import { apiClient } from '../../src/api/client';
 import type {
 	RoutingCheckResponse,
 } from '../../src/api/client';
+import { Route } from 'react-router-dom';
 
 type CheckType = 'routing' | 'ping' | 'traceroute';
 
@@ -243,7 +243,7 @@ export function DomainCheckerWidget() {
 				{state.routingResult && (
 					<div className="space-y-4 rounded-lg border p-4">
 						<div className="flex items-center gap-2">
-							<CheckCircle2 className="h-5 w-5 text-green-600" />
+							<RouteIcon className="h-5 w-5" />
 							<h3 className="font-semibold">
 								Host: {state.routingResult.host}
 							</h3>

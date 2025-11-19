@@ -72,34 +72,36 @@ export function Header() {
       </div>
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-background">
-          <nav className="container max-w-7xl mx-auto px-4 py-4 flex flex-col gap-2">
-            {navItems.map((item) => (
-              <Button
-                key={item.path}
-                variant={location.pathname === item.path ? 'default' : 'ghost'}
-                className="justify-start"
-                asChild
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Link to={item.path}>{item.label}</Link>
-              </Button>
-            ))}
-            <div className="pt-2 border-t mt-2">
-              <Select value={i18n.language} onValueChange={changeLanguage}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="ru">Русский</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </nav>
-        </div>
-      )}
+      <div
+        className={`md:hidden border-t bg-background overflow-hidden transition-all duration-300 ease-in-out ${
+          mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <nav className="container max-w-7xl mx-auto px-4 py-4 flex flex-col gap-2">
+          {navItems.map((item) => (
+            <Button
+              key={item.path}
+              variant={location.pathname === item.path ? 'default' : 'ghost'}
+              className="justify-start"
+              asChild
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Link to={item.path}>{item.label}</Link>
+            </Button>
+          ))}
+          <div className="pt-2 border-t mt-2">
+            <Select value={i18n.language} onValueChange={changeLanguage}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="ru">Русский</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </nav>
+      </div>
     </header>
   );
 }
