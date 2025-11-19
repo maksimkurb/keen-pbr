@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
@@ -444,9 +444,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                                 disabled={formData.routing?.interfaces.includes(iface.name)}
                               >
                                 {iface.is_up ? (
-                                  <ArrowUp className="mr-2 h-4 w-4 text-green-600" />
+                                  <Unplug className="mr-2 h-4 w-4 text-green-600" />
                                 ) : (
-                                  <ArrowDown className="mr-2 h-4 w-4 text-gray-400" />
+                                  <Unplug className="mr-2 h-4 w-4 text-red-600" />
                                 )}
                                 <Check
                                   className={cn(
@@ -472,9 +472,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{index + 1}.</span>
                             {interfaceInfo?.is_up ? (
-                              <ArrowUp className="h-4 w-4 text-green-600" />
+                              <Unplug className="h-4 w-4 text-green-600" />
                             ) : interfaceInfo ? (
-                              <ArrowDown className="h-4 w-4 text-gray-400" />
+                              <Unplug className="h-4 w-4 text-red-600" />
                             ) : null}
                             <span className="font-mono">{iface}</span>
                           </div>
