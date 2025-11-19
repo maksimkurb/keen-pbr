@@ -36,6 +36,26 @@
       "checkError": "Не удалось проверить маршрутизацию",
       "pingError": "Потеряно соединение с сервером",
       "tracerouteError": "Потеряно соединение с сервером"
+    },
+    "selfCheck": {
+      "title": "Самопроверка конфигурации",
+      "description": "Проверка конфигурации и корректности настройки iptables, ip rules, ip routes и ipsets",
+      "runCheck": "Запустить самопроверку",
+      "checking": "Выполняется проверка...",
+      "completed": "Самопроверка завершена",
+      "failed": "Самопроверка не удалась",
+      "noResults": "Результатов пока нет. Нажмите 'Запустить самопроверку' для начала валидации.",
+      "stopCheck": "Остановить",
+      "checkTypes": {
+        "config_validation": "Валидация конфигурации",
+        "ipset_start": "Проверка IPSet",
+        "ipset": "Существование IPSet",
+        "ip_rule": "IP правило",
+        "ip_route": "IP маршруты",
+        "iptables": "Правила IPTables",
+        "ipset_end": "IPSet завершен",
+        "complete": "Все проверки завершены"
+      }
     }
   },
   "settings": {

@@ -36,6 +36,26 @@
       "checkError": "Failed to check routing",
       "pingError": "Connection to server lost",
       "tracerouteError": "Connection to server lost"
+    },
+    "selfCheck": {
+      "title": "Configuration Self-Check",
+      "description": "Validate your configuration and verify that iptables, ip rules, ip routes, and ipsets are correctly configured",
+      "runCheck": "Run Self-Check",
+      "checking": "Running checks...",
+      "completed": "Self-check completed",
+      "failed": "Self-check failed",
+      "noResults": "No results yet. Click 'Run Self-Check' to start validation.",
+      "stopCheck": "Stop",
+      "checkTypes": {
+        "config_validation": "Configuration Validation",
+        "ipset_start": "IPSet Check",
+        "ipset": "IPSet Existence",
+        "ip_rule": "IP Rule",
+        "ip_route": "IP Routes",
+        "iptables": "IPTables Rules",
+        "ipset_end": "IPSet Complete",
+        "complete": "All Checks Complete"
+      }
     }
   },
   "settings": {

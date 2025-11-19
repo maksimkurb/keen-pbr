@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ServiceStatusWidget } from '../../components/dashboard/ServiceStatusWidget';
 import { DomainCheckerWidget } from '../../components/dashboard/DomainCheckerWidget';
+import { SelfCheckWidget } from '../../components/dashboard/SelfCheckWidget';
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -15,6 +16,8 @@ export default function Dashboard() {
       </div>
 
       <ServiceStatusWidget />
+
+      <SelfCheckWidget />
 
       <DomainCheckerWidget />
     </div>
