@@ -13,6 +13,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // CheckRouting checks routing information for a given host.
