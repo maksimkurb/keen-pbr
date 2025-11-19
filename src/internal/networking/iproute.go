@@ -85,6 +85,29 @@ func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
 	return &IpRoute{&ipr}
 }
 
+func BuildDefaultRouteViaGateway(ipFamily config.IpFamily, gateway net.IP, table int) *IpRoute {
+	ipr := netlink.Route{}
+
+	ipr.Table = table
+	// Use a fixed metric for gateway routes (lower than blackhole but higher than interface)
+	ipr.Priority = 100
+	ipr.Gw = gateway
+	if ipFamily == config.Ipv6 {
+		ipr.Family = netlink.FAMILY_V6
+		ipr.Dst = &net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 128),
+		}
+	} else {
+		ipr.Family = netlink.FAMILY_V4
+		ipr.Dst = &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 32),
+		}
+	}
+	return &IpRoute{&ipr}
+}
+
 func (ipr *IpRoute) Add() error {
 	log.Debugf("Adding IP route [%v]", ipr)
 	if err := netlink.RouteAdd(ipr.Route); err != nil {

@@ -583,6 +583,22 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                 </div>
 
                 <Field>
+                  <FieldLabel htmlFor="default_gateway">{t('routingRules.dialog.defaultGateway')}</FieldLabel>
+                  <FieldDescription>
+                    {t('routingRules.dialog.defaultGatewayDescription')}
+                  </FieldDescription>
+                  <Input
+                    id="default_gateway"
+                    value={formData.routing.default_gateway || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      routing: { ...formData.routing!, default_gateway: e.target.value || undefined },
+                    })}
+                    placeholder={t('routingRules.dialog.defaultGatewayPlaceholder')}
+                  />
+                </Field>
+
+                <Field>
                   <FieldLabel htmlFor="override_dns">{t('routingRules.dialog.dnsOverride')}</FieldLabel>
                   <FieldDescription>
                     {t('routingRules.dialog.dnsOverrideDescription')}

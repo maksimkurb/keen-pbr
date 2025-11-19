@@ -9,7 +9,8 @@ import (
 func ValidateInterfacesArePresent(c *config.Config, interfaces []Interface) error {
 	for _, ipset := range c.IPSets {
 		hasValidInterface := false
-		
+		hasDefaultGateway := ipset.Routing.DefaultGateway != ""
+
 		for _, interfaceName := range ipset.Routing.Interfaces {
 			if err := validateInterfaceExists(interfaceName, interfaces); err != nil {
 				log.Errorf("Interface '%s' for ipset '%s' does not exist", interfaceName, ipset.IPSetName)
@@ -17,9 +18,10 @@ func ValidateInterfacesArePresent(c *config.Config, interfaces []Interface) erro
 				hasValidInterface = true
 			}
 		}
-		
-		if !hasValidInterface {
-			return fmt.Errorf("ipset '%s' has no valid interfaces available", ipset.IPSetName)
+
+		// Allow either valid interfaces OR default gateway
+		if !hasValidInterface && !hasDefaultGateway {
+			return fmt.Errorf("ipset '%s' has no valid interfaces available and no default gateway configured", ipset.IPSetName)
 		}
 	}
 

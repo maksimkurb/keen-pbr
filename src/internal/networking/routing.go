@@ -1,6 +1,8 @@
 package networking
 
 import (
+	"fmt"
+	"net"
 	"sync"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
@@ -214,8 +216,42 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 				log.Infof("[%s] Removed old route via interface idx=%d", ipset.IPSetName, route.LinkIndex)
 			}
 		}
+	} else if defaultGateway := ipset.Routing.DefaultGateway; defaultGateway != "" {
+		// No interface available but default gateway is configured
+		gateway := net.ParseIP(defaultGateway)
+		if gateway == nil {
+			return fmt.Errorf("invalid default gateway IP: %s", defaultGateway)
+		}
+
+		log.Infof("[%s] No interface available, using default gateway %s", ipset.IPSetName, defaultGateway)
+
+		// Apply persistent config (iptables/ip rules)
+		if err := r.persistentConfig.Apply(ipset); err != nil {
+			return err
+		}
+
+		// Ensure blackhole route exists if kill switch enabled (as fallback)
+		if killSwitchEnabled && !blackholePresent {
+			if err := r.addBlackholeRoute(ipset); err != nil {
+				return err
+			}
+		}
+
+		// Add gateway route
+		if err := r.addGatewayRoute(ipset, gateway); err != nil {
+			return err
+		}
+
+		// Clean up old interface-based routes
+		for _, route := range existingRoutes {
+			if deleted, err := route.DelIfExists(); err != nil {
+				return err
+			} else if deleted {
+				log.Infof("[%s] Removed old route", ipset.IPSetName)
+			}
+		}
 	} else {
-		// No interface available - handle based on kill switch setting
+		// No interface available and no default gateway - handle based on kill switch setting
 		if !killSwitchEnabled {
 			// Kill switch disabled: remove all routing config to allow traffic leaks
 			log.Infof("[%s] Kill switch disabled and no interface available, removing routing config (traffic will leak)", ipset.IPSetName)
@@ -287,6 +323,18 @@ func (r *RoutingConfigManager) addBlackholeRoute(ipset *config.IPSetConfig) erro
 	} else if added {
 		log.Infof("[%s] Added blackhole route to table %d (metric 200, permanent fallback)",
 			ipset.IPSetName, ipset.Routing.IpRouteTable)
+	}
+	return nil
+}
+
+// addGatewayRoute adds a default route through the specified gateway IP.
+func (r *RoutingConfigManager) addGatewayRoute(ipset *config.IPSetConfig, gateway net.IP) error {
+	ipRoute := BuildDefaultRouteViaGateway(ipset.IPVersion, gateway, ipset.Routing.IpRouteTable)
+	if added, err := ipRoute.AddIfNotExists(); err != nil {
+		return err
+	} else if added {
+		log.Infof("[%s] Added default route via gateway %s to table %d (metric %d)",
+			ipset.IPSetName, gateway.String(), ipset.Routing.IpRouteTable, ipRoute.Priority)
 	}
 	return nil
 }

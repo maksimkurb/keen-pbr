@@ -62,6 +62,7 @@ type IPTablesRule struct {
 
 type RoutingConfig struct {
 	Interfaces     []string `toml:"interfaces" json:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
+	DefaultGateway string   `toml:"default_gateway" json:"default_gateway,omitempty" comment:"Default gateway IP address to use instead of interface-based routing.\nMust match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6).\nIf set, this gateway will be used when no interface is available or no interfaces are configured."`
 	KillSwitch     *bool    `toml:"kill_switch" json:"kill_switch,omitempty" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
 	FwMark         uint32   `toml:"fwmark" json:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" json:"table" comment:"iptables routing table number"`

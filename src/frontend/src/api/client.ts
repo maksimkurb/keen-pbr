@@ -54,6 +54,7 @@ export interface ListDownloadResponse extends ListInfo {
 // IPSet types
 export interface RoutingConfig {
 	interfaces: string[];
+	default_gateway?: string;
 	kill_switch?: boolean;
 	fwmark: number;
 	table: number;
