@@ -74,23 +74,49 @@ export function SelfCheckWidget() {
     return translated === key ? checkType : translated;
   };
 
+  const getExpectedStatus = (checkType: string): string => {
+    // Most checks expect things to be "present" or "running"
+    if (checkType === 'dnsmasq' || checkType === 'service') {
+      return 'running';
+    }
+    return 'present';
+  };
+
+  const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' } => {
+    if (result.ok) {
+      // Success cases
+      if (result.check === 'dnsmasq' || result.check === 'service') {
+        return { text: 'running', icon: 'check' };
+      }
+      if (result.log.includes('not present') || result.log.includes('disabled')) {
+        return { text: 'absent', icon: 'check' };
+      }
+      return { text: 'present', icon: 'check' };
+    } else {
+      // Failure cases
+      if (result.check === 'dnsmasq' || result.check === 'service') {
+        return { text: 'dead', icon: 'cross' };
+      }
+      if (result.log.includes('missing') || result.log.includes('does NOT exist')) {
+        return { text: 'missing', icon: 'cross' };
+      }
+      if (result.log.includes('stale') || result.log.includes('unexpected')) {
+        return { text: 'stale', icon: 'cross' };
+      }
+      return { text: 'error', icon: 'cross' };
+    }
+  };
+
   const copyAllChecks = () => {
     const text = results
       .map((result) => {
-        let line = `[${result.ok ? '✓' : '✗'}] ${getCheckTypeLabel(result.check)}`;
-        if (result.ipset_name) {
-          line += ` (${result.ipset_name})`;
-        }
-        line += `\n  ${result.log}`;
-        if (result.reason) {
-          line += `\n  Reason: ${result.reason}`;
-        }
-        if (result.command) {
-          line += `\n  Command: ${result.command}`;
-        }
-        return line;
+        const rule = result.ipset_name || 'global';
+        const check = getCheckTypeLabel(result.check);
+        const expected = getExpectedStatus(result.check);
+        const actual = getActualStatus(result);
+        return `${rule} | ${check} | ${expected} | ${actual.text} ${actual.icon === 'check' ? '✓' : '✗'}`;
       })
-      .join('\n\n');
+      .join('\n');
 
     navigator.clipboard.writeText(text).then(
       () => {
@@ -150,52 +176,54 @@ export function SelfCheckWidget() {
             </Alert>
           )}
 
-          {/* Results */}
+          {/* Results Table */}
           {results.length > 0 ? (
-            <div className="w-full rounded-md border">
-              <div className="p-4 space-y-3">
-                {results.map((result, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 py-3 px-3 rounded-md border bg-card hover:bg-muted/50"
-                  >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {result.ok ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {getCheckTypeLabel(result.check)}
-                        </p>
-                        {result.ipset_name && (
-                          <span className="text-xs px-2 py-0.5 rounded-md bg-muted font-mono">
-                            {result.ipset_name}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground break-words">
-                        {result.log}
-                      </p>
-                      {result.reason && (
-                        <p className="text-xs text-muted-foreground italic">
-                          {result.reason}
-                        </p>
-                      )}
-                      {result.command && (
-                        <div className="mt-2">
-                          <code className="text-xs bg-muted px-2 py-1 rounded block font-mono break-all">
-                            {result.command}
-                          </code>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="w-full rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 border-b">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-medium">Rule</th>
+                    <th className="text-left py-3 px-4 font-medium">Check</th>
+                    <th className="text-left py-3 px-4 font-medium">Expected</th>
+                    <th className="text-left py-3 px-4 font-medium">Actual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results
+                    .filter((result) => result.check !== 'complete')
+                    .map((result, index) => {
+                      const actualStatus = getActualStatus(result);
+                      return (
+                        <tr
+                          key={index}
+                          className={`border-b last:border-b-0 hover:bg-muted/30 ${
+                            !result.ok ? 'bg-destructive/5' : ''
+                          }`}
+                        >
+                          <td className="py-3 px-4">
+                            <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
+                              {result.ipset_name || 'global'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">{getCheckTypeLabel(result.check)}</td>
+                          <td className="py-3 px-4 text-muted-foreground">
+                            {getExpectedStatus(result.check)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span>{actualStatus.text}</span>
+                              {actualStatus.icon === 'check' ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-red-600" />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
             </div>
           ) : status === 'idle' ? (
             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm border rounded-md">
