@@ -3,16 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { CheckCircle2, XCircle, Play, Square, Loader2 } from 'lucide-react';
-import { ScrollArea } from '../ui/scroll-area';
+import { CheckCircle2, XCircle, Play, Square, Loader2, Copy, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CheckEvent {
   check: string;
   ok: boolean;
   log: string;
+  ipset_name?: string;
+  reason?: string;
+  command?: string;
 }
 
-type CheckStatus = 'idle' | 'running' | 'completed' | 'error';
+type CheckStatus = 'idle' | 'running' | 'completed' | 'failed' | 'error';
 
 export function SelfCheckWidget() {
   const { t } = useTranslation();
@@ -39,7 +42,8 @@ export function SelfCheckWidget() {
 
         // Check if completed
         if (data.check === 'complete') {
-          setStatus('completed');
+          // Set status based on whether check passed or failed
+          setStatus(data.ok ? 'completed' : 'failed');
           eventSource.close();
         }
       } catch (err) {
@@ -68,6 +72,34 @@ export function SelfCheckWidget() {
     const translated = t(key);
     // If translation key doesn't exist, return the check type as-is
     return translated === key ? checkType : translated;
+  };
+
+  const copyAllChecks = () => {
+    const text = results
+      .map((result) => {
+        let line = `[${result.ok ? '✓' : '✗'}] ${getCheckTypeLabel(result.check)}`;
+        if (result.ipset_name) {
+          line += ` (${result.ipset_name})`;
+        }
+        line += `\n  ${result.log}`;
+        if (result.reason) {
+          line += `\n  Reason: ${result.reason}`;
+        }
+        if (result.command) {
+          line += `\n  Command: ${result.command}`;
+        }
+        return line;
+      })
+      .join('\n\n');
+
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast.success(t('dashboard.selfCheck.copied'));
+      },
+      () => {
+        toast.error(t('dashboard.selfCheck.copyFailed'));
+      }
+    );
   };
 
   return (
@@ -103,6 +135,12 @@ export function SelfCheckWidget() {
                 {t('dashboard.selfCheck.stopCheck')}
               </Button>
             )}
+            {results.length > 0 && (
+              <Button onClick={copyAllChecks} variant="outline" size="default">
+                <Copy className="mr-2 h-4 w-4" />
+                {t('dashboard.selfCheck.copyAll')}
+              </Button>
+            )}
           </div>
 
           {/* Error alert */}
@@ -114,12 +152,12 @@ export function SelfCheckWidget() {
 
           {/* Results */}
           {results.length > 0 ? (
-            <ScrollArea className="h-[400px] w-full rounded-md border">
-              <div className="p-4 space-y-2">
+            <div className="w-full rounded-md border">
+              <div className="p-4 space-y-3">
                 {results.map((result, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-3 py-2 px-3 rounded-md hover:bg-muted/50"
+                    className="flex items-start gap-3 py-3 px-3 rounded-md border bg-card hover:bg-muted/50"
                   >
                     <div className="flex-shrink-0 mt-0.5">
                       {result.ok ? (
@@ -128,18 +166,37 @@ export function SelfCheckWidget() {
                         <XCircle className="h-5 w-5 text-red-600" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {getCheckTypeLabel(result.check)}
-                      </p>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {getCheckTypeLabel(result.check)}
+                        </p>
+                        {result.ipset_name && (
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-muted font-mono">
+                            {result.ipset_name}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground break-words">
                         {result.log}
                       </p>
+                      {result.reason && (
+                        <p className="text-xs text-muted-foreground italic">
+                          {result.reason}
+                        </p>
+                      )}
+                      {result.command && (
+                        <div className="mt-2">
+                          <code className="text-xs bg-muted px-2 py-1 rounded block font-mono break-all">
+                            {result.command}
+                          </code>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           ) : status === 'idle' ? (
             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm border rounded-md">
               {t('dashboard.selfCheck.noResults')}
@@ -151,6 +208,12 @@ export function SelfCheckWidget() {
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>{t('dashboard.selfCheck.completed')}</AlertDescription>
+            </Alert>
+          )}
+          {status === 'failed' && (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertDescription>{t('dashboard.selfCheck.failed')}</AlertDescription>
             </Alert>
           )}
         </div>
