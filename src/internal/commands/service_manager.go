@@ -133,6 +133,22 @@ func (sm *ServiceManager) Restart() error {
 	// Small delay to ensure cleanup is complete
 	time.Sleep(500 * time.Millisecond)
 
+	// Reload configuration from disk before starting
+	// This ensures the new service instance uses the latest config
+	cfg, err := loadAndValidateConfigOrFail(sm.ctx.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to reload configuration: %w", err)
+	}
+
+	if err := networking.ValidateInterfacesArePresent(cfg, sm.ctx.Interfaces); err != nil {
+		return fmt.Errorf("failed to validate interfaces: %w", err)
+	}
+
+	// Update config for the new service instance
+	sm.mu.Lock()
+	sm.cfg = cfg
+	sm.mu.Unlock()
+
 	return sm.Start()
 }
 
@@ -141,6 +157,13 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	defer close(sm.done)
 
 	log.Infof("Starting keen-pbr service...")
+
+	// Capture config snapshot at startup - this is immutable for this service instance
+	// This ensures shutdown uses the same config that was used for startup,
+	// properly cleaning up all ipsets even if config changes on disk
+	sm.mu.RLock()
+	startupCfg := sm.cfg
+	sm.mu.RUnlock()
 
 	// Calculate and store active config hash at startup
 	configHash, err := sm.configHasher.UpdateCurrentConfigHash()
@@ -153,21 +176,21 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
-	if err := lists.ImportListsToIPSets(sm.cfg, sm.deps.ListManager()); err != nil {
+	if err := lists.ImportListsToIPSets(startupCfg, sm.deps.ListManager()); err != nil {
 		sm.done <- fmt.Errorf("failed to import lists: %w", err)
 		return
 	}
 
 	// Apply persistent network configuration (iptables rules and ip rules)
 	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
-	if err := sm.networkMgr.ApplyPersistentConfig(sm.cfg.IPSets); err != nil {
+	if err := sm.networkMgr.ApplyPersistentConfig(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply persistent network configuration: %w", err)
 		return
 	}
 
 	// Apply initial routing (ip routes)
 	log.Infof("Applying initial routing configuration...")
-	if err := sm.networkMgr.ApplyRoutingConfig(sm.cfg.IPSets); err != nil {
+	if err := sm.networkMgr.ApplyRoutingConfig(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply routing configuration: %w", err)
 		return
 	}
@@ -182,7 +205,7 @@ func (sm *ServiceManager) run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Infof("Service context cancelled, shutting down...")
-			sm.done <- sm.shutdown()
+			sm.done <- sm.shutdownWithConfig(startupCfg)
 			return
 
 		case <-ticker.C:
@@ -195,19 +218,21 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 			// Update routing configuration (only if interfaces changed)
 			log.Debugf("Checking interface states...")
-			if _, err := sm.networkMgr.UpdateRoutingIfChanged(sm.cfg.IPSets); err != nil {
+			if _, err := sm.networkMgr.UpdateRoutingIfChanged(startupCfg.IPSets); err != nil {
 				log.Errorf("Failed to update routing configuration: %v", err)
 			}
 		}
 	}
 }
 
-// shutdown performs cleanup when the service stops
-func (sm *ServiceManager) shutdown() error {
+// shutdownWithConfig performs cleanup when the service stops
+// Uses the startup config to ensure all ipsets created at startup are properly removed
+func (sm *ServiceManager) shutdownWithConfig(startupCfg *config.Config) error {
 	log.Infof("Shutting down keen-pbr service...")
 
-	// Remove all network configuration
-	if err := sm.networkMgr.UndoConfig(sm.cfg.IPSets); err != nil {
+	// Remove all network configuration using the startup config
+	// This ensures we clean up exactly what was created, even if config changed on disk
+	if err := sm.networkMgr.UndoConfig(startupCfg.IPSets); err != nil {
 		log.Errorf("Failed to undo routing configuration: %v", err)
 		return err
 	}
