@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -194,32 +194,48 @@ export function SelfCheckWidget() {
                     .map((result, index) => {
                       const actualStatus = getActualStatus(result);
                       return (
-                        <tr
-                          key={index}
-                          className={`border-b last:border-b-0 hover:bg-muted/30 ${
-                            !result.ok ? 'bg-destructive/5' : ''
-                          }`}
-                        >
-                          <td className="py-3 px-4">
-                            <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
-                              {result.ipset_name || 'global'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">{getCheckTypeLabel(result.check)}</td>
-                          <td className="py-3 px-4 text-muted-foreground">
-                            {getExpectedStatus(result.check)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span>{actualStatus.text}</span>
-                              {actualStatus.icon === 'check' ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-red-600" />
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                        <>
+                          <tr
+                            key={`${index}-main`}
+                            className={`border-b-0 hover:bg-muted/30 ${
+                              !result.ok ? 'bg-destructive/5' : ''
+                            }`}
+                          >
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
+                                {result.ipset_name || 'global'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">{getCheckTypeLabel(result.check)}</td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {getExpectedStatus(result.check)}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span>{actualStatus.text}</span>
+                                {actualStatus.icon === 'check' ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                          {result.command && (
+                            <tr
+                              key={`${index}-cmd`}
+                              className={`border-b last:border-b-0 ${
+                                !result.ok ? 'bg-destructive/5' : ''
+                              }`}
+                            >
+                              <td colSpan={4} className="py-2 px-4 text-xs">
+                                <code className="text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
+                                  {result.command}
+                                </code>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       );
                     })}
                 </tbody>
