@@ -8,28 +8,103 @@ import (
 	"io"
 	"os"
 	"sort"
+	"sync"
+	"time"
 )
 
+const hashCacheTTL = 5 * time.Minute
+
 // ConfigHasher calculates MD5 hash of configuration state
+// It acts as a DI component that maintains cached current hash and active hash
 type ConfigHasher struct {
-	config *Config
+	configPath string
+
+	// Current hash (from config file) with caching
+	currentHash      string
+	currentHashTime  time.Time
+
+	// Active hash (from running service)
+	activeHash string
+
+	mu sync.RWMutex
 }
 
 // NewConfigHasher creates a new config hasher
-func NewConfigHasher(cfg *Config) *ConfigHasher {
-	return &ConfigHasher{config: cfg}
+func NewConfigHasher(configPath string) *ConfigHasher {
+	return &ConfigHasher{
+		configPath: configPath,
+	}
 }
 
-// CalculateHash generates MD5 hash of entire configuration
-func (h *ConfigHasher) CalculateHash() (string, error) {
+// GetCurrentConfigHash returns cached hash of current config file
+// Automatically calls UpdateCurrentConfigHash() on cache miss
+func (h *ConfigHasher) GetCurrentConfigHash() (string, error) {
+	h.mu.RLock()
+	if time.Since(h.currentHashTime) < hashCacheTTL && h.currentHash != "" {
+		hash := h.currentHash
+		h.mu.RUnlock()
+		return hash, nil
+	}
+	h.mu.RUnlock()
+
+	// Cache miss - recalculate
+	return h.UpdateCurrentConfigHash()
+}
+
+// UpdateCurrentConfigHash recalculates config hash and resets cache
+func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if time.Since(h.currentHashTime) < hashCacheTTL && h.currentHash != "" {
+		return h.currentHash, nil
+	}
+
+	// Load config from file
+	cfg, err := LoadConfig(h.configPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Calculate hash
+	hash, err := h.calculateHashForConfig(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate hash: %w", err)
+	}
+
+	// Update cache
+	h.currentHash = hash
+	h.currentHashTime = time.Now()
+
+	return hash, nil
+}
+
+// GetKeenPbrActiveConfigHash returns hash of config that was active when service started
+func (h *ConfigHasher) GetKeenPbrActiveConfigHash() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.activeHash
+}
+
+// SetKeenPbrActiveConfigHash sets the hash of config when service starts
+func (h *ConfigHasher) SetKeenPbrActiveConfigHash(hash string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.activeHash = hash
+}
+
+// calculateHashForConfig generates MD5 hash of entire configuration
+// This is the internal method that does the actual hashing
+func (h *ConfigHasher) calculateHashForConfig(config *Config) (string, error) {
 	// 1. Get used list names from all ipsets
-	usedLists := h.getUsedListNames()
+	usedLists := h.getUsedListNamesForConfig(config)
 
 	// 2. Build hashable structure
 	hashData := &ConfigHashData{
-		General:  h.config.General,
-		IPSets:   h.buildIPSetHashData(),
-		ListMD5s: h.calculateListHashes(usedLists),
+		General:  config.General,
+		IPSets:   h.buildIPSetHashDataForConfig(config),
+		ListMD5s: h.calculateListHashesForConfig(config, usedLists),
 	}
 
 	// 3. Serialize to JSON (sorted keys for determinism)
@@ -43,10 +118,10 @@ func (h *ConfigHasher) CalculateHash() (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-// getUsedListNames returns set of list names actually used in ipsets
-func (h *ConfigHasher) getUsedListNames() map[string]bool {
+// getUsedListNamesForConfig returns set of list names actually used in ipsets
+func (h *ConfigHasher) getUsedListNamesForConfig(config *Config) map[string]bool {
 	used := make(map[string]bool)
-	for _, ipset := range h.config.IPSets {
+	for _, ipset := range config.IPSets {
 		for _, listName := range ipset.Lists {
 			used[listName] = true
 		}
@@ -54,10 +129,10 @@ func (h *ConfigHasher) getUsedListNames() map[string]bool {
 	return used
 }
 
-// buildIPSetHashData creates hashable representation of ipsets
-func (h *ConfigHasher) buildIPSetHashData() []*IPSetHashData {
-	result := make([]*IPSetHashData, len(h.config.IPSets))
-	for i, ipset := range h.config.IPSets {
+// buildIPSetHashDataForConfig creates hashable representation of ipsets
+func (h *ConfigHasher) buildIPSetHashDataForConfig(config *Config) []*IPSetHashData {
+	result := make([]*IPSetHashData, len(config.IPSets))
+	for i, ipset := range config.IPSets {
 		result[i] = &IPSetHashData{
 			IPSetName:           ipset.IPSetName,
 			Lists:               sortedStrings(ipset.Lists),
@@ -70,16 +145,16 @@ func (h *ConfigHasher) buildIPSetHashData() []*IPSetHashData {
 	return result
 }
 
-// calculateListHashes generates MD5 for each used list
-func (h *ConfigHasher) calculateListHashes(usedLists map[string]bool) map[string]string {
+// calculateListHashesForConfig generates MD5 for each used list
+func (h *ConfigHasher) calculateListHashesForConfig(config *Config, usedLists map[string]bool) map[string]string {
 	hashes := make(map[string]string)
 
-	for _, list := range h.config.Lists {
+	for _, list := range config.Lists {
 		if !usedLists[list.ListName] {
 			continue // Skip unused lists
 		}
 
-		hash, err := h.calculateListHash(list)
+		hash, err := h.calculateListHashForConfig(config, list)
 		if err != nil {
 			// Use error as hash to indicate problem
 			hashes[list.ListName] = fmt.Sprintf("error:%v", err)
@@ -91,13 +166,13 @@ func (h *ConfigHasher) calculateListHashes(usedLists map[string]bool) map[string
 	return hashes
 }
 
-// calculateListHash calculates hash for a single list
-func (h *ConfigHasher) calculateListHash(list *ListSource) (string, error) {
+// calculateListHashForConfig calculates hash for a single list
+func (h *ConfigHasher) calculateListHashForConfig(config *Config, list *ListSource) (string, error) {
 	switch list.Type() {
 	case "url":
-		return h.hashListFile(list)
+		return h.hashListFileForConfig(config, list)
 	case "file":
-		return h.hashListFile(list)
+		return h.hashListFileForConfig(config, list)
 	case "hosts":
 		return h.hashInlineHosts(list)
 	default:
@@ -105,9 +180,9 @@ func (h *ConfigHasher) calculateListHash(list *ListSource) (string, error) {
 	}
 }
 
-// hashListFile calculates MD5 of a file-based list
-func (h *ConfigHasher) hashListFile(list *ListSource) (string, error) {
-	path, err := list.GetAbsolutePath(h.config)
+// hashListFileForConfig calculates MD5 of a file-based list
+func (h *ConfigHasher) hashListFileForConfig(config *Config, list *ListSource) (string, error) {
+	path, err := list.GetAbsolutePath(config)
 	if err != nil {
 		return "", err
 	}

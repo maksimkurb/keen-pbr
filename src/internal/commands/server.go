@@ -28,7 +28,8 @@ type ServerCommand struct {
 	monitorInterval int
 
 	// Service manager for controlling the routing service
-	serviceMgr *ServiceManager
+	serviceMgr   *ServiceManager
+	configHasher *config.ConfigHasher
 }
 
 // CreateServerCommand creates a new server command.
@@ -70,8 +71,11 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	// Create dependencies
 	c.deps = domain.NewDefaultDependencies()
 
+	// Create ConfigHasher DI component
+	c.configHasher = config.NewConfigHasher(ctx.ConfigPath)
+
 	// Create service manager
-	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval)
+	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval, c.configHasher)
 	if err != nil {
 		return fmt.Errorf("failed to create service manager: %w", err)
 	}
@@ -96,8 +100,8 @@ func (c *ServerCommand) Run() error {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
-	// Create router with service manager
-	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr)
+	// Create router with service manager and config hasher
+	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher)
 
 	// Create HTTP server
 	server := &http.Server{

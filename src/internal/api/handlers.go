@@ -6,6 +6,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 // ServiceManager is an interface for controlling the service lifecycle.
@@ -20,17 +21,19 @@ type ServiceManager interface {
 
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
-	configPath string
-	deps       *domain.AppDependencies
-	serviceMgr ServiceManager
+	configPath   string
+	deps         *domain.AppDependencies
+	serviceMgr   ServiceManager
+	configHasher *config.ConfigHasher
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
-func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager) *Handler {
+func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher) *Handler {
 	return &Handler{
-		configPath: configPath,
-		deps:       deps,
-		serviceMgr: serviceMgr,
+		configPath:   configPath,
+		deps:         deps,
+		serviceMgr:   serviceMgr,
+		configHasher: configHasher,
 	}
 }
 
@@ -39,9 +42,18 @@ func (h *Handler) loadConfig() (*config.Config, error) {
 	return config.LoadConfig(h.configPath)
 }
 
-// saveConfig saves the configuration to disk.
+// saveConfig saves the configuration to disk and resets the config hash cache.
 func (h *Handler) saveConfig(cfg *config.Config) error {
-	return cfg.WriteConfig()
+	if err := cfg.WriteConfig(); err != nil {
+		return err
+	}
+
+	// Reset the config hash cache after saving
+	if _, err := h.configHasher.UpdateCurrentConfigHash(); err != nil {
+		log.Warnf("Failed to update config hash after save: %v", err)
+	}
+
+	return nil
 }
 
 // validateConfig validates the configuration.
