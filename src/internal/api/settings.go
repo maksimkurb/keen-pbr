@@ -17,13 +17,15 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 	// Normalize settings to return proper defaults
 	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
+	interfaceMonitoring := cfg.General.IsInterfaceMonitoringEnabled() // Get default if not set
 	response := config.GeneralConfig{
-		ListsOutputDir:      cfg.General.ListsOutputDir,
-		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
-		FallbackDNS:         cfg.General.FallbackDNS,
+		ListsOutputDir:            cfg.General.ListsOutputDir,
+		UseKeeneticDNS:            cfg.General.UseKeeneticDNS,
+		FallbackDNS:               cfg.General.FallbackDNS,
 		// APIBindAddress is excluded - not configurable via API
-		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
-		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+		AutoUpdateLists:           &autoUpdate, // Use helper to get default (true if nil)
+		UpdateIntervalHours:       cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+		EnableInterfaceMonitoring: &interfaceMonitoring, // Use helper to get default (false if nil)
 	}
 
 	writeJSONData(w, SettingsResponse{General: &response})
@@ -65,6 +67,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if updates.UpdateIntervalHours > 0 {
 		cfg.General.UpdateIntervalHours = updates.UpdateIntervalHours
 	}
+	if updates.EnableInterfaceMonitoring != nil {
+		cfg.General.EnableInterfaceMonitoring = updates.EnableInterfaceMonitoring
+	}
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
@@ -80,13 +85,15 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	// Normalize settings to return proper defaults
 	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
+	interfaceMonitoring := cfg.General.IsInterfaceMonitoringEnabled() // Get default if not set
 	response := config.GeneralConfig{
-		ListsOutputDir:      cfg.General.ListsOutputDir,
-		UseKeeneticDNS:      cfg.General.UseKeeneticDNS,
-		FallbackDNS:         cfg.General.FallbackDNS,
+		ListsOutputDir:            cfg.General.ListsOutputDir,
+		UseKeeneticDNS:            cfg.General.UseKeeneticDNS,
+		FallbackDNS:               cfg.General.FallbackDNS,
 		// APIBindAddress is excluded - not configurable via API
-		AutoUpdateLists:     &autoUpdate, // Use helper to get default (true if nil)
-		UpdateIntervalHours: cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+		AutoUpdateLists:           &autoUpdate, // Use helper to get default (true if nil)
+		UpdateIntervalHours:       cfg.General.GetUpdateIntervalHours(), // Use helper to get default
+		EnableInterfaceMonitoring: &interfaceMonitoring, // Use helper to get default (false if nil)
 	}
 
 	writeJSONData(w, SettingsResponse{General: &response})

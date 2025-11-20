@@ -17,7 +17,6 @@ import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -58,11 +57,6 @@ const getListIcon = (type: string) => {
     default:
       return ListPlus;
   }
-};
-
-// Helper function to get type label
-const getListTypeLabel = (type: string) => {
-  return type || 'inline';
 };
 
 export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
@@ -397,9 +391,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                                   )}
                                 />
                                 <span className="flex-1">{list.list_name}</span>
-                                <Badge variant="outline" className="ml-2 text-xs">
-                                  {getListTypeLabel(list.type)}
-                                </Badge>
                               </CommandItem>
                             );
                           })}
@@ -420,11 +411,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                             <span className="text-xs text-muted-foreground">{index + 1}.</span>
                             <ListIcon className="h-4 w-4 text-muted-foreground" />
                             <span>{listName}</span>
-                            {listInfo && (
-                              <Badge variant="outline" className="text-xs">
-                                {getListTypeLabel(listInfo.type)}
-                              </Badge>
-                            )}
                           </div>
                           <X
                             className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
