@@ -69,6 +69,21 @@
       "download": "Download",
       "downloaded": "Results downloaded",
       "downloadFailed": "Failed to download results",
+      "table": {
+        "rule": "Rule",
+        "check": "Check",
+        "expected": "Expected",
+        "actual": "Actual"
+      },
+      "status": {
+        "running": "running",
+        "present": "present",
+        "absent": "absent",
+        "dead": "dead",
+        "missing": "missing",
+        "stale": "stale",
+        "error": "error"
+      },
       "checkTypes": {
         "config_validation": "Configuration Validation",
         "ipset_start": "IPSet Check",

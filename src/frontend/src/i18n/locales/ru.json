@@ -69,6 +69,21 @@
       "download": "Скачать",
       "downloaded": "Результаты скачаны",
       "downloadFailed": "Не удалось скачать результаты",
+      "table": {
+        "rule": "Правило",
+        "check": "Проверка",
+        "expected": "Ожидается",
+        "actual": "Фактически"
+      },
+      "status": {
+        "running": "работает",
+        "present": "присутствует",
+        "absent": "отсутствует",
+        "dead": "остановлен",
+        "missing": "отсутствует",
+        "stale": "устарел",
+        "error": "ошибка"
+      },
       "checkTypes": {
         "config_validation": "Валидация конфигурации",
         "ipset_start": "Проверка IPSet",

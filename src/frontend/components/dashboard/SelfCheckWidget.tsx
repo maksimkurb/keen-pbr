@@ -79,33 +79,33 @@ export function SelfCheckWidget() {
   const getExpectedStatus = (checkType: string): string => {
     // Most checks expect things to be "present" or "running"
     if (checkType === 'dnsmasq' || checkType === 'service') {
-      return 'running';
+      return t('dashboard.selfCheck.status.running', { defaultValue: 'running' });
     }
-    return 'present';
+    return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
   };
 
   const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' } => {
     if (result.ok) {
       // Success cases
       if (result.check === 'dnsmasq' || result.check === 'service') {
-        return { text: 'running', icon: 'check' };
+        return { text: t('dashboard.selfCheck.status.running', { defaultValue: 'running' }), icon: 'check' };
       }
       if (result.log.includes('not present') || result.log.includes('disabled')) {
-        return { text: 'absent', icon: 'check' };
+        return { text: t('dashboard.selfCheck.status.absent', { defaultValue: 'absent' }), icon: 'check' };
       }
-      return { text: 'present', icon: 'check' };
+      return { text: t('dashboard.selfCheck.status.present', { defaultValue: 'present' }), icon: 'check' };
     } else {
       // Failure cases
       if (result.check === 'dnsmasq' || result.check === 'service') {
-        return { text: 'dead', icon: 'cross' };
+        return { text: t('dashboard.selfCheck.status.dead', { defaultValue: 'dead' }), icon: 'cross' };
       }
       if (result.log.includes('missing') || result.log.includes('does NOT exist')) {
-        return { text: 'missing', icon: 'cross' };
+        return { text: t('dashboard.selfCheck.status.missing', { defaultValue: 'missing' }), icon: 'cross' };
       }
       if (result.log.includes('stale') || result.log.includes('unexpected')) {
-        return { text: 'stale', icon: 'cross' };
+        return { text: t('dashboard.selfCheck.status.stale', { defaultValue: 'stale' }), icon: 'cross' };
       }
-      return { text: 'error', icon: 'cross' };
+      return { text: t('dashboard.selfCheck.status.error', { defaultValue: 'error' }), icon: 'cross' };
     }
   };
 
@@ -210,10 +210,10 @@ export function SelfCheckWidget() {
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium">Rule</th>
-                    <th className="text-left py-3 px-4 font-medium">Check</th>
-                    <th className="text-left py-3 px-4 font-medium">Expected</th>
-                    <th className="text-left py-3 px-4 font-medium">Actual</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.rule', { defaultValue: 'Rule' })}</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.check', { defaultValue: 'Check' })}</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.expected', { defaultValue: 'Expected' })}</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.actual', { defaultValue: 'Actual' })}</th>
                   </tr>
                 </thead>
                 <tbody>

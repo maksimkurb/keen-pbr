@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/src/api/client';
+import { useStatus } from '@/src/hooks/useStatus';
 import { StatusCard } from './StatusCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -14,11 +15,7 @@ export function ServiceStatusWidget() {
   const queryClient = useQueryClient();
   const [controlLoading, setControlLoading] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['status'],
-    queryFn: () => apiClient.getStatus(),
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  const { data, isLoading, error } = useStatus();
 
   const handleServiceControl = async (service: string, action: 'start' | 'stop' | 'restart') => {
     setControlLoading(`${service}-${action}`);
@@ -89,9 +86,6 @@ export function ServiceStatusWidget() {
   const dnsmasqNotConfigured = !dnsmasqConfigHash; // Empty hash means not configured
   const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
 
-  // Check if any service is out of sync
-  const anyServiceOutdated = configOutdated || dnsmasqOutdated || dnsmasqNotConfigured;
-
   // Prepare badges for keen-pbr service
   const keenPbrBadges = configOutdated
     ? [{ label: t('dashboard.badgeStale'), variant: 'outline' as const }]
@@ -112,23 +106,7 @@ export function ServiceStatusWidget() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Configuration outdated warning */}
-          {anyServiceOutdated && (
-            <Alert className={dnsmasqNotConfigured ? "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800" : "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800"}>
-              <AlertTriangle className={dnsmasqNotConfigured ? "h-4 w-4 text-red-600 dark:text-red-400" : "h-4 w-4 text-yellow-600 dark:text-yellow-400"} />
-              <AlertDescription className={dnsmasqNotConfigured ? "text-red-800 dark:text-red-200" : "text-yellow-800 dark:text-yellow-200"}>
-                {dnsmasqNotConfigured
-                  ? t('dashboard.dnsmasqNotConfigured')
-                  : configOutdated && dnsmasqOutdated
-                  ? t('dashboard.configurationOutdatedBoth')
-                  : configOutdated
-                  ? t('dashboard.configurationOutdated')
-                  : t('dashboard.dnsmasqConfigurationOutdated')}
-              </AlertDescription>
-            </Alert>
-          )}
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatusCard
             title={t('dashboard.version')}
             value={`${data.version.version} (${data.version.commit})`}
