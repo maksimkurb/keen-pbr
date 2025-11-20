@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle, Play, Square, Loader2, Download, ListChecks } fr
 import { toast } from 'sonner';
 import { apiClient } from '../../src/api/client';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
+import { dnsCheckService } from '../../src/services/dnsCheckService';
 
 interface CheckEvent {
   check: string;
@@ -26,13 +27,55 @@ export function SelfCheckWidget() {
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const startSelfCheck = () => {
+  const startSelfCheck = async () => {
     // Reset state
     setResults([]);
     setError(null);
     setStatus('running');
 
-    // Create EventSource to connect to SSE endpoint
+    // Step 1: Run client-side DNS check first
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const dnsCheckEvent: CheckEvent = {
+      check: 'split_dns_client',
+      ok: false,
+      log: 'Checking split-DNS from browser...',
+      reason: 'Split-DNS must be configured correctly for domain-based routing to work from browser',
+    };
+
+    // Add DNS check to results immediately
+    setResults([dnsCheckEvent]);
+
+    try {
+      await dnsCheckService.checkDNS(randomString, 5000, 5000);
+      // DNS check succeeded
+      setResults((prev) =>
+        prev.map((r) =>
+          r.check === 'split_dns_client'
+            ? {
+                ...r,
+                ok: true,
+                log: 'Split-DNS is working correctly from browser',
+              }
+            : r
+        )
+      );
+    } catch (error) {
+      // DNS check failed
+      setResults((prev) =>
+        prev.map((r) =>
+          r.check === 'split_dns_client'
+            ? {
+                ...r,
+                ok: false,
+                log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+                command: 'Check dnsmasq configuration and ensure browser is using router DNS',
+              }
+            : r
+        )
+      );
+    }
+
+    // Step 2: Continue with server-side checks
     const apiBaseUrl = window.location.protocol + '//' + window.location.host;
     const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self?sse=true`);
     eventSourceRef.current = eventSource;
@@ -62,6 +105,7 @@ export function SelfCheckWidget() {
   };
 
   const stopSelfCheck = () => {
+    dnsCheckService.cancel();
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;

@@ -85,6 +85,7 @@
         "error": "ошибка"
       },
       "checkTypes": {
+        "split_dns_client": "Проверка Split-DNS (Браузер)",
         "config_validation": "Валидация конфигурации",
         "ipset_start": "Проверка IPSet",
         "ipset": "Существование IPSet",

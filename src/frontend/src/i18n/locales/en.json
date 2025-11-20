@@ -85,6 +85,7 @@
         "error": "error"
       },
       "checkTypes": {
+        "split_dns_client": "Split-DNS Check (Browser)",
         "config_validation": "Configuration Validation",
         "ipset_start": "IPSet Check",
         "ipset": "IPSet Existence",
