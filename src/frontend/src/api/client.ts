@@ -370,6 +370,11 @@ export class KeenPBRClient {
 	getTracerouteSSEUrl(host: string): string {
 		return `${this.baseURL}/api/v1/check/traceroute?host=${encodeURIComponent(host)}`;
 	}
+
+	// Get SSE URL for split-DNS check (client will handle EventSource)
+	getSplitDNSCheckSSEUrl(): string {
+		return `${this.baseURL}/api/v1/check/split-dns`;
+	}
 }
 
 // Export a default instance

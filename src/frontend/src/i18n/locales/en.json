@@ -96,6 +96,21 @@
       }
     }
   },
+  "dnsCheck": {
+    "title": "DNS Check",
+    "description": "Verify that split-DNS is configured correctly",
+    "startCheck": "Start DNS Check",
+    "checkAgain": "Check Again",
+    "checking": "Checking...",
+    "success": "DNS working correctly",
+    "browserFail": "Seems DNS in your browser is misconfigured",
+    "checkFromPC": "Check from PC",
+    "pcCheckTitle": "Check DNS from PC",
+    "pcCheckDescription": "Run the following command in your terminal to check DNS configuration:",
+    "pcCheckWaiting": "Waiting for DNS query...",
+    "pcCheckTimeout": "If you already ran this command, seems your DNS on PC is misconfigured. Make sure that your router is configured as primary DNS server.",
+    "pcSuccess": "DNS on PC is working, but on browser is not. Maybe you have some VPN plugin installed in your browser or use Edge Secure Network or Cloudflare DNS-over-HTTPS in Firefox?"
+  },
   "settings": {
     "title": "General Settings",
     "description": "Manage global configuration settings for keen-pbr",
