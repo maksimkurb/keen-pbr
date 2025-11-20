@@ -599,188 +599,193 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
               </div>
             )}
 
-            {/* IPTables Rules Section */}
-            <Accordion type="single" collapsible className="border rounded-md">
-              <AccordionItem value="iptables" className="border-0">
-                <AccordionTrigger className="px-4 hover:no-underline">
-                  <h3 className="text-sm font-medium">{t('routingRules.dialog.iptablesTitle')}</h3>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
-                    </p>
+            {/* Advanced Configuration Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">{t('routingRules.dialog.advancedConfiguration', { defaultValue: 'Advanced Configuration' })}</h3>
 
-                    {formData.iptables_rule?.map((rule, index) => (
-                      <div key={index} className="border rounded-md p-4 space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
-                          {formData.iptables_rule && formData.iptables_rule.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeIPTablesRule(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+              {/* IPTables Rules Accordion */}
+              <Accordion type="single" collapsible className="border rounded-md">
+                <AccordionItem value="iptables" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <h4 className="text-sm font-medium">{t('routingRules.dialog.iptablesTitle')}</h4>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
+                      </p>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <Field>
-                            <FieldLabel>{t('routingRules.dialog.iptablesChain')}</FieldLabel>
-                            <Input
-                              value={rule.chain}
-                              onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
-                              placeholder={t('routingRules.dialog.iptablesChainPlaceholder')}
-                            />
-                          </Field>
-
-                          <Field>
-                            <FieldLabel>{t('routingRules.dialog.iptablesTable')}</FieldLabel>
-                            <Input
-                              value={rule.table}
-                              onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
-                              placeholder={t('routingRules.dialog.iptablesTablePlaceholder')}
-                            />
-                          </Field>
-                        </div>
-
-                        <Field>
+                      {formData.iptables_rule?.map((rule, index) => (
+                        <div key={index} className="border rounded-md p-4 space-y-3">
                           <div className="flex items-center justify-between mb-2">
-                            <FieldLabel>{t('routingRules.dialog.iptablesRuleArguments')}</FieldLabel>
-                            <Select
-                              key={`select-${index}-${rule.rule.join(' ')}`}
-                              onValueChange={(value) => insertTemplateVar(index, value)}
-                            >
-                              <SelectTrigger className="w-[180px] h-8">
-                                <SelectValue placeholder={t('routingRules.dialog.iptablesInsertVariable')} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {TEMPLATE_VARS.map((varName) => (
-                                  <SelectItem key={varName} value={varName}>
-                                    <code className="text-xs">{varName}</code>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
+                            {formData.iptables_rule && formData.iptables_rule.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeIPTablesRule(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
-                          <Textarea
-                            value={rule.rule.join(' ')}
-                            onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
-                            placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
-                            rows={3}
-                            className="font-mono text-xs"
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <Field>
+                              <FieldLabel>{t('routingRules.dialog.iptablesChain')}</FieldLabel>
+                              <Input
+                                value={rule.chain}
+                                onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
+                                placeholder={t('routingRules.dialog.iptablesChainPlaceholder')}
+                              />
+                            </Field>
+
+                            <Field>
+                              <FieldLabel>{t('routingRules.dialog.iptablesTable')}</FieldLabel>
+                              <Input
+                                value={rule.table}
+                                onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
+                                placeholder={t('routingRules.dialog.iptablesTablePlaceholder')}
+                              />
+                            </Field>
+                          </div>
+
+                          <Field>
+                            <div className="flex items-center justify-between mb-2">
+                              <FieldLabel>{t('routingRules.dialog.iptablesRuleArguments')}</FieldLabel>
+                              <Select
+                                key={`select-${index}-${rule.rule.join(' ')}`}
+                                onValueChange={(value) => insertTemplateVar(index, value)}
+                              >
+                                <SelectTrigger className="w-[180px] h-8">
+                                  <SelectValue placeholder={t('routingRules.dialog.iptablesInsertVariable')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {TEMPLATE_VARS.map((varName) => (
+                                    <SelectItem key={varName} value={varName}>
+                                      <code className="text-xs">{varName}</code>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Textarea
+                              value={rule.rule.join(' ')}
+                              onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
+                              placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
+                              rows={3}
+                              className="font-mono text-xs"
+                            />
+                            <FieldDescription className="text-xs">
+                              {t('routingRules.dialog.iptablesRuleDescription')}
+                            </FieldDescription>
+                          </Field>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addIPTablesRule}
+                        className="w-full"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t('routingRules.dialog.iptablesAddRule')}
+                      </Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* Priority/Table/FwMark Accordion */}
+              <Accordion type="single" collapsible className="border rounded-md">
+                <AccordionItem value="advanced-routing" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <h4 className="text-sm font-medium">{t('routingRules.dialog.advancedRouting', { defaultValue: 'Priority / Table / FwMark' })}</h4>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        {t('routingRules.dialog.advancedRoutingDescription', { defaultValue: 'Configure priority, table, and fwmark. Leave empty to auto-assign values (500-1000 range).' })}
+                      </p>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <Field>
+                          <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
+                          <Input
+                            id="priority"
+                            type="number"
+                            value={formData.routing.priority || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  priority: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.priorityPlaceholder', { defaultValue: 'Auto (500-1000)' })}
                           />
                           <FieldDescription className="text-xs">
-                            {t('routingRules.dialog.iptablesRuleDescription')}
+                            {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
+                          </FieldDescription>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
+                          <Input
+                            id="table"
+                            type="number"
+                            value={formData.routing.table || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  table: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.tablePlaceholder', { defaultValue: 'Auto' })}
+                          />
+                          <FieldDescription className="text-xs">
+                            {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
+                          </FieldDescription>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
+                          <Input
+                            id="fwmark"
+                            type="number"
+                            value={formData.routing.fwmark || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  fwmark: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.fwmarkPlaceholder', { defaultValue: 'Auto' })}
+                          />
+                          <FieldDescription className="text-xs">
+                            {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
                           </FieldDescription>
                         </Field>
                       </div>
-                    ))}
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addIPTablesRule}
-                      className="w-full"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('routingRules.dialog.iptablesAddRule')}
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-
-            {/* Advanced Routing Section */}
-            <Accordion type="single" collapsible className="border rounded-md">
-              <AccordionItem value="advanced" className="border-0">
-                <AccordionTrigger className="px-4 hover:no-underline">
-                  <h3 className="text-sm font-medium">{t('routingRules.dialog.advancedRouting', { defaultValue: 'Advanced Routing' })}</h3>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      {t('routingRules.dialog.advancedRoutingDescription', { defaultValue: 'Configure priority, table, and fwmark. Leave empty to auto-assign values (500-1000 range).' })}
-                    </p>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <Field>
-                        <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
-                        <Input
-                          id="priority"
-                          type="number"
-                          value={formData.routing.priority || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData({
-                              ...formData,
-                              routing: {
-                                ...formData.routing!,
-                                priority: value ? parseInt(value) : 0,
-                              },
-                            });
-                          }}
-                          placeholder={t('routingRules.dialog.priorityPlaceholder', { defaultValue: 'Auto (500-1000)' })}
-                        />
-                        <FieldDescription className="text-xs">
-                          {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
-                        </FieldDescription>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
-                        <Input
-                          id="table"
-                          type="number"
-                          value={formData.routing.table || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData({
-                              ...formData,
-                              routing: {
-                                ...formData.routing!,
-                                table: value ? parseInt(value) : 0,
-                              },
-                            });
-                          }}
-                          placeholder={t('routingRules.dialog.tablePlaceholder', { defaultValue: 'Auto' })}
-                        />
-                        <FieldDescription className="text-xs">
-                          {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
-                        </FieldDescription>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
-                        <Input
-                          id="fwmark"
-                          type="number"
-                          value={formData.routing.fwmark || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData({
-                              ...formData,
-                              routing: {
-                                ...formData.routing!,
-                                fwmark: value ? parseInt(value) : 0,
-                              },
-                            });
-                          }}
-                          placeholder={t('routingRules.dialog.fwmarkPlaceholder', { defaultValue: 'Auto' })}
-                        />
-                        <FieldDescription className="text-xs">
-                          {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
-                        </FieldDescription>
-                      </Field>
                     </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
 
             {/* Options Section */}
             <div className="space-y-4">
