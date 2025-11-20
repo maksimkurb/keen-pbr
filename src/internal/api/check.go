@@ -812,3 +812,49 @@ func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.
 	fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
 	flusher.Flush()
 }
+
+// CheckSplitDNS streams DNS queries received on the DNS check port via SSE.
+// GET /api/v1/check/split-dns
+func (h *Handler) CheckSplitDNS(w http.ResponseWriter, r *http.Request) {
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		WriteInternalError(w, "Streaming not supported")
+		return
+	}
+
+	// Get DNS check listener from handler dependencies
+	if h.dnsCheckListener == nil {
+		WriteInternalError(w, "DNS check listener not available")
+		return
+	}
+
+	// Subscribe to DNS check events
+	eventCh := h.dnsCheckListener.Subscribe()
+	defer h.dnsCheckListener.Unsubscribe(eventCh)
+
+	log.Debugf("Client connected to split-DNS check SSE stream")
+
+	// Stream events to client
+	for {
+		select {
+		case <-r.Context().Done():
+			// Client disconnected
+			log.Debugf("Client disconnected from split-DNS check SSE stream")
+			return
+		case domain := <-eventCh:
+			// Send domain as SSE event
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", domain); err != nil {
+				log.Debugf("Failed to write to response: %v", err)
+				return
+			}
+			flusher.Flush()
+			log.Debugf("Sent DNS check domain to SSE client: %s", domain)
+		}
+	}
+}

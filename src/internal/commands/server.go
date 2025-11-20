@@ -12,6 +12,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/api"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/dnscheck"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -28,8 +29,9 @@ type ServerCommand struct {
 	monitorInterval int
 
 	// Service manager for controlling the routing service
-	serviceMgr   *ServiceManager
-	configHasher *config.ConfigHasher
+	serviceMgr       *ServiceManager
+	configHasher     *config.ConfigHasher
+	dnsCheckListener *dnscheck.DNSCheckListener
 }
 
 // CreateServerCommand creates a new server command.
@@ -112,8 +114,17 @@ func (c *ServerCommand) Run() error {
 		log.Warnf("API server will start anyway. Fix the configuration and try starting the service again.")
 	}
 
-	// Create router with service manager and config hasher
-	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher)
+	// Start DNS check listener
+	dnsCheckPort := c.cfg.General.GetDNSCheckPort()
+	c.dnsCheckListener = dnscheck.NewDNSCheckListener(dnsCheckPort)
+	if err := c.dnsCheckListener.Start(); err != nil {
+		log.Warnf("Failed to start DNS check listener: %v", err)
+		log.Warnf("DNS check feature will not be available")
+		c.dnsCheckListener = nil // Set to nil so API handler knows it's not available
+	}
+
+	// Create router with service manager, config hasher, and DNS check listener
+	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher, c.dnsCheckListener)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -168,6 +179,14 @@ func (c *ServerCommand) Run() error {
 			log.Infof("Stopping routing service...")
 			if err := c.serviceMgr.Stop(); err != nil {
 				log.Errorf("Failed to stop service: %v", err)
+			}
+
+			// Stop DNS check listener if it was started
+			if c.dnsCheckListener != nil {
+				log.Infof("Stopping DNS check listener...")
+				if err := c.dnsCheckListener.Stop(); err != nil {
+					log.Errorf("Failed to stop DNS check listener: %v", err)
+				}
 			}
 
 			// Create context with timeout for shutdown
