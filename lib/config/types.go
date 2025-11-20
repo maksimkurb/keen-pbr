@@ -22,6 +22,7 @@ type GeneralConfig struct {
 	UseKeeneticAPI *bool  `toml:"use_keenetic_api" comment:"Use Keenetic RCI API to check network connection availability on the interface"`
 	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
 	FallbackDNS    string `toml:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	DNSCheckPort   int    `toml:"dns_check_port" comment:"Port for DNS check listener (default: 15053)"`
 }
 
 type IPSetConfig struct {
@@ -120,4 +121,12 @@ func (lst *ListSource) GetAbsolutePathAndCheckExists(cfg *Config) (string, error
 
 		return path, nil
 	}
+}
+
+// GetDNSCheckPort returns the DNS check port (default: 15053)
+func (gc *GeneralConfig) GetDNSCheckPort() int {
+	if gc.DNSCheckPort <= 0 {
+		return 15053 // Default port
+	}
+	return gc.DNSCheckPort
 }

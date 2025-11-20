@@ -103,6 +103,14 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore) error {
 		}
 	}
 
+	// Print server directive to route DNS check queries to keen-pbr's DNS listener
+	dnsCheckPort := cfg.General.GetDNSCheckPort()
+	serverRecord := fmt.Sprintf("server=/dns-check.keen-pbr.internal/127.0.50.50#%d\n", dnsCheckPort)
+	if _, err := stdoutBuffer.WriteString(serverRecord); err != nil {
+		return fmt.Errorf("failed to write DNS check server to dnsmasq cfg: %v", err)
+	}
+	log.Infof("DNS check configured: *.dns-check.keen-pbr.internal -> 127.0.50.50#%d", dnsCheckPort)
+
 	for _, ipset := range cfg.IPSets {
 		for _, listName := range ipset.Lists {
 			list, err := getListByName(cfg, listName)
