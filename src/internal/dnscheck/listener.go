@@ -213,7 +213,7 @@ func (l *DNSCheckListener) broadcast(domain string) {
 }
 
 // Subscribe adds a new SSE subscriber
-func (l *DNSCheckListener) Subscribe() <-chan string {
+func (l *DNSCheckListener) Subscribe() chan string {
 	ch := make(chan string, 10)
 	l.mu.Lock()
 	l.subscribers[ch] = struct{}{}
@@ -222,11 +222,11 @@ func (l *DNSCheckListener) Subscribe() <-chan string {
 }
 
 // Unsubscribe removes an SSE subscriber
-func (l *DNSCheckListener) Unsubscribe(ch <-chan string) {
+func (l *DNSCheckListener) Unsubscribe(ch chan string) {
 	l.mu.Lock()
-	delete(l.subscribers, ch.(chan string))
+	delete(l.subscribers, ch)
 	l.mu.Unlock()
-	close(ch.(chan string))
+	close(ch)
 }
 
 // Stop stops the DNS check listener
