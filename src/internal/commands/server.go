@@ -28,7 +28,8 @@ type ServerCommand struct {
 	monitorInterval int
 
 	// Service manager for controlling the routing service
-	serviceMgr *ServiceManager
+	serviceMgr   *ServiceManager
+	configHasher *config.ConfigHasher
 }
 
 // CreateServerCommand creates a new server command.
@@ -55,10 +56,17 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	// Load and validate configuration
-	cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath)
+	// Load configuration (but allow starting even if validation fails)
+	// Interface validation will be done when actually starting the service
+	cfg, err := config.LoadConfig(ctx.ConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration file: %w", err)
+	}
+
+	// Validate config structure (but not runtime requirements like interfaces)
+	if err := cfg.ValidateConfig(); err != nil {
+		log.Warnf("Configuration validation failed: %v", err)
+		log.Warnf("Server will start, but service cannot be started until config is fixed")
 	}
 	c.cfg = cfg
 
@@ -70,8 +78,14 @@ func (c *ServerCommand) Init(args []string, ctx *AppContext) error {
 	// Create dependencies
 	c.deps = domain.NewDefaultDependencies()
 
+	// Create ConfigHasher DI component
+	c.configHasher = config.NewConfigHasher(ctx.ConfigPath)
+
+	// Set Keenetic client on ConfigHasher for DNS server tracking
+	c.configHasher.SetKeeneticClient(c.deps.KeeneticClient())
+
 	// Create service manager
-	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval)
+	serviceMgr, err := NewServiceManager(ctx, c.monitorInterval, c.configHasher)
 	if err != nil {
 		return fmt.Errorf("failed to create service manager: %w", err)
 	}
@@ -91,13 +105,15 @@ func (c *ServerCommand) Run() error {
 	log.Infof("Requests from public IPs will be rejected with 403 Forbidden")
 	log.Infof("")
 
-	// Start the routing service
+	// Try to start the routing service (but don't fail if it can't start)
+	// The user can see the error in the UI and fix the config
 	if err := c.serviceMgr.Start(); err != nil {
-		return fmt.Errorf("failed to start service: %w", err)
+		log.Errorf("Failed to start routing service: %v", err)
+		log.Warnf("API server will start anyway. Fix the configuration and try starting the service again.")
 	}
 
-	// Create router with service manager
-	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr)
+	// Create router with service manager and config hasher
+	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -118,46 +134,58 @@ func (c *ServerCommand) Run() error {
 		serverErrors <- server.ListenAndServe()
 	}()
 
-	// Channel to listen for interrupt signals
+	// Channels to listen for signals
 	shutdown := make(chan os.Signal, 1)
+	reload := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(reload, syscall.SIGHUP)
 
-	// Block until we receive a signal or an error
-	select {
-	case err := <-serverErrors:
-		if err != nil && err != http.ErrServerClosed {
-			// Stop the service before returning
-			if stopErr := c.serviceMgr.Stop(); stopErr != nil {
-				log.Errorf("Failed to stop service: %v", stopErr)
+	// Run signal handling loop
+	for {
+		select {
+		case err := <-serverErrors:
+			if err != nil && err != http.ErrServerClosed {
+				// Stop the service before returning
+				if stopErr := c.serviceMgr.Stop(); stopErr != nil {
+					log.Errorf("Failed to stop service: %v", stopErr)
+				}
+				return fmt.Errorf("server error: %w", err)
 			}
-			return fmt.Errorf("server error: %w", err)
-		}
+			return nil
 
-	case sig := <-shutdown:
-		log.Infof("Received signal %v, shutting down server...", sig)
-
-		// Stop the service first
-		log.Infof("Stopping routing service...")
-		if err := c.serviceMgr.Stop(); err != nil {
-			log.Errorf("Failed to stop service: %v", err)
-		}
-
-		// Create context with timeout for shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		// Attempt graceful shutdown
-		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Error during server shutdown: %v", err)
-			// Force close if graceful shutdown fails
-			if err := server.Close(); err != nil {
-				return fmt.Errorf("failed to close server: %w", err)
+		case <-reload:
+			log.Infof("Received SIGHUP signal, reloading configuration...")
+			if err := c.serviceMgr.Reload(); err != nil {
+				log.Errorf("Failed to reload configuration: %v", err)
+			} else {
+				log.Infof("Configuration reloaded successfully")
 			}
-			return fmt.Errorf("server shutdown failed: %w", err)
-		}
 
-		log.Infof("Server stopped gracefully")
+		case sig := <-shutdown:
+			log.Infof("Received signal %v, shutting down server...", sig)
+
+			// Stop the service first
+			log.Infof("Stopping routing service...")
+			if err := c.serviceMgr.Stop(); err != nil {
+				log.Errorf("Failed to stop service: %v", err)
+			}
+
+			// Create context with timeout for shutdown
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			// Attempt graceful shutdown
+			if err := server.Shutdown(ctx); err != nil {
+				log.Errorf("Error during server shutdown: %v", err)
+				// Force close if graceful shutdown fails
+				if err := server.Close(); err != nil {
+					return fmt.Errorf("failed to close server: %w", err)
+				}
+				return fmt.Errorf("server shutdown failed: %w", err)
+			}
+
+			log.Infof("Server stopped gracefully")
+			return nil
+		}
 	}
-
-	return nil
 }

@@ -46,3 +46,15 @@ type DnsServerInfo struct {
 	Endpoint string // For DoT: SNI, for DoH: URI, for Plain/PlainIPv6: same as Proxy
 	Port     string // Only for DoT and DoH entries, empty otherwise
 }
+
+// DNSProxyResponse represents the response from /show/dns-proxy endpoint
+type DNSProxyResponse struct {
+	ProxyStatus []DNSProxyStatus `json:"proxy-status"`
+}
+
+// DNSProxyStatus represents a single DNS proxy profile
+type DNSProxyStatus struct {
+	ProxyName   string `json:"proxy-name"`
+	ProxyConfig string `json:"proxy-config"`
+	// Other fields omitted as we only need proxy-name and proxy-config
+}

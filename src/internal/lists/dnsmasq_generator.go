@@ -12,7 +12,7 @@ import (
 )
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
-func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, listManager *Manager) error {
+func PrintDnsmasqConfig(cfg *config.Config, configPath string, keeneticClient *keenetic.Client, listManager *Manager) error {
 	if err := CreateIPSetsIfAbsent(cfg); err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 	}
 
 	for listName, ipsets := range listMapping {
-		log.Infof("Processing list \"%s\" (ipsets: %v)...", listName, ipsets)
+		log.Infof("[list %s] Processing (ipsets: %v)...", listName, ipsets)
 		list, err := getListByName(cfg, listName)
 		if err != nil {
 			return err
@@ -49,7 +49,9 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 			}
 			return err
 		}); err != nil {
-			return err
+			// Log error but continue processing other lists
+			log.Errorf("[list %s] Failed to process: %v. Skipping this list in dnsmasq config.", listName, err)
+			continue
 		}
 
 		// Update statistics cache once after processing
@@ -61,7 +63,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 	log.Infof("Parsed %d domains. Producing dnsmasq config into stdout...", domainStore.Count())
 
 	if domainStore.Count() > 0 {
-		if err := printDnsmasqConfig(cfg, domainStore, keeneticClient); err != nil {
+		if err := printDnsmasqConfig(cfg, configPath, domainStore, keeneticClient); err != nil {
 			return err
 		}
 	}
@@ -70,7 +72,7 @@ func PrintDnsmasqConfig(cfg *config.Config, keeneticClient *keenetic.Client, lis
 }
 
 // printDnsmasqConfig writes the dnsmasq configuration to stdout.
-func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient *keenetic.Client) error {
+func printDnsmasqConfig(cfg *config.Config, configPath string, domains *DomainStore, keeneticClient *keenetic.Client) error {
 	startTime := time.Now().UnixMilli()
 
 	stdoutBuffer := bufio.NewWriter(os.Stdout)
@@ -81,44 +83,46 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient
 		}
 	}(stdoutBuffer)
 
-	if *cfg.General.UseKeeneticDNS {
-		// Import keenetic DNS servers
-		var keeneticServers []keenetic.DnsServerInfo
-		var err error
-		if keeneticClient != nil {
-			keeneticServers, err = keeneticClient.GetDNSServers()
-		} else {
-			err = fmt.Errorf("keenetic client not available")
-		}
-		if err != nil {
-			if cfg.General.FallbackDNS != "" {
-				log.Warnf("Failed to fetch Keenetic DNS servers, using fallback DNS: %s", cfg.General.FallbackDNS)
-				row := "server=" + cfg.General.FallbackDNS + "\n"
-				if _, err := stdoutBuffer.WriteString(row); err != nil {
-					return fmt.Errorf("failed to print fallback DNS to dnsmasq cfg file: %v", err)
-				}
-			} else {
-				log.Warnf("Failed to fetch Keenetic DNS servers, no fallback DNS provided")
-			}
-		} else {
-			log.Infof("Found %d Keenetic DNS servers", len(keeneticServers))
-			for _, server := range keeneticServers {
-				ip := server.Proxy
-				port := server.Port
+	// Calculate and print config hash as CNAME record for dnsmasq tracking
+	hasher := config.NewConfigHasher(configPath)
+	// Set Keenetic client to ensure hash calculation includes DNS servers (if enabled)
+	// This ensures consistency with the hash calculated during service startup
+	hasher.SetKeeneticClient(keeneticClient)
+	configHash, err := hasher.UpdateCurrentConfigHash()
+	if err != nil {
+		log.Warnf("Failed to calculate config hash: %v", err)
+		configHash = "unknown"
+	}
 
-				row := "server="
-				if server.Domain != nil && *server.Domain != "" {
-					row += "/" + *server.Domain + "/"
-				}
-				row += ip
-				if port != "" {
-					row += "#" + port
-				}
-				if _, err := stdoutBuffer.WriteString(row + "\n"); err != nil {
-					return fmt.Errorf("failed to print DNS to dnsmasq cfg file: %v", err)
-				}
+	// Print CNAME record: cname=config-md5.keen-pbr.internal,<MD5>.value.keen-pbr.internal,1
+	cnameRecord := fmt.Sprintf("cname=config-md5.keen-pbr.internal,%s.value.keen-pbr.internal,1\n", configHash)
+	if _, err := stdoutBuffer.WriteString(cnameRecord); err != nil {
+		return fmt.Errorf("failed to write config hash CNAME to dnsmasq cfg: %v", err)
+	}
+	log.Infof("Dnsmasq config hash: %s", configHash)
+
+	// Get upstream DNS servers using centralized resolution logic
+	upstreamServers := ResolveDNSServers(cfg, keeneticClient)
+	if len(upstreamServers) > 0 {
+		log.Infof("Using %d upstream DNS server(s)", len(upstreamServers))
+		for _, server := range upstreamServers {
+			ip := server.Proxy
+			port := server.Port
+
+			row := "server="
+			if server.Domain != nil && *server.Domain != "" {
+				row += "/" + *server.Domain + "/"
+			}
+			row += ip
+			if port != "" {
+				row += "#" + port
+			}
+			if _, err := stdoutBuffer.WriteString(row + "\n"); err != nil {
+				return fmt.Errorf("failed to print DNS to dnsmasq cfg file: %v", err)
 			}
 		}
+	} else {
+		log.Infof("No upstream DNS servers configured")
 	}
 
 	for _, ipset := range cfg.IPSets {
@@ -131,7 +135,9 @@ func printDnsmasqConfig(cfg *config.Config, domains *DomainStore, keeneticClient
 			if err := iterateOverList(list, cfg, func(host string) error {
 				return printDnsmasqIPSetEntry(cfg, stdoutBuffer, host, domains, ipset)
 			}); err != nil {
-				return err
+				// Log error but continue processing other lists
+				log.Errorf("[list %s] [ipset %s] Failed to process: %v. Skipping this list in dnsmasq config.", listName, ipset.IPSetName, err)
+				continue
 			}
 		}
 	}

@@ -109,7 +109,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 	client := keenetic.NewClient(nil)
 	selector := networking.NewInterfaceSelector(client)
 
-	if chosenIface, err := selector.ChooseBest(ipsetCfg); err != nil {
+	if chosenIface, ifaceIndex, err := selector.ChooseBest(ipsetCfg); err != nil {
 		log.Errorf("Failed to choose best interface: %v", err)
 		return err
 	} else {
@@ -119,7 +119,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 			log.Infof("Choosing interface %s", chosenIface.Attrs().Name)
 		}
 
-		if err := checkIpRoutes(ipsetCfg, chosenIface); err != nil {
+		if err := checkIpRoutes(ipsetCfg, chosenIface, ifaceIndex); err != nil {
 			log.Errorf("Failed to check IP routes: %v", err)
 			return err
 		}
@@ -157,7 +157,7 @@ func checkIpTables(ipset *config.IPSetConfig) error {
 	return nil
 }
 
-func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface) error {
+func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface, ifaceIndex int) error {
 	if routes, err := networking.ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
 		log.Errorf("Failed to list IP routes in table %d: %v", ipset.Routing.IpRouteTable, err)
 		return err
@@ -185,7 +185,7 @@ func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface)
 	}
 
 	if chosenIface != nil {
-		defaultIpRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable)
+		defaultIpRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable, ifaceIndex)
 		if exists, err := defaultIpRoute.IsExists(); err != nil {
 			log.Errorf("Failed to check default IP route [%v]: %v", defaultIpRoute, err)
 			return err

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug, ListPlus, Network, File, Globe, List } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import { useLists } from '../../src/hooks/useLists';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
@@ -24,14 +24,15 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '../ui/empty';
 import { cn } from '../../src/lib/utils';
-import type { IPSetConfig, CreateIPSetRequest, IPTablesRule } from '../../src/api/client';
+import type { IPSetConfig, CreateIPSetRequest, IPTablesRule, ListInfo } from '../../src/api/client';
 
 interface RuleDialogProps {
   ipset?: IPSetConfig | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  availableLists: string[];
+  availableLists: ListInfo[];
 }
 
 // Default iptables rule
@@ -44,6 +45,20 @@ const DEFAULT_IPTABLES_RULE: IPTablesRule = {
 // Available template variables
 const TEMPLATE_VARS = ['{{ipset_name}}', '{{fwmark}}', '{{table}}', '{{priority}}'];
 
+// Helper function to get icon for list type
+const getListIcon = (type: string) => {
+  switch (type) {
+    case 'url':
+      return Globe;
+    case 'file':
+      return File;
+    case 'hosts':
+      return List;
+    default:
+      return ListPlus;
+  }
+};
+
 export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
   const { t } = useTranslation();
   const isEditMode = !!ipset;
@@ -53,8 +68,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const [listsOpen, setListsOpen] = useState(false);
   const [customInterface, setCustomInterface] = useState('');
 
-  // Fetch interfaces when combobox is opened
-  const { data: interfacesData } = useInterfaces(interfacesOpen);
+  // Fetch interfaces while dialog is open
+  const { data: interfacesData } = useInterfaces(open);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
@@ -64,9 +79,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     routing: {
       interfaces: [],
       kill_switch: true,
-      fwmark: 100,
-      table: 100,
-      priority: 100,
+      fwmark: 0,
+      table: 0,
+      priority: 0,
     },
     iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
   });
@@ -74,18 +89,19 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   // Initialize form when ipset changes (edit mode) or reset (create mode)
   useEffect(() => {
     if (ipset) {
+      const routing = ipset.routing || {
+        interfaces: [],
+        kill_switch: true,
+        fwmark: 100,
+        table: 100,
+        priority: 100,
+      };
       setFormData({
         ipset_name: ipset.ipset_name,
         lists: ipset.lists,
         ip_version: ipset.ip_version,
         flush_before_applying: ipset.flush_before_applying,
-        routing: ipset.routing || {
-          interfaces: [],
-          kill_switch: true,
-          fwmark: 100,
-          table: 100,
-          priority: 100,
-        },
+        routing,
         iptables_rule: ipset.iptables_rule && ipset.iptables_rule.length > 0
           ? ipset.iptables_rule
           : [{ ...DEFAULT_IPTABLES_RULE }],
@@ -100,9 +116,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
         routing: {
           interfaces: [],
           kill_switch: true,
-          fwmark: 100,
-          table: 100,
-          priority: 100,
+          fwmark: 0,
+          table: 0,
+          priority: 0,
         },
         iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
       });
@@ -113,15 +129,13 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // At least one list is required
     if (formData.lists.length === 0) {
       toast.error(t('routingRules.dialog.selectListsError'));
       return;
     }
 
-    if (formData.routing && formData.routing.interfaces.length === 0) {
-      toast.error(t('routingRules.dialog.selectInterfacesError'));
-      return;
-    }
+    // Interfaces are optional - no validation needed
 
     try {
       if (isEditMode) {
@@ -266,8 +280,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     updateIPTablesRule(ruleIndex, 'rule', newRuleString.split(' '));
   };
 
-  // Get interface options
-  const interfaceOptions = (interfacesData || []).map((i) => i.name);
+  // Get interface options (keep full objects for UP/DOWN state)
+  const interfaceOptions = interfacesData || [];
 
   const isPending = isEditMode ? updateIPSet.isPending : createIPSet.isPending;
 
@@ -350,43 +364,67 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   <PopoverContent className="w-full p-0">
                     <Command>
                       <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
-                      <CommandList>
+                      <CommandList className="max-h-[300px] overflow-y-auto">
                         <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
                         <CommandGroup>
-                          {availableLists.map((list) => (
-                            <CommandItem
-                              key={list}
-                              value={list}
-                              onSelect={() => addList(list)}
-                              disabled={formData.lists.includes(list)}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.lists.includes(list) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {list}
-                            </CommandItem>
-                          ))}
+                          {availableLists.map((list) => {
+                            const ListIcon = getListIcon(list.type);
+                            return (
+                              <CommandItem
+                                key={list.list_name}
+                                value={list.list_name}
+                                onSelect={() => addList(list.list_name)}
+                                disabled={formData.lists.includes(list.list_name)}
+                              >
+                                <ListIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.lists.includes(list.list_name) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="flex-1">{list.list_name}</span>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
 
-                {formData.lists.length > 0 && (
-                  <ul className="mt-2 space-y-1 border rounded-md p-2">
-                    {formData.lists.map((list) => (
-                      <li key={list} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
-                        <span>{list}</span>
-                        <X
-                          className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => removeList(list)}
-                        />
-                      </li>
-                    ))}
-                  </ul>
+                {formData.lists.length > 0 ? (
+                  <div className="mt-2 space-y-1 border rounded-md p-2">
+                    {formData.lists.map((listName, index) => {
+                      const listInfo = availableLists.find(l => l.list_name === listName);
+                      const ListIcon = listInfo ? getListIcon(listInfo.type) : ListPlus;
+                      return (
+                        <div key={`${listName}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            <ListIcon className="h-4 w-4 text-muted-foreground" />
+                            <span>{listName}</span>
+                          </div>
+                          <X
+                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                            onClick={() => removeList(listName)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Empty className="mt-2 border">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <ListPlus className="h-5 w-5" />
+                      </EmptyMedia>
+                      <EmptyTitle className="text-base">{t('routingRules.dialog.emptyLists.title')}</EmptyTitle>
+                      <EmptyDescription>
+                        {t('routingRules.dialog.emptyLists.description')}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 )}
               </Field>
             </div>
@@ -422,8 +460,8 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           value={customInterface}
                           onValueChange={setCustomInterface}
                         />
-                        <CommandList className="max-h-[200px]">
-                          {customInterface && !interfaceOptions.includes(customInterface) && (
+                        <CommandList className="max-h-[300px] overflow-y-auto">
+                          {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
                             <CommandItem
                               onSelect={() => addCustomInterface()}
                               className="text-sm"
@@ -438,18 +476,23 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                           <CommandGroup>
                             {interfaceOptions.map((iface) => (
                               <CommandItem
-                                key={iface}
-                                value={iface}
-                                onSelect={() => addInterface(iface)}
-                                disabled={formData.routing?.interfaces.includes(iface)}
+                                key={iface.name}
+                                value={iface.name}
+                                onSelect={() => addInterface(iface.name)}
+                                disabled={formData.routing?.interfaces.includes(iface.name)}
                               >
+                                {iface.is_up ? (
+                                  <Unplug className="mr-2 h-4 w-4 text-green-600" />
+                                ) : (
+                                  <Unplug className="mr-2 h-4 w-4 text-red-600" />
+                                )}
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    formData.routing?.interfaces.includes(iface) ? "opacity-100" : "opacity-0"
+                                    formData.routing?.interfaces.includes(iface.name) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                {iface}
+                                {iface.name}
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -458,12 +501,19 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     </PopoverContent>
                   </Popover>
 
-                  {formData.routing.interfaces.length > 0 && (
+                  {formData.routing.interfaces.length > 0 ? (
                     <div className="mt-2 space-y-1 border rounded-md p-2">
-                      {formData.routing.interfaces.map((iface, index) => (
+                      {formData.routing.interfaces.map((iface, index) => {
+                        const interfaceInfo = interfaceOptions.find(i => i.name === iface);
+                        return (
                         <div key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            {interfaceInfo?.is_up ? (
+                              <Unplug className="h-4 w-4 text-green-600" />
+                            ) : interfaceInfo ? (
+                              <Unplug className="h-4 w-4 text-red-600" />
+                            ) : null}
                             <span className="font-mono">{iface}</span>
                           </div>
                           <div className="flex items-center gap-1">
@@ -498,54 +548,38 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                             </Button>
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
+                  ) : (
+                    <Empty className="mt-2 border">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <Network className="h-5 w-5" />
+                        </EmptyMedia>
+                        <EmptyTitle className="text-base">{t('routingRules.dialog.emptyInterfaces.title')}</EmptyTitle>
+                        <EmptyDescription>
+                          {t('routingRules.dialog.emptyInterfaces.description')}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   )}
                 </Field>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
-                    <Input
-                      id="priority"
-                      type="number"
-                      value={formData.routing.priority}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, priority: parseInt(e.target.value) },
-                      })}
-                      required
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
-                    <Input
-                      id="table"
-                      type="number"
-                      value={formData.routing.table}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, table: parseInt(e.target.value) },
-                      })}
-                      required
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
-                    <Input
-                      id="fwmark"
-                      type="number"
-                      value={formData.routing.fwmark}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        routing: { ...formData.routing!, fwmark: parseInt(e.target.value) },
-                      })}
-                      required
-                    />
-                  </Field>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="default_gateway">{t('routingRules.dialog.defaultGateway')}</FieldLabel>
+                  <FieldDescription>
+                    {t('routingRules.dialog.defaultGatewayDescription')}
+                  </FieldDescription>
+                  <Input
+                    id="default_gateway"
+                    value={formData.routing.default_gateway || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      routing: { ...formData.routing!, default_gateway: e.target.value || undefined },
+                    })}
+                    placeholder={t('routingRules.dialog.defaultGatewayPlaceholder')}
+                  />
+                </Field>
 
                 <Field>
                   <FieldLabel htmlFor="override_dns">{t('routingRules.dialog.dnsOverride')}</FieldLabel>
@@ -565,101 +599,193 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
               </div>
             )}
 
-            {/* IPTables Rules Section */}
-            <Accordion type="single" collapsible className="border rounded-md">
-              <AccordionItem value="iptables" className="border-0">
-                <AccordionTrigger className="px-4 hover:no-underline">
-                  <h3 className="text-sm font-medium">{t('routingRules.dialog.iptablesTitle')}</h3>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
-                    </p>
+            {/* Advanced Configuration Section */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">{t('routingRules.dialog.advancedConfiguration', { defaultValue: 'Advanced Configuration' })}</h3>
 
-                    {formData.iptables_rule?.map((rule, index) => (
-                      <div key={index} className="border rounded-md p-4 space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
-                          {formData.iptables_rule && formData.iptables_rule.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeIPTablesRule(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+              {/* IPTables Rules Accordion */}
+              <Accordion type="single" collapsible className="border rounded-md">
+                <AccordionItem value="iptables" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <h4 className="text-sm font-medium">{t('routingRules.dialog.iptablesTitle')}</h4>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
+                      </p>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <Field>
-                            <FieldLabel>{t('routingRules.dialog.iptablesChain')}</FieldLabel>
-                            <Input
-                              value={rule.chain}
-                              onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
-                              placeholder={t('routingRules.dialog.iptablesChainPlaceholder')}
-                            />
-                          </Field>
-
-                          <Field>
-                            <FieldLabel>{t('routingRules.dialog.iptablesTable')}</FieldLabel>
-                            <Input
-                              value={rule.table}
-                              onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
-                              placeholder={t('routingRules.dialog.iptablesTablePlaceholder')}
-                            />
-                          </Field>
-                        </div>
-
-                        <Field>
+                      {formData.iptables_rule?.map((rule, index) => (
+                        <div key={index} className="border rounded-md p-4 space-y-3">
                           <div className="flex items-center justify-between mb-2">
-                            <FieldLabel>{t('routingRules.dialog.iptablesRuleArguments')}</FieldLabel>
-                            <Select
-                              key={`select-${index}-${rule.rule.join(' ')}`}
-                              onValueChange={(value) => insertTemplateVar(index, value)}
-                            >
-                              <SelectTrigger className="w-[180px] h-8">
-                                <SelectValue placeholder={t('routingRules.dialog.iptablesInsertVariable')} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {TEMPLATE_VARS.map((varName) => (
-                                  <SelectItem key={varName} value={varName}>
-                                    <code className="text-xs">{varName}</code>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
+                            {formData.iptables_rule && formData.iptables_rule.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeIPTablesRule(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
-                          <Textarea
-                            value={rule.rule.join(' ')}
-                            onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
-                            placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
-                            rows={3}
-                            className="font-mono text-xs"
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <Field>
+                              <FieldLabel>{t('routingRules.dialog.iptablesChain')}</FieldLabel>
+                              <Input
+                                value={rule.chain}
+                                onChange={(e) => updateIPTablesRule(index, 'chain', e.target.value)}
+                                placeholder={t('routingRules.dialog.iptablesChainPlaceholder')}
+                              />
+                            </Field>
+
+                            <Field>
+                              <FieldLabel>{t('routingRules.dialog.iptablesTable')}</FieldLabel>
+                              <Input
+                                value={rule.table}
+                                onChange={(e) => updateIPTablesRule(index, 'table', e.target.value)}
+                                placeholder={t('routingRules.dialog.iptablesTablePlaceholder')}
+                              />
+                            </Field>
+                          </div>
+
+                          <Field>
+                            <div className="flex items-center justify-between mb-2">
+                              <FieldLabel>{t('routingRules.dialog.iptablesRuleArguments')}</FieldLabel>
+                              <Select
+                                key={`select-${index}-${rule.rule.join(' ')}`}
+                                onValueChange={(value) => insertTemplateVar(index, value)}
+                              >
+                                <SelectTrigger className="w-[180px] h-8">
+                                  <SelectValue placeholder={t('routingRules.dialog.iptablesInsertVariable')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {TEMPLATE_VARS.map((varName) => (
+                                    <SelectItem key={varName} value={varName}>
+                                      <code className="text-xs">{varName}</code>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Textarea
+                              value={rule.rule.join(' ')}
+                              onChange={(e) => updateIPTablesRule(index, 'rule', e.target.value.split(' '))}
+                              placeholder="-m mark --mark 0x0/0xffffffff -m set --match-set {{ipset_name}} dst,src -j MARK --set-mark {{fwmark}}"
+                              rows={3}
+                              className="font-mono text-xs"
+                            />
+                            <FieldDescription className="text-xs">
+                              {t('routingRules.dialog.iptablesRuleDescription')}
+                            </FieldDescription>
+                          </Field>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addIPTablesRule}
+                        className="w-full"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t('routingRules.dialog.iptablesAddRule')}
+                      </Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* Priority/Table/FwMark Accordion */}
+              <Accordion type="single" collapsible className="border rounded-md">
+                <AccordionItem value="advanced-routing" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <h4 className="text-sm font-medium">{t('routingRules.dialog.advancedRouting', { defaultValue: 'Priority / Table / FwMark' })}</h4>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        {t('routingRules.dialog.advancedRoutingDescription', { defaultValue: 'Configure priority, table, and fwmark. Leave empty to auto-assign values (500-1000 range).' })}
+                      </p>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <Field>
+                          <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
+                          <Input
+                            id="priority"
+                            type="number"
+                            value={formData.routing.priority || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  priority: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.priorityPlaceholder', { defaultValue: 'Auto (500-1000)' })}
                           />
                           <FieldDescription className="text-xs">
-                            {t('routingRules.dialog.iptablesRuleDescription')}
+                            {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
+                          </FieldDescription>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
+                          <Input
+                            id="table"
+                            type="number"
+                            value={formData.routing.table || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  table: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.tablePlaceholder', { defaultValue: 'Auto' })}
+                          />
+                          <FieldDescription className="text-xs">
+                            {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
+                          </FieldDescription>
+                        </Field>
+
+                        <Field>
+                          <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
+                          <Input
+                            id="fwmark"
+                            type="number"
+                            value={formData.routing.fwmark || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData({
+                                ...formData,
+                                routing: {
+                                  ...formData.routing!,
+                                  fwmark: value ? parseInt(value) : 0,
+                                },
+                              });
+                            }}
+                            placeholder={t('routingRules.dialog.fwmarkPlaceholder', { defaultValue: 'Auto' })}
+                          />
+                          <FieldDescription className="text-xs">
+                            {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
                           </FieldDescription>
                         </Field>
                       </div>
-                    ))}
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addIPTablesRule}
-                      className="w-full"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('routingRules.dialog.iptablesAddRule')}
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
 
             {/* Options Section */}
             <div className="space-y-4">

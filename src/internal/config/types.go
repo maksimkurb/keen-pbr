@@ -18,10 +18,40 @@ type Config struct {
 }
 
 type GeneralConfig struct {
-	ListsOutputDir string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticDNS *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
-	FallbackDNS    string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
-	APIBindAddress string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
+	ListsOutputDir            string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
+	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
+	FallbackDNS               string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	APIBindAddress            string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
+	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
+	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
+	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
+}
+
+// IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
+func (gc *GeneralConfig) IsAutoUpdateEnabled() bool {
+	if gc.AutoUpdateLists == nil {
+		return true // Default to enabled
+	}
+	return *gc.AutoUpdateLists
+}
+
+// GetUpdateIntervalHours returns the update interval in hours (default: 24, min: 1).
+func (gc *GeneralConfig) GetUpdateIntervalHours() int {
+	if gc.UpdateIntervalHours <= 0 {
+		return 24 // Default to 24 hours
+	}
+	if gc.UpdateIntervalHours < 1 {
+		return 1 // Minimum 1 hour
+	}
+	return gc.UpdateIntervalHours
+}
+
+// IsInterfaceMonitoringEnabled returns whether interface monitoring is enabled (default: false).
+func (gc *GeneralConfig) IsInterfaceMonitoringEnabled() bool {
+	if gc.EnableInterfaceMonitoring == nil {
+		return false // Default to disabled
+	}
+	return *gc.EnableInterfaceMonitoring
 }
 
 type IPSetConfig struct {
@@ -41,6 +71,7 @@ type IPTablesRule struct {
 
 type RoutingConfig struct {
 	Interfaces     []string `toml:"interfaces" json:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
+	DefaultGateway string   `toml:"default_gateway" json:"default_gateway,omitempty" comment:"Default gateway IP address to use instead of interface-based routing.\nMust match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6).\nIf set, this gateway will be used when no interface is available or no interfaces are configured."`
 	KillSwitch     *bool    `toml:"kill_switch" json:"kill_switch,omitempty" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
 	FwMark         uint32   `toml:"fwmark" json:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
 	IpRouteTable   int      `toml:"table" json:"table" comment:"iptables routing table number"`

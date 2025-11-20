@@ -25,28 +25,23 @@ type ServiceManager struct {
 	networkMgr      domain.NetworkManager
 	deps            *domain.AppDependencies
 	done            chan error
+	configHasher    *config.ConfigHasher // DI component for hash tracking
 }
 
 // NewServiceManager creates a new service manager
-func NewServiceManager(ctx *AppContext, monitorInterval int) (*ServiceManager, error) {
-	cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	if err := networking.ValidateInterfacesArePresent(cfg, ctx.Interfaces); err != nil {
-		return nil, fmt.Errorf("failed to validate interfaces: %w", err)
-	}
-
+// Note: This does not validate runtime requirements (like interface presence)
+// Those validations happen in Start() to allow the API server to start even with invalid config
+func NewServiceManager(ctx *AppContext, monitorInterval int, configHasher *config.ConfigHasher) (*ServiceManager, error) {
 	deps := domain.NewDefaultDependencies()
 
 	return &ServiceManager{
 		ctx:             ctx,
-		cfg:             cfg,
+		cfg:             nil, // Will be loaded in Start()
 		monitorInterval: monitorInterval,
 		running:         false,
 		deps:            deps,
 		networkMgr:      deps.NetworkManager(),
+		configHasher:    configHasher,
 	}, nil
 }
 
@@ -57,6 +52,12 @@ func (sm *ServiceManager) IsRunning() bool {
 	return sm.running
 }
 
+// GetAppliedConfigHash returns the hash of applied configuration
+// Delegates to ConfigHasher DI component
+func (sm *ServiceManager) GetAppliedConfigHash() string {
+	return sm.configHasher.GetKeenPbrActiveConfigHash()
+}
+
 // Start starts the service in a goroutine
 func (sm *ServiceManager) Start() error {
 	sm.mu.Lock()
@@ -65,6 +66,21 @@ func (sm *ServiceManager) Start() error {
 	if sm.running {
 		return fmt.Errorf("service is already running")
 	}
+
+	// Load and validate configuration before starting
+	cfg, err := loadAndValidateConfigOrFail(sm.ctx.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Validate that required interfaces exist
+	if err := networking.ValidateInterfacesArePresent(cfg, sm.ctx.Interfaces); err != nil {
+		networking.PrintMissingInterfacesHelp()
+		return fmt.Errorf("interface validation failed: %w", err)
+	}
+
+	// Store validated config
+	sm.cfg = cfg
 
 	// Create context for service control
 	ctx, cancel := context.WithCancel(context.Background())
@@ -81,35 +97,85 @@ func (sm *ServiceManager) Start() error {
 
 // Stop stops the running service gracefully
 func (sm *ServiceManager) Stop() error {
+	// Phase 1: Cancel the context (with lock held)
 	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
 	if !sm.running {
+		sm.mu.Unlock()
 		return fmt.Errorf("service is not running")
 	}
 
 	log.Infof("Stopping service...")
 
 	// Cancel the context to signal shutdown
-	if sm.cancel != nil {
-		sm.cancel()
+	cancel := sm.cancel
+	done := sm.done
+	sm.mu.Unlock()
+
+	// Phase 2: Wait for service to finish (WITHOUT holding lock)
+	// This allows API handlers to check service status without deadlocking
+	if cancel != nil {
+		cancel()
 	}
 
-	// Wait for service to finish with timeout
+	var stopErr error
 	select {
-	case err := <-sm.done:
+	case err := <-done:
 		if err != nil {
 			log.Errorf("Service stopped with error: %v", err)
-			sm.running = false
-			return err
+			stopErr = err
 		}
 	case <-time.After(30 * time.Second):
-		sm.running = false
-		return fmt.Errorf("timeout waiting for service to stop")
+		stopErr = fmt.Errorf("timeout waiting for service to stop")
 	}
 
+	// Phase 3: Update running state (with lock held)
+	sm.mu.Lock()
 	sm.running = false
+	sm.mu.Unlock()
+
+	if stopErr != nil {
+		return stopErr
+	}
+
 	log.Infof("Service stopped successfully")
+	return nil
+}
+
+// Reload reloads the configuration and reapplies network settings
+// This is typically triggered by SIGHUP signal
+func (sm *ServiceManager) Reload() error {
+	sm.mu.RLock()
+	if !sm.running {
+		sm.mu.RUnlock()
+		return fmt.Errorf("service is not running")
+	}
+	cfg := sm.cfg
+	ctx := sm.ctx
+	networkMgr := sm.networkMgr
+	sm.mu.RUnlock()
+
+	log.Infof("Reloading configuration (triggered by SIGHUP)...")
+
+	// Update interface list
+	var err error
+	if ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
+		return fmt.Errorf("failed to get interfaces list: %v", err)
+	}
+
+	// Reapply persistent network configuration (iptables rules and ip rules)
+	log.Infof("Reapplying persistent network configuration...")
+	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	}
+
+	// Force update routing configuration (ip routes)
+	// SIGHUP forces a full refresh, not just changed interfaces
+	log.Infof("Forcing routing configuration update...")
+	if err := networkMgr.ApplyRoutingConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply routing configuration: %v", err)
+	}
+
+	log.Infof("Configuration reloaded successfully")
 	return nil
 }
 
@@ -125,6 +191,7 @@ func (sm *ServiceManager) Restart() error {
 	// Small delay to ensure cleanup is complete
 	time.Sleep(500 * time.Millisecond)
 
+	// Start() will handle config loading and validation
 	return sm.Start()
 }
 
@@ -134,41 +201,86 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 	log.Infof("Starting keen-pbr service...")
 
+	// Capture config snapshot at startup - this is immutable for this service instance
+	// This ensures shutdown uses the same config that was used for startup,
+	// properly cleaning up all ipsets even if config changes on disk
+	sm.mu.RLock()
+	startupCfg := sm.cfg
+	sm.mu.RUnlock()
+
+	// Calculate and store active config hash at startup
+	configHash, err := sm.configHasher.UpdateCurrentConfigHash()
+	if err != nil {
+		log.Warnf("Failed to calculate config hash: %v", err)
+		configHash = "unknown"
+	}
+	sm.configHasher.SetKeenPbrActiveConfigHash(configHash)
+	log.Infof("Service started with config hash: %s", configHash)
+
+	// Download missing lists (only downloads if files don't exist)
+	log.Infof("Checking and downloading missing lists...")
+	if err := lists.DownloadLists(startupCfg); err != nil {
+		log.Warnf("Some lists failed to download: %v", err)
+	}
+
 	// Initial setup: create ipsets and fill them
 	log.Infof("Importing lists to ipsets...")
-	if err := lists.ImportListsToIPSets(sm.cfg, sm.deps.ListManager()); err != nil {
+	if err := lists.ImportListsToIPSets(startupCfg, sm.deps.ListManager()); err != nil {
 		sm.done <- fmt.Errorf("failed to import lists: %w", err)
 		return
 	}
 
 	// Apply persistent network configuration (iptables rules and ip rules)
 	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
-	if err := sm.networkMgr.ApplyPersistentConfig(sm.cfg.IPSets); err != nil {
+	if err := sm.networkMgr.ApplyPersistentConfig(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply persistent network configuration: %w", err)
 		return
 	}
 
 	// Apply initial routing (ip routes)
 	log.Infof("Applying initial routing configuration...")
-	if err := sm.networkMgr.ApplyRoutingConfig(sm.cfg.IPSets); err != nil {
+	if err := sm.networkMgr.ApplyRoutingConfig(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply routing configuration: %w", err)
 		return
 	}
 
-	log.Infof("Service started successfully. Monitoring interface changes every %d seconds...", sm.monitorInterval)
+	log.Infof("Service started successfully.")
 
-	// Start monitoring loop
-	ticker := time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
-	defer ticker.Stop()
+	// Start interface monitoring if enabled
+	var interfaceTicker *time.Ticker
+	if startupCfg.General.IsInterfaceMonitoringEnabled() {
+		log.Infof("Interface monitoring enabled. Will check interface changes every %d seconds", sm.monitorInterval)
+		interfaceTicker = time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
+		defer interfaceTicker.Stop()
+	} else {
+		log.Infof("Interface monitoring disabled")
+	}
+
+	// Start auto-update timer if enabled
+	var updateTicker *time.Ticker
+	if startupCfg.General.IsAutoUpdateEnabled() {
+		interval := startupCfg.General.GetUpdateIntervalHours()
+		log.Infof("List auto-update enabled. Will check for updates every %d hour(s)", interval)
+		updateTicker = time.NewTicker(time.Duration(interval) * time.Hour)
+		defer updateTicker.Stop()
+	} else {
+		log.Infof("List auto-update disabled")
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Infof("Service context cancelled, shutting down...")
-			sm.done <- sm.shutdown()
+			sm.done <- sm.shutdownWithConfig(startupCfg)
 			return
 
-		case <-ticker.C:
+		case <-func() <-chan time.Time {
+			if interfaceTicker != nil {
+				return interfaceTicker.C
+			}
+			// Return a channel that never sends if interface monitoring is disabled
+			return make(<-chan time.Time)
+		}():
 			// Update interface list
 			var err error
 			if sm.ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
@@ -178,19 +290,52 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 			// Update routing configuration (only if interfaces changed)
 			log.Debugf("Checking interface states...")
-			if _, err := sm.networkMgr.UpdateRoutingIfChanged(sm.cfg.IPSets); err != nil {
+			if _, err := sm.networkMgr.UpdateRoutingIfChanged(startupCfg.IPSets); err != nil {
 				log.Errorf("Failed to update routing configuration: %v", err)
+			}
+
+		case <-func() <-chan time.Time {
+			if updateTicker != nil {
+				return updateTicker.C
+			}
+			// Return a channel that never sends if auto-update is disabled
+			return make(<-chan time.Time)
+		}():
+			// Auto-update lists
+			log.Infof("Running scheduled list update...")
+			if err := sm.updateLists(startupCfg); err != nil {
+				log.Errorf("Failed to update lists: %v", err)
 			}
 		}
 	}
 }
 
-// shutdown performs cleanup when the service stops
-func (sm *ServiceManager) shutdown() error {
+// updateLists downloads and re-imports lists
+func (sm *ServiceManager) updateLists(cfg *config.Config) error {
+	// Download all lists (forced update)
+	log.Infof("Downloading updated lists...")
+	if err := lists.DownloadListsForced(cfg); err != nil {
+		return fmt.Errorf("failed to download lists: %w", err)
+	}
+
+	// Re-import lists to ipsets
+	log.Infof("Re-importing lists to ipsets...")
+	if err := lists.ImportListsToIPSets(cfg, sm.deps.ListManager()); err != nil {
+		return fmt.Errorf("failed to re-import lists: %w", err)
+	}
+
+	log.Infof("List update completed successfully")
+	return nil
+}
+
+// shutdownWithConfig performs cleanup when the service stops
+// Uses the startup config to ensure all ipsets created at startup are properly removed
+func (sm *ServiceManager) shutdownWithConfig(startupCfg *config.Config) error {
 	log.Infof("Shutting down keen-pbr service...")
 
-	// Remove all network configuration
-	if err := sm.networkMgr.UndoConfig(sm.cfg.IPSets); err != nil {
+	// Remove all network configuration using the startup config
+	// This ensures we clean up exactly what was created, even if config changed on disk
+	if err := sm.networkMgr.UndoConfig(startupCfg.IPSets); err != nil {
 		log.Errorf("Failed to undo routing configuration: %v", err)
 		return err
 	}

@@ -291,7 +291,11 @@ export function DomainCheckerWidget() {
 													{ipCheck.rule_results.map((ruleResult, index) => (
 														<tr
 															key={`${ipCheck.ip}-${ruleResult.rule_name}`}
-															className="border-b"
+															className={`border-b ${
+																ruleResult.present_in_ipset !== ruleResult.should_be_present
+																	? 'bg-destructive/5'
+																	: ''
+															}`}
 														>
 															{index === 0 && (
 																<td

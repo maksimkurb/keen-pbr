@@ -1,23 +1,21 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@/src/api/client';
+import { useStatus } from '@/src/hooks/useStatus';
 import { StatusCard } from './StatusCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
-import { Play, Square, RotateCw } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { Play, Square, RotateCw, AlertTriangle } from 'lucide-react';
 
 export function ServiceStatusWidget() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [controlLoading, setControlLoading] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['status'],
-    queryFn: () => apiClient.getStatus(),
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  const { data, isLoading, error } = useStatus();
 
   const handleServiceControl = async (service: string, action: 'start' | 'stop' | 'restart') => {
     setControlLoading(`${service}-${action}`);
@@ -81,6 +79,25 @@ export function ServiceStatusWidget() {
 
   const keenPbrStatus = data.services['keen-pbr']?.status || 'unknown';
   const dnsmasqStatus = data.services.dnsmasq?.status || 'unknown';
+  const configOutdated = data.configuration_outdated || false;
+
+  // Check if dnsmasq config is outdated
+  const dnsmasqConfigHash = data.services.dnsmasq?.config_hash;
+  const dnsmasqNotConfigured = !dnsmasqConfigHash; // Empty hash means not configured
+  const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
+
+  // Prepare badges for keen-pbr service
+  const keenPbrBadges = configOutdated
+    ? [{ label: t('dashboard.badgeStale'), variant: 'outline' as const }]
+    : undefined;
+
+  // Prepare badges for dnsmasq service
+  const dnsmasqBadges = [];
+  if (dnsmasqNotConfigured) {
+    dnsmasqBadges.push({ label: t('dashboard.badgeMisconfigured'), variant: 'destructive' as const });
+  } else if (dnsmasqOutdated) {
+    dnsmasqBadges.push({ label: t('dashboard.badgeStale'), variant: 'outline' as const });
+  }
 
   return (
     <Card>
@@ -88,7 +105,8 @@ export function ServiceStatusWidget() {
         <CardTitle>{t('dashboard.systemStatus')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatusCard
             title={t('dashboard.version')}
             value={`${data.version.version} (${data.version.commit})`}
@@ -100,6 +118,8 @@ export function ServiceStatusWidget() {
           <StatusCard
             title={t('dashboard.keenPbrService')}
             status={keenPbrStatus}
+            badges={keenPbrBadges}
+            className={configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <>
                 <Button
@@ -135,6 +155,8 @@ export function ServiceStatusWidget() {
           <StatusCard
             title={t('dashboard.dnsmasqService')}
             status={dnsmasqStatus}
+            badges={dnsmasqBadges.length > 0 ? dnsmasqBadges : undefined}
+            className={dnsmasqNotConfigured ? 'bg-red-50 dark:bg-red-950' : dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
             actions={
               <Button
                 size="sm"
@@ -147,6 +169,34 @@ export function ServiceStatusWidget() {
               </Button>
             }
           />
+        </div>
+
+          {/* DNS Servers section */}
+          {data.dns_servers && data.dns_servers.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                {t('dashboard.dnsServers')}
+              </h3>
+              <div className="space-y-2">
+                {data.dns_servers.map((server, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline" className="text-xs">
+                      {t(`dashboard.dnsServerTypes.${server.type}`) || server.type}
+                    </Badge>
+                    <span className="font-mono text-muted-foreground">
+                      {server.endpoint}
+                      {server.port && `:${server.port}`}
+                    </span>
+                    {server.domain && (
+                      <span className="text-xs text-muted-foreground">
+                        ({server.domain})
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

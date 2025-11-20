@@ -21,7 +21,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   const [deletingIPSet, setDeletingIPSet] = useState<string | null>(null);
   const { data: lists } = useLists();
 
-  const availableLists = lists?.map((l) => l.list_name) || [];
+  const availableLists = lists || [];
 
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';

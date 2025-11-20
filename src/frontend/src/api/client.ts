@@ -54,6 +54,7 @@ export interface ListDownloadResponse extends ListInfo {
 // IPSet types
 export interface RoutingConfig {
 	interfaces: string[];
+	default_gateway?: string;
 	kill_switch?: boolean;
 	fwmark: number;
 	table: number;
@@ -96,6 +97,7 @@ export interface UpdateIPSetRequest {
 // Interface types
 export interface InterfaceInfo {
 	name: string;
+	is_up: boolean;
 }
 
 // Settings types
@@ -104,18 +106,25 @@ export interface GeneralSettings {
 	use_keenetic_dns: boolean;
 	fallback_dns?: string;
 	api_bind_address?: string; // Read-only, not configurable via UI
+	auto_update_lists?: boolean; // Auto-update lists with URLs
+	update_interval_hours?: number; // Interval in hours for auto-updates
+	enable_interface_monitoring?: boolean; // Enable periodic interface monitoring in web UI
 }
 
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
 	use_keenetic_dns?: boolean;
 	fallback_dns?: string;
+	auto_update_lists?: boolean;
+	update_interval_hours?: number;
+	enable_interface_monitoring?: boolean;
 }
 
 // Status types
 export interface ServiceInfo {
 	status: "running" | "stopped" | "unknown";
 	message?: string;
+	config_hash?: string; // Hash of applied config (keen-pbr service only)
 }
 
 export interface VersionInfo {
@@ -124,10 +133,20 @@ export interface VersionInfo {
 	commit: string;
 }
 
+export interface DNSServerInfo {
+	type: string; // "IP4", "IP6", "DoT", "DoH"
+	endpoint: string; // IP for plain DNS, SNI for DoT, URI for DoH
+	port?: string; // Port for DoT/DoH
+	domain?: string; // Domain scope (if any)
+}
+
 export interface StatusInfo {
 	version: VersionInfo;
 	keenetic_version?: string;
 	services: Record<string, ServiceInfo>;
+	current_config_hash: string;
+	configuration_outdated: boolean;
+	dns_servers?: DNSServerInfo[]; // Upstream DNS servers
 }
 
 // Service control types

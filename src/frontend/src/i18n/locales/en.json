@@ -9,11 +9,28 @@
     "title": "Dashboard",
     "description": "System status and domain routing checker",
     "systemStatus": "System Status",
+    "configurationOutdated": "Configuration has been modified. Restart keen-pbr service to apply changes.",
+    "dnsmasqConfigurationOutdated": "Dnsmasq configuration is outdated. Restart dnsmasq service to apply changes.",
+    "dnsmasqNotConfigured": "Dnsmasq is not configured to read keen-pbr config. Run: keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+    "configurationOutdatedBoth": "Configuration has been modified. Restart both keen-pbr and dnsmasq services to apply changes.",
     "version": "keen-pbr Version",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "keen-pbr Service",
     "dnsmasqService": "dnsmasq Service",
     "serviceStatus": "Service Status",
+    "statusRunning": "running",
+    "statusStopped": "stopped",
+    "statusUnknown": "unknown",
+    "badgeMisconfigured": "misconfigured",
+    "badgeStale": "stale",
+    "dnsServers": "DNS Servers",
+    "noDnsServers": "No DNS servers configured",
+    "dnsServerTypes": {
+      "IP4": "IPv4",
+      "IP6": "IPv6",
+      "DoT": "DNS over TLS",
+      "DoH": "DNS over HTTPS"
+    },
     "domainChecker": {
       "title": "Domain/IP Routing Checker",
       "placeholder": "Enter domain or IP address",
@@ -49,6 +66,24 @@
       "copyAll": "Copy All",
       "copied": "Check results copied to clipboard",
       "copyFailed": "Failed to copy to clipboard",
+      "download": "Download",
+      "downloaded": "Results downloaded",
+      "downloadFailed": "Failed to download results",
+      "table": {
+        "rule": "Rule",
+        "check": "Check",
+        "expected": "Expected",
+        "actual": "Actual"
+      },
+      "status": {
+        "running": "running",
+        "present": "present",
+        "absent": "absent",
+        "dead": "dead",
+        "missing": "missing",
+        "stale": "stale",
+        "error": "error"
+      },
       "checkTypes": {
         "config_validation": "Configuration Validation",
         "ipset_start": "IPSet Check",
@@ -73,6 +108,12 @@
     "fallbackDns": "Fallback DNS Server",
     "fallbackDnsDescription": "Fallback DNS server to use if Keenetic RCI call fails (e.g., 8.8.8.8 or 1.1.1.1). Leave empty to disable.",
     "fallbackDnsPlaceholder": "8.8.8.8",
+    "autoUpdateLists": "Auto-update Lists",
+    "autoUpdateListsDescription": "Automatically download and update lists with URLs in background (default: enabled)",
+    "updateIntervalHours": "Update Interval (hours)",
+    "updateIntervalHoursDescription": "Interval in hours for automatic list updates (minimum: 1 hour, default: 24 hours)",
+    "enableInterfaceMonitoring": "Enable Interface Monitoring",
+    "enableInterfaceMonitoringDescription": "Enable keen-pbr service to monitor interface state changes and automatically reapply routing (checks every 10 seconds)",
     "saveChanges": "Save Changes",
     "saveSuccess": "Settings saved successfully",
     "saveError": "Failed to save settings",
@@ -141,7 +182,10 @@
       "hostsPlaceholder": "example.com\n192.168.1.0/24\n10.0.0.1",
       "updateSuccess": "List \"{{name}}\" updated successfully",
       "createSuccess": "List \"{{name}}\" created successfully",
-      "saveError": "Failed to {{action}} list: {{error}}"
+      "saveError": "Failed to {{action}} list: {{error}}",
+      "validationError": "Please fix validation errors before saving",
+      "validationErrors": "{{count}} validation error found. Please fix errors before saving.",
+      "validationErrors_plural": "{{count}} validation errors found. Please fix errors before saving."
     },
     "delete": {
       "title": "Delete List",
@@ -214,9 +258,21 @@
       "addInterface": "Add interface",
       "searchInterfaces": "Search interfaces...",
       "noInterfaces": "No interfaces found.",
+      "advancedConfiguration": "Advanced Configuration",
+      "advancedRouting": "Priority / Table / FwMark",
+      "advancedRoutingDescription": "Configure priority, table, and fwmark. Leave empty to auto-assign values (500-1000 range).",
       "priority": "Priority",
+      "priorityDescription": "Recommended: 500-1000",
+      "priorityPlaceholder": "Auto (500-1000)",
       "table": "Table",
+      "tableDescription": "Defaults to priority value",
+      "tablePlaceholder": "Auto",
       "fwMark": "FW Mark",
+      "fwmarkDescription": "Defaults to priority value",
+      "fwmarkPlaceholder": "Auto",
+      "defaultGateway": "Default Gateway (Optional)",
+      "defaultGatewayDescription": "Gateway IP address to use when no interface is available. Must match IP version (IPv4 for IPv4, IPv6 for IPv6).",
+      "defaultGatewayPlaceholder": "192.168.1.1 or 2001:db8::1",
       "dnsOverride": "DNS Override (Optional)",
       "dnsOverrideDescription": "Format: server#port (e.g., 1.1.1.1#53)",
       "dnsOverridePlaceholder": "1.1.1.1#53",
@@ -238,7 +294,15 @@
       "selectInterfacesError": "At least one interface must be specified",
       "updateSuccess": "Routing rule \"{{name}}\" updated successfully",
       "createSuccess": "Routing rule \"{{name}}\" created successfully",
-      "saveError": "Failed to {{action}} routing rule: {{error}}"
+      "saveError": "Failed to {{action}} routing rule: {{error}}",
+      "emptyLists": {
+        "title": "No lists selected",
+        "description": "Click \"Add list\" above to select at least one list for this routing rule."
+      },
+      "emptyInterfaces": {
+        "title": "No interfaces selected",
+        "description": "Click \"Add interface\" above to select interfaces for routing (optional)."
+      }
     },
     "delete": {
       "title": "Delete Routing Rule",

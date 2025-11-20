@@ -21,6 +21,9 @@ export function SettingsForm() {
     lists_output_dir: '',
     use_keenetic_dns: true,
     fallback_dns: '',
+    auto_update_lists: true,
+    update_interval_hours: 24,
+    enable_interface_monitoring: false,
   });
 
   // Sync form data with fetched settings
@@ -148,6 +151,69 @@ export function SettingsForm() {
                 onChange={handleInputChange('fallback_dns')}
                 placeholder={t('settings.fallbackDnsPlaceholder')}
               />
+            </Field>
+
+            {/* Auto-update Lists */}
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="auto_update_lists"
+                  checked={formData.auto_update_lists ?? true}
+                  onCheckedChange={handleCheckboxChange('auto_update_lists')}
+                />
+                <div className="flex flex-col">
+                  <FieldLabel htmlFor="auto_update_lists" className="cursor-pointer">
+                    {t('settings.autoUpdateLists')}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t('settings.autoUpdateListsDescription')}
+                  </FieldDescription>
+                </div>
+              </div>
+            </Field>
+
+            {/* Update Interval */}
+            <Field>
+              <FieldLabel htmlFor="update_interval_hours">
+                {t('settings.updateIntervalHours')}
+              </FieldLabel>
+              <FieldDescription>
+                {t('settings.updateIntervalHoursDescription')}
+              </FieldDescription>
+              <Input
+                id="update_interval_hours"
+                type="number"
+                min="1"
+                value={formData.update_interval_hours ?? 24}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  setFormData((prev) => ({
+                    ...prev,
+                    update_interval_hours: value,
+                  }));
+                }}
+                placeholder="24"
+                disabled={!formData.auto_update_lists}
+              />
+            </Field>
+
+            {/* Enable Interface Monitoring */}
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="enable_interface_monitoring"
+                  checked={formData.enable_interface_monitoring ?? false}
+                  onCheckedChange={handleCheckboxChange('enable_interface_monitoring')}
+                />
+                <div className="flex flex-col">
+                  <FieldLabel htmlFor="enable_interface_monitoring" className="cursor-pointer">
+                    {t('settings.enableInterfaceMonitoring', { defaultValue: 'Enable Interface Monitoring' })}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t('settings.enableInterfaceMonitoringDescription', { defaultValue: 'Enable keen-pbr service to monitor interface state changes and automatically reapply routing (checks every 10 seconds)' })}
+                  </FieldDescription>
+                </div>
+              </div>
             </Field>
           </FieldGroup>
         </CardContent>

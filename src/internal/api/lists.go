@@ -492,7 +492,7 @@ func (h *Handler) DownloadList(w http.ResponseWriter, r *http.Request) {
 	writeJSONData(w, response)
 }
 
-// DownloadAllLists downloads all lists from their URLs.
+// DownloadAllLists force re-downloads all lists from their URLs.
 // POST /api/v1/lists-download
 func (h *Handler) DownloadAllLists(w http.ResponseWriter, r *http.Request) {
 	cfg, err := h.loadConfig()
@@ -501,8 +501,8 @@ func (h *Handler) DownloadAllLists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Download all lists
-	if err := lists.DownloadLists(cfg); err != nil {
+	// Force download all lists (re-download even if they exist)
+	if err := lists.DownloadListsForced(cfg); err != nil {
 		WriteInternalError(w, "Failed to download lists: "+err.Error())
 		return
 	}

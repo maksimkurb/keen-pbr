@@ -21,6 +21,7 @@ func CreateDnsmasqConfigCommand() *DnsmasqConfigCommand {
 type DnsmasqConfigCommand struct {
 	fs  *flag.FlagSet
 	cfg *config.Config
+	ctx *AppContext
 }
 
 func (g *DnsmasqConfigCommand) Name() string {
@@ -29,6 +30,7 @@ func (g *DnsmasqConfigCommand) Name() string {
 
 func (g *DnsmasqConfigCommand) Init(args []string, ctx *AppContext) error {
 	log.SetForceStdErr(true)
+	g.ctx = ctx
 
 	if err := g.fs.Parse(args); err != nil {
 		return err
@@ -46,7 +48,7 @@ func (g *DnsmasqConfigCommand) Init(args []string, ctx *AppContext) error {
 func (g *DnsmasqConfigCommand) Run() error {
 	client := keenetic.NewClient(nil)
 	deps := domain.NewDefaultDependencies()
-	if err := lists.PrintDnsmasqConfig(g.cfg, client, deps.ListManager()); err != nil {
+	if err := lists.PrintDnsmasqConfig(g.cfg, g.ctx.ConfigPath, client, deps.ListManager()); err != nil {
 		return fmt.Errorf("failed to print dnsmasq config: %v", err)
 	}
 

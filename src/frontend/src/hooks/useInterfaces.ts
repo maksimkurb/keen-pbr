@@ -3,14 +3,14 @@ import { apiClient } from '../api/client';
 
 /**
  * Hook for fetching network interfaces
- * Not cached - fetches fresh data when combobox is opened
+ * Cached for 5 seconds to provide fresh data
  */
 export function useInterfaces(enabled = true) {
   return useQuery({
     queryKey: ['interfaces'],
     queryFn: () => apiClient.getInterfaces(),
     enabled,
-    staleTime: 0, // Always fetch fresh data
+    staleTime: 5000, // Cache for 5 seconds
     refetchOnMount: true, // Refetch when component mounts
   });
 }

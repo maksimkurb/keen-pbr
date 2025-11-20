@@ -3,6 +3,7 @@ package api
 import (
 	"net"
 	"net/http"
+	"runtime"
 	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
@@ -46,7 +47,11 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Errorf("Panic recovered: %v", err)
+				log.Errorf("Panic recovered in %s %s: %v", r.Method, r.URL.Path, err)
+				// Log stack trace for debugging
+				buf := make([]byte, 4096)
+				n := runtime.Stack(buf, false)
+				log.Errorf("Stack trace:\n%s", buf[:n])
 				WriteInternalError(w, "Internal server error")
 			}
 		}()

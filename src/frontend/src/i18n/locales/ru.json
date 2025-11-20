@@ -9,11 +9,28 @@
     "title": "Панель управления",
     "description": "Состояние системы и проверка маршрутизации доменов",
     "systemStatus": "Состояние системы",
+    "configurationOutdated": "Конфигурация была изменена. Перезапустите службу keen-pbr для применения изменений.",
+    "dnsmasqConfigurationOutdated": "Конфигурация dnsmasq устарела. Перезапустите службу dnsmasq для применения изменений.",
+    "dnsmasqNotConfigured": "Dnsmasq не настроен для чтения конфигурации keen-pbr. Выполните: keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+    "configurationOutdatedBoth": "Конфигурация была изменена. Перезапустите обе службы keen-pbr и dnsmasq для применения изменений.",
     "version": "Версия keen-pbr",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "Сервис keen-pbr",
     "dnsmasqService": "Сервис dnsmasq",
     "serviceStatus": "Состояние сервиса",
+    "statusRunning": "работает",
+    "statusStopped": "остановлен",
+    "statusUnknown": "неизвестно",
+    "badgeMisconfigured": "не настроен",
+    "badgeStale": "устарел",
+    "dnsServers": "DNS серверы",
+    "noDnsServers": "DNS серверы не настроены",
+    "dnsServerTypes": {
+      "IP4": "IPv4",
+      "IP6": "IPv6",
+      "DoT": "DNS через TLS",
+      "DoH": "DNS через HTTPS"
+    },
     "domainChecker": {
       "title": "Проверка маршрутизации домена/IP",
       "placeholder": "Введите домен или IP-адрес",
@@ -49,6 +66,24 @@
       "copyAll": "Копировать всё",
       "copied": "Результаты проверки скопированы в буфер обмена",
       "copyFailed": "Не удалось скопировать в буфер обмена",
+      "download": "Скачать",
+      "downloaded": "Результаты скачаны",
+      "downloadFailed": "Не удалось скачать результаты",
+      "table": {
+        "rule": "Правило",
+        "check": "Проверка",
+        "expected": "Ожидается",
+        "actual": "Фактически"
+      },
+      "status": {
+        "running": "работает",
+        "present": "присутствует",
+        "absent": "отсутствует",
+        "dead": "остановлен",
+        "missing": "отсутствует",
+        "stale": "устарел",
+        "error": "ошибка"
+      },
       "checkTypes": {
         "config_validation": "Валидация конфигурации",
         "ipset_start": "Проверка IPSet",
@@ -73,6 +108,12 @@
     "fallbackDns": "Резервный DNS сервер",
     "fallbackDnsDescription": "Резервный DNS сервер для использования при сбое вызова Keenetic RCI (например, 8.8.8.8 или 1.1.1.1). Оставьте пустым для отключения.",
     "fallbackDnsPlaceholder": "8.8.8.8",
+    "autoUpdateLists": "Автообновление списков",
+    "autoUpdateListsDescription": "Автоматически скачивать и обновлять списки с URL в фоне (по умолчанию: включено)",
+    "updateIntervalHours": "Интервал обновления (часы)",
+    "updateIntervalHoursDescription": "Интервал в часах для автоматического обновления списков (минимум: 1 час, по умолчанию: 24 часа)",
+    "enableInterfaceMonitoring": "Включить мониторинг интерфейсов",
+    "enableInterfaceMonitoringDescription": "Разрешить сервису keen-pbr отслеживать изменения состояния интерфейсов и автоматически переприменять маршрутизацию (проверка каждые 10 секунд)",
     "saveChanges": "Сохранить изменения",
     "saveSuccess": "Настройки успешно сохранены",
     "saveError": "Не удалось сохранить настройки",
@@ -141,7 +182,10 @@
       "hostsPlaceholder": "example.com\n192.168.1.0/24\n10.0.0.1",
       "updateSuccess": "Список \"{{name}}\" успешно обновлен",
       "createSuccess": "Список \"{{name}}\" успешно создан",
-      "saveError": "Не удалось {{action}} список: {{error}}"
+      "saveError": "Не удалось {{action}} список: {{error}}",
+      "validationError": "Исправьте ошибки валидации перед сохранением",
+      "validationErrors": "Найдена {{count}} ошибка валидации. Исправьте ошибки перед сохранением.",
+      "validationErrors_plural": "Найдено {{count}} ошибок валидации. Исправьте ошибки перед сохранением."
     },
     "delete": {
       "title": "Удалить список",
@@ -214,9 +258,21 @@
       "addInterface": "Добавить интерфейс",
       "searchInterfaces": "Поиск интерфейсов...",
       "noInterfaces": "Интерфейсы не найдены.",
+      "advancedConfiguration": "Расширенная конфигурация",
+      "advancedRouting": "Приоритет / Таблица / FwMark",
+      "advancedRoutingDescription": "Настройте приоритет, таблицу и fwmark. Оставьте пустым для автоматического назначения значений (диапазон 500-1000).",
       "priority": "Приоритет",
+      "priorityDescription": "Рекомендуется: 500-1000",
+      "priorityPlaceholder": "Авто (500-1000)",
       "table": "Таблица",
+      "tableDescription": "По умолчанию равно значению приоритета",
+      "tablePlaceholder": "Авто",
       "fwMark": "FW Mark",
+      "fwmarkDescription": "По умолчанию равно значению приоритета",
+      "fwmarkPlaceholder": "Авто",
+      "defaultGateway": "Шлюз по умолчанию (опционально)",
+      "defaultGatewayDescription": "IP-адрес шлюза для использования когда нет доступного интерфейса. Должен соответствовать версии IP (IPv4 для IPv4, IPv6 для IPv6).",
+      "defaultGatewayPlaceholder": "192.168.1.1 или 2001:db8::1",
       "dnsOverride": "Переопределение DNS (опционально)",
       "dnsOverrideDescription": "Формат: сервер#порт (например, 1.1.1.1#53)",
       "dnsOverridePlaceholder": "1.1.1.1#53",
@@ -238,7 +294,15 @@
       "selectInterfacesError": "Необходимо указать хотя бы один интерфейс",
       "updateSuccess": "Правило маршрутизации \"{{name}}\" успешно обновлено",
       "createSuccess": "Правило маршрутизации \"{{name}}\" успешно создано",
-      "saveError": "Не удалось {{action}} правило маршрутизации: {{error}}"
+      "saveError": "Не удалось {{action}} правило маршрутизации: {{error}}",
+      "emptyLists": {
+        "title": "Списки не выбраны",
+        "description": "Нажмите \"Добавить список\" выше, чтобы выбрать хотя бы один список для этого правила маршрутизации."
+      },
+      "emptyInterfaces": {
+        "title": "Интерфейсы не выбраны",
+        "description": "Нажмите \"Добавить интерфейс\" выше, чтобы выбрать интерфейсы для маршрутизации (необязательно)."
+      }
     },
     "delete": {
       "title": "Удалить правило маршрутизации",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -16,9 +16,78 @@ import {
 import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Textarea } from '../ui/textarea';
+import { LineNumberedTextarea, LineError } from '../ui/line-numbered-textarea';
 import { Button } from '../ui/button';
 import type { ListInfo, CreateListRequest } from '../../src/api/client';
+
+// Validation patterns
+const DOMAIN_PATTERN = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
+const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+const IPV6_PATTERN = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]+|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))(\/\d{1,3})?$/;
+
+function validateIPv4(ip: string): boolean {
+  const parts = ip.split('/');
+  const addr = parts[0].split('.');
+
+  if (addr.length !== 4) return false;
+
+  for (const part of addr) {
+    const num = parseInt(part, 10);
+    if (isNaN(num) || num < 0 || num > 255) return false;
+  }
+
+  if (parts.length === 2) {
+    const mask = parseInt(parts[1], 10);
+    if (isNaN(mask) || mask < 0 || mask > 32) return false;
+  }
+
+  return true;
+}
+
+function validateIPv6(ip: string): boolean {
+  // Basic IPv6 validation - full validation is complex
+  return IPV6_PATTERN.test(ip);
+}
+
+function validateHostLine(line: string): string[] {
+  const trimmed = line.trim();
+
+  // Empty line is valid
+  if (trimmed === '') return [];
+
+  // Comment line is valid
+  if (trimmed.startsWith('#')) return [];
+
+  // Check if it's a domain
+  if (DOMAIN_PATTERN.test(trimmed)) return [];
+
+  // Check if it's IPv4 or IPv4 CIDR
+  if (IPV4_PATTERN.test(trimmed)) {
+    if (!validateIPv4(trimmed)) {
+      return ['Invalid IPv4 address or subnet'];
+    }
+    return [];
+  }
+
+  // Check if it's IPv6 or IPv6 CIDR
+  if (validateIPv6(trimmed)) return [];
+
+  return ['Invalid format: must be empty, comment (#), domain, IPv4, or IPv6'];
+}
+
+function validateHosts(hosts: string): LineError {
+  const lines = hosts.split('\n');
+  const errors: LineError = {};
+
+  lines.forEach((line, index) => {
+    const lineErrors = validateHostLine(line);
+    if (lineErrors.length > 0) {
+      errors[index + 1] = lineErrors;
+    }
+  });
+
+  return errors;
+}
 
 interface ListDialogProps {
   list?: ListInfo | null; // If provided, dialog is in edit mode
@@ -43,6 +112,16 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
     list_name: '',
     type: 'url',
   });
+
+  // Validate hosts field
+  const hostsErrors = useMemo(() => {
+    if (formData.type === 'hosts' && formData.hosts) {
+      return validateHosts(formData.hosts);
+    }
+    return {};
+  }, [formData.type, formData.hosts]);
+
+  const hasHostsErrors = Object.keys(hostsErrors).length > 0;
 
   // Fetch full list data when editing an inline hosts list
   const { data: fullListData } = useQuery({
@@ -72,6 +151,14 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Block saving if there are validation errors
+    if (hasHostsErrors) {
+      toast.error(t('common.error'), {
+        description: t('lists.dialog.validationError'),
+      });
+      return;
+    }
 
     try {
       const requestData: CreateListRequest = {
@@ -209,14 +296,19 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
                 <FieldDescription>
                   {t('lists.dialog.hostsDescription')}
                 </FieldDescription>
-                <Textarea
+                <LineNumberedTextarea
                   id="hosts"
                   value={formData.hosts || ''}
                   onChange={(e) => setFormData({ ...formData, hosts: e.target.value })}
                   placeholder={t('lists.dialog.hostsPlaceholder')}
-                  rows={6}
+                  errors={hostsErrors}
                   required
                 />
+                {hasHostsErrors && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                    {t('lists.dialog.validationErrors', { count: Object.keys(hostsErrors).length })}
+                  </p>
+                )}
               </Field>
             )}
           </FieldGroup>
@@ -230,7 +322,7 @@ export function ListDialog({ list, open, onOpenChange }: ListDialogProps) {
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || hasHostsErrors}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isEditMode ? t('common.save') : t('common.create')}
             </Button>

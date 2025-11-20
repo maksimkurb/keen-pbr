@@ -52,9 +52,20 @@ type SettingsResponse struct {
 
 // StatusResponse returns system status information.
 type StatusResponse struct {
-	Version         VersionInfo            `json:"version"`
-	KeeneticVersion string                 `json:"keenetic_version,omitempty"`
-	Services        map[string]ServiceInfo `json:"services"`
+	Version               VersionInfo            `json:"version"`
+	KeeneticVersion       string                 `json:"keenetic_version,omitempty"`
+	Services              map[string]ServiceInfo `json:"services"`
+	CurrentConfigHash     string                 `json:"current_config_hash"`
+	ConfigurationOutdated bool                   `json:"configuration_outdated"`
+	DNSServers            []DNSServerInfo        `json:"dns_servers,omitempty"` // Upstream DNS servers
+}
+
+// DNSServerInfo contains information about a DNS server.
+type DNSServerInfo struct {
+	Type     string  `json:"type"`               // "IP4", "IP6", "DoT", "DoH"
+	Endpoint string  `json:"endpoint"`           // IP for plain DNS, SNI for DoT, URI for DoH
+	Port     string  `json:"port,omitempty"`     // Port for DoT/DoH
+	Domain   *string `json:"domain,omitempty"`   // Domain scope (if any)
 }
 
 // VersionInfo contains build version information.
@@ -66,8 +77,9 @@ type VersionInfo struct {
 
 // ServiceInfo contains information about a service.
 type ServiceInfo struct {
-	Status  string `json:"status"`  // "running", "stopped", "unknown"
-	Message string `json:"message,omitempty"`
+	Status     string `json:"status"`  // "running", "stopped", "unknown"
+	Message    string `json:"message,omitempty"`
+	ConfigHash string `json:"config_hash,omitempty"` // Hash of applied config (keen-pbr service only)
 }
 
 // ServiceControlRequest controls the keen-pbr service.
@@ -163,4 +175,19 @@ type TracerouteHop struct {
 	IP       string  `json:"ip,omitempty"`
 	Hostname string  `json:"hostname,omitempty"`
 	RTT      float64 `json:"rtt,omitempty"` // milliseconds
+}
+
+// SelfCheckResponse returns self-check results as a table.
+type SelfCheckResponse struct {
+	Checks []SelfCheckRow `json:"checks"`
+}
+
+// SelfCheckRow represents a single row in the self-check table.
+type SelfCheckRow struct {
+	IPSet      string `json:"ipset"`      // IPSet name (empty for global checks)
+	Validation string `json:"validation"` // Type of check (e.g., "ipset", "ip_rule", "iptables")
+	Comment    string `json:"comment"`    // Explanation of what is being validated
+	State      bool   `json:"state"`      // true = pass (✓), false = fail (✗)
+	Message    string `json:"message"`    // Detailed message
+	Command    string `json:"command"`    // Command to run for debugging
 }

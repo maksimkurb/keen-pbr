@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // CheckRouting checks routing information for a given host.
@@ -353,19 +355,166 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 
 // streamOutput reads from a reader and streams each line as an SSE event
 func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher http.Flusher) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("Panic in streamOutput: %v", r)
+		}
+	}()
+
+	if reader == nil || w == nil || flusher == nil {
+		log.Errorf("streamOutput called with nil parameters")
+		return
+	}
+
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
 		// Escape any special characters for SSE
 		line = strings.ReplaceAll(line, "\n", "")
-		fmt.Fprintf(w, "data: %s\n\n", line)
-		flusher.Flush()
+
+		// Safely write and flush
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", line); err != nil {
+			log.Debugf("Failed to write to response: %v", err)
+			return
+		}
+
+		// Recover from flush panics
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Debugf("Panic during flush (client likely disconnected): %v", r)
+				}
+			}()
+			flusher.Flush()
+		}()
 	}
 }
 
-// CheckSelf performs a self-check similar to the self-check command and streams results via SSE.
-// GET /api/v1/check/self
+// CheckSelf performs a self-check similar to the self-check command.
+// GET /api/v1/check/self?sse=true (SSE streaming) or ?sse=false (JSON table, default)
 func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
+	// Check if SSE mode is requested
+	sseMode := r.URL.Query().Get("sse") == "true"
+
+	if sseMode {
+		h.checkSelfSSE(w, r)
+	} else {
+		h.checkSelfJSON(w, r)
+	}
+}
+
+// checkSelfJSON performs self-check and returns results as a JSON table
+func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
+	checks := []SelfCheckRow{}
+
+	// Load configuration
+	cfg, err := h.loadConfig()
+	if err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config",
+			Comment:    "Global configuration check",
+			State:      false,
+			Message:    fmt.Sprintf("Failed to load configuration: %v", err),
+			Command:    "",
+		})
+		writeJSONData(w, SelfCheckResponse{Checks: checks})
+		return
+	}
+
+	// Validate configuration
+	if err := cfg.ValidateConfig(); err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config_validation",
+			Comment:    "Configuration validation ensures all required fields are present and valid",
+			State:      false,
+			Message:    fmt.Sprintf("Configuration validation failed: %v", err),
+			Command:    "",
+		})
+	} else {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "config_validation",
+			Comment:    "Configuration validation ensures all required fields are present and valid",
+			State:      true,
+			Message:    "Configuration is valid",
+			Command:    "",
+		})
+	}
+
+	// Check dnsmasq service
+	cmd := exec.Command("pidof", "dnsmasq")
+	if err := cmd.Run(); err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq",
+			Comment:    "Dnsmasq service must be running for domain-based routing to work",
+			State:      false,
+			Message:    "Dnsmasq service is NOT running",
+			Command:    "/opt/etc/init.d/S56dnsmasq start",
+		})
+	} else {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq",
+			Comment:    "Dnsmasq service must be running for domain-based routing to work",
+			State:      true,
+			Message:    "Dnsmasq service is running",
+			Command:    "pidof dnsmasq",
+		})
+	}
+
+	// Check dnsmasq configuration (verify it reads keen-pbr config)
+	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
+	if dnsmasqHash == "" {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "dnsmasq_config",
+			Comment:    "Dnsmasq must be configured to read keen-pbr configuration",
+			State:      false,
+			Message:    "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)",
+			Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+		})
+	} else {
+		// Get current config hash
+		currentHash, err := h.configHasher.GetCurrentConfigHash()
+		if err != nil {
+			currentHash = "error"
+		}
+
+		if dnsmasqHash == currentHash {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      "",
+				Validation: "dnsmasq_config",
+				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
+				State:      true,
+				Message:    fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash),
+				Command:    "nslookup config-md5.keen-pbr.internal 127.0.0.1",
+			})
+		} else {
+			checks = append(checks, SelfCheckRow{
+				IPSet:      "",
+				Validation: "dnsmasq_config",
+				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
+				State:      false,
+				Message:    fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash),
+				Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
+			})
+		}
+	}
+
+	// Check each IPSet
+	for _, ipsetCfg := range cfg.IPSets {
+		ipsetChecks := h.checkIPSetSelfJSON(cfg, ipsetCfg)
+		checks = append(checks, ipsetChecks...)
+	}
+
+	writeJSONData(w, SelfCheckResponse{Checks: checks})
+}
+
+// checkSelfSSE performs self-check and streams results via SSE
+func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -396,9 +545,38 @@ func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
 		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid", "")
 	}
 
+	// Check dnsmasq service
+	cmd := exec.Command("pidof", "dnsmasq")
+	if err := cmd.Run(); err != nil {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", false, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is NOT running", "/opt/etc/init.d/S56dnsmasq start")
+		hasFailures = true
+	} else {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running", "pidof dnsmasq")
+	}
+
+	// Check dnsmasq configuration (verify it reads keen-pbr config)
+	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
+	if dnsmasqHash == "" {
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured to read keen-pbr configuration", "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)", "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+		hasFailures = true
+	} else {
+		// Get current config hash
+		currentHash, err := h.configHasher.GetCurrentConfigHash()
+		if err != nil {
+			currentHash = "error"
+		}
+
+		if dnsmasqHash == currentHash {
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", true, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash), "nslookup config-md5.keen-pbr.internal 127.0.0.1")
+		} else {
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash), "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+			hasFailures = true
+		}
+	}
+
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
-		if !h.checkIPSetSelf(w, flusher, cfg, ipsetCfg) {
+		if !h.checkIPSetSelfSSE(w, flusher, cfg, ipsetCfg) {
 			hasFailures = true
 		}
 	}
@@ -411,122 +589,203 @@ func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// checkIPSetSelf checks a single IPSet configuration and streams results
+// checkIPSetSelfSSE checks a single IPSet configuration and streams results via SSE
+// This implementation uses the NetworkingComponent abstraction (identical logic to JSON mode)
 // Returns true if all checks passed, false if any failed
-func (h *Handler) checkIPSetSelf(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
+func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
 	hasFailures := false
-	ipsetName := ipsetCfg.IPSetName
 
-	h.sendCheckEventWithContext(w, flusher, "ipset_start", ipsetName, true, "", fmt.Sprintf("Checking IPSet: %s", ipsetName), "")
-
-	// Check if ipset exists
-	cmd := exec.Command("ipset", "list", ipsetName)
-	err := cmd.Run()
-	ipsetCommand := fmt.Sprintf("ipset list %s", ipsetName)
-	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "ipset", ipsetName, false, "IPSet must exist to store IP addresses/subnets for policy routing", fmt.Sprintf("IPSet [%s] does NOT exist", ipsetName), ipsetCommand)
-		hasFailures = true
-	} else {
-		h.sendCheckEventWithContext(w, flusher, "ipset", ipsetName, true, "IPSet must exist to store IP addresses/subnets for policy routing", fmt.Sprintf("IPSet [%s] exists", ipsetName), ipsetCommand)
+	// Build components for this IPSet using the networking component abstraction
+	// Convert domain.KeeneticClient to concrete type for component builder
+	var keeneticClient *keenetic.Client
+	if h.deps != nil {
+		if concreteClient, ok := h.deps.KeeneticClient().(*keenetic.Client); ok {
+			keeneticClient = concreteClient
+		}
 	}
 
-	// Check ip rule
-	ipRuleCommand := fmt.Sprintf("ip rule add from all fwmark 0x%x lookup %d prio %d",
-		ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable, ipsetCfg.Routing.IpRulePriority)
-	cmd = exec.Command("ip", "rule", "show")
-	output, err := cmd.Output()
+	builder := networking.NewComponentBuilder(keeneticClient)
+	components, err := builder.BuildComponents(ipsetCfg)
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, false, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("Failed to check IP rule: %v", err), ipRuleCommand)
-		hasFailures = true
-	} else {
-		if strings.Contains(string(output), fmt.Sprintf("fwmark 0x%x", ipsetCfg.Routing.FwMark)) {
-			h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, true, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists", ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable), ipRuleCommand)
+		h.sendCheckEventWithContext(w, flusher, "component_build", ipsetCfg.IPSetName, false,
+			"Failed to build networking components", fmt.Sprintf("Error: %v", err), "")
+		return false
+	}
+
+	// Check each component using the unified abstraction
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
+
+		// State is OK if actual existence matches expected existence and no error occurred
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
 		} else {
-			h.sendCheckEventWithContext(w, flusher, "ip_rule", ipsetName, false, "IP rule routes packets marked by iptables to the custom routing table", fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist", ipsetCfg.Routing.FwMark), ipRuleCommand)
+			message = h.getComponentMessage(component, exists, shouldExist, ipsetCfg)
+		}
+
+		// Send SSE event
+		h.sendCheckEventWithContext(w, flusher,
+			string(component.GetType()),
+			component.GetIPSetName(),
+			state,
+			component.GetDescription(),
+			message,
+			component.GetCommand(),
+		)
+
+		if !state {
 			hasFailures = true
 		}
 	}
 
-	// Check ip routes - list all routes in the table
-	cmd = exec.Command("ip", "route", "show", "table", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
-	output, err = cmd.Output()
-	if err != nil {
-		ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
-		h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, false, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("Failed to check IP routes in table %d: %v", ipsetCfg.Routing.IpRouteTable, err), ipRouteCommand)
-		hasFailures = true
-	} else {
-		// Parse each route and send individual events
-		routes := strings.Split(strings.TrimSpace(string(output)), "\n")
-		if len(routes) == 0 || (len(routes) == 1 && routes[0] == "") {
-			ipRouteCommand := fmt.Sprintf("ip route add default via <gateway> dev <interface> table %d", ipsetCfg.Routing.IpRouteTable)
-			h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, false, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("No routes found in table %d", ipsetCfg.Routing.IpRouteTable), ipRouteCommand)
-			hasFailures = true
-		} else {
-			for _, route := range routes {
-				if route == "" {
-					continue
-				}
-				ipRouteCommand := fmt.Sprintf("ip route show table %d", ipsetCfg.Routing.IpRouteTable)
-				h.sendCheckEventWithContext(w, flusher, "ip_route", ipsetName, true, "IP routes define the gateway/interface for packets in the custom routing table", fmt.Sprintf("Route in table %d: %s", ipsetCfg.Routing.IpRouteTable, route), ipRouteCommand)
-			}
-		}
-	}
-
-	// Check iptables rules
-	if ipsetCfg.IPTablesRules != nil && len(ipsetCfg.IPTablesRules) > 0 {
-		for idx, rule := range ipsetCfg.IPTablesRules {
-			if !h.checkIPTablesRule(w, flusher, ipsetCfg, rule, idx) {
-				hasFailures = true
-			}
-		}
-	}
-
-	h.sendCheckEventWithContext(w, flusher, "ipset_end", ipsetName, true, "", fmt.Sprintf("Completed checking IPSet: %s", ipsetName), "")
 	return !hasFailures
 }
 
-// checkIPTablesRule checks if an iptables rule exists
-// Returns true if rule exists, false otherwise
-func (h *Handler) checkIPTablesRule(w http.ResponseWriter, flusher http.Flusher, ipsetCfg *config.IPSetConfig, rule *config.IPTablesRule, idx int) bool {
-	// Build the iptables check command
-	args := []string{"-t", rule.Table, "-C", rule.Chain}
+// checkIPSetSelfJSON checks a single IPSet configuration and returns results as table rows
+// This implementation uses the NetworkingComponent abstraction instead of direct command execution
+func (h *Handler) checkIPSetSelfJSON(cfg *config.Config, ipsetCfg *config.IPSetConfig) []SelfCheckRow {
+	checks := []SelfCheckRow{}
 
-	// Expand template variables in rule
-	expandedRule := make([]string, len(rule.Rule))
-	for i, arg := range rule.Rule {
-		expanded := arg
-		expanded = strings.ReplaceAll(expanded, "{{ipset_name}}", ipsetCfg.IPSetName)
-		expanded = strings.ReplaceAll(expanded, "{{fwmark}}", fmt.Sprintf("0x%x", ipsetCfg.Routing.FwMark))
-		expanded = strings.ReplaceAll(expanded, "{{table}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRouteTable))
-		expanded = strings.ReplaceAll(expanded, "{{priority}}", fmt.Sprintf("%d", ipsetCfg.Routing.IpRulePriority))
-		expandedRule[i] = expanded
+	// Build components for this IPSet using the networking component abstraction
+	// Convert domain.KeeneticClient to concrete type for component builder
+	var keeneticClient *keenetic.Client
+	if h.deps != nil {
+		if concreteClient, ok := h.deps.KeeneticClient().(*keenetic.Client); ok {
+			keeneticClient = concreteClient
+		}
 	}
 
-	args = append(args, expandedRule...)
-
-	var cmd *exec.Cmd
-	var iptablesCmd string
-	if ipsetCfg.IPVersion == 4 {
-		cmd = exec.Command("iptables", args...)
-		// Build the command for manual execution (using -A for add instead of -C for check)
-		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
-		iptablesCmd = "iptables " + strings.Join(addArgs, " ")
-	} else {
-		cmd = exec.Command("ip6tables", args...)
-		addArgs := append([]string{"-t", rule.Table, "-A", rule.Chain}, expandedRule...)
-		iptablesCmd = "ip6tables " + strings.Join(addArgs, " ")
-	}
-
-	err := cmd.Run()
-	ruleDesc := fmt.Sprintf("%s/%s rule #%d", rule.Table, rule.Chain, idx+1)
-
+	builder := networking.NewComponentBuilder(keeneticClient)
+	components, err := builder.BuildComponents(ipsetCfg)
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "iptables", ipsetCfg.IPSetName, false, "IPTables rule marks packets matching the ipset with fwmark for policy routing", fmt.Sprintf("IPTables %s does NOT exist", ruleDesc), iptablesCmd)
-		return false
-	} else {
-		h.sendCheckEventWithContext(w, flusher, "iptables", ipsetCfg.IPSetName, true, "IPTables rule marks packets matching the ipset with fwmark for policy routing", fmt.Sprintf("IPTables %s exists", ruleDesc), iptablesCmd)
-		return true
+		checks = append(checks, SelfCheckRow{
+			IPSet:      ipsetCfg.IPSetName,
+			Validation: "component_build",
+			Comment:    "Failed to build networking components",
+			State:      false,
+			Message:    fmt.Sprintf("Error: %v", err),
+			Command:    "",
+		})
+		return checks
 	}
+
+	// Check each component using the unified abstraction
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
+
+		// State is OK if actual existence matches expected existence and no error occurred
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
+		} else {
+			message = h.getComponentMessage(component, exists, shouldExist, ipsetCfg)
+		}
+
+		checks = append(checks, SelfCheckRow{
+			IPSet:      component.GetIPSetName(),
+			Validation: string(component.GetType()),
+			Comment:    component.GetDescription(),
+			State:      state,
+			Message:    message,
+			Command:    component.GetCommand(),
+		})
+	}
+
+	return checks
+}
+
+// getComponentMessage generates an appropriate message based on component type and state
+func (h *Handler) getComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool, ipsetCfg *config.IPSetConfig) string {
+	compType := component.GetType()
+
+	switch compType {
+	case networking.ComponentTypeIPSet:
+		if exists && shouldExist {
+			return fmt.Sprintf("IPSet [%s] exists", component.GetIPSetName())
+		} else if !exists && shouldExist {
+			return fmt.Sprintf("IPSet [%s] does NOT exist (missing)", component.GetIPSetName())
+		} else if exists && !shouldExist {
+			return fmt.Sprintf("IPSet [%s] exists but should NOT (unexpected)", component.GetIPSetName())
+		}
+		return fmt.Sprintf("IPSet [%s] not present", component.GetIPSetName())
+
+	case networking.ComponentTypeIPRule:
+		if exists && shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists",
+				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable)
+		} else if !exists && shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist (missing)",
+				ipsetCfg.Routing.FwMark)
+		} else if exists && !shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x exists but should NOT (unexpected)",
+				ipsetCfg.Routing.FwMark)
+		}
+		return fmt.Sprintf("IP rule with fwmark 0x%x not present", ipsetCfg.Routing.FwMark)
+
+	case networking.ComponentTypeIPRoute:
+		if routeComp, ok := component.(*networking.IPRouteComponent); ok {
+			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
+				if exists && shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
+						ipsetCfg.Routing.IpRouteTable)
+				} else if !exists && !shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
+						ipsetCfg.Routing.IpRouteTable)
+				} else if exists && !shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
+						ipsetCfg.Routing.IpRouteTable)
+				}
+				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
+					ipsetCfg.Routing.IpRouteTable)
+			} else {
+				ifaceName := routeComp.GetInterfaceName()
+				if exists && shouldExist {
+					return fmt.Sprintf("Route in table %d via %s exists (active)",
+						ipsetCfg.Routing.IpRouteTable, ifaceName)
+				} else if !exists && !shouldExist {
+					return fmt.Sprintf("Route in table %d via %s not present (interface not best)",
+						ipsetCfg.Routing.IpRouteTable, ifaceName)
+				} else if exists && !shouldExist {
+					return fmt.Sprintf("Route in table %d via %s exists but is not best interface (stale)",
+						ipsetCfg.Routing.IpRouteTable, ifaceName)
+				}
+				return fmt.Sprintf("Route in table %d via %s missing but is best interface (missing)",
+					ipsetCfg.Routing.IpRouteTable, ifaceName)
+			}
+		}
+
+	case networking.ComponentTypeIPTables:
+		if iptComp, ok := component.(*networking.IPTablesRuleComponent); ok {
+			ruleDesc := iptComp.GetRuleDescription()
+			if exists && shouldExist {
+				return fmt.Sprintf("IPTables %s exists", ruleDesc)
+			} else if !exists && shouldExist {
+				return fmt.Sprintf("IPTables %s does NOT exist (missing)", ruleDesc)
+			} else if exists && !shouldExist {
+				return fmt.Sprintf("IPTables %s exists but should NOT (unexpected)", ruleDesc)
+			}
+			return fmt.Sprintf("IPTables %s not present", ruleDesc)
+		}
+	}
+
+	// Fallback generic message
+	if exists && shouldExist {
+		return "Component exists as expected"
+	} else if !exists && !shouldExist {
+		return "Component absent as expected"
+	} else if exists && !shouldExist {
+		return "Component exists but should NOT (unexpected)"
+	}
+	return "Component missing but should exist"
 }
 
 // sendCheckEventWithContext sends a JSON check event via SSE with additional context

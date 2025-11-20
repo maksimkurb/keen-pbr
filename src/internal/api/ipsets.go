@@ -10,6 +10,28 @@ import (
 
 var ipsetNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
+// findLowestAvailablePriority finds the lowest available priority in the range 500-1000
+// that is not already used by any existing ipset.
+func findLowestAvailablePriority(ipsets []*config.IPSetConfig) int {
+	// Create a map of used priorities
+	usedPriorities := make(map[int]bool)
+	for _, ipset := range ipsets {
+		if ipset.Routing != nil {
+			usedPriorities[ipset.Routing.IpRulePriority] = true
+		}
+	}
+
+	// Find the first available priority in range 500-1000
+	for priority := 500; priority <= 1000; priority++ {
+		if !usedPriorities[priority] {
+			return priority
+		}
+	}
+
+	// If all priorities 500-1000 are taken, return 1000 (edge case)
+	return 1000
+}
+
 // GetIPSets returns all ipsets in the configuration.
 // GET /api/v1/ipsets
 func (h *Handler) GetIPSets(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +120,21 @@ func (h *Handler) CreateIPSet(w http.ResponseWriter, r *http.Request) {
 				"list_name": listName,
 			})
 			return
+		}
+	}
+
+	// Auto-assign priority/table/fwmark if not provided (or if they're 0)
+	if ipset.Routing != nil && (ipset.Routing.IpRulePriority == 0 || ipset.Routing.IpRouteTable == 0 || ipset.Routing.FwMark == 0) {
+		// Find the lowest available priority in range 500-1000
+		priority := findLowestAvailablePriority(cfg.IPSets)
+		if ipset.Routing.IpRulePriority == 0 {
+			ipset.Routing.IpRulePriority = priority
+		}
+		if ipset.Routing.IpRouteTable == 0 {
+			ipset.Routing.IpRouteTable = priority
+		}
+		if ipset.Routing.FwMark == 0 {
+			ipset.Routing.FwMark = uint32(priority)
 		}
 	}
 

@@ -3,9 +3,11 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/maksimkurb/keen-pbr/src/internal/utils"
+	"net"
 	"os"
 	"strings"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 func (c *Config) ValidateConfig() error {
@@ -35,14 +37,12 @@ func (c *Config) validateIPSets() error {
 			return err
 		}
 
-		// Validate interfaces
-		if len(ipset.Routing.Interfaces) == 0 {
-			return fmt.Errorf("ipset %s routing configuration should contain \"interfaces\" field", ipset.IPSetName)
-		}
-
-		// check duplicate interfaces
-		if err := checkIsDistinct(ipset.Routing.Interfaces, func(iface string) string { return iface }); err != nil {
-			return fmt.Errorf("there are duplicate interfaces in ipset %s: %v", ipset.IPSetName, err)
+		// Interfaces are optional - if not specified, only blackhole route will be used
+		// Check duplicate interfaces only if any are specified
+		if len(ipset.Routing.Interfaces) > 0 {
+			if err := checkIsDistinct(ipset.Routing.Interfaces, func(iface string) string { return iface }); err != nil {
+				return fmt.Errorf("there are duplicate interfaces in ipset %s: %v", ipset.IPSetName, err)
+			}
 		}
 
 		if len(ipset.Lists) == 0 {
@@ -157,6 +157,13 @@ func (ipset *IPSetConfig) validateIPSet() error {
 		}
 	}
 
+	// Validate default gateway format and IP family match
+	if ipset.Routing.DefaultGateway != "" {
+		if err := validateDefaultGateway(ipset.Routing.DefaultGateway, ipset.IPVersion); err != nil {
+			return fmt.Errorf("ipset %s default gateway validation failed: %v", ipset.IPSetName, err)
+		}
+	}
+
 	return nil
 }
 
@@ -231,12 +238,12 @@ func validateDNSOverride(dnsOverride string) error {
 	if portIndex := strings.LastIndex(dnsOverride, "#"); portIndex != -1 {
 		ip := dnsOverride[:portIndex]
 		port := dnsOverride[portIndex+1:]
-		
+
 		// Validate IP address
 		if !utils.IsIP(ip) {
 			return fmt.Errorf("invalid IP address: %s", ip)
 		}
-		
+
 		// Validate port
 		if !utils.IsValidPort(port) {
 			return fmt.Errorf("invalid port: %s", port)
@@ -245,6 +252,33 @@ func validateDNSOverride(dnsOverride string) error {
 		// No port specified, just validate IP
 		if !utils.IsIP(dnsOverride) {
 			return fmt.Errorf("invalid IP address: %s", dnsOverride)
+		}
+	}
+
+	return nil
+}
+
+func validateDefaultGateway(gateway string, ipVersion IpFamily) error {
+	if gateway == "" {
+		return nil
+	}
+
+	// Parse IP address
+	ip := net.ParseIP(gateway)
+	if ip == nil {
+		return fmt.Errorf("invalid IP address: %s", gateway)
+	}
+
+	// Check if IP family matches ipset version
+	if ipVersion == Ipv4 {
+		// IPv4 ipset requires IPv4 gateway
+		if ip.To4() == nil {
+			return fmt.Errorf("IPv6 address %s cannot be used for IPv4 ipset (ip_version=4)", gateway)
+		}
+	} else if ipVersion == Ipv6 {
+		// IPv6 ipset requires IPv6 gateway
+		if ip.To4() != nil {
+			return fmt.Errorf("IPv4 address %s cannot be used for IPv6 ipset (ip_version=6)", gateway)
 		}
 	}
 
