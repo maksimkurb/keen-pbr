@@ -67,8 +67,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [customInterface, setCustomInterface] = useState('');
-  const [tableManuallySet, setTableManuallySet] = useState(false);
-  const [fwmarkManuallySet, setFwmarkManuallySet] = useState(false);
 
   // Fetch interfaces while dialog is open
   const { data: interfacesData } = useInterfaces(open);
@@ -81,9 +79,9 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     routing: {
       interfaces: [],
       kill_switch: true,
-      fwmark: 100,
-      table: 100,
-      priority: 100,
+      fwmark: 0,
+      table: 0,
+      priority: 0,
     },
     iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
   });
@@ -108,9 +106,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
           ? ipset.iptables_rule
           : [{ ...DEFAULT_IPTABLES_RULE }],
       });
-      // If table/fwmark differ from priority, mark as manually set
-      setTableManuallySet(routing.table !== routing.priority);
-      setFwmarkManuallySet(routing.fwmark !== routing.priority);
     } else if (!open) {
       // Reset form when dialog closes in create mode
       setFormData({
@@ -121,15 +116,13 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
         routing: {
           interfaces: [],
           kill_switch: true,
-          fwmark: 100,
-          table: 100,
-          priority: 100,
+          fwmark: 0,
+          table: 0,
+          priority: 0,
         },
         iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
       });
       setCustomInterface('');
-      setTableManuallySet(false);
-      setFwmarkManuallySet(false);
     }
   }, [ipset, open]);
 
@@ -572,100 +565,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   )}
                 </Field>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
-                    <Input
-                      id="priority"
-                      type="number"
-                      value={formData.routing.priority}
-                      onChange={(e) => {
-                        const newPriority = parseInt(e.target.value) || 100;
-                        setFormData({
-                          ...formData,
-                          routing: {
-                            ...formData.routing!,
-                            priority: newPriority,
-                            // Auto-sync table/fwmark if not manually set
-                            table: tableManuallySet ? formData.routing!.table : newPriority,
-                            fwmark: fwmarkManuallySet ? formData.routing!.fwmark : newPriority,
-                          },
-                        });
-                      }}
-                      required
-                    />
-                    <FieldDescription className="text-xs">
-                      {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
-                    </FieldDescription>
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
-                    <Input
-                      id="table"
-                      type="number"
-                      value={tableManuallySet ? formData.routing.table : ''}
-                      placeholder={!tableManuallySet ? formData.routing.priority.toString() : undefined}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value) {
-                          setTableManuallySet(true);
-                          setFormData({
-                            ...formData,
-                            routing: { ...formData.routing!, table: parseInt(value) },
-                          });
-                        }
-                      }}
-                      onFocus={(e) => {
-                        // If clicking on field with placeholder, pre-fill with priority value
-                        if (!tableManuallySet && e.target.value === '') {
-                          setTableManuallySet(true);
-                          setFormData({
-                            ...formData,
-                            routing: { ...formData.routing!, table: formData.routing.priority },
-                          });
-                        }
-                      }}
-                    />
-                    <FieldDescription className="text-xs">
-                      {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
-                    </FieldDescription>
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
-                    <Input
-                      id="fwmark"
-                      type="number"
-                      value={fwmarkManuallySet ? formData.routing.fwmark : ''}
-                      placeholder={!fwmarkManuallySet ? formData.routing.priority.toString() : undefined}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value) {
-                          setFwmarkManuallySet(true);
-                          setFormData({
-                            ...formData,
-                            routing: { ...formData.routing!, fwmark: parseInt(value) },
-                          });
-                        }
-                      }}
-                      onFocus={(e) => {
-                        // If clicking on field with placeholder, pre-fill with priority value
-                        if (!fwmarkManuallySet && e.target.value === '') {
-                          setFwmarkManuallySet(true);
-                          setFormData({
-                            ...formData,
-                            routing: { ...formData.routing!, fwmark: formData.routing.priority },
-                          });
-                        }
-                      }}
-                    />
-                    <FieldDescription className="text-xs">
-                      {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
-                    </FieldDescription>
-                  </Field>
-                </div>
-
                 <Field>
                   <FieldLabel htmlFor="default_gateway">{t('routingRules.dialog.defaultGateway')}</FieldLabel>
                   <FieldDescription>
@@ -791,6 +690,93 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                       <Plus className="mr-2 h-4 w-4" />
                       {t('routingRules.dialog.iptablesAddRule')}
                     </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            {/* Advanced Routing Section */}
+            <Accordion type="single" collapsible className="border rounded-md">
+              <AccordionItem value="advanced" className="border-0">
+                <AccordionTrigger className="px-4 hover:no-underline">
+                  <h3 className="text-sm font-medium">{t('routingRules.dialog.advancedRouting', { defaultValue: 'Advanced Routing' })}</h3>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      {t('routingRules.dialog.advancedRoutingDescription', { defaultValue: 'Configure priority, table, and fwmark. Leave empty to auto-assign values (500-1000 range).' })}
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="priority">{t('routingRules.dialog.priority')}</FieldLabel>
+                        <Input
+                          id="priority"
+                          type="number"
+                          value={formData.routing.priority || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData({
+                              ...formData,
+                              routing: {
+                                ...formData.routing!,
+                                priority: value ? parseInt(value) : 0,
+                              },
+                            });
+                          }}
+                          placeholder={t('routingRules.dialog.priorityPlaceholder', { defaultValue: 'Auto (500-1000)' })}
+                        />
+                        <FieldDescription className="text-xs">
+                          {t('routingRules.dialog.priorityDescription', { defaultValue: 'Recommended: 500-1000' })}
+                        </FieldDescription>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="table">{t('routingRules.dialog.table')}</FieldLabel>
+                        <Input
+                          id="table"
+                          type="number"
+                          value={formData.routing.table || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData({
+                              ...formData,
+                              routing: {
+                                ...formData.routing!,
+                                table: value ? parseInt(value) : 0,
+                              },
+                            });
+                          }}
+                          placeholder={t('routingRules.dialog.tablePlaceholder', { defaultValue: 'Auto' })}
+                        />
+                        <FieldDescription className="text-xs">
+                          {t('routingRules.dialog.tableDescription', { defaultValue: 'Defaults to priority value' })}
+                        </FieldDescription>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel htmlFor="fwmark">{t('routingRules.dialog.fwMark')}</FieldLabel>
+                        <Input
+                          id="fwmark"
+                          type="number"
+                          value={formData.routing.fwmark || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData({
+                              ...formData,
+                              routing: {
+                                ...formData.routing!,
+                                fwmark: value ? parseInt(value) : 0,
+                              },
+                            });
+                          }}
+                          placeholder={t('routingRules.dialog.fwmarkPlaceholder', { defaultValue: 'Auto' })}
+                        />
+                        <FieldDescription className="text-xs">
+                          {t('routingRules.dialog.fwmarkDescription', { defaultValue: 'Defaults to priority value' })}
+                        </FieldDescription>
+                      </Field>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
