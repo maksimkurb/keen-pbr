@@ -13,25 +13,25 @@ export function DNSCheckWidget() {
 
 	const {
 		status,
-		pcCheckState,
-		startBrowserCheck,
-		startPCCheck,
+		checkState,
+		startCheck,
 		reset,
 	} = useDNSCheck();
 
-	// Auto-run DNS check on component mount
+	// Auto-run browser DNS check on component mount
 	useEffect(() => {
-		startBrowserCheck();
-	}, [startBrowserCheck]);
+		startCheck(true); // performBrowserRequest = true
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // Only run on mount
 
 	const handleCheckFromPC = () => {
 		setShowPCCheckDialog(true);
-		startPCCheck();
+		startCheck(false); // performBrowserRequest = false
 	};
 
 	const handleDialogClose = (open: boolean) => {
 		setShowPCCheckDialog(open);
-		if (!open && pcCheckState.waiting) {
+		if (!open && checkState.waiting) {
 			// If dialog is closed while waiting, reset everything
 			reset();
 		}
@@ -106,7 +106,7 @@ export function DNSCheckWidget() {
 					</p>
 
 					{status === 'idle' && (
-						<Button onClick={startBrowserCheck}>
+						<Button onClick={() => startCheck(true)}>
 							{t('dnsCheck.startCheck')}
 						</Button>
 					)}
@@ -138,18 +138,18 @@ export function DNSCheckWidget() {
 								{t('dnsCheck.pcCheckCommandTitle')}
 							</h4>
 							<code className="block bg-muted p-3 rounded text-sm break-all">
-								nslookup {pcCheckState.randomString}.dns-check.keen-pbr.internal
+								nslookup {checkState.randomString}.dns-check.keen-pbr.internal
 							</code>
 						</div>
 
-						{pcCheckState.waiting && (
+						{checkState.waiting && (
 							<div className="flex items-center gap-2 text-sm">
 								<Loader2 className="h-4 w-4 animate-spin" />
 								{t('dnsCheck.pcCheckWaiting')}
 							</div>
 						)}
 
-						{pcCheckState.showWarning && (
+						{checkState.showWarning && (
 							<Alert className="border-yellow-200 bg-yellow-50">
 								<AlertCircle className="h-4 w-4 text-yellow-600" />
 								<AlertDescription className="text-yellow-800">

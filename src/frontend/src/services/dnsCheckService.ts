@@ -12,15 +12,17 @@ export class DNSCheckService {
 	private timeoutId: NodeJS.Timeout | null = null;
 
 	/**
-	 * Performs a DNS check by generating a random domain, making a fetch request,
+	 * Performs a DNS check by generating a random domain, optionally making a fetch request,
 	 * and waiting for the domain to be received via SSE.
 	 * @param randomString Random string to use for the domain (e.g., "abc123")
+	 * @param performBrowserRequest Whether to make a browser fetch request (default: true). Set to false for PC-only checks.
 	 * @param fetchTimeout Timeout for the fetch request in milliseconds (default: 5000)
 	 * @param sseTimeout Additional timeout for SSE after fetch in milliseconds (default: 5000)
 	 * @returns Promise that resolves with DNSCheckResult if successful, rejects if timeout
 	 */
 	async checkDNS(
 		randomString: string,
+		performBrowserRequest: boolean = true,
 		fetchTimeout: number = 5000,
 		sseTimeout: number = 5000
 	): Promise<DNSCheckResult> {
@@ -56,18 +58,23 @@ export class DNSCheckService {
 				// Check if this is the "connected" confirmation message
 				if (message === 'connected') {
 					sseConnected = true;
-					console.log('SSE connected, making fetch request...');
+					console.log('SSE connected');
 
-					// Now that SSE is connected, make the fetch request
-					this.fetchController = new AbortController();
-					fetch(`http://${domain}`, {
-						signal: this.fetchController.signal,
-						mode: 'no-cors',
-					}).catch((err) => {
-						if (err.name !== 'AbortError') {
-							console.log('Fetch failed (expected):', err);
-						}
-					});
+					// Now that SSE is connected, make the fetch request if requested
+					if (performBrowserRequest) {
+						console.log('Making browser fetch request...');
+						this.fetchController = new AbortController();
+						fetch(`http://${domain}`, {
+							signal: this.fetchController.signal,
+							mode: 'no-cors',
+						}).catch((err) => {
+							if (err.name !== 'AbortError') {
+								console.log('Fetch failed (expected):', err);
+							}
+						});
+					} else {
+						console.log('Skipping browser fetch (PC check mode)');
+					}
 					return;
 				}
 

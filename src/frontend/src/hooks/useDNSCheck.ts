@@ -3,7 +3,7 @@ import { dnsCheckService } from '../services/dnsCheckService';
 
 export type CheckStatus = 'idle' | 'checking' | 'success' | 'browser-fail' | 'pc-success';
 
-interface PCCheckState {
+interface CheckState {
 	randomString: string;
 	waiting: boolean;
 	showWarning: boolean;
@@ -11,17 +11,14 @@ interface PCCheckState {
 
 interface UseDNSCheckReturn {
 	status: CheckStatus;
-	browserRandomString: string;
-	pcCheckState: PCCheckState;
-	startBrowserCheck: () => void;
-	startPCCheck: () => void;
+	checkState: CheckState;
+	startCheck: (performBrowserRequest: boolean) => void;
 	reset: () => void;
 }
 
 export function useDNSCheck(): UseDNSCheckReturn {
 	const [status, setStatus] = useState<CheckStatus>('idle');
-	const [browserRandomString, setBrowserRandomString] = useState('');
-	const [pcCheckState, setPCCheckState] = useState<PCCheckState>({
+	const [checkState, setCheckState] = useState<CheckState>({
 		randomString: '',
 		waiting: false,
 		showWarning: false,
@@ -37,65 +34,75 @@ export function useDNSCheck(): UseDNSCheckReturn {
 	useEffect(() => {
 		return () => {
 			dnsCheckService.cancel();
-		};
-	}, []);
-
-	// Start browser-level DNS check
-	const startBrowserCheck = useCallback(async () => {
-		const randStr = generateRandomString();
-		setBrowserRandomString(randStr);
-		setStatus('checking');
-
-		try {
-			await dnsCheckService.checkDNS(randStr);
-			setStatus('success');
-		} catch (error) {
-			console.error('Browser DNS check failed:', error);
-			setStatus('browser-fail');
-		}
-	}, [generateRandomString]);
-
-	// Start PC-level DNS check
-	const startPCCheck = useCallback(async () => {
-		const randStr = generateRandomString();
-		setPCCheckState({
-			randomString: randStr,
-			waiting: true,
-			showWarning: false,
-		});
-
-		// Set up warning timer for 30 seconds
-		const timerId = setTimeout(() => {
-			setPCCheckState((prev) => ({
-				...prev,
-				showWarning: true,
-			}));
-		}, 30000);
-		setWarningTimeoutId(timerId);
-
-		try {
-			// Wait indefinitely (5 minutes timeout as a safety measure)
-			await dnsCheckService.checkDNS(randStr, 5000, 295000); // 5s fetch + 295s SSE = 5 min total
-
-			// Clear warning timer if still active
-			if (timerId) {
-				clearTimeout(timerId);
+			if (warningTimeoutId) {
+				clearTimeout(warningTimeoutId);
 			}
+		};
+	}, [warningTimeoutId]);
 
-			setPCCheckState((prev) => ({
-				...prev,
+	// Start DNS check
+	// performBrowserRequest=true: Browser check (makes fetch request)
+	// performBrowserRequest=false: PC check (waits for manual nslookup)
+	const startCheck = useCallback(async (performBrowserRequest: boolean) => {
+		const randStr = generateRandomString();
+
+		if (performBrowserRequest) {
+			// Browser check
+			setCheckState({
+				randomString: randStr,
 				waiting: false,
 				showWarning: false,
-			}));
-			setStatus('pc-success');
-		} catch (error) {
-			console.error('PC DNS check timeout:', error);
-			// Keep waiting state but show timeout message
-			setPCCheckState((prev) => ({
-				...prev,
-				waiting: false,
-				showWarning: true,
-			}));
+			});
+			setStatus('checking');
+
+			try {
+				await dnsCheckService.checkDNS(randStr, true, 5000, 5000);
+				setStatus('success');
+			} catch (error) {
+				console.error('Browser DNS check failed:', error);
+				setStatus('browser-fail');
+			}
+		} else {
+			// PC check (no browser request, longer timeout, with warning)
+			setCheckState({
+				randomString: randStr,
+				waiting: true,
+				showWarning: false,
+			});
+
+			// Set up warning timer for 30 seconds
+			const timerId = setTimeout(() => {
+				setCheckState((prev) => ({
+					...prev,
+					showWarning: true,
+				}));
+			}, 30000);
+			setWarningTimeoutId(timerId);
+
+			try {
+				// Wait indefinitely (5 minutes timeout as a safety measure)
+				await dnsCheckService.checkDNS(randStr, false, 5000, 295000);
+
+				// Clear warning timer if still active
+				if (timerId) {
+					clearTimeout(timerId);
+				}
+
+				setCheckState((prev) => ({
+					...prev,
+					waiting: false,
+					showWarning: false,
+				}));
+				setStatus('pc-success');
+			} catch (error) {
+				console.error('PC DNS check timeout:', error);
+				// Keep waiting state but show timeout message
+				setCheckState((prev) => ({
+					...prev,
+					waiting: false,
+					showWarning: true,
+				}));
+			}
 		}
 	}, [generateRandomString]);
 
@@ -107,8 +114,7 @@ export function useDNSCheck(): UseDNSCheckReturn {
 			setWarningTimeoutId(null);
 		}
 		setStatus('idle');
-		setBrowserRandomString('');
-		setPCCheckState({
+		setCheckState({
 			randomString: '',
 			waiting: false,
 			showWarning: false,
@@ -117,10 +123,8 @@ export function useDNSCheck(): UseDNSCheckReturn {
 
 	return {
 		status,
-		browserRandomString,
-		pcCheckState,
-		startBrowserCheck,
-		startPCCheck,
+		checkState,
+		startCheck,
 		reset,
 	};
 }
