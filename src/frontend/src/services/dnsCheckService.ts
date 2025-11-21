@@ -27,6 +27,7 @@ export class DNSCheckService {
 		return new Promise((resolve, reject) => {
 			const domain = `${randomString}.dns-check.keen-pbr.internal`;
 			let sseReceived = false;
+			let sseConnected = false;
 
 			// Cleanup function
 			const cleanup = () => {
@@ -50,10 +51,28 @@ export class DNSCheckService {
 
 			// Listen for SSE events
 			this.eventSource.onmessage = (event) => {
-				const receivedDomain = event.data.trim();
+				const message = event.data.trim();
+
+				// Check if this is the "connected" confirmation message
+				if (message === 'connected') {
+					sseConnected = true;
+					console.log('SSE connected, making fetch request...');
+
+					// Now that SSE is connected, make the fetch request
+					this.fetchController = new AbortController();
+					fetch(`http://${domain}`, {
+						signal: this.fetchController.signal,
+						mode: 'no-cors',
+					}).catch((err) => {
+						if (err.name !== 'AbortError') {
+							console.log('Fetch failed (expected):', err);
+						}
+					});
+					return;
+				}
 
 				// Check if this is our domain
-				if (receivedDomain === domain) {
+				if (message === domain) {
 					sseReceived = true;
 					cleanup();
 					resolve({
@@ -68,17 +87,6 @@ export class DNSCheckService {
 				console.error('SSE connection error:', error);
 				// Don't reject immediately, let the timeout handle it
 			};
-
-			// Make fetch request to trigger DNS lookup
-			this.fetchController = new AbortController();
-			fetch(`http://${domain}`, {
-				signal: this.fetchController.signal,
-				mode: 'no-cors',
-			}).catch((err) => {
-				if (err.name !== 'AbortError') {
-					console.log('Fetch failed (expected):', err);
-				}
-			});
 
 			// Set timeout: fetchTimeout + sseTimeout
 			this.timeoutId = setTimeout(() => {

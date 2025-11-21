@@ -6,7 +6,7 @@ export type CheckStatus = 'idle' | 'checking' | 'success' | 'browser-fail' | 'pc
 interface PCCheckState {
 	randomString: string;
 	waiting: boolean;
-	timeout: boolean;
+	showWarning: boolean;
 }
 
 interface UseDNSCheckReturn {
@@ -24,8 +24,9 @@ export function useDNSCheck(): UseDNSCheckReturn {
 	const [pcCheckState, setPCCheckState] = useState<PCCheckState>({
 		randomString: '',
 		waiting: false,
-		timeout: false,
+		showWarning: false,
 	});
+	const [warningTimeoutId, setWarningTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
 	// Generate random string for DNS check
 	const generateRandomString = useCallback(() => {
@@ -60,23 +61,40 @@ export function useDNSCheck(): UseDNSCheckReturn {
 		setPCCheckState({
 			randomString: randStr,
 			waiting: true,
-			timeout: false,
+			showWarning: false,
 		});
 
+		// Set up warning timer for 30 seconds
+		const timerId = setTimeout(() => {
+			setPCCheckState((prev) => ({
+				...prev,
+				showWarning: true,
+			}));
+		}, 30000);
+		setWarningTimeoutId(timerId);
+
 		try {
-			await dnsCheckService.checkDNS(randStr, 5000, 25000); // 5s fetch + 25s SSE = 30s total
+			// Wait indefinitely (5 minutes timeout as a safety measure)
+			await dnsCheckService.checkDNS(randStr, 5000, 295000); // 5s fetch + 295s SSE = 5 min total
+
+			// Clear warning timer if still active
+			if (timerId) {
+				clearTimeout(timerId);
+			}
+
 			setPCCheckState((prev) => ({
 				...prev,
 				waiting: false,
-				timeout: false,
+				showWarning: false,
 			}));
 			setStatus('pc-success');
 		} catch (error) {
-			console.error('PC DNS check failed:', error);
+			console.error('PC DNS check timeout:', error);
+			// Keep waiting state but show timeout message
 			setPCCheckState((prev) => ({
 				...prev,
 				waiting: false,
-				timeout: true,
+				showWarning: true,
 			}));
 		}
 	}, [generateRandomString]);
@@ -84,14 +102,18 @@ export function useDNSCheck(): UseDNSCheckReturn {
 	// Reset to idle state
 	const reset = useCallback(() => {
 		dnsCheckService.cancel();
+		if (warningTimeoutId) {
+			clearTimeout(warningTimeoutId);
+			setWarningTimeoutId(null);
+		}
 		setStatus('idle');
 		setBrowserRandomString('');
 		setPCCheckState({
 			randomString: '',
 			waiting: false,
-			timeout: false,
+			showWarning: false,
 		});
-	}, []);
+	}, [warningTimeoutId]);
 
 	return {
 		status,

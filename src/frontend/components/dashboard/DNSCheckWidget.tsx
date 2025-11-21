@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -18,6 +18,11 @@ export function DNSCheckWidget() {
 		startPCCheck,
 		reset,
 	} = useDNSCheck();
+
+	// Auto-run DNS check on component mount
+	useEffect(() => {
+		startBrowserCheck();
+	}, [startBrowserCheck]);
 
 	const handleCheckFromPC = () => {
 		setShowPCCheckDialog(true);
@@ -126,33 +131,11 @@ export function DNSCheckWidget() {
 					</DialogHeader>
 
 					<div className="space-y-4">
-						{/* Windows instructions */}
+						{/* Single command for all operating systems */}
 						<div>
 							<h4 className="font-semibold mb-2">
 								<Terminal className="inline h-4 w-4 mr-1" />
-								Windows
-							</h4>
-							<code className="block bg-muted p-3 rounded text-sm break-all">
-								nslookup {pcCheckState.randomString}.dns-check.keen-pbr.internal
-							</code>
-						</div>
-
-						{/* Linux instructions */}
-						<div>
-							<h4 className="font-semibold mb-2">
-								<Terminal className="inline h-4 w-4 mr-1" />
-								Linux
-							</h4>
-							<code className="block bg-muted p-3 rounded text-sm break-all">
-								nslookup {pcCheckState.randomString}.dns-check.keen-pbr.internal
-							</code>
-						</div>
-
-						{/* macOS instructions */}
-						<div>
-							<h4 className="font-semibold mb-2">
-								<Terminal className="inline h-4 w-4 mr-1" />
-								macOS
+								{t('dnsCheck.pcCheckCommandTitle')}
 							</h4>
 							<code className="block bg-muted p-3 rounded text-sm break-all">
 								nslookup {pcCheckState.randomString}.dns-check.keen-pbr.internal
@@ -166,11 +149,11 @@ export function DNSCheckWidget() {
 							</div>
 						)}
 
-						{pcCheckState.timeout && (
+						{pcCheckState.showWarning && (
 							<Alert className="border-yellow-200 bg-yellow-50">
 								<AlertCircle className="h-4 w-4 text-yellow-600" />
 								<AlertDescription className="text-yellow-800">
-									{t('dnsCheck.pcCheckTimeout')}
+									{t('dnsCheck.pcCheckWarning')}
 								</AlertDescription>
 							</Alert>
 						)}

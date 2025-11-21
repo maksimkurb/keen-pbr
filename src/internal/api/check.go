@@ -840,6 +840,13 @@ func (h *Handler) CheckSplitDNS(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Client connected to split-DNS check SSE stream")
 
+	// Send "connected" message to confirm connection is established
+	if _, err := fmt.Fprintf(w, "data: connected\n\n"); err != nil {
+		log.Debugf("Failed to send connected message: %v", err)
+		return
+	}
+	flusher.Flush()
+
 	// Stream events to client
 	for {
 		select {
