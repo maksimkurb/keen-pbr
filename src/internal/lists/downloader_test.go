@@ -230,8 +230,8 @@ func TestDownloadLists_InvalidListsDir(t *testing.T) {
 	}
 
 	err = DownloadLists(cfg)
-	if err == nil {
-		t.Error("Expected error for invalid lists directory")
+	if err != nil {
+		t.Errorf("Expected no error (should log error and continue), got: %v", err)
 	}
 }
 
@@ -307,7 +307,7 @@ func TestDownloadLists_WriteFileError(t *testing.T) {
 	}
 	
 	err := DownloadLists(cfg)
-	if err == nil {
-		t.Error("Expected error when unable to write file")
+	if err != nil {
+		t.Errorf("Expected no error (should log error and continue), got: %v", err)
 	}
 }

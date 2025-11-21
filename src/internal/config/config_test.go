@@ -64,10 +64,12 @@ hosts = ["example.com"]`
 	}
 
 	if config == nil {
-		t.Error("Expected config to be non-nil")
+		t.Fatal("Expected config to be non-nil")
 	}
 
-	if config.General.ListsOutputDir != "/tmp" {
+	if config.General == nil {
+		t.Fatal("Expected config.General to be non-nil")
+	} else if config.General.ListsOutputDir != "/tmp" {
 		t.Errorf("Expected lists_output_dir to be '/tmp', got %s", config.General.ListsOutputDir)
 	}
 }

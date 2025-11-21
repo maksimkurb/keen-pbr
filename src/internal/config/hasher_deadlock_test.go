@@ -76,6 +76,4 @@ fwmark = 100
 	}
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}
+

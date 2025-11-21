@@ -88,7 +88,7 @@ func (c *Config) validateLists() error {
 
 		isUrl := list.URL != ""
 		isFile := list.File != ""
-		isHosts := list.Hosts != nil && len(list.Hosts) > 0
+		isHosts := len(list.Hosts) > 0
 
 		if !isUrl && !isFile && !isHosts {
 			return fmt.Errorf("list %s should contain \"url\", \"file\" or non-empty \"hosts\" field", list.ListName)

@@ -51,16 +51,7 @@ type bulkSystemNameResult struct {
 	SystemName interface{} `json:"system-name"` // Can be string or systemNameError
 }
 
-type systemNameError struct {
-	Status []statusEntry `json:"status"`
-}
 
-type statusEntry struct {
-	Status  string `json:"status"`
-	Code    string `json:"code"`
-	Ident   string `json:"ident"`
-	Message string `json:"message"`
-}
 
 // getSystemNamesForInterfacesBulk fetches system names for multiple interfaces in a single request.
 //

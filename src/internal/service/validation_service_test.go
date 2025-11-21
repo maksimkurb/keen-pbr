@@ -184,11 +184,8 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 		}
 
 		err := validator.ValidateConfig(cfg)
-		if err == nil {
-			t.Error("Expected error for no interfaces")
-		}
-		if !strings.Contains(err.Error(), "No interfaces defined") {
-			t.Errorf("Unexpected error message: %v", err)
+		if err != nil {
+			t.Errorf("Expected no error for no interfaces (should be valid blackhole), got: %v", err)
 		}
 	})
 

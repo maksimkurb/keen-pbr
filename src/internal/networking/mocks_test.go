@@ -30,13 +30,7 @@ func (m *mockNetlinkLink) Type() string { return "mock" }
 
 // Helper functions
 
-func stringPtr(s string) *string {
-	return &s
-}
 
-func boolPtr(b bool) *bool {
-	return &b
-}
 
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || 

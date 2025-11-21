@@ -14,12 +14,7 @@
 //
 // # Interface Detection
 //
-// The package provides two approaches for interface detection:
-//
-//   - Legacy: Uses /ip/hotspot/host endpoint (deprecated)
-//   - Modern: Uses /system endpoint with system-name filtering
-//
-// The client automatically selects the appropriate method based on router capabilities.
+// The package provides interface detection using /system endpoint with system-name filtering.
 //
 // # Example Usage
 //

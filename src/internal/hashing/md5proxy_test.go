@@ -22,7 +22,7 @@ func TestNewMD5ReaderProxy(t *testing.T) {
 	proxy := NewMD5ReaderProxy(reader)
 	
 	if proxy == nil {
-		t.Error("Expected proxy to be non-nil")
+		t.Fatal("Expected proxy to be non-nil")
 	}
 	
 	if proxy.reader != reader {
@@ -136,7 +136,7 @@ func TestNewChecksumStringSet(t *testing.T) {
 	set := NewChecksumStringSet()
 	
 	if set == nil {
-		t.Error("Expected set to be non-nil")
+		t.Fatal("Expected set to be non-nil")
 	}
 	
 	if set.set == nil {

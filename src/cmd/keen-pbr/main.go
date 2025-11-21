@@ -25,7 +25,8 @@ func main() {
 
 	// Custom usage message
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Keenetic Policy-Based Routing Manager\n\n")
+		fmt.Fprintf(os.Stderr, "Keenetic Policy-Based Routing Manager\n")
+		fmt.Fprintf(os.Stderr, "Version: %s (Commit: %s, Date: %s)\n\n", version, commit, date)
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  service                 Run as a service/daemon (monitors interfaces and manages routing)\n")

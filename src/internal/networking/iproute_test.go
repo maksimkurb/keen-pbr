@@ -30,7 +30,7 @@ func TestBuildDefaultRoute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			iface := Interface{&mockNetlinkLink{name: "eth0"}}
-			route := BuildDefaultRoute(tt.ipFamily, iface, tt.table)
+			route := BuildDefaultRoute(tt.ipFamily, iface, tt.table, 0)
 
 			if route == nil {
 				t.Fatal("Expected route to be created")
@@ -121,7 +121,7 @@ func TestBuildDefaultRoute_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			iface := Interface{&mockNetlinkLink{name: "test"}}
-			route := BuildDefaultRoute(tt.ipFamily, iface, tt.table)
+			route := BuildDefaultRoute(tt.ipFamily, iface, tt.table, 0)
 
 			if tt.expectNil {
 				if route != nil {

@@ -201,7 +201,7 @@ func (v *ValidationService) validateInterfaces(cfg *config.Config) error {
 
 	// Check each interface exists (at least one must exist per ipset)
 	for _, ipset := range cfg.IPSets {
-		if ipset.Routing == nil {
+		if ipset.Routing == nil || len(ipset.Routing.Interfaces) == 0 {
 			continue
 		}
 

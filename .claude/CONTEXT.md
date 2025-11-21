@@ -677,7 +677,6 @@ func (c *ApplyCommand) Run() error {
 - Implements `domain.KeeneticClient` interface
 
 **Adapters**:
-- **Legacy**: `/ip/hotspot/host` endpoint (deprecated)
 - **Modern**: `/system` endpoint with system-name filtering
 - Automatic detection of router capabilities
 
