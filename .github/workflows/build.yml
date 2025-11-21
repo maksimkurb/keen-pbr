@@ -21,6 +21,20 @@ jobs:
         cache: true
     - name: Install dependencies
       run: go mod download
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      working-directory: src/frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: src/frontend
+      run: npm run build
+
     - name: Install staticcheck
       run: go install honnef.co/go/tools/cmd/staticcheck@latest
     - name: Run tests
@@ -53,14 +67,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Node.js
-        run: |
-          # Download and install Node.js 20.x directly
-          NODE_VERSION=20.18.1
-          wget -q https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz
-          tar -xf node-v${NODE_VERSION}-linux-x64.tar.xz -C /usr/local --strip-components=1
-          rm node-v${NODE_VERSION}-linux-x64.tar.xz
-          node --version
-          npm --version
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Get version and determine package name
         id: gh

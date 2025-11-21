@@ -25,6 +25,20 @@ jobs:
         cache: true
     - name: Install dependencies
       run: go mod download
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      working-directory: src/frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: src/frontend
+      run: npm run build
+
     - name: Install staticcheck
       run: go install honnef.co/go/tools/cmd/staticcheck@latest
     - name: Run tests
@@ -75,6 +89,10 @@ jobs:
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Build Entware packages
         id: build
