@@ -43,9 +43,8 @@ keen-pbr/
 │       │   ├── settings.go           # Settings endpoints
 │       │   ├── status.go             # Status endpoints
 │       │   ├── interfaces.go         # Interfaces endpoint
-│       │   ├── service.go            # Service control
-│       │   ├── dnsmasq.go            # Dnsmasq control
-│       │   ├── network_check.go      # Network diagnostics
+│       │   ├── service.go            # Service control and dnsmasq restart
+│       │   ├── check.go              # Network diagnostics and health checks
 │       │   ├── types.go              # API types
 │       │   ├── middleware.go         # HTTP middleware
 │       │   └── response.go           # Response helpers
@@ -61,7 +60,9 @@ keen-pbr/
 │       │   ├── dns.go                # DNS proxy profile viewer
 │       │   ├── dnsmasq_config.go     # dnsmasq configuration generator
 │       │   ├── interfaces.go         # Network interface lister
-│       │   └── upgrade_config.go     # Configuration format upgrader
+│       │   ├── upgrade_config.go     # Configuration format upgrader
+│       │   ├── server.go             # API server command
+│       │   └── service_manager.go    # Service lifecycle management
 │       │
 │       ├── service/                  # Business logic orchestration layer
 │       │   ├── doc.go                # Package documentation
@@ -258,20 +259,6 @@ func (c *ApplyCommand) Run() error {
 - `KeeneticURL`: Custom Keenetic RCI endpoint (default: `http://localhost:79/rci`)
 - `DisableKeenetic`: Disable Keenetic API integration for non-router environments
 
-**Migration Status**:
-All CLI commands now use `AppDependencies` container:
-- ✅ `apply.go` - Migrated to DI container
-- ✅ `undo.go` - Migrated to DI container
-- ✅ `service.go` - Migrated to DI container (long-running daemon)
-- ✅ `download.go` - Migrated to DI container
-
-Legacy `defaultManager` in `networking/network.go` still uses `keenetic.GetDefaultClient()` for backward compatibility with deprecated functions. New code should always use the container pattern.
-
-See:
-- `src/internal/domain/container.go` - AppDependencies implementation
-- `src/internal/keenetic/client.go:39-59` - NewClientWithBaseURL for custom URLs
-- `src/internal/commands/apply.go:70-76` - Example usage in commands
-
 ---
 
 ## Web Interface & REST API
@@ -314,9 +301,8 @@ In addition to the CLI, keen-pbr provides a web-based management interface with 
 - `settings.go`: General settings endpoints
 - `status.go`: Service status and version info
 - `interfaces.go`: Network interfaces endpoint
-- `service.go`: Service control (start/stop/restart)
-- `dnsmasq.go`: Dnsmasq control
-- `network_check.go`: Network diagnostics (ping, traceroute, routing checks)
+- `service.go`: Service control (start/stop/restart) and dnsmasq control
+- `check.go`: Network diagnostics (ping, traceroute, routing checks, split-dns)
 - `types.go`: Request/response type definitions
 - `middleware.go`: CORS, logging, error recovery, private subnet restrictions
 - `response.go`: Standardized JSON response wrappers
@@ -356,6 +342,7 @@ Network Diagnostics:
   GET    /api/v1/check/ping         # SSE stream for ping
   GET    /api/v1/check/traceroute   # SSE stream for traceroute
   GET    /api/v1/check/self         # SSE stream for self-check (config validation, iptables, ip rules, ipsets)
+  GET    /api/v1/check/split-dns    # SSE stream for split-DNS check (monitor DNS queries)
 ```
 
 **JSON Field Naming**: All API responses use `snake_case` for field names (e.g., `list_name`, `ip_version`, `flush_before_applying`).

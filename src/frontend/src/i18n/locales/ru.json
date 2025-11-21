@@ -85,6 +85,7 @@
         "error": "ошибка"
       },
       "checkTypes": {
+        "split_dns_client": "Проверка Split-DNS (Браузер)",
         "config_validation": "Валидация конфигурации",
         "ipset_start": "Проверка IPSet",
         "ipset": "Существование IPSet",
@@ -95,6 +96,22 @@
         "complete": "Все проверки завершены"
       }
     }
+  },
+  "dnsCheck": {
+    "title": "Проверка DNS",
+    "description": "Проверьте корректность настройки split-DNS",
+    "startCheck": "Начать проверку DNS",
+    "checkAgain": "Проверить снова",
+    "checking": "Проверка...",
+    "success": "DNS работает корректно",
+    "browserFail": "Похоже, DNS в вашем браузере настроен неправильно",
+    "checkFromPC": "Проверить с ПК",
+    "pcCheckTitle": "Проверка DNS с ПК",
+    "pcCheckDescription": "Выполните следующую команду в терминале для проверки конфигурации DNS:",
+    "pcCheckCommandTitle": "Выполните эту команду",
+    "pcCheckWaiting": "Ожидание DNS-запроса...",
+    "pcCheckWarning": "Прошло уже 30 секунд. Если вы уже выполнили команду, возможно DNS на вашем ПК настроен неправильно. Убедитесь, что роутер настроен как основной DNS-сервер. Продолжаем ожидание...",
+    "pcSuccess": "DNS на ПК работает, но в браузере нет. Возможно, у вас установлен VPN-плагин в браузере, используется Edge Secure Network или Cloudflare DNS-over-HTTPS в Firefox?"
   },
   "settings": {
     "title": "Основные настройки",

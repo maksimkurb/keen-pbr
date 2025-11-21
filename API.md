@@ -15,6 +15,7 @@ The keen-pbr REST API provides dynamic configuration management for policy-based
   - [Status Monitoring](#status-monitoring)
   - [Service Control](#service-control)
   - [Health Checks](#health-checks)
+  - [Network Diagnostics](#network-diagnostics)
 - [Data Types](#data-types)
 - [Examples](#examples)
 
@@ -619,6 +620,120 @@ GET /api/v1/health
 1. **config_validation** - Configuration file is valid
 2. **network_config** - Network interfaces exist and are configured correctly
 3. **keenetic_connectivity** - Keenetic router API is accessible
+
+### Network Diagnostics
+
+Perform real-time network diagnostics and routing checks.
+
+#### Check Routing
+
+Check how a specific host is routed through the current configuration.
+
+```http
+POST /api/v1/check/routing
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "host": "example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "host": "example.com",
+    "resolved_ips": ["93.184.216.34"],
+    "matched_by_hostname": [
+      {
+        "rule_name": "vpn_routes",
+        "pattern": "example.com"
+      }
+    ],
+    "ipset_checks": [
+      {
+        "ip": "93.184.216.34",
+        "rule_results": [
+          {
+            "rule_name": "vpn_routes",
+            "present_in_ipset": true,
+            "should_be_present": true,
+            "match_reason": "hostname match"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Ping (SSE)
+
+Stream ping results for a host via Server-Sent Events (SSE).
+
+```http
+GET /api/v1/check/ping?host=example.com
+```
+
+**Response (Stream):**
+```
+data: PING example.com (93.184.216.34): 56 data bytes
+data: 64 bytes from 93.184.216.34: seq=0 ttl=56 time=15.234 ms
+...
+```
+
+#### Traceroute (SSE)
+
+Stream traceroute results for a host via SSE.
+
+```http
+GET /api/v1/check/traceroute?host=example.com
+```
+
+**Response (Stream):**
+```
+data: traceroute to example.com (93.184.216.34), 30 hops max, 60 byte packets
+data:  1  192.168.1.1 (192.168.1.1)  0.456 ms  0.345 ms  0.234 ms
+...
+```
+
+#### Self Check (SSE)
+
+Run a comprehensive self-check of the system configuration and state.
+
+```http
+GET /api/v1/check/self?sse=true
+```
+
+**Parameters:**
+- `sse` (bool) - Set to `true` for SSE streaming mode (default: `false` returns JSON table)
+
+**Response (Stream):**
+```json
+data: {"check":"config","ok":true,"log":"Configuration is valid","reason":"","command":""}
+data: {"check":"dnsmasq","ok":true,"log":"Dnsmasq service is running","reason":"","command":"pidof dnsmasq"}
+...
+```
+
+#### Split-DNS Check (SSE)
+
+Monitor DNS queries in real-time to verify split-DNS configuration.
+To trigger these messages, you must make DNS request to keen-dns internal DNS server (by default listening on `127.0.50.50:15053`) or dnsmasq that should be configured to accept config instructions from keen-pbr (keen-pbr automatically adds `server=/dns-check.keen-pbr.internal/127.0.50.50#15053` line to the dnsmasq config)
+
+```http
+GET /api/v1/check/split-dns
+```
+
+**Response (Stream):**
+```
+data: connected
+data: example.dns-check.keen-pbr.internal
+data: some-other-random-string.dns-check.keen-pbr.internal
+...
+```
 
 ## Data Types
 

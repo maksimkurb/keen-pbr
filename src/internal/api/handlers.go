@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/dnscheck"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -21,19 +22,21 @@ type ServiceManager interface {
 
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
-	configPath   string
-	deps         *domain.AppDependencies
-	serviceMgr   ServiceManager
-	configHasher *config.ConfigHasher
+	configPath       string
+	deps             *domain.AppDependencies
+	serviceMgr       ServiceManager
+	configHasher     *config.ConfigHasher
+	dnsCheckListener *dnscheck.DNSCheckListener
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
-func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher) *Handler {
+func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckListener *dnscheck.DNSCheckListener) *Handler {
 	return &Handler{
-		configPath:   configPath,
-		deps:         deps,
-		serviceMgr:   serviceMgr,
-		configHasher: configHasher,
+		configPath:       configPath,
+		deps:             deps,
+		serviceMgr:       serviceMgr,
+		configHasher:     configHasher,
+		dnsCheckListener: dnsCheckListener,
 	}
 }
 

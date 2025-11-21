@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle, Play, Square, Loader2, Download, ListChecks } fr
 import { toast } from 'sonner';
 import { apiClient } from '../../src/api/client';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
+import { dnsCheckService } from '../../src/services/dnsCheckService';
 
 interface CheckEvent {
   check: string;
@@ -26,13 +27,57 @@ export function SelfCheckWidget() {
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const startSelfCheck = () => {
+  const startSelfCheck = async () => {
     // Reset state
     setResults([]);
     setError(null);
     setStatus('running');
 
-    // Create EventSource to connect to SSE endpoint
+    // Step 1: Start client-side DNS check (non-blocking)
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const dnsCheckEvent: CheckEvent = {
+      check: 'split_dns_client',
+      ok: true, // Set to true to show as in-progress
+      log: 'testing', // Special keyword for showing spinner
+      reason: 'Split-DNS must be configured correctly for domain-based routing to work from browser',
+    };
+
+    // Add DNS check to results immediately with testing state
+    setResults([dnsCheckEvent]);
+
+    // Start DNS check asynchronously (don't block other checks)
+    dnsCheckService.checkDNS(randomString, true, 5000, 5000)
+      .then(() => {
+        // DNS check succeeded
+        setResults((prev) =>
+          prev.map((r) =>
+            r.check === 'split_dns_client'
+              ? {
+                  ...r,
+                  ok: true,
+                  log: 'Split-DNS is working correctly from browser',
+                }
+              : r
+          )
+        );
+      })
+      .catch((error) => {
+        // DNS check failed
+        setResults((prev) =>
+          prev.map((r) =>
+            r.check === 'split_dns_client'
+              ? {
+                  ...r,
+                  ok: false,
+                  log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+                  command: 'Check dnsmasq configuration and ensure browser is using router DNS',
+                }
+              : r
+          )
+        );
+      });
+
+    // Step 2: Start server-side checks immediately (don't wait for DNS check)
     const apiBaseUrl = window.location.protocol + '//' + window.location.host;
     const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self?sse=true`);
     eventSourceRef.current = eventSource;
@@ -62,6 +107,7 @@ export function SelfCheckWidget() {
   };
 
   const stopSelfCheck = () => {
+    dnsCheckService.cancel();
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -84,7 +130,12 @@ export function SelfCheckWidget() {
     return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
   };
 
-  const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' } => {
+  const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' | 'spinner' } => {
+    // Special case: testing state
+    if (result.log === 'testing') {
+      return { text: t('common.loading', { defaultValue: 'testing...' }), icon: 'spinner' };
+    }
+
     if (result.ok) {
       // Success cases
       if (result.check === 'dnsmasq' || result.check === 'service') {
@@ -264,6 +315,8 @@ export function SelfCheckWidget() {
                                 <span>{actualStatus.text}</span>
                                 {actualStatus.icon === 'check' ? (
                                   <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                ) : actualStatus.icon === 'spinner' ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                                 ) : (
                                   <XCircle className="h-4 w-4 text-red-600" />
                                 )}

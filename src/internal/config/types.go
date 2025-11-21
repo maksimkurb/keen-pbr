@@ -25,6 +25,7 @@ type GeneralConfig struct {
 	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
 	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
 	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
+	DNSCheckPort              int    `toml:"dns_check_port" json:"dns_check_port" comment:"Port for DNS check listener (default: 15053)"`
 }
 
 // IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
@@ -52,6 +53,14 @@ func (gc *GeneralConfig) IsInterfaceMonitoringEnabled() bool {
 		return false // Default to disabled
 	}
 	return *gc.EnableInterfaceMonitoring
+}
+
+// GetDNSCheckPort returns the DNS check port (default: 15053)
+func (gc *GeneralConfig) GetDNSCheckPort() int {
+	if gc.DNSCheckPort <= 0 {
+		return 15053 // Default port
+	}
+	return gc.DNSCheckPort
 }
 
 type IPSetConfig struct {
