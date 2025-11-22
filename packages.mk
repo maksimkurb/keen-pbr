@@ -9,7 +9,7 @@ _conffiles:
 _control:
 	echo "Package: keen-pbr" > out/$(BUILD_DIR)/control/control
 	echo "Version: $(VERSION)" >> out/$(BUILD_DIR)/control/control
-	echo "Depends: dnsmasq-full, ipset, iptables, cron" >> out/$(BUILD_DIR)/control/control
+	echo "Depends: ipset, iptables, cron" >> out/$(BUILD_DIR)/control/control
 	echo "Conflicts: keenetic-pbr" >> out/$(BUILD_DIR)/control/control
 	echo "License: MIT" >> out/$(BUILD_DIR)/control/control
 	echo "Section: net" >> out/$(BUILD_DIR)/control/control
@@ -30,9 +30,6 @@ _pkgfiles:
 	chmod +x out/$(BUILD_DIR)/data$(ROOT_DIR)/etc/init.d/S80keen-pbr; \
 
 	cp -r etc/cron.daily out/$(BUILD_DIR)/data$(ROOT_DIR)/etc/cron.daily;
-
-	cp -r etc/dnsmasq.d out/$(BUILD_DIR)/data$(ROOT_DIR)/etc/dnsmasq.d;
-	cp etc/dnsmasq.conf.keen-pbr out/$(BUILD_DIR)/data$(ROOT_DIR)/etc/dnsmasq.conf.keen-pbr;
 
 _ipk:
 	make _clean

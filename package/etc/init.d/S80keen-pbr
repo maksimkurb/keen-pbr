@@ -43,8 +43,6 @@ unapply_routing()
 }
 
 check() {
-  # Checking dnsmasq
-  /opt/etc/init.d/S56dnsmasq check
 
   # Checking keen-pbr state
   echo "Checking keen-pbr state"
@@ -54,10 +52,6 @@ check() {
   ipset list -t
 }
 
-generate_dnsmasq_config()
-{
-  $KEEN_PBR -config "$CONFIG" print-dnsmasq-config
-}
 
 start()
 {
@@ -138,9 +132,6 @@ case "$1" in
     ;;
   apply-routing|apply_routing)
     apply_routing
-    ;;
-  generate-dnsmasq-config)
-    generate_dnsmasq_config
     ;;
   check|status|self-check|self_check)
     check

@@ -16,7 +16,7 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 	// Apply middleware
 	r.Use(Recovery)
 	r.Use(Logger)
-	r.Use(PrivateSubnetOnly)  // Restrict access to private subnets
+	r.Use(PrivateSubnetOnly) // Restrict access to private subnets
 	r.Use(CORS)
 	r.Use(JSONContentType)
 
@@ -55,7 +55,6 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 
 		// Service control endpoints
 		r.Post("/service", h.ControlService)
-		r.Post("/dnsmasq", h.ControlDnsmasq)
 
 		// Health check endpoint
 		r.Get("/health", h.CheckHealth)

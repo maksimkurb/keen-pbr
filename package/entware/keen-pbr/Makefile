@@ -17,8 +17,8 @@ include $(INCLUDE_DIR)/golang.mk
 define Package/keen-pbr
 	SECTION:=net
 	CATEGORY:=Networking
-	EXTRA_DEPENDS:=dnsmasq-full, ipset, iptables, cron
-	TITLE:=Tool for downloading, parsing and importing domains/ip/cidr lists into dnsmasq and ipset
+	EXTRA_DEPENDS:=ipset, iptables, cron
+	TITLE:=Tool for downloading, parsing and importing domains/ip/cidr lists into ipset
 	URL:=https://github.com/maksimkurb/keen-pbr/
 	MAINTAINER:=Maxim Kurbatov <maxim@kurb.me>
 	VERSION:=$(PKG_VERSION)-$(BOARD)-$(PKG_RELEASE)
@@ -61,7 +61,6 @@ define Package/keen-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_DIR) $(1)/opt/etc/init.d/
 		$(INSTALL_DIR) $(1)/opt/etc/keen-pbr/
-		$(INSTALL_DIR) $(1)/opt/etc/dnsmasq.d/
 		$(INSTALL_DIR) $(1)/opt/usr/bin/
 
 		echo "> INSTALL DIR = $(PKG_BUILD_DIR)"
@@ -72,10 +71,8 @@ define Package/keen-pbr/install
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/netfilter.d/50-keen-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d
 		$(INSTALL_CONF) $(PKG_BUILD_DIR)/package/etc/keen-pbr/keen-pbr.conf $(1)/opt/etc/keen-pbr/
-		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/dnsmasq.d/100-keen-pbr.conf $(1)/opt/etc/dnsmasq.d/
 		$(INSTALL_CONF) $(PKG_BUILD_DIR)/package/etc/keen-pbr/local.lst $(1)/opt/etc/keen-pbr/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/
-		$(INSTALL_CONF) $(PKG_BUILD_DIR)/package/etc/dnsmasq.conf.keen-pbr $(1)/opt/etc/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keen-pbr $(1)/opt/usr/bin/
 endef
 

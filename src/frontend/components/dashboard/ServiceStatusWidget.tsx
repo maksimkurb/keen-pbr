@@ -28,8 +28,6 @@ export function ServiceStatusWidget() {
         } else if (action === 'restart') {
           await apiClient.controlService('restarted');
         }
-      } else if (service === 'dnsmasq' && action === 'restart') {
-        await apiClient.restartDnsmasq();
       }
 
       // Wait a bit before refreshing status to allow service to change state
@@ -78,26 +76,12 @@ export function ServiceStatusWidget() {
   }
 
   const keenPbrStatus = data.services['keen-pbr']?.status || 'unknown';
-  const dnsmasqStatus = data.services.dnsmasq?.status || 'unknown';
   const configOutdated = data.configuration_outdated || false;
-
-  // Check if dnsmasq config is outdated
-  const dnsmasqConfigHash = data.services.dnsmasq?.config_hash;
-  const dnsmasqNotConfigured = !dnsmasqConfigHash; // Empty hash means not configured
-  const dnsmasqOutdated = dnsmasqConfigHash && data.current_config_hash && dnsmasqConfigHash !== data.current_config_hash;
 
   // Prepare badges for keen-pbr service
   const keenPbrBadges = configOutdated
     ? [{ label: t('dashboard.badgeStale'), variant: 'outline' as const }]
     : undefined;
-
-  // Prepare badges for dnsmasq service
-  const dnsmasqBadges = [];
-  if (dnsmasqNotConfigured) {
-    dnsmasqBadges.push({ label: t('dashboard.badgeMisconfigured'), variant: 'destructive' as const });
-  } else if (dnsmasqOutdated) {
-    dnsmasqBadges.push({ label: t('dashboard.badgeStale'), variant: 'outline' as const });
-  }
 
   return (
     <Card>
@@ -150,23 +134,6 @@ export function ServiceStatusWidget() {
                   {t('common.restart')}
                 </Button>
               </>
-            }
-          />
-          <StatusCard
-            title={t('dashboard.dnsmasqService')}
-            status={dnsmasqStatus}
-            badges={dnsmasqBadges.length > 0 ? dnsmasqBadges : undefined}
-            className={dnsmasqNotConfigured ? 'bg-red-50 dark:bg-red-950' : dnsmasqOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}
-            actions={
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleServiceControl('dnsmasq', 'restart')}
-                disabled={controlLoading === 'dnsmasq-restart'}
-              >
-                <RotateCw className="h-3 w-3 mr-1" />
-                {t('common.restart')}
-              </Button>
             }
           />
         </div>

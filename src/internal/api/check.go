@@ -440,62 +440,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
-	// Check dnsmasq service
-	cmd := exec.Command("pidof", "dnsmasq")
-	if err := cmd.Run(); err != nil {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "dnsmasq",
-			Comment:    "Dnsmasq service must be running for domain-based routing to work",
-			State:      false,
-			Message:    "Dnsmasq service is NOT running",
-		})
-	} else {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "dnsmasq",
-			Comment:    "Dnsmasq service must be running for domain-based routing to work",
-			State:      true,
-			Message:    "Dnsmasq service is running",
-		})
-	}
-
-	// Check dnsmasq configuration (verify it reads keen-pbr config)
-	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
-	if dnsmasqHash == "" {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "dnsmasq_config",
-			Comment:    "Dnsmasq must be configured to read keen-pbr configuration",
-			State:      false,
-			Message:    "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)",
-		})
-	} else {
-		// Get current config hash
-		currentHash, err := h.configHasher.GetCurrentConfigHash()
-		if err != nil {
-			currentHash = "error"
-		}
-
-		if dnsmasqHash == currentHash {
-			checks = append(checks, SelfCheckRow{
-				IPSet:      "",
-				Validation: "dnsmasq_config",
-				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
-				State:      true,
-				Message:    fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash),
-			})
-		} else {
-			checks = append(checks, SelfCheckRow{
-				IPSet:      "",
-				Validation: "dnsmasq_config",
-				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
-				State:      false,
-				Message:    fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash),
-			})
-		}
-	}
-
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
 		ipsetChecks := h.checkIPSetSelfJSON(ipsetCfg)
@@ -535,35 +479,6 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 		hasFailures = true
 	} else {
 		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid")
-	}
-
-	// Check dnsmasq service
-	cmd := exec.Command("pidof", "dnsmasq")
-	if err := cmd.Run(); err != nil {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", false, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is NOT running")
-		hasFailures = true
-	} else {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running")
-	}
-
-	// Check dnsmasq configuration (verify it reads keen-pbr config)
-	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
-	if dnsmasqHash == "" {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured to read keen-pbr configuration", "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)")
-		hasFailures = true
-	} else {
-		// Get current config hash
-		currentHash, err := h.configHasher.GetCurrentConfigHash()
-		if err != nil {
-			currentHash = "error"
-		}
-
-		if dnsmasqHash == currentHash {
-			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", true, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash))
-		} else {
-			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash))
-			hasFailures = true
-		}
 	}
 
 	// Check each IPSet

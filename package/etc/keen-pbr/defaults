@@ -2,9 +2,6 @@ PATH=/opt/bin:/opt/sbin:/sbin:/bin:/usr/sbin:/usr/bin
 CONFIG="/opt/etc/keen-pbr/keen-pbr.conf"
 KEEN_PBR="/opt/usr/bin/keen-pbr"
 
-DNSMASQ="dnsmasq"
-DNSMASQ_CONFIG="/opt/etc/dnsmasq.conf"
-
 ansi_red="\033[1;31m";
 ansi_white="\033[1;37m";
 ansi_green="\033[1;32m";

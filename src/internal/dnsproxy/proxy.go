@@ -40,7 +40,7 @@ type ProxyConfig struct {
 func DefaultProxyConfig() ProxyConfig {
 	return ProxyConfig{
 		ListenPort:    15353,
-		ListenAddress: "0.0.0.0",
+		ListenAddress: "127.0.53.53",
 		Upstreams:     []string{"keenetic://"},
 		DropAAAA:      true,
 		TTLOverride:   0,
@@ -51,7 +51,7 @@ func DefaultProxyConfig() ProxyConfig {
 func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 	return ProxyConfig{
 		ListenPort:    uint16(cfg.General.GetDNSProxyPort()),
-		ListenAddress: "0.0.0.0",
+		ListenAddress: "127.0.53.53",
 		Upstreams:     cfg.General.GetDNSUpstream(),
 		DropAAAA:      cfg.General.IsDropAAAAEnabled(),
 		TTLOverride:   cfg.General.GetTTLOverride(),

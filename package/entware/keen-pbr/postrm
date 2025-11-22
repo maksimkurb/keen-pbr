@@ -1,34 +1,7 @@
 #!/bin/sh
 
-DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
-DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.bak.keen-pbr.orig"
-DNSMASQ_KEEN_PBR_BAK="${DNSMASQ_CONF}.keen-pbr.old"
-
 echo "keen-pbr uninstallation"
 echo "--------------------------"
-
-if [ -f "${DNSMASQ_CONF}" ]; then
-    cp "${DNSMASQ_CONF}" "$DNSMASQ_KEEN_PBR_BAK"
-fi
-
-if [ -f "${DNSMASQ_ORIGINAL_BAK}" ]; then
-    echo "Select action:"
-    echo "1. Restore original dnsmasq.conf from backup"
-    echo "2. Keep current dnsmasq.conf"
-
-    read -r choice
-    case "${choice}" in
-        1)
-            cp "${DNSMASQ_ORIGINAL_BAK}" "${DNSMASQ_CONF}"
-            echo "Original dnsmasq.conf is restored from backup"
-            ;;
-        *)
-            echo "Keeping current configuration"
-            ;;
-    esac
-else
-    echo "No dnsmasq.conf backup configuration found"
-fi
 
 echo "Uninstallation complete!"
 

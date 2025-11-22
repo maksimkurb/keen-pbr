@@ -16,7 +16,7 @@ type ListStatistics struct {
 }
 
 // Manager manages list statistics with caching.
-// Statistics are populated when lists are processed for dnsmasq/ipsets,
+// Statistics are populated when lists are processed,
 // not on-demand, to avoid duplicate file parsing.
 type Manager struct {
 	cache map[string]ListStatistics
@@ -31,7 +31,7 @@ func NewManager() *Manager {
 }
 
 // GetStatistics returns cached statistics for a list.
-// Statistics are calculated during list processing (dnsmasq/ipsets),
+// Statistics are calculated during list processing,
 // not on-demand. Returns nil if not yet calculated.
 func (m *Manager) GetStatistics(list *config.ListSource, cfg *config.Config) *ListStatistics {
 	// For inline hosts, count directly (no file processing needed)

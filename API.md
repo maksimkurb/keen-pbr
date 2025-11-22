@@ -538,10 +538,6 @@ GET /api/v1/status
         "status": "running",
         "message": "Service is running"
       },
-      "dnsmasq": {
-        "status": "running",
-        "message": "Service is running"
-      }
     }
   }
 }
@@ -714,24 +710,6 @@ GET /api/v1/check/self?sse=true
 **Response (Stream):**
 ```json
 data: {"check":"config","ok":true,"log":"Configuration is valid","reason":"","command":""}
-data: {"check":"dnsmasq","ok":true,"log":"Dnsmasq service is running","reason":"","command":"pidof dnsmasq"}
-...
-```
-
-#### Split-DNS Check (SSE)
-
-Monitor DNS queries in real-time to verify split-DNS configuration.
-To trigger these messages, you must make DNS request to keen-dns internal DNS server (by default listening on `127.0.50.50:15053`) or dnsmasq that should be configured to accept config instructions from keen-pbr (keen-pbr automatically adds `server=/dns-check.keen-pbr.internal/127.0.50.50#15053` line to the dnsmasq config)
-
-```http
-GET /api/v1/check/split-dns
-```
-
-**Response (Stream):**
-```
-data: connected
-data: example.dns-check.keen-pbr.internal
-data: some-other-random-string.dns-check.keen-pbr.internal
 ...
 ```
 

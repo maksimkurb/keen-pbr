@@ -122,7 +122,7 @@ export function SelfCheckWidget() {
 
   const getExpectedStatus = (checkType: string): string => {
     // Most checks expect things to be "present" or "running"
-    if (checkType === 'dnsmasq' || checkType === 'service') {
+    if (checkType === 'service') {
       return t('dashboard.selfCheck.status.running', { defaultValue: 'running' });
     }
     return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
@@ -136,7 +136,7 @@ export function SelfCheckWidget() {
 
     if (result.ok) {
       // Success cases
-      if (result.check === 'dnsmasq' || result.check === 'service') {
+      if (result.check === 'service') {
         return { text: t('dashboard.selfCheck.status.running', { defaultValue: 'running' }), icon: 'check' };
       }
       if (result.log.includes('not present') || result.log.includes('disabled')) {
@@ -145,7 +145,7 @@ export function SelfCheckWidget() {
       return { text: t('dashboard.selfCheck.status.present', { defaultValue: 'present' }), icon: 'check' };
     } else {
       // Failure cases
-      if (result.check === 'dnsmasq' || result.check === 'service') {
+      if (result.check === 'service') {
         return { text: t('dashboard.selfCheck.status.dead', { defaultValue: 'dead' }), icon: 'cross' };
       }
       if (result.log.includes('missing') || result.log.includes('does NOT exist')) {

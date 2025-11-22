@@ -19,13 +19,12 @@ type Config struct {
 
 type GeneralConfig struct {
 	ListsOutputDir            string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream in generated dnsmasq config"`
+	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream"`
 	FallbackDNS               string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
 	APIBindAddress            string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
 	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
 	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
 	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
-	DNSCheckPort              int    `toml:"dns_check_port" json:"dns_check_port" comment:"Port for DNS check listener (default: 15053)"`
 
 	// DNS Proxy settings
 	EnableDNSProxy *bool    `toml:"enable_dns_proxy" json:"enable_dns_proxy" comment:"Enable transparent DNS proxy for domain-based routing (default: true)"`
@@ -60,14 +59,6 @@ func (gc *GeneralConfig) IsInterfaceMonitoringEnabled() bool {
 		return false // Default to disabled
 	}
 	return *gc.EnableInterfaceMonitoring
-}
-
-// GetDNSCheckPort returns the DNS check port (default: 15053)
-func (gc *GeneralConfig) GetDNSCheckPort() int {
-	if gc.DNSCheckPort <= 0 {
-		return 15053 // Default port
-	}
-	return gc.DNSCheckPort
 }
 
 // IsDNSProxyEnabled returns whether DNS proxy is enabled (default: true).

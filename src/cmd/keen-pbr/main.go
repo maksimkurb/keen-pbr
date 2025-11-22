@@ -34,7 +34,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  server                  Run HTTP API server for managing configuration\n")
 		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
 		fmt.Fprintf(os.Stderr, "  apply                   Import IPs/CIDRs from lists to ipsets\n")
-		fmt.Fprintf(os.Stderr, "  print-dnsmasq-config    Print dnsmasq generated 'ipset=...' entries to stdout. Logs will be written to stderr.\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
 		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
 		fmt.Fprintf(os.Stderr, "  undo-routing            Undo any routing configuration (reverts \"apply\" command)\n")
@@ -65,7 +64,6 @@ func main() {
 		commands.CreateServerCommand(),
 		commands.CreateDownloadCommand(),
 		commands.CreateApplyCommand(),
-		commands.CreateDnsmasqConfigCommand(),
 		commands.CreateInterfacesCommand(),
 		commands.CreateSelfCheckCommand(),
 		commands.CreateUndoCommand(),

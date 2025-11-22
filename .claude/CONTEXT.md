@@ -2,7 +2,7 @@
 
 ## Overview
 
-**keen-pbr** is a policy-based routing toolkit for Keenetic routers written in Go. It enables selective traffic routing based on IP addresses, CIDR blocks, and domain names using ipset and dnsmasq integration.
+**keen-pbr** is a policy-based routing toolkit for Keenetic routers written in Go. It enables selective traffic routing based on IP addresses, CIDR blocks, and domain names using ipset and an internal DNS server.
 
 **Language**: Go 1.23
 **Module**: `github.com/maksimkurb/keen-pbr`
@@ -43,7 +43,7 @@ keen-pbr/
 │       │   ├── settings.go           # Settings endpoints
 │       │   ├── status.go             # Status endpoints
 │       │   ├── interfaces.go         # Interfaces endpoint
-│       │   ├── service.go            # Service control and dnsmasq restart
+│       │   ├── service.go            # Service control
 │       │   ├── check.go              # Network diagnostics and health checks
 │       │   ├── types.go              # API types
 │       │   ├── middleware.go         # HTTP middleware
@@ -57,8 +57,7 @@ keen-pbr/
 │       │   ├── undo.go               # Remove routing configuration
 │       │   ├── service.go            # Daemon mode with interface monitoring
 │       │   ├── self_check.go         # Configuration validation
-│       │   ├── dns.go                # DNS proxy profile viewer
-│       │   ├── dnsmasq_config.go     # dnsmasq configuration generator
+│       │   ├── dns.go                # DNS server command
 │       │   ├── interfaces.go         # Network interface lister
 │       │   ├── upgrade_config.go     # Configuration format upgrader
 │       │   ├── server.go             # API server command
@@ -120,7 +119,7 @@ keen-pbr/
 │       │   ├── common.go             # List iteration and parsing
 │       │   ├── domain_store.go       # Domain storage
 │       │   ├── ipset_importer.go     # Import IPs to ipset
-│       │   ├── dnsmasq_generator.go  # Generate dnsmasq configs
+│       │   ├── manager.go            # List manager
 │       │   └── *_test.go             # List processing tests
 │       │
 │       ├── config/                   # Configuration management
@@ -170,8 +169,7 @@ keen-pbr/
 │       ├── ndm/                      # Keenetic NDM hooks
 │       │   ├── netfilter.d/50-keen-pbr-fwmarks.sh
 │       │   └── ifstatechanged.d/50-keen-pbr-routing.sh
-│       ├── keen-pbr/                 # Configuration templates
-│       └── dnsmasq.d/                # dnsmasq integration
+│       └── keen-pbr/                 # Configuration templates
 │
 ├── go.mod                            # Go module definition
 ├── go.sum                            # Go dependency lock file
@@ -301,7 +299,7 @@ In addition to the CLI, keen-pbr provides a web-based management interface with 
 - `settings.go`: General settings endpoints
 - `status.go`: Service status and version info
 - `interfaces.go`: Network interfaces endpoint
-- `service.go`: Service control (start/stop/restart) and dnsmasq control
+- `service.go`: Service control (start/stop/restart)
 - `check.go`: Network diagnostics (ping, traceroute, routing checks, split-dns)
 - `types.go`: Request/response type definitions
 - `middleware.go`: CORS, logging, error recovery, private subnet restrictions
@@ -335,7 +333,6 @@ System:
   GET    /api/v1/status             # Service status and version
   GET    /api/v1/health             # Health check
   POST   /api/v1/service            # Control service (start/stop/restart)
-  POST   /api/v1/dnsmasq            # Restart dnsmasq
 
 Network Diagnostics:
   POST   /api/v1/check/routing      # Check routing for host
@@ -476,7 +473,7 @@ src/frontend/
 
 4. **Service Status**:
    - Version information (keen-pbr, Keenetic)
-   - Service running status (keen-pbr, dnsmasq)
+   - Service running status (keen-pbr)
    - Service control (start/stop/restart)
 
 **UI Patterns**:
@@ -919,22 +916,14 @@ ip route add default via 10.8.0.1 dev wg0 table 100
 
 ### 4. DNS-based Routing
 
-Generate dnsmasq configuration:
-```bash
-keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf
-```
-
-Output:
-```
-ipset=/example.com/vpn_routes
-ipset=/another.com/vpn_routes
-```
+keen-pbr includes an internal DNS server that handles domain-based routing.
 
 **How it works**:
-1. dnsmasq resolves domain
-2. Automatically adds resolved IP to ipset
-3. Packet marked by iptables rule
-4. Routed via ip rule + ip route
+1. keen-pbr's DNS server receives DNS query
+2. Checks if domain matches any configured list
+3. If matched, resolves domain and adds IP to ipset
+4. Packet marked by iptables rule
+5. Routed via ip rule + ip route
 
 ### 5. Service Mode (Daemon)
 
@@ -1068,7 +1057,6 @@ Commands:
   undo-routing            # Remove all routing configuration
   service                 # Run as daemon with auto-updates
   self-check              # Validate configuration
-  print-dnsmasq-config    # Generate dnsmasq configuration
   interfaces              # List network interfaces
   dns                     # Show DNS proxy profile
   upgrade-config          # Upgrade config format
@@ -1093,8 +1081,8 @@ keen-pbr service
 # Validate configuration
 keen-pbr self-check
 
-# Generate dnsmasq config
-keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf
+# Start service (includes internal DNS server)
+keen-pbr service
 ```
 
 ---
