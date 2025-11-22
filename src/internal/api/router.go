@@ -10,7 +10,7 @@ import (
 )
 
 // NewRouter creates a new HTTP router with all API endpoints.
-func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckSubscriber DNSCheckSubscriber) http.Handler {
+func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckSubscriber DNSCheckSubscriber, dnsServersProvider DNSServersProvider) http.Handler {
 	r := chi.NewRouter()
 
 	// Apply middleware
@@ -21,7 +21,7 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 	r.Use(JSONContentType)
 
 	// Create handler
-	h := NewHandler(configPath, deps, serviceMgr, configHasher, dnsCheckSubscriber)
+	h := NewHandler(configPath, deps, serviceMgr, configHasher, dnsCheckSubscriber, dnsServersProvider)
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {

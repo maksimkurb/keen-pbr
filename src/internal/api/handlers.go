@@ -6,6 +6,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -26,6 +27,11 @@ type DNSCheckSubscriber interface {
 	Unsubscribe(ch chan string)
 }
 
+// DNSServersProvider provides access to the currently used DNS servers.
+type DNSServersProvider interface {
+	GetDNSServers() []keenetic.DNSServerInfo
+}
+
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
 	configPath         string
@@ -33,16 +39,18 @@ type Handler struct {
 	serviceMgr         ServiceManager
 	configHasher       *config.ConfigHasher
 	dnsCheckSubscriber DNSCheckSubscriber
+	dnsServersProvider DNSServersProvider
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
-func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckSubscriber DNSCheckSubscriber) *Handler {
+func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckSubscriber DNSCheckSubscriber, dnsServersProvider DNSServersProvider) *Handler {
 	return &Handler{
 		configPath:         configPath,
 		deps:               deps,
 		serviceMgr:         serviceMgr,
 		configHasher:       configHasher,
 		dnsCheckSubscriber: dnsCheckSubscriber,
+		dnsServersProvider: dnsServersProvider,
 	}
 }
 

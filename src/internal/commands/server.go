@@ -142,8 +142,14 @@ func (c *ServerCommand) Run() error {
 		log.Warnf("DNS check feature requires DNS proxy to be enabled")
 	}
 
-	// Create router with service manager, config hasher, and DNS check subscriber
-	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher, dnsCheckSubscriber)
+	// DNS servers provider - DNS proxy provides this functionality
+	var dnsServersProvider api.DNSServersProvider
+	if c.dnsProxy != nil {
+		dnsServersProvider = c.dnsProxy
+	}
+
+	// Create router with service manager, config hasher, DNS check subscriber, and DNS servers provider
+	router := api.NewRouter(c.ctx.ConfigPath, c.deps, c.serviceMgr, c.configHasher, dnsCheckSubscriber, dnsServersProvider)
 
 	// Create HTTP server
 	server := &http.Server{
