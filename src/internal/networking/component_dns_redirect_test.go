@@ -6,16 +6,15 @@ import (
 )
 
 func TestDNSRedirectComponent_BasicMethods(t *testing.T) {
-	// Create component with mock target IPs and port
-	targetIPv4 := "127.0.53.53"
-	targetIPv6 := "::1"
+	// Create component with dual-stack listen address
+	listenAddr := "[::]"
 	targetPort := uint16(5353)
 	// We can't easily mock iptables here, so NewDNSRedirectComponent might fail if iptables is not present.
 	// However, NewDNSRedirectComponent only fails if iptables.NewWithProtocol fails.
 	// On many CI/dev envs, this might pass even without root, or fail.
 	// If it fails, we skip.
 
-	component, err := NewDNSRedirectComponent(targetIPv4, targetIPv6, targetPort)
+	component, err := NewDNSRedirectComponent(listenAddr, targetPort)
 	if err != nil {
 		t.Skipf("Skipping test - failed to create component (likely no iptables): %v", err)
 		return

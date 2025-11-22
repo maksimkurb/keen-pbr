@@ -22,6 +22,7 @@ const (
 // It creates DNAT rules to intercept DNS traffic destined for the router
 // and redirect it to the DNS proxy IP and port.
 type DNSRedirectComponent struct {
+	listenAddr string
 	targetIPv4 string
 	targetIPv6 string
 	targetPort uint16
@@ -30,7 +31,9 @@ type DNSRedirectComponent struct {
 }
 
 // NewDNSRedirectComponent creates a new component for DNS redirection.
-func NewDNSRedirectComponent(targetIPv4 string, targetIPv6 string, targetPort uint16) (*DNSRedirectComponent, error) {
+// listenAddr is the address the DNS proxy listens on (e.g., "[::]" for dual-stack).
+// When listenAddr is "[::]" (dual-stack), redirects to localhost (::1 for IPv6, 127.0.0.1 for IPv4).
+func NewDNSRedirectComponent(listenAddr string, targetPort uint16) (*DNSRedirectComponent, error) {
 	ipt4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create iptables (IPv4): %w", err)
@@ -43,7 +46,23 @@ func NewDNSRedirectComponent(targetIPv4 string, targetIPv6 string, targetPort ui
 		ipt6 = nil
 	}
 
+	// Strip brackets from listenAddr if present (e.g., "[::] -> "::")
+	addr := strings.Trim(listenAddr, "[]")
+
+	// Determine target IPs based on listenAddr
+	var targetIPv4, targetIPv6 string
+	if addr == "::" {
+		// Dual-stack: redirect to localhost
+		targetIPv4 = "127.0.0.1"
+		targetIPv6 = "::1"
+	} else {
+		// Specific address: use it for both (will be filtered by IP version in createChainAndRules)
+		targetIPv4 = addr
+		targetIPv6 = addr
+	}
+
 	return &DNSRedirectComponent{
+		listenAddr: listenAddr,
 		targetIPv4: targetIPv4,
 		targetIPv6: targetIPv6,
 		targetPort: targetPort,
@@ -222,22 +241,8 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 		}
 	}
 
-	// Determine target IP based on protocol
+	// Determine IP version
 	isIPv6Table := ipt.Proto() == iptables.ProtocolIPv6
-	var targetIP string
-	if isIPv6Table {
-		targetIP = c.targetIPv6
-	} else {
-		targetIP = c.targetIPv4
-	}
-
-	// Format destination for DNAT (IPv6 requires brackets)
-	var destination string
-	if isIPv6Table {
-		destination = fmt.Sprintf("[%s]:%d", targetIP, c.targetPort)
-	} else {
-		destination = fmt.Sprintf("%s:%d", targetIP, c.targetPort)
-	}
 
 	// Add rules for each local address
 	for _, addr := range addresses {
@@ -251,28 +256,54 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 			continue
 		}
 
-		// Create DNAT rule for UDP
-		udpRule := []string{
-			"-p", "udp",
-			"-d", addr.IP.String(),
-			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "DNAT",
-			"--to-destination", destination,
-		}
-		if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
-			return fmt.Errorf("failed to add UDP rule: %w", err)
-		}
+		// For IPv4: use REDIRECT (preserves original destination IP)
+		// For IPv6: use DNAT with port-only destination
+		if !isIPv6Table {
+			// IPv4: REDIRECT --to-port
+			udpRule := []string{
+				"-p", "udp",
+				"-d", addr.IP.String(),
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "REDIRECT",
+				"--to-port", strconv.Itoa(int(c.targetPort)),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
+				return fmt.Errorf("failed to add UDP rule: %w", err)
+			}
 
-		// Create DNAT rule for TCP
-		tcpRule := []string{
-			"-p", "tcp",
-			"-d", addr.IP.String(),
-			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "DNAT",
-			"--to-destination", destination,
-		}
-		if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
-			return fmt.Errorf("failed to add TCP rule: %w", err)
+			tcpRule := []string{
+				"-p", "tcp",
+				"-d", addr.IP.String(),
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "REDIRECT",
+				"--to-port", strconv.Itoa(int(c.targetPort)),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
+				return fmt.Errorf("failed to add TCP rule: %w", err)
+			}
+		} else {
+			// IPv6: DNAT --to-destination :<port>
+			udpRule := []string{
+				"-p", "udp",
+				"-d", addr.IP.String(),
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
+				return fmt.Errorf("failed to add UDP rule: %w", err)
+			}
+
+			tcpRule := []string{
+				"-p", "tcp",
+				"-d", addr.IP.String(),
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
+				return fmt.Errorf("failed to add TCP rule: %w", err)
+			}
 		}
 	}
 

@@ -27,11 +27,12 @@ type GeneralConfig struct {
 	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
 
 	// DNS Proxy settings
-	EnableDNSProxy *bool    `toml:"enable_dns_proxy" json:"enable_dns_proxy" comment:"Enable transparent DNS proxy for domain-based routing (default: true)"`
-	DNSProxyPort   int      `toml:"dns_proxy_port" json:"dns_proxy_port" comment:"Port for DNS proxy listener (default: 15353)"`
-	DNSUpstream    []string `toml:"dns_upstream" json:"dns_upstream" comment:"Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: [\"keenetic://\"])"`
-	DropAAAA       *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
-	TTLOverride    int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
+	EnableDNSProxy     *bool    `toml:"enable_dns_proxy" json:"enable_dns_proxy" comment:"Enable transparent DNS proxy for domain-based routing (default: true)"`
+	DNSProxyListenAddr string   `toml:"dns_proxy_listen_addr" json:"dns_proxy_listen_addr" comment:"DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or use specific IP like 127.0.0.1)"`
+	DNSProxyPort       int      `toml:"dns_proxy_port" json:"dns_proxy_port" comment:"Port for DNS proxy listener (default: 15353)"`
+	DNSUpstream        []string `toml:"dns_upstream" json:"dns_upstream" comment:"Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: [\"keenetic://\"])"`
+	DropAAAA           *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
+	TTLOverride        int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
 }
 
 // IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
@@ -67,6 +68,14 @@ func (gc *GeneralConfig) IsDNSProxyEnabled() bool {
 		return true // Default to enabled
 	}
 	return *gc.EnableDNSProxy
+}
+
+// GetDNSProxyListenAddr returns the DNS proxy listen address (default: [::]).
+func (gc *GeneralConfig) GetDNSProxyListenAddr() string {
+	if gc.DNSProxyListenAddr == "" {
+		return "[::]" // Default to dual-stack with brackets
+	}
+	return gc.DNSProxyListenAddr
 }
 
 // GetDNSProxyPort returns the DNS proxy port (default: 15353).
