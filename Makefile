@@ -13,8 +13,12 @@ include packages.mk
 
 .DEFAULT_GOAL := packages
 
+install-dev-deps:
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install mvdan.cc/unparam@latest
+
 test:
-	go vet ./... && go test ./... && staticcheck ./...
+	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./...
 
 build-frontend:
 	cd src/frontend && npm install && npm run build
