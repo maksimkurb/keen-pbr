@@ -151,11 +151,6 @@ func (c *DNSRedirectComponent) GetDescription() string {
 	return fmt.Sprintf("DNS redirection rules (port 53 -> %d)", c.targetPort)
 }
 
-// GetCommand returns the CLI command for manual execution.
-func (c *DNSRedirectComponent) GetCommand() string {
-	return fmt.Sprintf("# iptables -t nat -N %s\n# iptables -t nat -A PREROUTING -j %s", dnsRedirectChainName, dnsRedirectChainName)
-}
-
 // Helper methods
 
 func (c *DNSRedirectComponent) checkChainAndRules(ipt *iptables.IPTables) (bool, error) {

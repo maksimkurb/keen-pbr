@@ -58,7 +58,4 @@ type NetworkingComponent interface {
 
 	// GetDescription returns human-readable description
 	GetDescription() string
-
-	// GetCommand returns the CLI command for manual execution (debugging)
-	GetCommand() string
 }

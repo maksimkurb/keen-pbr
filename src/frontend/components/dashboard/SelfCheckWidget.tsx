@@ -1,4 +1,4 @@
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -15,7 +15,6 @@ interface CheckEvent {
   log: string;
   ipset_name?: string;
   reason?: string;
-  command?: string;
 }
 
 type CheckStatus = 'idle' | 'running' | 'completed' | 'failed' | 'error';
@@ -70,7 +69,6 @@ export function SelfCheckWidget() {
                   ...r,
                   ok: false,
                   log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
-                  command: 'Check dnsmasq configuration and ensure browser is using router DNS',
                 }
               : r
           )
@@ -174,7 +172,6 @@ export function SelfCheckWidget() {
           ok: result.ok,
           log: result.log,
           reason: result.reason,
-          command: result.command,
         }));
 
       // Create export object
@@ -275,8 +272,8 @@ export function SelfCheckWidget() {
                     const ruleRowSpans = new Map<string, number>();
                     filteredResults.forEach((result) => {
                       const rule = result.ipset_name || 'global';
-                      // Each check takes 1 row, plus 1 for command if present
-                      const rows = result.command ? 2 : 1;
+                      // Each check takes 1 row
+                      const rows = 1;
                       ruleRowSpans.set(rule, (ruleRowSpans.get(rule) || 0) + rows);
                     });
 
@@ -323,20 +320,6 @@ export function SelfCheckWidget() {
                               </div>
                             </td>
                           </tr>
-                          {result.command && (
-                            <tr
-                              key={`${index}-cmd`}
-                              className={`border-b last:border-b-0 ${
-                                !result.ok ? 'bg-destructive/5' : ''
-                              }`}
-                            >
-                              <td colSpan={3} className="py-2 px-4 text-xs">
-                                <code className="text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded">
-                                  {result.command}
-                                </code>
-                              </td>
-                            </tr>
-                          )}
                         </>
                       );
                     });

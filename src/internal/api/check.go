@@ -416,7 +416,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Global configuration check",
 			State:      false,
 			Message:    fmt.Sprintf("Failed to load configuration: %v", err),
-			Command:    "",
 		})
 		writeJSONData(w, SelfCheckResponse{Checks: checks})
 		return
@@ -430,7 +429,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Configuration validation ensures all required fields are present and valid",
 			State:      false,
 			Message:    fmt.Sprintf("Configuration validation failed: %v", err),
-			Command:    "",
 		})
 	} else {
 		checks = append(checks, SelfCheckRow{
@@ -439,7 +437,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Configuration validation ensures all required fields are present and valid",
 			State:      true,
 			Message:    "Configuration is valid",
-			Command:    "",
 		})
 	}
 
@@ -452,7 +449,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Dnsmasq service must be running for domain-based routing to work",
 			State:      false,
 			Message:    "Dnsmasq service is NOT running",
-			Command:    "/opt/etc/init.d/S56dnsmasq start",
 		})
 	} else {
 		checks = append(checks, SelfCheckRow{
@@ -461,7 +457,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Dnsmasq service must be running for domain-based routing to work",
 			State:      true,
 			Message:    "Dnsmasq service is running",
-			Command:    "pidof dnsmasq",
 		})
 	}
 
@@ -474,7 +469,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 			Comment:    "Dnsmasq must be configured to read keen-pbr configuration",
 			State:      false,
 			Message:    "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)",
-			Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
 		})
 	} else {
 		// Get current config hash
@@ -490,7 +484,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
 				State:      true,
 				Message:    fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash),
-				Command:    "nslookup config-md5.keen-pbr.internal 127.0.0.1",
 			})
 		} else {
 			checks = append(checks, SelfCheckRow{
@@ -499,7 +492,6 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 				Comment:    "Dnsmasq must be configured with up-to-date keen-pbr configuration",
 				State:      false,
 				Message:    fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash),
-				Command:    "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart",
 			})
 		}
 	}
@@ -533,31 +525,31 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 	// Load configuration
 	cfg, err := h.loadConfig()
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "config", "", false, "Global configuration check", fmt.Sprintf("Failed to load configuration: %v", err), "")
+		h.sendCheckEventWithContext(w, flusher, "config", "", false, "Global configuration check", fmt.Sprintf("Failed to load configuration: %v", err))
 		return
 	}
 
 	// Validate configuration
 	if err := cfg.ValidateConfig(); err != nil {
-		h.sendCheckEventWithContext(w, flusher, "config_validation", "", false, "Configuration validation ensures all required fields are present and valid", fmt.Sprintf("Configuration validation failed: %v", err), "")
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", false, "Configuration validation ensures all required fields are present and valid", fmt.Sprintf("Configuration validation failed: %v", err))
 		hasFailures = true
 	} else {
-		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid", "")
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid")
 	}
 
 	// Check dnsmasq service
 	cmd := exec.Command("pidof", "dnsmasq")
 	if err := cmd.Run(); err != nil {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", false, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is NOT running", "/opt/etc/init.d/S56dnsmasq start")
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", false, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is NOT running")
 		hasFailures = true
 	} else {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running", "pidof dnsmasq")
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq", "", true, "Dnsmasq service must be running for domain-based routing to work", "Dnsmasq service is running")
 	}
 
 	// Check dnsmasq configuration (verify it reads keen-pbr config)
 	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
 	if dnsmasqHash == "" {
-		h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured to read keen-pbr configuration", "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)", "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+		h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured to read keen-pbr configuration", "Dnsmasq is NOT configured to read keen-pbr config (DNS lookup for config-md5.keen-pbr.internal failed)")
 		hasFailures = true
 	} else {
 		// Get current config hash
@@ -567,9 +559,9 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if dnsmasqHash == currentHash {
-			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", true, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash), "nslookup config-md5.keen-pbr.internal 127.0.0.1")
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", true, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq is configured with current config (hash: %s)", dnsmasqHash))
 		} else {
-			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash), "keen-pbr print-dnsmasq-config > /opt/etc/dnsmasq.d/keen-pbr.conf && /opt/etc/init.d/S56dnsmasq restart")
+			h.sendCheckEventWithContext(w, flusher, "dnsmasq_config", "", false, "Dnsmasq must be configured with up-to-date keen-pbr configuration", fmt.Sprintf("Dnsmasq config is OUTDATED (current: %s, dnsmasq: %s)", currentHash, dnsmasqHash))
 			hasFailures = true
 		}
 	}
@@ -583,9 +575,9 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Send completion message
 	if hasFailures {
-		h.sendCheckEventWithContext(w, flusher, "complete", "", false, "", "Self-check completed with failures", "")
+		h.sendCheckEventWithContext(w, flusher, "complete", "", false, "", "Self-check completed with failures")
 	} else {
-		h.sendCheckEventWithContext(w, flusher, "complete", "", true, "", "Self-check completed successfully", "")
+		h.sendCheckEventWithContext(w, flusher, "complete", "", true, "", "Self-check completed successfully")
 	}
 }
 
@@ -608,7 +600,7 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 	components, err := builder.BuildComponents(ipsetCfg)
 	if err != nil {
 		h.sendCheckEventWithContext(w, flusher, "component_build", ipsetCfg.IPSetName, false,
-			"Failed to build networking components", fmt.Sprintf("Error: %v", err), "")
+			"Failed to build networking components", fmt.Sprintf("Error: %v", err))
 		return false
 	}
 
@@ -635,7 +627,6 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 			state,
 			component.GetDescription(),
 			message,
-			component.GetCommand(),
 		)
 
 		if !state {
@@ -669,7 +660,6 @@ func (h *Handler) checkIPSetSelfJSON(cfg *config.Config, ipsetCfg *config.IPSetC
 			Comment:    "Failed to build networking components",
 			State:      false,
 			Message:    fmt.Sprintf("Error: %v", err),
-			Command:    "",
 		})
 		return checks
 	}
@@ -696,7 +686,6 @@ func (h *Handler) checkIPSetSelfJSON(cfg *config.Config, ipsetCfg *config.IPSetC
 			Comment:    component.GetDescription(),
 			State:      state,
 			Message:    message,
-			Command:    component.GetCommand(),
 		})
 	}
 
@@ -789,13 +778,12 @@ func (h *Handler) getComponentMessage(component networking.NetworkingComponent, 
 }
 
 // sendCheckEventWithContext sends a JSON check event via SSE with additional context
-func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.Flusher, check string, ipsetName string, ok bool, reason string, logMsg string, command string) {
+func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.Flusher, check string, ipsetName string, ok bool, reason string, logMsg string) {
 	event := map[string]interface{}{
-		"check":   check,
-		"ok":      ok,
-		"log":     logMsg,
-		"reason":  reason,
-		"command": command,
+		"check":  check,
+		"ok":     ok,
+		"log":    logMsg,
+		"reason": reason,
 	}
 
 	// Add ipset_name only if it's not empty

@@ -46,7 +46,7 @@ func ResolveDNSServers(cfg *config.Config, keeneticClient KeeneticClientInterfac
 		return useFallbackDNS(cfg)
 	}
 
-	log.Infof("Using %d Keenetic DNS server(s)", len(servers))
+	log.Infof("Fetched %d Keenetic DNS server(s): %v", len(servers), servers)
 	return servers
 }
 

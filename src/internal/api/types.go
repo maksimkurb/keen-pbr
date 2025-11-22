@@ -22,11 +22,11 @@ type ListInfo struct {
 // null in JSON if statistics haven't been calculated yet.
 // Download status (Downloaded, LastModified) is always available for URL-based lists.
 type ListStatistics struct {
-	TotalHosts   *int    `json:"total_hosts"`              // null if not yet calculated
-	IPv4Subnets  *int    `json:"ipv4_subnets"`             // null if not yet calculated
-	IPv6Subnets  *int    `json:"ipv6_subnets"`             // null if not yet calculated
-	Downloaded   bool    `json:"downloaded,omitempty"`     // Only for URL-based lists
-	LastModified *string `json:"last_modified,omitempty"`  // RFC3339 format, only for URL-based lists
+	TotalHosts   *int    `json:"total_hosts"`             // null if not yet calculated
+	IPv4Subnets  *int    `json:"ipv4_subnets"`            // null if not yet calculated
+	IPv6Subnets  *int    `json:"ipv6_subnets"`            // null if not yet calculated
+	Downloaded   bool    `json:"downloaded,omitempty"`    // Only for URL-based lists
+	LastModified *string `json:"last_modified,omitempty"` // RFC3339 format, only for URL-based lists
 }
 
 // ListsResponse returns all lists in the configuration.
@@ -62,10 +62,10 @@ type StatusResponse struct {
 
 // DNSServerInfo contains information about a DNS server.
 type DNSServerInfo struct {
-	Type     string  `json:"type"`               // "IP4", "IP6", "DoT", "DoH"
-	Endpoint string  `json:"endpoint"`           // IP for plain DNS, SNI for DoT, URI for DoH
-	Port     string  `json:"port,omitempty"`     // Port for DoT/DoH
-	Domain   *string `json:"domain,omitempty"`   // Domain scope (if any)
+	Type     string  `json:"type"`             // "IP4", "IP6", "DoT", "DoH"
+	Endpoint string  `json:"endpoint"`         // IP for plain DNS, SNI for DoT, URI for DoH
+	Port     string  `json:"port,omitempty"`   // Port for DoT/DoH
+	Domain   *string `json:"domain,omitempty"` // Domain scope (if any)
 }
 
 // VersionInfo contains build version information.
@@ -77,7 +77,7 @@ type VersionInfo struct {
 
 // ServiceInfo contains information about a service.
 type ServiceInfo struct {
-	Status     string `json:"status"`  // "running", "stopped", "unknown"
+	Status     string `json:"status"` // "running", "stopped", "unknown"
 	Message    string `json:"message,omitempty"`
 	ConfigHash string `json:"config_hash,omitempty"` // Hash of applied config (keen-pbr service only)
 }
@@ -118,10 +118,10 @@ type CheckRequest struct {
 
 // RoutingCheckResponse returns detailed routing information for a host.
 type RoutingCheckResponse struct {
-	Host              string                 `json:"host"`
-	ResolvedIPs       []string               `json:"resolved_ips,omitempty"`
-	MatchedByHostname []HostnameRuleMatch    `json:"matched_by_hostname,omitempty"`
-	IPSetChecks       []IPSetCheckResult     `json:"ipset_checks"`
+	Host              string              `json:"host"`
+	ResolvedIPs       []string            `json:"resolved_ips,omitempty"`
+	MatchedByHostname []HostnameRuleMatch `json:"matched_by_hostname,omitempty"`
+	IPSetChecks       []IPSetCheckResult  `json:"ipset_checks"`
 }
 
 // HostnameRuleMatch represents a rule that matched by hostname pattern.
@@ -138,25 +138,25 @@ type IPSetCheckResult struct {
 
 // RuleCheckResult shows if an IP is present in a rule's IPSet.
 type RuleCheckResult struct {
-	RuleName       string `json:"rule_name"`
-	PresentInIPSet bool   `json:"present_in_ipset"`
+	RuleName        string `json:"rule_name"`
+	PresentInIPSet  bool   `json:"present_in_ipset"`
 	ShouldBePresent bool   `json:"should_be_present"`
-	MatchReason    string `json:"match_reason,omitempty"` // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
+	MatchReason     string `json:"match_reason,omitempty"` // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
 }
 
 // PingCheckResponse returns ping results for a host.
 type PingCheckResponse struct {
-	Host        string   `json:"host"`
-	ResolvedIP  string   `json:"resolved_ip,omitempty"`
-	Success     bool     `json:"success"`
-	PacketsSent int      `json:"packets_sent,omitempty"`
-	PacketsRecv int      `json:"packets_received,omitempty"`
-	PacketLoss  float64  `json:"packet_loss,omitempty"`
-	MinRTT      float64  `json:"min_rtt,omitempty"` // milliseconds
-	AvgRTT      float64  `json:"avg_rtt,omitempty"` // milliseconds
-	MaxRTT      float64  `json:"max_rtt,omitempty"` // milliseconds
-	Output      string   `json:"output,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	Host        string  `json:"host"`
+	ResolvedIP  string  `json:"resolved_ip,omitempty"`
+	Success     bool    `json:"success"`
+	PacketsSent int     `json:"packets_sent,omitempty"`
+	PacketsRecv int     `json:"packets_received,omitempty"`
+	PacketLoss  float64 `json:"packet_loss,omitempty"`
+	MinRTT      float64 `json:"min_rtt,omitempty"` // milliseconds
+	AvgRTT      float64 `json:"avg_rtt,omitempty"` // milliseconds
+	MaxRTT      float64 `json:"max_rtt,omitempty"` // milliseconds
+	Output      string  `json:"output,omitempty"`
+	Error       string  `json:"error,omitempty"`
 }
 
 // TracerouteCheckResponse returns traceroute results for a host.
@@ -189,5 +189,4 @@ type SelfCheckRow struct {
 	Comment    string `json:"comment"`    // Explanation of what is being validated
 	State      bool   `json:"state"`      // true = pass (✓), false = fail (✗)
 	Message    string `json:"message"`    // Detailed message
-	Command    string `json:"command"`    // Command to run for debugging
 }

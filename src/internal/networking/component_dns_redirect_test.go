@@ -39,10 +39,4 @@ func TestDNSRedirectComponent_BasicMethods(t *testing.T) {
 	if !component.ShouldExist() {
 		t.Error("ShouldExist should return true")
 	}
-
-	// Test GetCommand
-	cmd := component.GetCommand()
-	if !strings.Contains(cmd, "KEEN_PBR_DNS") {
-		t.Errorf("Command should contain chain name, got: %s", cmd)
-	}
 }

@@ -1,8 +1,6 @@
 package networking
 
 import (
-	"fmt"
-
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 )
 
@@ -48,12 +46,6 @@ func (c *IPRuleComponent) CreateIfNotExists() error {
 func (c *IPRuleComponent) DeleteIfExists() error {
 	_, err := c.rule.DelIfExists()
 	return err
-}
-
-// GetCommand returns the CLI command for manual execution
-func (c *IPRuleComponent) GetCommand() string {
-	return fmt.Sprintf("ip rule add from all fwmark 0x%x lookup %d prio %d",
-		c.cfg.Routing.FwMark, c.cfg.Routing.IpRouteTable, c.cfg.Routing.IpRulePriority)
 }
 
 // GetRule returns the underlying IP rule

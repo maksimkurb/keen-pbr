@@ -66,25 +66,6 @@ func TestIPSetComponent_GetDescription(t *testing.T) {
 	}
 }
 
-// TestIPSetComponent_GetCommand tests that component returns CLI command
-func TestIPSetComponent_GetCommand(t *testing.T) {
-	cfg := &config.IPSetConfig{
-		IPSetName: "test-ipset",
-		IPVersion: 4,
-	}
-
-	component := NewIPSetComponent(cfg)
-
-	cmd := component.GetCommand()
-	if cmd == "" {
-		t.Error("Expected non-empty command")
-	}
-	expectedCmd := "ipset list test-ipset"
-	if cmd != expectedCmd {
-		t.Errorf("Expected command '%s', got '%s'", expectedCmd, cmd)
-	}
-}
-
 // TestIPRuleComponent_ShouldExist tests that IPRule components should always exist
 func TestIPRuleComponent_ShouldExist(t *testing.T) {
 	cfg := &config.IPSetConfig{
@@ -123,27 +104,6 @@ func TestIPRuleComponent_GetType(t *testing.T) {
 	}
 }
 
-// TestIPRuleComponent_GetCommand tests that component returns correct CLI command
-func TestIPRuleComponent_GetCommand(t *testing.T) {
-	cfg := &config.IPSetConfig{
-		IPSetName: "test-ipset",
-		IPVersion: 4,
-		Routing: &config.RoutingConfig{
-			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
-		},
-	}
-
-	component := NewIPRuleComponent(cfg)
-
-	cmd := component.GetCommand()
-	expectedCmd := "ip rule add from all fwmark 0x100 lookup 100 prio 100"
-	if cmd != expectedCmd {
-		t.Errorf("Expected command '%s', got '%s'", expectedCmd, cmd)
-	}
-}
-
 // TestIPRouteComponent_GetType tests that IPRoute component returns correct type
 func TestIPRouteComponent_GetType(t *testing.T) {
 	cfg := &config.IPSetConfig{
@@ -179,27 +139,6 @@ func TestIPRouteComponent_BlackholeType(t *testing.T) {
 
 	if component.GetRouteType() != RouteTypeBlackhole {
 		t.Errorf("Expected route type %s, got %s", RouteTypeBlackhole, component.GetRouteType())
-	}
-}
-
-// TestIPRouteComponent_BlackholeCommand tests blackhole route command
-func TestIPRouteComponent_BlackholeCommand(t *testing.T) {
-	cfg := &config.IPSetConfig{
-		IPSetName: "test-ipset",
-		IPVersion: 4,
-		Routing: &config.RoutingConfig{
-			IpRouteTable: 100,
-			Interfaces:   []string{"eth0"},
-		},
-	}
-
-	selector := NewInterfaceSelector(nil)
-	component := NewBlackholeRouteComponent(cfg, selector)
-
-	cmd := component.GetCommand()
-	expectedCmd := "ip route add blackhole default table 100"
-	if cmd != expectedCmd {
-		t.Errorf("Expected command '%s', got '%s'", expectedCmd, cmd)
 	}
 }
 
@@ -339,9 +278,6 @@ func TestComponentBase_Embedding(t *testing.T) {
 			}
 			if tt.component.GetDescription() == "" {
 				t.Error("Expected non-empty description")
-			}
-			if tt.component.GetCommand() == "" {
-				t.Error("Expected non-empty command")
 			}
 		})
 	}

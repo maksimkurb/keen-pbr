@@ -45,7 +45,7 @@ func NewDefaultRouteComponent(cfg *config.IPSetConfig, iface *Interface, selecto
 	return &IPRouteComponent{
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
-			componentType:  ComponentTypeIPRoute,
+			componentType: ComponentTypeIPRoute,
 			description:   "IP routes define the gateway/interface for packets in the custom routing table",
 		},
 		route:         route,
@@ -129,15 +129,6 @@ func (c *IPRouteComponent) CreateIfNotExists() error {
 func (c *IPRouteComponent) DeleteIfExists() error {
 	_, err := c.route.DelIfExists()
 	return err
-}
-
-// GetCommand returns the CLI command for manual execution
-func (c *IPRouteComponent) GetCommand() string {
-	if c.routeType == RouteTypeBlackhole {
-		return fmt.Sprintf("ip route add blackhole default table %d", c.cfg.Routing.IpRouteTable)
-	}
-	// This is simplified; actual command depends on gateway
-	return fmt.Sprintf("ip route add default dev %s table %d", c.interfaceName, c.cfg.Routing.IpRouteTable)
 }
 
 // GetRoute returns the underlying IP route

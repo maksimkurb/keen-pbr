@@ -67,11 +67,6 @@ func (c *IPSetComponent) DeleteIfExists() error {
 	return nil
 }
 
-// GetCommand returns the CLI command for manual inspection
-func (c *IPSetComponent) GetCommand() string {
-	return fmt.Sprintf("ipset list %s", c.ipset.Name)
-}
-
 // GetIPSet returns the underlying IPSet for operations like populating
 func (c *IPSetComponent) GetIPSet() *IPSet {
 	return c.ipset

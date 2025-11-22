@@ -2,7 +2,6 @@ package networking
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 )
@@ -86,22 +85,6 @@ func (c *IPTablesRuleComponent) DeleteIfExists() error {
 		return fmt.Errorf("failed to delete iptables rule: %w", err)
 	}
 	return nil
-}
-
-// GetCommand returns the CLI command for manual execution (using -A for add)
-func (c *IPTablesRuleComponent) GetCommand() string {
-	rule := c.rules.rules[c.ruleIndex]
-
-	var cmdName string
-	if c.cfg.IPVersion == 4 {
-		cmdName = "iptables"
-	} else {
-		cmdName = "ip6tables"
-	}
-
-	parts := []string{cmdName, "-t", rule.Table, "-A", rule.Chain}
-	parts = append(parts, rule.Rule...)
-	return strings.Join(parts, " ")
 }
 
 // GetRuleIndex returns the index of this rule within the IPTablesRules collection
