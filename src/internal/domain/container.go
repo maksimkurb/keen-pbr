@@ -90,23 +90,6 @@ func NewDefaultDependencies() *AppDependencies {
 	return NewAppDependencies(AppConfig{})
 }
 
-// NewTestDependencies creates a dependency container with mock implementations.
-//
-// This is a convenience method for testing. Provide mock implementations for
-// any dependencies you want to control in your tests.
-func NewTestDependencies(
-	keeneticClient KeeneticClient,
-	networkManager NetworkManager,
-	ipsetManager IPSetManager,
-) *AppDependencies {
-	return &AppDependencies{
-		keeneticClient: keeneticClient,
-		networkManager: networkManager,
-		ipsetManager:   ipsetManager,
-		listManager:    lists.NewManager(),
-	}
-}
-
 // KeeneticClient returns the Keenetic API client.
 func (d *AppDependencies) KeeneticClient() KeeneticClient {
 	return d.keeneticClient

@@ -22,8 +22,11 @@ type ProxyConfig struct {
 	// ListenPort is the port to listen on (default: 15353)
 	ListenPort uint16
 
-	// ListenAddress is the address to listen on (default: 0.0.0.0)
+	// ListenAddress is the IPv4 address to listen on (default: 127.0.53.53)
 	ListenAddress string
+
+	// ListenAddressIPv6 is the IPv6 address to listen on (default: fd53::53)
+	ListenAddressIPv6 string
 
 	// Upstreams is the list of upstream DNS URLs
 	// Supported: keenetic://, udp://ip:port, doh://host/path
@@ -36,25 +39,15 @@ type ProxyConfig struct {
 	TTLOverride uint32
 }
 
-// DefaultProxyConfig returns the default proxy configuration.
-func DefaultProxyConfig() ProxyConfig {
-	return ProxyConfig{
-		ListenPort:    15353,
-		ListenAddress: "127.0.53.53",
-		Upstreams:     []string{"keenetic://"},
-		DropAAAA:      true,
-		TTLOverride:   0,
-	}
-}
-
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
 func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 	return ProxyConfig{
-		ListenPort:    uint16(cfg.General.GetDNSProxyPort()),
-		ListenAddress: "127.0.53.53",
-		Upstreams:     cfg.General.GetDNSUpstream(),
-		DropAAAA:      cfg.General.IsDropAAAAEnabled(),
-		TTLOverride:   cfg.General.GetTTLOverride(),
+		ListenPort:        uint16(cfg.General.GetDNSProxyPort()),
+		ListenAddress:     cfg.General.GetDNSProxyHost(),
+		ListenAddressIPv6: cfg.General.GetDNSProxyHostIPv6(),
+		Upstreams:         cfg.General.GetDNSUpstream(),
+		DropAAAA:          cfg.General.IsDropAAAAEnabled(),
+		TTLOverride:       cfg.General.GetTTLOverride(),
 	}
 }
 
@@ -90,9 +83,13 @@ type DNSProxy struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	// Listeners
+	// Listeners (IPv4)
 	udpConn *net.UDPConn
 	tcpLn   net.Listener
+
+	// Listeners (IPv6)
+	udpConn6 *net.UDPConn
+	tcpLn6   net.Listener
 }
 
 // NewDNSProxy creates a new DNS proxy.
@@ -156,21 +153,20 @@ func NewDNSProxy(
 
 // Start starts the DNS proxy listeners.
 func (p *DNSProxy) Start() error {
+	// Start IPv4 listeners
 	listenAddr := fmt.Sprintf("%s:%d", p.config.ListenAddress, p.config.ListenPort)
 
-	// Start UDP listener
-	udpAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	udpAddr, err := net.ResolveUDPAddr("udp4", listenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to resolve UDP address: %w", err)
 	}
 
-	p.udpConn, err = net.ListenUDP("udp", udpAddr)
+	p.udpConn, err = net.ListenUDP("udp4", udpAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen UDP: %w", err)
 	}
 
-	// Start TCP listener
-	p.tcpLn, err = net.Listen("tcp", listenAddr)
+	p.tcpLn, err = net.Listen("tcp4", listenAddr)
 	if err != nil {
 		p.udpConn.Close()
 		return fmt.Errorf("failed to listen TCP: %w", err)
@@ -178,10 +174,43 @@ func (p *DNSProxy) Start() error {
 
 	log.Infof("DNS proxy started on %s (UDP/TCP)", listenAddr)
 
-	// Start listener goroutines
+	// Start IPv6 listeners (optional, don't fail if unavailable)
+	if p.config.ListenAddressIPv6 != "" {
+		listenAddr6 := fmt.Sprintf("[%s]:%d", p.config.ListenAddressIPv6, p.config.ListenPort)
+
+		udpAddr6, err := net.ResolveUDPAddr("udp6", listenAddr6)
+		if err != nil {
+			log.Warnf("Failed to resolve IPv6 UDP address: %v", err)
+		} else {
+			p.udpConn6, err = net.ListenUDP("udp6", udpAddr6)
+			if err != nil {
+				log.Warnf("Failed to listen on IPv6 UDP: %v", err)
+			}
+		}
+
+		if p.udpConn6 != nil {
+			p.tcpLn6, err = net.Listen("tcp6", listenAddr6)
+			if err != nil {
+				log.Warnf("Failed to listen on IPv6 TCP: %v", err)
+				p.udpConn6.Close()
+				p.udpConn6 = nil
+			} else {
+				log.Infof("DNS proxy started on %s (UDP/TCP)", listenAddr6)
+			}
+		}
+	}
+
+	// Start listener goroutines for IPv4
 	p.wg.Add(2)
-	go p.serveUDP()
-	go p.serveTCP()
+	go p.serveUDP(p.udpConn)
+	go p.serveTCP(p.tcpLn)
+
+	// Start listener goroutines for IPv6 if available
+	if p.udpConn6 != nil && p.tcpLn6 != nil {
+		p.wg.Add(2)
+		go p.serveUDP(p.udpConn6)
+		go p.serveTCP(p.tcpLn6)
+	}
 
 	// Start cleanup goroutine
 	p.wg.Add(1)
@@ -195,12 +224,20 @@ func (p *DNSProxy) Stop() error {
 	log.Infof("Stopping DNS proxy...")
 	p.cancel()
 
-	// Close listeners
+	// Close IPv4 listeners
 	if p.udpConn != nil {
 		p.udpConn.Close()
 	}
 	if p.tcpLn != nil {
 		p.tcpLn.Close()
+	}
+
+	// Close IPv6 listeners
+	if p.udpConn6 != nil {
+		p.udpConn6.Close()
+	}
+	if p.tcpLn6 != nil {
+		p.tcpLn6.Close()
 	}
 
 	// Wait for goroutines
@@ -219,7 +256,7 @@ func (p *DNSProxy) Stop() error {
 }
 
 // serveUDP handles incoming UDP DNS queries.
-func (p *DNSProxy) serveUDP() {
+func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 	defer p.wg.Done()
 
 	buf := make([]byte, dns.MaxMsgSize)
@@ -231,8 +268,8 @@ func (p *DNSProxy) serveUDP() {
 		default:
 		}
 
-		p.udpConn.SetReadDeadline(time.Now().Add(1 * time.Second))
-		n, clientAddr, err := p.udpConn.ReadFromUDP(buf)
+		conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		n, clientAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				continue
@@ -248,23 +285,23 @@ func (p *DNSProxy) serveUDP() {
 		req := make([]byte, n)
 		copy(req, buf[:n])
 
-		go func(clientAddr *net.UDPAddr, req []byte) {
+		go func(conn *net.UDPConn, clientAddr *net.UDPAddr, req []byte) {
 			resp, err := p.processRequest(clientAddr, req, "udp")
 			if err != nil {
 				log.Debugf("UDP request processing error: %v", err)
 				return
 			}
 
-			_, err = p.udpConn.WriteToUDP(resp, clientAddr)
+			_, err = conn.WriteToUDP(resp, clientAddr)
 			if err != nil {
 				log.Debugf("UDP write error: %v", err)
 			}
-		}(clientAddr, req)
+		}(conn, clientAddr, req)
 	}
 }
 
 // serveTCP handles incoming TCP DNS queries.
-func (p *DNSProxy) serveTCP() {
+func (p *DNSProxy) serveTCP(ln net.Listener) {
 	defer p.wg.Done()
 
 	for {
@@ -274,7 +311,7 @@ func (p *DNSProxy) serveTCP() {
 		default:
 		}
 
-		conn, err := p.tcpLn.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
 			if p.ctx.Err() != nil {
 				return

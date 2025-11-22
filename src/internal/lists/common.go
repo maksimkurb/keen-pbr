@@ -23,36 +23,6 @@ func (ips DestIPSet) String() string {
 	return ips.Name
 }
 
-// CreateIPSetsIfAbsent creates the ipsets if they do not exist.
-func CreateIPSetsIfAbsent(cfg *config.Config) error {
-	for _, ipsetCfg := range cfg.IPSets {
-		ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
-		if err := ipset.CreateIfNotExists(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// appendDomain appends a domain to the appropriate networks or domain store.
-func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) bool {
-	line := strings.TrimSpace(host)
-	if line == "" || strings.HasPrefix(line, "#") {
-		return false
-	}
-
-	if utils.IsDNSName(line) {
-		if domainStore == nil {
-			return true
-		}
-		domainStore.AssociateDomainWithIPSets(sanitizeDomain(line), ipsets)
-		return true
-	}
-
-	return false
-}
-
 // appendIPOrCIDR appends a host to the appropriate networks or domain store.
 // Returns (isIPv4, isIPv6, error).
 func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) (bool, bool, error) {

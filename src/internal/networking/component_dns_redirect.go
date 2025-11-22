@@ -19,16 +19,18 @@ const (
 )
 
 // DNSRedirectComponent manages iptables rules for DNS traffic redirection.
-// It creates REDIRECT rules to intercept DNS traffic destined for the router
-// and redirect it to the DNS proxy port.
+// It creates DNAT rules to intercept DNS traffic destined for the router
+// and redirect it to the DNS proxy IP and port.
 type DNSRedirectComponent struct {
+	targetIPv4 string
+	targetIPv6 string
 	targetPort uint16
 	ipt4       *iptables.IPTables
 	ipt6       *iptables.IPTables
 }
 
 // NewDNSRedirectComponent creates a new component for DNS redirection.
-func NewDNSRedirectComponent(targetPort uint16) (*DNSRedirectComponent, error) {
+func NewDNSRedirectComponent(targetIPv4 string, targetIPv6 string, targetPort uint16) (*DNSRedirectComponent, error) {
 	ipt4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create iptables (IPv4): %w", err)
@@ -42,6 +44,8 @@ func NewDNSRedirectComponent(targetPort uint16) (*DNSRedirectComponent, error) {
 	}
 
 	return &DNSRedirectComponent{
+		targetIPv4: targetIPv4,
+		targetIPv6: targetIPv6,
 		targetPort: targetPort,
 		ipt4:       ipt4,
 		ipt6:       ipt6,
@@ -138,7 +142,7 @@ func (c *DNSRedirectComponent) GetIPSetName() string {
 
 // GetDescription returns human-readable description.
 func (c *DNSRedirectComponent) GetDescription() string {
-	return fmt.Sprintf("DNS redirection rules (port 53 -> %d)", c.targetPort)
+	return fmt.Sprintf("DNS redirection rules (port 53 -> %s/%s:%d)", c.targetIPv4, c.targetIPv6, c.targetPort)
 }
 
 // Helper methods
@@ -218,38 +222,54 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 		}
 	}
 
+	// Determine target IP based on protocol
+	isIPv6Table := ipt.Proto() == iptables.ProtocolIPv6
+	var targetIP string
+	if isIPv6Table {
+		targetIP = c.targetIPv6
+	} else {
+		targetIP = c.targetIPv4
+	}
+
+	// Format destination for DNAT (IPv6 requires brackets)
+	var destination string
+	if isIPv6Table {
+		destination = fmt.Sprintf("[%s]:%d", targetIP, c.targetPort)
+	} else {
+		destination = fmt.Sprintf("%s:%d", targetIP, c.targetPort)
+	}
+
 	// Add rules for each local address
 	for _, addr := range addresses {
 		// Skip addresses that don't match this IP version
 		isIPv4 := addr.IP.To4() != nil
-		isIPv6 := ipt.Proto() == iptables.ProtocolIPv6
 
-		if isIPv4 && isIPv6 {
+		if isIPv4 && isIPv6Table {
 			continue
 		}
-		if !isIPv4 && !isIPv6 {
+		if !isIPv4 && !isIPv6Table {
 			continue
 		}
 
-		// Create REDIRECT rule for UDP
+		// Create DNAT rule for UDP
 		udpRule := []string{
 			"-p", "udp",
 			"-d", addr.IP.String(),
 			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "REDIRECT",
-			"--to-port", strconv.Itoa(int(c.targetPort)),
+			"-j", "DNAT",
+			"--to-destination", destination,
 		}
 		if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
 			return fmt.Errorf("failed to add UDP rule: %w", err)
 		}
 
-		// Create REDIRECT rule for TCP
+		// Create DNAT rule for TCP
 		tcpRule := []string{
 			"-p", "tcp",
 			"-d", addr.IP.String(),
 			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "REDIRECT",
-			"--to-port", strconv.Itoa(int(c.targetPort)),
+			"-j", "DNAT",
+			"--to-destination", destination,
 		}
 		if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
 			return fmt.Errorf("failed to add TCP rule: %w", err)

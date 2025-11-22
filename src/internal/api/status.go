@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"os/exec"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
@@ -99,31 +98,3 @@ func (h *Handler) getKeenPbrServiceStatus() ServiceInfo {
 	}
 }
 
-// getServiceStatus checks if a service is running using init.d scripts.
-func getServiceStatus(scriptPath string) ServiceInfo {
-	// Run status check
-	cmd := exec.Command(scriptPath, "check")
-	err := cmd.Run()
-
-	if err == nil {
-		return ServiceInfo{
-			Status:  "running",
-			Message: "Service is running",
-		}
-	}
-
-	// If check command failed, service is likely stopped
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		if exitErr.ExitCode() == 1 {
-			return ServiceInfo{
-				Status:  "stopped",
-				Message: "Service is not running",
-			}
-		}
-	}
-
-	return ServiceInfo{
-		Status:  "unknown",
-		Message: "Unable to determine service status",
-	}
-}

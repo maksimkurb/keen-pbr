@@ -171,30 +171,6 @@ func TestErrorf(t *testing.T) {
 	}
 }
 
-func TestForceStdErr(t *testing.T) {
-	// Save original state
-	originalForceStdErr := forceStdErr
-	defer func() { forceStdErr = originalForceStdErr }()
-
-	SetForceStdErr(true)
-
-	stdout, stderr := captureOutput(func() {
-		Infof("test info to stderr")
-	})
-
-	if stdout != "" {
-		t.Errorf("Expected no stdout output when forceStdErr is true, got: %s", stdout)
-	}
-
-	if !strings.Contains(stderr, "[INF]") {
-		t.Errorf("Expected info message in stderr when forceStdErr is true, got: %s", stderr)
-	}
-
-	if !strings.Contains(stderr, "test info to stderr") {
-		t.Errorf("Expected message content in stderr, got: %s", stderr)
-	}
-}
-
 func TestLogMessage_FormattingWithArgs(t *testing.T) {
 	stdout, _ := captureOutput(func() {
 		Infof("test message with %s and %d", "string", 42)

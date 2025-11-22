@@ -28,11 +28,6 @@ func SetVerbose(v bool) {
 	verbose = v
 }
 
-// SetForceStdErr sets the output channel. If true, all log messages will be written to stderr.
-func SetForceStdErr(v bool) {
-	forceStdErr = v
-}
-
 // Debugf logs a debug message if verbose is true.
 func Debugf(format string, args ...interface{}) {
 	if verbose {

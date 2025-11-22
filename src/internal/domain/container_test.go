@@ -2,8 +2,6 @@ package domain
 
 import (
 	"testing"
-
-	"github.com/maksimkurb/keen-pbr/src/internal/mocks"
 )
 
 func TestNewAppDependencies(t *testing.T) {
@@ -59,24 +57,6 @@ func TestNewDefaultDependencies(t *testing.T) {
 	}
 	if deps.IPSetManager() == nil {
 		t.Error("Expected ipset manager to be created")
-	}
-}
-
-func TestNewTestDependencies(t *testing.T) {
-	mockKeenetic := mocks.NewMockKeeneticClient()
-	mockNetwork := mocks.NewMockNetworkManager()
-	mockIPSet := mocks.NewMockIPSetManager()
-
-	deps := NewTestDependencies(mockKeenetic, mockNetwork, mockIPSet)
-
-	if deps.KeeneticClient() != mockKeenetic {
-		t.Error("Expected mock Keenetic client to be used")
-	}
-	if deps.NetworkManager() != mockNetwork {
-		t.Error("Expected mock network manager to be used")
-	}
-	if deps.IPSetManager() != mockIPSet {
-		t.Error("Expected mock ipset manager to be used")
 	}
 }
 

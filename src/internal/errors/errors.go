@@ -63,15 +63,6 @@ func (e *Error) Is(target error) bool {
 	return false
 }
 
-// New creates a new domain error with the specified code and message.
-func New(code ErrorCode, message string) *Error {
-	return &Error{
-		Code:    code,
-		Message: message,
-		Cause:   nil,
-	}
-}
-
 // Wrap creates a new domain error wrapping an existing error.
 func Wrap(code ErrorCode, message string, cause error) *Error {
 	return &Error{
@@ -86,37 +77,3 @@ func NewConfigError(message string, cause error) *Error {
 	return Wrap(ErrCodeConfig, message, cause)
 }
 
-// NewNetworkError creates a new network configuration error.
-func NewNetworkError(message string, cause error) *Error {
-	return Wrap(ErrCodeNetwork, message, cause)
-}
-
-// NewKeeneticError creates a new Keenetic API error.
-func NewKeeneticError(message string, cause error) *Error {
-	return Wrap(ErrCodeKeenetic, message, cause)
-}
-
-// NewIPSetError creates a new ipset operation error.
-func NewIPSetError(message string, cause error) *Error {
-	return Wrap(ErrCodeIPSet, message, cause)
-}
-
-// NewInterfaceError creates a new interface-related error.
-func NewInterfaceError(message string, cause error) *Error {
-	return Wrap(ErrCodeInterface, message, cause)
-}
-
-// NewValidationError creates a new validation error.
-func NewValidationError(message string, cause error) *Error {
-	return Wrap(ErrCodeValidation, message, cause)
-}
-
-// NewListError creates a new list operation error.
-func NewListError(message string, cause error) *Error {
-	return Wrap(ErrCodeList, message, cause)
-}
-
-// NewInternalError creates a new internal error.
-func NewInternalError(message string, cause error) *Error {
-	return Wrap(ErrCodeInternal, message, cause)
-}

@@ -47,38 +47,3 @@ func (p *ChecksumReaderProxy) GetChecksum() (string, error) {
 	return "", p.checksumErr
 }
 
-type ChecksumStringSetProxy struct {
-	set         map[string]struct{}
-	checksum    hash.Hash
-	checksumErr error
-}
-
-func NewChecksumStringSet() *ChecksumStringSetProxy {
-	return &ChecksumStringSetProxy{
-		set:      make(map[string]struct{}, 0),
-		checksum: md5.New(),
-	}
-}
-
-func (p *ChecksumStringSetProxy) Put(str string) error {
-	if _, err := p.checksum.Write([]byte(str + "\n")); err != nil {
-		return err
-	}
-	p.set[str] = struct{}{}
-	return nil
-}
-
-func (p *ChecksumStringSetProxy) Size() int {
-	return len(p.set)
-}
-
-func (p *ChecksumStringSetProxy) Map() map[string]struct{} {
-	return p.set
-}
-
-func (p *ChecksumStringSetProxy) GetChecksum() (string, error) {
-	if p.checksumErr == nil {
-		return hex.EncodeToString(p.checksum.Sum(nil)), nil
-	}
-	return "", p.checksumErr
-}

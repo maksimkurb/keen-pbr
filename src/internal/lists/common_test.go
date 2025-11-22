@@ -8,58 +8,6 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 )
 
-func TestAppendDomain(t *testing.T) {
-	// Create mock domain store
-	domainStore := CreateDomainStore(1)
-
-	// Create mock ipset
-	ipsets := []DestIPSet{
-		{
-			Index: 0,
-			Name:  "test",
-		},
-	}
-
-	tests := []struct {
-		name     string
-		host     string
-		expected bool // whether domain should be added
-	}{
-		{"Valid domain", "example.com", true},
-		{"Empty line", "", false},
-		{"Comment line", "#comment", false},
-		{"Whitespace only", "   ", false},
-		{"Domain with subdomain", "sub.example.com", true},
-	}
-
-	initialCount := domainStore.domainsCount
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			isDomain := appendDomain(tt.host, ipsets, domainStore)
-			if tt.expected && !isDomain {
-				t.Errorf("Expected domain to be added, but it wasn't")
-			}
-		})
-	}
-
-	// Check that valid domains were added
-	if domainStore.domainsCount <= initialCount {
-		t.Error("Expected domain count to increase")
-	}
-}
-
-func TestAppendDomain_NilStore(t *testing.T) {
-	ipsets := []DestIPSet{
-		{Index: 0, Name: "test"},
-	}
-
-	isDomain := appendDomain("example.com", ipsets, nil)
-	if !isDomain {
-		t.Error("Expected domain to be recognized")
-	}
-}
-
 func TestAppendIPOrCIDR(t *testing.T) {
 	// Test IP parsing logic without real networking calls
 	ipCount := 0

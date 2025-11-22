@@ -94,40 +94,6 @@ func (s *RoutingService) Apply(cfg *config.Config, opts ApplyOptions) error {
 	return nil
 }
 
-// ApplyPersistentOnly applies only persistent configuration (iptables, ip rules).
-//
-// This is useful during initial setup when routes will be managed separately.
-func (s *RoutingService) ApplyPersistentOnly(cfg *config.Config) error {
-	log.Infof("Applying persistent configuration only...")
-
-	if err := s.ipsetManager.CreateIfAbsent(cfg); err != nil {
-		return err
-	}
-
-	if err := s.networkManager.ApplyPersistentConfig(cfg.IPSets); err != nil {
-		return err
-	}
-
-	log.Infof("Persistent configuration applied successfully")
-	return nil
-}
-
-// UpdateRouting updates only the routing configuration based on current interface states.
-//
-// This is typically called periodically or when interface states change,
-// without modifying iptables rules or ip rules.
-func (s *RoutingService) UpdateRouting(cfg *config.Config) error {
-	log.Debugf("Updating routing configuration...")
-
-	if err := s.networkManager.ApplyRoutingConfig(cfg.IPSets); err != nil {
-		log.Errorf("Failed to update routing: %v", err)
-		return err
-	}
-
-	log.Debugf("Routing updated successfully")
-	return nil
-}
-
 // Undo removes all network configuration for the specified config.
 //
 // This includes:

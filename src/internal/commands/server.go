@@ -234,7 +234,7 @@ func (c *ServerCommand) startDNSProxy() error {
 	c.dnsProxy = proxy
 
 	// Create iptables manager for DNS redirection
-	iptablesMgr, err := networking.NewDNSRedirectComponent(proxyCfg.ListenPort)
+	iptablesMgr, err := networking.NewDNSRedirectComponent(proxyCfg.ListenAddress, proxyCfg.ListenAddressIPv6, proxyCfg.ListenPort)
 	if err != nil {
 		c.dnsProxy = nil
 		return fmt.Errorf("failed to create iptables manager: %w", err)
