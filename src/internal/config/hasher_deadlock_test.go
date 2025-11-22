@@ -11,8 +11,8 @@ import (
 // mockKeeneticClient is a simple mock that returns empty DNS servers
 type mockKeeneticClient struct{}
 
-func (m *mockKeeneticClient) GetDNSServers() ([]keenetic.DnsServerInfo, error) {
-	return []keenetic.DnsServerInfo{}, nil
+func (m *mockKeeneticClient) GetDNSServers() ([]keenetic.DNSServerInfo, error) {
+	return []keenetic.DNSServerInfo{}, nil
 }
 
 // TestConfigHasher_NoDeadlockWithKeeneticClient tests that calculating hash
@@ -75,5 +75,3 @@ fwmark = 100
 		t.Fatal("DEADLOCK DETECTED: UpdateCurrentConfigHash() did not complete within 2 seconds")
 	}
 }
-
-

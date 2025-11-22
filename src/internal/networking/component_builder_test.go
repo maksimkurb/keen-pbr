@@ -13,8 +13,8 @@ func TestComponentBuilder_BuildComponents(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 			Interfaces:     []string{"eth0", "eth1"},
 		},
 		IPTablesRules: []*config.IPTablesRule{
@@ -67,8 +67,8 @@ func TestComponentBuilder_BuildComponentsNoIPTables(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 			Interfaces:     []string{"eth0", "eth1"},
 		},
 		IPTablesRules: nil, // No IPTables rules
@@ -111,8 +111,8 @@ func TestComponentBuilder_BuildAllComponents(t *testing.T) {
 				IPVersion: 4,
 				Routing: &config.RoutingConfig{
 					FwMark:         0x100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 					Interfaces:     []string{"eth0"},
 				},
 				IPTablesRules: []*config.IPTablesRule{
@@ -128,8 +128,8 @@ func TestComponentBuilder_BuildAllComponents(t *testing.T) {
 				IPVersion: 4,
 				Routing: &config.RoutingConfig{
 					FwMark:         0x200,
-					IpRouteTable:   200,
-					IpRulePriority: 200,
+					IPRouteTable:   200,
+					IPRulePriority: 200,
 					Interfaces:     []string{"eth1"},
 				},
 				IPTablesRules: []*config.IPTablesRule{
@@ -182,8 +182,8 @@ func TestGroupComponentsByIPSet(t *testing.T) {
 				IPVersion: 4,
 				Routing: &config.RoutingConfig{
 					FwMark:         0x100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 					Interfaces:     []string{"eth0"},
 				},
 				IPTablesRules: []*config.IPTablesRule{
@@ -199,8 +199,8 @@ func TestGroupComponentsByIPSet(t *testing.T) {
 				IPVersion: 4,
 				Routing: &config.RoutingConfig{
 					FwMark:         0x200,
-					IpRouteTable:   200,
-					IpRulePriority: 200,
+					IPRouteTable:   200,
+					IPRulePriority: 200,
 					Interfaces:     []string{"eth1"},
 				},
 				IPTablesRules: []*config.IPTablesRule{
@@ -249,8 +249,8 @@ func TestFilterComponentsByType(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 			Interfaces:     []string{"eth0"},
 		},
 		IPTablesRules: []*config.IPTablesRule{
@@ -270,10 +270,10 @@ func TestFilterComponentsByType(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		filterType   ComponentType
-		expectedMin  int
-		expectedMax  int
+		name        string
+		filterType  ComponentType
+		expectedMin int
+		expectedMax int
 	}{
 		{
 			name:        "Filter IPSet",
@@ -296,7 +296,7 @@ func TestFilterComponentsByType(t *testing.T) {
 		{
 			name:        "Filter IPRoute",
 			filterType:  ComponentTypeIPRoute,
-			expectedMin: 1, // At least blackhole
+			expectedMin: 1,  // At least blackhole
 			expectedMax: 10, // Could have multiple routes
 		},
 	}
@@ -345,8 +345,8 @@ func TestComponentBuilder_MinimalConfig(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 			Interfaces:     []string{},
 		},
 		IPTablesRules: nil,

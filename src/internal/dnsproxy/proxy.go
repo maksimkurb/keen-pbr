@@ -362,7 +362,7 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 	}
 
 	// Process response (filter AAAA, match domains, add to ipsets)
-	p.processResponse(clientAddr, &reqMsg, respMsg, network)
+	p.processResponse(&reqMsg, respMsg)
 
 	// Pack response
 	respBytes, err := respMsg.Pack()
@@ -375,7 +375,7 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 
 // processResponse processes a DNS response, filtering AAAA records if configured
 // and adding resolved IPs to ipsets.
-func (p *DNSProxy) processResponse(clientAddr net.Addr, reqMsg, respMsg *dns.Msg, network string) {
+func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 	// Filter AAAA records if configured
 	if p.config.DropAAAA {
 		var filtered []dns.RR

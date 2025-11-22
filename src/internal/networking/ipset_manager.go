@@ -1,9 +1,10 @@
 package networking
 
 import (
+	"net/netip"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
-	"net/netip"
 )
 
 // IPSetManagerImpl implements the domain.IPSetManager interface.
@@ -19,7 +20,7 @@ func NewIPSetManager() *IPSetManagerImpl {
 
 // Create creates a new ipset with the specified name and IP family.
 // If the ipset already exists, this is a no-op.
-func (m *IPSetManagerImpl) Create(name string, family config.IpFamily) error {
+func (m *IPSetManagerImpl) Create(name string, family config.IPFamily) error {
 	ipset := BuildIPSet(name, family)
 	return ipset.CreateIfNotExists()
 }

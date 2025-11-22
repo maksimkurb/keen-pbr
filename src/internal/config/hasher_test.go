@@ -21,8 +21,8 @@ func TestConfigHasher_DeterministicHash(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         0x100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 		},
@@ -244,8 +244,8 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         0x100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 		},
@@ -291,8 +291,8 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 					Routing: &RoutingConfig{
 						Interfaces:     []string{"eth1"}, // Changed
 						FwMark:         0x100,
-						IpRouteTable:   100,
-						IpRulePriority: 100,
+						IPRouteTable:   100,
+						IPRulePriority: 100,
 					},
 				},
 			},
@@ -316,8 +316,8 @@ func TestConfigHasher_AllSettingsIncluded(t *testing.T) {
 					Routing: &RoutingConfig{
 						Interfaces:     []string{"eth0"},
 						FwMark:         0x200, // Changed
-						IpRouteTable:   100,
-						IpRulePriority: 100,
+						IPRouteTable:   100,
+						IPRulePriority: 100,
 					},
 				},
 			},

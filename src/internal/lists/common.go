@@ -3,13 +3,14 @@ package lists
 import (
 	"bufio"
 	"fmt"
+	"net/netip"
+	"os"
+	"strings"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
-	"net/netip"
-	"os"
-	"strings"
 )
 
 type DestIPSet struct {
@@ -35,21 +36,21 @@ func CreateIPSetsIfAbsent(cfg *config.Config) error {
 }
 
 // appendDomain appends a domain to the appropriate networks or domain store.
-func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) (bool, error) {
+func appendDomain(host string, ipsets []DestIPSet, domainStore *DomainStore) bool {
 	line := strings.TrimSpace(host)
 	if line == "" || strings.HasPrefix(line, "#") {
-		return false, nil
+		return false
 	}
 
 	if utils.IsDNSName(line) {
 		if domainStore == nil {
-			return true, nil
+			return true
 		}
 		domainStore.AssociateDomainWithIPSets(sanitizeDomain(line), ipsets)
-		return true, nil
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 // appendIPOrCIDR appends a host to the appropriate networks or domain store.
@@ -77,8 +78,8 @@ func appendIPOrCIDR(host string, ipsets []DestIPSet, ipCount *int) (bool, bool, 
 		isIPv6 := netPrefix.Addr().Is6()
 
 		for _, ipset := range ipsets {
-			if (isIPv4 && ipset.Writer.GetIPSet().IpFamily == config.Ipv4) ||
-				(isIPv6 && ipset.Writer.GetIPSet().IpFamily == config.Ipv6) {
+			if (isIPv4 && ipset.Writer.GetIPSet().IPFamily == config.Ipv4) ||
+				(isIPv6 && ipset.Writer.GetIPSet().IPFamily == config.Ipv6) {
 				if err := ipset.Writer.Add(netPrefix); err != nil {
 					return false, false, err
 				}

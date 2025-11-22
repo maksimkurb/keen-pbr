@@ -31,7 +31,7 @@ func TestMockKeeneticClient_DefaultBehavior(t *testing.T) {
 	if iface, ok := interfaces["vpn0"]; !ok {
 		t.Error("Expected vpn0 interface in defaults")
 	} else {
-		if iface.Connected != keenetic.KEENETIC_CONNECTED {
+		if iface.Connected != keenetic.KeeneticConnected {
 			t.Error("Expected default interface to be connected")
 		}
 	}
@@ -65,7 +65,7 @@ func TestMockKeeneticClient_CustomInterfaces(t *testing.T) {
 		"eth0": {
 			ID:         "Bridge0",
 			Type:       "Bridge",
-			Connected:  keenetic.KEENETIC_CONNECTED,
+			Connected:  keenetic.KeeneticConnected,
 			SystemName: "eth0",
 		},
 		"wlan0": {
@@ -91,7 +91,7 @@ func TestMockKeeneticClient_CustomInterfaces(t *testing.T) {
 	if !ok {
 		t.Fatal("Expected eth0 interface")
 	}
-	if eth0.Connected != keenetic.KEENETIC_CONNECTED {
+	if eth0.Connected != keenetic.KeeneticConnected {
 		t.Error("Expected eth0 to be connected")
 	}
 
@@ -118,7 +118,7 @@ func TestMockKeeneticClient_CustomFunctions(t *testing.T) {
 		GetInterfacesFunc: func() (map[string]keenetic.Interface, error) {
 			return nil, expectedErr
 		},
-		GetDNSServersFunc: func() ([]keenetic.DnsServerInfo, error) {
+		GetDNSServersFunc: func() ([]keenetic.DNSServerInfo, error) {
 			return nil, expectedErr
 		},
 	}
@@ -176,8 +176,8 @@ func TestMockKeeneticClient_InterfaceStateScenarios(t *testing.T) {
 				},
 				"vpn1": {
 					ID:         "Wireguard1",
-					Connected:  keenetic.KEENETIC_CONNECTED,
-					Link:       keenetic.KEENETIC_LINK_UP,
+					Connected:  keenetic.KeeneticConnected,
+					Link:       keenetic.KeeneticLinkUp,
 					SystemName: "vpn1",
 				},
 			},
@@ -185,7 +185,7 @@ func TestMockKeeneticClient_InterfaceStateScenarios(t *testing.T) {
 				if interfaces["vpn0"].Connected != "no" {
 					t.Error("Expected vpn0 to be disconnected")
 				}
-				if interfaces["vpn1"].Connected != keenetic.KEENETIC_CONNECTED {
+				if interfaces["vpn1"].Connected != keenetic.KeeneticConnected {
 					t.Error("Expected vpn1 to be connected")
 				}
 			},

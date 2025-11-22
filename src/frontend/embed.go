@@ -1,3 +1,4 @@
+// Package frontend contains embedded frontend files.
 package frontend
 
 import (

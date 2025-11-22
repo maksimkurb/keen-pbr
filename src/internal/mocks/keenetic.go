@@ -33,7 +33,7 @@ type MockKeeneticClient struct {
 	GetInterfacesFunc func() (map[string]keenetic.Interface, error)
 
 	// GetDNSServersFunc is called by GetDNSServers if not nil
-	GetDNSServersFunc func() ([]keenetic.DnsServerInfo, error)
+	GetDNSServersFunc func() ([]keenetic.DNSServerInfo, error)
 }
 
 // GetVersion returns the Keenetic OS version.
@@ -74,8 +74,8 @@ func (m *MockKeeneticClient) GetInterfaces() (map[string]keenetic.Interface, err
 			ID:          "Wireguard0",
 			Type:        "Wireguard",
 			Description: "Test VPN",
-			Link:        keenetic.KEENETIC_LINK_UP,
-			Connected:   keenetic.KEENETIC_CONNECTED,
+			Link:        keenetic.KeeneticLinkUp,
+			Connected:   keenetic.KeeneticConnected,
 			State:       "up",
 			SystemName:  "vpn0",
 		},
@@ -86,12 +86,12 @@ func (m *MockKeeneticClient) GetInterfaces() (map[string]keenetic.Interface, err
 //
 // If GetDNSServersFunc is set, it calls that function.
 // Otherwise, returns an empty list.
-func (m *MockKeeneticClient) GetDNSServers() ([]keenetic.DnsServerInfo, error) {
+func (m *MockKeeneticClient) GetDNSServers() ([]keenetic.DNSServerInfo, error) {
 	if m.GetDNSServersFunc != nil {
 		return m.GetDNSServersFunc()
 	}
 	// Default: return empty list
-	return []keenetic.DnsServerInfo{}, nil
+	return []keenetic.DNSServerInfo{}, nil
 }
 
 // NewMockKeeneticClient creates a new mock client with default behavior.

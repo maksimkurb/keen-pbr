@@ -2,24 +2,25 @@ package commands
 
 import (
 	"fmt"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
-type DnsCommand struct{}
+type DNSCommand struct{}
 
-func CreateDnsCommand() *DnsCommand {
-	return &DnsCommand{}
+func CreateDNSCommand() *DNSCommand {
+	return &DNSCommand{}
 }
 
-func (c *DnsCommand) Name() string {
+func (c *DNSCommand) Name() string {
 	return "dns"
 }
 
-func (c *DnsCommand) Init(args []string, ctx *AppContext) error {
+func (c *DNSCommand) Init(args []string, ctx *AppContext) error {
 	return nil
 }
 
-func (c *DnsCommand) Run() error {
+func (c *DNSCommand) Run() error {
 	client := keenetic.NewClient(nil)
 	servers, err := client.GetDNSServers()
 	if err != nil {

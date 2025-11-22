@@ -89,10 +89,10 @@ func (v *ValidationService) validateIPSets(cfg *config.Config) error {
 
 // validateRoutingConfig validates routing configuration for an ipset.
 func (v *ValidationService) validateRoutingConfig(ipset *config.IPSetConfig) error {
-	if ipset.Routing.IpRouteTable <= 0 {
+	if ipset.Routing.IPRouteTable <= 0 {
 		return errors.NewConfigError(
 			fmt.Sprintf("Invalid routing table for ipset %s: %d (must be > 0)",
-				ipset.IPSetName, ipset.Routing.IpRouteTable),
+				ipset.IPSetName, ipset.Routing.IPRouteTable),
 			nil,
 		)
 	}
@@ -105,10 +105,10 @@ func (v *ValidationService) validateRoutingConfig(ipset *config.IPSetConfig) err
 		)
 	}
 
-	if ipset.Routing.IpRulePriority <= 0 {
+	if ipset.Routing.IPRulePriority <= 0 {
 		return errors.NewConfigError(
 			fmt.Sprintf("Invalid ip rule priority for ipset %s: %d (must be > 0)",
-				ipset.IPSetName, ipset.Routing.IpRulePriority),
+				ipset.IPSetName, ipset.Routing.IPRulePriority),
 			nil,
 		)
 	}
@@ -165,7 +165,7 @@ func (v *ValidationService) validateRoutingTables(cfg *config.Config) error {
 			continue
 		}
 
-		table := ipset.Routing.IpRouteTable
+		table := ipset.Routing.IPRouteTable
 
 		if existingIPSet, exists := seenTables[table]; exists {
 			return errors.NewConfigError(

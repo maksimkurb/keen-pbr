@@ -18,7 +18,7 @@ const (
 // IP routes define the gateway/interface for packets in custom routing tables.
 type IPRouteComponent struct {
 	ComponentBase
-	route         *IpRoute
+	route         *IPRoute
 	routeType     RouteType
 	interfaceName string // Empty for blackhole routes
 	selector      *InterfaceSelector
@@ -41,7 +41,7 @@ func NewDefaultRouteComponent(cfg *config.IPSetConfig, iface *Interface, selecto
 		ifaceIndex = 0
 	}
 
-	route := BuildDefaultRoute(cfg.IPVersion, *iface, cfg.Routing.IpRouteTable, ifaceIndex)
+	route := BuildDefaultRoute(cfg.IPVersion, *iface, cfg.Routing.IPRouteTable, ifaceIndex)
 	return &IPRouteComponent{
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
@@ -58,7 +58,7 @@ func NewDefaultRouteComponent(cfg *config.IPSetConfig, iface *Interface, selecto
 
 // NewBlackholeRouteComponent creates a new blackhole route component
 func NewBlackholeRouteComponent(cfg *config.IPSetConfig, selector *InterfaceSelector) *IPRouteComponent {
-	route := BuildBlackholeRoute(cfg.IPVersion, cfg.Routing.IpRouteTable)
+	route := BuildBlackholeRoute(cfg.IPVersion, cfg.Routing.IPRouteTable)
 	return &IPRouteComponent{
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
@@ -132,7 +132,7 @@ func (c *IPRouteComponent) DeleteIfExists() error {
 }
 
 // GetRoute returns the underlying IP route
-func (c *IPRouteComponent) GetRoute() *IpRoute {
+func (c *IPRouteComponent) GetRoute() *IPRoute {
 	return c.route
 }
 

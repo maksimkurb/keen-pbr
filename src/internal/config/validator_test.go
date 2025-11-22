@@ -13,7 +13,7 @@ func TestValidateConfig_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	config := &Config{
 		General: &GeneralConfig{
 			ListsOutputDir: "/tmp",
@@ -26,8 +26,8 @@ func TestValidateConfig_Success(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 		},
@@ -39,7 +39,7 @@ func TestValidateConfig_Success(t *testing.T) {
 		},
 		_absConfigFilePath: tmpDir,
 	}
-	
+
 	err = config.ValidateConfig()
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -48,7 +48,7 @@ func TestValidateConfig_Success(t *testing.T) {
 
 func TestValidateConfig_MissingGeneral(t *testing.T) {
 	config := &Config{}
-	
+
 	err := config.ValidateConfig()
 	if err == nil {
 		t.Error("Expected error for missing general config")
@@ -59,7 +59,7 @@ func TestValidateIPSets_MissingIPSets(t *testing.T) {
 	config := &Config{
 		General: &GeneralConfig{},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for missing ipsets")
@@ -78,7 +78,7 @@ func TestValidateIPSets_InvalidIPSetName(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for invalid ipset name")
@@ -97,7 +97,7 @@ func TestValidateIPSets_MissingInterfaces(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for missing interfaces")
@@ -114,8 +114,8 @@ func TestValidateIPSets_DuplicateInterfaces(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0", "eth0"},
 					FwMark:         100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 		},
@@ -126,7 +126,7 @@ func TestValidateIPSets_DuplicateInterfaces(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for duplicate interfaces")
@@ -143,14 +143,14 @@ func TestValidateIPSets_UnknownList(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 		},
 		Lists: []*ListSource{},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for unknown list")
@@ -167,8 +167,8 @@ func TestValidateIPSets_DuplicateNames(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 			{
@@ -178,8 +178,8 @@ func TestValidateIPSets_DuplicateNames(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth1"},
 					FwMark:         101,
-					IpRouteTable:   101,
-					IpRulePriority: 101,
+					IPRouteTable:   101,
+					IPRulePriority: 101,
 				},
 			},
 		},
@@ -190,7 +190,7 @@ func TestValidateIPSets_DuplicateNames(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for duplicate ipset names")
@@ -207,8 +207,8 @@ func TestValidateIPSets_DuplicateRoutingTable(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth0"},
 					FwMark:         100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			},
 			{
@@ -218,8 +218,8 @@ func TestValidateIPSets_DuplicateRoutingTable(t *testing.T) {
 				Routing: &RoutingConfig{
 					Interfaces:     []string{"eth1"},
 					FwMark:         101,
-					IpRouteTable:   100,
-					IpRulePriority: 101,
+					IPRouteTable:   100,
+					IPRulePriority: 101,
 				},
 			},
 		},
@@ -230,7 +230,7 @@ func TestValidateIPSets_DuplicateRoutingTable(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateIPSets()
 	if err == nil {
 		t.Error("Expected error for duplicate routing table")
@@ -245,7 +245,7 @@ func TestValidateLists_MissingListName(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateLists()
 	if err == nil {
 		t.Error("Expected error for missing list name")
@@ -260,7 +260,7 @@ func TestValidateLists_NoSource(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateLists()
 	if err == nil {
 		t.Error("Expected error for missing source (url/file/hosts)")
@@ -277,7 +277,7 @@ func TestValidateLists_MultipleSources(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateLists()
 	if err == nil {
 		t.Error("Expected error for multiple sources")
@@ -294,7 +294,7 @@ func TestValidateLists_NonExistentFile(t *testing.T) {
 		},
 		_absConfigFilePath: "/tmp",
 	}
-	
+
 	err := config.validateLists()
 	if err == nil {
 		t.Error("Expected error for non-existent file")
@@ -314,7 +314,7 @@ func TestValidateLists_DuplicateNames(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := config.validateLists()
 	if err == nil {
 		t.Error("Expected error for duplicate list names")
@@ -340,7 +340,7 @@ func TestValidateIPSet_EmptyName(t *testing.T) {
 	ipset := &IPSetConfig{
 		IPSetName: "",
 	}
-	
+
 	err := ipset.validateIPSet()
 	if err == nil {
 		t.Error("Expected error for empty ipset name")
@@ -351,7 +351,7 @@ func TestValidateIPSet_InvalidName(t *testing.T) {
 	ipset := &IPSetConfig{
 		IPSetName: "Invalid-Name",
 	}
-	
+
 	err := ipset.validateIPSet()
 	if err == nil {
 		t.Error("Expected error for invalid ipset name")
@@ -362,7 +362,7 @@ func TestValidateIPSet_MissingRouting(t *testing.T) {
 	ipset := &IPSetConfig{
 		IPSetName: "test",
 	}
-	
+
 	err := ipset.validateIPSet()
 	if err == nil {
 		t.Error("Expected error for missing routing config")
@@ -377,16 +377,16 @@ func TestValidateIPSet_DefaultIPTablesRules(t *testing.T) {
 			Interfaces: []string{"eth0"},
 		},
 	}
-	
+
 	err := ipset.validateIPSet()
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	
+
 	if len(ipset.IPTablesRules) != 1 {
 		t.Error("Expected default iptables rule to be added")
 	}
-	
+
 	rule := ipset.IPTablesRules[0]
 	if rule.Chain != "PREROUTING" || rule.Table != "mangle" {
 		t.Error("Expected default rule to be PREROUTING/mangle")
@@ -407,7 +407,7 @@ func TestValidateIPTablesRules_MissingChain(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := ipset.validateIPSet()
 	if err == nil {
 		t.Error("Expected error for missing chain")
@@ -417,17 +417,17 @@ func TestValidateIPTablesRules_MissingChain(t *testing.T) {
 func TestValidateIpVersion(t *testing.T) {
 	tests := []struct {
 		name        string
-		version     IpFamily
+		version     IPFamily
 		expectError bool
 	}{
 		{"IPv4 valid", Ipv4, false},
 		{"IPv6 valid", Ipv6, false},
-		{"Invalid version", IpFamily(99), true},
+		{"Invalid version", IPFamily(99), true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := validateIpVersion(tt.version)
+			_, err := validateIPVersion(tt.version)
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
 			}
@@ -447,7 +447,7 @@ func TestValidateNonEmpty(t *testing.T) {
 		{"Non-empty string", "test", false},
 		{"Empty string", "", true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateNonEmpty(tt.value, "test_field")
@@ -472,7 +472,7 @@ func TestCheckIsDistinct(t *testing.T) {
 		{"Empty list", []string{}, false},
 		{"Single value", []string{"a"}, false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkIsDistinct(tt.list, func(s string) string { return s })
@@ -505,7 +505,7 @@ func TestValidateDNSOverride(t *testing.T) {
 		{"Multiple # characters", "8.8.8.8#53#80", true},
 		{"IP with # but no port", "8.8.8.8#", true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateDNSOverride(tt.dnsOverride)
@@ -529,7 +529,7 @@ func TestValidateIPSet_DNSOverride(t *testing.T) {
 		{"No DNS override", "", false},
 		{"Invalid DNS override", "invalid.ip", true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ipset := &IPSetConfig{
@@ -540,7 +540,7 @@ func TestValidateIPSet_DNSOverride(t *testing.T) {
 					DNSOverride: tt.dnsOverride,
 				},
 			}
-			
+
 			err := ipset.validateIPSet()
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")

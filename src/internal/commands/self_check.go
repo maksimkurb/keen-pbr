@@ -3,11 +3,12 @@ package commands
 import (
 	"encoding/binary"
 	"flag"
+	"os"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
-	"os"
 )
 
 func CreateSelfCheckCommand() *SelfCheckCommand {
@@ -66,7 +67,7 @@ func (g *SelfCheckCommand) Run() error {
 	log.Infof("----------------- Configuration END ------------------")
 
 	for _, ipset := range g.cfg.IPSets {
-		if err := checkIpset(g.cfg, ipset); err != nil {
+		if err := checkIpset(ipset); err != nil {
 			log.Errorf("Failed to check ipset routing configuration [%s]: %v", ipset.IPSetName, err)
 			return err
 		}
@@ -76,7 +77,7 @@ func (g *SelfCheckCommand) Run() error {
 	return nil
 }
 
-func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
+func checkIpset(ipsetCfg *config.IPSetConfig) error {
 	log.Infof("----------------- IPSet [%s] ------------------", ipsetCfg.IPSetName)
 	log.Infof("Blackhole route will be automatically added when all interfaces are down")
 
@@ -119,11 +120,11 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 			log.Infof("Choosing interface %s", chosenIface.Attrs().Name)
 		}
 
-		if err := checkIpRoutes(ipsetCfg, chosenIface, ifaceIndex); err != nil {
+		if err := checkIPRoutes(ipsetCfg, chosenIface, ifaceIndex); err != nil {
 			log.Errorf("Failed to check IP routes: %v", err)
 			return err
 		}
-		if err := checkIpTables(ipsetCfg); err != nil {
+		if err := checkIPTables(ipsetCfg); err != nil {
 			log.Errorf("Failed to check iptable rules: %v", err)
 			return err
 		}
@@ -133,7 +134,7 @@ func checkIpset(cfg *config.Config, ipsetCfg *config.IPSetConfig) error {
 	return nil
 }
 
-func checkIpTables(ipset *config.IPSetConfig) error {
+func checkIPTables(ipset *config.IPSetConfig) error {
 	ipTableRules, err := networking.NewIPTablesBuilder(ipset).Build()
 	if err != nil {
 		log.Errorf("Failed to build iptable rules: %v", err)
@@ -157,12 +158,12 @@ func checkIpTables(ipset *config.IPSetConfig) error {
 	return nil
 }
 
-func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface, ifaceIndex int) error {
-	if routes, err := networking.ListRoutesInTable(ipset.Routing.IpRouteTable); err != nil {
-		log.Errorf("Failed to list IP routes in table %d: %v", ipset.Routing.IpRouteTable, err)
+func checkIPRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface, ifaceIndex int) error {
+	if routes, err := networking.ListRoutesInTable(ipset.Routing.IPRouteTable); err != nil {
+		log.Errorf("Failed to list IP routes in table %d: %v", ipset.Routing.IPRouteTable, err)
 		return err
 	} else {
-		log.Infof("There are %d IP routes in table %d:", len(routes), ipset.Routing.IpRouteTable)
+		log.Infof("There are %d IP routes in table %d:", len(routes), ipset.Routing.IPRouteTable)
 
 		for idx, route := range routes {
 			log.Infof("  %d. %v", idx+1, route)
@@ -176,46 +177,46 @@ func checkIpRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface,
 		}
 
 		if len(routes) < requiredRoutes {
-			log.Errorf("Some of required IP routes are missing in table %d", ipset.Routing.IpRouteTable)
+			log.Errorf("Some of required IP routes are missing in table %d", ipset.Routing.IPRouteTable)
 		} else if len(routes) > requiredRoutes {
-			log.Warnf("Looks like there are some extra IP routes in table %d", ipset.Routing.IpRouteTable)
+			log.Warnf("Looks like there are some extra IP routes in table %d", ipset.Routing.IPRouteTable)
 		} else {
-			log.Infof("All required IP routes are present in table %d", ipset.Routing.IpRouteTable)
+			log.Infof("All required IP routes are present in table %d", ipset.Routing.IPRouteTable)
 		}
 	}
 
 	if chosenIface != nil {
-		defaultIpRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IpRouteTable, ifaceIndex)
-		if exists, err := defaultIpRoute.IsExists(); err != nil {
-			log.Errorf("Failed to check default IP route [%v]: %v", defaultIpRoute, err)
+		defaultIPRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IPRouteTable, ifaceIndex)
+		if exists, err := defaultIPRoute.IsExists(); err != nil {
+			log.Errorf("Failed to check default IP route [%v]: %v", defaultIPRoute, err)
 			return err
 		} else {
 			if exists {
-				log.Infof("Default IP route [%v] is exists", defaultIpRoute)
+				log.Infof("Default IP route [%v] is exists", defaultIPRoute)
 			} else {
-				log.Errorf("Default IP route [%v] is NOT exists", defaultIpRoute)
+				log.Errorf("Default IP route [%v] is NOT exists", defaultIPRoute)
 			}
 		}
 	} else {
 		log.Infof("Default IP route check SKIPPED because no interface is connected")
 	}
 
-	blackholeIpRoute := networking.BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IpRouteTable)
-	if exists, err := blackholeIpRoute.IsExists(); err != nil {
-		log.Errorf("Failed to check blackhole IP route [%v]: %v", blackholeIpRoute, err)
+	blackholeIPRoute := networking.BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IPRouteTable)
+	if exists, err := blackholeIPRoute.IsExists(); err != nil {
+		log.Errorf("Failed to check blackhole IP route [%v]: %v", blackholeIPRoute, err)
 		return err
 	} else {
 		if exists {
 			if chosenIface == nil {
-				log.Infof("Blackhole IP route [%v] is exists (all interfaces are down)", blackholeIpRoute)
+				log.Infof("Blackhole IP route [%v] is exists (all interfaces are down)", blackholeIPRoute)
 			} else {
-				log.Errorf("Blackhole IP route [%v] EXISTS, but interface is UP (should not be present)", blackholeIpRoute)
+				log.Errorf("Blackhole IP route [%v] EXISTS, but interface is UP (should not be present)", blackholeIPRoute)
 			}
 		} else {
 			if chosenIface == nil {
-				log.Errorf("Blackhole IP route [%v] is NOT exists, but all interfaces are DOWN (should be present)", blackholeIpRoute)
+				log.Errorf("Blackhole IP route [%v] is NOT exists, but all interfaces are DOWN (should be present)", blackholeIPRoute)
 			} else {
-				log.Infof("Blackhole IP route [%v] is not exists. This is OK because interface is UP.", blackholeIpRoute)
+				log.Infof("Blackhole IP route [%v] is not exists. This is OK because interface is UP.", blackholeIPRoute)
 			}
 		}
 	}

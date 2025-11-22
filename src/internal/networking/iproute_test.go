@@ -9,7 +9,7 @@ import (
 func TestBuildDefaultRoute(t *testing.T) {
 	tests := []struct {
 		name     string
-		ipFamily config.IpFamily
+		ipFamily config.IPFamily
 		table    int
 		expected string
 	}{
@@ -20,7 +20,7 @@ func TestBuildDefaultRoute(t *testing.T) {
 			expected: "0.0.0.0/0",
 		},
 		{
-			name:     "IPv6 default route", 
+			name:     "IPv6 default route",
 			ipFamily: config.Ipv6,
 			table:    100,
 			expected: "::/0",
@@ -50,7 +50,7 @@ func TestBuildDefaultRoute(t *testing.T) {
 func TestBuildBlackholeRoute(t *testing.T) {
 	tests := []struct {
 		name     string
-		ipFamily config.IpFamily
+		ipFamily config.IPFamily
 		table    int
 		expected string
 	}{
@@ -62,7 +62,7 @@ func TestBuildBlackholeRoute(t *testing.T) {
 		},
 		{
 			name:     "IPv6 blackhole route",
-			ipFamily: config.Ipv6, 
+			ipFamily: config.Ipv6,
 			table:    200,
 			expected: "::/0",
 		},
@@ -80,8 +80,8 @@ func TestBuildBlackholeRoute(t *testing.T) {
 				t.Errorf("Expected table %d, got %d", tt.table, route.Table)
 			}
 
-			if route.Type != RTN_BLACKHOLE {
-				t.Errorf("Expected blackhole route type %d, got %d", RTN_BLACKHOLE, route.Type)
+			if route.Type != RtnBlackhole {
+				t.Errorf("Expected blackhole route type %d, got %d", RtnBlackhole, route.Type)
 			}
 
 			if route.Dst.String() != tt.expected {
@@ -93,27 +93,27 @@ func TestBuildBlackholeRoute(t *testing.T) {
 
 func TestBuildDefaultRoute_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name     string
-		ipFamily config.IpFamily
-		table    int
+		name      string
+		ipFamily  config.IPFamily
+		table     int
 		expectNil bool
 	}{
 		{
-			name:     "Zero table number",
-			ipFamily: config.Ipv4,
-			table:    0,
+			name:      "Zero table number",
+			ipFamily:  config.Ipv4,
+			table:     0,
 			expectNil: false, // Zero table should be valid
 		},
 		{
-			name:     "Negative table number",
-			ipFamily: config.Ipv4,
-			table:    -1,
+			name:      "Negative table number",
+			ipFamily:  config.Ipv4,
+			table:     -1,
 			expectNil: false, // Implementation might handle this
 		},
 		{
-			name:     "Large table number",
-			ipFamily: config.Ipv4,
-			table:    65535,
+			name:      "Large table number",
+			ipFamily:  config.Ipv4,
+			table:     65535,
 			expectNil: false,
 		},
 	}
@@ -139,4 +139,4 @@ func TestBuildDefaultRoute_EdgeCases(t *testing.T) {
 }
 
 // Mock constants that should match the actual implementation
-const RTN_BLACKHOLE = 6  // This should match the actual netlink constant
+const RtnBlackhole = 6 // This should match the actual netlink constant

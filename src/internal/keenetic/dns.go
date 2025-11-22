@@ -10,14 +10,15 @@ import (
 // returns a list of DNS server information.
 //
 // The configuration format includes lines like:
-//   dns_server = 192.168.1.1 domain.com
-//   dns_server = 127.0.0.1:40500 . # p0.freedns.controld.com (DoT)
-//   dns_server = 127.0.0.1:40501 . # https://dns.example.com (DoH)
+//
+//	dns_server = 192.168.1.1 domain.com
+//	dns_server = 127.0.0.1:40500 . # p0.freedns.controld.com (DoT)
+//	dns_server = 127.0.0.1:40501 . # https://dns.example.com (DoH)
 //
 // This function extracts DNS server type (Plain IPv4, Plain IPv6, DoT, DoH),
 // the proxy address, endpoint, port, and optional domain.
-func ParseDNSProxyConfig(config string) []DnsServerInfo {
-	var servers []DnsServerInfo
+func ParseDNSProxyConfig(config string) []DNSServerInfo {
+	var servers []DNSServerInfo
 	lines := strings.Split(config, "\n")
 
 	for _, line := range lines {
@@ -62,9 +63,9 @@ func ParseDNSProxyConfig(config string) []DnsServerInfo {
 //
 // It determines the server type (Plain, DoT, DoH) based on the address format
 // and the presence of specific patterns in the comment.
-func parseDNSServerEntry(addr, comment string) DnsServerInfo {
+func parseDNSServerEntry(addr, comment string) DNSServerInfo {
 	var endpoint string
-	var typ DnsServerType
+	var typ DNSServerType
 	var port string
 	var ipOnly string
 
@@ -72,41 +73,41 @@ func parseDNSServerEntry(addr, comment string) DnsServerInfo {
 		// Local proxy, check for DoT/DoH in comment
 		if comment != "" && strings.HasPrefix(comment, httpsPrefix) {
 			// DoH (DNS over HTTPS)
-			typ = DnsServerTypeDoH
+			typ = DNSServerTypeDoH
 			endpoint = extractDoHURI(comment)
 			if endpoint == "" {
 				log.Errorf("Malformed DoH URI in comment: %q", comment)
 				// Fallback to plain
-				typ = DnsServerTypePlain
+				typ = DNSServerTypePlain
 				endpoint = addr
 			}
 			ipOnly, port = splitAddressPort(addr)
 		} else if comment != "" {
 			// DoT (DNS over TLS) - treat any comment as DoT SNI
-			typ = DnsServerTypeDoT
+			typ = DNSServerTypeDoT
 			endpoint = comment
 			ipOnly, port = splitAddressPort(addr)
 		} else {
 			// Plain DNS via localhost
-			typ = DnsServerTypePlain
+			typ = DNSServerTypePlain
 			endpoint = addr
 			port = ""
 			ipOnly = addr
 		}
 	} else if strings.Contains(addr, ".") {
 		// IPv4 (possibly with port)
-		typ = DnsServerTypePlain
+		typ = DNSServerTypePlain
 		ipOnly, port = splitIPv4AddressPort(addr)
 		endpoint = ipOnly
 	} else {
 		// IPv6
-		typ = DnsServerTypePlainIPv6
+		typ = DNSServerTypePlainIPv6
 		ipOnly = addr
 		endpoint = addr
 		port = ""
 	}
 
-	return DnsServerInfo{
+	return DNSServerInfo{
 		Type:     typ,
 		Proxy:    ipOnly,
 		Endpoint: endpoint,

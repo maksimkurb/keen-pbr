@@ -4,10 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/commands"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
-	"os"
 )
 
 var (
@@ -69,7 +70,7 @@ func main() {
 		commands.CreateSelfCheckCommand(),
 		commands.CreateUndoCommand(),
 		commands.CreateUpgradeConfigCommand(),
-		commands.CreateDnsCommand(),
+		commands.CreateDNSCommand(),
 	}
 
 	args := flag.Args()

@@ -1,12 +1,13 @@
 package networking
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/valyala/fasttemplate"
-	"strconv"
-	"strings"
 )
 
 type IPTableRules struct {
@@ -15,7 +16,7 @@ type IPTableRules struct {
 	rules []*config.IPTablesRule
 }
 
-func processRules(ipset *config.IPSetConfig) ([]*config.IPTablesRule, error) {
+func processRules(ipset *config.IPSetConfig) []*config.IPTablesRule {
 	rules := make([]*config.IPTablesRule, len(ipset.IPTablesRules))
 
 	for i, rule := range ipset.IPTablesRules {
@@ -32,7 +33,7 @@ func processRules(ipset *config.IPSetConfig) ([]*config.IPTablesRule, error) {
 		}
 	}
 
-	return rules, nil
+	return rules
 }
 
 func processRulePart(template string, ipset *config.IPSetConfig) string {
@@ -42,10 +43,10 @@ func processRulePart(template string, ipset *config.IPSetConfig) string {
 
 	t := fasttemplate.New(template, "{{", "}}")
 	return t.ExecuteString(map[string]interface{}{
-		config.IPTABLES_TMPL_IPSET:    ipset.IPSetName,
-		config.IPTABLES_TMPL_FWMARK:   strconv.FormatUint(uint64(ipset.Routing.FwMark), 10),
-		config.IPTABLES_TMPL_PRIORITY: strconv.FormatUint(uint64(ipset.Routing.IpRulePriority), 10),
-		config.IPTABLES_TMPL_TABLE:    strconv.FormatUint(uint64(ipset.Routing.IpRouteTable), 10),
+		config.IPTablesTmplIpset:    ipset.IPSetName,
+		config.IPTablesTmplFwmark:   strconv.FormatUint(uint64(ipset.Routing.FwMark), 10),
+		config.IPTablesTmplPriority: strconv.FormatUint(uint64(ipset.Routing.IPRulePriority), 10),
+		config.IPTablesTmplTable:    strconv.FormatUint(uint64(ipset.Routing.IPRouteTable), 10),
 	})
 }
 

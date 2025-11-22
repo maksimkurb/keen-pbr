@@ -140,7 +140,7 @@ func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 		if err != nil {
 			log.Warnf("Failed to build components for %s during undo: %v", ipset.IPSetName, err)
 			// Continue with fallback method
-			if err := DelIpRouteTable(ipset.Routing.IpRouteTable); err != nil {
+			if err := DelIPRouteTable(ipset.Routing.IPRouteTable); err != nil {
 				return err
 			}
 			if err := m.persistentConfig.Remove(ipset); err != nil {

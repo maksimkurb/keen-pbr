@@ -25,10 +25,10 @@ type MockNetworkManager struct {
 	UndoConfigFunc func(ipsets []*config.IPSetConfig) error
 
 	// Track calls for verification in tests
-	ApplyPersistentConfigCalls   int
-	ApplyRoutingConfigCalls      int
-	UpdateRoutingIfChangedCalls  int
-	UndoConfigCalls              int
+	ApplyPersistentConfigCalls  int
+	ApplyRoutingConfigCalls     int
+	UpdateRoutingIfChangedCalls int
+	UndoConfigCalls             int
 }
 
 // ApplyPersistentConfig applies persistent network configuration.
@@ -77,29 +77,29 @@ func NewMockNetworkManager() *MockNetworkManager {
 // This allows testing route management logic without modifying the actual routing table.
 type MockRouteManager struct {
 	// AddRouteFunc is called by AddRoute if not nil
-	AddRouteFunc func(route *networking.IpRoute) error
+	AddRouteFunc func(route *networking.IPRoute) error
 
 	// DelRouteFunc is called by DelRoute if not nil
-	DelRouteFunc func(route *networking.IpRoute) error
+	DelRouteFunc func(route *networking.IPRoute) error
 
 	// ListRoutesFunc is called by ListRoutes if not nil
-	ListRoutesFunc func(table int) ([]*networking.IpRoute, error)
+	ListRoutesFunc func(table int) ([]*networking.IPRoute, error)
 
 	// AddRouteIfNotExistsFunc is called by AddRouteIfNotExists if not nil
-	AddRouteIfNotExistsFunc func(route *networking.IpRoute) error
+	AddRouteIfNotExistsFunc func(route *networking.IPRoute) error
 
 	// DelRouteIfExistsFunc is called by DelRouteIfExists if not nil
-	DelRouteIfExistsFunc func(route *networking.IpRoute) error
+	DelRouteIfExistsFunc func(route *networking.IPRoute) error
 
 	// Track calls and routes for verification
-	AddRouteCalls    int
-	DelRouteCalls    int
-	ListRoutesCalls  int
-	Routes           []*networking.IpRoute // Simulated route table
+	AddRouteCalls   int
+	DelRouteCalls   int
+	ListRoutesCalls int
+	Routes          []*networking.IPRoute // Simulated route table
 }
 
 // AddRoute adds a route to the simulated routing table.
-func (m *MockRouteManager) AddRoute(route *networking.IpRoute) error {
+func (m *MockRouteManager) AddRoute(route *networking.IPRoute) error {
 	m.AddRouteCalls++
 	if m.AddRouteFunc != nil {
 		return m.AddRouteFunc(route)
@@ -109,7 +109,7 @@ func (m *MockRouteManager) AddRoute(route *networking.IpRoute) error {
 }
 
 // DelRoute removes a route from the simulated routing table.
-func (m *MockRouteManager) DelRoute(route *networking.IpRoute) error {
+func (m *MockRouteManager) DelRoute(route *networking.IPRoute) error {
 	m.DelRouteCalls++
 	if m.DelRouteFunc != nil {
 		return m.DelRouteFunc(route)
@@ -125,13 +125,13 @@ func (m *MockRouteManager) DelRoute(route *networking.IpRoute) error {
 }
 
 // ListRoutes returns routes from the simulated routing table.
-func (m *MockRouteManager) ListRoutes(table int) ([]*networking.IpRoute, error) {
+func (m *MockRouteManager) ListRoutes(table int) ([]*networking.IPRoute, error) {
 	m.ListRoutesCalls++
 	if m.ListRoutesFunc != nil {
 		return m.ListRoutesFunc(table)
 	}
 	// Filter routes by table
-	var routes []*networking.IpRoute
+	var routes []*networking.IPRoute
 	for _, r := range m.Routes {
 		if r.Table == table {
 			routes = append(routes, r)
@@ -141,7 +141,7 @@ func (m *MockRouteManager) ListRoutes(table int) ([]*networking.IpRoute, error) 
 }
 
 // AddRouteIfNotExists adds a route only if it doesn't exist.
-func (m *MockRouteManager) AddRouteIfNotExists(route *networking.IpRoute) error {
+func (m *MockRouteManager) AddRouteIfNotExists(route *networking.IPRoute) error {
 	if m.AddRouteIfNotExistsFunc != nil {
 		return m.AddRouteIfNotExistsFunc(route)
 	}
@@ -155,7 +155,7 @@ func (m *MockRouteManager) AddRouteIfNotExists(route *networking.IpRoute) error 
 }
 
 // DelRouteIfExists removes a route only if it exists.
-func (m *MockRouteManager) DelRouteIfExists(route *networking.IpRoute) error {
+func (m *MockRouteManager) DelRouteIfExists(route *networking.IPRoute) error {
 	if m.DelRouteIfExistsFunc != nil {
 		return m.DelRouteIfExistsFunc(route)
 	}
@@ -165,7 +165,7 @@ func (m *MockRouteManager) DelRouteIfExists(route *networking.IpRoute) error {
 // NewMockRouteManager creates a new mock route manager.
 func NewMockRouteManager() *MockRouteManager {
 	return &MockRouteManager{
-		Routes: make([]*networking.IpRoute, 0),
+		Routes: make([]*networking.IPRoute, 0),
 	}
 }
 
@@ -218,7 +218,7 @@ func NewMockInterfaceProvider() *MockInterfaceProvider {
 // This allows testing ipset operations without actually creating ipsets.
 type MockIPSetManager struct {
 	// CreateFunc is called by Create if not nil
-	CreateFunc func(name string, family config.IpFamily) error
+	CreateFunc func(name string, family config.IPFamily) error
 
 	// FlushFunc is called by Flush if not nil
 	FlushFunc func(name string) error
@@ -230,22 +230,22 @@ type MockIPSetManager struct {
 	CreateIfAbsentFunc func(config *config.Config) error
 
 	// Track calls and state
-	CreateCalls        int
-	FlushCalls         int
-	ImportCalls        int
+	CreateCalls         int
+	FlushCalls          int
+	ImportCalls         int
 	CreateIfAbsentCalls int
-	CreatedIPSets      map[string]config.IpFamily // name -> family
-	ImportedNetworks   map[string][]netip.Prefix  // ipset name -> networks
+	CreatedIPSets       map[string]config.IPFamily // name -> family
+	ImportedNetworks    map[string][]netip.Prefix  // ipset name -> networks
 }
 
 // Create creates a new ipset.
-func (m *MockIPSetManager) Create(name string, family config.IpFamily) error {
+func (m *MockIPSetManager) Create(name string, family config.IPFamily) error {
 	m.CreateCalls++
 	if m.CreateFunc != nil {
 		return m.CreateFunc(name, family)
 	}
 	if m.CreatedIPSets == nil {
-		m.CreatedIPSets = make(map[string]config.IpFamily)
+		m.CreatedIPSets = make(map[string]config.IPFamily)
 	}
 	m.CreatedIPSets[name] = family
 	return nil
@@ -291,7 +291,7 @@ func (m *MockIPSetManager) CreateIfAbsent(cfg *config.Config) error {
 // NewMockIPSetManager creates a new mock ipset manager.
 func NewMockIPSetManager() *MockIPSetManager {
 	return &MockIPSetManager{
-		CreatedIPSets:    make(map[string]config.IpFamily),
+		CreatedIPSets:    make(map[string]config.IPFamily),
 		ImportedNetworks: make(map[string][]netip.Prefix),
 	}
 }

@@ -68,9 +68,9 @@ func TestMockNetworkManager_CustomBehavior(t *testing.T) {
 func TestMockRouteManager_DefaultBehavior(t *testing.T) {
 	mock := NewMockRouteManager()
 
-	route1 := &networking.IpRoute{Route: &netlink.Route{Table: 100}}
-	route2 := &networking.IpRoute{Route: &netlink.Route{Table: 100}}
-	route3 := &networking.IpRoute{Route: &netlink.Route{Table: 200}}
+	route1 := &networking.IPRoute{Route: &netlink.Route{Table: 100}}
+	route2 := &networking.IPRoute{Route: &netlink.Route{Table: 100}}
+	route3 := &networking.IPRoute{Route: &netlink.Route{Table: 200}}
 
 	// Test AddRoute
 	err := mock.AddRoute(route1)
@@ -119,7 +119,7 @@ func TestMockRouteManager_DefaultBehavior(t *testing.T) {
 func TestMockRouteManager_AddRouteIfNotExists(t *testing.T) {
 	mock := NewMockRouteManager()
 
-	route := &networking.IpRoute{Route: &netlink.Route{Table: 100}}
+	route := &networking.IPRoute{Route: &netlink.Route{Table: 100}}
 
 	// Add route first time
 	err := mock.AddRouteIfNotExists(route)
@@ -261,7 +261,7 @@ func TestMockIntegration(t *testing.T) {
 				IPSetName: "test",
 				IPVersion: config.Ipv4,
 				Routing: &config.RoutingConfig{
-					IpRouteTable: 100,
+					IPRouteTable: 100,
 				},
 			},
 		},
@@ -292,7 +292,7 @@ func TestMockIntegration(t *testing.T) {
 	}
 
 	// Add routes
-	route := &networking.IpRoute{Route: &netlink.Route{Table: 100}}
+	route := &networking.IPRoute{Route: &netlink.Route{Table: 100}}
 	err = routeMgr.AddRoute(route)
 	if err != nil {
 		t.Fatalf("Failed to add route: %v", err)

@@ -67,10 +67,10 @@ func (c *Config) validateIPSets() error {
 	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) string { return ipset.IPSetName }); err != nil {
 		return fmt.Errorf("there are duplicate ipset names: %v", err)
 	}
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IpRouteTable }); err != nil {
+	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IPRouteTable }); err != nil {
 		return fmt.Errorf("there are duplicate routing tables: %v", err)
 	}
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IpRulePriority }); err != nil {
+	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IPRulePriority }); err != nil {
 		return fmt.Errorf("there are duplicate rule priorities: %v", err)
 	}
 	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) uint32 { return ipset.Routing.FwMark }); err != nil {
@@ -86,15 +86,15 @@ func (c *Config) validateLists() error {
 			return err
 		}
 
-		isUrl := list.URL != ""
+		isURL := list.URL != ""
 		isFile := list.File != ""
 		isHosts := len(list.Hosts) > 0
 
-		if !isUrl && !isFile && !isHosts {
+		if !isURL && !isFile && !isHosts {
 			return fmt.Errorf("list %s should contain \"url\", \"file\" or non-empty \"hosts\" field", list.ListName)
 		}
 
-		if (isUrl && (isFile || isHosts)) || (isFile && isHosts) {
+		if (isURL && (isFile || isHosts)) || (isFile && isHosts) {
 			return fmt.Errorf("list %s can contain only one of \"url\", \"file\" or \"hosts\" field, but not both", list.ListName)
 		}
 
@@ -139,7 +139,7 @@ func (ipset *IPSetConfig) validateIPSet() error {
 	}
 
 	// Validate IP version
-	if newVersion, err := validateIpVersion(ipset.IPVersion); err != nil {
+	if newVersion, err := validateIPVersion(ipset.IPVersion); err != nil {
 		return err
 	} else {
 		ipset.IPVersion = newVersion
@@ -174,7 +174,7 @@ func (ipset *IPSetConfig) validateOrPrefillIPTablesRules() error {
 				Chain: "PREROUTING",
 				Table: "mangle",
 				Rule: []string{
-					"-m", "mark", "--mark", "0x0/0xffffffff", "-m", "set", "--match-set", "{{" + IPTABLES_TMPL_IPSET + "}}", "dst,src", "-j", "MARK", "--set-mark", "{{" + IPTABLES_TMPL_FWMARK + "}}",
+					"-m", "mark", "--mark", "0x0/0xffffffff", "-m", "set", "--match-set", "{{" + IPTablesTmplIpset + "}}", "dst,src", "-j", "MARK", "--set-mark", "{{" + IPTablesTmplFwmark + "}}",
 				},
 			},
 		}
@@ -220,7 +220,7 @@ func validateNonEmpty(value, fieldName string) error {
 	return nil
 }
 
-func validateIpVersion(version IpFamily) (IpFamily, error) {
+func validateIPVersion(version IPFamily) (IPFamily, error) {
 	switch version {
 	case Ipv4, Ipv6:
 		return version, nil
@@ -258,7 +258,7 @@ func validateDNSOverride(dnsOverride string) error {
 	return nil
 }
 
-func validateDefaultGateway(gateway string, ipVersion IpFamily) error {
+func validateDefaultGateway(gateway string, ipVersion IPFamily) error {
 	if gateway == "" {
 		return nil
 	}

@@ -18,9 +18,9 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 					IPVersion: config.Ipv4,
 					Lists:     []string{"list1"},
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"lo"}, // loopback always exists
 					},
 				},
@@ -114,9 +114,9 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 					IPSetName: "test1",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"lo"},
 					},
 				},
@@ -124,9 +124,9 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 					IPSetName: "test2",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100, // Same table
+						IPRouteTable:   100, // Same table
 						FwMark:         200,
-						IpRulePriority: 200,
+						IPRulePriority: 200,
 						Interfaces:     []string{"lo"},
 					},
 				},
@@ -149,9 +149,9 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   0, // Invalid
+						IPRouteTable:   0, // Invalid
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"lo"},
 					},
 				},
@@ -174,9 +174,9 @@ func TestValidationService_ValidateConfig(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{}, // Empty
 					},
 				},
@@ -226,9 +226,9 @@ func TestValidationService_ValidateInterfaces(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"lo"}, // loopback always exists
 					},
 				},
@@ -248,9 +248,9 @@ func TestValidationService_ValidateInterfaces(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"nonexistent1", "nonexistent2"},
 					},
 				},
@@ -273,9 +273,9 @@ func TestValidationService_ValidateInterfaces(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"nonexistent1", "lo", "nonexistent2"},
 					},
 				},

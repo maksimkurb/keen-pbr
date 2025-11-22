@@ -238,8 +238,8 @@ func TestHashDomain(t *testing.T) {
 	}
 
 	// Same domain should always have same hash
-	hash1_repeat := hashDomain(domain1)
-	if hash1 != hash1_repeat {
+	hash1Repeat := hashDomain(domain1)
+	if hash1 != hash1Repeat {
 		t.Error("Expected same domain to produce same hash")
 	}
 }

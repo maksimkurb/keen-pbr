@@ -22,7 +22,7 @@ const hashCacheTTL = 5 * time.Minute
 // KeeneticClientInterface defines minimal interface for DNS server retrieval
 // This avoids circular dependency with domain package
 type KeeneticClientInterface interface {
-	GetDNSServers() ([]keenetic.DnsServerInfo, error)
+	GetDNSServers() ([]keenetic.DNSServerInfo, error)
 }
 
 // ConfigHasher calculates MD5 hash of configuration state
@@ -32,8 +32,8 @@ type ConfigHasher struct {
 	keeneticClient KeeneticClientInterface
 
 	// Current hash (from config file) with caching
-	currentHash      string
-	currentHashTime  time.Time
+	currentHash     string
+	currentHashTime time.Time
 
 	// Active hash (from running service)
 	activeHash string
@@ -182,7 +182,7 @@ func (h *ConfigHasher) calculateHashForConfig(config *Config, keeneticClient Kee
 		// Use a channel to implement timeout for DNS server retrieval
 		// This prevents blocking indefinitely if Keenetic router is not accessible
 		type dnsResult struct {
-			servers []keenetic.DnsServerInfo
+			servers []keenetic.DNSServerInfo
 			err     error
 		}
 		resultCh := make(chan dnsResult, 1)
@@ -348,7 +348,7 @@ type ConfigHashData struct {
 type IPSetHashData struct {
 	IPSetName           string          `json:"ipset_name"`
 	Lists               []string        `json:"lists"`
-	IPVersion           IpFamily        `json:"ip_version"`
+	IPVersion           IPFamily        `json:"ip_version"`
 	FlushBeforeApplying bool            `json:"flush_before_applying"`
 	Routing             *RoutingConfig  `json:"routing,omitempty"`
 	IPTablesRules       []*IPTablesRule `json:"iptables_rules,omitempty"`
@@ -356,11 +356,11 @@ type IPSetHashData struct {
 
 // DNSServerHashData represents hashable DNS server information
 type DNSServerHashData struct {
-	Type     string  `json:"type"`               // "IP4", "IP6", "DoT", "DoH"
-	Proxy    string  `json:"proxy"`              // Proxy IP address
-	Endpoint string  `json:"endpoint"`           // Endpoint (IP/SNI/URI)
-	Port     string  `json:"port"`               // Port
-	Domain   *string `json:"domain,omitempty"`   // Domain scope
+	Type     string  `json:"type"`             // "IP4", "IP6", "DoT", "DoH"
+	Proxy    string  `json:"proxy"`            // Proxy IP address
+	Endpoint string  `json:"endpoint"`         // Endpoint (IP/SNI/URI)
+	Port     string  `json:"port"`             // Port
+	Domain   *string `json:"domain,omitempty"` // Domain scope
 }
 
 // sortedStrings returns a sorted copy of a string slice

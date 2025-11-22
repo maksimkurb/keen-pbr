@@ -9,7 +9,7 @@ import (
 // KeeneticClientInterface defines minimal interface for DNS server retrieval
 // This avoids circular dependency with domain package
 type KeeneticClientInterface interface {
-	GetDNSServers() ([]keenetic.DnsServerInfo, error)
+	GetDNSServers() ([]keenetic.DNSServerInfo, error)
 }
 
 // ResolveDNSServers resolves the list of DNS servers to use based on configuration.
@@ -23,7 +23,7 @@ type KeeneticClientInterface interface {
 // - If use_keenetic_dns is disabled:
 //   - Use fallback DNS
 //   - If fallback DNS is empty, return empty list
-func ResolveDNSServers(cfg *config.Config, keeneticClient KeeneticClientInterface) []keenetic.DnsServerInfo {
+func ResolveDNSServers(cfg *config.Config, keeneticClient KeeneticClientInterface) []keenetic.DNSServerInfo {
 	if cfg.General.UseKeeneticDNS == nil || !*cfg.General.UseKeeneticDNS {
 		// use_keenetic_dns is disabled or not set, use fallback
 		return useFallbackDNS(cfg)
@@ -52,16 +52,16 @@ func ResolveDNSServers(cfg *config.Config, keeneticClient KeeneticClientInterfac
 
 // useFallbackDNS returns a DNS server list from the fallback DNS configuration.
 // If fallback DNS is empty, returns an empty list.
-func useFallbackDNS(cfg *config.Config) []keenetic.DnsServerInfo {
+func useFallbackDNS(cfg *config.Config) []keenetic.DNSServerInfo {
 	if cfg.General.FallbackDNS == "" {
 		log.Debugf("No fallback DNS configured, using empty DNS server list")
-		return []keenetic.DnsServerInfo{}
+		return []keenetic.DNSServerInfo{}
 	}
 
 	log.Infof("Using fallback DNS: %s", cfg.General.FallbackDNS)
-	return []keenetic.DnsServerInfo{
+	return []keenetic.DNSServerInfo{
 		{
-			Type:     keenetic.DnsServerTypePlain,
+			Type:     keenetic.DNSServerTypePlain,
 			Proxy:    cfg.General.FallbackDNS,
 			Endpoint: cfg.General.FallbackDNS,
 			Domain:   nil,

@@ -53,8 +53,8 @@ func TestInterfaceSelector_IsUsable(t *testing.T) {
 	t.Run("Interface is usable when up and connected", func(t *testing.T) {
 		keeneticIface := &keenetic.Interface{
 			ID:        "Wireguard0",
-			Connected: keenetic.KEENETIC_CONNECTED,
-			Link:      keenetic.KEENETIC_LINK_UP,
+			Connected: keenetic.KeeneticConnected,
+			Link:      keenetic.KeeneticLinkUp,
 		}
 
 		isUsable := selector.IsUsable(testIface, keeneticIface)
@@ -80,7 +80,7 @@ func TestInterfaceSelector_IsUsable(t *testing.T) {
 		keeneticIface := &keenetic.Interface{
 			ID:        "GigabitEthernet1",
 			Connected: "", // Empty string - Keenetic API returned incomplete data
-			Link:      keenetic.KEENETIC_LINK_UP,
+			Link:      keenetic.KeeneticLinkUp,
 		}
 
 		isUsable := selector.IsUsable(testIface, keeneticIface)

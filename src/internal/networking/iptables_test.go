@@ -11,8 +11,8 @@ func TestProcessRulePart_TemplateSubstitution(t *testing.T) {
 		IPSetName: "test-ipset",
 		Routing: &config.RoutingConfig{
 			FwMark:         100,
-			IpRouteTable:   200,
-			IpRulePriority: 300,
+			IPRouteTable:   200,
+			IPRulePriority: 300,
 		},
 	}
 
@@ -126,8 +126,8 @@ func TestProcessRulePart_EdgeCases(t *testing.T) {
 				IPSetName: "test",
 				Routing: &config.RoutingConfig{
 					FwMark:         0,
-					IpRouteTable:   0,
-					IpRulePriority: 0,
+					IPRouteTable:   0,
+					IPRulePriority: 0,
 				},
 			},
 			template: "{{fwmark}} {{table}} {{priority}}",
@@ -139,8 +139,8 @@ func TestProcessRulePart_EdgeCases(t *testing.T) {
 				IPSetName: "test",
 				Routing: &config.RoutingConfig{
 					FwMark:         4294967295, // Max uint32
-					IpRouteTable:   65535,
-					IpRulePriority: 32767,
+					IPRouteTable:   65535,
+					IPRulePriority: 32767,
 				},
 			},
 			template: "{{fwmark}} {{table}} {{priority}}",
@@ -177,10 +177,10 @@ func TestProcessRulePart_EdgeCases(t *testing.T) {
 
 func TestProcessRules_BusinessLogic(t *testing.T) {
 	tests := []struct {
-		name           string
-		ipset          *config.IPSetConfig
-		expectError    bool
-		expectedRules  int
+		name          string
+		ipset         *config.IPSetConfig
+		expectError   bool
+		expectedRules int
 	}{
 		{
 			name: "IPSet with iptables rules",
@@ -188,8 +188,8 @@ func TestProcessRules_BusinessLogic(t *testing.T) {
 				IPSetName: "test-ipset",
 				Routing: &config.RoutingConfig{
 					FwMark:         100,
-					IpRouteTable:   200,
-					IpRulePriority: 300,
+					IPRouteTable:   200,
+					IPRulePriority: 300,
 				},
 				IPTablesRules: []*config.IPTablesRule{
 					{
@@ -198,7 +198,7 @@ func TestProcessRules_BusinessLogic(t *testing.T) {
 						Rule:  []string{"-m", "set", "--match-set", "{{ipset_name}}", "src", "-j", "ACCEPT"},
 					},
 					{
-						Chain: "OUTPUT", 
+						Chain: "OUTPUT",
 						Table: "filter",
 						Rule:  []string{"-m", "mark", "--mark", "{{fwmark}}", "-j", "ACCEPT"},
 					},
@@ -235,16 +235,12 @@ func TestProcessRules_BusinessLogic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rules, err := processRules(tt.ipset)
+			rules := processRules(tt.ipset)
 
 			if tt.expectError {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				// No longer returns error
+				t.Skip("processRules no longer returns error")
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error but got: %v", err)
-				}
 				if len(rules) != tt.expectedRules {
 					t.Errorf("Expected %d rules, got %d", tt.expectedRules, len(rules))
 				}

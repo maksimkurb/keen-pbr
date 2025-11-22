@@ -154,7 +154,7 @@ func (c *Client) GetInterfaces() (map[string]Interface, error) {
 }
 
 // GetDNSServers retrieves the list of DNS servers configured on the router.
-func (c *Client) GetDNSServers() ([]DnsServerInfo, error) {
+func (c *Client) GetDNSServers() ([]DNSServerInfo, error) {
 	// Fetch DNS proxy status
 	response, err := fetchAndDeserializeForClient[DNSProxyResponse](c, "/show/dns-proxy")
 	if err != nil {
@@ -170,7 +170,7 @@ func (c *Client) GetDNSServers() ([]DnsServerInfo, error) {
 	}
 
 	// If System profile not found, return empty list
-	return []DnsServerInfo{}, nil
+	return []DNSServerInfo{}, nil
 }
 
 // ClearCache clears all cached data.

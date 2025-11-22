@@ -36,10 +36,7 @@ func TestAppendDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isDomain, err := appendDomain(tt.host, ipsets, domainStore)
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
+			isDomain := appendDomain(tt.host, ipsets, domainStore)
 			if tt.expected && !isDomain {
 				t.Errorf("Expected domain to be added, but it wasn't")
 			}
@@ -57,10 +54,7 @@ func TestAppendDomain_NilStore(t *testing.T) {
 		{Index: 0, Name: "test"},
 	}
 
-	isDomain, err := appendDomain("example.com", ipsets, nil)
-	if err != nil {
-		t.Errorf("Expected no error with nil store, got: %v", err)
-	}
+	isDomain := appendDomain("example.com", ipsets, nil)
 	if !isDomain {
 		t.Error("Expected domain to be recognized")
 	}

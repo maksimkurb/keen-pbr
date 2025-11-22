@@ -27,20 +27,22 @@ type InterfaceIPv6Address struct {
 
 type Interfaces map[string]Interface
 
-const KEENETIC_LINK_UP = "up"
-const KEENETIC_CONNECTED = "yes"
-
-type DnsServerType string
-
 const (
-	DnsServerTypePlain     DnsServerType = "IP4"
-	DnsServerTypePlainIPv6 DnsServerType = "IP6"
-	DnsServerTypeDoT       DnsServerType = "DoT"
-	DnsServerTypeDoH       DnsServerType = "DoH"
+	KeeneticLinkUp    = "up"
+	KeeneticConnected = "yes"
 )
 
-type DnsServerInfo struct {
-	Type     DnsServerType
+type DNSServerType string
+
+const (
+	DNSServerTypePlain     DNSServerType = "IP4"
+	DNSServerTypePlainIPv6 DNSServerType = "IP6"
+	DNSServerTypeDoT       DNSServerType = "DoT"
+	DNSServerTypeDoH       DNSServerType = "DoH"
+)
+
+type DNSServerInfo struct {
+	Type     DNSServerType
 	Domain   *string
 	Proxy    string
 	Endpoint string // For DoT: SNI, for DoH: URI, for Plain/PlainIPv6: same as Proxy

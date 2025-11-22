@@ -73,8 +73,8 @@ func TestIPRuleComponent_ShouldExist(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 		},
 	}
 
@@ -92,8 +92,8 @@ func TestIPRuleComponent_GetType(t *testing.T) {
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
 			FwMark:         0x100,
-			IpRouteTable:   100,
-			IpRulePriority: 100,
+			IPRouteTable:   100,
+			IPRulePriority: 100,
 		},
 	}
 
@@ -110,7 +110,7 @@ func TestIPRouteComponent_GetType(t *testing.T) {
 		IPSetName: "test-ipset",
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
-			IpRouteTable: 100,
+			IPRouteTable: 100,
 			Interfaces:   []string{"eth0"},
 		},
 	}
@@ -129,7 +129,7 @@ func TestIPRouteComponent_BlackholeType(t *testing.T) {
 		IPSetName: "test-ipset",
 		IPVersion: 4,
 		Routing: &config.RoutingConfig{
-			IpRouteTable: 100,
+			IPRouteTable: 100,
 			Interfaces:   []string{"eth0"},
 		},
 	}
@@ -259,8 +259,8 @@ func TestComponentBase_Embedding(t *testing.T) {
 				IPVersion: 4,
 				Routing: &config.RoutingConfig{
 					FwMark:         0x100,
-					IpRouteTable:   100,
-					IpRulePriority: 100,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
 				},
 			}),
 			expectedType:  ComponentTypeIPRule,

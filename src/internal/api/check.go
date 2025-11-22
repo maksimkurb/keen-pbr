@@ -404,7 +404,7 @@ func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkSelfJSON performs self-check and returns results as a JSON table
-func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) checkSelfJSON(w http.ResponseWriter, _ *http.Request) {
 	checks := []SelfCheckRow{}
 
 	// Load configuration
@@ -498,15 +498,15 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, r *http.Request) {
 
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
-		ipsetChecks := h.checkIPSetSelfJSON(cfg, ipsetCfg)
+		ipsetChecks := h.checkIPSetSelfJSON(ipsetCfg)
 		checks = append(checks, ipsetChecks...)
 	}
 
 	writeJSONData(w, SelfCheckResponse{Checks: checks})
 }
 
-// checkSelfSSE performs self-check and streams results via SSE
-func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
+// checkSelfSSE performs self-check and streams results via Server-Sent Events
+func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -568,7 +568,7 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
-		if !h.checkIPSetSelfSSE(w, flusher, cfg, ipsetCfg) {
+		if !h.checkIPSetSelfSSE(w, flusher, ipsetCfg) {
 			hasFailures = true
 		}
 	}
@@ -584,7 +584,7 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, r *http.Request) {
 // checkIPSetSelfSSE checks a single IPSet configuration and streams results via SSE
 // This implementation uses the NetworkingComponent abstraction (identical logic to JSON mode)
 // Returns true if all checks passed, false if any failed
-func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config, ipsetCfg *config.IPSetConfig) bool {
+func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher, ipsetCfg *config.IPSetConfig) bool {
 	hasFailures := false
 
 	// Build components for this IPSet using the networking component abstraction
@@ -639,7 +639,7 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 
 // checkIPSetSelfJSON checks a single IPSet configuration and returns results as table rows
 // This implementation uses the NetworkingComponent abstraction instead of direct command execution
-func (h *Handler) checkIPSetSelfJSON(cfg *config.Config, ipsetCfg *config.IPSetConfig) []SelfCheckRow {
+func (h *Handler) checkIPSetSelfJSON(ipsetCfg *config.IPSetConfig) []SelfCheckRow {
 	checks := []SelfCheckRow{}
 
 	// Build components for this IPSet using the networking component abstraction
@@ -710,7 +710,7 @@ func (h *Handler) getComponentMessage(component networking.NetworkingComponent, 
 	case networking.ComponentTypeIPRule:
 		if exists && shouldExist {
 			return fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists",
-				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IpRouteTable)
+				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IPRouteTable)
 		} else if !exists && shouldExist {
 			return fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist (missing)",
 				ipsetCfg.Routing.FwMark)
@@ -725,30 +725,30 @@ func (h *Handler) getComponentMessage(component networking.NetworkingComponent, 
 			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
 				if exists && shouldExist {
 					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
-						ipsetCfg.Routing.IpRouteTable)
+						ipsetCfg.Routing.IPRouteTable)
 				} else if !exists && !shouldExist {
 					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
-						ipsetCfg.Routing.IpRouteTable)
+						ipsetCfg.Routing.IPRouteTable)
 				} else if exists && !shouldExist {
 					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
-						ipsetCfg.Routing.IpRouteTable)
+						ipsetCfg.Routing.IPRouteTable)
 				}
 				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
-					ipsetCfg.Routing.IpRouteTable)
+					ipsetCfg.Routing.IPRouteTable)
 			} else {
 				ifaceName := routeComp.GetInterfaceName()
 				if exists && shouldExist {
 					return fmt.Sprintf("Route in table %d via %s exists (active)",
-						ipsetCfg.Routing.IpRouteTable, ifaceName)
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
 				} else if !exists && !shouldExist {
 					return fmt.Sprintf("Route in table %d via %s not present (interface not best)",
-						ipsetCfg.Routing.IpRouteTable, ifaceName)
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
 				} else if exists && !shouldExist {
 					return fmt.Sprintf("Route in table %d via %s exists but is not best interface (stale)",
-						ipsetCfg.Routing.IpRouteTable, ifaceName)
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
 				}
 				return fmt.Sprintf("Route in table %d via %s missing but is best interface (missing)",
-					ipsetCfg.Routing.IpRouteTable, ifaceName)
+					ipsetCfg.Routing.IPRouteTable, ifaceName)
 			}
 		}
 

@@ -3,12 +3,13 @@ package lists
 import (
 	"bufio"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
-	"os"
-	"time"
 )
 
 // PrintDnsmasqConfig processes the configuration and prints the dnsmasq configuration.
@@ -43,11 +44,11 @@ func PrintDnsmasqConfig(cfg *config.Config, configPath string, keeneticClient *k
 		domainCount := 0
 
 		if err := iterateOverList(list, cfg, func(host string) error {
-			isDomain, err := appendDomain(host, ipsets, domainStore)
+			isDomain := appendDomain(host, ipsets, domainStore)
 			if isDomain {
 				domainCount++
 			}
-			return err
+			return nil
 		}); err != nil {
 			// Log error but continue processing other lists
 			log.Errorf("[list %s] Failed to process: %v. Skipping this list in dnsmasq config.", listName, err)

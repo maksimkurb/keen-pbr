@@ -114,22 +114,12 @@ func (c *DNSRedirectComponent) CreateIfNotExists() error {
 
 // DeleteIfExists removes the component if it exists.
 func (c *DNSRedirectComponent) DeleteIfExists() error {
-	var errs []error
-
 	if c.ipt4 != nil {
-		if err := c.deleteChainAndRules(c.ipt4); err != nil {
-			errs = append(errs, fmt.Errorf("IPv4: %w", err))
-		}
+		c.deleteChainAndRules(c.ipt4)
 	}
 
 	if c.ipt6 != nil {
-		if err := c.deleteChainAndRules(c.ipt6); err != nil {
-			errs = append(errs, fmt.Errorf("IPv6: %w", err))
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("errors during cleanup: %v", errs)
+		c.deleteChainAndRules(c.ipt6)
 	}
 
 	return nil
@@ -274,7 +264,7 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 	return nil
 }
 
-func (c *DNSRedirectComponent) deleteChainAndRules(ipt *iptables.IPTables) error {
+func (c *DNSRedirectComponent) deleteChainAndRules(ipt *iptables.IPTables) {
 	// Unlink from PREROUTING
 	if err := ipt.DeleteIfExists("nat", "PREROUTING", "-j", dnsRedirectChainName); err != nil {
 		log.Debugf("Failed to unlink chain: %v", err)
@@ -289,8 +279,6 @@ func (c *DNSRedirectComponent) deleteChainAndRules(ipt *iptables.IPTables) error
 	if err := ipt.DeleteChain("nat", dnsRedirectChainName); err != nil {
 		log.Debugf("Failed to delete chain: %v", err)
 	}
-
-	return nil
 }
 
 // getLocalAddresses returns all local IP addresses.

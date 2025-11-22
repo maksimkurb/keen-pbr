@@ -28,16 +28,16 @@ rpc_only = on
 `
 
 	got := ParseDNSProxyConfig(testConfig)
-	want := []DnsServerInfo{
+	want := []DNSServerInfo{
 		{
-			Type:     DnsServerTypePlain,
+			Type:     DNSServerTypePlain,
 			Domain:   strPtr("cubly.ru"),
 			Proxy:    "192.168.41.15",
 			Endpoint: "192.168.41.15",
 			Port:     "",
 		},
 		{
-			Type:     DnsServerTypeDoT,
+			Type:     DNSServerTypeDoT,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "p0.freedns.controld.com",
@@ -74,9 +74,9 @@ mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
 	got := ParseDNSProxyConfig(testConfig)
-	want := []DnsServerInfo{
+	want := []DNSServerInfo{
 		{
-			Type:     DnsServerTypeDoH,
+			Type:     DNSServerTypeDoH,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "https://freedns.controld.com/p0",
@@ -113,9 +113,9 @@ mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
 	got := ParseDNSProxyConfig(testConfig)
-	want := []DnsServerInfo{
+	want := []DNSServerInfo{
 		{
-			Type:     DnsServerTypeDoH,
+			Type:     DNSServerTypeDoH,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "https://freedns.controld.com/p0",
@@ -161,44 +161,44 @@ mirror_path = /var/run/ntce-dns-mirror.sock
 `
 
 	got := ParseDNSProxyConfig(testConfig)
-	want := []DnsServerInfo{
+	want := []DNSServerInfo{
 		{
-			Type:     DnsServerTypePlainIPv6,
+			Type:     DNSServerTypePlainIPv6,
 			Domain:   strPtr("ipv6.corp"),
 			Proxy:    "2606:1a40::3",
 			Endpoint: "2606:1a40::3",
 			Port:     "",
 		},
 		{
-			Type:     DnsServerTypePlain,
+			Type:     DNSServerTypePlain,
 			Domain:   strPtr("ipv4.corp"),
 			Proxy:    "1.2.2.1",
 			Endpoint: "1.2.2.1",
 			Port:     "",
 		},
 		{
-			Type:     DnsServerTypePlain,
+			Type:     DNSServerTypePlain,
 			Domain:   strPtr("corp.me"),
 			Proxy:    "121.11.1.1",
 			Endpoint: "121.11.1.1",
 			Port:     "124",
 		},
 		{
-			Type:     DnsServerTypeDoT,
+			Type:     DNSServerTypeDoT,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "p1.freedns.controld.com",
 			Port:     "40500",
 		},
 		{
-			Type:     DnsServerTypeDoT,
+			Type:     DNSServerTypeDoT,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "76.76.2.11@p0.freedns.controld.com",
 			Port:     "40501",
 		},
 		{
-			Type:     DnsServerTypeDoH,
+			Type:     DNSServerTypeDoH,
 			Domain:   nil,
 			Proxy:    "127.0.0.1",
 			Endpoint: "https://freedns.controld.com/p0",
@@ -247,8 +247,8 @@ func TestParseDnsProxyConfig_PlainIPv4(t *testing.T) {
 	}
 
 	server := result[0]
-	if server.Type != DnsServerTypePlain {
-		t.Errorf("Expected type %s, got %s", DnsServerTypePlain, server.Type)
+	if server.Type != DNSServerTypePlain {
+		t.Errorf("Expected type %s, got %s", DNSServerTypePlain, server.Type)
 	}
 
 	if server.Proxy != "8.8.8.8" {
@@ -277,8 +277,8 @@ func TestParseDnsProxyConfig_PlainIPv4WithPort(t *testing.T) {
 	}
 
 	server := result[0]
-	if server.Type != DnsServerTypePlain {
-		t.Errorf("Expected type %s, got %s", DnsServerTypePlain, server.Type)
+	if server.Type != DNSServerTypePlain {
+		t.Errorf("Expected type %s, got %s", DNSServerTypePlain, server.Type)
 	}
 
 	if server.Proxy != "8.8.8.8" {
@@ -299,8 +299,8 @@ func TestParseDnsProxyConfig_IPv6(t *testing.T) {
 	}
 
 	server := result[0]
-	if server.Type != DnsServerTypePlainIPv6 {
-		t.Errorf("Expected type %s, got %s", DnsServerTypePlainIPv6, server.Type)
+	if server.Type != DNSServerTypePlainIPv6 {
+		t.Errorf("Expected type %s, got %s", DNSServerTypePlainIPv6, server.Type)
 	}
 
 	if server.Proxy != "2001:4860:4860::8888" {
@@ -321,8 +321,8 @@ func TestParseDnsProxyConfig_LocalhostWithoutComment(t *testing.T) {
 	}
 
 	server := result[0]
-	if server.Type != DnsServerTypePlain {
-		t.Errorf("Expected type %s, got %s", DnsServerTypePlain, server.Type)
+	if server.Type != DNSServerTypePlain {
+		t.Errorf("Expected type %s, got %s", DNSServerTypePlain, server.Type)
 	}
 
 	if server.Domain != nil {
@@ -381,8 +381,8 @@ dns_server = 127.0.0.1:5353 . # example.com`
 	}
 
 	// Check third entry (DoT)
-	if result[2].Type != DnsServerTypeDoT {
-		t.Errorf("Expected third type %s, got %s", DnsServerTypeDoT, result[2].Type)
+	if result[2].Type != DNSServerTypeDoT {
+		t.Errorf("Expected third type %s, got %s", DNSServerTypeDoT, result[2].Type)
 	}
 }
 
@@ -395,8 +395,8 @@ func TestParseDnsProxyConfig_CommentsWithSpaces(t *testing.T) {
 	}
 
 	server := result[0]
-	if server.Type != DnsServerTypeDoH {
-		t.Errorf("Expected type %s, got %s", DnsServerTypeDoH, server.Type)
+	if server.Type != DNSServerTypeDoH {
+		t.Errorf("Expected type %s, got %s", DNSServerTypeDoH, server.Type)
 	}
 
 	if server.Endpoint != "https://freedns.controld.com/p0" {

@@ -8,7 +8,7 @@ import (
 // IP rules route packets marked by iptables to custom routing tables.
 type IPRuleComponent struct {
 	ComponentBase
-	rule *IpRule
+	rule *IPRule
 	cfg  *config.IPSetConfig
 }
 
@@ -49,6 +49,6 @@ func (c *IPRuleComponent) DeleteIfExists() error {
 }
 
 // GetRule returns the underlying IP rule
-func (c *IPRuleComponent) GetRule() *IpRule {
+func (c *IPRuleComponent) GetRule() *IPRule {
 	return c.rule
 }

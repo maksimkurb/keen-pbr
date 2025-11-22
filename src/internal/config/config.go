@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -16,18 +17,18 @@ var (
 	ipsetRegexp = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
 
-type IpFamily uint8
+type IPFamily uint8
 
 const (
-	Ipv4 IpFamily = 4
-	Ipv6 IpFamily = 6
+	Ipv4 IPFamily = 4
+	Ipv6 IPFamily = 6
 )
 
 const (
-	IPTABLES_TMPL_IPSET    = "ipset_name"
-	IPTABLES_TMPL_FWMARK   = "fwmark"
-	IPTABLES_TMPL_TABLE    = "table"
-	IPTABLES_TMPL_PRIORITY = "priority"
+	IPTablesTmplIpset    = "ipset_name"
+	IPTablesTmplFwmark   = "fwmark"
+	IPTablesTmplTable    = "table"
+	IPTablesTmplPriority = "priority"
 )
 
 func LoadConfig(configPath string) (*Config, error) {

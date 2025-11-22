@@ -43,10 +43,7 @@ func (b *IPTablesBuilder) Build() (*IPTableRules, error) {
 		return nil, err
 	}
 
-	rules, err := processRules(b.ipset)
-	if err != nil {
-		return nil, err
-	}
+	rules := processRules(b.ipset)
 
 	return &IPTableRules{ipt, b.ipset, rules}, nil
 }
@@ -76,11 +73,11 @@ func NewIPRuleBuilder(ipset *config.IPSetConfig) *IPRuleBuilder {
 // - Rule priority
 //
 // Returns a fully configured IpRule instance ready for addition/removal.
-func (b *IPRuleBuilder) Build() *IpRule {
+func (b *IPRuleBuilder) Build() *IPRule {
 	return BuildRule(
 		b.ipset.IPVersion,
 		b.ipset.Routing.FwMark,
-		b.ipset.Routing.IpRouteTable,
-		b.ipset.Routing.IpRulePriority,
+		b.ipset.Routing.IPRouteTable,
+		b.ipset.Routing.IPRulePriority,
 	)
 }

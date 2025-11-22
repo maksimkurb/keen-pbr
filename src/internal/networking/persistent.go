@@ -37,7 +37,7 @@ func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
 		return err
 	} else if added {
 		log.Infof("[%s] Added ip rule: fwmark=%d -> table=%d (priority=%d)",
-			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IpRouteTable, ipset.Routing.IpRulePriority)
+			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IPRouteTable, ipset.Routing.IPRulePriority)
 	}
 
 	if added, err := ipTableRules.AddIfNotExists(); err != nil {
@@ -60,7 +60,7 @@ func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
 		return err
 	} else if deleted {
 		log.Infof("[%s] Deleted ip rule: fwmark=%d -> table=%d",
-			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IpRouteTable)
+			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IPRouteTable)
 	}
 
 	if ipTableRules, err := NewIPTablesBuilder(ipset).Build(); err != nil {

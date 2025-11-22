@@ -21,9 +21,9 @@ func TestRoutingService_Apply(t *testing.T) {
 					IPSetName: "test",
 					IPVersion: config.Ipv4,
 					Routing: &config.RoutingConfig{
-						IpRouteTable:   100,
+						IPRouteTable:   100,
 						FwMark:         100,
-						IpRulePriority: 100,
+						IPRulePriority: 100,
 						Interfaces:     []string{"lo"},
 					},
 				},

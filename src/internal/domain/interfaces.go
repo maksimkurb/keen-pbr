@@ -28,7 +28,7 @@ type KeeneticClient interface {
 	GetInterfaces() (map[string]keenetic.Interface, error)
 
 	// GetDNSServers retrieves the list of DNS servers configured on the router.
-	GetDNSServers() ([]keenetic.DnsServerInfo, error)
+	GetDNSServers() ([]keenetic.DNSServerInfo, error)
 }
 
 // NetworkManager defines the interface for managing network configuration.
@@ -61,7 +61,7 @@ type NetworkManager interface {
 type IPSetManager interface {
 	// Create creates a new ipset with the specified name and IP family.
 	// If the ipset already exists, this should be a no-op.
-	Create(name string, family config.IpFamily) error
+	Create(name string, family config.IPFamily) error
 
 	// Flush removes all entries from the specified ipset.
 	Flush(name string) error
@@ -79,19 +79,19 @@ type IPSetManager interface {
 // without modifying the actual routing table.
 type RouteManager interface {
 	// AddRoute adds a new route to the routing table.
-	AddRoute(route *networking.IpRoute) error
+	AddRoute(route *networking.IPRoute) error
 
 	// DelRoute removes a route from the routing table.
-	DelRoute(route *networking.IpRoute) error
+	DelRoute(route *networking.IPRoute) error
 
 	// ListRoutes returns all routes in the specified routing table.
-	ListRoutes(table int) ([]*networking.IpRoute, error)
+	ListRoutes(table int) ([]*networking.IPRoute, error)
 
 	// AddRouteIfNotExists adds a route only if it doesn't already exist.
-	AddRouteIfNotExists(route *networking.IpRoute) error
+	AddRouteIfNotExists(route *networking.IPRoute) error
 
 	// DelRouteIfExists removes a route only if it exists.
-	DelRouteIfExists(route *networking.IpRoute) error
+	DelRouteIfExists(route *networking.IPRoute) error
 }
 
 // InterfaceProvider defines the interface for retrieving network interfaces.

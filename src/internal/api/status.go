@@ -81,7 +81,7 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	response.Services["keen-pbr"] = keenPbrInfo
 
 	// Check dnsmasq service status
-	dnsmasqInfo := getServiceStatus("dnsmasq", "/opt/etc/init.d/S56dnsmasq")
+	dnsmasqInfo := getServiceStatus("/opt/etc/init.d/S56dnsmasq")
 
 	// Get dnsmasq active config hash via DNS lookup
 	dnsmasqHash := h.configHasher.GetDnsmasqActiveConfigHash()
@@ -111,7 +111,7 @@ func (h *Handler) getKeenPbrServiceStatus() ServiceInfo {
 }
 
 // getServiceStatus checks if a service is running using init.d scripts.
-func getServiceStatus(serviceName string, scriptPath string) ServiceInfo {
+func getServiceStatus(scriptPath string) ServiceInfo {
 	// Run status check
 	cmd := exec.Command(scriptPath, "check")
 	err := cmd.Run()

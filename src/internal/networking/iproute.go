@@ -2,37 +2,38 @@ package networking
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"net"
 )
 
 const (
-	BLACKHOLE_ROUTE_METRIC = 1000
-	GATEWAY_ROUTE_METRIC   = 500
-	INTERFACE_ROUTE_BASE   = 100
+	BlackholeRouteMetric = 1000
+	GatewayRouteMetric   = 500
+	InterfaceRouteBase   = 100
 )
 
-type IpRoute struct {
+type IPRoute struct {
 	*netlink.Route
 }
 
-func (r *IpRoute) String() string {
+func (ipr *IPRoute) String() string {
 	from := "all"
-	if r.Src != nil && r.Src.String() != "<nil>" {
-		from = r.Src.String()
+	if ipr.Src != nil && ipr.Src.String() != "<nil>" {
+		from = ipr.Src.String()
 	}
 
 	to := "all"
-	if r.Dst != nil && r.Dst.String() != "<nil>" {
-		to = r.Dst.String()
+	if ipr.Dst != nil && ipr.Dst.String() != "<nil>" {
+		to = ipr.Dst.String()
 	}
 
 	linkName := "<nil>"
-	if r.LinkIndex > 0 {
-		if link, err := netlink.LinkByIndex(r.LinkIndex); err != nil {
+	if ipr.LinkIndex > 0 {
+		if link, err := netlink.LinkByIndex(ipr.LinkIndex); err != nil {
 			linkName = "<err: " + err.Error() + ">"
 		} else {
 			linkName = link.Attrs().Name
@@ -40,17 +41,17 @@ func (r *IpRoute) String() string {
 	}
 
 	return fmt.Sprintf("table %d: src=%s dst=%s -> dev %s (idx=%d) [metric:%d]",
-		r.Table, from, to, linkName, r.LinkIndex, r.Priority)
+		ipr.Table, from, to, linkName, ipr.LinkIndex, ipr.Priority)
 }
 
-func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int, ipsetInterfaceIndex int) *IpRoute {
+func BuildDefaultRoute(ipFamily config.IPFamily, iface Interface, table int, ipsetInterfaceIndex int) *IPRoute {
 	ipr := netlink.Route{}
 
 	ipr.Table = table
 	ipr.LinkIndex = iface.Link.Attrs().Index
 	// Use ipset interface index (position in config) as metric
 	// metric = 100 + position (0-based), so first interface = 100, second = 101, etc.
-	ipr.Priority = INTERFACE_ROUTE_BASE + ipsetInterfaceIndex
+	ipr.Priority = InterfaceRouteBase + ipsetInterfaceIndex
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
 		ipr.Dst = &net.IPNet{
@@ -64,14 +65,14 @@ func BuildDefaultRoute(ipFamily config.IpFamily, iface Interface, table int, ips
 			Mask: net.CIDRMask(0, 32),
 		}
 	}
-	return &IpRoute{&ipr}
+	return &IPRoute{&ipr}
 }
 
-func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
+func BuildBlackholeRoute(ipFamily config.IPFamily, table int) *IPRoute {
 	ipr := netlink.Route{}
 
 	ipr.Table = table
-	ipr.Priority = BLACKHOLE_ROUTE_METRIC
+	ipr.Priority = BlackholeRouteMetric
 	ipr.Type = unix.RTN_BLACKHOLE
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
@@ -86,15 +87,15 @@ func BuildBlackholeRoute(ipFamily config.IpFamily, table int) *IpRoute {
 			Mask: net.CIDRMask(0, 32),
 		}
 	}
-	return &IpRoute{&ipr}
+	return &IPRoute{&ipr}
 }
 
-func BuildDefaultRouteViaGateway(ipFamily config.IpFamily, gateway net.IP, table int) *IpRoute {
+func BuildDefaultRouteViaGateway(ipFamily config.IPFamily, gateway net.IP, table int) *IPRoute {
 	ipr := netlink.Route{}
 
 	ipr.Table = table
 	// Use a fixed metric for gateway routes (lower than blackhole but higher than interface)
-	ipr.Priority = GATEWAY_ROUTE_METRIC
+	ipr.Priority = GatewayRouteMetric
 	ipr.Gw = gateway
 	if ipFamily == config.Ipv6 {
 		ipr.Family = netlink.FAMILY_V6
@@ -109,10 +110,10 @@ func BuildDefaultRouteViaGateway(ipFamily config.IpFamily, gateway net.IP, table
 			Mask: net.CIDRMask(0, 32),
 		}
 	}
-	return &IpRoute{&ipr}
+	return &IPRoute{&ipr}
 }
 
-func (ipr *IpRoute) Add() error {
+func (ipr *IPRoute) Add() error {
 	log.Debugf("Adding IP route [%v]", ipr)
 	if err := netlink.RouteAdd(ipr.Route); err != nil {
 		log.Warnf("Failed to add IP route [%v]: %v", ipr, err)
@@ -122,7 +123,7 @@ func (ipr *IpRoute) Add() error {
 	return nil
 }
 
-func (ipr *IpRoute) AddIfNotExists() (bool, error) {
+func (ipr *IPRoute) AddIfNotExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
 		return false, err
 	} else {
@@ -136,7 +137,7 @@ func (ipr *IpRoute) AddIfNotExists() (bool, error) {
 	return false, nil
 }
 
-func (ipr *IpRoute) IsExists() (bool, error) {
+func (ipr *IPRoute) IsExists() (bool, error) {
 	var filters uint64
 	if ipr.Type == unix.RTN_BLACKHOLE {
 		// For blackhole routes, don't use OIF filter since they have no output interface
@@ -160,7 +161,7 @@ func (ipr *IpRoute) IsExists() (bool, error) {
 	return false, nil
 }
 
-func (ipr *IpRoute) Del() error {
+func (ipr *IPRoute) Del() error {
 	log.Debugf("Deleting IP route [%v]", ipr)
 	if err := netlink.RouteDel(ipr.Route); err != nil {
 		log.Warnf("Failed to delete IP route [%v]: %v", ipr, err)
@@ -170,7 +171,7 @@ func (ipr *IpRoute) Del() error {
 	return nil
 }
 
-func (ipr *IpRoute) DelIfExists() (bool, error) {
+func (ipr *IPRoute) DelIfExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
 		return false, err
 	} else {
@@ -184,7 +185,7 @@ func (ipr *IpRoute) DelIfExists() (bool, error) {
 	return false, nil
 }
 
-func DelIpRouteTable(table int) error {
+func DelIPRouteTable(table int) error {
 	log.Debugf("Deleting IP route table [%d]", table)
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
@@ -200,7 +201,7 @@ func DelIpRouteTable(table int) error {
 	return nil
 }
 
-func ListRoutesInTable(table int) ([]*IpRoute, error) {
+func ListRoutesInTable(table int) ([]*IPRoute, error) {
 	log.Debugf("Listing all routes in the routing table %d", table)
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
@@ -208,10 +209,10 @@ func ListRoutesInTable(table int) ([]*IpRoute, error) {
 		return nil, err
 	}
 
-	var ipRoutes []*IpRoute
+	var ipRoutes []*IPRoute
 	for _, route := range routes {
 		copiedRoute := route
-		ipRoutes = append(ipRoutes, &IpRoute{&copiedRoute})
+		ipRoutes = append(ipRoutes, &IPRoute{&copiedRoute})
 	}
 
 	return ipRoutes, nil

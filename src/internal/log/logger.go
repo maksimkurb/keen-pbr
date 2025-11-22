@@ -55,7 +55,7 @@ func Errorf(format string, args ...interface{}) {
 	logMessage(levelError, format, args...)
 }
 
-// Errorf logs an error message.
+// Fatalf logs an error message and exits the program.
 func Fatalf(format string, args ...interface{}) {
 	logMessage(levelError, format, args...)
 	os.Exit(1)

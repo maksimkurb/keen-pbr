@@ -17,7 +17,7 @@ const ipsetCommand = "ipset"
 
 type IPSet struct {
 	Name     string
-	IpFamily config.IpFamily
+	IPFamily config.IPFamily
 }
 
 type IPSetWriter struct {
@@ -30,15 +30,15 @@ type IPSetWriter struct {
 	closed bool
 }
 
-func BuildIPSet(name string, ipFamily config.IpFamily) *IPSet {
+func BuildIPSet(name string, ipFamily config.IPFamily) *IPSet {
 	return &IPSet{
 		Name:     name,
-		IpFamily: ipFamily,
+		IPFamily: ipFamily,
 	}
 }
 
 func (ipset *IPSet) String() string {
-	return fmt.Sprintf("ipset %s (IPv%d)", ipset.Name, ipset.IpFamily)
+	return fmt.Sprintf("ipset %s (IPv%d)", ipset.Name, ipset.IPFamily)
 }
 
 func (ipset *IPSet) CheckExecutable() error {
@@ -54,7 +54,7 @@ func (ipset *IPSet) CreateIfNotExists() error {
 	}
 
 	var family string
-	if ipset.IpFamily == 6 {
+	if ipset.IPFamily == 6 {
 		family = "inet6"
 	} else {
 		family = "inet"

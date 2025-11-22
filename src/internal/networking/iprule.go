@@ -2,31 +2,32 @@ package networking
 
 import (
 	"fmt"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/vishvananda/netlink"
 )
 
-type IpRule struct {
+type IPRule struct {
 	*netlink.Rule
 }
 
-func (r *IpRule) String() string {
+func (ipr *IPRule) String() string {
 	from := "all"
-	if r.Src != nil && r.Src.String() != "<nil>" {
-		from = r.Src.String()
+	if ipr.Src != nil && ipr.Src.String() != "<nil>" {
+		from = ipr.Src.String()
 	}
 
 	to := "all"
-	if r.Dst != nil && r.Dst.String() != "<nil>" {
-		to = r.Dst.String()
+	if ipr.Dst != nil && ipr.Dst.String() != "<nil>" {
+		to = ipr.Dst.String()
 	}
 
 	return fmt.Sprintf("rule %d: from %s to %s fwmark=%d -> table %d",
-		r.Priority, from, to, r.Mark, r.Table)
+		ipr.Priority, from, to, ipr.Mark, ipr.Table)
 }
 
-func BuildRule(ipFamily config.IpFamily, fwmark uint32, table int, priority int) *IpRule {
+func BuildRule(ipFamily config.IPFamily, fwmark uint32, table int, priority int) *IPRule {
 	ipr := netlink.NewRule()
 
 	ipr.Table = table
@@ -37,10 +38,10 @@ func BuildRule(ipFamily config.IpFamily, fwmark uint32, table int, priority int)
 	} else {
 		ipr.Family = netlink.FAMILY_V4
 	}
-	return &IpRule{ipr}
+	return &IPRule{ipr}
 }
 
-func (ipr *IpRule) Add() error {
+func (ipr *IPRule) Add() error {
 	log.Debugf("Adding IP rule [%v]", ipr)
 	if err := netlink.RuleAdd(ipr.Rule); err != nil {
 		log.Warnf("Failed to add IP rule [%v]: %v", ipr, err)
@@ -50,7 +51,7 @@ func (ipr *IpRule) Add() error {
 	return nil
 }
 
-func (ipr *IpRule) AddIfNotExists() (bool, error) {
+func (ipr *IPRule) AddIfNotExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
 		return false, err
 	} else {
@@ -64,7 +65,7 @@ func (ipr *IpRule) AddIfNotExists() (bool, error) {
 	return false, nil
 }
 
-func (ipr *IpRule) IsExists() (bool, error) {
+func (ipr *IPRule) IsExists() (bool, error) {
 	if filtered, err := netlink.RuleListFiltered(ipr.Family, ipr.Rule, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_MARK|netlink.RT_FILTER_PRIORITY); err != nil {
 		log.Warnf("Checking if IP rule exists [%v] is failed: %v", ipr, err)
 		return false, err
@@ -79,7 +80,7 @@ func (ipr *IpRule) IsExists() (bool, error) {
 	return false, nil
 }
 
-func (ipr *IpRule) Del() error {
+func (ipr *IPRule) Del() error {
 	log.Debugf("Deleting IP rule [%v]", ipr)
 	if err := netlink.RuleDel(ipr.Rule); err != nil {
 		log.Warnf("Failed to delete IP rule [%v]: %v", ipr, err)
@@ -89,7 +90,7 @@ func (ipr *IpRule) Del() error {
 	return nil
 }
 
-func (ipr *IpRule) DelIfExists() (bool, error) {
+func (ipr *IPRule) DelIfExists() (bool, error) {
 	if exists, err := ipr.IsExists(); err != nil {
 		return false, err
 	} else {

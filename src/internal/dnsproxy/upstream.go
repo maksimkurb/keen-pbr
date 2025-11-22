@@ -299,7 +299,7 @@ func (k *KeeneticUpstream) getUpstreams() ([]Upstream, error) {
 			continue
 		}
 
-		upstream := createUpstreamFromDnsServerInfo(server)
+		upstream := createUpstreamFromDNSServerInfo(server)
 		if upstream != nil {
 			k.upstreams = append(k.upstreams, upstream)
 		}
@@ -311,16 +311,16 @@ func (k *KeeneticUpstream) getUpstreams() ([]Upstream, error) {
 	return k.upstreams, nil
 }
 
-// createUpstreamFromDnsServerInfo creates an Upstream from a DnsServerInfo.
-func createUpstreamFromDnsServerInfo(info keenetic.DnsServerInfo) Upstream {
+// createUpstreamFromDNSServerInfo creates an Upstream from a DnsServerInfo.
+func createUpstreamFromDNSServerInfo(info keenetic.DNSServerInfo) Upstream {
 	switch info.Type {
-	case keenetic.DnsServerTypePlain, keenetic.DnsServerTypePlainIPv6:
+	case keenetic.DNSServerTypePlain, keenetic.DNSServerTypePlainIPv6:
 		address := info.Proxy
 		if info.Port != "" {
 			address = net.JoinHostPort(info.Proxy, info.Port)
-		} else if !strings.Contains(address, ":") || info.Type == keenetic.DnsServerTypePlainIPv6 {
+		} else if !strings.Contains(address, ":") || info.Type == keenetic.DNSServerTypePlainIPv6 {
 			// For IPv4 without port or IPv6, add default port
-			if info.Type == keenetic.DnsServerTypePlainIPv6 {
+			if info.Type == keenetic.DNSServerTypePlainIPv6 {
 				address = net.JoinHostPort(address, "53")
 			} else {
 				address = net.JoinHostPort(address, "53")
@@ -328,7 +328,7 @@ func createUpstreamFromDnsServerInfo(info keenetic.DnsServerInfo) Upstream {
 		}
 		return NewUDPUpstream(address)
 
-	case keenetic.DnsServerTypeDoT:
+	case keenetic.DNSServerTypeDoT:
 		// DoT: connect to local proxy that handles TLS
 		var address string
 		if info.Port != "" {
@@ -338,7 +338,7 @@ func createUpstreamFromDnsServerInfo(info keenetic.DnsServerInfo) Upstream {
 		}
 		return NewUDPUpstream(address)
 
-	case keenetic.DnsServerTypeDoH:
+	case keenetic.DNSServerTypeDoH:
 		// DoH: connect to local proxy that handles HTTPS
 		var address string
 		if info.Port != "" {

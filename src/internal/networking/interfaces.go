@@ -2,11 +2,12 @@ package networking
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/vishvananda/netlink"
-	"net"
 )
 
 const colorCyan = "\033[0;36m"
@@ -69,9 +70,9 @@ func PrintInterfaces(ifaces []Interface, printIPs bool, keeneticClient *keenetic
 				colorCyan, colorReset,
 				colorGreenIfTrue(up), up, colorReset,
 				colorCyan, colorReset,
-				colorGreenIfEquals(keeneticIface.Link, keenetic.KEENETIC_LINK_UP), keeneticIface.Link, colorReset,
+				colorGreenIfEquals(keeneticIface.Link, keenetic.KeeneticLinkUp), keeneticIface.Link, colorReset,
 				colorCyan, colorReset,
-				colorGreenIfEquals(keeneticIface.Connected, keenetic.KEENETIC_CONNECTED), keeneticIface.Connected, colorReset)
+				colorGreenIfEquals(keeneticIface.Connected, keenetic.KeeneticConnected), keeneticIface.Connected, colorReset)
 		} else {
 			fmt.Printf("%d. %s%s%s (%sup%s=%s%v%s)\n",
 				attrs.Index,
@@ -106,7 +107,7 @@ func colorGreenIfTrue(actual bool) string {
 	return colorRed
 }
 
-func getIPFamily(ip net.IP) config.IpFamily {
+func getIPFamily(ip net.IP) config.IPFamily {
 	if len(ip) <= net.IPv4len {
 		return config.Ipv4
 	}
