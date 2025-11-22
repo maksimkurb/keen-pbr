@@ -27,16 +27,14 @@ Project Telegram chat (in Russian): https://t.me/keen_pbr
 
 With this package, you can set up selective routing for specified IP addresses, subnets, and domains. This is useful if you need to organize secure access to certain resources or selectively distribute traffic across multiple providers (e.g., traffic to site A goes through one provider, while other traffic goes through another).
 
-The package uses `ipset` to store a large number of addresses in the router's memory without significantly increasing load and `dnsmasq` to populate this `ipset` with IP addresses resolved by local network clients.
+The package uses `ipset` to store a large number of addresses in the router's memory without significantly increasing load.
 
 To configure routing, the package creates scripts in the directories `/opt/etc/ndm/netfilter.d` and `/opt/etc/ndm/ifstatechanged.d`.
 
 ## Features
 
-- Domain-based routing via `dnsmasq`
 - IP address-based routing via `ipset`
 - Configurable routing tables and priorities
-- Automatic configuration for `dnsmasq` lists
 
 ## How it works
 
@@ -45,7 +43,7 @@ This package contains the following scripts and utilities:
 /opt
 ├── /usr
 │   └── /bin
-│       └── keen-pbr                    # Utility for downloading and processing lists, importing them to ipset, and generating configuration files for dnsmasq
+│       └── keen-pbr                    # Utility for downloading and processing lists, importing them to ipset, and running internal DNS server
 └── /etc
     ├── /keen-pbr
     │   ├── /keen-pbr.conf              # keen-pbr configuration file
@@ -58,8 +56,6 @@ This package contains the following scripts and utilities:
     │       └── 50-keen-pbr-routing.sh  # Script adds ip rule to direct packets with fwmark to the required routing table and creates it with the needed default gateway
     ├── /cron.daily
     │   └── 50-keen-pbr-lists-update.sh # Script for automatic daily list updates
-    └── /dnsmasq.d
-        └── (config files)                  # Folder with generated configurations for dnsmasq, making it put IP addresses of domains from lists into the required ipset
 ```
 
 ### Packet routing based on IP addresses and subnets
@@ -69,10 +65,10 @@ This package contains the following scripts and utilities:
 ![IP routing scheme](./.github/docs/ip-routing.svg)
 
 ### Packet routing based on domains
-For domain-based routing, `dnsmasq` is used. Each time local network clients make a DNS request, `dnsmasq` checks if the domain is in the lists, and if it is, adds its IP addresses to `ipset`.
+For domain-based routing, `keen-pbr` internal DNS server is used. Each time local network clients make a DNS request, `keen-pbr` checks if the domain is in the lists, and if it is, adds its IP addresses to `ipset`.
 
 > [!NOTE]  
-> For domain routing to work, client devices must not use their own DNS servers. Their DNS server should be the router's IP, otherwise `dnsmasq` won't see these packets and won't add IP addresses to the required `ipset`.
+> For domain routing to work, client devices must not use their own DNS servers. Their DNS server should be the router's IP, otherwise `keen-pbr` won't see these packets and won't add IP addresses to the required `ipset`.
 
 > [!IMPORTANT]  
 > Some applications and games use their own methods to obtain IP addresses for their servers. For such applications, domain routing won't work because these applications don't make DNS requests. You'll have to find out the IP addresses/subnets of these applications' servers and add them to the lists manually.
@@ -115,8 +111,6 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
    opkg install keen-pbr
    ```
 
-   During installation, the `keen-pbr` package replaces the original **dnsmasq** configuration file.
-   A backup will be saved in `/opt/etc/dnsmasq.conf.orig`.
 
 > [!CAUTION]  
 > If Entware is installed on the router's internal memory, be sure to [disable list auto-update](#config-step-3) to prevent memory wear!
@@ -147,8 +141,7 @@ Adjust the following configuration files according to your needs (more details b
 3. **(optional) [Disable lists auto-update](#config-step-3)**
    - If Entware is installed on internal memory, it is strongly recommended to [disable lists auto-update](#config-step-3) to prevent NAND-flash memory wear
 4. **(optional) [Configure DNS over HTTPS (DoH)](#config-step-4)**
-   - dnsmasq can be reconfigured for your needs, e.g. you can replace the upstream DNS server with your own
-   - It is recommended to install and configure the `dnscrypt-proxy2` package to protect your DNS requests via DNS-over-HTTPS (DoH)
+   - It is recommended to configure DoH/DoT on your Keenetic router to protect your DNS requests
 5. **(required) [Enable DNS Override](#config-step-5)**
 
 <a name="config-step-1"></a>
@@ -227,92 +220,27 @@ You can always [update lists manually](#lists-update).
 <a name="config-step-4"></a>
 ### 4. Configure DNS over HTTPS (DoH)
 
-> keen-pbr supports two ways to set up secure DNS:
-> - **Use DNS from Keenetic (recommended)**
-> - Use an external proxy (e.g., dnscrypt-proxy2)
+It is recommended to configure DoH/DoT on your Keenetic router to protect your DNS requests. See the [official Keenetic documentation](https://help.keenetic.com/hc/en-us/articles/360007687159-DNS-over-TLS-and-DNS-over-HTTPS-proxy-servers-for-DNS-requests-encryption) for details.
 
-<details>
-<summary><strong>Use DNS from Keenetic (recommended)</strong></summary>
+Edit file `/opt/etc/keen-pbr/keen-pbr.conf`:
+```toml
+[general]
+# ... (other config lines here, don't delete them)
 
-**Prerequisite**:
-- You must have DoH/DoT configured on your router. See the [official Keenetic documentation](https://help.keenetic.com/hc/en-us/articles/360007687159-DNS-over-TLS-and-DNS-over-HTTPS-proxy-servers-for-DNS-requests-encryption) for details.
+use_keenetic_dns = true
+fallback_dns = "8.8.8.8"
 
-1. Edit file: `/opt/etc/keen-pbr/keen-pbr.conf`
-   ```toml
-   [general]
-   # ... (other config lines here, don't delete them)
-
-   use_keenetic_dns = true
-   fallback_dns = "8.8.8.8"
-
-   # ... (other config lines here, don't delete them)
-   ```
-
-2. Open `/opt/etc/dnsmasq.conf` and remove or comment out all lines that start with `server=`.
-
+# ... (other config lines here, don't delete them)
+```
 
 - keen-pbr will use DNS servers from the System profile.
-- If you change DNS servers in the System profile, you need to restart the dnsmasq service (or disable and re-enable OPKG) for the new settings to take effect.
+- If you change DNS servers in the System profile, you need to restart keen-pbr (or disable and re-enable OPKG) for the new settings to take effect.
 - If RCI cannot get the DNS server list from the router, the fallback DNS (e.g., 8.8.8.8) will be used.
-- This is the simplest and most reliable way if you have already set up DoH/DoT on your Keenetic router.
-
-</details>
-
-<details>
-<summary><strong>Use an external proxy (dnscrypt-proxy2)</strong></summary>
-
-To set up **DoH** on your router, follow these steps:
-1. Install `dnscrypt-proxy2`
-    ```bash
-    opkg install dnscrypt-proxy2
-    ```
-2. Edit `/opt/etc/dnscrypt-proxy.toml`
-    ```ini
-   # ... (other config lines here, don't delete them)
-   
-   # Specify upstream servers (remove the # before server_names)
-   server_names = ['adguard-dns-doh', 'cloudflare-security', 'google']
-   
-   # Set port 9153 for listening to DNS requests
-   listen_addresses = ['127.0.0.1:9153']
-   
-   # ... (other config lines here, don't delete them)
-    ```
-3. Edit `/opt/etc/dnsmasq.conf`
-    ```ini
-   # ... (other config lines here, don't delete them)
-   
-   # Add our dnscrypt-proxy2 as the upstream server
-   # All other lines starting with "server=" MUST BE REMOVED OR COMMENTED OUT
-   server=127.0.0.1#9153
-   
-   # ... (other config lines here, don't delete them)
-    ```
-4. Edit `/opt/etc/keen-pbr/keen-pbr.conf`
-    ```toml
-    [general]
-    # ... (other config lines here, don't delete them)
-    
-    # Disable using DNS from Keenetic
-    use_keenetic_dns = false
-    
-    # ... (other config lines here, don't delete them)
-    ```
-5. Validate configuration
-    ```bash
-    # Check dnscrypt-proxy2 config
-    dnscrypt-proxy -config /opt/etc/dnscrypt-proxy.toml -check
-
-    # Check dnsmasq config
-    dnsmasq --test
-    ```
-
-</details>
 
 <a name="config-step-5"></a>
 ### 5. Enable DNS Override
 
-To make `dnsmasq` as the main DNS server on the router, you need to enable **DNS Override**.
+To make keen-pbr's internal DNS server as the main DNS server on the router, you need to enable **DNS Override**.
 
 > [!NOTE]  
 > This step is not required if your lists contain only IP addresses or CIDRs and do not specify domain names.
@@ -344,24 +272,20 @@ If you edited the `keen-pbr.conf` settings and want to update lists manually, ru
 # Run this if you added new remote lists to download them
 keen-pbr download
 
-# Run the following commands to apply new configuration
+# Run the following command to apply new configuration
 /opt/etc/init.d/S80keen-pbr restart
-/opt/etc/init.d/S56dnsmasq restart
 ```
 
 ## Troubleshooting
 
 For any issues, verify your configuration files and logs.
-Ensure lists are downloaded correctly, and `dnsmasq` is running with the updated configuration.
+Ensure lists are downloaded correctly, and keen-pbr is running with the updated configuration.
 
 Before checking the workability on the client machine, you need to clear the DNS cache.
 To do this, run the command in the console (for Windows): `ipconfig /flushdns`.
 
 You can also run the following command to check if **keen-pbr** is working correctly (output of this command will be very helpful if you ask for help in the Telegram chat):
 ```bash
-# Check dnsmasq configured properly
-/opt/etc/init.d/S80keen-pbr check
-
 # Check routing state
 /opt/etc/init.d/S80keen-pbr self-check
 ```
@@ -376,7 +300,7 @@ You can temporarily disable this configuration by disabling **OPKG** in the sett
 ### Complete uninstallation
 
 If you want to completely remove the package, you need to follow these steps:
-1. Execute via SSH: `opkg remove keen-pbr dnsmasq dnscrypt-proxy2`
+1. Execute via SSH: `opkg remove keen-pbr`
 2. Disable DNS-override (http://my.keenetic.net/a):
    - `no opkg dns-override`
    - `system configuration save`
