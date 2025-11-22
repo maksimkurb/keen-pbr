@@ -392,6 +392,8 @@ func (p *DNSProxy) processResponse(clientAddr net.Addr, reqMsg, respMsg *dns.Msg
 		return
 	}
 
+	var entries []networking.IPSetEntry
+
 	// Process each answer record
 	for _, rr := range respMsg.Answer {
 		if rr == nil {
@@ -400,99 +402,94 @@ func (p *DNSProxy) processResponse(clientAddr net.Addr, reqMsg, respMsg *dns.Msg
 
 		switch v := rr.(type) {
 		case *dns.A:
-			p.processARecord(v, reqMsg.Id, clientAddr, network)
+			entries = append(entries, p.processARecord(v, reqMsg.Id)...)
 		case *dns.AAAA:
-			p.processAAAARecord(v, reqMsg.Id, clientAddr, network)
+			entries = append(entries, p.processAAAARecord(v, reqMsg.Id)...)
 		case *dns.CNAME:
-			p.processCNAMERecord(v, reqMsg.Id, clientAddr, network)
+			entries = append(entries, p.processCNAMERecord(v, reqMsg.Id)...)
+		}
+	}
+
+	// Batch add to ipsets
+	if len(entries) > 0 {
+		if err := networking.BatchAddWithTTL(entries); err != nil {
+			log.Warnf("[%04x] Failed to batch add to ipsets: %v", reqMsg.Id, err)
 		}
 	}
 }
 
-// processARecord processes an A (IPv4) record.
-func (p *DNSProxy) processARecord(record *dns.A, id uint16, clientAddr net.Addr, network string) {
+// processARecord processes an A (IPv4) record and returns IPSet entries.
+func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	ttl := p.getTTL(record.Hdr.Ttl)
-
 	log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, ttl)
 
 	// Add to records cache
 	p.recordsCache.AddAddress(domain, record.A, ttl)
 
-	// Get all aliases for this domain
-	aliases := p.recordsCache.GetAliases(domain)
-
-	// Check each alias against domain lists
-	for _, alias := range aliases {
-		matches := p.matcher.Match(alias)
-		for _, ipsetName := range matches {
-			// Only add to IPv4 ipsets
-			ipsetCfg := p.matcher.GetIPSet(ipsetName)
-			if ipsetCfg == nil || ipsetCfg.IPVersion != config.Ipv4 {
-				continue
-			}
-
-			// Convert to netip.Prefix
-			addr, ok := netip.AddrFromSlice(record.A)
-			if !ok {
-				log.Warnf("[%04x] Invalid IPv4 address: %s", id, record.A)
-				continue
-			}
-			prefix := netip.PrefixFrom(addr, 32)
-
-			log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
-				id, record.A, ipsetName, domain, alias, ttl)
-
-			if err := networking.AddWithTTL(ipsetName, prefix, ttl); err != nil {
-				log.Warnf("[%04x] Failed to add %s to ipset %s: %v", id, record.A, ipsetName, err)
-			}
-		}
-	}
+	return p.collectIPSetEntries(domain, record.A, ttl, id)
 }
 
-// processAAAARecord processes an AAAA (IPv6) record.
-func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16, clientAddr net.Addr, network string) {
+// processAAAARecord processes an AAAA (IPv6) record and returns IPSet entries.
+func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	ttl := p.getTTL(record.Hdr.Ttl)
-
 	log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, ttl)
 
 	// Add to records cache
 	p.recordsCache.AddAddress(domain, record.AAAA, ttl)
 
-	// Get all aliases for this domain
+	return p.collectIPSetEntries(domain, record.AAAA, ttl, id)
+}
+
+// collectIPSetEntries checks domain aliases against lists and returns IPSet entries.
+func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id uint16) []networking.IPSetEntry {
+	var entries []networking.IPSetEntry
 	aliases := p.recordsCache.GetAliases(domain)
 
-	// Check each alias against domain lists
 	for _, alias := range aliases {
 		matches := p.matcher.Match(alias)
 		for _, ipsetName := range matches {
-			// Only add to IPv6 ipsets
 			ipsetCfg := p.matcher.GetIPSet(ipsetName)
-			if ipsetCfg == nil || ipsetCfg.IPVersion != config.Ipv6 {
+			if ipsetCfg == nil {
+				continue
+			}
+
+			// Check IP version
+			isIPv4 := ip.To4() != nil
+			if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||
+				(!isIPv4 && ipsetCfg.IPVersion != config.Ipv6) {
 				continue
 			}
 
 			// Convert to netip.Prefix
-			addr, ok := netip.AddrFromSlice(record.AAAA)
+			addr, ok := netip.AddrFromSlice(ip)
 			if !ok {
-				log.Warnf("[%04x] Invalid IPv6 address: %s", id, record.AAAA)
+				log.Warnf("[%04x] Invalid IP address: %s", id, ip)
 				continue
 			}
-			prefix := netip.PrefixFrom(addr, 128)
+
+			prefixLen := 32
+			if !isIPv4 {
+				prefixLen = 128
+			}
+			prefix := netip.PrefixFrom(addr, prefixLen)
 
 			log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
-				id, record.AAAA, ipsetName, domain, alias, ttl)
+				id, ip, ipsetName, domain, alias, ttl)
 
-			if err := networking.AddWithTTL(ipsetName, prefix, ttl); err != nil {
-				log.Warnf("[%04x] Failed to add %s to ipset %s: %v", id, record.AAAA, ipsetName, err)
-			}
+			entries = append(entries, networking.IPSetEntry{
+				IPSetName: ipsetName,
+				Network:   prefix,
+				TTL:       ttl,
+			})
 		}
 	}
+	return entries
 }
 
-// processCNAMERecord processes a CNAME record.
-func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16, clientAddr net.Addr, network string) {
+// processCNAMERecord processes a CNAME record and returns IPSet entries.
+func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	target := normalizeDomain(record.Target)
 	ttl := p.getTTL(record.Hdr.Ttl)
@@ -503,13 +500,14 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16, clientAddr n
 	p.recordsCache.AddAlias(domain, target, ttl)
 
 	// Check if we already have addresses for the target
-	// and if the source domain matches any lists
 	addresses := p.recordsCache.GetAddresses(target)
 	if len(addresses) == 0 {
-		return
+		return nil
 	}
 
+	var entries []networking.IPSetEntry
 	aliases := p.recordsCache.GetAliases(domain)
+
 	for _, alias := range aliases {
 		matches := p.matcher.Match(alias)
 		for _, ipsetName := range matches {
@@ -541,13 +539,15 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16, clientAddr n
 				log.Infof("[%04x] Adding %s to ipset %s (CNAME: %s -> %s, alias: %s, TTL: %d)",
 					id, cachedAddr.Address, ipsetName, domain, target, alias, ttl)
 
-				if err := networking.AddWithTTL(ipsetName, prefix, ttl); err != nil {
-					log.Warnf("[%04x] Failed to add %s to ipset %s: %v",
-						id, cachedAddr.Address, ipsetName, err)
-				}
+				entries = append(entries, networking.IPSetEntry{
+					IPSetName: ipsetName,
+					Network:   prefix,
+					TTL:       ttl,
+				})
 			}
 		}
 	}
+	return entries
 }
 
 // getTTL returns the TTL to use, applying override if configured.

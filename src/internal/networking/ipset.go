@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"io"
 	"net/netip"
 	"os/exec"
 	"sync"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 const ipsetCommand = "ipset"
@@ -245,32 +246,80 @@ func (w *IPSetWriter) GetIPSet() *IPSet {
 	return w.ipset
 }
 
-// AddWithTTL adds a single IP address or network to an ipset with a TTL (timeout).
-// The TTL is specified in seconds. If TTL is 0, no timeout is set.
-// Note: The ipset must be created with "timeout" option for TTL to work.
-func AddWithTTL(ipsetName string, network netip.Prefix, ttlSeconds uint32) error {
+// IPSetEntry represents a single entry to be added to an ipset.
+type IPSetEntry struct {
+	IPSetName string
+	Network   netip.Prefix
+	TTL       uint32
+}
+
+// BatchAddWithTTL adds multiple entries to ipsets in a single command.
+func BatchAddWithTTL(entries []IPSetEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
 	if _, err := exec.LookPath(ipsetCommand); err != nil {
 		return fmt.Errorf("failed to find ipset command: %v", err)
 	}
 
-	if !network.IsValid() {
-		return fmt.Errorf("invalid network: %v", network)
+	cmd := exec.Command(ipsetCommand, "restore", "-exist")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdin pipe: %v", err)
 	}
 
-	var cmd *exec.Cmd
-	if ttlSeconds > 0 {
-		cmd = exec.Command(ipsetCommand, "add", ipsetName, network.String(),
-			"timeout", fmt.Sprintf("%d", ttlSeconds), "-exist")
-	} else {
-		cmd = exec.Command(ipsetCommand, "add", ipsetName, network.String(), "-exist")
-	}
+	errCh := make(chan error, 1)
+	go func() {
+		defer func() {
+			if err := stdin.Close(); err != nil {
+				errCh <- fmt.Errorf("failed to close stdin pipe: %v", err)
+			}
+			close(errCh)
+		}()
+
+		for _, entry := range entries {
+			if !entry.Network.IsValid() {
+				log.Warnf("skipping invalid network %v", entry.Network)
+				continue
+			}
+
+			var line string
+			if entry.TTL > 0 {
+				line = fmt.Sprintf("add %s %s timeout %d\n", entry.IPSetName, entry.Network.String(), entry.TTL)
+			} else {
+				line = fmt.Sprintf("add %s %s\n", entry.IPSetName, entry.Network.String())
+			}
+
+			if _, err := io.WriteString(stdin, line); err != nil {
+				errCh <- fmt.Errorf("failed to write to stdin: %v", err)
+				return
+			}
+		}
+	}()
 
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to add %s to ipset %s: %v\n%s",
-			network, ipsetName, err, output)
+		return fmt.Errorf("failed to batch add to ipsets: %v\n%s", err, output)
+	}
+
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// AddWithTTL adds a single IP address or network to an ipset with a TTL (timeout).
+// The TTL is specified in seconds. If TTL is 0, no timeout is set.
+// Note: The ipset must be created with "timeout" option for TTL to work.
+func AddWithTTL(ipsetName string, network netip.Prefix, ttlSeconds uint32) error {
+	return BatchAddWithTTL([]IPSetEntry{{
+		IPSetName: ipsetName,
+		Network:   network,
+		TTL:       ttlSeconds,
+	}})
 }
 
 // CreateWithTimeout creates an ipset with timeout support.

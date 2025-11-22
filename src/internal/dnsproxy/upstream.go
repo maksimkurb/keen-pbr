@@ -330,7 +330,7 @@ func createUpstreamFromDnsServerInfo(info keenetic.DnsServerInfo) Upstream {
 
 	case keenetic.DnsServerTypeDoT:
 		// DoT: connect to local proxy that handles TLS
-		address := info.Proxy
+		var address string
 		if info.Port != "" {
 			address = net.JoinHostPort(info.Proxy, info.Port)
 		} else {
@@ -340,7 +340,7 @@ func createUpstreamFromDnsServerInfo(info keenetic.DnsServerInfo) Upstream {
 
 	case keenetic.DnsServerTypeDoH:
 		// DoH: connect to local proxy that handles HTTPS
-		address := info.Proxy
+		var address string
 		if info.Port != "" {
 			address = net.JoinHostPort(info.Proxy, info.Port)
 		} else {

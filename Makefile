@@ -14,7 +14,7 @@ include packages.mk
 .DEFAULT_GOAL := packages
 
 test:
-	go test ./...
+	go vet ./... && go test ./... && staticcheck ./...
 
 build-frontend:
 	cd src/frontend && npm install && npm run build
