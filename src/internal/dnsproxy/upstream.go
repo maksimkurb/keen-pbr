@@ -33,40 +33,45 @@ type Upstream interface {
 //   - udp://ip:port - plain UDP DNS (port defaults to 53)
 //   - doh://host/path - DNS-over-HTTPS
 func ParseUpstream(upstreamURL string, keeneticClient domain.KeeneticClient) (Upstream, error) {
-	// Handle keenetic:// specially since it's not a standard URL
-	if upstreamURL == "keenetic://" || strings.HasPrefix(upstreamURL, "keenetic://") {
-		if keeneticClient == nil {
-			return nil, fmt.Errorf("keenetic:// upstream requires KeeneticClient")
-		}
-		return NewKeeneticUpstream(keeneticClient), nil
+	if strings.HasPrefix(upstreamURL, "keenetic://") {
+		return parseKeeneticUpstream(keeneticClient)
 	}
 
 	u, err := url.Parse(upstreamURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid upstream URL: %w", err)
+	// If url.Parse fails (e.g. "8.8.8.8:53"), or scheme is empty, try as UDP upstream
+	if err != nil || u.Scheme == "" {
+		return parseUDPUpstream(upstreamURL)
 	}
 
 	switch u.Scheme {
 	case "udp":
-		host := u.Host
-		if !strings.Contains(host, ":") {
-			host = net.JoinHostPort(host, "53")
-		}
-		return NewUDPUpstream(host), nil
-
+		return parseUDPUpstream(u.Host)
 	case "doh", "https":
 		return NewDoHUpstream(upstreamURL), nil
-
 	default:
-		// Try to parse as plain IP:port
-		if net.ParseIP(upstreamURL) != nil {
-			return NewUDPUpstream(net.JoinHostPort(upstreamURL, "53")), nil
-		}
-		if _, _, err := net.SplitHostPort(upstreamURL); err == nil {
-			return NewUDPUpstream(upstreamURL), nil
-		}
 		return nil, fmt.Errorf("unsupported upstream scheme: %s", u.Scheme)
 	}
+}
+
+func parseKeeneticUpstream(keeneticClient domain.KeeneticClient) (Upstream, error) {
+	if keeneticClient == nil {
+		return nil, fmt.Errorf("keenetic:// upstream requires KeeneticClient")
+	}
+	return NewKeeneticUpstream(keeneticClient), nil
+}
+
+func parseUDPUpstream(address string) (Upstream, error) {
+	host := address
+	if !strings.Contains(host, ":") {
+		host = net.JoinHostPort(host, "53")
+	}
+
+	// Validate address
+	if _, _, err := net.SplitHostPort(host); err != nil {
+		return nil, fmt.Errorf("invalid UDP address: %w", err)
+	}
+
+	return NewUDPUpstream(host), nil
 }
 
 // UDPUpstream implements Upstream using plain UDP DNS.
