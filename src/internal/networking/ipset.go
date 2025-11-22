@@ -60,7 +60,10 @@ func (ipset *IPSet) CreateIfNotExists() error {
 		family = "inet"
 	}
 
-	cmd := exec.Command(ipsetCommand, "create", ipset.Name, "hash:net", "family", family, "-exist")
+	// Always create with timeout support (default timeout=0 means permanent entries)
+	// This allows both permanent entries from lists and TTL-based entries from DNS proxy
+	cmd := exec.Command(ipsetCommand, "create", ipset.Name, "hash:net",
+		"family", family, "timeout", "0", "-exist")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create ipset [%s]: %v", ipset, err)
 	}
@@ -87,65 +90,6 @@ func (ipset *IPSet) IsExists() (bool, error) {
 	} else {
 		return true, nil
 	}
-}
-
-// AddToIpset adds the given networks to the specified ipset
-func AddToIpset(ipset *config.IPSetConfig, networks []netip.Prefix) error {
-	if _, err := exec.LookPath(ipsetCommand); err != nil {
-		return fmt.Errorf("failed to find ipset command %s: %v", ipsetCommand, err)
-	}
-
-	cmd := exec.Command(ipsetCommand, "restore", "-exist")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdin pipe: %v", err)
-	}
-
-	errCh := make(chan error, 1)
-	go func() {
-		defer func() {
-			if err := stdin.Close(); err != nil {
-				errCh <- fmt.Errorf("failed to close stdin pipe: %v", err)
-			}
-			close(errCh) // Close the channel when the goroutine finishes
-		}()
-
-		// Write commands to stdin
-		if ipset.FlushBeforeApplying {
-			if _, err := fmt.Fprintf(stdin, "flush %s\n", ipset.IPSetName); err != nil {
-				log.Warnf("failed to flush ipset %s: %v", ipset.IPSetName, err)
-			}
-		}
-
-		errorCounter := 0
-		for _, network := range networks {
-			if !network.IsValid() {
-				log.Warnf("skipping invalid network %v", network)
-				continue
-			}
-			if _, err := fmt.Fprintf(stdin, "add %s %s\n", ipset.IPSetName, network.String()); err != nil {
-				log.Warnf("failed to add address %s to ipset %s: %v", network, ipset.IPSetName, err)
-				errorCounter++
-
-				if errorCounter > 10 {
-					errCh <- fmt.Errorf("too many errors, aborting import")
-					return
-				}
-			}
-		}
-	}()
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to add addresses to ipset %s: %v\n%s", ipset.IPSetName, err, output)
-	}
-
-	for err := range errCh {
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (ipset *IPSet) Flush() error {
@@ -306,42 +250,6 @@ func BatchAddWithTTL(entries []IPSetEntry) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-// AddWithTTL adds a single IP address or network to an ipset with a TTL (timeout).
-// The TTL is specified in seconds. If TTL is 0, no timeout is set.
-// Note: The ipset must be created with "timeout" option for TTL to work.
-func AddWithTTL(ipsetName string, network netip.Prefix, ttlSeconds uint32) error {
-	return BatchAddWithTTL([]IPSetEntry{{
-		IPSetName: ipsetName,
-		Network:   network,
-		TTL:       ttlSeconds,
-	}})
-}
-
-// CreateWithTimeout creates an ipset with timeout support.
-// This is required for TTL-based entries from DNS proxy.
-func CreateWithTimeout(name string, ipFamily config.IpFamily, defaultTimeout uint32) error {
-	if _, err := exec.LookPath(ipsetCommand); err != nil {
-		return fmt.Errorf("failed to find ipset command: %v", err)
-	}
-
-	var family string
-	if ipFamily == 6 {
-		family = "inet6"
-	} else {
-		family = "inet"
-	}
-
-	cmd := exec.Command(ipsetCommand, "create", name, "hash:net",
-		"family", family,
-		"timeout", fmt.Sprintf("%d", defaultTimeout),
-		"-exist")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to create ipset %s: %v\n%s", name, err, output)
 	}
 
 	return nil
