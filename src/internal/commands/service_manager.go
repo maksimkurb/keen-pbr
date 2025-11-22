@@ -26,6 +26,7 @@ type ServiceManager struct {
 	deps            *domain.AppDependencies
 	done            chan error
 	configHasher    *config.ConfigHasher // DI component for hash tracking
+	onListsUpdated  func()               // Callback when lists are updated (e.g., for DNS proxy reload)
 }
 
 // NewServiceManager creates a new service manager
@@ -56,6 +57,14 @@ func (sm *ServiceManager) IsRunning() bool {
 // Delegates to ConfigHasher DI component
 func (sm *ServiceManager) GetAppliedConfigHash() string {
 	return sm.configHasher.GetKeenPbrActiveConfigHash()
+}
+
+// SetOnListsUpdated sets a callback that will be invoked when lists are updated.
+// This is used to notify the DNS proxy to reload its domain lists.
+func (sm *ServiceManager) SetOnListsUpdated(callback func()) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.onListsUpdated = callback
 }
 
 // Start starts the service in a goroutine
@@ -176,6 +185,44 @@ func (sm *ServiceManager) Reload() error {
 	}
 
 	log.Infof("Configuration reloaded successfully")
+	return nil
+}
+
+// RefreshRouting refreshes the routing configuration without reloading config or DNS lists.
+// This is typically triggered by SIGUSR1 signal and only re-checks interfaces
+// and updates routing if the best interface has changed.
+func (sm *ServiceManager) RefreshRouting() error {
+	sm.mu.RLock()
+	if !sm.running {
+		sm.mu.RUnlock()
+		return fmt.Errorf("service is not running")
+	}
+	cfg := sm.cfg
+	ctx := sm.ctx
+	networkMgr := sm.networkMgr
+	sm.mu.RUnlock()
+
+	log.Debugf("Refreshing routing (triggered by SIGUSR1)...")
+
+	// Update interface list
+	var err error
+	if ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
+		return fmt.Errorf("failed to get interfaces list: %v", err)
+	}
+
+	// Update routing configuration only if interfaces changed
+	log.Debugf("Checking for interface changes and updating routing if needed...")
+	changedCount, err := networkMgr.UpdateRoutingIfChanged(cfg.IPSets)
+	if err != nil {
+		return fmt.Errorf("failed to update routing configuration: %v", err)
+	}
+
+	if changedCount > 0 {
+		log.Debugf("Routing updated: %d interface(s) changed", changedCount)
+	} else {
+		log.Debugf("No interface changes detected, routing unchanged")
+	}
+
 	return nil
 }
 
@@ -322,6 +369,14 @@ func (sm *ServiceManager) updateLists(cfg *config.Config) error {
 	log.Infof("Re-importing lists to ipsets...")
 	if err := lists.ImportListsToIPSets(cfg, sm.deps.ListManager()); err != nil {
 		return fmt.Errorf("failed to re-import lists: %w", err)
+	}
+
+	// Notify listeners (e.g., DNS proxy) that lists have been updated
+	sm.mu.RLock()
+	callback := sm.onListsUpdated
+	sm.mu.RUnlock()
+	if callback != nil {
+		callback()
 	}
 
 	log.Infof("List update completed successfully")

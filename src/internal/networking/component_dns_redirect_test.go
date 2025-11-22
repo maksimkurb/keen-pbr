@@ -8,7 +8,7 @@ import (
 func TestDNSRedirectComponent_BasicMethods(t *testing.T) {
 	// Create component with mock target IPs and port
 	targetIPv4 := "127.0.53.53"
-	targetIPv6 := "fd53::53"
+	targetIPv6 := "::1"
 	targetPort := uint16(5353)
 	// We can't easily mock iptables here, so NewDNSRedirectComponent might fail if iptables is not present.
 	// However, NewDNSRedirectComponent only fails if iptables.NewWithProtocol fails.

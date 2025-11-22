@@ -40,21 +40,30 @@ func NewRecordsCache() *RecordsCache {
 }
 
 // AddAddress adds an IP address for a domain with the specified TTL.
-func (r *RecordsCache) AddAddress(domain string, address net.IP, ttl uint32) {
+// Returns true if this is a new entry that should be added to ipset,
+// false if the entry already exists and is still valid.
+func (r *RecordsCache) AddAddress(domain string, address net.IP, ttl uint32) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	deadline := time.Now().Add(time.Duration(ttl) * time.Second)
+	now := time.Now()
+	deadline := now.Add(time.Duration(ttl) * time.Second)
 
 	// Check if address already exists
 	if addrs, exists := r.addresses[domain]; exists {
 		for i, addr := range addrs {
 			if addr.Address.Equal(address) {
-				// Update deadline if new one is later
-				if deadline.After(addr.Deadline) {
-					r.addresses[domain][i].Deadline = deadline
+				// Entry exists - check if it's still valid
+				if addr.Deadline.After(now) {
+					// Entry is still valid, just update deadline if new one is later
+					if deadline.After(addr.Deadline) {
+						r.addresses[domain][i].Deadline = deadline
+					}
+					return false // Already in cache and valid, no need to add to ipset
 				}
-				return
+				// Entry expired, update it and signal that ipset needs update
+				r.addresses[domain][i].Deadline = deadline
+				return true
 			}
 		}
 	}
@@ -64,6 +73,7 @@ func (r *RecordsCache) AddAddress(domain string, address net.IP, ttl uint32) {
 		Address:  address,
 		Deadline: deadline,
 	})
+	return true // New entry, needs to be added to ipset
 }
 
 // AddAlias adds a CNAME alias (domain -> target) with the specified TTL.

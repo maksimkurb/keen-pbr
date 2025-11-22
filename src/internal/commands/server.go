@@ -130,6 +130,12 @@ func (c *ServerCommand) Run() error {
 		} else {
 			// Use DNS proxy as the DNS check subscriber
 			dnsCheckSubscriber = c.dnsProxy
+			// Register callback to reload DNS proxy lists when lists are updated
+			c.serviceMgr.SetOnListsUpdated(func() {
+				if c.dnsProxy != nil {
+					c.dnsProxy.ReloadLists()
+				}
+			})
 		}
 	} else {
 		log.Infof("DNS proxy is disabled")
@@ -161,8 +167,10 @@ func (c *ServerCommand) Run() error {
 	// Channels to listen for signals
 	shutdown := make(chan os.Signal, 1)
 	reload := make(chan os.Signal, 1)
+	refreshRouting := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	signal.Notify(reload, syscall.SIGHUP)
+	signal.Notify(refreshRouting, syscall.SIGUSR1)
 
 	// Run signal handling loop
 	for {
@@ -183,6 +191,18 @@ func (c *ServerCommand) Run() error {
 				log.Errorf("Failed to reload configuration: %v", err)
 			} else {
 				log.Infof("Configuration reloaded successfully")
+			}
+			// Reload DNS proxy lists if DNS proxy is running
+			if c.dnsProxy != nil {
+				c.dnsProxy.ReloadLists()
+			}
+
+		case <-refreshRouting:
+			log.Infof("Received SIGUSR1 signal, refreshing routing...")
+			if err := c.serviceMgr.RefreshRouting(); err != nil {
+				log.Errorf("Failed to refresh routing: %v", err)
+			} else {
+				log.Infof("Routing refreshed successfully")
 			}
 
 		case sig := <-shutdown:

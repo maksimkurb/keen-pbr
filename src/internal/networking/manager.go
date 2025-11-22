@@ -114,7 +114,7 @@ func (m *Manager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, err
 	}
 
 	if updatedCount > 0 {
-		log.Infof("Updated routing for %d ipset(s)", updatedCount)
+		log.Debugf("Updated routing for %d ipset(s)", updatedCount)
 	} else {
 		log.Debugf("No routing changes needed, all interfaces unchanged")
 	}

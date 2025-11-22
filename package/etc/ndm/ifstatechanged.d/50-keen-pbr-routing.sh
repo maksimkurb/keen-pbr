@@ -7,12 +7,12 @@
 
 PIDFILE="/opt/var/run/keen-pbr.pid"
 
-# Send HUP signal to keen-pbr service to recheck best interface for ipsets
+# Send SIGUSR1 signal to keen-pbr service to recheck best interface for ipsets
 if [ -f "$PIDFILE" ]; then
   PID=$(cat "$PIDFILE")
   if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-    logger -t "keen-pbr" "Sending HUP signal to keen-pbr service (PID: $PID) - ifstatechanged.d hook for interface $system_name"
-    kill -HUP "$PID"
+    logger -t "keen-pbr" "Sending SIGUSR1 signal to keen-pbr service (PID: $PID) - ifstatechanged.d hook for interface $system_name"
+    kill -SIGUSR1 "$PID"
 
     # If you want to add some additional commands after routing is applied, you can add them
     # to the /opt/etc/keen-pbr/hook.sh script

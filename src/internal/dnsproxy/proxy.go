@@ -255,6 +255,15 @@ func (p *DNSProxy) Stop() error {
 	return nil
 }
 
+// ReloadLists rebuilds the domain matcher from the current configuration.
+// This should be called when lists are updated to pick up new domain entries.
+func (p *DNSProxy) ReloadLists() {
+	log.Infof("Reloading DNS proxy domain lists...")
+	p.matcher.Rebuild(p.appConfig)
+	exactCount, wildcardCount := p.matcher.Stats()
+	log.Infof("DNS proxy lists reloaded: %d exact domains, %d wildcard suffixes", exactCount, wildcardCount)
+}
+
 // serveUDP handles incoming UDP DNS queries.
 func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 	defer p.wg.Done()
@@ -461,8 +470,10 @@ func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEn
 	ttl := p.getTTL(record.Hdr.Ttl)
 	log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, ttl)
 
-	// Add to records cache
-	p.recordsCache.AddAddress(domain, record.A, ttl)
+	// Add to records cache - only collect ipset entries if this is a new/expired entry
+	if !p.recordsCache.AddAddress(domain, record.A, ttl) {
+		return nil // Entry already cached and valid, skip ipset update
+	}
 
 	return p.collectIPSetEntries(domain, record.A, ttl, id)
 }
@@ -473,8 +484,10 @@ func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.I
 	ttl := p.getTTL(record.Hdr.Ttl)
 	log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, ttl)
 
-	// Add to records cache
-	p.recordsCache.AddAddress(domain, record.AAAA, ttl)
+	// Add to records cache - only collect ipset entries if this is a new/expired entry
+	if !p.recordsCache.AddAddress(domain, record.AAAA, ttl) {
+		return nil // Entry already cached and valid, skip ipset update
+	}
 
 	return p.collectIPSetEntries(domain, record.AAAA, ttl, id)
 }
