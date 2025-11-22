@@ -1,6 +1,6 @@
 package keenetic
 
-const rciPrefix = "http://localhost:79/rci"
+const rciPrefix = "http://127.0.0.1:79/rci"
 
 // Interface represents the network interface details
 type Interface struct {

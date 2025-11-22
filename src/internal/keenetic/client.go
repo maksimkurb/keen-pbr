@@ -20,7 +20,7 @@ type Client struct {
 
 // NewClient creates a new Keenetic RCI API client with the default base URL.
 //
-// The default base URL is http://localhost:79/rci (local RCI endpoint).
+// The default base URL is http://127.0.0.1:79/rci (local RCI endpoint).
 // If httpClient is nil, a default HTTP client will be used.
 //
 // For custom base URLs, use NewClientWithBaseURL.

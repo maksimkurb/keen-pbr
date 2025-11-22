@@ -32,9 +32,9 @@ type AppDependencies struct {
 // AppConfig holds configuration for creating application dependencies.
 type AppConfig struct {
 	// KeeneticURL is the base URL for the Keenetic RCI API.
-	// If empty, defaults to "http://localhost:79/rci" (local RCI endpoint).
+	// If empty, defaults to "http://127.0.0.1:79/rci" (local RCI endpoint).
 	// Common values:
-	//   - "http://localhost:79/rci" - local RCI endpoint (default)
+	//   - "http://127.0.0.1:79/rci" - local RCI endpoint (default)
 	//   - "http://192.168.1.1/rci" - remote router at 192.168.1.1
 	KeeneticURL string
 
@@ -84,7 +84,7 @@ func NewAppDependencies(cfg AppConfig) *AppDependencies {
 // NewDefaultDependencies creates dependencies using default configuration.
 //
 // This is equivalent to NewAppDependencies(AppConfig{}) and uses:
-//   - Keenetic API at http://localhost:79/rci (local RCI endpoint)
+//   - Keenetic API at http://127.0.0.1:79/rci (local RCI endpoint)
 //   - Real networking implementations
 func NewDefaultDependencies() *AppDependencies {
 	return NewAppDependencies(AppConfig{})
