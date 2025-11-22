@@ -16,17 +16,19 @@ export class DNSCheckService {
 	 * and waiting for the domain to be received via SSE.
 	 * @param randomString Random string to use for the domain (e.g., "abc123")
 	 * @param performBrowserRequest Whether to make a browser fetch request (default: true). Set to false for PC-only checks.
-	 * @param fetchTimeout Timeout for the fetch request in milliseconds (default: 5000)
-	 * @param sseTimeout Additional timeout for SSE after fetch in milliseconds (default: 5000)
+	 * @param timeout Timeout for the fetch request in milliseconds (default: 5000)
 	 * @returns Promise that resolves with DNSCheckResult if successful, rejects if timeout
 	 */
 	async checkDNS(
 		randomString: string,
 		performBrowserRequest: boolean = true,
-		fetchTimeout: number = 5000,
-		sseTimeout: number = 5000
+		timeout: number = 5000
 	): Promise<DNSCheckResult> {
 		return new Promise((resolve, reject) => {
+			if (this.eventSource) {
+				throw new Error("Could not run dns check: reset event source first");
+			}
+
 			const domain = `${randomString}.dns-check.keen-pbr.internal`;
 			let sseReceived = false;
 			let sseConnected = false;
@@ -95,13 +97,16 @@ export class DNSCheckService {
 				// Don't reject immediately, let the timeout handle it
 			};
 
-			// Set timeout: fetchTimeout + sseTimeout
 			this.timeoutId = setTimeout(() => {
+				if (!sseConnected) {
+					cleanup();
+					reject(new Error('DNS check timeout: could not connect to SSE endpoint'));
+				}
 				if (!sseReceived) {
 					cleanup();
-					reject(new Error(`DNS check timeout: domain ${domain} not received via SSE`));
+					reject(new Error('DNS check timeout: domain not received via SSE'));
 				}
-			}, fetchTimeout + sseTimeout);
+			}, timeout);
 		});
 	}
 

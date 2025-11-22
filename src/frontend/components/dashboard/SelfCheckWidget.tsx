@@ -46,7 +46,7 @@ export function SelfCheckWidget() {
     setResults([dnsCheckEvent]);
 
     // Start DNS check asynchronously (don't block other checks)
-    dnsCheckService.checkDNS(randomString, true, 5000, 5000)
+    dnsCheckService.checkDNS(randomString, true, 5000)
       .then(() => {
         // DNS check succeeded
         setResults((prev) =>

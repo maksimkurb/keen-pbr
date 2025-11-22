@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dnsCheckService } from '../services/dnsCheckService';
 
-export type CheckStatus = 'idle' | 'checking' | 'success' | 'browser-fail' | 'pc-success';
+export type CheckStatus = 'idle' | 'checking' | 'success' | 'browser-fail' | 'sse-fail' | 'pc-success';
 
 interface CheckState {
 	randomString: string;
@@ -56,11 +56,16 @@ export function useDNSCheck(): UseDNSCheckReturn {
 			setStatus('checking');
 
 			try {
-				await dnsCheckService.checkDNS(randStr, true, 5000, 5000);
+				await dnsCheckService.checkDNS(randStr, true, 5000);
 				setStatus('success');
 			} catch (error) {
+				if (error instanceof Error && error.message.includes('domain not received via SSE')) {
+					setStatus('browser-fail');
+				} else {
+					setStatus('sse-fail');
+				}
+
 				console.error('Browser DNS check failed:', error);
-				setStatus('browser-fail');
 			}
 		} else {
 			// PC check (no browser request, longer timeout, with warning)
@@ -81,7 +86,7 @@ export function useDNSCheck(): UseDNSCheckReturn {
 
 			try {
 				// Wait indefinitely (5 minutes timeout as a safety measure)
-				await dnsCheckService.checkDNS(randStr, false, 5000, 295000);
+				await dnsCheckService.checkDNS(randStr, false, 300000);
 
 				// Clear warning timer if still active
 				if (timerId) {

@@ -79,6 +79,18 @@ export function DNSCheckWidget() {
 					</Alert>
 				);
 
+			case 'sse-fail':
+				return (
+					<Alert className="border-yellow-200 bg-yellow-50">
+						<AlertCircle className="h-4 w-4 text-yellow-600" />
+						<AlertDescription className="text-yellow-800">
+							<div className="space-y-2">
+								<p>{t('dnsCheck.sseFail')}</p>
+							</div>
+						</AlertDescription>
+					</Alert>
+				);
+
 			case 'pc-success':
 				return (
 					<Alert className="border-blue-200 bg-blue-50">
