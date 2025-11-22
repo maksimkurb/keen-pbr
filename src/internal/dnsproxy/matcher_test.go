@@ -210,3 +210,58 @@ func TestMatcher_Rebuild(t *testing.T) {
 		t.Errorf("expected 1 match for other.com, got %v", matches)
 	}
 }
+
+func TestMatcher_SuffixMatching(t *testing.T) {
+	// Test the new suffix matching behavior:
+	// Adding "xxx.somedomain.com" should match:
+	// - "xxx.somedomain.com" (exact)
+	// - "sub.xxx.somedomain.com" (subdomain)
+	// But NOT:
+	// - "somedomain.com" (parent domain)
+	// - "123xxx.somedomain.com" (different subdomain at same level)
+
+	cfg := &config.Config{
+		Lists: []*config.ListSource{
+			{
+				ListName: "test-list",
+				Hosts:    []string{"xxx.somedomain.com"},
+			},
+		},
+		IPSets: []*config.IPSetConfig{
+			{
+				IPSetName: "vpn_routes",
+				Lists:     []string{"test-list"},
+				IPVersion: config.Ipv4,
+			},
+		},
+	}
+
+	matcher := NewMatcher(cfg)
+
+	tests := []struct {
+		domain      string
+		shouldMatch bool
+		description string
+	}{
+		{"xxx.somedomain.com", true, "exact match"},
+		{"sub.xxx.somedomain.com", true, "subdomain should match"},
+		{"deep.sub.xxx.somedomain.com", true, "deep subdomain should match"},
+		{"somedomain.com", false, "parent domain should NOT match"},
+		{"123xxx.somedomain.com", false, "different subdomain should NOT match"},
+		{"other.com", false, "unrelated domain should NOT match"},
+		{"xxxsomedomain.com", false, "similar but different domain should NOT match"},
+	}
+
+	for _, tt := range tests {
+		matches := matcher.Match(tt.domain)
+		matched := len(matches) > 0
+
+		if matched != tt.shouldMatch {
+			if tt.shouldMatch {
+				t.Errorf("%s: expected domain '%s' to match, but got no matches", tt.description, tt.domain)
+			} else {
+				t.Errorf("%s: expected domain '%s' NOT to match, but got matches: %v", tt.description, tt.domain, matches)
+			}
+		}
+	}
+}

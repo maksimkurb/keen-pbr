@@ -602,6 +602,12 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 			}
 
 			for _, cachedAddr := range addresses {
+				// Check if this domain+IP combination is already in cache and valid
+				// This prevents duplicate ipset additions for the same CNAME resolution
+				if !p.recordsCache.AddAddress(domain, cachedAddr.Address, ttl) {
+					continue // Already cached and valid, skip ipset update
+				}
+
 				// Check IP version matches ipset
 				isIPv4 := cachedAddr.Address.To4() != nil
 				if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||

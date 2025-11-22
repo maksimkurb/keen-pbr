@@ -14,14 +14,16 @@ import (
 
 // Matcher matches domain names against configured lists and returns
 // the names of ipsets that should receive the resolved IPs.
+// All domains use suffix matching: "xxx.somedomain.com" matches both
+// "xxx.somedomain.com" and "sub.xxx.somedomain.com", but NOT "somedomain.com".
 type Matcher struct {
 	mu sync.RWMutex
 
-	// domainToIPSets maps exact domain name to list of ipset names
+	// exactDomains maps domain name to list of ipset names for exact matching
 	exactDomains map[string][]string
 
-	// wildcardSuffixes maps domain suffix (without leading dot) to list of ipset names
-	// e.g., "example.com" matches "*.example.com" and "example.com"
+	// wildcardSuffixes maps domain suffix to list of ipset names for subdomain matching
+	// e.g., "xxx.somedomain.com" in this map will match "sub.xxx.somedomain.com"
 	wildcardSuffixes map[string][]string
 
 	// ipsets stores ipset configurations for reference
@@ -130,6 +132,8 @@ func (m *Matcher) processListFile(path string, ipsetName string) {
 }
 
 // addDomain adds a domain to the matcher for the given ipset.
+// Domains are matched using suffix matching: adding "xxx.somedomain.com" will match
+// both "xxx.somedomain.com" and "sub.xxx.somedomain.com", but NOT "somedomain.com".
 func (m *Matcher) addDomain(domain string, ipsetName string) {
 	domain = strings.TrimSpace(domain)
 	if domain == "" {
@@ -139,17 +143,16 @@ func (m *Matcher) addDomain(domain string, ipsetName string) {
 	// Normalize domain to lowercase
 	domain = strings.ToLower(domain)
 
-	// Check for wildcard prefix
-	if strings.HasPrefix(domain, "*.") {
-		// Wildcard domain - strip the "*." prefix
-		suffix := domain[2:]
-		m.wildcardSuffixes[suffix] = appendUnique(m.wildcardSuffixes[suffix], ipsetName)
-		// Also add exact match for the base domain
-		m.exactDomains[suffix] = appendUnique(m.exactDomains[suffix], ipsetName)
-	} else {
-		// Exact domain match
-		m.exactDomains[domain] = appendUnique(m.exactDomains[domain], ipsetName)
-	}
+	// Strip wildcard prefix if present (*.example.com -> example.com)
+	// Both "*.example.com" and "example.com" should behave the same way
+	domain = strings.TrimPrefix(domain, "*.")
+
+	// Add to exact domains for exact matching
+	m.exactDomains[domain] = appendUnique(m.exactDomains[domain], ipsetName)
+
+	// Also add to wildcard suffixes for subdomain matching
+	// This allows "xxx.somedomain.com" to match "sub.xxx.somedomain.com"
+	m.wildcardSuffixes[domain] = appendUnique(m.wildcardSuffixes[domain], ipsetName)
 }
 
 // Match returns the list of ipset names that match the given domain.
