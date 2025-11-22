@@ -15,6 +15,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // ServerCommand implements the server command for running the HTTP API server.
@@ -34,7 +35,7 @@ type ServerCommand struct {
 
 	// DNS proxy for domain-based routing
 	dnsProxy    *dnsproxy.DNSProxy
-	iptablesMgr *dnsproxy.IPTablesManager
+	iptablesMgr networking.NetworkingComponent
 }
 
 // CreateServerCommand creates a new server command.
@@ -233,7 +234,7 @@ func (c *ServerCommand) startDNSProxy() error {
 	c.dnsProxy = proxy
 
 	// Create iptables manager for DNS redirection
-	iptablesMgr, err := dnsproxy.NewIPTablesManager(proxyCfg.ListenPort)
+	iptablesMgr, err := networking.NewDNSRedirectComponent(proxyCfg.ListenPort)
 	if err != nil {
 		c.dnsProxy = nil
 		return fmt.Errorf("failed to create iptables manager: %w", err)
@@ -248,7 +249,7 @@ func (c *ServerCommand) startDNSProxy() error {
 	}
 
 	// Enable iptables redirection
-	if err := c.iptablesMgr.Enable(); err != nil {
+	if err := c.iptablesMgr.CreateIfNotExists(); err != nil {
 		c.dnsProxy.Stop()
 		c.dnsProxy = nil
 		c.iptablesMgr = nil
@@ -263,7 +264,7 @@ func (c *ServerCommand) startDNSProxy() error {
 func (c *ServerCommand) stopDNSProxy() {
 	if c.iptablesMgr != nil {
 		log.Infof("Disabling DNS redirection...")
-		if err := c.iptablesMgr.Disable(); err != nil {
+		if err := c.iptablesMgr.DeleteIfExists(); err != nil {
 			log.Errorf("Failed to disable DNS redirection: %v", err)
 		}
 		c.iptablesMgr = nil
