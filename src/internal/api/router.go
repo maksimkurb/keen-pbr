@@ -6,12 +6,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimkurb/keen-pbr/src/frontend"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/dnscheck"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 )
 
 // NewRouter creates a new HTTP router with all API endpoints.
-func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckListener *dnscheck.DNSCheckListener) http.Handler {
+func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsCheckSubscriber DNSCheckSubscriber) http.Handler {
 	r := chi.NewRouter()
 
 	// Apply middleware
@@ -22,7 +21,7 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 	r.Use(JSONContentType)
 
 	// Create handler
-	h := NewHandler(configPath, deps, serviceMgr, configHasher, dnsCheckListener)
+	h := NewHandler(configPath, deps, serviceMgr, configHasher, dnsCheckSubscriber)
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {

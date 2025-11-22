@@ -26,6 +26,13 @@ type GeneralConfig struct {
 	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
 	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
 	DNSCheckPort              int    `toml:"dns_check_port" json:"dns_check_port" comment:"Port for DNS check listener (default: 15053)"`
+
+	// DNS Proxy settings
+	EnableDNSProxy *bool    `toml:"enable_dns_proxy" json:"enable_dns_proxy" comment:"Enable transparent DNS proxy for domain-based routing (default: true)"`
+	DNSProxyPort   int      `toml:"dns_proxy_port" json:"dns_proxy_port" comment:"Port for DNS proxy listener (default: 15353)"`
+	DNSUpstream    []string `toml:"dns_upstream" json:"dns_upstream" comment:"Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: [\"keenetic://\"])"`
+	DropAAAA       *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
+	TTLOverride    int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
 }
 
 // IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
@@ -61,6 +68,46 @@ func (gc *GeneralConfig) GetDNSCheckPort() int {
 		return 15053 // Default port
 	}
 	return gc.DNSCheckPort
+}
+
+// IsDNSProxyEnabled returns whether DNS proxy is enabled (default: true).
+func (gc *GeneralConfig) IsDNSProxyEnabled() bool {
+	if gc.EnableDNSProxy == nil {
+		return true // Default to enabled
+	}
+	return *gc.EnableDNSProxy
+}
+
+// GetDNSProxyPort returns the DNS proxy port (default: 15353).
+func (gc *GeneralConfig) GetDNSProxyPort() int {
+	if gc.DNSProxyPort <= 0 {
+		return 15353 // Default port
+	}
+	return gc.DNSProxyPort
+}
+
+// GetDNSUpstream returns the configured upstream DNS servers (default: ["keenetic://"]).
+func (gc *GeneralConfig) GetDNSUpstream() []string {
+	if len(gc.DNSUpstream) == 0 {
+		return []string{"keenetic://"}
+	}
+	return gc.DNSUpstream
+}
+
+// IsDropAAAAEnabled returns whether AAAA (IPv6) responses should be dropped (default: true).
+func (gc *GeneralConfig) IsDropAAAAEnabled() bool {
+	if gc.DropAAAA == nil {
+		return true // Default to dropping AAAA
+	}
+	return *gc.DropAAAA
+}
+
+// GetTTLOverride returns the TTL override value (0 = use original TTL).
+func (gc *GeneralConfig) GetTTLOverride() uint32 {
+	if gc.TTLOverride < 0 {
+		return 0
+	}
+	return uint32(gc.TTLOverride)
 }
 
 type IPSetConfig struct {

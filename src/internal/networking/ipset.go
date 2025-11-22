@@ -244,3 +244,56 @@ func (w *IPSetWriter) Close() error {
 func (w *IPSetWriter) GetIPSet() *IPSet {
 	return w.ipset
 }
+
+// AddWithTTL adds a single IP address or network to an ipset with a TTL (timeout).
+// The TTL is specified in seconds. If TTL is 0, no timeout is set.
+// Note: The ipset must be created with "timeout" option for TTL to work.
+func AddWithTTL(ipsetName string, network netip.Prefix, ttlSeconds uint32) error {
+	if _, err := exec.LookPath(ipsetCommand); err != nil {
+		return fmt.Errorf("failed to find ipset command: %v", err)
+	}
+
+	if !network.IsValid() {
+		return fmt.Errorf("invalid network: %v", network)
+	}
+
+	var cmd *exec.Cmd
+	if ttlSeconds > 0 {
+		cmd = exec.Command(ipsetCommand, "add", ipsetName, network.String(),
+			"timeout", fmt.Sprintf("%d", ttlSeconds), "-exist")
+	} else {
+		cmd = exec.Command(ipsetCommand, "add", ipsetName, network.String(), "-exist")
+	}
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to add %s to ipset %s: %v\n%s",
+			network, ipsetName, err, output)
+	}
+
+	return nil
+}
+
+// CreateWithTimeout creates an ipset with timeout support.
+// This is required for TTL-based entries from DNS proxy.
+func CreateWithTimeout(name string, ipFamily config.IpFamily, defaultTimeout uint32) error {
+	if _, err := exec.LookPath(ipsetCommand); err != nil {
+		return fmt.Errorf("failed to find ipset command: %v", err)
+	}
+
+	var family string
+	if ipFamily == 6 {
+		family = "inet6"
+	} else {
+		family = "inet"
+	}
+
+	cmd := exec.Command(ipsetCommand, "create", name, "hash:net",
+		"family", family,
+		"timeout", fmt.Sprintf("%d", defaultTimeout),
+		"-exist")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create ipset %s: %v\n%s", name, err, output)
+	}
+
+	return nil
+}

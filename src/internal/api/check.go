@@ -828,15 +828,15 @@ func (h *Handler) CheckSplitDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get DNS check listener from handler dependencies
-	if h.dnsCheckListener == nil {
-		WriteInternalError(w, "DNS check listener not available")
+	// Get DNS check subscriber from handler dependencies
+	if h.dnsCheckSubscriber == nil {
+		WriteInternalError(w, "DNS check not available")
 		return
 	}
 
 	// Subscribe to DNS check events
-	eventCh := h.dnsCheckListener.Subscribe()
-	defer h.dnsCheckListener.Unsubscribe(eventCh)
+	eventCh := h.dnsCheckSubscriber.Subscribe()
+	defer h.dnsCheckSubscriber.Unsubscribe(eventCh)
 
 	log.Debugf("Client connected to split-DNS check SSE stream")
 
