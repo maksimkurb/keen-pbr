@@ -14,7 +14,7 @@ type IPRuleComponent struct {
 
 // NewIPRuleComponent creates a new IP rule component from configuration
 func NewIPRuleComponent(cfg *config.IPSetConfig) *IPRuleComponent {
-	rule := NewIPRuleBuilder(cfg).Build()
+	rule := BuildIPRuleFromConfig(cfg)
 	return &IPRuleComponent{
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,

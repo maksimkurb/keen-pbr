@@ -5,23 +5,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 )
 
-// IPTablesBuilder provides a fluent interface for building IPTableRules.
-//
-// This builder encapsulates the logic for creating iptables rules from
-// an ipset configuration, handling protocol selection and rule processing.
-type IPTablesBuilder struct {
-	ipset *config.IPSetConfig
-}
-
-// NewIPTablesBuilder creates a new builder for IPTableRules.
-//
-// The builder will construct iptables rules based on the provided ipset
-// configuration, including proper protocol selection (IPv4 vs IPv6).
-func NewIPTablesBuilder(ipset *config.IPSetConfig) *IPTablesBuilder {
-	return &IPTablesBuilder{ipset: ipset}
-}
-
-// Build constructs and returns IPTableRules for the configured ipset.
+// BuildIPTablesRules constructs IPTableRules for the specified ipset configuration.
 //
 // The build process:
 // 1. Determines the correct iptables protocol (IPv4 or IPv6) from ipset config
@@ -32,9 +16,9 @@ func NewIPTablesBuilder(ipset *config.IPSetConfig) *IPTablesBuilder {
 // Returns an error if:
 // - The iptables instance cannot be created
 // - Rule templates cannot be processed
-func (b *IPTablesBuilder) Build() (*IPTableRules, error) {
+func BuildIPTablesRules(ipset *config.IPSetConfig) (*IPTableRules, error) {
 	protocol := iptables.ProtocolIPv4
-	if b.ipset.IPVersion == config.Ipv6 {
+	if ipset.IPVersion == config.Ipv6 {
 		protocol = iptables.ProtocolIPv6
 	}
 
@@ -43,28 +27,12 @@ func (b *IPTablesBuilder) Build() (*IPTableRules, error) {
 		return nil, err
 	}
 
-	rules := processRules(b.ipset)
+	rules := processRules(ipset)
 
-	return &IPTableRules{ipt, b.ipset, rules}, nil
+	return &IPTableRules{ipt, ipset, rules}, nil
 }
 
-// IPRuleBuilder provides a fluent interface for building IpRule.
-//
-// This builder encapsulates the logic for creating IP routing rules from
-// an ipset configuration, extracting the necessary parameters for rule creation.
-type IPRuleBuilder struct {
-	ipset *config.IPSetConfig
-}
-
-// NewIPRuleBuilder creates a new builder for IpRule.
-//
-// The builder will construct an IP rule based on the provided ipset
-// configuration, extracting routing parameters like fwmark, table, and priority.
-func NewIPRuleBuilder(ipset *config.IPSetConfig) *IPRuleBuilder {
-	return &IPRuleBuilder{ipset: ipset}
-}
-
-// Build constructs and returns an IpRule for the configured ipset.
+// BuildIPRuleFromConfig constructs an IP rule for the specified ipset configuration.
 //
 // The build process extracts the following from ipset configuration:
 // - IP family (IPv4 or IPv6)
@@ -72,12 +40,12 @@ func NewIPRuleBuilder(ipset *config.IPSetConfig) *IPRuleBuilder {
 // - Routing table ID
 // - Rule priority
 //
-// Returns a fully configured IpRule instance ready for addition/removal.
-func (b *IPRuleBuilder) Build() *IPRule {
+// Returns a fully configured IPRule instance ready for addition/removal.
+func BuildIPRuleFromConfig(ipset *config.IPSetConfig) *IPRule {
 	return BuildRule(
-		b.ipset.IPVersion,
-		b.ipset.Routing.FwMark,
-		b.ipset.Routing.IPRouteTable,
-		b.ipset.Routing.IPRulePriority,
+		ipset.IPVersion,
+		ipset.Routing.FwMark,
+		ipset.Routing.IPRouteTable,
+		ipset.Routing.IPRulePriority,
 	)
 }

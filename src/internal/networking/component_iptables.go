@@ -17,7 +17,7 @@ type IPTablesRuleComponent struct {
 
 // NewIPTablesRuleComponents creates IPTablesRuleComponent instances for all rules in an ipset
 func NewIPTablesRuleComponents(cfg *config.IPSetConfig) ([]*IPTablesRuleComponent, error) {
-	rules, err := NewIPTablesBuilder(cfg).Build()
+	rules, err := BuildIPTablesRules(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build iptables rules: %w", err)
 	}

@@ -3,9 +3,11 @@ package commands
 import (
 	"encoding/binary"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
@@ -19,9 +21,10 @@ func CreateSelfCheckCommand() *SelfCheckCommand {
 }
 
 type SelfCheckCommand struct {
-	fs  *flag.FlagSet
-	ctx *AppContext
-	cfg *config.Config
+	fs   *flag.FlagSet
+	ctx  *AppContext
+	cfg  *config.Config
+	deps *domain.AppDependencies
 }
 
 func (g *SelfCheckCommand) Name() string {
@@ -46,11 +49,13 @@ func (g *SelfCheckCommand) Init(args []string, ctx *AppContext) error {
 		networking.PrintMissingInterfacesHelp()
 	}
 
+	// Initialize dependencies
+	g.deps = domain.NewDefaultDependencies()
+
 	return nil
 }
 
 func (g *SelfCheckCommand) Run() error {
-
 	log.Infof("Running self-check...")
 	log.Infof("---------------- Configuration START -----------------")
 
@@ -66,160 +71,157 @@ func (g *SelfCheckCommand) Run() error {
 
 	log.Infof("----------------- Configuration END ------------------")
 
+	// Use unified component-based checking (same logic as API)
+	hasFailures := false
 	for _, ipset := range g.cfg.IPSets {
-		if err := checkIpset(ipset); err != nil {
-			log.Errorf("Failed to check ipset routing configuration [%s]: %v", ipset.IPSetName, err)
-			return err
+		if !g.checkIPSetComponents(ipset) {
+			hasFailures = true
 		}
+	}
+
+	if hasFailures {
+		log.Errorf("Self-check completed with failures")
+		return fmt.Errorf("self-check failed")
 	}
 
 	log.Infof("Self-check completed successfully")
 	return nil
 }
 
-func checkIpset(ipsetCfg *config.IPSetConfig) error {
+// checkIPSetComponents checks a single IPSet using the unified NetworkingComponent abstraction.
+// This is the same logic used by the API's self-check endpoint.
+// Returns true if all checks passed, false if any failed.
+func (g *SelfCheckCommand) checkIPSetComponents(ipsetCfg *config.IPSetConfig) bool {
 	log.Infof("----------------- IPSet [%s] ------------------", ipsetCfg.IPSetName)
-	log.Infof("Blackhole route will be automatically added when all interfaces are down")
+	hasFailures := false
 
-	ipset := networking.BuildIPSet(ipsetCfg.IPSetName, ipsetCfg.IPVersion)
-
-	if exists, err := ipset.IsExists(); err != nil {
-		log.Errorf("Failed to check ipset presense [%s]: %v", ipsetCfg.IPSetName, err)
-		return err
-	} else {
-		if exists {
-			log.Infof("ipset [%s] is exists", ipsetCfg.IPSetName)
-		} else {
-			log.Errorf("ipset [%s] is NOT exists", ipsetCfg.IPSetName)
+	// Get Keenetic client from dependencies
+	var keeneticClient *keenetic.Client
+	if g.deps != nil {
+		if concreteClient, ok := g.deps.KeeneticClient().(*keenetic.Client); ok {
+			keeneticClient = concreteClient
 		}
 	}
 
-	ipRule := networking.NewIPRuleBuilder(ipsetCfg).Build()
-	if exists, err := ipRule.IsExists(); err != nil {
-		log.Errorf("Failed to check IP rule [%v]: %v", ipRule, err)
-		return err
-	} else {
-		if exists {
-			log.Infof("IP rule [%v] is exists", ipRule)
-		} else {
-			log.Errorf("IP rule [%v] is NOT exists", ipRule)
-		}
+	// Build components using the unified ComponentBuilder
+	builder := networking.NewComponentBuilder(keeneticClient)
+	components, err := builder.BuildComponents(ipsetCfg)
+	if err != nil {
+		log.Errorf("Failed to build networking components: %v", err)
+		return false
 	}
 
-	// Create Keenetic client and interface selector
-	client := keenetic.NewClient(nil)
-	selector := networking.NewInterfaceSelector(client)
+	// Check each component using the unified abstraction
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
 
-	if chosenIface, ifaceIndex, err := selector.ChooseBest(ipsetCfg); err != nil {
-		log.Errorf("Failed to choose best interface: %v", err)
-		return err
-	} else {
-		if chosenIface == nil {
-			log.Errorf("Failed to choose best interface. All interfaces are down?")
+		// State is OK if actual existence matches expected existence and no error occurred
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
 		} else {
-			log.Infof("Choosing interface %s", chosenIface.Attrs().Name)
+			message = g.getComponentMessage(component, exists, shouldExist, ipsetCfg)
 		}
 
-		if err := checkIPRoutes(ipsetCfg, chosenIface, ifaceIndex); err != nil {
-			log.Errorf("Failed to check IP routes: %v", err)
-			return err
-		}
-		if err := checkIPTables(ipsetCfg); err != nil {
-			log.Errorf("Failed to check iptable rules: %v", err)
-			return err
+		// Log the result
+		if state {
+			log.Infof("[%s] %s: %s", component.GetType(), component.GetDescription(), message)
+		} else {
+			log.Errorf("[%s] %s: %s", component.GetType(), component.GetDescription(), message)
+			hasFailures = true
 		}
 	}
 
 	log.Infof("----------------- IPSet [%s] END ------------------", ipsetCfg.IPSetName)
-	return nil
+	return !hasFailures
 }
 
-func checkIPTables(ipset *config.IPSetConfig) error {
-	ipTableRules, err := networking.NewIPTablesBuilder(ipset).Build()
-	if err != nil {
-		log.Errorf("Failed to build iptable rules: %v", err)
-		return err
-	}
+// getComponentMessage generates an appropriate message based on component type and state.
+// This mirrors the logic in api/check.go for consistency.
+func (g *SelfCheckCommand) getComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool, ipsetCfg *config.IPSetConfig) string {
+	compType := component.GetType()
 
-	if existsMap, err := ipTableRules.CheckRulesExists(); err != nil {
-		log.Errorf("Failed to check iptable rules [%v]: %v", ipTableRules, err)
-		return err
-	} else {
-		log.Infof("Checking iptable rules presense")
-		for rule, exists := range existsMap {
-			if exists {
-				log.Infof("iptable rule [%v] is exists", *rule)
+	switch compType {
+	case networking.ComponentTypeIPSet:
+		if exists && shouldExist {
+			return fmt.Sprintf("IPSet [%s] exists", component.GetIPSetName())
+		} else if !exists && shouldExist {
+			return fmt.Sprintf("IPSet [%s] does NOT exist (missing)", component.GetIPSetName())
+		} else if exists && !shouldExist {
+			return fmt.Sprintf("IPSet [%s] exists but should NOT (unexpected)", component.GetIPSetName())
+		}
+		return fmt.Sprintf("IPSet [%s] not present", component.GetIPSetName())
+
+	case networking.ComponentTypeIPRule:
+		if exists && shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists",
+				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IPRouteTable)
+		} else if !exists && shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist (missing)",
+				ipsetCfg.Routing.FwMark)
+		} else if exists && !shouldExist {
+			return fmt.Sprintf("IP rule with fwmark 0x%x exists but should NOT (unexpected)",
+				ipsetCfg.Routing.FwMark)
+		}
+		return fmt.Sprintf("IP rule with fwmark 0x%x not present", ipsetCfg.Routing.FwMark)
+
+	case networking.ComponentTypeIPRoute:
+		if routeComp, ok := component.(*networking.IPRouteComponent); ok {
+			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
+				if exists && shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
+						ipsetCfg.Routing.IPRouteTable)
+				} else if !exists && !shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
+						ipsetCfg.Routing.IPRouteTable)
+				} else if exists && !shouldExist {
+					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
+						ipsetCfg.Routing.IPRouteTable)
+				}
+				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
+					ipsetCfg.Routing.IPRouteTable)
 			} else {
-				log.Errorf("iptable rule [%v] is NOT exists", *rule)
+				ifaceName := routeComp.GetInterfaceName()
+				if exists && shouldExist {
+					return fmt.Sprintf("Route in table %d via %s exists (active)",
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
+				} else if !exists && !shouldExist {
+					return fmt.Sprintf("Route in table %d via %s not present (interface not best)",
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
+				} else if exists && !shouldExist {
+					return fmt.Sprintf("Route in table %d via %s exists but is not best interface (stale)",
+						ipsetCfg.Routing.IPRouteTable, ifaceName)
+				}
+				return fmt.Sprintf("Route in table %d via %s missing but is best interface (missing)",
+					ipsetCfg.Routing.IPRouteTable, ifaceName)
 			}
 		}
-	}
 
-	return nil
-}
-
-func checkIPRoutes(ipset *config.IPSetConfig, chosenIface *networking.Interface, ifaceIndex int) error {
-	if routes, err := networking.ListRoutesInTable(ipset.Routing.IPRouteTable); err != nil {
-		log.Errorf("Failed to list IP routes in table %d: %v", ipset.Routing.IPRouteTable, err)
-		return err
-	} else {
-		log.Infof("There are %d IP routes in table %d:", len(routes), ipset.Routing.IPRouteTable)
-
-		for idx, route := range routes {
-			log.Infof("  %d. %v", idx+1, route)
-		}
-
-		requiredRoutes := 0
-		if chosenIface != nil {
-			requiredRoutes += 1 // default route
-		} else {
-			requiredRoutes += 1 // blackhole route when no interface is available
-		}
-
-		if len(routes) < requiredRoutes {
-			log.Errorf("Some of required IP routes are missing in table %d", ipset.Routing.IPRouteTable)
-		} else if len(routes) > requiredRoutes {
-			log.Warnf("Looks like there are some extra IP routes in table %d", ipset.Routing.IPRouteTable)
-		} else {
-			log.Infof("All required IP routes are present in table %d", ipset.Routing.IPRouteTable)
-		}
-	}
-
-	if chosenIface != nil {
-		defaultIPRoute := networking.BuildDefaultRoute(ipset.IPVersion, *chosenIface, ipset.Routing.IPRouteTable, ifaceIndex)
-		if exists, err := defaultIPRoute.IsExists(); err != nil {
-			log.Errorf("Failed to check default IP route [%v]: %v", defaultIPRoute, err)
-			return err
-		} else {
-			if exists {
-				log.Infof("Default IP route [%v] is exists", defaultIPRoute)
-			} else {
-				log.Errorf("Default IP route [%v] is NOT exists", defaultIPRoute)
+	case networking.ComponentTypeIPTables:
+		if iptComp, ok := component.(*networking.IPTablesRuleComponent); ok {
+			ruleDesc := iptComp.GetRuleDescription()
+			if exists && shouldExist {
+				return fmt.Sprintf("IPTables %s exists", ruleDesc)
+			} else if !exists && shouldExist {
+				return fmt.Sprintf("IPTables %s does NOT exist (missing)", ruleDesc)
+			} else if exists && !shouldExist {
+				return fmt.Sprintf("IPTables %s exists but should NOT (unexpected)", ruleDesc)
 			}
-		}
-	} else {
-		log.Infof("Default IP route check SKIPPED because no interface is connected")
-	}
-
-	blackholeIPRoute := networking.BuildBlackholeRoute(ipset.IPVersion, ipset.Routing.IPRouteTable)
-	if exists, err := blackholeIPRoute.IsExists(); err != nil {
-		log.Errorf("Failed to check blackhole IP route [%v]: %v", blackholeIPRoute, err)
-		return err
-	} else {
-		if exists {
-			if chosenIface == nil {
-				log.Infof("Blackhole IP route [%v] is exists (all interfaces are down)", blackholeIPRoute)
-			} else {
-				log.Errorf("Blackhole IP route [%v] EXISTS, but interface is UP (should not be present)", blackholeIPRoute)
-			}
-		} else {
-			if chosenIface == nil {
-				log.Errorf("Blackhole IP route [%v] is NOT exists, but all interfaces are DOWN (should be present)", blackholeIPRoute)
-			} else {
-				log.Infof("Blackhole IP route [%v] is not exists. This is OK because interface is UP.", blackholeIPRoute)
-			}
+			return fmt.Sprintf("IPTables %s not present", ruleDesc)
 		}
 	}
 
-	return nil
+	// Fallback generic message
+	if exists && shouldExist {
+		return "Component exists as expected"
+	} else if !exists && !shouldExist {
+		return "Component absent as expected"
+	} else if exists && !shouldExist {
+		return "Component exists but should NOT (unexpected)"
+	}
+	return "Component missing but should exist"
 }

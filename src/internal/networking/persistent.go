@@ -26,8 +26,8 @@ func NewPersistentConfigManager() *PersistentConfigManager {
 // This creates iptables rules for packet marking and ip rules for routing
 // table selection. These rules stay active regardless of interface state.
 func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
-	ipRule := NewIPRuleBuilder(ipset).Build()
-	ipTableRules, err := NewIPTablesBuilder(ipset).Build()
+	ipRule := BuildIPRuleFromConfig(ipset)
+	ipTableRules, err := BuildIPTablesRules(ipset)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (p *PersistentConfigManager) Apply(ipset *config.IPSetConfig) error {
 //
 // This deletes all iptables rules and ip rules associated with the ipset.
 func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
-	ipRule := NewIPRuleBuilder(ipset).Build()
+	ipRule := BuildIPRuleFromConfig(ipset)
 
 	if deleted, err := ipRule.DelIfExists(); err != nil {
 		log.Errorf("[%s] Failed to delete IP rule: %v", ipset.IPSetName, err)
@@ -63,7 +63,7 @@ func (p *PersistentConfigManager) Remove(ipset *config.IPSetConfig) error {
 			ipset.IPSetName, ipset.Routing.FwMark, ipset.Routing.IPRouteTable)
 	}
 
-	if ipTableRules, err := NewIPTablesBuilder(ipset).Build(); err != nil {
+	if ipTableRules, err := BuildIPTablesRules(ipset); err != nil {
 		log.Errorf("[%s] Failed to build iptables rules: %v", ipset.IPSetName, err)
 		return err
 	} else {
