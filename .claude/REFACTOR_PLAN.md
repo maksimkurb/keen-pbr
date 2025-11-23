@@ -1,20 +1,21 @@
 # Code Reduction & Unification Refactoring Plan
 
-## Status: Partially Completed
+## Status: Mostly Completed
 
-**Completed Phases:** 0, 1, 3, 4, 6, 8
-**Deferred Phases:** 2, 5, 7
+**Completed Phases:** 0, 1, 2, 3, 4, 6, 8
+**Deferred Phases:** 5, 7
 
 **Actual Results:**
-| Category | Lines Removed | Status |
-|----------|--------------|--------|
-| Phase 0: Unify Apply/Check | ~100 | COMPLETED |
-| Phase 1: Remove apply/undo commands | ~350 | COMPLETED |
-| Phase 3: Remove unused interfaces | ~50 | COMPLETED |
-| Phase 4: Eliminate Builder Pattern | ~40 | COMPLETED |
-| Phase 6: Simplify Service Layer | ~100 | COMPLETED |
-| Phase 8: Consolidate Validation | ~300 | COMPLETED |
-| **Total** | **~940 lines** | |
+| Category | Lines Changed | Status |
+|----------|---------------|--------|
+| Phase 0: Unify Apply/Check | ~100 removed | COMPLETED |
+| Phase 1: Remove apply/undo commands | ~350 removed | COMPLETED |
+| Phase 2: Unify CLI/API Methods | +320 (shared services) | COMPLETED |
+| Phase 3: Remove unused interfaces | ~50 removed | COMPLETED |
+| Phase 4: Eliminate Builder Pattern | ~40 removed | COMPLETED |
+| Phase 6: Simplify Service Layer | ~100 removed | COMPLETED |
+| Phase 8: Consolidate Validation | ~300 removed | COMPLETED |
+| **Total** | **~940 lines removed** | |
 
 ---
 
@@ -77,15 +78,25 @@ Interface validation is handled separately by `networking.ValidateInterfacesAreP
 
 ---
 
+### Phase 2: Unify CLI and API Methods - COMPLETED
+
+Created shared services for DNS and interfaces:
+
+- `service/dns_service.go` - DNSService with GetDNSServers() and FormatDNSServers()
+- `service/interface_service.go` - InterfaceService with GetInterfaces() and FormatInterfacesForCLI()
+
+Updated CLI commands:
+- `commands/dns.go` uses DNSService
+- `commands/interfaces.go` uses InterfaceService
+
+Updated API:
+- `api/interfaces.go` GetInterfaces() now includes Keenetic metadata
+- New `GET /api/v1/dns-servers` endpoint added
+- Shared `DNSServerInfo` type used across API
+
+---
+
 ## Deferred Phases
-
-### Phase 2: Unify CLI and API Methods - DEFERRED
-
-**Reason:** Lower priority, requires wider changes across API and CLI layers.
-
-Would create:
-- `DNSService` - shared logic for `keen-pbr dns` and new API endpoint
-- `InterfaceService` - shared logic for `keen-pbr interfaces` and API
 
 ### Phase 5: Simplify Component Abstraction - DEFERRED
 
@@ -133,5 +144,5 @@ After refactoring, these issues remain:
 - [x] No service that just calls one manager method - FIXED
 - [ ] No type casting between interface and concrete type - NOT FIXED (KeeneticClient)
 - [x] No duplicate validation logic - FIXED
-- [ ] CLI and API share same business logic - PARTIALLY (dns/interfaces still separate)
+- [x] CLI and API share same business logic - FIXED (dns/interfaces now share services)
 - [x] Apply and Check use same component building logic - FIXED
