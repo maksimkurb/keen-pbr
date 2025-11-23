@@ -150,36 +150,34 @@ func (s *ServiceCommand) Run() error {
 	log.Infof("Send SIGHUP to reload configuration, SIGUSR1 to refresh routing")
 
 	// Run signal handling loop
-	for {
-		select {
-		case sig := <-sigChan:
-			switch sig {
-			case syscall.SIGHUP:
-				log.Infof("Received SIGHUP signal, reloading configuration...")
-				if err := s.serviceMgr.Reload(); err != nil {
-					log.Errorf("Failed to reload configuration: %v", err)
-				} else {
-					log.Infof("Configuration reloaded successfully")
-				}
-				// Reload DNS proxy lists if DNS proxy is running
-				if s.dnsProxy != nil {
-					s.dnsProxy.ReloadLists()
-				}
-
-			case syscall.SIGUSR1:
-				log.Infof("Received SIGUSR1 signal, refreshing routing...")
-				if err := s.serviceMgr.RefreshRouting(); err != nil {
-					log.Errorf("Failed to refresh routing: %v", err)
-				} else {
-					log.Infof("Routing refreshed successfully")
-				}
-
-			case syscall.SIGINT, syscall.SIGTERM:
-				log.Infof("Received signal %v, shutting down...", sig)
-				return s.shutdown(ctx)
+	for sig := range sigChan {
+		switch sig {
+		case syscall.SIGHUP:
+			log.Infof("Received SIGHUP signal, reloading configuration...")
+			if err := s.serviceMgr.Reload(); err != nil {
+				log.Errorf("Failed to reload configuration: %v", err)
+			} else {
+				log.Infof("Configuration reloaded successfully")
 			}
+			// Reload DNS proxy lists if DNS proxy is running
+			if s.dnsProxy != nil {
+				s.dnsProxy.ReloadLists()
+			}
+
+		case syscall.SIGUSR1:
+			log.Infof("Received SIGUSR1 signal, refreshing routing...")
+			if err := s.serviceMgr.RefreshRouting(); err != nil {
+				log.Errorf("Failed to refresh routing: %v", err)
+			} else {
+				log.Infof("Routing refreshed successfully")
+			}
+
+		case syscall.SIGINT, syscall.SIGTERM:
+			log.Infof("Received signal %v, shutting down...", sig)
+			return s.shutdown()
 		}
 	}
+	return nil
 }
 
 // startAPIServer starts the HTTP API server in a separate goroutine.
@@ -292,7 +290,7 @@ func (s *ServiceCommand) stopDNSProxy() {
 }
 
 // shutdown performs graceful shutdown of all components.
-func (s *ServiceCommand) shutdown(ctx context.Context) error {
+func (s *ServiceCommand) shutdown() error {
 	log.Infof("Shutting down keen-pbr service...")
 
 	// Stop the routing service

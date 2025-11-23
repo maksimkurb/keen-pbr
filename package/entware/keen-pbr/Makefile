@@ -36,11 +36,7 @@ PKG_BUILD_DATE:=$(shell date -u +%Y-%m-%d)
 # If PKG_SOURCE_VERSION is not set (local builds), try git rev-parse
 PKG_COMMIT:=$(if $(PKG_SOURCE_VERSION),$(shell echo $(PKG_SOURCE_VERSION) | cut -c1-7),$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown"))
 
-# Strip debug symbols and DWARF information for smaller binary size
-# -s: omit symbol table and debug info
-# -w: omit DWARF symbol table
-GO_LDFLAGS += -s -w \
-	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Version=$(PKG_VERSION)' \
+GO_LDFLAGS += -X 'github.com/maksimkurb/keen-pbr/src/internal/api.Version=$(PKG_VERSION)' \
 	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Date=$(PKG_BUILD_DATE)' \
 	-X 'github.com/maksimkurb/keen-pbr/src/internal/api.Commit=$(PKG_COMMIT)'
 
