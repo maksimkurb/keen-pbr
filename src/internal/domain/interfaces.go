@@ -5,8 +5,6 @@
 package domain
 
 import (
-	"net/netip"
-
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
@@ -53,21 +51,3 @@ type NetworkManager interface {
 	UndoConfig(ipsets []*config.IPSetConfig) error
 }
 
-// IPSetManager defines the interface for managing Linux ipsets.
-//
-// This interface abstracts ipset operations, allowing for testing without
-// requiring actual ipset commands or root privileges.
-type IPSetManager interface {
-	// Create creates a new ipset with the specified name and IP family.
-	// If the ipset already exists, this should be a no-op.
-	Create(name string, family config.IPFamily) error
-
-	// Flush removes all entries from the specified ipset.
-	Flush(name string) error
-
-	// Import adds a list of IP networks to the specified ipset configuration.
-	Import(config *config.IPSetConfig, networks []netip.Prefix) error
-
-	// CreateIfAbsent ensures all ipsets defined in the configuration exist.
-	CreateIfAbsent(config *config.Config) error
-}

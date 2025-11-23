@@ -4,9 +4,9 @@ import (
 	"net/netip"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // IPSetService orchestrates ipset operations including list downloads and imports.
@@ -14,14 +14,14 @@ import (
 // It coordinates between list downloads, network parsing, and ipset management,
 // providing a high-level API for populating ipsets with networks from various sources.
 type IPSetService struct {
-	ipsetManager domain.IPSetManager
+	ipsetManager *networking.IPSetManagerImpl
 }
 
 // NewIPSetService creates a new ipset service.
 //
 // Parameters:
 //   - ipsetManager: Handles ipset creation and population
-func NewIPSetService(ipsetManager domain.IPSetManager) *IPSetService {
+func NewIPSetService(ipsetManager *networking.IPSetManagerImpl) *IPSetService {
 	return &IPSetService{
 		ipsetManager: ipsetManager,
 	}

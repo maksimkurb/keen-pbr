@@ -2,8 +2,8 @@
 
 ## Status: Mostly Completed
 
-**Completed Phases:** 0, 1, 2, 3, 4, 6, 8
-**Deferred Phases:** 5, 7
+**Completed Phases:** 0, 1, 2, 3, 4, 6, 7, 8
+**Deferred Phases:** 5
 
 **Actual Results:**
 | Category | Lines Changed | Status |
@@ -14,8 +14,9 @@
 | Phase 3: Remove unused interfaces | ~50 removed | COMPLETED |
 | Phase 4: Eliminate Builder Pattern | ~40 removed | COMPLETED |
 | Phase 6: Simplify Service Layer | ~100 removed | COMPLETED |
+| Phase 7: Simplify DI (interfaces) | ~50 removed | COMPLETED |
 | Phase 8: Consolidate Validation | ~300 removed | COMPLETED |
-| **Total** | **~940 lines removed** | |
+| **Total** | **~990 lines removed** | |
 
 ---
 
@@ -107,16 +108,39 @@ Updated API:
 
 Current component file structure is well-organized and maintainable.
 
-### Phase 7: Simplify Dependency Injection - DEFERRED
+### Phase 7: Simplify Dependency Injection - COMPLETED
 
-**Reason:** The KeeneticClient interface IS used for mocking in tests:
-- `dnsproxy/upstreams/keenetic_test.go` - uses `mockKeeneticClient`
-- `config/hasher_deadlock_test.go` - uses `mockKeeneticClient`
+**Changes made:**
 
-Removing the interface would require changing test strategy.
+1. **Removed IPSetManager interface** - replaced with concrete `*networking.IPSetManagerImpl`:
+   - No mocks existed for this interface
+   - Reduced memory footprint (interface values are 16 bytes vs 8 bytes for pointer)
+   - Enables compiler inlining and direct method calls
+   - Updated: `domain/interfaces.go`, `domain/container.go`, `service/ipset_service.go`, `dnsproxy/proxy.go`
 
-The type casting hack in `container.go` exists because `ComponentBuilder` requires concrete `*keenetic.Client`.
-Fixing this would require changing `InterfaceSelector` to accept the interface.
+2. **Created local InterfaceLister interface** in networking package:
+   - Avoids circular import between `domain` ↔ `networking`
+   - Only defines `GetInterfaces()` method needed by InterfaceSelector
+   - Both `*keenetic.Client` and mock implementations satisfy this interface
+
+3. **Updated InterfaceSelector/ComponentBuilder/Manager** to accept interface:
+   - Changed from `*keenetic.Client` to `InterfaceLister`
+   - Removed keenetic import from manager.go and component_builder.go
+
+4. **Removed 4 type casting hacks**:
+   - `domain/container.go` - no longer needs `keeneticClient.(*keenetic.Client)`
+   - `api/check.go` (2 locations) - now passes interface directly
+   - `commands/self_check.go` - now passes interface directly
+
+**Memory footprint reduction:**
+- `AppDependencies.ipsetManager`: 16 → 8 bytes
+- `IPSetService.ipsetManager`: 16 → 8 bytes
+- `DNSProxy.ipsetManager`: 16 → 8 bytes
+- Total: 24 bytes saved per service instance
+
+**Note:** KeeneticClient interface is retained for test mocking in:
+- `dnsproxy/upstreams/keenetic_test.go`
+- `config/hasher_deadlock_test.go`
 
 ---
 
@@ -136,13 +160,13 @@ These patterns are well-designed and should be kept:
 
 ## Code Smell Checklist (Post-Refactor)
 
-After refactoring, these issues remain:
+All issues resolved:
 
-- [x] No interface has single implementation - MOSTLY FIXED (IPSetManager still has interface for testing)
+- [x] No interface has single implementation - FIXED (IPSetManager interface removed)
 - [x] No wrapper just delegates to another type - FIXED
 - [x] No builder that could be a function - FIXED
 - [x] No service that just calls one manager method - FIXED
-- [ ] No type casting between interface and concrete type - NOT FIXED (KeeneticClient)
+- [x] No type casting between interface and concrete type - FIXED (via InterfaceLister interface)
 - [x] No duplicate validation logic - FIXED
 - [x] CLI and API share same business logic - FIXED (dns/interfaces now share services)
 - [x] Apply and Check use same component building logic - FIXED

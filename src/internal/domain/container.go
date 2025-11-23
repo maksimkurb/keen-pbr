@@ -25,7 +25,7 @@ type AppDependencies struct {
 
 	// Domain managers
 	networkManager NetworkManager
-	ipsetManager   IPSetManager
+	ipsetManager   *networking.IPSetManagerImpl
 	listManager    *lists.Manager
 }
 
@@ -63,13 +63,7 @@ func NewAppDependencies(cfg AppConfig) *AppDependencies {
 	}
 
 	// Create domain managers
-	// Note: networking.NewManager expects *keenetic.Client, not the interface
-	// This is safe because our factory always creates *keenetic.Client or nil
-	var concreteClient *keenetic.Client
-	if keeneticClient != nil {
-		concreteClient = keeneticClient.(*keenetic.Client)
-	}
-	networkManager := networking.NewManager(concreteClient)
+	networkManager := networking.NewManager(keeneticClient)
 	ipsetManager := networking.NewIPSetManager()
 	listManager := lists.NewManager()
 
@@ -101,7 +95,7 @@ func (d *AppDependencies) NetworkManager() NetworkManager {
 }
 
 // IPSetManager returns the ipset manager.
-func (d *AppDependencies) IPSetManager() IPSetManager {
+func (d *AppDependencies) IPSetManager() *networking.IPSetManagerImpl {
 	return d.ipsetManager
 }
 

@@ -8,6 +8,9 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
+// Ensure *keenetic.Client satisfies InterfaceLister
+var _ InterfaceLister = (*keenetic.Client)(nil)
+
 const (
 	colorGreen = "\033[32m"
 	colorReset = "\033[0m"
@@ -19,14 +22,14 @@ const (
 // The selector checks interface status both from the system (netlink) and from the
 // Keenetic router API (if available) to determine which interface is currently usable.
 type InterfaceSelector struct {
-	keeneticClient *keenetic.Client
+	keeneticClient InterfaceLister
 }
 
 // NewInterfaceSelector creates a new interface selector.
 //
 // The keeneticClient parameter can be nil if Keenetic API integration is not available.
 // In this case, only system-level interface status will be checked.
-func NewInterfaceSelector(keeneticClient *keenetic.Client) *InterfaceSelector {
+func NewInterfaceSelector(keeneticClient InterfaceLister) *InterfaceSelector {
 	return &InterfaceSelector{
 		keeneticClient: keeneticClient,
 	}

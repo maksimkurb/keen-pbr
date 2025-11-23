@@ -8,7 +8,6 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
@@ -96,11 +95,9 @@ func (g *SelfCheckCommand) checkIPSetComponents(ipsetCfg *config.IPSetConfig) bo
 	hasFailures := false
 
 	// Get Keenetic client from dependencies
-	var keeneticClient *keenetic.Client
+	var keeneticClient domain.KeeneticClient
 	if g.deps != nil {
-		if concreteClient, ok := g.deps.KeeneticClient().(*keenetic.Client); ok {
-			keeneticClient = concreteClient
-		}
+		keeneticClient = g.deps.KeeneticClient()
 	}
 
 	// Build components using the unified ComponentBuilder

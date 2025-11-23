@@ -2,7 +2,6 @@ package networking
 
 import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -23,7 +22,7 @@ type Manager struct {
 //
 // The keeneticClient parameter can be nil if Keenetic API integration is not available.
 // In this case, only system-level interface status will be used for routing decisions.
-func NewManager(keeneticClient *keenetic.Client) *Manager {
+func NewManager(keeneticClient InterfaceLister) *Manager {
 	interfaceSelector := NewInterfaceSelector(keeneticClient)
 	persistentConfig := NewPersistentConfigManager()
 
