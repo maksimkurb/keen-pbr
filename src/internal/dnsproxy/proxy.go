@@ -45,12 +45,6 @@ type ProxyConfig struct {
 	// ListenPort is the port to listen on (default: 15353)
 	ListenPort uint16
 
-	// ListenAddress is the IPv4 address to listen on (default: 127.0.53.53)
-	ListenAddress string
-
-	// ListenAddressIPv6 is the IPv6 address to listen on (default: fd53::53)
-	ListenAddressIPv6 string
-
 	// Upstreams is the list of upstream DNS URLs
 	// Supported: keenetic://, udp://ip:port, doh://host/path
 	Upstreams []string
@@ -65,13 +59,11 @@ type ProxyConfig struct {
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
 func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 	return ProxyConfig{
-		ListenAddr:        cfg.General.GetDNSProxyListenAddr(),
-		ListenPort:        uint16(cfg.General.GetDNSProxyPort()),
-		ListenAddress:     cfg.General.GetDNSProxyHost(),
-		ListenAddressIPv6: cfg.General.GetDNSProxyHostIPv6(),
-		Upstreams:         cfg.General.GetDNSUpstream(),
-		DropAAAA:          cfg.General.IsDropAAAAEnabled(),
-		TTLOverride:       cfg.General.GetTTLOverride(),
+		ListenAddr:  cfg.General.GetDNSProxyListenAddr(),
+		ListenPort:  uint16(cfg.General.GetDNSProxyPort()),
+		Upstreams:   cfg.General.GetDNSUpstream(),
+		DropAAAA:    cfg.General.IsDropAAAAEnabled(),
+		TTLOverride: cfg.General.GetTTLOverride(),
 	}
 }
 

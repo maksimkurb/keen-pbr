@@ -86,16 +86,6 @@ func (gc *GeneralConfig) GetDNSProxyPort() int {
 	return gc.DNSProxyPort
 }
 
-// GetDNSProxyHost returns the DNS proxy IPv4 host (default: 127.0.53.53).
-func (gc *GeneralConfig) GetDNSProxyHost() string {
-	return "127.0.53.53"
-}
-
-// GetDNSProxyHostIPv6 returns the DNS proxy IPv6 host (default: ::1).
-func (gc *GeneralConfig) GetDNSProxyHostIPv6() string {
-	return "::1"
-}
-
 // GetDNSUpstream returns the configured upstream DNS servers (default: ["keenetic://"]).
 func (gc *GeneralConfig) GetDNSUpstream() []string {
 	if len(gc.DNSUpstream) == 0 {
