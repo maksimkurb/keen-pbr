@@ -4,10 +4,11 @@ package networking
 type ComponentType string
 
 const (
-	ComponentTypeIPSet    ComponentType = "ipset"
-	ComponentTypeIPRule   ComponentType = "ip_rule"
-	ComponentTypeIPRoute  ComponentType = "ip_route"
-	ComponentTypeIPTables ComponentType = "iptables"
+	ComponentTypeIPSet       ComponentType = "ipset"
+	ComponentTypeIPRule      ComponentType = "ip_rule"
+	ComponentTypeIPRoute     ComponentType = "ip_route"
+	ComponentTypeIPTables    ComponentType = "iptables"
+	ComponentTypeDNSRedirect ComponentType = "dns_redirect"
 )
 
 // NetworkingComponent represents any network configuration element.

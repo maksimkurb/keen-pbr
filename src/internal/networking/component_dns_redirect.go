@@ -150,7 +150,7 @@ func (c *DNSRedirectComponent) DeleteIfExists() error {
 
 // GetType returns the component type.
 func (c *DNSRedirectComponent) GetType() ComponentType {
-	return ComponentTypeIPTables
+	return ComponentTypeDNSRedirect
 }
 
 // GetIPSetName returns the associated IPSet name.
@@ -192,13 +192,7 @@ func (c *DNSRedirectComponent) checkChainAndRules(ipt *iptables.IPTables) (bool,
 		return false, nil
 	}
 
-	// Check if rules match current addresses
-	// This is a strict check: if addresses changed, we consider it "not exists" (needs update)
-	currentAddresses, err := getLocalAddresses()
-	if err != nil {
-		return false, err
-	}
-
+	// Check if chain has any rules (at least one redirect rule should exist)
 	existingRules, err := ipt.List("nat", dnsRedirectChainName)
 	if err != nil {
 		return false, err
@@ -212,23 +206,13 @@ func (c *DNSRedirectComponent) checkChainAndRules(ipt *iptables.IPTables) (bool,
 		}
 	}
 
-	// Calculate expected rules count
-	expectedCount := 0
-	for _, addr := range currentAddresses {
-		isIPv4 := addr.IP.To4() != nil
-		isIPv6 := ipt.Proto() == iptables.ProtocolIPv6
-
-		if (isIPv4 && !isIPv6) || (!isIPv4 && isIPv6) {
-			expectedCount += 2 // TCP + UDP
-		}
-	}
-
-	// Simple check: count mismatch means update needed
-	if len(actualRules) != expectedCount {
+	// For IsExists check, we only verify that rules exist (at least one)
+	// The exact count may vary based on transient interfaces
+	// CreateIfNotExists will refresh rules if needed
+	if len(actualRules) == 0 {
 		return false, nil
 	}
 
-	// TODO: Deep comparison of rules if needed, but count is a good proxy for "something changed"
 	return true, nil
 }
 

@@ -171,7 +171,11 @@ func (sm *ServiceManager) Reload() error {
 		return fmt.Errorf("failed to get interfaces list: %v", err)
 	}
 
-	// Reapply persistent network configuration (iptables rules and ip rules)
+	// Update global config for service-level components (DNS redirect, etc.)
+	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
+	networkMgr.SetGlobalConfig(globalCfg)
+
+	// Reapply persistent network configuration (iptables rules, ip rules, and global components)
 	log.Infof("Reapplying persistent network configuration...")
 	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
@@ -191,6 +195,7 @@ func (sm *ServiceManager) Reload() error {
 // RefreshRouting refreshes the routing configuration without reloading config or DNS lists.
 // This is typically triggered by SIGUSR1 signal and only re-checks interfaces
 // and updates routing if the best interface has changed.
+// Also re-applies global components (DNS redirect) as interface IPs may have changed.
 func (sm *ServiceManager) RefreshRouting() error {
 	sm.mu.RLock()
 	if !sm.running {
@@ -208,6 +213,16 @@ func (sm *ServiceManager) RefreshRouting() error {
 	var err error
 	if ctx.Interfaces, err = networking.GetInterfaceList(); err != nil {
 		return fmt.Errorf("failed to get interfaces list: %v", err)
+	}
+
+	// Re-apply global components (DNS redirect rules need updating when IPs change)
+	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
+	networkMgr.SetGlobalConfig(globalCfg)
+
+	// Re-apply persistent config to update DNS redirect rules with new interface IPs
+	log.Debugf("Refreshing global components (DNS redirect)...")
+	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to refresh persistent network configuration: %v", err)
 	}
 
 	// Update routing configuration only if interfaces changed
@@ -277,8 +292,13 @@ func (sm *ServiceManager) run(ctx context.Context) {
 		return
 	}
 
-	// Apply persistent network configuration (iptables rules and ip rules)
-	log.Infof("Applying persistent network configuration (iptables rules and ip rules)...")
+	// Set global config for service-level components (DNS redirect, etc.)
+	// This must be done before ApplyPersistentConfig
+	globalCfg := networking.GlobalConfigFromAppConfig(startupCfg)
+	sm.networkMgr.SetGlobalConfig(globalCfg)
+
+	// Apply persistent network configuration (iptables rules, ip rules, and global components)
+	log.Infof("Applying persistent network configuration (iptables rules, ip rules, and global components)...")
 	if err := sm.networkMgr.ApplyPersistentConfig(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply persistent network configuration: %w", err)
 		return

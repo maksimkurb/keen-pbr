@@ -7,7 +7,7 @@ import (
 
 // Manager is the main facade for network configuration management.
 //
-// It orchestrates persistent configuration (iptables, ip rules) and
+// It orchestrates persistent configuration (iptables, ip rules, dns redirect) and
 // dynamic routing configuration (ip routes) through specialized managers.
 //
 // The manager implements the NetworkManager interface from the domain package,
@@ -16,6 +16,9 @@ type Manager struct {
 	persistentConfig  *PersistentConfigManager
 	routingConfig     *RoutingConfigManager
 	interfaceSelector *InterfaceSelector
+
+	// Global config for service-level components (DNS redirect, etc.)
+	globalConfig GlobalConfig
 }
 
 // NewManager creates a new network configuration manager.
@@ -33,14 +36,44 @@ func NewManager(keeneticClient InterfaceLister) *Manager {
 	}
 }
 
+// SetGlobalConfig sets the global configuration for service-level components.
+// This should be called before ApplyPersistentConfig to enable global components
+// like DNS redirect.
+func (m *Manager) SetGlobalConfig(globalCfg GlobalConfig) {
+	m.globalConfig = globalCfg
+}
+
+// GetGlobalConfig returns the current global configuration.
+func (m *Manager) GetGlobalConfig() GlobalConfig {
+	return m.globalConfig
+}
+
 // ApplyPersistentConfig applies persistent network configuration for all ipsets.
 //
-// This includes iptables rules and ip rules that should remain active
-// regardless of interface state. This method should be called once on
-// service start.
+// This includes iptables rules, ip rules, and global components (DNS redirect)
+// that should remain active regardless of interface state. This method should
+// be called once on service start.
 //
 // This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
+	// Build and apply global components first (DNS redirect)
+	globalBuilder := NewGlobalComponentBuilder()
+	globalComponents, err := globalBuilder.BuildComponents(m.globalConfig)
+	if err != nil {
+		return err
+	}
+
+	for _, component := range globalComponents {
+		if component.ShouldExist() {
+			log.Infof("[global] Applying %s...", component.GetDescription())
+			if err := component.CreateIfNotExists(); err != nil {
+				log.Errorf("[global] Failed to create %s: %v", component.GetType(), err)
+				return err
+			}
+		}
+	}
+
+	// Apply per-ipset persistent components
 	for _, ipset := range ipsets {
 		log.Infof("[ipset %s] Applying persistent configuration (iptables rules and ip rules)...", ipset.IPSetName)
 
@@ -127,11 +160,13 @@ func (m *Manager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, err
 // - IP routes (both default and blackhole)
 // - IP rules for routing table selection
 // - IPTables rules for packet marking
+// - Global components (DNS redirect)
 //
 // This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
-	log.Infof("Removing all iptables rules, ip rules and ip routes...")
+	log.Infof("Removing all iptables rules, ip rules, ip routes, and global components...")
 
+	// Remove per-ipset components first
 	for _, ipset := range ipsets {
 		// Build all components for this ipset
 		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
@@ -157,6 +192,21 @@ func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 
 			if err := component.DeleteIfExists(); err != nil {
 				log.Warnf("Failed to delete %s for %s: %v", component.GetType(), ipset.IPSetName, err)
+				// Continue with other components
+			}
+		}
+	}
+
+	// Remove global components (DNS redirect)
+	globalBuilder := NewGlobalComponentBuilder()
+	globalComponents, err := globalBuilder.BuildComponents(m.globalConfig)
+	if err != nil {
+		log.Warnf("Failed to build global components during undo: %v", err)
+	} else {
+		for _, component := range globalComponents {
+			log.Infof("[global] Removing %s...", component.GetDescription())
+			if err := component.DeleteIfExists(); err != nil {
+				log.Warnf("[global] Failed to delete %s: %v", component.GetType(), err)
 				// Continue with other components
 			}
 		}

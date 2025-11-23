@@ -72,6 +72,13 @@ func (g *SelfCheckCommand) Run() error {
 
 	// Use unified component-based checking (same logic as API)
 	hasFailures := false
+
+	// Check global components (DNS redirect, etc.)
+	if !g.checkGlobalComponents() {
+		hasFailures = true
+	}
+
+	// Check per-ipset components
 	for _, ipset := range g.cfg.IPSets {
 		if !g.checkIPSetComponents(ipset) {
 			hasFailures = true
@@ -85,6 +92,83 @@ func (g *SelfCheckCommand) Run() error {
 
 	log.Infof("Self-check completed successfully")
 	return nil
+}
+
+// checkGlobalComponents checks global/service-level components (DNS redirect, etc.).
+// Returns true if all checks passed, false if any failed.
+func (g *SelfCheckCommand) checkGlobalComponents() bool {
+	log.Infof("----------------- Global Components ------------------")
+	hasFailures := false
+
+	// Build global config and components
+	globalCfg := networking.GlobalConfigFromAppConfig(g.cfg)
+	builder := networking.NewGlobalComponentBuilder()
+	components, err := builder.BuildComponents(globalCfg)
+	if err != nil {
+		log.Errorf("Failed to build global components: %v", err)
+		return false
+	}
+
+	if len(components) == 0 {
+		log.Infof("No global components configured")
+		log.Infof("----------------- Global Components END --------------")
+		return true
+	}
+
+	// Check each component
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
+
+		// State is OK if actual existence matches expected existence and no error occurred
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
+		} else {
+			message = g.getGlobalComponentMessage(component, exists, shouldExist)
+		}
+
+		// Log the result
+		if state {
+			log.Infof("[%s] %s: %s", component.GetType(), component.GetDescription(), message)
+		} else {
+			log.Errorf("[%s] %s: %s", component.GetType(), component.GetDescription(), message)
+			hasFailures = true
+		}
+	}
+
+	log.Infof("----------------- Global Components END --------------")
+	return !hasFailures
+}
+
+// getGlobalComponentMessage generates a message for global components.
+func (g *SelfCheckCommand) getGlobalComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool) string {
+	compType := component.GetType()
+
+	switch compType {
+	case networking.ComponentTypeDNSRedirect:
+		if exists && shouldExist {
+			return "DNS redirect rules exist"
+		} else if !exists && shouldExist {
+			return "DNS redirect rules do NOT exist (missing)"
+		} else if exists && !shouldExist {
+			return "DNS redirect rules exist but should NOT (unexpected)"
+		}
+		return "DNS redirect rules not present (DNS proxy disabled)"
+	}
+
+	// Fallback generic message
+	if exists && shouldExist {
+		return "Component exists as expected"
+	} else if !exists && !shouldExist {
+		return "Component absent as expected"
+	} else if exists && !shouldExist {
+		return "Component exists but should NOT (unexpected)"
+	}
+	return "Component missing but should exist"
 }
 
 // checkIPSetComponents checks a single IPSet using the unified NetworkingComponent abstraction.

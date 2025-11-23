@@ -21,8 +21,8 @@ func TestDNSRedirectComponent_BasicMethods(t *testing.T) {
 	}
 
 	// Test GetType
-	if component.GetType() != ComponentTypeIPTables {
-		t.Errorf("Expected type %s, got %s", ComponentTypeIPTables, component.GetType())
+	if component.GetType() != ComponentTypeDNSRedirect {
+		t.Errorf("Expected type %s, got %s", ComponentTypeDNSRedirect, component.GetType())
 	}
 
 	// Test GetIPSetName

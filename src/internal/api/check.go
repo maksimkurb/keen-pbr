@@ -440,6 +440,10 @@ func (h *Handler) checkSelfJSON(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
+	// Check global components (DNS redirect, etc.)
+	globalChecks := h.checkGlobalComponentsJSON(cfg)
+	checks = append(checks, globalChecks...)
+
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
 		ipsetChecks := h.checkIPSetSelfJSON(ipsetCfg)
@@ -481,6 +485,11 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid")
 	}
 
+	// Check global components (DNS redirect, etc.)
+	if !h.checkGlobalComponentsSSE(w, flusher, cfg) {
+		hasFailures = true
+	}
+
 	// Check each IPSet
 	for _, ipsetCfg := range cfg.IPSets {
 		if !h.checkIPSetSelfSSE(w, flusher, ipsetCfg) {
@@ -494,6 +503,125 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 	} else {
 		h.sendCheckEventWithContext(w, flusher, "complete", "", true, "", "Self-check completed successfully")
 	}
+}
+
+// checkGlobalComponentsJSON checks global components and returns results as table rows
+func (h *Handler) checkGlobalComponentsJSON(cfg *config.Config) []SelfCheckRow {
+	checks := []SelfCheckRow{}
+
+	// Build global components
+	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
+	builder := networking.NewGlobalComponentBuilder()
+	components, err := builder.BuildComponents(globalCfg)
+	if err != nil {
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: "global_component_build",
+			Comment:    "Failed to build global components",
+			State:      false,
+			Message:    fmt.Sprintf("Error: %v", err),
+		})
+		return checks
+	}
+
+	// Check each global component
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
+
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
+		} else {
+			message = h.getGlobalComponentMessage(component, exists, shouldExist)
+		}
+
+		checks = append(checks, SelfCheckRow{
+			IPSet:      "",
+			Validation: string(component.GetType()),
+			Comment:    component.GetDescription(),
+			State:      state,
+			Message:    message,
+		})
+	}
+
+	return checks
+}
+
+// checkGlobalComponentsSSE checks global components and streams results via SSE
+// Returns true if all checks passed, false if any failed
+func (h *Handler) checkGlobalComponentsSSE(w http.ResponseWriter, flusher http.Flusher, cfg *config.Config) bool {
+	hasFailures := false
+
+	// Build global components
+	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
+	builder := networking.NewGlobalComponentBuilder()
+	components, err := builder.BuildComponents(globalCfg)
+	if err != nil {
+		h.sendCheckEventWithContext(w, flusher, "global_component_build", "", false,
+			"Failed to build global components", fmt.Sprintf("Error: %v", err))
+		return false
+	}
+
+	// Check each global component
+	for _, component := range components {
+		exists, err := component.IsExists()
+		shouldExist := component.ShouldExist()
+
+		state := (exists == shouldExist) && err == nil
+
+		var message string
+		if err != nil {
+			message = fmt.Sprintf("Error checking: %v", err)
+			state = false
+		} else {
+			message = h.getGlobalComponentMessage(component, exists, shouldExist)
+		}
+
+		h.sendCheckEventWithContext(w, flusher,
+			string(component.GetType()),
+			"",
+			state,
+			component.GetDescription(),
+			message,
+		)
+
+		if !state {
+			hasFailures = true
+		}
+	}
+
+	return !hasFailures
+}
+
+// getGlobalComponentMessage generates a message for global components
+func (h *Handler) getGlobalComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool) string {
+	compType := component.GetType()
+
+	switch compType {
+	case networking.ComponentTypeDNSRedirect:
+		if exists && shouldExist {
+			return "DNS redirect rules exist"
+		} else if !exists && shouldExist {
+			return "DNS redirect rules do NOT exist (missing)"
+		} else if exists && !shouldExist {
+			return "DNS redirect rules exist but should NOT (unexpected)"
+		}
+		return "DNS redirect rules not present (DNS proxy disabled)"
+	}
+
+	// Fallback generic message
+	if exists && shouldExist {
+		return "Component exists as expected"
+	} else if !exists && !shouldExist {
+		return "Component absent as expected"
+	} else if exists && !shouldExist {
+		return "Component exists but should NOT (unexpected)"
+	}
+	return "Component missing but should exist"
 }
 
 // checkIPSetSelfSSE checks a single IPSet configuration and streams results via SSE

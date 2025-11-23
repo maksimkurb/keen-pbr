@@ -7,6 +7,7 @@ package domain
 import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // KeeneticClient defines the interface for interacting with the Keenetic Router RCI API.
@@ -31,10 +32,19 @@ type KeeneticClient interface {
 // NetworkManager defines the interface for managing network configuration.
 //
 // This interface handles the application, update, and removal of network routing
-// configurations including iptables rules, ip rules, and ip routes.
+// configurations including iptables rules, ip rules, ip routes, and global components
+// like DNS redirect.
 type NetworkManager interface {
-	// ApplyPersistentConfig applies persistent network configuration (iptables rules and ip rules)
-	// that should remain active regardless of interface state.
+	// SetGlobalConfig sets the global configuration for service-level components
+	// like DNS redirect. This should be called before ApplyPersistentConfig.
+	SetGlobalConfig(globalCfg networking.GlobalConfig)
+
+	// GetGlobalConfig returns the current global configuration.
+	GetGlobalConfig() networking.GlobalConfig
+
+	// ApplyPersistentConfig applies persistent network configuration (iptables rules,
+	// ip rules, and global components like DNS redirect) that should remain active
+	// regardless of interface state.
 	ApplyPersistentConfig(ipsets []*config.IPSetConfig) error
 
 	// ApplyRoutingConfig updates dynamic routing configuration (ip routes)
@@ -47,7 +57,7 @@ type NetworkManager interface {
 	UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error)
 
 	// UndoConfig removes all network configuration for the specified ipsets,
-	// including iptables rules, ip rules, and ip routes.
+	// including iptables rules, ip rules, ip routes, and global components.
 	UndoConfig(ipsets []*config.IPSetConfig) error
 }
 

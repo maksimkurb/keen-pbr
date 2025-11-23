@@ -44,8 +44,8 @@ type ServiceCommand struct {
 	serviceMgr *ServiceManager
 
 	// DNS proxy for domain-based routing
-	dnsProxy    *dnsproxy.DNSProxy
-	iptablesMgr networking.NetworkingComponent
+	// Note: DNS redirect iptables rules are managed by NetworkManager via global components
+	dnsProxy *dnsproxy.DNSProxy
 
 	// HTTP server
 	httpServer *http.Server
@@ -224,6 +224,8 @@ func (s *ServiceCommand) startAPIServer(ctx context.Context, bindAddr string, dn
 }
 
 // startDNSProxy initializes and starts the DNS proxy.
+// Note: DNS redirect iptables rules are managed by NetworkManager via global components,
+// not directly by this function. The global config is set when service starts.
 func (s *ServiceCommand) startDNSProxy() error {
 	proxyCfg := dnsproxy.ProxyConfigFromAppConfig(s.cfg)
 
@@ -242,43 +244,23 @@ func (s *ServiceCommand) startDNSProxy() error {
 	}
 	s.dnsProxy = proxy
 
-	// Create iptables manager for DNS redirection
-	iptablesMgr, err := networking.NewDNSRedirectComponent(proxyCfg.ListenAddr, proxyCfg.ListenPort)
-	if err != nil {
-		s.dnsProxy = nil
-		return fmt.Errorf("failed to create iptables manager: %w", err)
-	}
-	s.iptablesMgr = iptablesMgr
-
 	// Start the DNS proxy listener
 	if err := s.dnsProxy.Start(); err != nil {
 		s.dnsProxy = nil
-		s.iptablesMgr = nil
 		return fmt.Errorf("failed to start DNS proxy: %w", err)
 	}
 
-	// Enable iptables redirection
-	if err := s.iptablesMgr.CreateIfNotExists(); err != nil {
-		s.dnsProxy.Stop()
-		s.dnsProxy = nil
-		s.iptablesMgr = nil
-		return fmt.Errorf("failed to enable DNS redirection: %w", err)
-	}
+	// Note: DNS redirect iptables rules are applied by NetworkManager.ApplyPersistentConfig()
+	// which is called by ServiceManager.run() after setting the global config
 
 	log.Infof("DNS proxy started on port %d with upstream %v (cache: %d domains)", proxyCfg.ListenPort, proxyCfg.Upstreams, proxyCfg.MaxCacheDomains)
 	return nil
 }
 
-// stopDNSProxy stops the DNS proxy and removes iptables rules.
+// stopDNSProxy stops the DNS proxy.
+// Note: DNS redirect iptables rules are removed by NetworkManager.UndoConfig()
+// which is called by ServiceManager during shutdown.
 func (s *ServiceCommand) stopDNSProxy() {
-	if s.iptablesMgr != nil {
-		log.Infof("Disabling DNS redirection...")
-		if err := s.iptablesMgr.DeleteIfExists(); err != nil {
-			log.Errorf("Failed to disable DNS redirection: %v", err)
-		}
-		s.iptablesMgr = nil
-	}
-
 	if s.dnsProxy != nil {
 		log.Infof("Stopping DNS proxy...")
 		if err := s.dnsProxy.Stop(); err != nil {
