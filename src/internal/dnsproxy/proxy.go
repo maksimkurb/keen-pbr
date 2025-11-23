@@ -492,6 +492,12 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 	aliases := p.recordsCache.GetAliases(domain)
 
 	for _, alias := range aliases {
+		// Cache the address for this alias to prevent duplicate ipset additions
+		// when CNAME record is processed later (or on subsequent lookups)
+		if alias != domain {
+			p.recordsCache.AddAddress(alias, ip, ttl)
+		}
+
 		matches := p.matcher.Match(alias)
 		for _, ipsetName := range matches {
 			ipsetCfg := p.matcher.GetIPSet(ipsetName)

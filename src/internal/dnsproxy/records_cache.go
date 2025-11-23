@@ -172,7 +172,12 @@ func (r *RecordsCache) AddAddress(domain string, address net.IP, ttl uint32) boo
 }
 
 // AddAlias adds a CNAME alias (domain -> target) with the specified TTL.
+// Self-referential aliases (domain == target) are ignored.
 func (r *RecordsCache) AddAlias(domain, target string, ttl uint32) {
+	if domain == target {
+		return // Ignore self-referential aliases
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
