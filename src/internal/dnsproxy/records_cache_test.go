@@ -10,7 +10,7 @@ import (
 )
 
 func TestRecordsCache_AddAddress(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 
 	// Add an address
 	ip := net.ParseIP("1.2.3.4")
@@ -28,7 +28,7 @@ func TestRecordsCache_AddAddress(t *testing.T) {
 }
 
 func TestRecordsCache_AddAlias(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 
 	// Add CNAME chain: sub.example.com -> cdn.example.com -> cloudflare.com
 	cache.AddAlias("sub.example.com", "cdn.example.com", 300)
@@ -55,7 +55,7 @@ func TestRecordsCache_AddAlias(t *testing.T) {
 }
 
 func TestRecordsCache_GetTargetChain(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 
 	// Add CNAME chain
 	cache.AddAlias("sub.example.com", "cdn.example.com", 300)
@@ -78,7 +78,7 @@ func TestRecordsCache_GetTargetChain(t *testing.T) {
 }
 
 func TestRecordsCache_Cleanup(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 
 	// Add an address with very short TTL
 	ip := net.ParseIP("1.2.3.4")
@@ -98,7 +98,7 @@ func TestRecordsCache_Cleanup(t *testing.T) {
 }
 
 func TestRecordsCache_Clear(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 
 	// Add some data
 	cache.AddAddress("example.com", net.ParseIP("1.2.3.4"), 300)
@@ -115,7 +115,7 @@ func TestRecordsCache_Clear(t *testing.T) {
 }
 
 func TestRecordsCache_ConcurrencyLifecycle(t *testing.T) {
-	cache := NewRecordsCache()
+	cache := NewRecordsCache(10000)
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
@@ -203,4 +203,164 @@ func TestRecordsCache_ConcurrencyLifecycle(t *testing.T) {
 	if addrCount != 0 || aliasCount != 0 {
 		t.Errorf("expected empty cache after TTL expiration, got %d addresses, %d aliases", addrCount, aliasCount)
 	}
+}
+
+func TestRecordsCache_LRU(t *testing.T) {
+	cache := NewRecordsCache(3)
+
+	// Add 3 domains
+	cache.AddAddress("domain1.com", net.ParseIP("1.1.1.1"), 300)
+	cache.AddAddress("domain2.com", net.ParseIP("2.2.2.2"), 300)
+	cache.AddAddress("domain3.com", net.ParseIP("3.3.3.3"), 300)
+
+	// Add 4th domain - should evict domain1
+	cache.AddAddress("domain4.com", net.ParseIP("4.4.4.4"), 300)
+
+	// domain1 should be evicted
+	addrs := cache.GetAddresses("domain1.com")
+	if len(addrs) != 0 {
+		t.Errorf("expected domain1 to be evicted, but got %d addresses", len(addrs))
+	}
+
+	// domain2, domain3, domain4 should still exist
+	for _, domain := range []string{"domain2.com", "domain3.com", "domain4.com"} {
+		addrs := cache.GetAddresses(domain)
+		if len(addrs) != 1 {
+			t.Errorf("expected %s to have 1 address, got %d", domain, len(addrs))
+		}
+	}
+}
+
+// Benchmarks
+
+func BenchmarkRecordsCache_AddAddress(b *testing.B) {
+	cache := NewRecordsCache(10000)
+	ip := net.ParseIP("1.2.3.4")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		domain := fmt.Sprintf("domain-%d.com", i%1000)
+		cache.AddAddress(domain, ip, 300)
+	}
+}
+
+func BenchmarkRecordsCache_GetAddresses(b *testing.B) {
+	cache := NewRecordsCache(10000)
+	ip := net.ParseIP("1.2.3.4")
+
+	// Pre-populate cache
+	for i := 0; i < 1000; i++ {
+		domain := fmt.Sprintf("domain-%d.com", i)
+		cache.AddAddress(domain, ip, 300)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		domain := fmt.Sprintf("domain-%d.com", i%1000)
+		cache.GetAddresses(domain)
+	}
+}
+
+func BenchmarkRecordsCache_AddAlias(b *testing.B) {
+	cache := NewRecordsCache(10000)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		domain := fmt.Sprintf("alias-%d.com", i%1000)
+		target := fmt.Sprintf("target-%d.com", i%100)
+		cache.AddAlias(domain, target, 300)
+	}
+}
+
+func BenchmarkRecordsCache_GetAliases(b *testing.B) {
+	cache := NewRecordsCache(10000)
+
+	// Pre-populate with CNAME chains
+	for i := 0; i < 100; i++ {
+		target := fmt.Sprintf("target-%d.com", i)
+		for j := 0; j < 5; j++ {
+			alias := fmt.Sprintf("alias-%d-%d.com", i, j)
+			cache.AddAlias(alias, target, 300)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		target := fmt.Sprintf("target-%d.com", i%100)
+		cache.GetAliases(target)
+	}
+}
+
+func BenchmarkRecordsCache_Cleanup(b *testing.B) {
+	cache := NewRecordsCache(10000)
+	ip := net.ParseIP("1.2.3.4")
+
+	// Pre-populate cache with mix of expired and valid entries
+	for i := 0; i < 500; i++ {
+		domain := fmt.Sprintf("domain-%d.com", i)
+		cache.AddAddress(domain, ip, 300)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache.Cleanup()
+	}
+}
+
+func BenchmarkRecordsCache_MemoryUsage(b *testing.B) {
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		cache := NewRecordsCache(10000)
+
+		// Add 1000 domains with 2 addresses each
+		for j := 0; j < 1000; j++ {
+			domain := fmt.Sprintf("domain-%d.example.com", j)
+			cache.AddAddress(domain, net.ParseIP(fmt.Sprintf("1.2.%d.%d", j/256, j%256)), 300)
+			cache.AddAddress(domain, net.ParseIP(fmt.Sprintf("2.2.%d.%d", j/256, j%256)), 300)
+		}
+
+		// Add 500 aliases
+		for j := 0; j < 500; j++ {
+			alias := fmt.Sprintf("www-%d.example.com", j)
+			target := fmt.Sprintf("domain-%d.example.com", j)
+			cache.AddAlias(alias, target, 300)
+		}
+	}
+}
+
+func BenchmarkRecordsCache_ConcurrentReads(b *testing.B) {
+	cache := NewRecordsCache(10000)
+	ip := net.ParseIP("1.2.3.4")
+
+	// Pre-populate cache
+	for i := 0; i < 1000; i++ {
+		domain := fmt.Sprintf("domain-%d.com", i)
+		cache.AddAddress(domain, ip, 300)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			domain := fmt.Sprintf("domain-%d.com", i%1000)
+			cache.GetAddresses(domain)
+			i++
+		}
+	})
+}
+
+func BenchmarkRecordsCache_ConcurrentWrites(b *testing.B) {
+	cache := NewRecordsCache(10000)
+	ip := net.ParseIP("1.2.3.4")
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			domain := fmt.Sprintf("domain-%d.com", i%1000)
+			cache.AddAddress(domain, ip, 300)
+			i++
+		}
+	})
 }

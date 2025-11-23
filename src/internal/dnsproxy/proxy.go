@@ -54,6 +54,9 @@ type ProxyConfig struct {
 
 	// TTLOverride overrides TTL in seconds (0 = use original)
 	TTLOverride uint32
+
+	// MaxCacheDomains is the maximum number of domains to cache (default: 10000)
+	MaxCacheDomains int
 }
 
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
@@ -113,12 +116,17 @@ func NewDNSProxy(
 ) (*DNSProxy, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	maxCacheDomains := cfg.MaxCacheDomains
+	if maxCacheDomains <= 0 {
+		maxCacheDomains = 10000 // default
+	}
+
 	proxy := &DNSProxy{
 		config:         cfg,
 		keeneticClient: keeneticClient,
 		ipsetManager:   ipsetManager,
 		appConfig:      appConfig,
-		recordsCache:   NewRecordsCache(),
+		recordsCache:   NewRecordsCache(maxCacheDomains),
 		ipsetUpstreams: make(map[string]upstreams.Upstream),
 		sseSubscribers: make(map[chan string]struct{}),
 		ctx:            ctx,
