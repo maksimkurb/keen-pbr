@@ -67,11 +67,11 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		r.Get("/check/split-dns", h.CheckSplitDNS)    // SSE stream
 	})
 
-	// Serve static frontend files
-	if staticFS, err := frontend.GetHTTPFileSystem(); err == nil {
-		fileServer := http.FileServer(staticFS)
-		r.Handle("/*", fileServer)
-	}
+	// Serve static frontend files from /opt/usr/share/keen-pbr/ui
+	// Uses safe file system that prevents path traversal attacks
+	staticFS := frontend.GetHTTPFileSystem(frontend.DefaultUIPath)
+	fileServer := http.FileServer(staticFS)
+	r.Handle("/*", fileServer)
 
 	return r
 }
