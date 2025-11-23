@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -256,8 +257,9 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run ping command (4 packets, 2 second timeout)
-	cmd := exec.Command("ping", "-c", "4", "-W", "2", host)
+	// Run ping command with context (4 packets, 2 second timeout)
+	ctx := r.Context()
+	cmd := exec.CommandContext(ctx, "ping", "-c", "4", "-W", "2", host)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -280,18 +282,32 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Stream stdout
-	go h.streamOutput(stdout, w, flusher)
+	go h.streamOutput(ctx, stdout, w, flusher)
 
 	// Stream stderr
-	go h.streamOutput(stderr, w, flusher)
+	go h.streamOutput(ctx, stderr, w, flusher)
 
-	// Wait for command to finish
-	if err := cmd.Wait(); err != nil {
-		fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
-	} else {
-		fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+	// Wait for command to finish or context cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Context cancelled (client disconnected or server shutting down)
+		log.Debugf("Ping command cancelled due to context: %v", ctx.Err())
+		fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		flusher.Flush()
+		return
+	case err := <-done:
+		if err != nil {
+			fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+		} else {
+			fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+		}
+		flusher.Flush()
 	}
-	flusher.Flush()
 }
 
 // CheckTraceroute performs a traceroute to the given host and streams output via SSE.
@@ -315,8 +331,9 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run traceroute command (max 30 hops, 2 second timeout per hop)
-	cmd := exec.Command("traceroute", "-m", "30", "-w", "2", host)
+	// Run traceroute command with context (max 30 hops, 2 second timeout per hop)
+	ctx := r.Context()
+	cmd := exec.CommandContext(ctx, "traceroute", "-m", "30", "-w", "2", host)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -339,22 +356,37 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Stream stdout
-	go h.streamOutput(stdout, w, flusher)
+	go h.streamOutput(ctx, stdout, w, flusher)
 
 	// Stream stderr
-	go h.streamOutput(stderr, w, flusher)
+	go h.streamOutput(ctx, stderr, w, flusher)
 
-	// Wait for command to finish
-	if err := cmd.Wait(); err != nil {
-		fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
-	} else {
-		fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+	// Wait for command to finish or context cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Context cancelled (client disconnected or server shutting down)
+		log.Debugf("Traceroute command cancelled due to context: %v", ctx.Err())
+		fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		flusher.Flush()
+		return
+	case err := <-done:
+		if err != nil {
+			fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+		} else {
+			fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+		}
+		flusher.Flush()
 	}
-	flusher.Flush()
 }
 
-// streamOutput reads from a reader and streams each line as an SSE event
-func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher http.Flusher) {
+// streamOutput reads from a reader and streams each line as an SSE event.
+// It respects context cancellation and stops streaming when context is done.
+func (h *Handler) streamOutput(ctx context.Context, reader io.Reader, w http.ResponseWriter, flusher http.Flusher) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("Panic in streamOutput: %v", r)
@@ -368,6 +400,13 @@ func (h *Handler) streamOutput(reader io.Reader, w http.ResponseWriter, flusher 
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
+		// Check if context is cancelled
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		line := scanner.Text()
 		// Escape any special characters for SSE
 		line = strings.ReplaceAll(line, "\n", "")
@@ -879,7 +918,12 @@ func (h *Handler) CheckSplitDNS(w http.ResponseWriter, r *http.Request) {
 			// Client disconnected
 			log.Debugf("Client disconnected from split-DNS check SSE stream")
 			return
-		case domain := <-eventCh:
+		case domain, ok := <-eventCh:
+			if !ok {
+				// Channel closed (server shutting down)
+				log.Debugf("Split-DNS check SSE stream closed (server shutdown)")
+				return
+			}
 			// Send domain as SSE event
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", domain); err != nil {
 				log.Debugf("Failed to write to response: %v", err)

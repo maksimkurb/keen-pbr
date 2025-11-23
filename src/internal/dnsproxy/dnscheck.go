@@ -28,9 +28,24 @@ func (p *DNSProxy) Subscribe() chan string {
 // Unsubscribe removes an SSE subscriber.
 func (p *DNSProxy) Unsubscribe(ch chan string) {
 	p.sseSubscribersMu.Lock()
-	delete(p.sseSubscribers, ch)
+	if _, exists := p.sseSubscribers[ch]; exists {
+		delete(p.sseSubscribers, ch)
+		close(ch)
+	}
 	p.sseSubscribersMu.Unlock()
-	close(ch)
+}
+
+// CloseAllSubscribers closes all SSE subscriber channels.
+// This should be called during shutdown to unblock any waiting readers.
+func (p *DNSProxy) CloseAllSubscribers() {
+	p.sseSubscribersMu.Lock()
+	defer p.sseSubscribersMu.Unlock()
+
+	for ch := range p.sseSubscribers {
+		close(ch)
+	}
+	// Clear the map
+	p.sseSubscribers = make(map[chan string]struct{})
 }
 
 // broadcastDNSCheck broadcasts a domain to all SSE subscribers.

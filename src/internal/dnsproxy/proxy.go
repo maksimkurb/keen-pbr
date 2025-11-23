@@ -212,6 +212,9 @@ func (p *DNSProxy) Stop() error {
 	log.Infof("Stopping DNS proxy...")
 	p.cancel()
 
+	// Close all SSE subscribers first to unblock any waiting HTTP handlers
+	p.CloseAllSubscribers()
+
 	// Close listeners
 	if p.udpConn != nil {
 		p.udpConn.Close()
