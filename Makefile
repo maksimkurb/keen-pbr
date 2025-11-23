@@ -25,7 +25,10 @@ build-frontend:
 	cd src/frontend && npm install && npm run build
 
 build: build-frontend
-	go build -ldflags "$(GO_LDFLAGS)" -o keen-pbr ./src/cmd/keen-pbr
+	go build -ldflags "$(GO_LDFLAGS) -w -s" -o keen-pbr ./src/cmd/keen-pbr
+
+build-dev: build-frontend
+	go build -tags dev -ldflags "$(GO_LDFLAGS)" -o keen-pbr ./src/cmd/keen-pbr
 
 clean:
 	rm -rf out/
