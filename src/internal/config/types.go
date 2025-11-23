@@ -21,6 +21,7 @@ type GeneralConfig struct {
 	ListsOutputDir            string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
 	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream"`
 	FallbackDNS               string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
+	EnableAPI                 *bool  `toml:"enable_api" json:"enable_api" comment:"Enable REST API and web UI (default: true)"`
 	APIBindAddress            string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
 	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
 	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
@@ -31,8 +32,33 @@ type GeneralConfig struct {
 	DNSProxyListenAddr string   `toml:"dns_proxy_listen_addr" json:"dns_proxy_listen_addr" comment:"DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or use specific IP like 127.0.0.1)"`
 	DNSProxyPort       int      `toml:"dns_proxy_port" json:"dns_proxy_port" comment:"Port for DNS proxy listener (default: 15353)"`
 	DNSUpstream        []string `toml:"dns_upstream" json:"dns_upstream" comment:"Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: [\"keenetic://\"])"`
+	DNSCacheMaxDomains int      `toml:"dns_cache_max_domains" json:"dns_cache_max_domains" comment:"Maximum number of domains to cache in DNS proxy (default: 1000)"`
 	DropAAAA           *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
 	TTLOverride        int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
+}
+
+// IsAPIEnabled returns whether REST API and web UI is enabled (default: true).
+func (gc *GeneralConfig) IsAPIEnabled() bool {
+	if gc.EnableAPI == nil {
+		return true // Default to enabled
+	}
+	return *gc.EnableAPI
+}
+
+// GetAPIBindAddress returns the API bind address (default: 0.0.0.0:8080).
+func (gc *GeneralConfig) GetAPIBindAddress() string {
+	if gc.APIBindAddress == "" {
+		return "0.0.0.0:8080"
+	}
+	return gc.APIBindAddress
+}
+
+// GetDNSCacheMaxDomains returns the max domains for DNS cache (default: 1000).
+func (gc *GeneralConfig) GetDNSCacheMaxDomains() int {
+	if gc.DNSCacheMaxDomains <= 0 {
+		return 1000 // Default to 1000 for memory efficiency
+	}
+	return gc.DNSCacheMaxDomains
 }
 
 // IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
