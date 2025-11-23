@@ -62,11 +62,12 @@ type ProxyConfig struct {
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
 func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 	return ProxyConfig{
-		ListenAddr:  cfg.General.GetDNSProxyListenAddr(),
-		ListenPort:  uint16(cfg.General.GetDNSProxyPort()),
-		Upstreams:   cfg.General.GetDNSUpstream(),
-		DropAAAA:    cfg.General.IsDropAAAAEnabled(),
-		TTLOverride: cfg.General.GetTTLOverride(),
+		ListenAddr:      cfg.General.GetDNSProxyListenAddr(),
+		ListenPort:      uint16(cfg.General.GetDNSProxyPort()),
+		Upstreams:       cfg.General.GetDNSUpstream(),
+		DropAAAA:        cfg.General.IsDropAAAAEnabled(),
+		TTLOverride:     cfg.General.GetTTLOverride(),
+		MaxCacheDomains: cfg.General.GetDNSCacheMaxDomains(),
 	}
 }
 
@@ -118,7 +119,7 @@ func NewDNSProxy(
 
 	maxCacheDomains := cfg.MaxCacheDomains
 	if maxCacheDomains <= 0 {
-		maxCacheDomains = 10000 // default
+		maxCacheDomains = 1000 // default - reduced for memory efficiency on embedded devices
 	}
 
 	proxy := &DNSProxy{

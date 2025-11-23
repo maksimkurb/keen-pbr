@@ -30,8 +30,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Version: %s (Commit: %s, Date: %s)\n\n", version, commit, date)
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <command>\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  service                 Run as a service/daemon (monitors interfaces and manages routing)\n")
-		fmt.Fprintf(os.Stderr, "  server                  Run HTTP API server for managing configuration\n")
+		fmt.Fprintf(os.Stderr, "  service                 Run as a service/daemon (includes API server, DNS proxy, and routing)\n")
 		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
 		fmt.Fprintf(os.Stderr, "  apply                   Import IPs/CIDRs from lists to ipsets\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
@@ -61,7 +60,6 @@ func main() {
 
 	cmds := []commands.Runner{
 		commands.CreateServiceCommand(),
-		commands.CreateServerCommand(),
 		commands.CreateDownloadCommand(),
 		commands.CreateApplyCommand(),
 		commands.CreateInterfacesCommand(),

@@ -46,7 +46,7 @@ define Build/Compile
 		npm install && \
 		npm run build
 
-	# Build Go binary
+	# Build Go binary (frontend is served from filesystem, not embedded)
 	$(call Build/Compile/Go)
 endef
 
@@ -62,6 +62,7 @@ define Package/keen-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/init.d/
 		$(INSTALL_DIR) $(1)/opt/etc/keen-pbr/
 		$(INSTALL_DIR) $(1)/opt/usr/bin/
+		$(INSTALL_DIR) $(1)/opt/usr/share/keen-pbr/ui/
 
 		echo "> INSTALL DIR = $(PKG_BUILD_DIR)"
 		ls -la $(PKG_BUILD_DIR)
@@ -74,6 +75,9 @@ define Package/keen-pbr/install
 		$(INSTALL_CONF) $(PKG_BUILD_DIR)/package/etc/keen-pbr/local.lst $(1)/opt/etc/keen-pbr/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/
 		$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/keen-pbr $(1)/opt/usr/bin/
+
+		# Install frontend UI files
+		cp -r $(PKG_BUILD_DIR)/src/frontend/dist/* $(1)/opt/usr/share/keen-pbr/ui/
 endef
 
 define Package/keen-pbr/postinst
