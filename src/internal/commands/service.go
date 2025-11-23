@@ -50,9 +50,8 @@ type ServiceCommand struct {
 	// HTTP server
 	httpServer *http.Server
 
-	// Runners for crash isolation
-	routingRunner *RestartableRunner
-	apiRunner     *RestartableRunner
+	// Runner for crash isolation
+	apiRunner *RestartableRunner
 }
 
 func (s *ServiceCommand) Name() string {
