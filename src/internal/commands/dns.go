@@ -3,10 +3,13 @@ package commands
 import (
 	"fmt"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
-type DNSCommand struct{}
+type DNSCommand struct {
+	deps *domain.AppDependencies
+}
 
 func CreateDNSCommand() *DNSCommand {
 	return &DNSCommand{}
@@ -17,25 +20,20 @@ func (c *DNSCommand) Name() string {
 }
 
 func (c *DNSCommand) Init(args []string, ctx *AppContext) error {
+	// Initialize dependencies
+	c.deps = domain.NewDefaultDependencies()
 	return nil
 }
 
 func (c *DNSCommand) Run() error {
-	client := keenetic.NewClient(nil)
-	servers, err := client.GetDNSServers()
+	// Use shared DNSService
+	dnsService := service.NewDNSService(c.deps.KeeneticClient())
+	servers, err := dnsService.GetDNSServers()
 	if err != nil {
 		return fmt.Errorf("failed to fetch DNS servers: %v", err)
 	}
-	for _, server := range servers {
-		domain := "-"
-		if server.Domain != nil {
-			domain = *server.Domain
-		}
-		if server.Port != "" {
-			fmt.Printf("  [%s] %-35s [for domain: %-15s] %s:%s\n", server.Type, server.Endpoint, domain, server.Proxy, server.Port)
-		} else {
-			fmt.Printf("  [%s] %-35s [for domain: %-15s] %s\n", server.Type, server.Endpoint, domain, server.Proxy)
-		}
-	}
+
+	// Use shared formatting
+	fmt.Print(dnsService.FormatDNSServers(servers))
 	return nil
 }

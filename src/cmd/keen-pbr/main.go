@@ -32,10 +32,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  service                 Run as a service/daemon (includes API server, DNS proxy, and routing)\n")
 		fmt.Fprintf(os.Stderr, "  download                Download remote lists to lists.d directory\n")
-		fmt.Fprintf(os.Stderr, "  apply                   Import IPs/CIDRs from lists to ipsets\n")
 		fmt.Fprintf(os.Stderr, "  interfaces              Get available interfaces list\n")
-		fmt.Fprintf(os.Stderr, "  self-check              Run self-check\n")
-		fmt.Fprintf(os.Stderr, "  undo-routing            Undo any routing configuration (reverts \"apply\" command)\n")
+		fmt.Fprintf(os.Stderr, "  self-check              Run self-check to validate configuration and routing\n")
 		fmt.Fprintf(os.Stderr, "  dns                     Show System DNS proxy profile\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
@@ -61,10 +59,8 @@ func main() {
 	cmds := []commands.Runner{
 		commands.CreateServiceCommand(),
 		commands.CreateDownloadCommand(),
-		commands.CreateApplyCommand(),
 		commands.CreateInterfacesCommand(),
 		commands.CreateSelfCheckCommand(),
-		commands.CreateUndoCommand(),
 		commands.CreateUpgradeConfigCommand(),
 		commands.CreateDNSCommand(),
 	}

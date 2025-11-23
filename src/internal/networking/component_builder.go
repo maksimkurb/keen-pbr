@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -33,7 +32,7 @@ type ComponentBuilder struct {
 
 // NewComponentBuilder creates a new component builder with the given keenetic client.
 // Pass nil for keeneticClient if Keenetic integration is not available.
-func NewComponentBuilder(keeneticClient *keenetic.Client) *ComponentBuilder {
+func NewComponentBuilder(keeneticClient InterfaceLister) *ComponentBuilder {
 	selector := NewInterfaceSelector(keeneticClient)
 	return &ComponentBuilder{
 		selector: selector,

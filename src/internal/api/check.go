@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
@@ -503,12 +503,9 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 	hasFailures := false
 
 	// Build components for this IPSet using the networking component abstraction
-	// Convert domain.KeeneticClient to concrete type for component builder
-	var keeneticClient *keenetic.Client
+	var keeneticClient domain.KeeneticClient
 	if h.deps != nil {
-		if concreteClient, ok := h.deps.KeeneticClient().(*keenetic.Client); ok {
-			keeneticClient = concreteClient
-		}
+		keeneticClient = h.deps.KeeneticClient()
 	}
 
 	builder := networking.NewComponentBuilder(keeneticClient)
@@ -558,12 +555,9 @@ func (h *Handler) checkIPSetSelfJSON(ipsetCfg *config.IPSetConfig) []SelfCheckRo
 	checks := []SelfCheckRow{}
 
 	// Build components for this IPSet using the networking component abstraction
-	// Convert domain.KeeneticClient to concrete type for component builder
-	var keeneticClient *keenetic.Client
+	var keeneticClient domain.KeeneticClient
 	if h.deps != nil {
-		if concreteClient, ok := h.deps.KeeneticClient().(*keenetic.Client); ok {
-			keeneticClient = concreteClient
-		}
+		keeneticClient = h.deps.KeeneticClient()
 	}
 
 	builder := networking.NewComponentBuilder(keeneticClient)

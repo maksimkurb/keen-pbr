@@ -13,6 +13,13 @@ import (
 const colorCyan = "\033[0;36m"
 const colorRed = "\033[0;31m"
 
+// InterfaceLister provides access to Keenetic router interface information.
+// This is a subset interface to avoid circular imports with domain package.
+// Both *keenetic.Client and mock implementations satisfy this interface.
+type InterfaceLister interface {
+	GetInterfaces() (map[string]keenetic.Interface, error)
+}
+
 type Interface struct {
 	netlink.Link
 }

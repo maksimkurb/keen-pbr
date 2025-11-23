@@ -1,6 +1,9 @@
 package api
 
-import "github.com/maksimkurb/keen-pbr/src/internal/config"
+import (
+	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/service"
+)
 
 // DataResponse wraps successful responses with a "data" field.
 type DataResponse struct {
@@ -61,12 +64,8 @@ type StatusResponse struct {
 }
 
 // DNSServerInfo contains information about a DNS server.
-type DNSServerInfo struct {
-	Type     string  `json:"type"`             // "IP4", "IP6", "DoT", "DoH"
-	Endpoint string  `json:"endpoint"`         // IP for plain DNS, SNI for DoT, URI for DoH
-	Port     string  `json:"port,omitempty"`   // Port for DoT/DoH
-	Domain   *string `json:"domain,omitempty"` // Domain scope (if any)
-}
+// Uses the shared type from service package.
+type DNSServerInfo = service.DNSServerInfo
 
 // VersionInfo contains build version information.
 type VersionInfo struct {

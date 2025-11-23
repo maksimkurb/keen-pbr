@@ -79,7 +79,7 @@ type DNSProxy struct {
 
 	// Dependencies
 	keeneticClient domain.KeeneticClient
-	ipsetManager   domain.IPSetManager
+	ipsetManager   *networking.IPSetManagerImpl
 	appConfig      *config.Config
 
 	// Upstream resolver
@@ -112,7 +112,7 @@ type DNSProxy struct {
 func NewDNSProxy(
 	cfg ProxyConfig,
 	keeneticClient domain.KeeneticClient,
-	ipsetManager domain.IPSetManager,
+	ipsetManager *networking.IPSetManagerImpl,
 	appConfig *config.Config,
 ) (*DNSProxy, error) {
 	ctx, cancel := context.WithCancel(context.Background())

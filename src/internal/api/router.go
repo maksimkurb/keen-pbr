@@ -50,6 +50,9 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		// Interfaces endpoint
 		r.Get("/interfaces", h.GetInterfaces)
 
+		// DNS servers endpoint
+		r.Get("/dns-servers", h.GetDNSServers)
+
 		// Status endpoint
 		r.Get("/status", h.GetStatus)
 
