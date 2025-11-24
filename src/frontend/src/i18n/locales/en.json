@@ -94,12 +94,10 @@
     }
   },
   "dnsCheck": {
-    "title": "DNS Check",
-    "description": "Verify that split-DNS is configured correctly",
-    "startCheck": "Start DNS Check",
+    "title": "DNS Server",
     "checkAgain": "Check Again",
     "checking": "Checking...",
-    "success": "DNS working correctly",
+    "success": "DNS working correctly in your browser",
     "browserFail": "Seems DNS in your browser is misconfigured",
     "sseFail": "Could not connect to SSE endpoint",
     "checkFromPC": "Check from PC",
@@ -108,7 +106,14 @@
     "pcCheckCommandTitle": "Run this command",
     "pcCheckWaiting": "Waiting for DNS query...",
     "pcCheckWarning": "Still waiting after 30 seconds. If you already ran the command, your DNS on PC might be misconfigured. Make sure your router is configured as the primary DNS server. We'll keep waiting...",
-    "pcSuccess": "DNS on PC is working, but on browser is not. Maybe you have some VPN plugin installed in your browser or use Edge Secure Network or Cloudflare DNS-over-HTTPS in Firefox?"
+    "pcSuccess": "DNS on PC is working correctly",
+    "browserWorking": "Browser: DNS working",
+    "browserNotWorking": "Browser: DNS not working",
+    "browserChecking": "Browser: Checking...",
+    "browserUnknown": "Browser: Not checked",
+    "pcWorking": "PC: DNS working",
+    "pcWaiting": "PC: Waiting for DNS query...",
+    "pcUnknown": "PC: Not checked yet"
   },
   "settings": {
     "title": "General Settings",
@@ -328,6 +333,7 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
+    "close": "Close",
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",

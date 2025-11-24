@@ -13,7 +13,7 @@ import (
 const dnsCheckDomain = "dns-check.keen-pbr.internal"
 
 // DNS check response IP address
-var dnsCheckResponseIP = net.ParseIP("192.168.255.255")
+var dnsCheckResponseIP = net.ParseIP("8.8.8.8")
 
 // Subscribe adds a new SSE subscriber for DNS check events.
 // Returns a channel that will receive domain names when DNS check queries are received.

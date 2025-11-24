@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -7,7 +7,7 @@ import { CheckCircle2, XCircle, Play, Square, Loader2, Download, ListChecks } fr
 import { toast } from 'sonner';
 import { apiClient } from '../../src/api/client';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
-import { dnsCheckService } from '../../src/services/dnsCheckService';
+import { useDNSCheck } from '../../src/hooks/useDNSCheck';
 
 interface CheckEvent {
   check: string;
@@ -26,14 +26,50 @@ export function SelfCheckWidget() {
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // DNS check hook for client-side split-DNS verification
+  const {
+    status: dnsStatus,
+    startCheck: startDnsCheck,
+    reset: resetDnsCheck,
+  } = useDNSCheck();
+
+  // Update DNS check result based on hook status
+  useEffect(() => {
+    if (dnsStatus === 'success') {
+      setResults((prev) =>
+        prev.map((r) =>
+          r.check === 'split_dns_client'
+            ? {
+                ...r,
+                ok: true,
+                log: 'Split-DNS is working correctly from browser',
+              }
+            : r
+        )
+      );
+    } else if (dnsStatus === 'browser-fail' || dnsStatus === 'sse-fail') {
+      setResults((prev) =>
+        prev.map((r) =>
+          r.check === 'split_dns_client'
+            ? {
+                ...r,
+                ok: false,
+                log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+              }
+            : r
+        )
+      );
+    }
+  }, [dnsStatus]);
+
   const startSelfCheck = async () => {
     // Reset state
     setResults([]);
     setError(null);
     setStatus('running');
+    resetDnsCheck();
 
     // Step 1: Start client-side DNS check (non-blocking)
-    const randomString = Math.random().toString(36).substring(2, 15);
     const dnsCheckEvent: CheckEvent = {
       check: 'split_dns_client',
       ok: true, // Set to true to show as in-progress
@@ -45,35 +81,7 @@ export function SelfCheckWidget() {
     setResults([dnsCheckEvent]);
 
     // Start DNS check asynchronously (don't block other checks)
-    dnsCheckService.checkDNS(randomString, true, 5000)
-      .then(() => {
-        // DNS check succeeded
-        setResults((prev) =>
-          prev.map((r) =>
-            r.check === 'split_dns_client'
-              ? {
-                  ...r,
-                  ok: true,
-                  log: 'Split-DNS is working correctly from browser',
-                }
-              : r
-          )
-        );
-      })
-      .catch((error) => {
-        // DNS check failed
-        setResults((prev) =>
-          prev.map((r) =>
-            r.check === 'split_dns_client'
-              ? {
-                  ...r,
-                  ok: false,
-                  log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
-                }
-              : r
-          )
-        );
-      });
+    startDnsCheck(true);
 
     // Step 2: Start server-side checks immediately (don't wait for DNS check)
     const apiBaseUrl = window.location.protocol + '//' + window.location.host;
@@ -105,7 +113,7 @@ export function SelfCheckWidget() {
   };
 
   const stopSelfCheck = () => {
-    dnsCheckService.cancel();
+    resetDnsCheck();
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;

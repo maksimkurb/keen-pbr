@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
+import { ButtonGroup } from '../ui/button-group';
 import { Badge } from '../ui/badge';
 import { Play, Square, RotateCw } from 'lucide-react';
 import { apiClient } from '@/src/api/client';
@@ -38,7 +39,7 @@ export function KeenPbrWidget() {
 
 	if (error) {
 		return (
-			<Card>
+			<Card className="lg:col-span-2">
 				<CardHeader>
 					<CardTitle>keen-pbr</CardTitle>
 				</CardHeader>
@@ -55,7 +56,7 @@ export function KeenPbrWidget() {
 
 	if (isLoading || !data) {
 		return (
-			<Card>
+			<Card className="lg:col-span-2">
 				<CardHeader>
 					<CardTitle>keen-pbr</CardTitle>
 				</CardHeader>
@@ -70,7 +71,7 @@ export function KeenPbrWidget() {
 	const configOutdated = data.configuration_outdated || false;
 
 	return (
-		<Card className={configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}>
+		<Card className={`lg:col-span-2 ${configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}`}>
 			<CardHeader>
 				<CardTitle>keen-pbr</CardTitle>
 			</CardHeader>
@@ -104,27 +105,25 @@ export function KeenPbrWidget() {
 					</div>
 				</div>
 
-				<div className="flex flex-wrap gap-2">
-					<div className="flex gap-1">
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => handleServiceControl('start')}
-							disabled={keenPbrStatus === 'running' || controlLoading === 'start'}
-						>
-							<Play className="h-3 w-3 mr-1" />
-							{t('common.start')}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => handleServiceControl('stop')}
-							disabled={keenPbrStatus === 'stopped' || controlLoading === 'stop'}
-						>
-							<Square className="h-3 w-3 mr-1" />
-							{t('common.stop')}
-						</Button>
-					</div>
+				<ButtonGroup className="w-full [&>*]:flex-1">
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => handleServiceControl('start')}
+						disabled={keenPbrStatus === 'running' || controlLoading === 'start'}
+					>
+						<Play className="h-3 w-3 mr-1" />
+						{t('common.start')}
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => handleServiceControl('stop')}
+						disabled={keenPbrStatus === 'stopped' || controlLoading === 'stop'}
+					>
+						<Square className="h-3 w-3 mr-1" />
+						{t('common.stop')}
+					</Button>
 					<Button
 						size="sm"
 						variant="outline"
@@ -134,7 +133,7 @@ export function KeenPbrWidget() {
 						<RotateCw className="h-3 w-3 mr-1" />
 						{t('common.restart')}
 					</Button>
-				</div>
+				</ButtonGroup>
 			</CardContent>
 		</Card>
 	);
