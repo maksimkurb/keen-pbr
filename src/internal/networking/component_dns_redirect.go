@@ -2,6 +2,7 @@ package networking
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,7 @@ type DNSRedirectComponent struct {
 	targetIPv4 string
 	targetIPv6 string
 	targetPort uint16
+	interfaces []string
 	ipt4       *iptables.IPTables
 	ipt6       *iptables.IPTables
 }
@@ -33,7 +35,7 @@ type DNSRedirectComponent struct {
 // NewDNSRedirectComponent creates a new component for DNS redirection.
 // listenAddr is the address the DNS proxy listens on (e.g., "[::]" for dual-stack).
 // When listenAddr is "[::]" (dual-stack), redirects to localhost (::1 for IPv6, 127.0.0.1 for IPv4).
-func NewDNSRedirectComponent(listenAddr string, targetPort uint16) (*DNSRedirectComponent, error) {
+func NewDNSRedirectComponent(listenAddr string, targetPort uint16, interfaces []string) (*DNSRedirectComponent, error) {
 	ipt4, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create iptables (IPv4): %w", err)
@@ -66,6 +68,7 @@ func NewDNSRedirectComponent(listenAddr string, targetPort uint16) (*DNSRedirect
 		targetIPv4: targetIPv4,
 		targetIPv6: targetIPv6,
 		targetPort: targetPort,
+		interfaces: interfaces,
 		ipt4:       ipt4,
 		ipt6:       ipt6,
 	}, nil
@@ -113,7 +116,7 @@ func (c *DNSRedirectComponent) CreateIfNotExists() error {
 	}
 
 	// Get all local addresses
-	addresses, err := getLocalAddresses()
+	addresses, err := c.getLocalAddresses()
 	if err != nil {
 		return fmt.Errorf("failed to get local addresses: %w", err)
 	}
@@ -225,47 +228,64 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 		}
 	}
 
-	// Get list of interfaces instead of addresses
-	links, err := netlink.LinkList()
-	if err != nil {
-		return fmt.Errorf("failed to list links: %w", err)
-	}
-
-	// Create a set of unique interface names to avoid duplicates
-	interfaceSet := make(map[string]bool)
-	for _, link := range links {
-		ifName := link.Attrs().Name
-		// Skip loopback interface
-		if ifName == "lo" {
+	// Add rules for each address
+	for _, addr := range addresses {
+		// Check if address matches current iptables protocol
+		isIPv4 := len(addr.IP) == net.IPv4len
+		if ipt.Proto() == iptables.ProtocolIPv4 && !isIPv4 {
 			continue
 		}
-		interfaceSet[ifName] = true
-	}
-
-	// Add rules for each interface
-	// Match on incoming interface + destination port 53, redirect to target port
-	// This works for all IP addresses (IPv4, global IPv6, link-local IPv6)
-	for ifName := range interfaceSet {
-		udpRule := []string{
-			"-i", ifName,
-			"-p", "udp",
-			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "REDIRECT",
-			"--to-ports", strconv.Itoa(int(c.targetPort)),
-		}
-		if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
-			return fmt.Errorf("failed to add UDP rule for %s: %w", ifName, err)
+		if ipt.Proto() == iptables.ProtocolIPv6 && isIPv4 {
+			continue
 		}
 
-		tcpRule := []string{
-			"-i", ifName,
-			"-p", "tcp",
-			"--dport", strconv.Itoa(dnsSourcePort),
-			"-j", "REDIRECT",
-			"--to-ports", strconv.Itoa(int(c.targetPort)),
-		}
-		if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
-			return fmt.Errorf("failed to add TCP rule for %s: %w", ifName, err)
+		// IPv4: Use REDIRECT with explicit destination IP
+		if ipt.Proto() == iptables.ProtocolIPv4 {
+			udpRule := []string{
+				"-d", addr.IP.String(),
+				"-p", "udp",
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "REDIRECT",
+				"--to-ports", strconv.Itoa(int(c.targetPort)),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
+				return fmt.Errorf("failed to add UDP rule for %s: %w", addr.IP, err)
+			}
+
+			tcpRule := []string{
+				"-d", addr.IP.String(),
+				"-p", "tcp",
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "REDIRECT",
+				"--to-ports", strconv.Itoa(int(c.targetPort)),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
+				return fmt.Errorf("failed to add TCP rule for %s: %w", addr.IP, err)
+			}
+		} else {
+			// IPv6: Use DNAT to :port (preserves destination IP)
+			// This fixes Source IP selection for Link-Local addresses
+			udpRule := []string{
+				"-d", addr.IP.String() + "/128",
+				"-p", "udp",
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
+				return fmt.Errorf("failed to add UDP rule for %s: %w", addr.IP, err)
+			}
+
+			tcpRule := []string{
+				"-d", addr.IP.String() + "/128",
+				"-p", "tcp",
+				"--dport", strconv.Itoa(dnsSourcePort),
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
+			}
+			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
+				return fmt.Errorf("failed to add TCP rule for %s: %w", addr.IP, err)
+			}
 		}
 	}
 
@@ -294,15 +314,26 @@ func (c *DNSRedirectComponent) deleteChainAndRules(ipt *iptables.IPTables) {
 	}
 }
 
-// getLocalAddresses returns all local IP addresses.
-func getLocalAddresses() ([]netlink.Addr, error) {
+// getLocalAddresses returns all local IP addresses for configured interfaces.
+func (c *DNSRedirectComponent) getLocalAddresses() ([]netlink.Addr, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list links: %w", err)
 	}
 
+	// Create map for fast lookup of configured interfaces
+	configuredInterfaces := make(map[string]bool)
+	for _, iface := range c.interfaces {
+		configuredInterfaces[iface] = true
+	}
+
 	var addresses []netlink.Addr
 	for _, link := range links {
+		// Filter interfaces
+		if !configuredInterfaces[link.Attrs().Name] {
+			continue
+		}
+
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
 		if err != nil {
 			log.Debugf("Failed to get addresses for %s: %v", link.Attrs().Name, err)

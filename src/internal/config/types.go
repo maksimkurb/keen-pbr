@@ -35,6 +35,7 @@ type GeneralConfig struct {
 	DNSCacheMaxDomains int      `toml:"dns_cache_max_domains" json:"dns_cache_max_domains" comment:"Maximum number of domains to cache in DNS proxy (default: 1000)"`
 	DropAAAA           *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
 	TTLOverride        int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
+	DNSProxyInterfaces []string `toml:"dns_proxy_interfaces" json:"dns_proxy_interfaces" comment:"Interfaces to intercept DNS traffic on (default: [\"br0\", \"br1\"])"`
 }
 
 // IsAPIEnabled returns whether REST API and web UI is enabled (default: true).
@@ -134,6 +135,14 @@ func (gc *GeneralConfig) GetTTLOverride() uint32 {
 		return 0
 	}
 	return uint32(gc.TTLOverride)
+}
+
+// GetDNSProxyInterfaces returns the interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
+func (gc *GeneralConfig) GetDNSProxyInterfaces() []string {
+	if len(gc.DNSProxyInterfaces) == 0 {
+		return []string{"br0", "br1"}
+	}
+	return gc.DNSProxyInterfaces
 }
 
 type IPSetConfig struct {

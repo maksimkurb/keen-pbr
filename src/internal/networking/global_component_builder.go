@@ -13,6 +13,8 @@ type DNSRedirectConfig struct {
 	ListenAddr string
 	// ListenPort is the port the DNS proxy listens on
 	ListenPort uint16
+	// Interfaces to intercept DNS traffic on
+	Interfaces []string
 }
 
 // GlobalConfig contains configuration for global (service-level) components.
@@ -27,6 +29,7 @@ func GlobalConfigFromAppConfig(cfg *config.Config) GlobalConfig {
 			Enabled:    cfg.General.IsDNSProxyEnabled(),
 			ListenAddr: cfg.General.GetDNSProxyListenAddr(),
 			ListenPort: uint16(cfg.General.GetDNSProxyPort()),
+			Interfaces: cfg.General.GetDNSProxyInterfaces(),
 		},
 	}
 }
@@ -61,7 +64,7 @@ func (b *GlobalComponentBuilder) BuildComponents(cfg GlobalConfig) ([]Networking
 
 	// DNS Redirect component (only if DNS proxy is enabled)
 	if cfg.DNSRedirect.Enabled {
-		dnsRedirect, err := NewDNSRedirectComponent(cfg.DNSRedirect.ListenAddr, cfg.DNSRedirect.ListenPort)
+		dnsRedirect, err := NewDNSRedirectComponent(cfg.DNSRedirect.ListenAddr, cfg.DNSRedirect.ListenPort, cfg.DNSRedirect.Interfaces)
 		if err != nil {
 			return nil, err
 		}
