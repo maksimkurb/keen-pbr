@@ -343,9 +343,9 @@
     "enabled": "Включено",
     "disabled": "Выключено",
     "notAvailable": "Н/Д",
-    "start": "Запустить",
-    "stop": "Остановить",
-    "restart": "Перезапустить",
+    "start": "Старт",
+    "stop": "Стоп",
+    "restart": "Перезапук",
     "update": "обновить",
     "language": {
       "en": "English",

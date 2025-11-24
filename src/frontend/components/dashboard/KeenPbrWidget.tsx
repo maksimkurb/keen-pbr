@@ -110,7 +110,7 @@ export function KeenPbrWidget() {
 						size="sm"
 						variant="outline"
 						onClick={() => handleServiceControl('start')}
-						disabled={keenPbrStatus === 'running' || controlLoading === 'start'}
+						disabled={keenPbrStatus === 'running' || controlLoading !== null}
 					>
 						<Play className="h-3 w-3 mr-1" />
 						{t('common.start')}
@@ -119,7 +119,7 @@ export function KeenPbrWidget() {
 						size="sm"
 						variant="outline"
 						onClick={() => handleServiceControl('stop')}
-						disabled={keenPbrStatus === 'stopped' || controlLoading === 'stop'}
+						disabled={keenPbrStatus === 'stopped' || controlLoading !== null}
 					>
 						<Square className="h-3 w-3 mr-1" />
 						{t('common.stop')}
@@ -128,7 +128,7 @@ export function KeenPbrWidget() {
 						size="sm"
 						variant="outline"
 						onClick={() => handleServiceControl('restart')}
-						disabled={controlLoading === 'restart'}
+						disabled={controlLoading !== null}
 					>
 						<RotateCw className="h-3 w-3 mr-1" />
 						{t('common.restart')}

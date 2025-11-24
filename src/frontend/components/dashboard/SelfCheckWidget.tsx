@@ -300,8 +300,12 @@ export function SelfCheckWidget() {
                         <>
                           <tr
                             key={`${index}-main`}
-                            className={`border-b-0 hover:bg-muted/30 ${
-                              !result.ok ? 'bg-destructive/5' : ''
+                            className={`border-b-0 ${
+                              result.log === 'testing'
+                                ? 'bg-muted/30'
+                                : result.ok
+                                ? 'bg-green-500/10 dark:bg-green-500/20'
+                                : 'bg-red-500/10 dark:bg-red-500/20'
                             }`}
                           >
                             {isFirstInGroup && (
@@ -311,7 +315,12 @@ export function SelfCheckWidget() {
                                 </span>
                               </td>
                             )}
-                            <td className="py-3 px-4">{getCheckTypeLabel(result.check)}</td>
+                            <td className="py-3 px-4">
+                              <div>{getCheckTypeLabel(result.check)}</div>
+                              {result.log && result.log !== 'testing' && (
+                                <div className="text-xs text-muted-foreground mt-1">{result.log}</div>
+                              )}
+                            </td>
                             <td className="py-3 px-4 text-muted-foreground">
                               {getExpectedStatus(result.check)}
                             </td>
