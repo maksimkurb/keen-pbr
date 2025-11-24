@@ -14,7 +14,7 @@ func TestDNSRedirectComponent_BasicMethods(t *testing.T) {
 	// On many CI/dev envs, this might pass even without root, or fail.
 	// If it fails, we skip.
 
-	component, err := NewDNSRedirectComponent(listenAddr, targetPort)
+	component, err := NewDNSRedirectComponent(listenAddr, targetPort, []string{"br0", "br1"})
 	if err != nil {
 		t.Skipf("Skipping test - failed to create component (likely no iptables): %v", err)
 		return
