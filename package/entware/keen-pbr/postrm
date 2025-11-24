@@ -1,8 +1,5 @@
 #!/bin/sh
 
-echo "keen-pbr uninstallation"
-echo "--------------------------"
-
-echo "Uninstallation complete!"
+echo "keen-pbr uninstallation complete"
 
 exit 0

@@ -67,7 +67,6 @@ define Package/keen-pbr/install
 		echo "> INSTALL DIR = $(PKG_BUILD_DIR)"
 		ls -la $(PKG_BUILD_DIR)
 
-		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/cron.daily/50-keen-pbr-lists-update.sh $(1)/opt/etc/cron.daily/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/netfilter.d/50-keen-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d

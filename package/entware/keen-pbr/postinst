@@ -13,12 +13,11 @@ if [ -f "${KEEN_PBR_CONF}" ]; then
 fi
 
 echo "Installation complete!"
-echo "Please make sure to:"
-echo "1. Configure ${KEEN_PBR_CONF}"
-echo "2. (recommended) Install dnscrypt-proxy2 and configure it"
-echo "3. Run the following command: keen-pbr download"
-echo "4. Enable opkg dns-override"
-echo "5. Restart OPKG"
+echo "Next steps:"
+echo "1. Open http://my.keenetic.net:8080 (or http://<router-ip>:8080) to access keen-pbr web interface"
+echo "2. Configure your Lists and Rules"
+echo "3. Restart keen-pbr service"
+echo "4. Check DNS and Routing status on keen-pbr Dashboard"
 echo ""
 
 exit 0

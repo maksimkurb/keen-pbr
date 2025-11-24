@@ -11,7 +11,6 @@ PIDFILE="/opt/var/run/keen-pbr.pid"
 if [ -f "$PIDFILE" ]; then
   PID=$(cat "$PIDFILE")
   if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-    logger -t "keen-pbr" "Sending SIGUSR1 signal to keen-pbr service (PID: $PID) - ifstatechanged.d hook for interface $system_name"
     kill -SIGUSR1 "$PID"
 
     # If you want to add some additional commands after routing is applied, you can add them
@@ -20,11 +19,7 @@ if [ -f "$PIDFILE" ]; then
       keen_pbr_hook="ifstatechanged"
       . /opt/etc/keen-pbr/hook.sh
     fi
-  else
-    logger -t "keen-pbr" "keen-pbr service is not running, skipping ifstatechanged.d hook for interface $system_name"
   fi
-else
-  logger -t "keen-pbr" "keen-pbr service PID file not found, skipping ifstatechanged.d hook for interface $system_name"
 fi
 
 exit 0

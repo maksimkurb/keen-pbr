@@ -2,141 +2,34 @@
 
 . /opt/etc/keen-pbr/defaults
 
-PIDFILE="/opt/var/run/keen-pbr.pid"
+ENABLED=yes
+PROCS=$(basename "$KEEN_PBR")
+ARGS="-config $CONFIG service"
+PREARGS=""
+DESC="keen-pbr"
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-log()
-{
-  logger -t "keen-pbr" "$1"
-  echo -e "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
+log() {
+    logger -t "keen-pbr" "$1"
+    echo -e "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
 }
 
-enable_hwnat()
-{
-  log "Enabling HW NAT..."
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true # NDMS3
+enable_hwnat() {
+    log "Enabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true
 }
 
-disable_hwnat()
-{
-  log "Disabling HW NAT..."
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true # NDMS3
+disable_hwnat() {
+    log "Disabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true
 }
 
-apply_lists_and_routing()
-{
-  log "Applying routing configuration and importing IPs/CIDRs to ipsets..."
-  $KEEN_PBR -config "$CONFIG" apply
-}
+PRECMD="disable_hwnat"
 
-apply_routing()
-{
-  log "Applying routing configuration..."
-  $KEEN_PBR -config "$CONFIG" apply -skip-ipset
-}
+. /opt/etc/init.d/rc.func
 
-unapply_routing()
-{
-  log "Removing routing configuration..."
-  $KEEN_PBR -config "$CONFIG" undo-routing
-}
-
-check() {
-
-  # Checking keen-pbr state
-  echo "Checking keen-pbr state"
-  $KEEN_PBR -config "$CONFIG" self-check
-
-  echo "Currently configured ipset lists:"
-  ipset list -t
-}
-
-
-start()
-{
-  if [ -f "$PIDFILE" ]; then
-    PID=$(cat "$PIDFILE")
-    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-      log "keen-pbr is already running (PID: $PID)"
-      return 0
-    else
-      log "Removing stale PID file"
-      rm -f "$PIDFILE"
-    fi
-  fi
-
-  disable_hwnat
-  log "Starting keen-pbr service..."
-  $KEEN_PBR -config "$CONFIG" service &
-  echo $! > "$PIDFILE"
-  log "keen-pbr service started (PID: $(cat "$PIDFILE"))"
-}
-
-stop()
-{
-  if [ ! -f "$PIDFILE" ]; then
-    log "keen-pbr is not running (no PID file)"
+if [ "$1" = "stop" ] || [ "$1" = "kill" ]; then
     enable_hwnat
-    return 0
-  fi
-
-  PID=$(cat "$PIDFILE")
-  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-    log "Stopping keen-pbr service (PID: $PID)..."
-    kill -TERM "$PID"
-
-    # Wait for process to terminate (max 10 seconds)
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-      if ! kill -0 "$PID" 2>/dev/null; then
-        break
-      fi
-      sleep 1
-    done
-
-    # Force kill if still running
-    if kill -0 "$PID" 2>/dev/null; then
-      log "Process did not terminate gracefully, forcing..."
-      kill -KILL "$PID"
-    fi
-
-    rm -f "$PIDFILE"
-    log "keen-pbr service stopped"
-  else
-    log "keen-pbr is not running (stale PID file)"
-    rm -f "$PIDFILE"
-  fi
-
-  enable_hwnat
-}
-
-case "$1" in
-  start)
-    start
-    ;;
-  stop)
-    stop
-    ;;
-  restart)
-    stop
-    sleep 2
-    start
-    ;;
-  download-lists|download_lists|update)
-    log "Downloading lists..."
-    $KEEN_PBR -config "$CONFIG" download
-    log "Lists downloaded. Please run '/opt/etc/init.d/S80keen-pbr restart' to make use of them or restart OPKG."
-    ;;
-  apply-lists|apply_lists)
-    apply_lists_and_routing
-    ;;
-  apply-routing|apply_routing)
-    apply_routing
-    ;;
-  check|status|self-check|self_check)
-    check
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart|check|status|download-lists|apply-lists|apply-routing}"
-    ;;
-esac
+fi
