@@ -81,15 +81,13 @@
         "error": "ошибка"
       },
       "checkTypes": {
-        "split_dns_client": "Проверка Split-DNS (Браузер)",
-        "config_validation": "Валидация конфигурации",
-        "ipset_start": "Проверка IPSet",
-        "ipset": "Существование IPSet",
-        "ip_rule": "IP правило",
-        "ip_route": "IP маршруты",
-        "iptables": "Правила IPTables",
-        "ipset_end": "IPSet завершен",
-        "complete": "Все проверки завершены"
+        "split_dns_client": "DNS настроен корректно на текущем устройстве",
+        "dns_redirect": "Перехват DNS-запросов (MITM) настроен на роутере",
+        "config_validation": "Конфигурация валидна",
+        "ipset": "IPSet существует",
+        "ip_rule": "IP Rule",
+        "ip_route": "IP Route",
+        "iptables": "IPTables Rule"
       }
     }
   },
