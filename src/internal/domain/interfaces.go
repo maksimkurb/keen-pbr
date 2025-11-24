@@ -36,25 +36,21 @@ type KeeneticClient interface {
 // like DNS redirect.
 type NetworkManager interface {
 	// SetGlobalConfig sets the global configuration for service-level components
-	// like DNS redirect. This should be called before ApplyPersistentConfig.
+	// like DNS redirect. This should be called before ApplyNetfilter.
 	SetGlobalConfig(globalCfg networking.GlobalConfig)
 
 	// GetGlobalConfig returns the current global configuration.
 	GetGlobalConfig() networking.GlobalConfig
 
-	// ApplyPersistentConfig applies persistent network configuration (iptables rules,
-	// ip rules, and global components like DNS redirect) that should remain active
-	// regardless of interface state.
-	ApplyPersistentConfig(ipsets []*config.IPSetConfig) error
+	// ApplyRouting applies routing configuration (ip rules and ip routes) for all ipsets.
+	// When force=false: only updates routes if interfaces changed (efficient for periodic monitoring)
+	// When force=true: unconditionally applies all routing (for reload/startup)
+	// Returns the number of ipsets that were updated.
+	ApplyRouting(ipsets []*config.IPSetConfig, force bool) (int, error)
 
-	// ApplyRoutingConfig updates dynamic routing configuration (ip routes)
-	// based on the current interface states.
-	ApplyRoutingConfig(ipsets []*config.IPSetConfig) error
-
-	// UpdateRoutingIfChanged updates routing configuration only for ipsets where
-	// the best interface has changed. This is more efficient than ApplyRoutingConfig
-	// for monitoring scenarios. Returns the number of ipsets that were updated.
-	UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error)
+	// ApplyNetfilter applies netfilter configuration (iptables rules and global components)
+	// for all ipsets. This includes iptables rules for packet marking and DNS redirect rules.
+	ApplyNetfilter(ipsets []*config.IPSetConfig) error
 
 	// UndoConfig removes all network configuration for the specified ipsets,
 	// including iptables rules, ip rules, ip routes, and global components.

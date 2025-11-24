@@ -31,18 +31,18 @@
 //
 //	mgr := networking.NewManager(keeneticClient)
 //
-//	// Apply persistent configuration (iptables + ip rules)
-//	if err := mgr.ApplyPersistentConfig(cfg); err != nil {
+//	// Apply netfilter configuration (iptables rules and DNS redirect)
+//	if err := mgr.ApplyNetfilter(cfg.IPSets); err != nil {
 //	    log.Fatal(err)
 //	}
 //
-//	// Apply dynamic routing (ip routes)
-//	if err := mgr.ApplyRoutingConfig(cfg, nil); err != nil {
+//	// Apply routing configuration (ip rules and ip routes, forced)
+//	if _, err := mgr.ApplyRouting(cfg.IPSets, true); err != nil {
 //	    log.Fatal(err)
 //	}
 //
-//	// Update routing when interfaces change
-//	if err := mgr.UpdateRouting(cfg, "wg0"); err != nil {
+//	// Update routing when interfaces change (efficient mode)
+//	if _, err := mgr.ApplyRouting(cfg.IPSets, false); err != nil {
 //	    log.Error(err)
 //	}
 //

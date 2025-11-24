@@ -177,14 +177,14 @@ func (sm *ServiceManager) Reload() error {
 
 	// Reapply persistent network configuration (iptables rules, ip rules, and global components)
 	log.Infof("Reapplying persistent network configuration...")
-	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
-		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	if err := networkMgr.ApplyNetfilter(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply netfilter configuration: %v", err)
 	}
 
-	// Force update routing configuration (ip routes)
+	// Force update routing configuration (ip routes and ip rules)
 	// SIGHUP forces a full refresh, not just changed interfaces
 	log.Infof("Forcing routing configuration update...")
-	if err := networkMgr.ApplyRoutingConfig(cfg.IPSets); err != nil {
+	if _, err := networkMgr.ApplyRouting(cfg.IPSets, true); err != nil {
 		return fmt.Errorf("failed to apply routing configuration: %v", err)
 	}
 
@@ -192,10 +192,10 @@ func (sm *ServiceManager) Reload() error {
 	return nil
 }
 
-// RefreshRoutingAndFirewall refreshes the routing configuration and firewall rules.
+// RefreshRouting refreshes the routing configuration (ip routes and ip rules).
 // This is typically triggered by SIGUSR1 signal.
-// It checks interfaces, updates routing if changed, and refreshes persistent config (iptables/rules).
-func (sm *ServiceManager) RefreshRoutingAndFirewall() error {
+// It checks interfaces and updates routing only if changed (efficient mode).
+func (sm *ServiceManager) RefreshRouting() error {
 	sm.mu.RLock()
 	if !sm.running {
 		sm.mu.RUnlock()
@@ -206,7 +206,7 @@ func (sm *ServiceManager) RefreshRoutingAndFirewall() error {
 	networkMgr := sm.networkMgr
 	sm.mu.RUnlock()
 
-	log.Debugf("Refreshing routing and firewall (triggered by SIGUSR1)...")
+	log.Debugf("Refreshing routing (triggered by SIGUSR1)...")
 
 	// Update interface list
 	var err error
@@ -214,19 +214,9 @@ func (sm *ServiceManager) RefreshRoutingAndFirewall() error {
 		return fmt.Errorf("failed to get interfaces list: %v", err)
 	}
 
-	// Re-apply global components (DNS redirect rules need updating when IPs change)
-	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
-	networkMgr.SetGlobalConfig(globalCfg)
-
-	// Re-apply persistent config to update DNS redirect rules and other persistent rules
-	log.Debugf("Refreshing persistent network configuration (iptables, ip rules)...")
-	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
-		return fmt.Errorf("failed to refresh persistent network configuration: %v", err)
-	}
-
-	// Update routing configuration only if interfaces changed
+	// Update routing configuration only if interfaces changed (force=false)
 	log.Debugf("Checking for interface changes and updating routing if needed...")
-	changedCount, err := networkMgr.UpdateRoutingIfChanged(cfg.IPSets)
+	changedCount, err := networkMgr.ApplyRouting(cfg.IPSets, false)
 	if err != nil {
 		return fmt.Errorf("failed to update routing configuration: %v", err)
 	}
@@ -258,10 +248,10 @@ func (sm *ServiceManager) RefreshFirewall() error {
 	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
 	networkMgr.SetGlobalConfig(globalCfg)
 
-	// Re-apply persistent config
-	log.Debugf("Reapplying persistent network configuration...")
-	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
-		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	// Re-apply netfilter config (iptables only)
+	log.Debugf("Reapplying netfilter configuration...")
+	if err := networkMgr.ApplyNetfilter(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply netfilter configuration: %v", err)
 	}
 
 	log.Infof("Firewall rules refreshed successfully")
@@ -325,15 +315,15 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	sm.networkMgr.SetGlobalConfig(globalCfg)
 
 	// Apply persistent network configuration (iptables rules, ip rules, and global components)
-	log.Infof("Applying persistent network configuration (iptables rules, ip rules, and global components)...")
-	if err := sm.networkMgr.ApplyPersistentConfig(startupCfg.IPSets); err != nil {
-		sm.done <- fmt.Errorf("failed to apply persistent network configuration: %w", err)
+	log.Infof("Applying persistent network configuration (iptables rules and global components)...")
+	if err := sm.networkMgr.ApplyNetfilter(startupCfg.IPSets); err != nil {
+		sm.done <- fmt.Errorf("failed to apply netfilter configuration: %w", err)
 		return
 	}
 
-	// Apply initial routing (ip routes)
+	// Apply initial routing (ip routes and ip rules)
 	log.Infof("Applying initial routing configuration...")
-	if err := sm.networkMgr.ApplyRoutingConfig(startupCfg.IPSets); err != nil {
+	if _, err := sm.networkMgr.ApplyRouting(startupCfg.IPSets, true); err != nil {
 		sm.done <- fmt.Errorf("failed to apply routing configuration: %w", err)
 		return
 	}
@@ -384,7 +374,7 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 			// Update routing configuration (only if interfaces changed)
 			log.Debugf("Checking interface states...")
-			if _, err := sm.networkMgr.UpdateRoutingIfChanged(startupCfg.IPSets); err != nil {
+			if _, err := sm.networkMgr.ApplyRouting(startupCfg.IPSets, false); err != nil {
 				log.Errorf("Failed to update routing configuration: %v", err)
 			}
 

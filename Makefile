@@ -22,13 +22,21 @@ test:
 	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./... && deadcode ./...
 
 build-frontend:
-	cd src/frontend && npm install && npm run build
+	cd src/frontend && bun install && bun run build
 
 build:
 	go build -ldflags "$(GO_LDFLAGS) -w -s" -o keen-pbr ./src/cmd/keen-pbr
 
 build-dev:
 	go build -tags dev -ldflags "$(GO_LDFLAGS)" -o keen-pbr ./src/cmd/keen-pbr
+
+DEPLOY_IP := 192.168.54.1
+DEPLOY_PORT := 222
+
+deploy-mipsel: build-frontend
+	GOOS=linux GOARCH=mipsle go build -ldflags "$(GO_LDFLAGS) -w -s" -o keen-pbr ./src/cmd/keen-pbr
+	scp -P $(DEPLOY_PORT) ./keen-pbr root@$(DEPLOY_IP):/opt/usr/bin/keen-pbr
+	scp -r -P $(DEPLOY_PORT) src/frontend/dist/* root@$(DEPLOY_IP):/opt/usr/share/keen-pbr/ui/
 
 clean:
 	rm -rf out/

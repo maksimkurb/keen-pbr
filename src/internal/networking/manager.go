@@ -37,7 +37,7 @@ func NewManager(keeneticClient InterfaceLister) *Manager {
 }
 
 // SetGlobalConfig sets the global configuration for service-level components.
-// This should be called before ApplyPersistentConfig to enable global components
+// This should be called before ApplyNetfilter to enable global components
 // like DNS redirect.
 func (m *Manager) SetGlobalConfig(globalCfg GlobalConfig) {
 	m.globalConfig = globalCfg
@@ -48,14 +48,66 @@ func (m *Manager) GetGlobalConfig() GlobalConfig {
 	return m.globalConfig
 }
 
-// ApplyPersistentConfig applies persistent network configuration for all ipsets.
-//
-// This includes iptables rules, ip rules, and global components (DNS redirect)
-// that should remain active regardless of interface state. This method should
-// be called once on service start.
-//
-// This implementation uses the NetworkingComponent abstraction for unified logic.
-func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
+// ApplyRouting applies routing configuration (ip rules and ip routes) for all ipsets.
+// When force=false: only updates routes if interfaces changed (efficient for periodic monitoring)
+// When force=true: unconditionally applies all routing (for reload/startup)
+// Returns the number of ipsets that were updated.
+func (m *Manager) ApplyRouting(ipsets []*config.IPSetConfig, force bool) (int, error) {
+	updatedCount := 0
+
+	for _, ipset := range ipsets {
+		// Build components for this ipset
+		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
+		components, err := builder.BuildComponents(ipset)
+		if err != nil {
+			return updatedCount, err
+		}
+
+		// Always ensure IPSet and IP Rules exist (persistent components)
+		for _, component := range components {
+			compType := component.GetType()
+			if compType == ComponentTypeIPSet || compType == ComponentTypeIPRule {
+				if component.ShouldExist() {
+					if err := component.CreateIfNotExists(); err != nil {
+						log.Errorf("[ipset %s] Failed to create %s: %v", ipset.IPSetName, compType, err)
+						return updatedCount, err
+					}
+				}
+			}
+		}
+
+		// Apply routes conditionally based on force flag
+		if force {
+			// Force mode: unconditionally apply routes
+			log.Infof("[ipset %s] Applying routing configuration (forced)...", ipset.IPSetName)
+			if err := m.routingConfig.Apply(ipset); err != nil {
+				return updatedCount, err
+			}
+			updatedCount++
+		} else {
+			// Efficient mode: only update if interfaces changed
+			updated, err := m.routingConfig.ApplyIfChanged(ipset)
+			if err != nil {
+				return updatedCount, err
+			}
+			if updated {
+				updatedCount++
+			}
+		}
+	}
+
+	if updatedCount > 0 {
+		log.Debugf("Updated routing for %d ipset(s)", updatedCount)
+	} else if !force {
+		log.Debugf("No routing changes needed, all interfaces unchanged")
+	}
+
+	return updatedCount, nil
+}
+
+// ApplyNetfilter applies netfilter configuration (iptables rules and global components)
+// for all ipsets. This includes iptables rules for packet marking and DNS redirect rules.
+func (m *Manager) ApplyNetfilter(ipsets []*config.IPSetConfig) error {
 	// Build and apply global components first (DNS redirect)
 	globalBuilder := NewGlobalComponentBuilder()
 	globalComponents, err := globalBuilder.BuildComponents(m.globalConfig)
@@ -73,27 +125,22 @@ func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 		}
 	}
 
-	// Apply per-ipset persistent components
+	// Apply per-ipset iptables rules
 	for _, ipset := range ipsets {
-		log.Infof("[ipset %s] Applying persistent configuration (iptables rules and ip rules)...", ipset.IPSetName)
+		log.Infof("[ipset %s] Applying netfilter configuration (iptables rules)...", ipset.IPSetName)
 
-		// Build all components for this ipset
 		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
 		components, err := builder.BuildComponents(ipset)
 		if err != nil {
 			return err
 		}
 
-		// Apply only persistent components (IPSet, IPRule, IPTables)
-		// Skip route components as they're handled by ApplyRoutingConfig
+		// Apply only iptables components
 		for _, component := range components {
-			compType := component.GetType()
-
-			// Only apply persistent components
-			if compType == ComponentTypeIPSet || compType == ComponentTypeIPRule || compType == ComponentTypeIPTables {
+			if component.GetType() == ComponentTypeIPTables {
 				if component.ShouldExist() {
 					if err := component.CreateIfNotExists(); err != nil {
-						log.Errorf("[ipset %s] Failed to create %s: %v", ipset.IPSetName, compType, err)
+						log.Errorf("[ipset %s] Failed to create iptables rules: %v", ipset.IPSetName, err)
 						return err
 					}
 				}
@@ -102,56 +149,6 @@ func (m *Manager) ApplyPersistentConfig(ipsets []*config.IPSetConfig) error {
 	}
 
 	return nil
-}
-
-// ApplyRoutingConfig applies dynamic routing configuration for all ipsets.
-//
-// This updates ip routes based on current interface states. This method
-// should be called periodically to adjust routes when interfaces go up/down.
-//
-// Uses the routing manager's Apply method which properly handles interface
-// selection and route management.
-func (m *Manager) ApplyRoutingConfig(ipsets []*config.IPSetConfig) error {
-	log.Debugf("Updating routing configuration based on interface states...")
-
-	for _, ipset := range ipsets {
-		if err := m.routingConfig.Apply(ipset); err != nil {
-			log.Errorf("Failed to apply routing for %s: %v", ipset.IPSetName, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-// UpdateRoutingIfChanged updates routing configuration only for ipsets where
-// the best interface has changed.
-//
-// This is the preferred method for periodic monitoring as it prevents unnecessary
-// route churn. It's thread-safe and can be called concurrently from multiple
-// sources (ticker, SIGHUP handler, etc.).
-//
-// Returns the number of ipsets that were actually updated.
-func (m *Manager) UpdateRoutingIfChanged(ipsets []*config.IPSetConfig) (int, error) {
-	updatedCount := 0
-
-	for _, ipset := range ipsets {
-		updated, err := m.routingConfig.ApplyIfChanged(ipset)
-		if err != nil {
-			return updatedCount, err
-		}
-		if updated {
-			updatedCount++
-		}
-	}
-
-	if updatedCount > 0 {
-		log.Debugf("Updated routing for %d ipset(s)", updatedCount)
-	} else {
-		log.Debugf("No routing changes needed, all interfaces unchanged")
-	}
-
-	return updatedCount, nil
 }
 
 // UndoConfig removes all network configuration for the specified ipsets.

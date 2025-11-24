@@ -164,11 +164,11 @@ func (s *ServiceCommand) Run() error {
 			}
 
 		case syscall.SIGUSR1:
-			log.Infof("Received SIGUSR1 signal, refreshing routing and firewall...")
-			if err := s.serviceMgr.RefreshRoutingAndFirewall(); err != nil {
-				log.Errorf("Failed to refresh routing and firewall: %v", err)
+			log.Infof("Received SIGUSR1 signal, refreshing routing...")
+			if err := s.serviceMgr.RefreshRouting(); err != nil {
+				log.Errorf("Failed to refresh routing: %v", err)
 			} else {
-				log.Infof("Routing and firewall refreshed successfully")
+				log.Infof("Routing refreshed successfully")
 			}
 
 		case syscall.SIGUSR2:
