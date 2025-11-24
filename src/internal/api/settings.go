@@ -16,16 +16,31 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Normalize settings to return proper defaults
-	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
+	autoUpdate := cfg.General.IsAutoUpdateEnabled()                   // Get default if not set
 	interfaceMonitoring := cfg.General.IsInterfaceMonitoringEnabled() // Get default if not set
+	enableDNSProxy := cfg.General.IsDNSProxyEnabled()
+	dropAAAA := cfg.General.IsDropAAAAEnabled()
+	dnsProxyRemap53 := cfg.General.IsDNSProxyRemap53Enabled()
+
 	response := config.GeneralConfig{
-		ListsOutputDir:            cfg.General.ListsOutputDir,
-		UseKeeneticDNS:            cfg.General.UseKeeneticDNS,
-		FallbackDNS:               cfg.General.FallbackDNS,
+		ListsOutputDir: cfg.General.ListsOutputDir,
+		UseKeeneticDNS: cfg.General.UseKeeneticDNS,
+		FallbackDNS:    cfg.General.FallbackDNS,
 		// APIBindAddress is excluded - not configurable via API
-		AutoUpdateLists:           &autoUpdate, // Use helper to get default (true if nil)
+		AutoUpdateLists:           &autoUpdate,                          // Use helper to get default (true if nil)
 		UpdateIntervalHours:       cfg.General.GetUpdateIntervalHours(), // Use helper to get default
-		EnableInterfaceMonitoring: &interfaceMonitoring, // Use helper to get default (false if nil)
+		EnableInterfaceMonitoring: &interfaceMonitoring,                 // Use helper to get default (false if nil)
+
+		// DNS Proxy settings - use getters to return defaults
+		EnableDNSProxy:     &enableDNSProxy,
+		DNSProxyListenAddr: cfg.General.GetDNSProxyListenAddr(),
+		DNSProxyPort:       cfg.General.GetDNSProxyPort(),
+		DNSUpstream:        cfg.General.GetDNSUpstream(),
+		DNSCacheMaxDomains: cfg.General.GetDNSCacheMaxDomains(),
+		DropAAAA:           &dropAAAA,
+		TTLOverride:        int(cfg.General.GetTTLOverride()),
+		DNSProxyInterfaces: cfg.General.GetDNSProxyInterfaces(),
+		DNSProxyRemap53:    &dnsProxyRemap53,
 	}
 
 	writeJSONData(w, SettingsResponse{General: &response})
@@ -71,6 +86,35 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.General.EnableInterfaceMonitoring = updates.EnableInterfaceMonitoring
 	}
 
+	// DNS Proxy settings
+	if updates.EnableDNSProxy != nil {
+		cfg.General.EnableDNSProxy = updates.EnableDNSProxy
+	}
+	if updates.DNSProxyListenAddr != "" {
+		cfg.General.DNSProxyListenAddr = updates.DNSProxyListenAddr
+	}
+	if updates.DNSProxyPort > 0 {
+		cfg.General.DNSProxyPort = updates.DNSProxyPort
+	}
+	if updates.DNSUpstream != nil {
+		cfg.General.DNSUpstream = updates.DNSUpstream
+	}
+	if updates.DNSCacheMaxDomains > 0 {
+		cfg.General.DNSCacheMaxDomains = updates.DNSCacheMaxDomains
+	}
+	if updates.DropAAAA != nil {
+		cfg.General.DropAAAA = updates.DropAAAA
+	}
+	if updates.TTLOverride >= 0 {
+		cfg.General.TTLOverride = updates.TTLOverride
+	}
+	if updates.DNSProxyInterfaces != nil {
+		cfg.General.DNSProxyInterfaces = updates.DNSProxyInterfaces
+	}
+	if updates.DNSProxyRemap53 != nil {
+		cfg.General.DNSProxyRemap53 = updates.DNSProxyRemap53
+	}
+
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
 		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
@@ -84,16 +128,31 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Normalize settings to return proper defaults
-	autoUpdate := cfg.General.IsAutoUpdateEnabled() // Get default if not set
+	autoUpdate := cfg.General.IsAutoUpdateEnabled()                   // Get default if not set
 	interfaceMonitoring := cfg.General.IsInterfaceMonitoringEnabled() // Get default if not set
+	enableDNSProxy := cfg.General.IsDNSProxyEnabled()
+	dropAAAA := cfg.General.IsDropAAAAEnabled()
+	dnsProxyRemap53 := cfg.General.IsDNSProxyRemap53Enabled()
+
 	response := config.GeneralConfig{
-		ListsOutputDir:            cfg.General.ListsOutputDir,
-		UseKeeneticDNS:            cfg.General.UseKeeneticDNS,
-		FallbackDNS:               cfg.General.FallbackDNS,
+		ListsOutputDir: cfg.General.ListsOutputDir,
+		UseKeeneticDNS: cfg.General.UseKeeneticDNS,
+		FallbackDNS:    cfg.General.FallbackDNS,
 		// APIBindAddress is excluded - not configurable via API
-		AutoUpdateLists:           &autoUpdate, // Use helper to get default (true if nil)
+		AutoUpdateLists:           &autoUpdate,                          // Use helper to get default (true if nil)
 		UpdateIntervalHours:       cfg.General.GetUpdateIntervalHours(), // Use helper to get default
-		EnableInterfaceMonitoring: &interfaceMonitoring, // Use helper to get default (false if nil)
+		EnableInterfaceMonitoring: &interfaceMonitoring,                 // Use helper to get default (false if nil)
+
+		// DNS Proxy settings - use getters to return defaults
+		EnableDNSProxy:     &enableDNSProxy,
+		DNSProxyListenAddr: cfg.General.GetDNSProxyListenAddr(),
+		DNSProxyPort:       cfg.General.GetDNSProxyPort(),
+		DNSUpstream:        cfg.General.GetDNSUpstream(),
+		DNSCacheMaxDomains: cfg.General.GetDNSCacheMaxDomains(),
+		DropAAAA:           &dropAAAA,
+		TTLOverride:        int(cfg.General.GetTTLOverride()),
+		DNSProxyInterfaces: cfg.General.GetDNSProxyInterfaces(),
+		DNSProxyRemap53:    &dnsProxyRemap53,
 	}
 
 	writeJSONData(w, SettingsResponse{General: &response})
