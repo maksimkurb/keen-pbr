@@ -128,7 +128,7 @@ func (g *SelfCheckCommand) checkGlobalComponents() bool {
 			message = fmt.Sprintf("Error checking: %v", err)
 			state = false
 		} else {
-			message = g.getGlobalComponentMessage(component, exists, shouldExist)
+			message = g.getStatusMessage(exists, shouldExist)
 		}
 
 		// Log the result
@@ -142,33 +142,6 @@ func (g *SelfCheckCommand) checkGlobalComponents() bool {
 
 	log.Infof("----------------- Global Components END --------------")
 	return !hasFailures
-}
-
-// getGlobalComponentMessage generates a message for global components.
-func (g *SelfCheckCommand) getGlobalComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool) string {
-	compType := component.GetType()
-
-	switch compType {
-	case networking.ComponentTypeDNSRedirect:
-		if exists && shouldExist {
-			return "DNS redirect rules exist"
-		} else if !exists && shouldExist {
-			return "DNS redirect rules do NOT exist (missing)"
-		} else if exists && !shouldExist {
-			return "DNS redirect rules exist but should NOT (unexpected)"
-		}
-		return "DNS redirect rules not present (DNS proxy disabled)"
-	}
-
-	// Fallback generic message
-	if exists && shouldExist {
-		return "Component exists as expected"
-	} else if !exists && !shouldExist {
-		return "Component absent as expected"
-	} else if exists && !shouldExist {
-		return "Component exists but should NOT (unexpected)"
-	}
-	return "Component missing but should exist"
 }
 
 // checkIPSetComponents checks a single IPSet using the unified NetworkingComponent abstraction.
@@ -205,7 +178,7 @@ func (g *SelfCheckCommand) checkIPSetComponents(ipsetCfg *config.IPSetConfig) bo
 			message = fmt.Sprintf("Error checking: %v", err)
 			state = false
 		} else {
-			message = g.getComponentMessage(component, exists, shouldExist, ipsetCfg)
+			message = g.getStatusMessage(exists, shouldExist)
 		}
 
 		// Log the result
@@ -221,88 +194,14 @@ func (g *SelfCheckCommand) checkIPSetComponents(ipsetCfg *config.IPSetConfig) bo
 	return !hasFailures
 }
 
-// getComponentMessage generates an appropriate message based on component type and state.
-// This mirrors the logic in api/check.go for consistency.
-func (g *SelfCheckCommand) getComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool, ipsetCfg *config.IPSetConfig) string {
-	compType := component.GetType()
-
-	switch compType {
-	case networking.ComponentTypeIPSet:
-		if exists && shouldExist {
-			return fmt.Sprintf("IPSet [%s] exists", component.GetIPSetName())
-		} else if !exists && shouldExist {
-			return fmt.Sprintf("IPSet [%s] does NOT exist (missing)", component.GetIPSetName())
-		} else if exists && !shouldExist {
-			return fmt.Sprintf("IPSet [%s] exists but should NOT (unexpected)", component.GetIPSetName())
-		}
-		return fmt.Sprintf("IPSet [%s] not present", component.GetIPSetName())
-
-	case networking.ComponentTypeIPRule:
-		if exists && shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists",
-				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IPRouteTable)
-		} else if !exists && shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist (missing)",
-				ipsetCfg.Routing.FwMark)
-		} else if exists && !shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x exists but should NOT (unexpected)",
-				ipsetCfg.Routing.FwMark)
-		}
-		return fmt.Sprintf("IP rule with fwmark 0x%x not present", ipsetCfg.Routing.FwMark)
-
-	case networking.ComponentTypeIPRoute:
-		if routeComp, ok := component.(*networking.IPRouteComponent); ok {
-			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
-				if exists && shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
-						ipsetCfg.Routing.IPRouteTable)
-				} else if !exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
-						ipsetCfg.Routing.IPRouteTable)
-				} else if exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
-						ipsetCfg.Routing.IPRouteTable)
-				}
-				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
-					ipsetCfg.Routing.IPRouteTable)
-			} else {
-				ifaceName := routeComp.GetInterfaceName()
-				if exists && shouldExist {
-					return fmt.Sprintf("Route in table %d via %s exists (active)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				} else if !exists && !shouldExist {
-					return fmt.Sprintf("Route in table %d via %s not present (interface not best)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				} else if exists && !shouldExist {
-					return fmt.Sprintf("Route in table %d via %s exists but is not best interface (stale)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				}
-				return fmt.Sprintf("Route in table %d via %s missing but is best interface (missing)",
-					ipsetCfg.Routing.IPRouteTable, ifaceName)
-			}
-		}
-
-	case networking.ComponentTypeIPTables:
-		if iptComp, ok := component.(*networking.IPTablesRuleComponent); ok {
-			ruleDesc := iptComp.GetRuleDescription()
-			if exists && shouldExist {
-				return fmt.Sprintf("IPTables %s exists", ruleDesc)
-			} else if !exists && shouldExist {
-				return fmt.Sprintf("IPTables %s does NOT exist (missing)", ruleDesc)
-			} else if exists && !shouldExist {
-				return fmt.Sprintf("IPTables %s exists but should NOT (unexpected)", ruleDesc)
-			}
-			return fmt.Sprintf("IPTables %s not present", ruleDesc)
-		}
-	}
-
-	// Fallback generic message
+// getStatusMessage generates a generic status message based on existence.
+func (g *SelfCheckCommand) getStatusMessage(exists bool, shouldExist bool) string {
 	if exists && shouldExist {
-		return "Component exists as expected"
-	} else if !exists && !shouldExist {
-		return "Component absent as expected"
+		return "OK"
+	} else if !exists && shouldExist {
+		return "Missing"
 	} else if exists && !shouldExist {
-		return "Component exists but should NOT (unexpected)"
+		return "Unexpected"
 	}
-	return "Component missing but should exist"
+	return "Not present"
 }

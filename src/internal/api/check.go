@@ -430,66 +430,10 @@ func (h *Handler) streamOutput(ctx context.Context, reader io.Reader, w http.Res
 }
 
 // CheckSelf performs a self-check similar to the self-check command.
-// GET /api/v1/check/self?sse=true (SSE streaming) or ?sse=false (JSON table, default)
+// GET /api/v1/check/self (Always SSE)
+// GET /api/v1/check/self
 func (h *Handler) CheckSelf(w http.ResponseWriter, r *http.Request) {
-	// Check if SSE mode is requested
-	sseMode := r.URL.Query().Get("sse") == "true"
-
-	if sseMode {
-		h.checkSelfSSE(w, r)
-	} else {
-		h.checkSelfJSON(w, r)
-	}
-}
-
-// checkSelfJSON performs self-check and returns results as a JSON table
-func (h *Handler) checkSelfJSON(w http.ResponseWriter, _ *http.Request) {
-	checks := []SelfCheckRow{}
-
-	// Load configuration
-	cfg, err := h.loadConfig()
-	if err != nil {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "config",
-			Comment:    "Global configuration check",
-			State:      false,
-			Message:    fmt.Sprintf("Failed to load configuration: %v", err),
-		})
-		writeJSONData(w, SelfCheckResponse{Checks: checks})
-		return
-	}
-
-	// Validate configuration
-	if err := cfg.ValidateConfig(); err != nil {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "config_validation",
-			Comment:    "Configuration validation ensures all required fields are present and valid",
-			State:      false,
-			Message:    fmt.Sprintf("Configuration validation failed: %v", err),
-		})
-	} else {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "config_validation",
-			Comment:    "Configuration validation ensures all required fields are present and valid",
-			State:      true,
-			Message:    "Configuration is valid",
-		})
-	}
-
-	// Check global components (DNS redirect, etc.)
-	globalChecks := h.checkGlobalComponentsJSON(cfg)
-	checks = append(checks, globalChecks...)
-
-	// Check each IPSet
-	for _, ipsetCfg := range cfg.IPSets {
-		ipsetChecks := h.checkIPSetSelfJSON(ipsetCfg)
-		checks = append(checks, ipsetChecks...)
-	}
-
-	writeJSONData(w, SelfCheckResponse{Checks: checks})
+	h.checkSelfSSE(w, r)
 }
 
 // checkSelfSSE performs self-check and streams results via Server-Sent Events
@@ -512,16 +456,16 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 	// Load configuration
 	cfg, err := h.loadConfig()
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "config", "", false, "Global configuration check", fmt.Sprintf("Failed to load configuration: %v", err))
+		h.sendCheckEventWithContext(w, flusher, "config", "", false, true, fmt.Sprintf("Failed to load configuration: %v", err))
 		return
 	}
 
 	// Validate configuration
 	if err := cfg.ValidateConfig(); err != nil {
-		h.sendCheckEventWithContext(w, flusher, "config_validation", "", false, "Configuration validation ensures all required fields are present and valid", fmt.Sprintf("Configuration validation failed: %v", err))
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", false, true, fmt.Sprintf("Configuration validation failed: %v", err))
 		hasFailures = true
 	} else {
-		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, "Configuration validation ensures all required fields are present and valid", "Configuration is valid")
+		h.sendCheckEventWithContext(w, flusher, "config_validation", "", true, true, "Configuration is valid")
 	}
 
 	// Check global components (DNS redirect, etc.)
@@ -538,56 +482,10 @@ func (h *Handler) checkSelfSSE(w http.ResponseWriter, _ *http.Request) {
 
 	// Send completion message
 	if hasFailures {
-		h.sendCheckEventWithContext(w, flusher, "complete", "", false, "", "Self-check completed with failures")
+		h.sendCheckEventWithContext(w, flusher, "complete", "", false, true, "Self-check completed with failures")
 	} else {
-		h.sendCheckEventWithContext(w, flusher, "complete", "", true, "", "Self-check completed successfully")
+		h.sendCheckEventWithContext(w, flusher, "complete", "", true, true, "Self-check completed successfully")
 	}
-}
-
-// checkGlobalComponentsJSON checks global components and returns results as table rows
-func (h *Handler) checkGlobalComponentsJSON(cfg *config.Config) []SelfCheckRow {
-	checks := []SelfCheckRow{}
-
-	// Build global components
-	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
-	builder := networking.NewGlobalComponentBuilder()
-	components, err := builder.BuildComponents(globalCfg)
-	if err != nil {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: "global_component_build",
-			Comment:    "Failed to build global components",
-			State:      false,
-			Message:    fmt.Sprintf("Error: %v", err),
-		})
-		return checks
-	}
-
-	// Check each global component
-	for _, component := range components {
-		exists, err := component.IsExists()
-		shouldExist := component.ShouldExist()
-
-		state := (exists == shouldExist) && err == nil
-
-		var message string
-		if err != nil {
-			message = fmt.Sprintf("Error checking: %v", err)
-			state = false
-		} else {
-			message = h.getGlobalComponentMessage(component, exists, shouldExist)
-		}
-
-		checks = append(checks, SelfCheckRow{
-			IPSet:      "",
-			Validation: string(component.GetType()),
-			Comment:    component.GetDescription(),
-			State:      state,
-			Message:    message,
-		})
-	}
-
-	return checks
 }
 
 // checkGlobalComponentsSSE checks global components and streams results via SSE
@@ -600,8 +498,8 @@ func (h *Handler) checkGlobalComponentsSSE(w http.ResponseWriter, flusher http.F
 	builder := networking.NewGlobalComponentBuilder()
 	components, err := builder.BuildComponents(globalCfg)
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "global_component_build", "", false,
-			"Failed to build global components", fmt.Sprintf("Error: %v", err))
+		h.sendCheckEventWithContext(w, flusher, "global_component_build", "", false, true,
+			fmt.Sprintf("Error: %v", err))
 		return false
 	}
 
@@ -612,20 +510,16 @@ func (h *Handler) checkGlobalComponentsSSE(w http.ResponseWriter, flusher http.F
 
 		state := (exists == shouldExist) && err == nil
 
-		var message string
 		if err != nil {
-			message = fmt.Sprintf("Error checking: %v", err)
 			state = false
-		} else {
-			message = h.getGlobalComponentMessage(component, exists, shouldExist)
 		}
 
 		h.sendCheckEventWithContext(w, flusher,
 			string(component.GetType()),
 			"",
 			state,
+			shouldExist,
 			component.GetDescription(),
-			message,
 		)
 
 		if !state {
@@ -634,33 +528,6 @@ func (h *Handler) checkGlobalComponentsSSE(w http.ResponseWriter, flusher http.F
 	}
 
 	return !hasFailures
-}
-
-// getGlobalComponentMessage generates a message for global components
-func (h *Handler) getGlobalComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool) string {
-	compType := component.GetType()
-
-	switch compType {
-	case networking.ComponentTypeDNSRedirect:
-		if exists && shouldExist {
-			return "DNS redirect rules exist"
-		} else if !exists && shouldExist {
-			return "DNS redirect rules do NOT exist (missing)"
-		} else if exists && !shouldExist {
-			return "DNS redirect rules exist but should NOT (unexpected)"
-		}
-		return "DNS redirect rules not present (DNS proxy disabled)"
-	}
-
-	// Fallback generic message
-	if exists && shouldExist {
-		return "Component exists as expected"
-	} else if !exists && !shouldExist {
-		return "Component absent as expected"
-	} else if exists && !shouldExist {
-		return "Component exists but should NOT (unexpected)"
-	}
-	return "Component missing but should exist"
 }
 
 // checkIPSetSelfSSE checks a single IPSet configuration and streams results via SSE
@@ -678,8 +545,8 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 	builder := networking.NewComponentBuilder(keeneticClient)
 	components, err := builder.BuildComponents(ipsetCfg)
 	if err != nil {
-		h.sendCheckEventWithContext(w, flusher, "component_build", ipsetCfg.IPSetName, false,
-			"Failed to build networking components", fmt.Sprintf("Error: %v", err))
+		h.sendCheckEventWithContext(w, flusher, "component_build", ipsetCfg.IPSetName, false, true,
+			fmt.Sprintf("Error: %v", err))
 		return false
 	}
 
@@ -691,12 +558,8 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 		// State is OK if actual existence matches expected existence and no error occurred
 		state := (exists == shouldExist) && err == nil
 
-		var message string
 		if err != nil {
-			message = fmt.Sprintf("Error checking: %v", err)
 			state = false
-		} else {
-			message = h.getComponentMessage(component, exists, shouldExist, ipsetCfg)
 		}
 
 		// Send SSE event
@@ -704,8 +567,8 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 			string(component.GetType()),
 			component.GetIPSetName(),
 			state,
+			shouldExist,
 			component.GetDescription(),
-			message,
 		)
 
 		if !state {
@@ -716,150 +579,13 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 	return !hasFailures
 }
 
-// checkIPSetSelfJSON checks a single IPSet configuration and returns results as table rows
-// This implementation uses the NetworkingComponent abstraction instead of direct command execution
-func (h *Handler) checkIPSetSelfJSON(ipsetCfg *config.IPSetConfig) []SelfCheckRow {
-	checks := []SelfCheckRow{}
-
-	// Build components for this IPSet using the networking component abstraction
-	var keeneticClient domain.KeeneticClient
-	if h.deps != nil {
-		keeneticClient = h.deps.KeeneticClient()
-	}
-
-	builder := networking.NewComponentBuilder(keeneticClient)
-	components, err := builder.BuildComponents(ipsetCfg)
-	if err != nil {
-		checks = append(checks, SelfCheckRow{
-			IPSet:      ipsetCfg.IPSetName,
-			Validation: "component_build",
-			Comment:    "Failed to build networking components",
-			State:      false,
-			Message:    fmt.Sprintf("Error: %v", err),
-		})
-		return checks
-	}
-
-	// Check each component using the unified abstraction
-	for _, component := range components {
-		exists, err := component.IsExists()
-		shouldExist := component.ShouldExist()
-
-		// State is OK if actual existence matches expected existence and no error occurred
-		state := (exists == shouldExist) && err == nil
-
-		var message string
-		if err != nil {
-			message = fmt.Sprintf("Error checking: %v", err)
-			state = false
-		} else {
-			message = h.getComponentMessage(component, exists, shouldExist, ipsetCfg)
-		}
-
-		checks = append(checks, SelfCheckRow{
-			IPSet:      component.GetIPSetName(),
-			Validation: string(component.GetType()),
-			Comment:    component.GetDescription(),
-			State:      state,
-			Message:    message,
-		})
-	}
-
-	return checks
-}
-
-// getComponentMessage generates an appropriate message based on component type and state
-func (h *Handler) getComponentMessage(component networking.NetworkingComponent, exists bool, shouldExist bool, ipsetCfg *config.IPSetConfig) string {
-	compType := component.GetType()
-
-	switch compType {
-	case networking.ComponentTypeIPSet:
-		if exists && shouldExist {
-			return fmt.Sprintf("IPSet [%s] exists", component.GetIPSetName())
-		} else if !exists && shouldExist {
-			return fmt.Sprintf("IPSet [%s] does NOT exist (missing)", component.GetIPSetName())
-		} else if exists && !shouldExist {
-			return fmt.Sprintf("IPSet [%s] exists but should NOT (unexpected)", component.GetIPSetName())
-		}
-		return fmt.Sprintf("IPSet [%s] not present", component.GetIPSetName())
-
-	case networking.ComponentTypeIPRule:
-		if exists && shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x lookup %d exists",
-				ipsetCfg.Routing.FwMark, ipsetCfg.Routing.IPRouteTable)
-		} else if !exists && shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x does NOT exist (missing)",
-				ipsetCfg.Routing.FwMark)
-		} else if exists && !shouldExist {
-			return fmt.Sprintf("IP rule with fwmark 0x%x exists but should NOT (unexpected)",
-				ipsetCfg.Routing.FwMark)
-		}
-		return fmt.Sprintf("IP rule with fwmark 0x%x not present", ipsetCfg.Routing.FwMark)
-
-	case networking.ComponentTypeIPRoute:
-		if routeComp, ok := component.(*networking.IPRouteComponent); ok {
-			if routeComp.GetRouteType() == networking.RouteTypeBlackhole {
-				if exists && shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists (kill-switch enabled)",
-						ipsetCfg.Routing.IPRouteTable)
-				} else if !exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d not present (kill-switch disabled)",
-						ipsetCfg.Routing.IPRouteTable)
-				} else if exists && !shouldExist {
-					return fmt.Sprintf("Blackhole route in table %d exists but kill-switch is DISABLED (stale)",
-						ipsetCfg.Routing.IPRouteTable)
-				}
-				return fmt.Sprintf("Blackhole route in table %d missing but kill-switch is ENABLED (missing)",
-					ipsetCfg.Routing.IPRouteTable)
-			} else {
-				ifaceName := routeComp.GetInterfaceName()
-				if exists && shouldExist {
-					return fmt.Sprintf("Route in table %d via %s exists (active)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				} else if !exists && !shouldExist {
-					return fmt.Sprintf("Route in table %d via %s not present (interface not best)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				} else if exists && !shouldExist {
-					return fmt.Sprintf("Route in table %d via %s exists but is not best interface (stale)",
-						ipsetCfg.Routing.IPRouteTable, ifaceName)
-				}
-				return fmt.Sprintf("Route in table %d via %s missing but is best interface (missing)",
-					ipsetCfg.Routing.IPRouteTable, ifaceName)
-			}
-		}
-
-	case networking.ComponentTypeIPTables:
-		if iptComp, ok := component.(*networking.IPTablesRuleComponent); ok {
-			ruleDesc := iptComp.GetRuleDescription()
-			if exists && shouldExist {
-				return fmt.Sprintf("IPTables %s exists", ruleDesc)
-			} else if !exists && shouldExist {
-				return fmt.Sprintf("IPTables %s does NOT exist (missing)", ruleDesc)
-			} else if exists && !shouldExist {
-				return fmt.Sprintf("IPTables %s exists but should NOT (unexpected)", ruleDesc)
-			}
-			return fmt.Sprintf("IPTables %s not present", ruleDesc)
-		}
-	}
-
-	// Fallback generic message
-	if exists && shouldExist {
-		return "Component exists as expected"
-	} else if !exists && !shouldExist {
-		return "Component absent as expected"
-	} else if exists && !shouldExist {
-		return "Component exists but should NOT (unexpected)"
-	}
-	return "Component missing but should exist"
-}
-
 // sendCheckEventWithContext sends a JSON check event via SSE with additional context
-func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.Flusher, check string, ipsetName string, ok bool, reason string, logMsg string) {
+func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.Flusher, check string, ipsetName string, ok bool, shouldExist bool, reason string) {
 	event := map[string]interface{}{
-		"check":  check,
-		"ok":     ok,
-		"log":    logMsg,
-		"reason": reason,
+		"check":        check,
+		"ok":           ok,
+		"should_exist": shouldExist,
+		"reason":       reason,
 	}
 
 	// Add ipset_name only if it's not empty

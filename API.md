@@ -701,11 +701,8 @@ data:  1  192.168.1.1 (192.168.1.1)  0.456 ms  0.345 ms  0.234 ms
 Run a comprehensive self-check of the system configuration and state.
 
 ```http
-GET /api/v1/check/self?sse=true
+GET /api/v1/check/self
 ```
-
-**Parameters:**
-- `sse` (bool) - Set to `true` for SSE streaming mode (default: `false` returns JSON table)
 
 **Response (Stream):**
 ```json

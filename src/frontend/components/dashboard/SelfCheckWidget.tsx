@@ -12,7 +12,8 @@ import { useDNSCheck } from '../../src/hooks/useDNSCheck';
 interface CheckEvent {
   check: string;
   ok: boolean;
-  log: string;
+  should_exist?: boolean;
+  checking?: boolean;
   ipset_name?: string;
   reason?: string;
 }
@@ -42,7 +43,8 @@ export function SelfCheckWidget() {
             ? {
                 ...r,
                 ok: true,
-                log: 'Split-DNS is working correctly from browser',
+                checking: false,
+                reason: 'Split-DNS is working correctly from browser',
               }
             : r
         )
@@ -54,7 +56,8 @@ export function SelfCheckWidget() {
             ? {
                 ...r,
                 ok: false,
-                log: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+                checking: false,
+                reason: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
               }
             : r
         )
@@ -73,7 +76,8 @@ export function SelfCheckWidget() {
     const dnsCheckEvent: CheckEvent = {
       check: 'split_dns_client',
       ok: true, // Set to true to show as in-progress
-      log: 'testing', // Special keyword for showing spinner
+      should_exist: true,
+      checking: true,
       reason: 'Split-DNS must be configured correctly for domain-based routing to work from browser',
     };
 
@@ -85,7 +89,7 @@ export function SelfCheckWidget() {
 
     // Step 2: Start server-side checks immediately (don't wait for DNS check)
     const apiBaseUrl = window.location.protocol + '//' + window.location.host;
-    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self?sse=true`);
+    const eventSource = new EventSource(`${apiBaseUrl}/api/v1/check/self`);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {
@@ -128,9 +132,12 @@ export function SelfCheckWidget() {
     return translated === key ? checkType : translated;
   };
 
-  const getExpectedStatus = (checkType: string): string => {
+  const getExpectedStatus = (result: CheckEvent): string => {
+    if (result.should_exist === false) {
+      return t('dashboard.selfCheck.status.absent', { defaultValue: 'absent' });
+    }
     // Most checks expect things to be "present" or "running"
-    if (checkType === 'service') {
+    if (result.check === 'service') {
       return t('dashboard.selfCheck.status.running', { defaultValue: 'running' });
     }
     return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
@@ -138,7 +145,7 @@ export function SelfCheckWidget() {
 
   const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' | 'spinner' } => {
     // Special case: testing state
-    if (result.log === 'testing') {
+    if (result.checking) {
       return { text: t('common.loading', { defaultValue: 'testing...' }), icon: 'spinner' };
     }
 
@@ -147,7 +154,8 @@ export function SelfCheckWidget() {
       if (result.check === 'service') {
         return { text: t('dashboard.selfCheck.status.running', { defaultValue: 'running' }), icon: 'check' };
       }
-      if (result.log.includes('not present') || result.log.includes('disabled')) {
+      if (result.reason?.includes('not present') || result.reason?.includes('disabled') || result.reason === 'Missing' || result.reason === 'Not present') {
+        // If it's OK but missing/not present, it means it SHOULD be missing
         return { text: t('dashboard.selfCheck.status.absent', { defaultValue: 'absent' }), icon: 'check' };
       }
       return { text: t('dashboard.selfCheck.status.present', { defaultValue: 'present' }), icon: 'check' };
@@ -156,10 +164,10 @@ export function SelfCheckWidget() {
       if (result.check === 'service') {
         return { text: t('dashboard.selfCheck.status.dead', { defaultValue: 'dead' }), icon: 'cross' };
       }
-      if (result.log.includes('missing') || result.log.includes('does NOT exist')) {
+      if (result.reason?.includes('missing') || result.reason?.includes('does NOT exist') || result.reason === 'Missing') {
         return { text: t('dashboard.selfCheck.status.missing', { defaultValue: 'missing' }), icon: 'cross' };
       }
-      if (result.log.includes('stale') || result.log.includes('unexpected')) {
+      if (result.reason?.includes('stale') || result.reason?.includes('unexpected') || result.reason === 'Unexpected') {
         return { text: t('dashboard.selfCheck.status.stale', { defaultValue: 'stale' }), icon: 'cross' };
       }
       return { text: t('dashboard.selfCheck.status.error', { defaultValue: 'error' }), icon: 'cross' };
@@ -178,7 +186,6 @@ export function SelfCheckWidget() {
           rule: result.ipset_name || 'global',
           check: result.check,
           ok: result.ok,
-          log: result.log,
           reason: result.reason,
         }));
 
@@ -266,7 +273,6 @@ export function SelfCheckWidget() {
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.rule', { defaultValue: 'Rule' })}</th>
                     <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.check', { defaultValue: 'Check' })}</th>
                     <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.expected', { defaultValue: 'Expected' })}</th>
                     <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.actual', { defaultValue: 'Actual' })}</th>
@@ -275,54 +281,41 @@ export function SelfCheckWidget() {
                 <tbody>
                   {(() => {
                     const filteredResults = results.filter((result) => result.check !== 'complete');
-
-                    // Calculate rowspan for each rule
-                    const ruleRowSpans = new Map<string, number>();
-                    filteredResults.forEach((result) => {
-                      const rule = result.ipset_name || 'global';
-                      // Each check takes 1 row
-                      const rows = 1;
-                      ruleRowSpans.set(rule, (ruleRowSpans.get(rule) || 0) + rows);
-                    });
-
-                    // Track which rule was last rendered
                     let lastRule: string | null = null;
 
                     return filteredResults.map((result, index) => {
                       const rule = result.ipset_name || 'global';
                       const actualStatus = getActualStatus(result);
-                      const isFirstInGroup = rule !== lastRule;
-                      const rowSpan = isFirstInGroup ? ruleRowSpans.get(rule) || 1 : 0;
-
+                      const isNewGroup = rule !== lastRule;
                       lastRule = rule;
 
                       return (
                         <>
+                          {isNewGroup && (
+                            <tr key={`${index}-header`} className="bg-muted/30">
+                              <td colSpan={3} className="py-2 px-4 font-medium border-t">
+                                {rule}
+                              </td>
+                            </tr>
+                          )}
                           <tr
                             key={`${index}-main`}
                             className={`border-b-0 ${
-                              result.log === 'testing'
-                                ? 'bg-muted/30'
+                              result.reason === 'testing'
+                                ? 'bg-muted/10'
                                 : result.ok
-                                ? 'bg-green-500/10 dark:bg-green-500/20'
-                                : 'bg-red-500/10 dark:bg-red-500/20'
+                                ? 'bg-green-500/5 dark:bg-green-500/10'
+                                : 'bg-red-500/5 dark:bg-red-500/10'
                             }`}
                           >
-                            {isFirstInGroup && (
-                              <td rowSpan={rowSpan} className="py-3 px-4 align-top">
-                                <span className="font-mono text-xs px-2 py-1 rounded bg-muted">
-                                  {rule}
-                                </span>
-                              </td>
-                            )}
-                            <td className="py-3 px-4">
+                            <td className="py-3 px-4 pl-8">
                               <div>{getCheckTypeLabel(result.check)}</div>
-                              {result.log && result.log !== 'testing' && (
-                                <div className="text-xs text-muted-foreground mt-1">{result.log}</div>
+                              {result.reason && result.reason !== 'testing' && (
+                                <div className="text-xs text-muted-foreground mt-1">{result.reason}</div>
                               )}
                             </td>
                             <td className="py-3 px-4 text-muted-foreground">
-                              {getExpectedStatus(result.check)}
+                              {getExpectedStatus(result)}
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
@@ -345,7 +338,7 @@ export function SelfCheckWidget() {
               </table>
             </div>
           ) : status === 'idle' ? (
-            <Empty>
+            <Empty className='p-4 md:p-4'>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ListChecks />
