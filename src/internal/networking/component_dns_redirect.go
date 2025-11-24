@@ -225,69 +225,47 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 		}
 	}
 
-	// Determine IP version
-	isIPv6Table := ipt.Proto() == iptables.ProtocolIPv6
+	// Get list of interfaces instead of addresses
+	links, err := netlink.LinkList()
+	if err != nil {
+		return fmt.Errorf("failed to list links: %w", err)
+	}
 
-	// Add rules for each local address
-	for _, addr := range addresses {
-		// Skip addresses that don't match this IP version
-		isIPv4 := addr.IP.To4() != nil
-
-		if isIPv4 && isIPv6Table {
+	// Create a set of unique interface names to avoid duplicates
+	interfaceSet := make(map[string]bool)
+	for _, link := range links {
+		ifName := link.Attrs().Name
+		// Skip loopback interface
+		if ifName == "lo" {
 			continue
 		}
-		if !isIPv4 && !isIPv6Table {
-			continue
+		interfaceSet[ifName] = true
+	}
+
+	// Add rules for each interface
+	// Match on incoming interface + destination port 53, redirect to target port
+	// This works for all IP addresses (IPv4, global IPv6, link-local IPv6)
+	for ifName := range interfaceSet {
+		udpRule := []string{
+			"-i", ifName,
+			"-p", "udp",
+			"--dport", strconv.Itoa(dnsSourcePort),
+			"-j", "REDIRECT",
+			"--to-ports", strconv.Itoa(int(c.targetPort)),
+		}
+		if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
+			return fmt.Errorf("failed to add UDP rule for %s: %w", ifName, err)
 		}
 
-		// For IPv4: use REDIRECT (preserves original destination IP)
-		// For IPv6: use DNAT with port-only destination
-		if !isIPv6Table {
-			// IPv4: REDIRECT --to-port
-			udpRule := []string{
-				"-p", "udp",
-				"-d", addr.IP.String(),
-				"--dport", strconv.Itoa(dnsSourcePort),
-				"-j", "REDIRECT",
-				"--to-port", strconv.Itoa(int(c.targetPort)),
-			}
-			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
-				return fmt.Errorf("failed to add UDP rule: %w", err)
-			}
-
-			tcpRule := []string{
-				"-p", "tcp",
-				"-d", addr.IP.String(),
-				"--dport", strconv.Itoa(dnsSourcePort),
-				"-j", "REDIRECT",
-				"--to-port", strconv.Itoa(int(c.targetPort)),
-			}
-			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
-				return fmt.Errorf("failed to add TCP rule: %w", err)
-			}
-		} else {
-			// IPv6: DNAT --to-destination :<port>
-			udpRule := []string{
-				"-p", "udp",
-				"-d", addr.IP.String(),
-				"--dport", strconv.Itoa(dnsSourcePort),
-				"-j", "DNAT",
-				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
-			}
-			if err := ipt.AppendUnique("nat", dnsRedirectChainName, udpRule...); err != nil {
-				return fmt.Errorf("failed to add UDP rule: %w", err)
-			}
-
-			tcpRule := []string{
-				"-p", "tcp",
-				"-d", addr.IP.String(),
-				"--dport", strconv.Itoa(dnsSourcePort),
-				"-j", "DNAT",
-				"--to-destination", fmt.Sprintf(":%d", c.targetPort),
-			}
-			if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
-				return fmt.Errorf("failed to add TCP rule: %w", err)
-			}
+		tcpRule := []string{
+			"-i", ifName,
+			"-p", "tcp",
+			"--dport", strconv.Itoa(dnsSourcePort),
+			"-j", "REDIRECT",
+			"--to-ports", strconv.Itoa(int(c.targetPort)),
+		}
+		if err := ipt.AppendUnique("nat", dnsRedirectChainName, tcpRule...); err != nil {
+			return fmt.Errorf("failed to add TCP rule for %s: %w", ifName, err)
 		}
 	}
 

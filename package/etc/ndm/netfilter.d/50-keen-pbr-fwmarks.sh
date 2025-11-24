@@ -1,7 +1,7 @@
 #!/opt/bin/sh
 
 #[ "$type" == "ip6tables" ] && exit 0
-[ "$table" != "mangle" ] && exit 0
+[ "$table" != "mangle" -a "$table" != "nat" ] && exit 0
 
 . /opt/etc/keen-pbr/defaults
 
