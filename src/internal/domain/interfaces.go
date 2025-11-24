@@ -60,4 +60,3 @@ type NetworkManager interface {
 	// including iptables rules, ip rules, ip routes, and global components.
 	UndoConfig(ipsets []*config.IPSetConfig) error
 }
-

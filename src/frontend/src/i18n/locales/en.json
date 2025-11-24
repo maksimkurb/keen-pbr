@@ -68,8 +68,8 @@
       "table": {
         "rule": "Rule",
         "check": "Check",
-        "expected": "Expected",
-        "actual": "Actual"
+        "expected": "Expected status",
+        "actual": "Result"
       },
       "status": {
         "present": "present",

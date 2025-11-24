@@ -75,16 +75,16 @@ func (r *RoutingConfigManager) ApplyIfChanged(ipset *config.IPSetConfig) (bool, 
 
 	// Check if interface has changed
 	currentIface, exists := r.activeInterfaces[ipset.IPSetName]
-	if exists && currentIface == targetIface {
-		log.Debugf("Interface for ipset [%s] unchanged (%s), skipping route update",
-			ipset.IPSetName, ifaceNameOrBlackhole(targetIface))
-		return false, nil
-	}
 
 	// Log appropriately based on whether this is first time or a change
 	if !exists {
 		// First time - interface is being selected
 		log.Infof("[ipset %s] Selected interface: %s",
+			ipset.IPSetName,
+			ifaceNameOrBlackhole(targetIface))
+	} else if currentIface == targetIface {
+		// Interface unchanged, but we update anyway to ensure routing table is correct
+		log.Debugf("[ipset %s] Interface unchanged (%s), updating routes to ensure consistency",
 			ipset.IPSetName,
 			ifaceNameOrBlackhole(targetIface))
 	} else {
