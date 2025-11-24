@@ -192,11 +192,10 @@ func (sm *ServiceManager) Reload() error {
 	return nil
 }
 
-// RefreshRouting refreshes the routing configuration without reloading config or DNS lists.
-// This is typically triggered by SIGUSR1 signal and only re-checks interfaces
-// and updates routing if the best interface has changed.
-// Also re-applies global components (DNS redirect) as interface IPs may have changed.
-func (sm *ServiceManager) RefreshRouting() error {
+// RefreshRoutingAndFirewall refreshes the routing configuration and firewall rules.
+// This is typically triggered by SIGUSR1 signal.
+// It checks interfaces, updates routing if changed, and refreshes persistent config (iptables/rules).
+func (sm *ServiceManager) RefreshRoutingAndFirewall() error {
 	sm.mu.RLock()
 	if !sm.running {
 		sm.mu.RUnlock()
@@ -207,7 +206,7 @@ func (sm *ServiceManager) RefreshRouting() error {
 	networkMgr := sm.networkMgr
 	sm.mu.RUnlock()
 
-	log.Debugf("Refreshing routing (triggered by SIGUSR1)...")
+	log.Debugf("Refreshing routing and firewall (triggered by SIGUSR1)...")
 
 	// Update interface list
 	var err error
@@ -219,8 +218,8 @@ func (sm *ServiceManager) RefreshRouting() error {
 	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
 	networkMgr.SetGlobalConfig(globalCfg)
 
-	// Re-apply persistent config to update DNS redirect rules with new interface IPs
-	log.Debugf("Refreshing global components (DNS redirect)...")
+	// Re-apply persistent config to update DNS redirect rules and other persistent rules
+	log.Debugf("Refreshing persistent network configuration (iptables, ip rules)...")
 	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
 		return fmt.Errorf("failed to refresh persistent network configuration: %v", err)
 	}
@@ -238,6 +237,34 @@ func (sm *ServiceManager) RefreshRouting() error {
 		log.Debugf("No interface changes detected, routing unchanged")
 	}
 
+	return nil
+}
+
+// RefreshFirewall refreshes only the firewall rules (iptables) and ip rules.
+// This is typically triggered by SIGUSR2 signal.
+func (sm *ServiceManager) RefreshFirewall() error {
+	sm.mu.RLock()
+	if !sm.running {
+		sm.mu.RUnlock()
+		return fmt.Errorf("service is not running")
+	}
+	cfg := sm.cfg
+	networkMgr := sm.networkMgr
+	sm.mu.RUnlock()
+
+	log.Debugf("Refreshing firewall rules (triggered by SIGUSR2)...")
+
+	// Re-apply global components
+	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
+	networkMgr.SetGlobalConfig(globalCfg)
+
+	// Re-apply persistent config
+	log.Debugf("Reapplying persistent network configuration...")
+	if err := networkMgr.ApplyPersistentConfig(cfg.IPSets); err != nil {
+		return fmt.Errorf("failed to apply persistent network configuration: %v", err)
+	}
+
+	log.Infof("Firewall rules refreshed successfully")
 	return nil
 }
 

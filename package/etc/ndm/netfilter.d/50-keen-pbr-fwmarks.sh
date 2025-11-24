@@ -7,9 +7,10 @@
 
 PID=`pidof $KEEN_PBR`
 
-# Send SIGUSR1 signal to keen-pbr service to recheck iptables, ip routes, and ip rules
+# Send SIGUSR2 signal to keen-pbr service to update iptables
 if [ -n "$PID" ]; then
-  kill -SIGUSR1 "$PID"
+  logger -t "keen-pbr" "Refreshing iptables"
+  kill -SIGUSR2 "$PID"
 
   # If you want to add some additional commands after routing is applied, you can add them
   # to the /opt/etc/keen-pbr/hook.sh script

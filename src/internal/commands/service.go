@@ -102,7 +102,7 @@ func (s *ServiceCommand) Run() error {
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
 
 	// Start the routing service
 	log.Infof("Starting routing service...")
@@ -146,7 +146,7 @@ func (s *ServiceCommand) Run() error {
 	}
 
 	log.Infof("Service started successfully.")
-	log.Infof("Send SIGHUP to reload configuration, SIGUSR1 to refresh routing")
+	log.Infof("Send SIGHUP to reload configuration, SIGUSR1 to refresh routing/firewall, SIGUSR2 to refresh firewall only")
 
 	// Run signal handling loop
 	for sig := range sigChan {
@@ -164,11 +164,19 @@ func (s *ServiceCommand) Run() error {
 			}
 
 		case syscall.SIGUSR1:
-			log.Infof("Received SIGUSR1 signal, refreshing routing...")
-			if err := s.serviceMgr.RefreshRouting(); err != nil {
-				log.Errorf("Failed to refresh routing: %v", err)
+			log.Infof("Received SIGUSR1 signal, refreshing routing and firewall...")
+			if err := s.serviceMgr.RefreshRoutingAndFirewall(); err != nil {
+				log.Errorf("Failed to refresh routing and firewall: %v", err)
 			} else {
-				log.Infof("Routing refreshed successfully")
+				log.Infof("Routing and firewall refreshed successfully")
+			}
+
+		case syscall.SIGUSR2:
+			log.Infof("Received SIGUSR2 signal, refreshing firewall...")
+			if err := s.serviceMgr.RefreshFirewall(); err != nil {
+				log.Errorf("Failed to refresh firewall: %v", err)
+			} else {
+				log.Infof("Firewall refreshed successfully")
 			}
 
 		case syscall.SIGINT, syscall.SIGTERM:
