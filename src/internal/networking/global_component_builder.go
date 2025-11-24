@@ -26,7 +26,7 @@ type GlobalConfig struct {
 func GlobalConfigFromAppConfig(cfg *config.Config) GlobalConfig {
 	return GlobalConfig{
 		DNSRedirect: DNSRedirectConfig{
-			Enabled:    cfg.General.IsDNSProxyEnabled(),
+			Enabled:    cfg.General.IsDNSProxyEnabled() && cfg.General.IsDNSProxyRemap53Enabled(),
 			ListenAddr: cfg.General.GetDNSProxyListenAddr(),
 			ListenPort: uint16(cfg.General.GetDNSProxyPort()),
 			Interfaces: cfg.General.GetDNSProxyInterfaces(),
@@ -62,7 +62,7 @@ func NewGlobalComponentBuilder() *GlobalComponentBuilder {
 func (b *GlobalComponentBuilder) BuildComponents(cfg GlobalConfig) ([]NetworkingComponent, error) {
 	var components []NetworkingComponent
 
-	// DNS Redirect component (only if DNS proxy is enabled)
+	// DNS Redirect component (only if DNS proxy is enabled AND remapping is enabled)
 	if cfg.DNSRedirect.Enabled {
 		dnsRedirect, err := NewDNSRedirectComponent(cfg.DNSRedirect.ListenAddr, cfg.DNSRedirect.ListenPort, cfg.DNSRedirect.Interfaces)
 		if err != nil {

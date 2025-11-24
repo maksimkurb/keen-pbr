@@ -109,6 +109,17 @@ export interface GeneralSettings {
 	auto_update_lists?: boolean; // Auto-update lists with URLs
 	update_interval_hours?: number; // Interval in hours for auto-updates
 	enable_interface_monitoring?: boolean; // Enable periodic interface monitoring in web UI
+	
+	// DNS Proxy settings
+	enable_dns_proxy?: boolean;
+	dns_proxy_listen_addr?: string;
+	dns_proxy_port?: number;
+	dns_upstream?: string[];
+	dns_cache_max_domains?: number;
+	drop_aaaa?: boolean;
+	ttl_override?: number;
+	dns_proxy_interfaces?: string[];
+	dns_proxy_remap_53?: boolean;
 }
 
 export interface UpdateSettingsRequest {
@@ -118,6 +129,15 @@ export interface UpdateSettingsRequest {
 	auto_update_lists?: boolean;
 	update_interval_hours?: number;
 	enable_interface_monitoring?: boolean;
+	enable_dns_proxy?: boolean;
+	dns_proxy_listen_addr?: string;
+	dns_proxy_port?: number;
+	dns_upstream?: string[];
+	dns_cache_max_domains?: number;
+	drop_aaaa?: boolean;
+	ttl_override?: number;
+	dns_proxy_interfaces?: string[];
+	dns_proxy_remap_53?: boolean;
 }
 
 // Status types

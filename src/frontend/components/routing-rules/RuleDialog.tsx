@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ChevronUp, ChevronDown, Unplug, ListPlus, Network, File, Globe, List } from 'lucide-react';
+import { Loader2, X, Plus, Check, ChevronsUpDown, ListPlus, File, Globe, List } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
-import { useLists } from '../../src/hooks/useLists';
-import { useInterfaces } from '../../src/hooks/useInterfaces';
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -25,6 +23,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '../ui/empty';
+import { InterfaceSelector } from '../ui/interface-selector';
 import { cn } from '../../src/lib/utils';
 import type { IPSetConfig, CreateIPSetRequest, IPTablesRule, ListInfo } from '../../src/api/client';
 
@@ -64,12 +63,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
   const isEditMode = !!ipset;
   const createIPSet = useCreateIPSet();
   const updateIPSet = useUpdateIPSet();
-  const [interfacesOpen, setInterfacesOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
-  const [customInterface, setCustomInterface] = useState('');
-
-  // Fetch interfaces while dialog is open
-  const { data: interfacesData } = useInterfaces(open);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
@@ -122,7 +116,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
         },
         iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
       });
-      setCustomInterface('');
     }
   }, [ipset, open]);
 
@@ -168,74 +161,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     });
   };
 
-  const addInterface = (iface: string) => {
-    if (formData.routing && !formData.routing.interfaces.includes(iface)) {
-      setFormData({
-        ...formData,
-        routing: {
-          ...formData.routing,
-          interfaces: [...formData.routing.interfaces, iface],
-        },
-      });
-    }
-    setInterfacesOpen(false);
-  };
-
-  const addCustomInterface = () => {
-    const trimmedInterface = customInterface.trim();
-    if (trimmedInterface && formData.routing && !formData.routing.interfaces.includes(trimmedInterface)) {
-      setFormData({
-        ...formData,
-        routing: {
-          ...formData.routing,
-          interfaces: [...formData.routing.interfaces, trimmedInterface],
-        },
-      });
-      setCustomInterface('');
-      setInterfacesOpen(false);
-    }
-  };
-
-  const removeInterface = (iface: string) => {
-    if (formData.routing) {
-      setFormData({
-        ...formData,
-        routing: {
-          ...formData.routing,
-          interfaces: formData.routing.interfaces.filter((i) => i !== iface),
-        },
-      });
-    }
-  };
-
-  const moveInterfaceUp = (index: number) => {
-    if (index > 0 && formData.routing) {
-      const newInterfaces = [...formData.routing.interfaces];
-      [newInterfaces[index - 1], newInterfaces[index]] = [newInterfaces[index], newInterfaces[index - 1]];
-      setFormData({
-        ...formData,
-        routing: {
-          ...formData.routing,
-          interfaces: newInterfaces,
-        },
-      });
-    }
-  };
-
-  const moveInterfaceDown = (index: number) => {
-    if (formData.routing && index < formData.routing.interfaces.length - 1) {
-      const newInterfaces = [...formData.routing.interfaces];
-      [newInterfaces[index], newInterfaces[index + 1]] = [newInterfaces[index + 1], newInterfaces[index]];
-      setFormData({
-        ...formData,
-        routing: {
-          ...formData.routing,
-          interfaces: newInterfaces,
-        },
-      });
-    }
-  };
-
   // IPTables Rules functions
   const addIPTablesRule = () => {
     setFormData({
@@ -279,9 +204,6 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
 
     updateIPTablesRule(ruleIndex, 'rule', newRuleString.split(' '));
   };
-
-  // Get interface options (keep full objects for UP/DOWN state)
-  const interfaceOptions = interfacesData || [];
 
   const isPending = isEditMode ? updateIPSet.isPending : createIPSet.isPending;
 
@@ -440,129 +362,17 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                     {t('routingRules.dialog.interfacesDescription')}
                   </FieldDescription>
 
-                  <Popover open={interfacesOpen} onOpenChange={setInterfacesOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={interfacesOpen}
-                        className="w-full justify-between"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {t('routingRules.dialog.addInterface')}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput
-                          placeholder={t('routingRules.dialog.searchInterfaces')}
-                          value={customInterface}
-                          onValueChange={setCustomInterface}
-                        />
-                        <CommandList className="max-h-[300px] overflow-y-auto">
-                          {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
-                            <CommandItem
-                              onSelect={() => addCustomInterface()}
-                              className="text-sm"
-                            >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add custom: <span className="font-mono ml-1">{customInterface}</span>
-                            </CommandItem>
-                          )}
-                          {interfaceOptions.length === 0 && !customInterface && (
-                            <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
-                          )}
-                          <CommandGroup>
-                            {interfaceOptions.map((iface) => (
-                              <CommandItem
-                                key={iface.name}
-                                value={iface.name}
-                                onSelect={() => addInterface(iface.name)}
-                                disabled={formData.routing?.interfaces.includes(iface.name)}
-                              >
-                                {iface.is_up ? (
-                                  <Unplug className="mr-2 h-4 w-4 text-green-600" />
-                                ) : (
-                                  <Unplug className="mr-2 h-4 w-4 text-red-600" />
-                                )}
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.routing?.interfaces.includes(iface.name) ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {iface.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-
-                  {formData.routing.interfaces.length > 0 ? (
-                    <div className="mt-2 space-y-1 border rounded-md p-2">
-                      {formData.routing.interfaces.map((iface, index) => {
-                        const interfaceInfo = interfaceOptions.find(i => i.name === iface);
-                        return (
-                        <div key={`${iface}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
-                            {interfaceInfo?.is_up ? (
-                              <Unplug className="h-4 w-4 text-green-600" />
-                            ) : interfaceInfo ? (
-                              <Unplug className="h-4 w-4 text-red-600" />
-                            ) : null}
-                            <span className="font-mono">{iface}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => moveInterfaceUp(index)}
-                              disabled={index === 0}
-                            >
-                              <ChevronUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => moveInterfaceDown(index)}
-                              disabled={index === formData.routing!.interfaces.length - 1}
-                            >
-                              <ChevronDown className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => removeInterface(iface)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      )})}
-                    </div>
-                  ) : (
-                    <Empty className="mt-2 border">
-                      <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                          <Network className="h-5 w-5" />
-                        </EmptyMedia>
-                        <EmptyTitle className="text-base">{t('routingRules.dialog.emptyInterfaces.title')}</EmptyTitle>
-                        <EmptyDescription>
-                          {t('routingRules.dialog.emptyInterfaces.description')}
-                        </EmptyDescription>
-                      </EmptyHeader>
-                    </Empty>
-                  )}
+                  <InterfaceSelector
+                    value={formData.routing.interfaces}
+                    onChange={(interfaces) => setFormData({
+                      ...formData,
+                      routing: {
+                        ...formData.routing!,
+                        interfaces,
+                      },
+                    })}
+                    allowReorder={true}
+                  />
                 </Field>
 
                 <Field>

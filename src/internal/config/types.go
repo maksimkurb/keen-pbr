@@ -36,6 +36,7 @@ type GeneralConfig struct {
 	DropAAAA           *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
 	TTLOverride        int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
 	DNSProxyInterfaces []string `toml:"dns_proxy_interfaces" json:"dns_proxy_interfaces" comment:"Interfaces to intercept DNS traffic on (default: [\"br0\", \"br1\"])"`
+	DNSProxyRemap53    *bool    `toml:"dns_proxy_remap_53" json:"dns_proxy_remap_53" comment:"Remap port 53 to DNS proxy port (default: true)"`
 }
 
 // IsAPIEnabled returns whether REST API and web UI is enabled (default: true).
@@ -143,6 +144,14 @@ func (gc *GeneralConfig) GetDNSProxyInterfaces() []string {
 		return []string{"br0", "br1"}
 	}
 	return gc.DNSProxyInterfaces
+}
+
+// IsDNSProxyRemap53Enabled returns whether DNS remapping is enabled (default: true).
+func (gc *GeneralConfig) IsDNSProxyRemap53Enabled() bool {
+	if gc.DNSProxyRemap53 == nil {
+		return true // Default to enabled
+	}
+	return *gc.DNSProxyRemap53
 }
 
 type IPSetConfig struct {
