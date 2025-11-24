@@ -72,13 +72,11 @@
         "actual": "Actual"
       },
       "status": {
-        "running": "running",
         "present": "present",
         "absent": "absent",
-        "dead": "dead",
-        "missing": "missing",
         "stale": "stale",
-        "error": "error"
+        "error": "error",
+        "ok": "OK"
       },
       "checkTypes": {
         "split_dns_client": "DNS is configured correctly on current device",

@@ -136,10 +136,6 @@ export function SelfCheckWidget() {
     if (result.should_exist === false) {
       return t('dashboard.selfCheck.status.absent', { defaultValue: 'absent' });
     }
-    // Most checks expect things to be "present" or "running"
-    if (result.check === 'service') {
-      return t('dashboard.selfCheck.status.running', { defaultValue: 'running' });
-    }
     return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
   };
 
@@ -150,26 +146,8 @@ export function SelfCheckWidget() {
     }
 
     if (result.ok) {
-      // Success cases
-      if (result.check === 'service') {
-        return { text: t('dashboard.selfCheck.status.running', { defaultValue: 'running' }), icon: 'check' };
-      }
-      if (result.reason?.includes('not present') || result.reason?.includes('disabled') || result.reason === 'Missing' || result.reason === 'Not present') {
-        // If it's OK but missing/not present, it means it SHOULD be missing
-        return { text: t('dashboard.selfCheck.status.absent', { defaultValue: 'absent' }), icon: 'check' };
-      }
-      return { text: t('dashboard.selfCheck.status.present', { defaultValue: 'present' }), icon: 'check' };
+      return { text: t('dashboard.selfCheck.status.ok', { defaultValue: 'OK' }), icon: 'check' };
     } else {
-      // Failure cases
-      if (result.check === 'service') {
-        return { text: t('dashboard.selfCheck.status.dead', { defaultValue: 'dead' }), icon: 'cross' };
-      }
-      if (result.reason?.includes('missing') || result.reason?.includes('does NOT exist') || result.reason === 'Missing') {
-        return { text: t('dashboard.selfCheck.status.missing', { defaultValue: 'missing' }), icon: 'cross' };
-      }
-      if (result.reason?.includes('stale') || result.reason?.includes('unexpected') || result.reason === 'Unexpected') {
-        return { text: t('dashboard.selfCheck.status.stale', { defaultValue: 'stale' }), icon: 'cross' };
-      }
       return { text: t('dashboard.selfCheck.status.error', { defaultValue: 'error' }), icon: 'cross' };
     }
   };
