@@ -37,7 +37,7 @@ func (g *SelfCheckCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
+	if cfg, err := loadConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg
@@ -71,12 +71,7 @@ func (g *SelfCheckCommand) Run() error {
 	log.Infof("----------------- Configuration END ------------------")
 
 	// Use unified component-based checking (same logic as API)
-	hasFailures := false
-
-	// Check global components (DNS redirect, etc.)
-	if !g.checkGlobalComponents() {
-		hasFailures = true
-	}
+	hasFailures := !g.checkGlobalComponents()
 
 	// Check per-ipset components
 	for _, ipset := range g.cfg.IPSets {

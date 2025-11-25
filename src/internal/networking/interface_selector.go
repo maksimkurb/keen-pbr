@@ -47,7 +47,7 @@ func NewInterfaceSelector(keeneticClient InterfaceLister) *InterfaceSelector {
 // If no interface is chosen, returns (nil, -1, nil).
 func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, int, error) {
 	var chosenIface *Interface
-	var chosenIndex int = -1
+	var chosenIndex = -1
 
 	// Get Keenetic interfaces if available
 	var keeneticIfaces map[string]keenetic.Interface
@@ -84,7 +84,7 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, i
 	}
 
 	if chosenIface == nil {
-		log.Warnf("Could not choose best interface for ipset %s: all configured interfaces are down",
+		log.Debugf("Could not choose best interface for ipset %s: all configured interfaces are down",
 			ipset.IPSetName)
 	}
 
@@ -94,10 +94,10 @@ func (s *InterfaceSelector) ChooseBest(ipset *config.IPSetConfig) (*Interface, i
 // IsUsable determines if an interface can be used for routing.
 //
 // An interface is considered usable if:
-// 1. It is UP (system level)
-// 2. Either:
-//    a) Keenetic status is unknown (interface not found in API or API failed), OR
-//    b) Keenetic status does NOT explicitly say connected=no
+//  1. It is UP (system level)
+//  2. Either:
+//     a) Keenetic status is unknown (interface not found in API or API failed), OR
+//     b) Keenetic status does NOT explicitly say connected=no
 //
 // Note: Empty connected field is treated as "unknown", not as "disconnected".
 // This prevents route churn when Keenetic API returns incomplete data.

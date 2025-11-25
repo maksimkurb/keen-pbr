@@ -11,22 +11,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 const hashCacheTTL = 5 * time.Minute
 
-// KeeneticClientInterface defines minimal interface for DNS server retrieval
-// This avoids circular dependency with domain package
-type KeeneticClientInterface interface {
-	GetDNSServers() ([]keenetic.DNSServerInfo, error)
+// DNSProvider defines interface for retrieving resolved DNS upstreams
+// This allows injecting cached or fresh providers
+type DNSProvider interface {
+	GetDNSStrings() ([]string, error)
 }
 
 // ConfigHasher calculates MD5 hash of configuration state
 // It acts as a DI component that maintains cached current hash and active hash
 type ConfigHasher struct {
-	configPath     string
-	keeneticClient KeeneticClientInterface
+	configPath  string
+	dnsProvider DNSProvider
 
 	// Current hash (from config file) with caching
 	currentHash     string
@@ -45,11 +45,11 @@ func NewConfigHasher(configPath string) *ConfigHasher {
 	}
 }
 
-// SetKeeneticClient sets the Keenetic client for DNS server tracking
-func (h *ConfigHasher) SetKeeneticClient(client KeeneticClientInterface) {
+// SetDNSProvider sets the provider for resolving dynamic upstreams
+func (h *ConfigHasher) SetDNSProvider(provider DNSProvider) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.keeneticClient = client
+	h.dnsProvider = provider
 }
 
 // GetCurrentConfigHash returns cached hash of current config file
@@ -70,9 +70,9 @@ func (h *ConfigHasher) GetCurrentConfigHash() (string, error) {
 // UpdateCurrentConfigHash recalculates config hash and resets cache
 // Always recalculates regardless of cache state (called after config changes)
 func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
-	// Read keeneticClient BEFORE acquiring write lock to avoid deadlock
+	// Read provider BEFORE acquiring write lock to avoid deadlock
 	h.mu.RLock()
-	keeneticClient := h.keeneticClient
+	provider := h.dnsProvider
 	h.mu.RUnlock()
 
 	h.mu.Lock()
@@ -84,8 +84,8 @@ func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Calculate hash (pass keeneticClient to avoid nested lock)
-	hash, err := h.calculateHashForConfig(cfg, keeneticClient)
+	// Calculate hash (pass provider to avoid nested lock)
+	hash, err := h.calculateHashForConfig(cfg, provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to calculate hash: %w", err)
 	}
@@ -95,6 +95,15 @@ func (h *ConfigHasher) UpdateCurrentConfigHash() (string, error) {
 	h.currentHashTime = time.Now()
 
 	return hash, nil
+}
+
+// CalculateHash calculates hash for a given config object
+// Exposed for use by ServiceManager to calculate active hash
+func (h *ConfigHasher) CalculateHash(config *Config) (string, error) {
+	h.mu.RLock()
+	provider := h.dnsProvider
+	h.mu.RUnlock()
+	return h.calculateHashForConfig(config, provider)
 }
 
 // GetKeenPbrActiveConfigHash returns hash of config that was active when service started
@@ -113,57 +122,59 @@ func (h *ConfigHasher) SetKeenPbrActiveConfigHash(hash string) {
 
 // calculateHashForConfig generates MD5 hash of entire configuration
 // This is the internal method that does the actual hashing
-// The keeneticClient parameter is passed to avoid mutex deadlock
-func (h *ConfigHasher) calculateHashForConfig(config *Config, keeneticClient KeeneticClientInterface) (string, error) {
+func (h *ConfigHasher) calculateHashForConfig(config *Config, provider DNSProvider) (string, error) {
 	// 1. Get used list names from all ipsets
 	usedLists := h.getUsedListNamesForConfig(config)
 
-	// 2. Get DNS servers if Keenetic client is available and use_keenetic_dns is enabled
-	var dnsServers []DNSServerHashData
+	// 2. Get DNS servers if provider is available and keenetic:// is in upstreams
+	var dnsServers []string
 
-	if config.General.UseKeeneticDNS != nil && *config.General.UseKeeneticDNS && keeneticClient != nil {
+	useKeeneticDNS := false
+	if config.General.DNSServer != nil && config.General.DNSServer.Enable {
+		for _, upstream := range config.General.DNSServer.Upstreams {
+			if upstream == "keenetic://" {
+				useKeeneticDNS = true
+				break
+			}
+		}
+	}
+
+	if useKeeneticDNS && provider != nil {
 		// Use a channel to implement timeout for DNS server retrieval
-		// This prevents blocking indefinitely if Keenetic router is not accessible
 		type dnsResult struct {
-			servers []keenetic.DNSServerInfo
+			servers []string
 			err     error
 		}
 		resultCh := make(chan dnsResult, 1)
 
 		// Launch DNS retrieval in a goroutine
 		go func() {
-			servers, err := keeneticClient.GetDNSServers()
+			servers, err := provider.GetDNSStrings()
 			resultCh <- dnsResult{servers: servers, err: err}
 		}()
 
 		// Wait for result with timeout
 		select {
 		case result := <-resultCh:
-			if result.err == nil && len(result.servers) > 0 {
-				// Convert to hashable format
-				dnsServers = make([]DNSServerHashData, len(result.servers))
-				for i, server := range result.servers {
-					dnsServers[i] = DNSServerHashData{
-						Type:     string(server.Type),
-						Proxy:    server.Proxy,
-						Endpoint: server.Endpoint,
-						Port:     server.Port,
-						Domain:   server.Domain,
-					}
-				}
+			if result.err == nil {
+				dnsServers = result.servers
 			}
 		case <-time.After(5 * time.Second):
 			// Timeout: continue without DNS servers
-			// This prevents service startup from hanging if Keenetic is unavailable
 		}
 	}
+
+	// Sort DNS servers for determinism
+	sortedDNS := make([]string, len(dnsServers))
+	copy(sortedDNS, dnsServers)
+	sort.Strings(sortedDNS)
 
 	// 3. Build hashable structure
 	hashData := &ConfigHashData{
 		General:    config.General,
 		IPSets:     h.buildIPSetHashDataForConfig(config),
 		ListMD5s:   h.calculateListHashesForConfig(config, usedLists),
-		DNSServers: dnsServers,
+		DNSServers: sortedDNS,
 	}
 
 	// 4. Serialize to JSON (sorted keys for determinism)
@@ -250,7 +261,7 @@ func (h *ConfigHasher) hashListFileForConfig(config *Config, list *ListSource) (
 	if err != nil {
 		return "", fmt.Errorf("failed to open list file: %w", err)
 	}
-	defer file.Close()
+	defer utils.CloseOrWarn(file)
 
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
@@ -281,10 +292,10 @@ func (h *ConfigHasher) hashInlineHosts(list *ListSource) (string, error) {
 
 // ConfigHashData represents the structure used for hashing
 type ConfigHashData struct {
-	General    *GeneralConfig      `json:"general"`
-	IPSets     []*IPSetHashData    `json:"ipsets"`
-	ListMD5s   map[string]string   `json:"list_md5s"`
-	DNSServers []DNSServerHashData `json:"dns_servers,omitempty"` // From Keenetic if enabled
+	General    *GeneralConfig    `json:"general"`
+	IPSets     []*IPSetHashData  `json:"ipsets"`
+	ListMD5s   map[string]string `json:"list_md5s"`
+	DNSServers []string          `json:"dns_servers"` // Resolved DNS server strings
 }
 
 // IPSetHashData represents hashable IPSet configuration
@@ -293,17 +304,8 @@ type IPSetHashData struct {
 	Lists               []string        `json:"lists"`
 	IPVersion           IPFamily        `json:"ip_version"`
 	FlushBeforeApplying bool            `json:"flush_before_applying"`
-	Routing             *RoutingConfig  `json:"routing,omitempty"`
-	IPTablesRules       []*IPTablesRule `json:"iptables_rules,omitempty"`
-}
-
-// DNSServerHashData represents hashable DNS server information
-type DNSServerHashData struct {
-	Type     string  `json:"type"`             // "IP4", "IP6", "DoT", "DoH"
-	Proxy    string  `json:"proxy"`            // Proxy IP address
-	Endpoint string  `json:"endpoint"`         // Endpoint (IP/SNI/URI)
-	Port     string  `json:"port"`             // Port
-	Domain   *string `json:"domain,omitempty"` // Domain scope
+	Routing             *RoutingConfig  `json:"routing"`
+	IPTablesRules       []*IPTablesRule `json:"iptables_rules"`
 }
 
 // sortedStrings returns a sorted copy of a string slice

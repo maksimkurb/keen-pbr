@@ -64,8 +64,8 @@ func logMessage(level int, format string, args ...interface{}) {
 
 	// Write the output to the appropriate stream
 	if forceStdErr || level == levelError {
-		os.Stderr.WriteString(output)
+		_, _ = os.Stderr.WriteString(output)
 	} else {
-		os.Stdout.WriteString(output)
+		_, _ = os.Stdout.WriteString(output)
 	}
 }

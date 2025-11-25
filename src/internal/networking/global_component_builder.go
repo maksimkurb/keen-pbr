@@ -24,12 +24,27 @@ type GlobalConfig struct {
 
 // GlobalConfigFromAppConfig creates a GlobalConfig from the application config.
 func GlobalConfigFromAppConfig(cfg *config.Config) GlobalConfig {
+	enabled := false
+	var listenAddr string
+	var listenPort uint16
+	var interfaces []string
+
+	if cfg.General.DNSServer != nil && cfg.General.DNSServer.Enable {
+		listenAddr = cfg.General.DNSServer.ListenAddr
+		listenPort = cfg.General.DNSServer.ListenPort
+		interfaces = cfg.General.DNSServer.Remap53Interfaces
+		// Enable redirection if DNS server is enabled AND interfaces are specified
+		if len(interfaces) > 0 {
+			enabled = true
+		}
+	}
+
 	return GlobalConfig{
 		DNSRedirect: DNSRedirectConfig{
-			Enabled:    cfg.General.IsDNSProxyEnabled() && cfg.General.IsDNSProxyRemap53Enabled(),
-			ListenAddr: cfg.General.GetDNSProxyListenAddr(),
-			ListenPort: uint16(cfg.General.GetDNSProxyPort()),
-			Interfaces: cfg.General.GetDNSProxyInterfaces(),
+			Enabled:    enabled,
+			ListenAddr: listenAddr,
+			ListenPort: listenPort,
+			Interfaces: interfaces,
 		},
 	}
 }

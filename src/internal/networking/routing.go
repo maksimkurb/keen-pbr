@@ -186,7 +186,7 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 	}
 
 	// Step 2: Handle kill switch behavior
-	killSwitchEnabled := ipset.Routing.IsKillSwitchEnabled()
+	killSwitchEnabled := ipset.Routing.KillSwitch
 
 	// Step 3: Add new default gateway route if interface available (metric 100, takes precedence)
 	// This happens BEFORE removing old routes to minimize downtime
@@ -216,7 +216,7 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			if deleted, err := route.DelIfExists(); err != nil {
 				return err
 			} else if deleted {
-				log.Infof("[%s] Removed old route via interface idx=%d", ipset.IPSetName, route.LinkIndex)
+				log.Debugf("[ipset %s] Removed old route via interface idx=%d", ipset.IPSetName, route.LinkIndex)
 			}
 		}
 	} else if defaultGateway := ipset.Routing.DefaultGateway; defaultGateway != "" {
@@ -226,7 +226,7 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			return fmt.Errorf("invalid default gateway IP: %s", defaultGateway)
 		}
 
-		log.Infof("[%s] No interface available, using default gateway %s", ipset.IPSetName, defaultGateway)
+		log.Infof("[ipset %s] No interface available, using default gateway %s", ipset.IPSetName, defaultGateway)
 
 		// Apply persistent config (iptables/ip rules)
 		if err := r.persistentConfig.Apply(ipset); err != nil {
@@ -250,14 +250,14 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			if deleted, err := route.DelIfExists(); err != nil {
 				return err
 			} else if deleted {
-				log.Infof("[%s] Removed old route", ipset.IPSetName)
+				log.Debugf("[ipset %s] Removed old route", ipset.IPSetName)
 			}
 		}
 	} else {
 		// No interface available and no default gateway - handle based on kill switch setting
 		if !killSwitchEnabled {
 			// Kill switch disabled: remove all routing config to allow traffic leaks
-			log.Infof("[%s] Kill switch disabled and no interface available, removing routing config (traffic will leak)", ipset.IPSetName)
+			log.Infof("[ipset %s] Kill switch disabled and no interface available, removing routing config (traffic will leak)", ipset.IPSetName)
 
 			// Remove all routes from the routing table
 			if err := DelIPRouteTable(ipset.Routing.IPRouteTable); err != nil {
@@ -281,7 +281,7 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 			// This avoids unnecessary route churn when the interface is temporarily unavailable
 			if len(ipset.Routing.Interfaces) == 1 {
 				// Keep existing routes, don't remove them
-				log.Debugf("[%s] Only one interface configured, keeping existing route (avoid churn)", ipset.IPSetName)
+				log.Debugf("[ipset %s] Only one interface configured, keeping existing route (avoid churn)", ipset.IPSetName)
 			} else {
 				// Multiple interfaces available: remove all default routes, fall back to blackhole
 				anyRemoved := false
@@ -293,7 +293,7 @@ func (r *RoutingConfigManager) applyRoutes(ipset *config.IPSetConfig, chosenIfac
 					}
 				}
 				if anyRemoved {
-					log.Infof("[%s] No interface available, removed default routes (using blackhole)", ipset.IPSetName)
+					log.Infof("[ipset %s] No interface available, removed default routes (using blackhole)", ipset.IPSetName)
 				}
 			}
 		}
@@ -309,7 +309,7 @@ func (r *RoutingConfigManager) addDefaultGatewayRoute(ipset *config.IPSetConfig,
 	if added, err := ipRoute.AddIfNotExists(); err != nil {
 		return err
 	} else if added {
-		log.Infof("[%s] Added default route via %s to table %d (metric %d)",
+		log.Debugf("[ipset %s] Added default route via %s to table %d (metric %d)",
 			ipset.IPSetName, chosenIface.Attrs().Name, ipset.Routing.IPRouteTable, ipRoute.Priority)
 	}
 	return nil
@@ -325,7 +325,7 @@ func (r *RoutingConfigManager) addBlackholeRoute(ipset *config.IPSetConfig) erro
 	if added, err := route.AddIfNotExists(); err != nil {
 		return err
 	} else if added {
-		log.Infof("[%s] Added blackhole route to table %d (metric 1000, permanent fallback)",
+		log.Debugf("[ipset %s] Added blackhole route to table %d (metric 1000, permanent fallback)",
 			ipset.IPSetName, ipset.Routing.IPRouteTable)
 	}
 	return nil
@@ -337,7 +337,7 @@ func (r *RoutingConfigManager) addGatewayRoute(ipset *config.IPSetConfig, gatewa
 	if added, err := ipRoute.AddIfNotExists(); err != nil {
 		return err
 	} else if added {
-		log.Infof("[%s] Added default route via gateway %s to table %d (metric %d)",
+		log.Debugf("[ipset %s] Added default route via gateway %s to table %d (metric %d)",
 			ipset.IPSetName, gateway.String(), ipset.Routing.IPRouteTable, ipRoute.Priority)
 	}
 	return nil

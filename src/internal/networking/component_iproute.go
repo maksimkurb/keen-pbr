@@ -97,7 +97,8 @@ func (c *IPRouteComponent) IsExists() (bool, error) {
 //   - Should NOT exist if kill-switch is disabled (false)
 //   - Kill-switch controls whether traffic is blocked (blackhole) or leaked (no route)
 func (c *IPRouteComponent) ShouldExist() bool {
-	if c.routeType == RouteTypeDefault {
+	switch c.routeType {
+	case RouteTypeDefault:
 		// Check current interface availability
 		bestIface, _, err := c.selector.ChooseBest(c.cfg)
 		if err != nil {
@@ -109,14 +110,14 @@ func (c *IPRouteComponent) ShouldExist() bool {
 			return true
 		}
 		return false
-	} else if c.routeType == RouteTypeBlackhole {
+	case RouteTypeBlackhole:
 		// Blackhole route should exist based on kill-switch setting
 		// If enabled (true/default): block traffic with blackhole route
 		// If disabled (false): allow traffic to leak (no blackhole route)
-		return c.cfg.Routing.IsKillSwitchEnabled()
+		return c.cfg.Routing.KillSwitch
+	default:
+		return false
 	}
-
-	return false
 }
 
 // CreateIfNotExists creates the IP route if it doesn't already exist

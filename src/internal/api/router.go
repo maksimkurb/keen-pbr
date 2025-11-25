@@ -20,9 +20,6 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 	r.Use(CORS)
 	r.Use(JSONContentType)
 
-	// Register pprof routes (only in dev builds)
-	registerPprof(r)
-
 	// Create handler
 	h := NewHandler(configPath, deps, serviceMgr, configHasher, dnsCheckSubscriber, dnsServersProvider)
 
@@ -61,9 +58,6 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 
 		// Service control endpoints
 		r.Post("/service", h.ControlService)
-
-		// Health check endpoint
-		r.Get("/health", h.CheckHealth)
 
 		// Network check endpoints
 		r.Post("/check/routing", h.CheckRouting)

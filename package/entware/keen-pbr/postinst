@@ -10,14 +10,30 @@ if [ -f "${KEEN_PBR_CONF}" ]; then
 	echo "Existing keen-pbr.conf found, upgrading it. Old config will be backed up to 'keen-pbr.conf.before-update'"
 	cp "${KEEN_PBR_CONF}" "${KEEN_PBR_CONF}.before-update"
 	keen-pbr upgrade-config || echo "keen-pbr config upgrade failed"
+	echo "
 fi
+NDM_MAJOR_VERSION=$(ndmc -c "show version" 2>/dev/null | grep "release:" | head -n 1 | awk '{print $2}' | cut -d'.' -f1)
+
+if [ -n "$NDM_MAJOR_VERSION" ] && [ "$NDM_MAJOR_VERSION" -ge 4 ]; then
+    echo "KeeneticOS major version is ${NDM_MAJOR_VERSION}, which is >= 4.0. Using 'iflayerchanged.d' hook instead of 'ifstatechanged.d'"
+    rm -f /opt/etc/ifstatechanged.d/50-keen-pbr-routing.sh
+else
+		echo "KeeneticOS major version is ${NDM_MAJOR_VERSION}, which is < 4.0. Using 'ifstatechanged.d' hook instead of 'iflayerchanged.d'"
+    rm -f /opt/etc/iflayerchanged.d/50-keen-pbr-routing.sh
+fi
+
+echo ""
+# try to start and log error if not possible
+/opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"
+echo ""
+
 
 echo "Installation complete!"
 echo "Next steps:"
 echo "1. Open http://my.keenetic.net:8080 (or http://<router-ip>:8080) to access keen-pbr web interface"
 echo "2. Configure your Lists and Rules"
-echo "3. Restart keen-pbr service"
-echo "4. Check DNS and Routing status on keen-pbr Dashboard"
+echo "3. Restart keen-pbr service through UI"
+echo "4. Run self-check on keen-pbr Dashboard"
 echo ""
 
 exit 0

@@ -79,7 +79,7 @@ func (m *Manager) ApplyRouting(ipsets []*config.IPSetConfig, force bool) (int, e
 		// Apply routes conditionally based on force flag
 		if force {
 			// Force mode: unconditionally apply routes
-			log.Infof("[ipset %s] Applying routing configuration (forced)...", ipset.IPSetName)
+			log.Debugf("[ipset %s] Applying routing configuration (forced)...", ipset.IPSetName)
 			if err := m.routingConfig.Apply(ipset); err != nil {
 				return updatedCount, err
 			}
@@ -117,7 +117,7 @@ func (m *Manager) ApplyNetfilter(ipsets []*config.IPSetConfig) error {
 
 	for _, component := range globalComponents {
 		if component.ShouldExist() {
-			log.Infof("[global] Applying %s...", component.GetDescription())
+			log.Debugf("[global] Applying %s...", component.GetDescription())
 			if err := component.CreateIfNotExists(); err != nil {
 				log.Errorf("[global] Failed to create %s: %v", component.GetType(), err)
 				return err
@@ -127,7 +127,7 @@ func (m *Manager) ApplyNetfilter(ipsets []*config.IPSetConfig) error {
 
 	// Apply per-ipset iptables rules
 	for _, ipset := range ipsets {
-		log.Infof("[ipset %s] Applying netfilter configuration (iptables rules)...", ipset.IPSetName)
+		log.Debugf("[ipset %s] Applying netfilter configuration (iptables rules)...", ipset.IPSetName)
 
 		builder := NewComponentBuilderWithSelector(m.interfaceSelector)
 		components, err := builder.BuildComponents(ipset)
@@ -161,7 +161,7 @@ func (m *Manager) ApplyNetfilter(ipsets []*config.IPSetConfig) error {
 //
 // This implementation uses the NetworkingComponent abstraction for unified logic.
 func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
-	log.Infof("Removing all iptables rules, ip rules, ip routes, and global components...")
+	log.Debugf("Removing all iptables rules, ip rules, ip routes, and global components...")
 
 	// Remove per-ipset components first
 	for _, ipset := range ipsets {
@@ -201,7 +201,7 @@ func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 		log.Warnf("Failed to build global components during undo: %v", err)
 	} else {
 		for _, component := range globalComponents {
-			log.Infof("[global] Removing %s...", component.GetDescription())
+			log.Debugf("[global] Removing %s...", component.GetDescription())
 			if err := component.DeleteIfExists(); err != nil {
 				log.Warnf("[global] Failed to delete %s: %v", component.GetType(), err)
 				// Continue with other components
@@ -209,6 +209,6 @@ func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 		}
 	}
 
-	log.Infof("Undo routing completed successfully")
+	log.Debugf("Undo routing completed successfully")
 	return nil
 }

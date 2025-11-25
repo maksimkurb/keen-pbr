@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo "Stopping keen-pbr service..."
+
+/opt/etc/init.d/S80keen-pbr stop || true
+
+exit 0

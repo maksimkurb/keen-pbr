@@ -2,13 +2,15 @@ package lists
 
 import (
 	"fmt"
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/hashing"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/hashing"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // DownloadList downloads a single list from its URL.
@@ -31,7 +33,7 @@ func DownloadList(list *config.ListSource, cfg *config.Config) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to download list \"%s\": %v", list.ListName, err)
 	}
-	defer resp.Body.Close()
+	defer utils.CloseOrWarn(resp.Body)
 	bodyProxy := hashing.NewMD5ReaderProxy(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
@@ -66,10 +68,9 @@ func DownloadList(list *config.ListSource, cfg *config.Config) (bool, error) {
 	return true, nil
 }
 
-// DownloadLists downloads all lists that have URLs configured.
+// DownloadListsIfMissing downloads all lists that have URLs configured.
 // Only downloads lists whose files don't exist yet (missing lists).
-// Use DownloadListsForced to re-download all lists regardless of file existence.
-func DownloadLists(config *config.Config) error {
+func DownloadListsIfMissing(config *config.Config) error {
 	for _, list := range config.Lists {
 		if list.URL == "" {
 			continue
@@ -94,9 +95,8 @@ func DownloadLists(config *config.Config) error {
 	return nil
 }
 
-// DownloadListsForced downloads all lists with URLs regardless of file existence.
-// This is useful for forcing a re-download/update of all lists.
-func DownloadListsForced(config *config.Config) error {
+// DownloadListsIfUpdated downloads all lists with URLs and updates them if needed
+func DownloadListsIfUpdated(config *config.Config) error {
 	for _, list := range config.Lists {
 		if list.URL == "" {
 			continue

@@ -56,11 +56,11 @@ type SettingsResponse struct {
 // StatusResponse returns system status information.
 type StatusResponse struct {
 	Version               VersionInfo            `json:"version"`
-	KeeneticVersion       string                 `json:"keenetic_version,omitempty"`
+	KeeneticVersion       string                 `json:"keenetic_version"`
 	Services              map[string]ServiceInfo `json:"services"`
 	CurrentConfigHash     string                 `json:"current_config_hash"`
 	ConfigurationOutdated bool                   `json:"configuration_outdated"`
-	DNSServers            []DNSServerInfo        `json:"dns_servers,omitempty"` // Upstream DNS servers
+	DNSServers            []string               `json:"dns_servers"` // Upstream DNS servers
 }
 
 // DNSServerInfo contains information about a DNS server.

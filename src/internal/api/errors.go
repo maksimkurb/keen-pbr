@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 // ErrorCode represents standard API error codes.
@@ -62,7 +64,9 @@ func (e APIError) WithDetails(details map[string]interface{}) APIError {
 func WriteError(w http.ResponseWriter, statusCode int, err APIError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: err})
+	if err := json.NewEncoder(w).Encode(ErrorResponse{Error: err}); err != nil {
+		log.Warnf("Failed to encode error response: %v", err)
+	}
 }
 
 // WriteInvalidRequest writes a 400 Bad Request error.

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -19,12 +20,12 @@ import (
 type Matcher struct {
 	mu sync.RWMutex
 
-	// exactDomains maps domain name to list of ipset names for exact matching
-	exactDomains map[string][]string
+	// domainSuffixes maps domain suffix to list of ipset indices for suffix matching
+	// e.g., "xxx.somedomain.com" in this map will match both "xxx.somedomain.com" and "sub.xxx.somedomain.com"
+	domainSuffixes map[string][]uint16
 
-	// wildcardSuffixes maps domain suffix to list of ipset names for subdomain matching
-	// e.g., "xxx.somedomain.com" in this map will match "sub.xxx.somedomain.com"
-	wildcardSuffixes map[string][]string
+	// ipsetIndexToName maps ipset index back to name
+	ipsetIndexToName []string
 
 	// ipsets stores ipset configurations for reference
 	ipsets map[string]*config.IPSetConfig
@@ -33,8 +34,8 @@ type Matcher struct {
 // NewMatcher creates a new domain matcher from the application config.
 func NewMatcher(cfg *config.Config) *Matcher {
 	m := &Matcher{
-		exactDomains:     make(map[string][]string),
-		wildcardSuffixes: make(map[string][]string),
+		domainSuffixes:   make(map[string][]uint16),
+		ipsetIndexToName: make([]string, 0),
 		ipsets:           make(map[string]*config.IPSetConfig),
 	}
 
@@ -52,9 +53,15 @@ func (m *Matcher) Rebuild(cfg *config.Config) {
 // rebuild rebuilds the internal maps from config (must be called with lock held).
 func (m *Matcher) rebuild(cfg *config.Config) {
 	// Clear existing maps
-	m.exactDomains = make(map[string][]string)
-	m.wildcardSuffixes = make(map[string][]string)
+	m.domainSuffixes = make(map[string][]uint16)
+	m.ipsetIndexToName = make([]string, 0, len(cfg.IPSets))
 	m.ipsets = make(map[string]*config.IPSetConfig)
+
+	// Build ipset index mapping and store configs
+	for _, ipset := range cfg.IPSets {
+		m.ipsetIndexToName = append(m.ipsetIndexToName, ipset.IPSetName)
+		m.ipsets[ipset.IPSetName] = ipset
+	}
 
 	// Build list name -> list source mapping
 	listsByName := make(map[string]*config.ListSource)
@@ -63,8 +70,8 @@ func (m *Matcher) rebuild(cfg *config.Config) {
 	}
 
 	// Process each ipset
-	for _, ipset := range cfg.IPSets {
-		m.ipsets[ipset.IPSetName] = ipset
+	for ipsetIdx, ipset := range cfg.IPSets {
+		// ipsetIdx now comes from the range index
 
 		// Process each list referenced by this ipset
 		for _, listName := range ipset.Lists {
@@ -74,20 +81,20 @@ func (m *Matcher) rebuild(cfg *config.Config) {
 				continue
 			}
 
-			m.processListForIPSet(list, cfg, ipset.IPSetName)
+			m.processListForIPSet(list, cfg, uint16(ipsetIdx))
 		}
 	}
 
-	log.Debugf("Matcher rebuilt: %d exact domains, %d wildcard suffixes",
-		len(m.exactDomains), len(m.wildcardSuffixes))
+	log.Debugf("Matcher rebuilt: %d domain suffixes",
+		len(m.domainSuffixes))
 }
 
 // processListForIPSet processes a list and adds its domains to the matcher.
-func (m *Matcher) processListForIPSet(list *config.ListSource, cfg *config.Config, ipsetName string) {
+func (m *Matcher) processListForIPSet(list *config.ListSource, cfg *config.Config, ipsetIdx uint16) {
 	// Process inline hosts
 	if list.Hosts != nil {
 		for _, host := range list.Hosts {
-			m.addDomain(host, ipsetName)
+			m.addDomain(host, ipsetIdx)
 		}
 		return
 	}
@@ -101,12 +108,12 @@ func (m *Matcher) processListForIPSet(list *config.ListSource, cfg *config.Confi
 		}
 
 		// Read and parse the file
-		m.processListFile(path, ipsetName)
+		m.processListFile(path, ipsetIdx)
 	}
 }
 
 // processListFile reads a list file and adds domains to the matcher.
-func (m *Matcher) processListFile(path string, ipsetName string) {
+func (m *Matcher) processListFile(path string, ipsetIdx uint16) {
 	// We need to read the file and process each line
 	// Using the same iteration pattern as lists package
 
@@ -115,7 +122,7 @@ func (m *Matcher) processListFile(path string, ipsetName string) {
 		log.Debugf("Could not open list file %s: %v", path, err)
 		return
 	}
-	defer file.Close()
+	defer utils.CloseOrWarn(file)
 
 	scanner := newScanner(file)
 	for scanner.Scan() {
@@ -126,7 +133,7 @@ func (m *Matcher) processListFile(path string, ipsetName string) {
 
 		// Only process DNS names, skip IPs and CIDRs
 		if utils.IsDNSName(line) {
-			m.addDomain(line, ipsetName)
+			m.addDomain(line, ipsetIdx)
 		}
 	}
 }
@@ -134,7 +141,7 @@ func (m *Matcher) processListFile(path string, ipsetName string) {
 // addDomain adds a domain to the matcher for the given ipset.
 // Domains are matched using suffix matching: adding "xxx.somedomain.com" will match
 // both "xxx.somedomain.com" and "sub.xxx.somedomain.com", but NOT "somedomain.com".
-func (m *Matcher) addDomain(domain string, ipsetName string) {
+func (m *Matcher) addDomain(domain string, ipsetIdx uint16) {
 	domain = strings.TrimSpace(domain)
 	if domain == "" {
 		return
@@ -147,44 +154,47 @@ func (m *Matcher) addDomain(domain string, ipsetName string) {
 	// Both "*.example.com" and "example.com" should behave the same way
 	domain = strings.TrimPrefix(domain, "*.")
 
-	// Add to exact domains for exact matching
-	m.exactDomains[domain] = appendUnique(m.exactDomains[domain], ipsetName)
-
-	// Also add to wildcard suffixes for subdomain matching
-	// This allows "xxx.somedomain.com" to match "sub.xxx.somedomain.com"
-	m.wildcardSuffixes[domain] = appendUnique(m.wildcardSuffixes[domain], ipsetName)
+	// Add to domain suffixes for suffix matching
+	// This allows "xxx.somedomain.com" to match both "xxx.somedomain.com" and "sub.xxx.somedomain.com"
+	m.domainSuffixes[domain] = appendUniqueInt(m.domainSuffixes[domain], ipsetIdx)
 }
 
 // Match returns the list of ipset names that match the given domain.
+// Only the most specific match is returned. For example, if both "example.com"
+// and "sub.example.com" are configured, querying "sub.sub.example.com" will
+// only return ipsets associated with "sub.example.com" (the most specific match).
 func (m *Matcher) Match(domain string) []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	domain = strings.ToLower(domain)
-	var result []string
 
-	// Check exact match
-	if ipsets, exists := m.exactDomains[domain]; exists {
-		result = append(result, ipsets...)
-	}
+	// Find the most specific match by checking all configured domains
+	var bestMatch []uint16
+	var bestSpecificity uint8
 
-	// Check wildcard matches (suffix matching)
-	// For domain "sub.example.com", check:
-	// - "sub.example.com" (exact, already checked)
-	// - "example.com" (wildcard *.example.com)
-	// - "com" (wildcard *.com)
-	parts := strings.Split(domain, ".")
-	for i := 1; i < len(parts); i++ {
-		suffix := strings.Join(parts[i:], ".")
-		if ipsets, exists := m.wildcardSuffixes[suffix]; exists {
-			for _, ipset := range ipsets {
-				if !contains(result, ipset) {
-					result = append(result, ipset)
-				}
-			}
+	for configuredDomain, indices := range m.domainSuffixes {
+		matches, specificity := utils.MatchDomain(domain, configuredDomain)
+		if matches && specificity > bestSpecificity {
+			bestSpecificity = specificity
+			bestMatch = indices
 		}
 	}
 
+	if bestMatch != nil {
+		return indicesToNames(m.ipsetIndexToName, bestMatch)
+	}
+
+	// No match found
+	return []string{}
+}
+
+// indicesToNames converts a slice of indices to ipset names.
+func indicesToNames(indexToName []string, indices []uint16) []string {
+	result := make([]string, 0, len(indices))
+	for _, idx := range indices {
+		result = append(result, indexToName[idx])
+	}
 	return result
 }
 
@@ -199,30 +209,17 @@ func (m *Matcher) GetIPSet(name string) *config.IPSetConfig {
 func (m *Matcher) Stats() (exactCount, wildcardCount int) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return len(m.exactDomains), len(m.wildcardSuffixes)
+	// Return the same value for both since we now use a single map
+	return len(m.domainSuffixes), len(m.domainSuffixes)
 }
 
-// appendUnique appends a string to a slice if it's not already present.
-func appendUnique(slice []string, s string) []string {
-	for _, item := range slice {
-		if item == s {
-			return slice
-		}
+// appendUniqueInt appends an int to a slice if it's not already present.
+func appendUniqueInt(slice []uint16, n uint16) []uint16 {
+	if slices.Contains(slice, n) {
+		return slice
 	}
-	return append(slice, s)
+	return append(slice, n)
 }
-
-// contains checks if a slice contains a string.
-func contains(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-// File reading helpers to avoid import cycle with lists package
 
 func openFile(path string) (*os.File, error) {
 	return os.Open(path)

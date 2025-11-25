@@ -50,6 +50,11 @@ func (p *DNSProxy) CloseAllSubscribers() {
 
 // broadcastDNSCheck broadcasts a domain to all SSE subscribers.
 func (p *DNSProxy) broadcastDNSCheck(domain string) {
+	// Early exit if shutting down to prevent race with CloseAllSubscribers
+	if p.ctx != nil && p.ctx.Err() != nil {
+		return
+	}
+
 	p.sseSubscribersMu.RLock()
 	defer p.sseSubscribersMu.RUnlock()
 

@@ -19,18 +19,12 @@ type AppContext struct {
 	Interfaces []networking.Interface
 }
 
-// loadAndValidateConfigOrFail loads configuration from file and validates it.
-// This performs structural validation only. Interface validation should be done
-// separately using networking.ValidateInterfacesArePresent() where needed.
-func loadAndValidateConfigOrFail(configPath string) (*config.Config, error) {
+// loadConfigOrFail loads configuration from file.
+// Validation should be done separately when starting the service thread.
+func loadConfigOrFail(configPath string) (*config.Config, error) {
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %v", err)
-	}
-
-	// Validate configuration structure (includes prefilling default iptables rules)
-	if err := cfg.ValidateConfig(); err != nil {
-		return nil, fmt.Errorf("configuration validation failed: %v", err)
 	}
 
 	return cfg, nil

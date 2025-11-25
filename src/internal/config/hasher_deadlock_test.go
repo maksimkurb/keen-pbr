@@ -4,15 +4,13 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
 // mockKeeneticClient is a simple mock that returns empty DNS servers
 type mockKeeneticClient struct{}
 
-func (m *mockKeeneticClient) GetDNSServers() ([]keenetic.DNSServerInfo, error) {
-	return []keenetic.DNSServerInfo{}, nil
+func (m *mockKeeneticClient) GetDNSStrings() ([]string, error) {
+	return []string{}, nil
 }
 
 // TestConfigHasher_NoDeadlockWithKeeneticClient tests that calculating hash
@@ -50,7 +48,7 @@ fwmark = 100
 	// Create hasher with Keenetic client
 	hasher := NewConfigHasher(configPath)
 	mockClient := &mockKeeneticClient{}
-	hasher.SetKeeneticClient(mockClient)
+	hasher.SetDNSProvider(mockClient)
 
 	// This should complete within 1 second if there's no deadlock
 	done := make(chan bool, 1)

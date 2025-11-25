@@ -17,9 +17,10 @@ install-dev-deps:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 	go install mvdan.cc/unparam@latest
 	go install golang.org/x/tools/cmd/deadcode@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2
 
 test:
-	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./... && deadcode ./...
+	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./... && deadcode ./... && golangci-lint-v2 run
 
 build-frontend:
 	cd src/frontend && bun install && bun run build

@@ -4,7 +4,7 @@
 
 ENABLED=yes
 PROCS=$(basename "$KEEN_PBR")
-ARGS="-config $CONFIG service"
+ARGS="-config $CONFIG service -api 0.0.0.0:12121"
 PREARGS=""
 DESC="keen-pbr"
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

@@ -1,39 +1,41 @@
 package commands
 
 import (
-	"context"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/api"
+	"github.com/maksimkurb/keen-pbr/src/internal/components"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
+// SIGUSR1 and SIGUSR2 debounce delay
+const debounceDelay = 1000 * time.Millisecond
+
 func CreateServiceCommand() *ServiceCommand {
 	sc := &ServiceCommand{
 		fs: flag.NewFlagSet("service", flag.ExitOnError),
 	}
 
-	sc.fs.IntVar(&sc.MonitorInterval, "monitor-interval", 10, "Interval in seconds to monitor interface changes")
+	sc.fs.StringVar(&sc.APIBindAddress, "api", "", "Enable REST API and web UI on the specified bind address (e.g., 0.0.0.0:8080)")
 
 	return sc
 }
 
 type ServiceCommand struct {
-	fs              *flag.FlagSet
-	cfg             *config.Config
-	ctx             *AppContext
-	MonitorInterval int
+	fs             *flag.FlagSet
+	cfg            *config.Config
+	ctx            *AppContext
+	APIBindAddress string // Command-line flag for API server bind address
 
 	// Dependencies
 	deps         *domain.AppDependencies
@@ -43,29 +45,51 @@ type ServiceCommand struct {
 	// Service manager for controlling the routing service
 	serviceMgr *ServiceManager
 
-	// DNS proxy for domain-based routing
-	// Note: DNS redirect iptables rules are managed by NetworkManager via global components
-	dnsProxy *dnsproxy.DNSProxy
-
-	// HTTP server
-	httpServer *http.Server
-
-	// Runner for crash isolation
-	apiRunner *RestartableRunner
+	// Components
+	networkingSvc *components.NetworkingService
+	apiServer     *components.APIServer
 }
 
 func (s *ServiceCommand) Name() string {
 	return s.fs.Name()
 }
 
+// StartService starts the routing service and DNS proxy
+// This method can be called from both CLI and API
+func (s *ServiceCommand) StartService() error {
+	if s.networkingSvc == nil {
+		return fmt.Errorf("networking service not initialized")
+	}
+
+	// Start the networking service (routing + DNS proxy)
+	if err := s.networkingSvc.Start(); err != nil {
+		return fmt.Errorf("failed to start networking service: %w", err)
+	}
+
+	return nil
+}
+
+// StopService stops the routing service and DNS proxy
+func (s *ServiceCommand) StopService() error {
+	if s.networkingSvc == nil {
+		return fmt.Errorf("networking service not initialized")
+	}
+
+	// Stop the networking service
+	if err := s.networkingSvc.Stop(); err != nil {
+		return fmt.Errorf("failed to stop networking service: %w", err)
+	}
+
+	return nil
+}
+
 func (s *ServiceCommand) Init(args []string, ctx *AppContext) error {
 	s.ctx = ctx
-
 	if err := s.fs.Parse(args); err != nil {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
+	if cfg, err := loadConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		s.cfg = cfg
@@ -81,231 +105,187 @@ func (s *ServiceCommand) Init(args []string, ctx *AppContext) error {
 
 	// Create ConfigHasher DI component
 	s.configHasher = config.NewConfigHasher(ctx.ConfigPath)
-	s.configHasher.SetKeeneticClient(s.deps.KeeneticClient())
 
 	// Create service manager
-	serviceMgr, err := NewServiceManager(ctx, s.MonitorInterval, s.configHasher)
+	serviceMgr, err := NewServiceManager(ctx, s.configHasher)
 	if err != nil {
 		return fmt.Errorf("failed to create service manager: %w", err)
 	}
 	s.serviceMgr = serviceMgr
 
+	// Create networking service component
+	s.networkingSvc = components.NewNetworkingService(ctx.ConfigPath, s.serviceMgr, s.deps)
+
 	return nil
 }
 
-func (s *ServiceCommand) Run() error {
-	log.Infof("Starting keen-pbr service...")
+// debouncedRefresh creates a debounced operation that waits for any ongoing execution
+func debouncedRefresh(
+	timer **time.Timer,
+	mu *sync.Mutex,
+	delay time.Duration,
+	name string,
+	operation func() error,
+) {
+	// Cancel existing timer if any
+	if *timer != nil {
+		(*timer).Stop()
+	}
 
-	// Create context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create new timer that will execute after delay
+	*timer = time.AfterFunc(delay, func() {
+		// Wait for any ongoing execution to complete
+		mu.Lock()
+		defer mu.Unlock()
+
+		log.Infof("Executing %s", name)
+		if err := operation(); err != nil {
+			log.Errorf("Failed to execute %s: %v", name, err)
+		} else {
+			log.Debugf("%s executed successfully", name)
+		}
+	})
+}
+
+func (s *ServiceCommand) Run() error {
+	log.Infof("Starting keen-pbr...")
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
 
-	// Start the routing service
-	log.Infof("Starting routing service...")
-	if err := s.serviceMgr.Start(); err != nil {
-		log.Errorf("Failed to start routing service: %v", err)
-		log.Warnf("Service will continue without routing. Fix the configuration and restart.")
-	}
+	// Try to start the service
+	serviceStartErr := s.StartService()
+	if serviceStartErr != nil {
+		log.Errorf("Failed to start service: %v", serviceStartErr)
 
-	// DNS check subscriber - DNS proxy provides this functionality
-	var dnsCheckSubscriber api.DNSCheckSubscriber
-	var dnsServersProvider api.DNSServersProvider
-
-	// Start DNS proxy if enabled
-	if s.cfg.General.IsDNSProxyEnabled() {
-		if err := s.startDNSProxy(); err != nil {
-			log.Errorf("Failed to start DNS proxy: %v", err)
-			log.Warnf("Domain-based routing via DNS proxy will not be available")
-		} else {
-			dnsCheckSubscriber = s.dnsProxy
-			dnsServersProvider = s.dnsProxy
-			// Register callback to reload DNS proxy lists when lists are updated
-			s.serviceMgr.SetOnListsUpdated(func() {
-				if s.dnsProxy != nil {
-					s.dnsProxy.ReloadLists()
-				}
-			})
+		// If API is disabled and service failed to start, exit immediately
+		if s.APIBindAddress == "" {
+			return fmt.Errorf("service failed to start and API is disabled, exiting")
 		}
-	} else {
-		log.Infof("DNS proxy is disabled")
+
+		log.Warnf("Service will remain stopped. Fix the configuration and restart via API or SIGHUP.")
 	}
 
-	// Start HTTP API server if enabled
-	if s.cfg.General.IsAPIEnabled() {
-		bindAddr := s.cfg.General.GetAPIBindAddress()
-		if err := s.startAPIServer(ctx, bindAddr, dnsCheckSubscriber, dnsServersProvider); err != nil {
+	// Start HTTP API server if --api flag is provided
+	// API server starts regardless of service state to allow config fixes
+	if s.APIBindAddress != "" {
+		if err := s.startAPIServer(); err != nil {
 			log.Errorf("Failed to start API server: %v", err)
 			log.Warnf("Web UI will not be available")
 		}
 	} else {
-		log.Infof("REST API and web UI is disabled")
+		log.Infof("REST API and web UI is disabled (use --api flag to enable)")
 	}
 
-	log.Infof("Service started successfully.")
-	log.Infof("Send SIGHUP to reload configuration, SIGUSR1 to refresh routing/firewall, SIGUSR2 to refresh firewall only")
+	if serviceStartErr == nil {
+		log.Infof("keen-pbr started successfully")
+	} else {
+		log.Infof("keen-pbr started with API only (service failed)")
+	}
+	log.Infof("Send SIGHUP to reload configuration, SIGUSR1 to refresh routing, SIGUSR2 to refresh firewall")
+
+	// Debounce timers and mutexes for SIGUSR1 and SIGUSR2
+	var routingTimer *time.Timer
+	var firewallTimer *time.Timer
+	var routingMu sync.Mutex
+	var firewallMu sync.Mutex
 
 	// Run signal handling loop
 	for sig := range sigChan {
 		switch sig {
 		case syscall.SIGHUP:
 			log.Infof("Received SIGHUP signal, reloading configuration...")
-			if err := s.serviceMgr.Reload(); err != nil {
-				log.Errorf("Failed to reload configuration: %v", err)
+
+			// Stop service if running
+			if s.networkingSvc != nil && s.networkingSvc.IsRunning() {
+				if err := s.StopService(); err != nil {
+					log.Errorf("Failed to stop service: %v", err)
+				}
+			}
+
+			// Try to start service with new config
+			if err := s.StartService(); err != nil {
+				log.Errorf("Failed to start service after reload: %v", err)
 			} else {
 				log.Infof("Configuration reloaded successfully")
 			}
-			// Reload DNS proxy lists if DNS proxy is running
-			if s.dnsProxy != nil {
-				s.dnsProxy.ReloadLists()
-			}
 
 		case syscall.SIGUSR1:
-			log.Infof("Received SIGUSR1 signal, refreshing routing...")
-			if err := s.serviceMgr.RefreshRouting(); err != nil {
-				log.Errorf("Failed to refresh routing: %v", err)
-			} else {
-				log.Infof("Routing refreshed successfully")
-			}
+			debouncedRefresh(&routingTimer, &routingMu, debounceDelay, "SIGUSR1 routing refresh", func() error {
+				if !s.networkingSvc.IsRunning() {
+					return nil
+				}
+				return s.serviceMgr.RefreshRouting()
+			})
 
 		case syscall.SIGUSR2:
-			log.Infof("Received SIGUSR2 signal, refreshing firewall...")
-			if err := s.serviceMgr.RefreshFirewall(); err != nil {
-				log.Errorf("Failed to refresh firewall: %v", err)
-			} else {
-				log.Infof("Firewall refreshed successfully")
-			}
+			debouncedRefresh(&firewallTimer, &firewallMu, debounceDelay, "SIGUSR2 firewall refresh", func() error {
+				if !s.networkingSvc.IsRunning() {
+					return nil
+				}
+				return s.serviceMgr.RefreshFirewall()
+			})
 
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.Infof("Received signal %v, shutting down...", sig)
+			// Stop any pending timers
+			if routingTimer != nil {
+				routingTimer.Stop()
+			}
+			if firewallTimer != nil {
+				firewallTimer.Stop()
+			}
 			return s.shutdown()
 		}
 	}
 	return nil
 }
 
-// startAPIServer starts the HTTP API server in a separate goroutine.
-func (s *ServiceCommand) startAPIServer(ctx context.Context, bindAddr string, dnsCheckSubscriber api.DNSCheckSubscriber, dnsServersProvider api.DNSServersProvider) error {
-	log.Infof("Starting keen-pbr API server on %s", bindAddr)
-	log.Infof("")
-	log.Infof("Access restricted to private subnets only:")
-	log.Infof("  IPv4: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8")
-	log.Infof("  IPv6: fc00::/7, fe80::/10, ::1/128")
-	log.Infof("")
-
-	// Create router with service manager
-	router := api.NewRouter(s.ctx.ConfigPath, s.deps, s.serviceMgr, s.configHasher, dnsCheckSubscriber, dnsServersProvider)
-
-	// Create HTTP server
-	s.httpServer = &http.Server{
-		Addr:         bindAddr,
-		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// Create restartable runner for API server
-	s.apiRunner = NewRestartableRunner(RunnerConfig{
-		Name:           "API server",
-		MaxRestarts:    0, // Unlimited restarts
-		RestartBackoff: 2 * time.Second,
-		MaxBackoff:     30 * time.Second,
-	}, func(runCtx context.Context) error {
-		log.Infof("API server listening on http://%s", bindAddr)
-		err := s.httpServer.ListenAndServe()
-		if err == http.ErrServerClosed {
-			return nil // Clean shutdown
-		}
-		return err
-	})
-
-	// Start the runner
-	if err := s.apiRunner.Start(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// startDNSProxy initializes and starts the DNS proxy.
-// Note: DNS redirect iptables rules are managed by NetworkManager via global components,
-// not directly by this function. The global config is set when service starts.
-func (s *ServiceCommand) startDNSProxy() error {
-	proxyCfg := dnsproxy.ProxyConfigFromAppConfig(s.cfg)
-
-	// Apply max cache domains from config
-	proxyCfg.MaxCacheDomains = s.cfg.General.GetDNSCacheMaxDomains()
-
-	// Create DNS proxy
-	proxy, err := dnsproxy.NewDNSProxy(
-		proxyCfg,
-		s.deps.KeeneticClient(),
-		s.deps.IPSetManager(),
-		s.cfg,
+// startAPIServer starts the HTTP API server using the APIServer component.
+func (s *ServiceCommand) startAPIServer() error {
+	// Create API server component
+	s.apiServer = components.NewAPIServer(
+		s.APIBindAddress,
+		s.ctx.ConfigPath,
+		s.deps,
+		s.serviceMgr,
+		s.configHasher,
+		s.networkingSvc,
 	)
-	if err != nil {
-		return fmt.Errorf("failed to create DNS proxy: %w", err)
-	}
-	s.dnsProxy = proxy
 
-	// Start the DNS proxy listener
-	if err := s.dnsProxy.Start(); err != nil {
-		s.dnsProxy = nil
-		return fmt.Errorf("failed to start DNS proxy: %w", err)
+	// Start the API server
+	if err := s.apiServer.Start(); err != nil {
+		return fmt.Errorf("failed to start API server: %w", err)
 	}
 
-	// Note: DNS redirect iptables rules are applied by NetworkManager.ApplyPersistentConfig()
-	// which is called by ServiceManager.run() after setting the global config
-
-	log.Infof("DNS proxy started on port %d with upstream %v (cache: %d domains)", proxyCfg.ListenPort, proxyCfg.Upstreams, proxyCfg.MaxCacheDomains)
 	return nil
-}
-
-// stopDNSProxy stops the DNS proxy.
-// Note: DNS redirect iptables rules are removed by NetworkManager.UndoConfig()
-// which is called by ServiceManager during shutdown.
-func (s *ServiceCommand) stopDNSProxy() {
-	if s.dnsProxy != nil {
-		log.Infof("Stopping DNS proxy...")
-		if err := s.dnsProxy.Stop(); err != nil {
-			log.Errorf("Failed to stop DNS proxy: %v", err)
-		}
-		s.dnsProxy = nil
-	}
 }
 
 // shutdown performs graceful shutdown of all components.
 func (s *ServiceCommand) shutdown() error {
 	log.Infof("Shutting down keen-pbr service...")
 
-	// Stop the routing service
-	log.Infof("Stopping routing service...")
-	if err := s.serviceMgr.Stop(); err != nil {
-		log.Errorf("Failed to stop routing service: %v", err)
-	}
+	var errs []error
 
-	// Stop DNS proxy
-	s.stopDNSProxy()
-
-	// Stop API server
-	if s.httpServer != nil {
-		log.Infof("Stopping API server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Errorf("Error during API server shutdown: %v", err)
-			s.httpServer.Close()
+	// Stop networking service
+	if s.networkingSvc != nil {
+		if err := s.networkingSvc.Stop(); err != nil {
+			log.Errorf("Failed to stop networking service: %v", err)
+			errs = append(errs, fmt.Errorf("networking service: %w", err))
 		}
 	}
 
-	// Stop API runner
-	if s.apiRunner != nil {
-		s.apiRunner.Stop()
+	// Stop API server
+	if s.apiServer != nil {
+		if err := s.apiServer.Stop(); err != nil {
+			log.Errorf("Error stopping API server: %v", err)
+			errs = append(errs, fmt.Errorf("API server: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("shutdown errors: %v", errs)
 	}
 
 	log.Infof("Service stopped successfully")
@@ -333,7 +313,7 @@ func (sm *ServiceManager) DownloadLists() error {
 
 	// Download all lists
 	log.Infof("Downloading lists...")
-	if err := lists.DownloadListsForced(cfg); err != nil {
+	if err := lists.DownloadListsIfUpdated(cfg); err != nil {
 		return fmt.Errorf("failed to download lists: %w", err)
 	}
 

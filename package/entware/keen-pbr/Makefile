@@ -58,6 +58,7 @@ endef
 define Package/keen-pbr/install
 		$(INSTALL_DIR) $(1)/opt/etc/cron.daily/
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d/
+		$(INSTALL_DIR) $(1)/opt/etc/ndm/iflayerchanged.d/
 		$(INSTALL_DIR) $(1)/opt/etc/ndm/ifstatechanged.d/
 		$(INSTALL_DIR) $(1)/opt/etc/init.d/
 		$(INSTALL_DIR) $(1)/opt/etc/keen-pbr/
@@ -68,6 +69,7 @@ define Package/keen-pbr/install
 		ls -la $(PKG_BUILD_DIR)
 
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/
+		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/iflayerchanged.d/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/ndm/netfilter.d/50-keen-pbr-fwmarks.sh $(1)/opt/etc/ndm/netfilter.d/
 		$(INSTALL_BIN) $(PKG_BUILD_DIR)/package/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d
 		$(INSTALL_CONF) $(PKG_BUILD_DIR)/package/etc/keen-pbr/keen-pbr.conf $(1)/opt/etc/keen-pbr/
@@ -85,6 +87,10 @@ endef
 
 define Package/keen-pbr/postrm
 $(file <$(PKG_BUILD_DIR)/package/entware/keen-pbr/postrm)
+endef
+
+define Package/keen-pbr/prerm
+$(file <$(PKG_BUILD_DIR)/package/entware/keen-pbr/prerm)
 endef
 
 $(eval $(call BuildPackage,keen-pbr))

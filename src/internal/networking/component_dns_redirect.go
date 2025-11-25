@@ -223,7 +223,7 @@ func (c *DNSRedirectComponent) createChainAndRules(ipt *iptables.IPTables, addre
 	// Create chain
 	if err := ipt.NewChain("nat", dnsRedirectChainName); err != nil {
 		// Check if chain already exists
-		if eerr, ok := err.(*iptables.Error); !(ok && eerr.ExitStatus() == 1) {
+		if eerr, ok := err.(*iptables.Error); !ok || eerr.ExitStatus() != 1 {
 			return fmt.Errorf("failed to create chain: %w", err)
 		}
 	}

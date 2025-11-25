@@ -3,12 +3,17 @@ package upstreams
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 	"github.com/miekg/dns"
 )
 
@@ -25,10 +30,32 @@ const (
 
 	// HTTP content types
 	dnsMessageContentType = "application/dns-message"
-
-	// Buffer sizes
-	dohReadBufferSize = 4096 // Buffer size for reading DoH responses
 )
+
+var (
+	sharedDoHClient     *http.Client
+	sharedDoHClientOnce sync.Once
+)
+
+// getSharedDoHClient returns the shared HTTP client for all DoH upstreams.
+// This reduces memory overhead by sharing connection pools across upstreams.
+func getSharedDoHClient() *http.Client {
+	sharedDoHClientOnce.Do(func() {
+		sharedDoHClient = &http.Client{
+			Timeout: dohClientTimeout,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				},
+				MaxIdleConns:        dohMaxIdleConns,
+				IdleConnTimeout:     dohIdleConnTimeout,
+				DisableCompression:  true,
+				MaxIdleConnsPerHost: dohMaxIdleConnsPerHost,
+			},
+		}
+	})
+	return sharedDoHClient
+}
 
 // DoHUpstream implements Upstream using DNS-over-HTTPS.
 type DoHUpstream struct {
@@ -46,33 +73,34 @@ func NewDoHUpstream(urlStr string, restrictedDomain string) *DoHUpstream {
 	}
 
 	return &DoHUpstream{
-		BaseUpstream: BaseUpstream{Domain: restrictedDomain},
+		BaseUpstream: NewBaseUpstream(restrictedDomain),
 		url:          urlStr,
-		client: &http.Client{
-			Timeout: dohClientTimeout,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					MinVersion: tls.VersionTLS12,
-				},
-				MaxIdleConns:        dohMaxIdleConns,
-				IdleConnTimeout:     dohIdleConnTimeout,
-				DisableCompression:  true,
-				MaxIdleConnsPerHost: dohMaxIdleConnsPerHost,
-			},
-		},
+		client:       getSharedDoHClient(), // Use shared client to reduce memory
 	}
 }
 
 // Query sends a DNS query to the DoH upstream.
 func (d *DoHUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
+	// Extract query info for logging
+	queryInfo := "unknown"
+	if len(req.Question) > 0 {
+		q := req.Question[0]
+		queryInfo = fmt.Sprintf("%s %s", q.Name, dns.TypeToString[q.Qtype])
+	}
+
+	upstreamStr := d.GetDNSStrings()[0]
+	log.Debugf("[%04x] Querying upstream: %s for %s", req.Id, upstreamStr, queryInfo)
+
 	packed, err := req.Pack()
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack DNS message: %w", err)
+		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): failed to pack DNS message: %v", req.Id, queryInfo, upstreamStr, err)
+		return nil, err
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, strings.NewReader(string(packed)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): failed to create HTTP request: %v", req.Id, queryInfo, upstreamStr, err)
+		return nil, err
 	}
 
 	httpReq.Header.Set("Content-Type", dnsMessageContentType)
@@ -80,61 +108,55 @@ func (d *DoHUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, error)
 
 	resp, err := d.client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("DoH request failed: %w", err)
+		// Check if it's a context timeout vs network timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Warnf("[%04x] Upstream timeout (context) for query: %s (upstream: %s)", req.Id, queryInfo, upstreamStr)
+		} else {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				log.Debugf("[%04x] Upstream timeout (network) for query: %s (upstream: %s)", req.Id, queryInfo, upstreamStr)
+			} else {
+				log.Debugf("[%04x] Upstream error for query %s (upstream: %s): %v", req.Id, queryInfo, upstreamStr, err)
+			}
+		}
+		return nil, err
 	}
-	defer resp.Body.Close()
+	defer utils.CloseOrWarn(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("DoH request failed with status: %d", resp.StatusCode)
+		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): HTTP status %d", req.Id, queryInfo, upstreamStr, resp.StatusCode)
+		return nil, err
 	}
 
-	var body []byte
-	buf := make([]byte, dohReadBufferSize)
-	for {
-		n, err := resp.Body.Read(buf)
-		if n > 0 {
-			body = append(body, buf[:n]...)
-		}
-		if err != nil {
-			break
-		}
+	// Read response body efficiently with single allocation
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): failed to read response: %v", req.Id, queryInfo, upstreamStr, err)
+		return nil, err
 	}
 
 	dnsResp := new(dns.Msg)
 	if err := dnsResp.Unpack(body); err != nil {
-		return nil, fmt.Errorf("failed to unpack DNS response: %w", err)
+		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): failed to unpack response: %v", req.Id, queryInfo, upstreamStr, err)
+		return nil, err
 	}
 
 	return dnsResp, nil
 }
 
-// String returns a human-readable representation of the upstream.
-func (d *DoHUpstream) String() string {
-	displayURL := strings.TrimPrefix(d.url, httpsScheme)
-	if d.Domain != "" {
-		return fmt.Sprintf("doh://%s (domain: %s)", displayURL, d.Domain)
-	}
-	return fmt.Sprintf("doh://%s", displayURL)
-}
-
 // Close closes any resources held by the upstream.
+// Since we use a shared client, this is a no-op per upstream.
 func (d *DoHUpstream) Close() error {
-	d.client.CloseIdleConnections()
+	// Shared client - connections managed globally, not per upstream
 	return nil
 }
 
-// GetDNSServers returns the DNS server info for this upstream.
-func (d *DoHUpstream) GetDNSServers() []keenetic.DNSServerInfo {
-	var domain *string
+// GetDNSStrings returns an array of DNS server strings in URL format.
+func (d *DoHUpstream) GetDNSStrings() []string {
+	displayURL := strings.TrimPrefix(d.url, httpsScheme)
+	url := fmt.Sprintf("doh://%s", displayURL)
 	if d.Domain != "" {
-		domain = &d.Domain
+		url = fmt.Sprintf("%s?domain=%s", url, d.Domain)
 	}
-	return []keenetic.DNSServerInfo{
-		{
-			Type:     keenetic.DNSServerTypeDoH,
-			Proxy:    d.url,
-			Endpoint: d.url,
-			Domain:   domain,
-		},
-	}
+	return []string{url}
 }

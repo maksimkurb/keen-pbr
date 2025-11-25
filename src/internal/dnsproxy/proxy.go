@@ -3,19 +3,19 @@ package dnsproxy
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/upstreams"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 	"github.com/miekg/dns"
 )
 
@@ -25,12 +25,15 @@ const (
 	networkTCP = "tcp"
 
 	// Timeout durations
-	udpReadTimeout       = 1 * time.Second  // UDP read deadline for non-blocking accept loop
-	tcpConnectionTimeout = 10 * time.Second // TCP connection total timeout
-	upstreamQueryTimeout = 5 * time.Second  // Timeout for upstream DNS queries
+	udpReadTimeout       = 3 * time.Second  // UDP read deadline - increased to handle packet bursts
+	tcpConnectionTimeout = 15 * time.Second // TCP connection total timeout - increased for upstream+operations
+	upstreamQueryTimeout = 10 * time.Second // Timeout for upstream DNS queries - should be longest
 
 	// Cleanup intervals
 	cacheCleanupInterval = 1 * time.Minute // How often to clean up expired cache entries
+
+	// Size limits
+	maxDNSMessageSize = 4096 // Maximum DNS message size for TCP to prevent DoS
 
 	// IP address prefix lengths
 	ipv4PrefixLen = 32  // /32 for single IPv4 addresses
@@ -61,13 +64,16 @@ type ProxyConfig struct {
 
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
 func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
+	if cfg.General.DNSServer == nil {
+		return ProxyConfig{}
+	}
 	return ProxyConfig{
-		ListenAddr:      cfg.General.GetDNSProxyListenAddr(),
-		ListenPort:      uint16(cfg.General.GetDNSProxyPort()),
-		Upstreams:       cfg.General.GetDNSUpstream(),
-		DropAAAA:        cfg.General.IsDropAAAAEnabled(),
-		TTLOverride:     cfg.General.GetTTLOverride(),
-		MaxCacheDomains: cfg.General.GetDNSCacheMaxDomains(),
+		ListenAddr:      cfg.General.DNSServer.ListenAddr,
+		ListenPort:      cfg.General.DNSServer.ListenPort,
+		Upstreams:       cfg.General.DNSServer.Upstreams,
+		DropAAAA:        cfg.General.DNSServer.DropAAAA,
+		TTLOverride:     cfg.General.DNSServer.TTLOverride,
+		MaxCacheDomains: cfg.General.DNSServer.CacheMaxDomains,
 	}
 }
 
@@ -84,6 +90,9 @@ type DNSProxy struct {
 
 	// Upstream resolver
 	upstream upstreams.Upstream
+
+	// Upstream providers (for API display of DNS servers)
+	providers []upstreams.UpstreamProvider
 
 	// Per-ipset DNS overrides
 	ipsetUpstreams map[string]upstreams.Upstream
@@ -134,35 +143,72 @@ func NewDNSProxy(
 		cancel:         cancel,
 	}
 
-	// Parse default upstream(s)
+	// Parse default upstream(s) and providers
 	var upstreamList []upstreams.Upstream
+	var providerList []upstreams.UpstreamProvider
 	for _, upstreamURL := range cfg.Upstreams {
-		upstream, err := upstreams.ParseUpstream(upstreamURL, keeneticClient, "")
+		upstream, provider, err := upstreams.ParseUpstream(upstreamURL, keeneticClient, "")
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("failed to parse upstream %q: %w", upstreamURL, err)
 		}
-		upstreamList = append(upstreamList, upstream)
+		if upstream != nil {
+			upstreamList = append(upstreamList, upstream)
+		}
+		if provider != nil {
+			providerList = append(providerList, provider)
+		}
 	}
 
-	if len(upstreamList) == 1 {
-		proxy.upstream = upstreamList[0]
-	} else if len(upstreamList) > 1 {
-		proxy.upstream = upstreams.NewMultiUpstream(upstreamList)
-	} else {
+	// Create the main upstream (single, multi, or error)
+	totalCount := len(upstreamList) + len(providerList)
+	if totalCount == 0 {
 		cancel()
 		return nil, fmt.Errorf("no upstreams configured")
+	} else if totalCount == 1 && len(upstreamList) == 1 {
+		// Single static upstream
+		proxy.upstream = upstreamList[0]
+	} else {
+		// Multiple upstreams/providers or single provider
+		proxy.upstream = upstreams.NewMultiUpstream(upstreamList, providerList)
 	}
 
-	// Parse per-ipset DNS overrides
+	// Store providers for API access
+	proxy.providers = providerList
+
+	// Parse per-ipset DNS overrides (optional per-ipset DNS routing)
 	for _, ipset := range appConfig.IPSets {
-		if ipset.Routing != nil && ipset.Routing.DNSOverride != "" {
-			upstream, err := upstreams.ParseUpstream(ipset.Routing.DNSOverride, keeneticClient, "")
-			if err != nil {
-				log.Warnf("Failed to parse DNS override for ipset %s: %v", ipset.IPSetName, err)
-				continue
+		if ipset.Routing != nil && ipset.Routing.DNS != nil && len(ipset.Routing.DNS.Upstreams) > 0 {
+			// Parse all upstreams for this ipset
+			var ipsetUpstreamList []upstreams.Upstream
+			var ipsetProviders []upstreams.UpstreamProvider
+
+			for _, upstreamURL := range ipset.Routing.DNS.Upstreams {
+				upstream, provider, err := upstreams.ParseUpstream(upstreamURL, keeneticClient, "")
+				if err != nil {
+					log.Warnf("Failed to parse ipset upstream %s: %v", upstreamURL, err)
+					continue
+				}
+				if upstream != nil {
+					ipsetUpstreamList = append(ipsetUpstreamList, upstream)
+				}
+				if provider != nil {
+					ipsetProviders = append(ipsetProviders, provider)
+				}
 			}
-			proxy.ipsetUpstreams[ipset.IPSetName] = upstream
+
+			// Wrap in MultiUpstream if multiple upstreams/providers
+			var ipsetUpstream upstreams.Upstream
+			if len(ipsetUpstreamList) == 1 && len(ipsetProviders) == 0 {
+				ipsetUpstream = ipsetUpstreamList[0]
+			} else if len(ipsetUpstreamList) > 0 || len(ipsetProviders) > 0 {
+				ipsetUpstream = upstreams.NewMultiUpstream(ipsetUpstreamList, ipsetProviders)
+			}
+
+			if ipsetUpstream != nil {
+				proxy.ipsetUpstreams[ipset.IPSetName] = ipsetUpstream
+				log.Infof("Configured DNS override for ipset %s: %s", ipset.IPSetName, strings.Join(ipsetUpstream.GetDNSStrings(), ", "))
+			}
 		}
 	}
 
@@ -189,11 +235,11 @@ func (p *DNSProxy) Start() error {
 
 	p.tcpLn, err = net.Listen("tcp", listenAddr)
 	if err != nil {
-		p.udpConn.Close()
+		utils.CloseOrWarn(p.udpConn)
 		return fmt.Errorf("failed to listen TCP: %w", err)
 	}
 
-	log.Infof("DNS proxy started on %s (UDP/TCP)", listenAddr)
+	log.Infof("DNS proxy started on %s (UDP/TCP) with upstream %v (cache: %d domains)", listenAddr, p.config.Upstreams, p.config.MaxCacheDomains)
 
 	// Start listener goroutines
 	p.wg.Add(2)
@@ -217,10 +263,10 @@ func (p *DNSProxy) Stop() error {
 
 	// Close listeners
 	if p.udpConn != nil {
-		p.udpConn.Close()
+		utils.CloseOrWarn(p.udpConn)
 	}
 	if p.tcpLn != nil {
-		p.tcpLn.Close()
+		utils.CloseOrWarn(p.tcpLn)
 	}
 
 	// Wait for goroutines
@@ -228,10 +274,10 @@ func (p *DNSProxy) Stop() error {
 
 	// Close upstreams
 	if p.upstream != nil {
-		p.upstream.Close()
+		utils.CloseOrWarn(p.upstream)
 	}
 	for _, upstream := range p.ipsetUpstreams {
-		upstream.Close()
+		utils.CloseOrWarn(upstream)
 	}
 
 	log.Infof("DNS proxy stopped")
@@ -260,7 +306,9 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 		default:
 		}
 
-		conn.SetReadDeadline(time.Now().Add(udpReadTimeout))
+		if err := conn.SetReadDeadline(time.Now().Add(udpReadTimeout)); err != nil {
+			log.Debugf("UDP set read deadline error: %v", err)
+		}
 		n, clientAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -278,6 +326,11 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 		copy(req, buf[:n])
 
 		go func(conn *net.UDPConn, clientAddr *net.UDPAddr, req []byte) {
+			// Early exit if shutting down
+			if p.ctx.Err() != nil {
+				return
+			}
+
 			resp, err := p.processRequest(clientAddr, req, networkUDP)
 			if err != nil {
 				log.Debugf("UDP request processing error: %v", err)
@@ -286,7 +339,7 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 
 			_, err = conn.WriteToUDP(resp, clientAddr)
 			if err != nil {
-				log.Debugf("UDP write error: %v", err)
+				log.Warnf("UDP write error to %s: %v", clientAddr, err)
 			}
 		}(conn, clientAddr, req)
 	}
@@ -318,14 +371,23 @@ func (p *DNSProxy) serveTCP(ln net.Listener) {
 
 // handleTCPConnection handles a single TCP DNS connection.
 func (p *DNSProxy) handleTCPConnection(conn net.Conn) {
-	defer conn.Close()
+	defer utils.CloseOrWarn(conn)
 
-	conn.SetDeadline(time.Now().Add(tcpConnectionTimeout))
+	if err := conn.SetDeadline(time.Now().Add(tcpConnectionTimeout)); err != nil {
+		log.Debugf("TCP set deadline error: %v", err)
+		return
+	}
 
 	// Read length prefix
 	var length uint16
 	if err := binary.Read(conn, binary.BigEndian, &length); err != nil {
 		log.Debugf("TCP read length error: %v", err)
+		return
+	}
+
+	// Validate message size to prevent DoS
+	if length == 0 || length > maxDNSMessageSize {
+		log.Warnf("Invalid TCP DNS message length: %d from %s", length, conn.RemoteAddr())
 		return
 	}
 
@@ -375,33 +437,28 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 		return respBytes, err
 	}
 
-	// Forward to upstream
+	// Select upstream: check ipset-specific overrides first, then use default
+	selectedUpstream := p.upstream // Default upstream
+
+	// Check if any ipset has DNS override matching this query domain
+	if len(reqMsg.Question) > 0 {
+		queryDomain := reqMsg.Question[0].Name
+
+		for ipsetName, ipsetUpstream := range p.ipsetUpstreams {
+			if ipsetUpstream.MatchesDomain(queryDomain) {
+				log.Debugf("[%04x] Using ipset-specific DNS for %s (ipset: %s)", reqMsg.Id, queryDomain, ipsetName)
+				selectedUpstream = ipsetUpstream
+				break
+			}
+		}
+	}
+
+	// Forward to selected upstream
 	ctx, cancel := context.WithTimeout(p.ctx, upstreamQueryTimeout)
 	defer cancel()
 
-	log.Debugf("[%04x] Querying upstream: %s", reqMsg.Id, p.upstream.String())
-	respMsg, err := p.upstream.Query(ctx, &reqMsg)
+	respMsg, err := selectedUpstream.Query(ctx, &reqMsg)
 	if err != nil {
-		// Extract query info for better error logging
-		queryInfo := "unknown"
-		if len(reqMsg.Question) > 0 {
-			q := reqMsg.Question[0]
-			queryInfo = fmt.Sprintf("%s %s", q.Name, dns.TypeToString[q.Qtype])
-		}
-
-		// Check if it's a context timeout vs network timeout
-		if ctx.Err() == context.DeadlineExceeded {
-			log.Warnf("[%04x] Context deadline exceeded for query: %s (upstream: %s)", reqMsg.Id, queryInfo, p.upstream.String())
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			log.Warnf("[%04x] Upstream timeout (context) for query: %s (upstream: %s)", reqMsg.Id, queryInfo, p.upstream.String())
-		} else {
-			var netErr net.Error
-			if errors.As(err, &netErr) && netErr.Timeout() {
-				log.Warnf("[%04x] Upstream timeout (network) for query: %s (upstream: %s)", reqMsg.Id, queryInfo, p.upstream.String())
-			} else {
-				log.Debugf("[%04x] Upstream error for query %s (upstream: %s): %v", reqMsg.Id, queryInfo, p.upstream.String(), err)
-			}
-		}
 		return nil, err
 	}
 
@@ -648,7 +705,7 @@ func (p *DNSProxy) GetStats() map[string]interface{} {
 	addressCount, aliasCount := p.recordsCache.Stats()
 	return map[string]interface{}{
 		"listen_port":   p.config.ListenPort,
-		"upstream":      p.upstream.String(),
+		"upstream":      strings.Join(p.upstream.GetDNSStrings(), ", "),
 		"drop_aaaa":     p.config.DropAAAA,
 		"ttl_override":  p.config.TTLOverride,
 		"cached_addrs":  addressCount,
@@ -656,10 +713,7 @@ func (p *DNSProxy) GetStats() map[string]interface{} {
 	}
 }
 
-// GetDNSServers returns the list of DNS servers currently used by the proxy.
-func (p *DNSProxy) GetDNSServers() []keenetic.DNSServerInfo {
-	if p.upstream == nil {
-		return nil
-	}
-	return p.upstream.GetDNSServers()
+// GetDNSStrings returns the list of DNS server strings currently used by the proxy.
+func (p *DNSProxy) GetDNSStrings() []string {
+	return p.upstream.GetDNSStrings()
 }

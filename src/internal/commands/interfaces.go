@@ -34,7 +34,7 @@ func (g *InterfacesCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
+	if cfg, err := loadConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg

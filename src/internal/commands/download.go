@@ -4,8 +4,7 @@ import (
 	"flag"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/service"
+	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 )
 
 func CreateDownloadCommand() *DownloadCommand {
@@ -29,7 +28,7 @@ func (g *DownloadCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	}
 
-	if cfg, err := loadAndValidateConfigOrFail(ctx.ConfigPath); err != nil {
+	if cfg, err := loadConfigOrFail(ctx.ConfigPath); err != nil {
 		return err
 	} else {
 		g.cfg = cfg
@@ -39,12 +38,6 @@ func (g *DownloadCommand) Init(args []string, ctx *AppContext) error {
 }
 
 func (g *DownloadCommand) Run() error {
-	// Create dependency container
-	deps := domain.NewDefaultDependencies()
-
-	// Create IPSet service
-	ipsetService := service.NewIPSetService(deps.IPSetManager())
-
-	// Use IPSetService to download lists
-	return ipsetService.DownloadLists(g.cfg)
+	// Download missing lists (only downloads if files don't exist)
+	return lists.DownloadListsIfUpdated(g.cfg)
 }

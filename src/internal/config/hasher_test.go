@@ -10,8 +10,6 @@ func TestConfigHasher_DeterministicHash(t *testing.T) {
 	cfg := &Config{
 		General: &GeneralConfig{
 			ListsOutputDir: "/tmp/lists",
-			FallbackDNS:    "8.8.8.8",
-			APIBindAddress: "0.0.0.0:8080",
 		},
 		IPSets: []*IPSetConfig{
 			{

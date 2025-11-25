@@ -51,8 +51,6 @@ type bulkSystemNameResult struct {
 	SystemName interface{} `json:"system-name"` // Can be string or systemNameError
 }
 
-
-
 // getSystemNamesForInterfacesBulk fetches system names for multiple interfaces in a single request.
 //
 // This uses a bulk POST request to /rci to query all interfaces at once,
@@ -89,7 +87,7 @@ func (c *Client) getSystemNamesForInterfacesBulk(interfaceIDs []string) (map[str
 	if err != nil {
 		return nil, fmt.Errorf("failed to make bulk request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer utils.CloseOrWarn(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code %d for bulk request", resp.StatusCode)

@@ -265,3 +265,167 @@ func TestMatcher_SuffixMatching(t *testing.T) {
 		}
 	}
 }
+
+func TestMatcher_MostSpecificMatch(t *testing.T) {
+	// Test that when multiple patterns match, only the most specific one is returned.
+	// For example:
+	// - \"example.com\" in ipset1
+	// - \"sub.example.com\" in ipset2
+	// When querying \"sub.sub.example.com\", it should return only ipset2 (most specific)
+
+	tests := []struct {
+		name        string
+		lists       []*config.ListSource
+		ipsets      []*config.IPSetConfig
+		queryDomain string
+		expected    []string
+		description string
+	}{
+		{
+			name: "subdomain more specific than parent",
+			lists: []*config.ListSource{
+				{
+					ListName: "list1",
+					Hosts:    []string{"example.com"},
+				},
+				{
+					ListName: "list2",
+					Hosts:    []string{"sub.example.com"},
+				},
+			},
+			ipsets: []*config.IPSetConfig{
+				{
+					IPSetName: "ipset1",
+					Lists:     []string{"list1"},
+					IPVersion: config.Ipv4,
+				},
+				{
+					IPSetName: "ipset2",
+					Lists:     []string{"list2"},
+					IPVersion: config.Ipv4,
+				},
+			},
+			queryDomain: "sub.sub.example.com",
+			expected:    []string{"ipset2"},
+			description: "should return only ipset2 (sub.example.com) not ipset1 (example.com)",
+		},
+		{
+			name: "reversed order - subdomain more specific than parent",
+			lists: []*config.ListSource{
+				{
+					ListName: "list2",
+					Hosts:    []string{"sub.example.com"},
+				},
+				{
+					ListName: "list1",
+					Hosts:    []string{"example.com"},
+				},
+			},
+			ipsets: []*config.IPSetConfig{
+				{
+					IPSetName: "ipset2",
+					Lists:     []string{"list2"},
+					IPVersion: config.Ipv4,
+				},
+				{
+					IPSetName: "ipset1",
+					Lists:     []string{"list1"},
+					IPVersion: config.Ipv4,
+				},
+			},
+			queryDomain: "sub.sub.example.com",
+			expected:    []string{"ipset2"},
+			description: "order shouldn't matter - should still return only ipset2",
+		},
+		{
+			name: "exact match is most specific",
+			lists: []*config.ListSource{
+				{
+					ListName: "list1",
+					Hosts:    []string{"example.com"},
+				},
+				{
+					ListName: "list2",
+					Hosts:    []string{"sub.example.com"},
+				},
+			},
+			ipsets: []*config.IPSetConfig{
+				{
+					IPSetName: "ipset1",
+					Lists:     []string{"list1"},
+					IPVersion: config.Ipv4,
+				},
+				{
+					IPSetName: "ipset2",
+					Lists:     []string{"list2"},
+					IPVersion: config.Ipv4,
+				},
+			},
+			queryDomain: "sub.example.com",
+			expected:    []string{"ipset2"},
+			description: "exact match for sub.example.com should return only ipset2",
+		},
+		{
+			name: "three levels of specificity",
+			lists: []*config.ListSource{
+				{
+					ListName: "list1",
+					Hosts:    []string{"example.com"},
+				},
+				{
+					ListName: "list2",
+					Hosts:    []string{"sub.example.com"},
+				},
+				{
+					ListName: "list3",
+					Hosts:    []string{"deep.sub.example.com"},
+				},
+			},
+			ipsets: []*config.IPSetConfig{
+				{
+					IPSetName: "ipset1",
+					Lists:     []string{"list1"},
+					IPVersion: config.Ipv4,
+				},
+				{
+					IPSetName: "ipset2",
+					Lists:     []string{"list2"},
+					IPVersion: config.Ipv4,
+				},
+				{
+					IPSetName: "ipset3",
+					Lists:     []string{"list3"},
+					IPVersion: config.Ipv4,
+				},
+			},
+			queryDomain: "very.deep.sub.example.com",
+			expected:    []string{"ipset3"},
+			description: "should return only the most specific match (deep.sub.example.com)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Lists:  tt.lists,
+				IPSets: tt.ipsets,
+			}
+
+			matcher := NewMatcher(cfg)
+			matches := matcher.Match(tt.queryDomain)
+
+			if len(matches) != len(tt.expected) {
+				t.Errorf("%s: expected %d matches %v, got %d matches %v",
+					tt.description, len(tt.expected), tt.expected, len(matches), matches)
+				return
+			}
+
+			for i, expected := range tt.expected {
+				if matches[i] != expected {
+					t.Errorf("%s: expected match[%d] = %s, got %s",
+						tt.description, i, expected, matches[i])
+				}
+			}
+		})
+	}
+}

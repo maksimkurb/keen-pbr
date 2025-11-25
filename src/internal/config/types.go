@@ -10,157 +10,69 @@ import (
 )
 
 type Config struct {
+	// ConfigVersion is the configuration file version.
+	ConfigVersion uint8 `toml:"config_version" json:"config_version"`
+	// General holds general configuration.
 	General *GeneralConfig `toml:"general"`
-	IPSets  []*IPSetConfig `toml:"ipset,omitempty" comment:"ipset configuration.\nYou can add multiple ipsets."`
-	Lists   []*ListSource  `toml:"list,omitempty" comment:"Lists with domains/IPs/CIDRs.\nYou can add multiple lists and use them in ipsets by providing their name.\nYou must set \"name\" and either \"url\", \"file\" or \"hosts\" field for each list."`
+	// IPSets is the ipset configuration. You can add multiple ipsets.
+	IPSets []*IPSetConfig `toml:"ipset,omitempty"`
+	// Lists contains lists with domains/IPs/CIDRs. You can add multiple lists and use them in ipsets by providing their name. You must set "name" and either "url", "file" or "hosts" field for each list.
+	Lists []*ListSource `toml:"list,omitempty"`
 
 	_absConfigFilePath string
 }
 
 type GeneralConfig struct {
-	ListsOutputDir            string `toml:"lists_output_dir" json:"lists_output_dir" comment:"Directory for downloaded lists"`
-	UseKeeneticDNS            *bool  `toml:"use_keenetic_dns" json:"use_keenetic_dns" comment:"Use Keenetic DNS from System profile as upstream"`
-	FallbackDNS               string `toml:"fallback_dns" json:"fallback_dns" comment:"Fallback DNS server to use if Keenetic RCI call fails (e.g. 8.8.8.8 or 1.1.1.1)"`
-	EnableAPI                 *bool  `toml:"enable_api" json:"enable_api" comment:"Enable REST API and web UI (default: true)"`
-	APIBindAddress            string `toml:"api_bind_address" json:"api_bind_address" comment:"API server bind address (e.g. 0.0.0.0:8080). Access is restricted to private subnets only."`
-	AutoUpdateLists           *bool  `toml:"auto_update_lists" json:"auto_update_lists" comment:"Automatically update lists with URLs in background (default: true)"`
-	UpdateIntervalHours       int    `toml:"update_interval_hours" json:"update_interval_hours" comment:"Interval in hours for automatic list updates (default: 24 hours, min: 1 hour)"`
-	EnableInterfaceMonitoring *bool  `toml:"enable_interface_monitoring" json:"enable_interface_monitoring" comment:"Enable periodic interface status monitoring in web UI (default: false)"`
+	// ListsOutputDir is the directory for downloaded lists.
+	ListsOutputDir string `toml:"lists_output_dir" json:"lists_output_dir" validate:"required"`
+	// InterfaceMonitoringIntervalSeconds is the interval in seconds for interface monitoring (0 = disabled, default: 0).
+	InterfaceMonitoringIntervalSeconds int `toml:"interface_monitoring_interval_seconds" json:"interface_monitoring_interval_seconds" validate:"gte=0"`
 
-	// DNS Proxy settings
-	EnableDNSProxy     *bool    `toml:"enable_dns_proxy" json:"enable_dns_proxy" comment:"Enable transparent DNS proxy for domain-based routing (default: true)"`
-	DNSProxyListenAddr string   `toml:"dns_proxy_listen_addr" json:"dns_proxy_listen_addr" comment:"DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or use specific IP like 127.0.0.1)"`
-	DNSProxyPort       int      `toml:"dns_proxy_port" json:"dns_proxy_port" comment:"Port for DNS proxy listener (default: 15353)"`
-	DNSUpstream        []string `toml:"dns_upstream" json:"dns_upstream" comment:"Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: [\"keenetic://\"])"`
-	DNSCacheMaxDomains int      `toml:"dns_cache_max_domains" json:"dns_cache_max_domains" comment:"Maximum number of domains to cache in DNS proxy (default: 1000)"`
-	DropAAAA           *bool    `toml:"drop_aaaa" json:"drop_aaaa" comment:"Drop AAAA (IPv6) DNS responses (default: true)"`
-	TTLOverride        int      `toml:"ttl_override" json:"ttl_override" comment:"Override TTL for DNS responses in seconds (0 = use original TTL)"`
-	DNSProxyInterfaces []string `toml:"dns_proxy_interfaces" json:"dns_proxy_interfaces" comment:"Interfaces to intercept DNS traffic on (default: [\"br0\", \"br1\"])"`
-	DNSProxyRemap53    *bool    `toml:"dns_proxy_remap_53" json:"dns_proxy_remap_53" comment:"Remap port 53 to DNS proxy port (default: true)"`
+	// AutoUpdate lists settings
+	AutoUpdate *AutoUpdateConfig `toml:"auto_update_lists" json:"auto_update_lists"`
+
+	// DNS Server settings
+	DNSServer *DNSServerConfig `toml:"dns_server" json:"dns_server"`
 }
 
-// IsAPIEnabled returns whether REST API and web UI is enabled (default: true).
-func (gc *GeneralConfig) IsAPIEnabled() bool {
-	if gc.EnableAPI == nil {
-		return true // Default to enabled
-	}
-	return *gc.EnableAPI
+type AutoUpdateConfig struct {
+	// Enabled enables automatic background updates of lists with URLs (default: true).
+	Enabled bool `toml:"enabled" json:"enabled"`
+	// IntervalHours is the interval in hours for automatic list updates (default: 24 hours, min: 1 hour).
+	IntervalHours int `toml:"interval_hours" json:"interval_hours" validate:"min=0,required_if=Enabled true,gte=1"`
 }
 
-// GetAPIBindAddress returns the API bind address (default: 0.0.0.0:8080).
-func (gc *GeneralConfig) GetAPIBindAddress() string {
-	if gc.APIBindAddress == "" {
-		return "0.0.0.0:8080"
-	}
-	return gc.APIBindAddress
-}
-
-// GetDNSCacheMaxDomains returns the max domains for DNS cache (default: 1000).
-func (gc *GeneralConfig) GetDNSCacheMaxDomains() int {
-	if gc.DNSCacheMaxDomains <= 0 {
-		return 1000 // Default to 1000 for memory efficiency
-	}
-	return gc.DNSCacheMaxDomains
-}
-
-// IsAutoUpdateEnabled returns whether auto-update is enabled (default: true).
-func (gc *GeneralConfig) IsAutoUpdateEnabled() bool {
-	if gc.AutoUpdateLists == nil {
-		return true // Default to enabled
-	}
-	return *gc.AutoUpdateLists
-}
-
-// GetUpdateIntervalHours returns the update interval in hours (default: 24, min: 1).
-func (gc *GeneralConfig) GetUpdateIntervalHours() int {
-	if gc.UpdateIntervalHours <= 0 {
-		return 24 // Default to 24 hours
-	}
-	if gc.UpdateIntervalHours < 1 {
-		return 1 // Minimum 1 hour
-	}
-	return gc.UpdateIntervalHours
-}
-
-// IsInterfaceMonitoringEnabled returns whether interface monitoring is enabled (default: false).
-func (gc *GeneralConfig) IsInterfaceMonitoringEnabled() bool {
-	if gc.EnableInterfaceMonitoring == nil {
-		return false // Default to disabled
-	}
-	return *gc.EnableInterfaceMonitoring
-}
-
-// IsDNSProxyEnabled returns whether DNS proxy is enabled (default: true).
-func (gc *GeneralConfig) IsDNSProxyEnabled() bool {
-	if gc.EnableDNSProxy == nil {
-		return true // Default to enabled
-	}
-	return *gc.EnableDNSProxy
-}
-
-// GetDNSProxyListenAddr returns the DNS proxy listen address (default: [::]).
-func (gc *GeneralConfig) GetDNSProxyListenAddr() string {
-	if gc.DNSProxyListenAddr == "" {
-		return "[::]" // Default to dual-stack with brackets
-	}
-	return gc.DNSProxyListenAddr
-}
-
-// GetDNSProxyPort returns the DNS proxy port (default: 15353).
-func (gc *GeneralConfig) GetDNSProxyPort() int {
-	if gc.DNSProxyPort <= 0 {
-		return 15353 // Default port
-	}
-	return gc.DNSProxyPort
-}
-
-// GetDNSUpstream returns the configured upstream DNS servers (default: ["keenetic://"]).
-func (gc *GeneralConfig) GetDNSUpstream() []string {
-	if len(gc.DNSUpstream) == 0 {
-		return []string{"keenetic://"}
-	}
-	return gc.DNSUpstream
-}
-
-// IsDropAAAAEnabled returns whether AAAA (IPv6) responses should be dropped (default: true).
-func (gc *GeneralConfig) IsDropAAAAEnabled() bool {
-	if gc.DropAAAA == nil {
-		return true // Default to dropping AAAA
-	}
-	return *gc.DropAAAA
-}
-
-// GetTTLOverride returns the TTL override value (0 = use original TTL).
-func (gc *GeneralConfig) GetTTLOverride() uint32 {
-	if gc.TTLOverride < 0 {
-		return 0
-	}
-	return uint32(gc.TTLOverride)
-}
-
-// GetDNSProxyInterfaces returns the interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
-func (gc *GeneralConfig) GetDNSProxyInterfaces() []string {
-	if len(gc.DNSProxyInterfaces) == 0 {
-		return []string{"br0", "br1"}
-	}
-	return gc.DNSProxyInterfaces
-}
-
-// IsDNSProxyRemap53Enabled returns whether DNS remapping is enabled (default: true).
-func (gc *GeneralConfig) IsDNSProxyRemap53Enabled() bool {
-	if gc.DNSProxyRemap53 == nil {
-		return true // Default to enabled
-	}
-	return *gc.DNSProxyRemap53
+type DNSServerConfig struct {
+	// Enable enables transparent DNS proxy for domain-based routing (default: true).
+	Enable bool `toml:"enable" json:"enable"`
+	// ListenAddr is the DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or a specific IP like 127.0.0.1).
+	ListenAddr string `toml:"listen_addr" json:"listen_addr" validate:"ip_or_empty"`
+	// ListenPort is the port for DNS proxy listener (default: 15353).
+	ListenPort uint16 `toml:"listen_port" json:"listen_port" validate:"required,min=1"`
+	// Upstreams lists upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: ["keenetic://"]).
+	Upstreams []string `toml:"upstreams" json:"upstreams" validate:"dive,upstream_url,required_if=Enable true"`
+	// CacheMaxDomains is the maximum number of domains to cache in DNS proxy (default: 1000).
+	CacheMaxDomains int `toml:"cache_max_domains" json:"cache_max_domains" validate:"min=0"`
+	// DropAAAA drops AAAA (IPv6) DNS responses (default: true).
+	DropAAAA bool `toml:"drop_aaaa" json:"drop_aaaa"`
+	// TTLOverride overrides TTL for DNS responses in seconds (0 = use original TTL).
+	TTLOverride uint32 `toml:"ttl_override" json:"ttl_override" validate:"min=0"`
+	// Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
+	Remap53Interfaces []string `toml:"remap_53_interfaces" json:"remap_53_interfaces" validate:"required_if=Enable true"`
 }
 
 type IPSetConfig struct {
-	IPSetName           string          `toml:"ipset_name" json:"ipset_name" comment:"Name of the ipset."`
-	Lists               []string        `toml:"lists" json:"lists" comment:"Add all hosts from the following lists to this ipset."`
-	IPVersion           IPFamily        `toml:"ip_version" json:"ip_version" comment:"IP version (4 or 6)"`
-	FlushBeforeApplying bool            `toml:"flush_before_applying" json:"flush_before_applying" comment:"Clear ipset each time before filling it"`
-	Routing             *RoutingConfig  `toml:"routing" json:"routing,omitempty"`
-	IPTablesRules       []*IPTablesRule `toml:"iptables_rule,omitempty" json:"iptables_rule,omitempty" comment:"An iptables rule for this ipset (you can provide multiple rules).\nAvailable variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}."`
+	// IPSetName is the name of the ipset.
+	IPSetName string `toml:"ipset_name" json:"ipset_name" validate:"required,ipset_name"`
+	// Lists adds all hosts from the following lists to this ipset.
+	Lists []string `toml:"lists" json:"lists" validate:"required,min=1"`
+	// IPVersion is the IP version (4 or 6).
+	IPVersion IPFamily `toml:"ip_version" json:"ip_version" validate:"required,oneof=4 6"`
+	// FlushBeforeApplying clears ipset each time before filling it.
+	FlushBeforeApplying bool           `toml:"flush_before_applying" json:"flush_before_applying"`
+	Routing             *RoutingConfig `toml:"routing" json:"routing,omitempty" validate:"required"`
+	// IPTablesRules are iptables rules for this ipset (you can provide multiple rules). Available variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}.
+	IPTablesRules []*IPTablesRule `toml:"iptables_rule,omitempty" json:"iptables_rule,omitempty" validate:"dive"`
 }
 
 type IPTablesRule struct {
@@ -170,20 +82,36 @@ type IPTablesRule struct {
 }
 
 type RoutingConfig struct {
-	Interfaces     []string `toml:"interfaces" json:"interfaces" comment:"Interface list to direct traffic for IPs in this ipset to.\nkeen-pbr will use first available interface.\nKeenetic API will be queried automatically to check network connectivity on interfaces.\nIf all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting."`
-	DefaultGateway string   `toml:"default_gateway" json:"default_gateway,omitempty" comment:"Default gateway IP address to use instead of interface-based routing.\nMust match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6).\nIf set, this gateway will be used when no interface is available or no interfaces are configured."`
-	KillSwitch     *bool    `toml:"kill_switch" json:"kill_switch,omitempty" comment:"Kill switch behavior when all interfaces are down.\nIf true (default): traffic is blocked via blackhole route (no leaks).\nIf false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed)."`
-	FwMark         uint32   `toml:"fwmark" json:"fwmark" comment:"Fwmark to apply to packets matching the list criteria."`
-	IPRouteTable   int      `toml:"table" json:"table" comment:"iptables routing table number"`
-	IPRulePriority int      `toml:"priority" json:"priority" comment:"iptables routing rule priority"`
-	DNSOverride    string   `toml:"override_dns" json:"override_dns,omitempty" comment:"Override DNS server for domains in this ipset. Format: <server>[#port] (e.g. 1.1.1.1#53 or 8.8.8.8)"`
+	// Interfaces is the list of interfaces to direct traffic for IPs in this ipset. keen-pbr will use the first available interface. Keenetic API will be queried automatically to check network connectivity on interfaces. If all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting.
+	Interfaces []string `toml:"interfaces" json:"interfaces"`
+	// DefaultGateway is the default gateway IP address to use instead of interface-based routing. Must match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6). If set, this gateway will be used when no interface is available or no interfaces are configured.
+	DefaultGateway string `toml:"default_gateway" json:"default_gateway,omitempty" validate:"ip_or_empty"`
+	// KillSwitch defines kill switch behavior when all interfaces are down. If true (default): traffic is blocked via blackhole route (no leaks). If false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed).
+	KillSwitch bool `toml:"kill_switch" json:"kill_switch"`
+	// FwMark is the fwmark to apply to packets matching the list criteria.
+	FwMark uint32 `toml:"fwmark" json:"fwmark" validate:"required,min=1"`
+	// IPRouteTable is the iptables routing table number.
+	IPRouteTable int `toml:"table" json:"table" validate:"required,min=1"`
+	// IPRulePriority is the iptables routing rule priority.
+	IPRulePriority int `toml:"priority" json:"priority" validate:"required,min=1"`
+	// DNS settings for this routing rule
+	DNS *RoutingDNSConfig `toml:"dns" json:"dns,omitempty"`
+}
+
+type RoutingDNSConfig struct {
+	// Upstreams overrides DNS server for domains in this ipset. Format: <server>[#port] (e.g., 1.1.1.1#53 or 8.8.8.8).
+	Upstreams []string `toml:"upstreams" json:"upstreams" validate:"dive,upstream_url"`
 }
 
 type ListSource struct {
-	ListName string   `toml:"list_name" json:"list_name"`
-	URL      string   `toml:"url,omitempty" json:"url,omitempty"`
-	File     string   `toml:"file,omitempty" json:"file,omitempty"`
-	Hosts    []string `toml:"hosts,multiline,omitempty" json:"hosts,omitempty"`
+	// ListName is the name of the list.
+	ListName string `toml:"list_name" json:"list_name" validate:"required"`
+	// URL is the URL of the list (optional).
+	URL string `toml:"url,omitempty" json:"url,omitempty" validate:"omitempty,url"`
+	// File is the local file path of the list (optional).
+	File string `toml:"file,omitempty" json:"file,omitempty"`
+	// Hosts is a list of host entries for the list (optional).
+	Hosts []string `toml:"hosts,omitempty" json:"hosts,omitempty"`
 }
 
 func (c *Config) GetConfigDir() string {
@@ -239,14 +167,4 @@ func (lst *ListSource) GetAbsolutePathAndCheckExists(cfg *Config) (string, error
 
 		return path, nil
 	}
-}
-
-// IsKillSwitchEnabled returns whether kill switch is enabled (default: true).
-// When enabled, traffic is blocked via blackhole route when all interfaces are down.
-// When disabled, ip rules and iptables rules are removed, allowing traffic to leak.
-func (rc *RoutingConfig) IsKillSwitchEnabled() bool {
-	if rc.KillSwitch == nil {
-		return true // Default to enabled for safety
-	}
-	return *rc.KillSwitch
 }

@@ -302,64 +302,33 @@ func (r *RecordsCache) GetTargetChain(domain string) []string {
 
 // Cleanup removes expired entries from the cache.
 func (r *RecordsCache) Cleanup() {
-	r.mu.RLock()
-	now := time.Now().Unix()
-
-	var expiredDomains []string
-	var expiredAliases []string
-
-	for domain, addrs := range r.addresses {
-		hasValid := false
-		for _, addr := range addrs {
-			if addr.deadline > now {
-				hasValid = true
-				break
-			}
-		}
-		if !hasValid {
-			expiredDomains = append(expiredDomains, domain)
-		}
-	}
-
-	for domain, entry := range r.aliases {
-		if entry.deadline <= now {
-			expiredAliases = append(expiredAliases, domain)
-		}
-	}
-	r.mu.RUnlock()
-
-	if len(expiredDomains) == 0 && len(expiredAliases) == 0 {
-		return
-	}
-
+	// Use write lock from start - simpler and avoids race with lock upgrade
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	now = time.Now().Unix()
+	now := time.Now().Unix()
 
-	for _, domain := range expiredDomains {
-		if addrs, exists := r.addresses[domain]; exists {
-			var valid []cachedAddressInternal
-			for _, addr := range addrs {
-				if addr.deadline > now {
-					valid = append(valid, addr)
-				}
+	// Clean addresses
+	for domain, addrs := range r.addresses {
+		var valid []cachedAddressInternal
+		for _, addr := range addrs {
+			if addr.deadline > now {
+				valid = append(valid, addr)
 			}
-			if len(valid) == 0 {
-				delete(r.addresses, domain)
-				r.removeDomainFromLRU(domain)
-			} else {
-				r.addresses[domain] = valid
-			}
+		}
+		if len(valid) == 0 {
+			delete(r.addresses, domain)
+			r.removeDomainFromLRU(domain)
+		} else {
+			r.addresses[domain] = valid
 		}
 	}
 
-	for _, domain := range expiredAliases {
-		if entry, exists := r.aliases[domain]; exists {
-			if entry.deadline <= now {
-				delete(r.aliases, domain)
-				r.reverseValid = false
-			}
+	// Clean aliases
+	for domain, entry := range r.aliases {
+		if entry.deadline <= now {
+			delete(r.aliases, domain)
+			r.reverseValid = false
 		}
 	}
 }

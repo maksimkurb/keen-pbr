@@ -28,43 +28,39 @@ func (m *mockKeeneticClient) GetRawVersion() (string, error) {
 	return "", nil
 }
 
-func TestKeeneticUpstream_NewKeeneticUpstream(t *testing.T) {
+func TestKeeneticProvider_NewKeeneticProvider(t *testing.T) {
 	client := &mockKeeneticClient{}
 
-	// Test without domain restriction
-	upstream := NewKeeneticUpstream(client, "")
-	if upstream.Domain != "" {
-		t.Errorf("Expected empty domain, got %q", upstream.Domain)
-	}
-	if upstream.keeneticClient == nil {
+	// Test provider creation
+	provider := NewKeeneticProvider(client, "")
+	if provider.keeneticClient == nil {
 		t.Error("Expected keeneticClient to be set")
 	}
 
-	// Test with domain restriction
-	upstream = NewKeeneticUpstream(client, "example.com")
-	if upstream.Domain != "example.com" {
-		t.Errorf("Expected domain 'example.com', got %q", upstream.Domain)
+	// Domain parameter is ignored (Keenetic RCI provides domain per server)
+	provider = NewKeeneticProvider(client, "example.com")
+	if provider.GetDomain() != "" {
+		t.Errorf("Expected empty domain (provider doesn't filter), got %q", provider.GetDomain())
 	}
 }
 
-func TestKeeneticUpstream_String(t *testing.T) {
+func TestKeeneticProvider_String(t *testing.T) {
 	client := &mockKeeneticClient{}
 
-	// Without domain
-	upstream := NewKeeneticUpstream(client, "")
-	if upstream.String() != "keenetic://" {
-		t.Errorf("Expected 'keenetic://', got %q", upstream.String())
+	// Provider string is always "keenetic://" regardless of domain parameter
+	provider := NewKeeneticProvider(client, "")
+	if provider.String() != "keenetic://" {
+		t.Errorf("Expected 'keenetic://', got %q", provider.String())
 	}
 
-	// With domain
-	upstream = NewKeeneticUpstream(client, "example.com")
-	expected := "keenetic:// (domain: example.com)"
-	if upstream.String() != expected {
-		t.Errorf("Expected %q, got %q", expected, upstream.String())
+	// Domain parameter is ignored
+	provider = NewKeeneticProvider(client, "example.com")
+	if provider.String() != "keenetic://" {
+		t.Errorf("Expected 'keenetic://', got %q", provider.String())
 	}
 }
 
-func TestKeeneticUpstream_GetDNSServers(t *testing.T) {
+func TestKeeneticProvider_GetDNSServers(t *testing.T) {
 	servers := []keenetic.DNSServerInfo{
 		{
 			Type:     keenetic.DNSServerTypePlain,
@@ -79,15 +75,15 @@ func TestKeeneticUpstream_GetDNSServers(t *testing.T) {
 	}
 
 	client := &mockKeeneticClient{dnsServers: servers}
-	upstream := NewKeeneticUpstream(client, "")
+	provider := NewKeeneticProvider(client, "")
 
-	result := upstream.GetDNSServers()
+	result := provider.GetDNSServers()
 	if len(result) != 2 {
 		t.Errorf("Expected 2 DNS servers, got %d", len(result))
 	}
 }
 
-func TestKeeneticUpstream_GetDNSServers_FiltersDomainSpecificServers(t *testing.T) {
+func TestKeeneticProvider_GetDNSServers_PassesThroughAllServers(t *testing.T) {
 	domain := "specific.com"
 	servers := []keenetic.DNSServerInfo{
 		{
@@ -106,24 +102,18 @@ func TestKeeneticUpstream_GetDNSServers_FiltersDomainSpecificServers(t *testing.
 
 	client := &mockKeeneticClient{dnsServers: servers}
 
-	// Without domain restriction - should filter out domain-specific servers
-	upstream := NewKeeneticUpstream(client, "")
-	result := upstream.GetDNSServers()
-	if len(result) != 1 {
-		t.Errorf("Expected 1 DNS server (general only), got %d", len(result))
-	}
-	if result[0].Proxy != "8.8.8.8" {
-		t.Errorf("Expected general server 8.8.8.8, got %s", result[0].Proxy)
+	// Provider doesn't filter - it returns all servers from Keenetic RCI
+	provider := NewKeeneticProvider(client, "")
+	result := provider.GetDNSServers()
+	if len(result) != 2 {
+		t.Errorf("Expected 2 DNS servers (all from RCI), got %d", len(result))
 	}
 
-	// With domain restriction - should only include servers matching that domain
-	upstream2 := NewKeeneticUpstream(client, "specific.com")
-	result2 := upstream2.GetDNSServers()
-	if len(result2) != 1 {
-		t.Errorf("Expected 1 DNS server (domain-specific only), got %d", len(result2))
-	}
-	if len(result2) > 0 && result2[0].Proxy != "1.1.1.1" {
-		t.Errorf("Expected domain-specific server 1.1.1.1, got %s", result2[0].Proxy)
+	// Domain parameter is ignored - still returns all servers
+	provider2 := NewKeeneticProvider(client, "specific.com")
+	result2 := provider2.GetDNSServers()
+	if len(result2) != 2 {
+		t.Errorf("Expected 2 DNS servers (all from RCI), got %d", len(result2))
 	}
 }
 
@@ -289,7 +279,7 @@ func TestCreateUpstreamFromDNSServerInfo_UnknownType(t *testing.T) {
 	}
 }
 
-func TestKeeneticUpstream_Close(t *testing.T) {
+func TestKeeneticProvider_Close(t *testing.T) {
 	servers := []keenetic.DNSServerInfo{
 		{
 			Type:     keenetic.DNSServerTypePlain,
@@ -299,81 +289,11 @@ func TestKeeneticUpstream_Close(t *testing.T) {
 	}
 
 	client := &mockKeeneticClient{dnsServers: servers}
-	upstream := NewKeeneticUpstream(client, "")
+	provider := NewKeeneticProvider(client, "")
 
-	// Trigger upstream creation
-	_ = upstream.GetDNSServers()
-
-	// Close should not panic
-	err := upstream.Close()
+	// Close should not panic (provider is stateless, so this is a no-op)
+	err := provider.Close()
 	if err != nil {
 		t.Errorf("Expected no error on close, got %v", err)
 	}
-
-	// After close, cached servers should be nil
-	upstream.mu.RLock()
-	if upstream.cachedServers != nil {
-		t.Error("Expected cachedServers to be nil after close")
-	}
-	if upstream.upstreams != nil {
-		t.Error("Expected upstreams to be nil after close")
-	}
-	upstream.mu.RUnlock()
-}
-
-func TestKeeneticUpstream_CacheTTL(t *testing.T) {
-	callCount := 0
-	servers := []keenetic.DNSServerInfo{
-		{
-			Type:     keenetic.DNSServerTypePlain,
-			Proxy:    "8.8.8.8",
-			Endpoint: "8.8.8.8",
-		},
-	}
-
-	client := &mockKeeneticClient{dnsServers: servers}
-
-	// Wrap GetDNSServers to count calls
-	originalClient := client
-	countingClient := &countingMockClient{
-		mockKeeneticClient: originalClient,
-		callCount:          &callCount,
-	}
-
-	upstream := NewKeeneticUpstream(countingClient, "")
-
-	// First call should fetch from client
-	_ = upstream.GetDNSServers()
-	if callCount != 1 {
-		t.Errorf("Expected 1 call, got %d", callCount)
-	}
-
-	// Second call should use cache
-	_ = upstream.GetDNSServers()
-	if callCount != 1 {
-		t.Errorf("Expected still 1 call (cached), got %d", callCount)
-	}
-}
-
-// countingMockClient wraps mockKeeneticClient to count GetDNSServers calls.
-type countingMockClient struct {
-	*mockKeeneticClient
-	callCount *int
-}
-
-func (c *countingMockClient) GetDNSServers() ([]keenetic.DNSServerInfo, error) {
-	*c.callCount++
-	return c.mockKeeneticClient.GetDNSServers()
-}
-
-func (c *countingMockClient) GetInterfaces() (map[string]keenetic.Interface, error) {
-	return nil, nil
-}
-
-func (c *countingMockClient) GetVersion() (*keenetic.KeeneticVersion, error) {
-	return nil, nil
-}
-
-func (c *countingMockClient) GetRawVersion() (string, error) {
-	return "", nil
 }

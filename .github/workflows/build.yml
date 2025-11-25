@@ -41,6 +41,11 @@ jobs:
       run: go test -v ./...
     - name: Run staticcheck
       run: staticcheck ./...
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.6
+
 
   build-entware:
     runs-on: ubuntu-latest

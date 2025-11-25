@@ -2,11 +2,12 @@ package upstreams
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/miekg/dns"
 )
 
@@ -39,7 +40,7 @@ func NewUDPUpstream(address string, restrictedDomain string) (*UDPUpstream, erro
 	}
 
 	return &UDPUpstream{
-		BaseUpstream: BaseUpstream{Domain: restrictedDomain},
+		BaseUpstream: NewBaseUpstream(restrictedDomain),
 		address:      host,
 		client: &dns.Client{
 			Net:     "udp",
@@ -50,19 +51,32 @@ func NewUDPUpstream(address string, restrictedDomain string) (*UDPUpstream, erro
 
 // Query sends a DNS query to the UDP upstream.
 func (u *UDPUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
+	// Extract query info for logging
+	queryInfo := "unknown"
+	if len(req.Question) > 0 {
+		q := req.Question[0]
+		queryInfo = fmt.Sprintf("%s %s", q.Name, dns.TypeToString[q.Qtype])
+	}
+
+	upstreamStr := u.GetDNSStrings()[0]
+	log.Debugf("[%04x] Querying upstream: %s for %s", req.Id, upstreamStr, queryInfo)
+
 	resp, _, err := u.client.ExchangeContext(ctx, req, u.address)
 	if err != nil {
-		return nil, fmt.Errorf("UDP query failed: %w", err)
+		// Check if it's a context timeout vs network timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Warnf("[%04x] Upstream timeout (context) for query: %s (upstream: %s)", req.Id, queryInfo, upstreamStr)
+		} else {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				log.Debugf("[%04x] Upstream timeout (network) for query: %s (upstream: %s)", req.Id, queryInfo, upstreamStr)
+			} else {
+				log.Debugf("[%04x] Upstream error for query %s (upstream: %s): %v", req.Id, queryInfo, upstreamStr, err)
+			}
+		}
+		return nil, err
 	}
 	return resp, nil
-}
-
-// String returns a human-readable representation of the upstream.
-func (u *UDPUpstream) String() string {
-	if u.Domain != "" {
-		return fmt.Sprintf("udp://%s (domain: %s)", u.address, u.Domain)
-	}
-	return fmt.Sprintf("udp://%s", u.address)
 }
 
 // Close closes any resources held by the upstream.
@@ -70,20 +84,13 @@ func (u *UDPUpstream) Close() error {
 	return nil
 }
 
-// GetDNSServers returns the DNS server info for this upstream.
-func (u *UDPUpstream) GetDNSServers() []keenetic.DNSServerInfo {
-	var domain *string
+// GetDNSStrings returns an array of DNS server strings in URL format.
+func (u *UDPUpstream) GetDNSStrings() []string {
+	url := fmt.Sprintf("udp://%s", u.address)
 	if u.Domain != "" {
-		domain = &u.Domain
+		url = fmt.Sprintf("%s?domain=%s", url, u.Domain)
 	}
-	return []keenetic.DNSServerInfo{
-		{
-			Type:     keenetic.DNSServerTypePlain,
-			Proxy:    u.address,
-			Endpoint: u.address,
-			Domain:   domain,
-		},
-	}
+	return []string{url}
 }
 
 // containsPort checks if the address contains a port number.

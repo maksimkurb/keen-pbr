@@ -579,44 +579,6 @@ Content-Type: application/json
 }
 ```
 
-### Health Checks
-
-Perform comprehensive health checks.
-
-#### Check Health
-
-```http
-GET /api/v1/health
-```
-
-**Response:**
-```json
-{
-  "data": {
-    "healthy": true,
-    "checks": {
-      "config_validation": {
-        "passed": true,
-        "message": "Configuration is valid"
-      },
-      "network_config": {
-        "passed": true,
-        "message": "Network configuration is valid"
-      },
-      "keenetic_connectivity": {
-        "passed": true,
-        "message": "Keenetic API is accessible"
-      }
-    }
-  }
-}
-```
-
-**Health Checks Performed:**
-1. **config_validation** - Configuration file is valid
-2. **network_config** - Network interfaces exist and are configured correctly
-3. **keenetic_connectivity** - Keenetic router API is accessible
-
 ### Network Diagnostics
 
 Perform real-time network diagnostics and routing checks.
@@ -821,12 +783,6 @@ curl -X POST http://127.0.0.1:8080/api/v1/ipsets \
 
 ```bash
 curl http://127.0.0.1:8080/api/v1/status
-```
-
-**Step 4: Perform health check**
-
-```bash
-curl http://127.0.0.1:8080/api/v1/health
 ```
 
 ### Update List URL

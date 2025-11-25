@@ -30,7 +30,7 @@ func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 			if err := ipset.Flush(); err != nil {
 				log.Errorf("[ipset %s] Failed to flush: %v", ipsetCfg.IPSetName, err)
 			} else {
-				log.Infof("[ipset %s] Flushed", ipsetCfg.IPSetName)
+				log.Debugf("[ipset %s] Flushed", ipsetCfg.IPSetName)
 			}
 		}
 
@@ -55,7 +55,7 @@ func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 		ipCount := 0
 		ipv4Count := 0
 		ipv6Count := 0
-		log.Infof("[list %s] Processing (ipsets: %v)...", listName, ipsets)
+		log.Debugf("[list %s] Processing (ipsets: %v)...", listName, ipsets)
 		list, err := getListByName(cfg, listName)
 		if err != nil {
 			return err
@@ -79,7 +79,7 @@ func ImportListsToIPSets(cfg *config.Config, listManager *Manager) error {
 			listManager.UpdateStatistics(list, cfg, 0, ipv4Count, ipv6Count)
 		}
 
-		log.Infof("[list %s] Processing finished: %d IPs/networks loaded to ipset", listName, ipCount)
+		log.Debugf("[list %s] Processing finished: %d IPs/networks loaded to ipset", listName, ipCount)
 	}
 
 	log.Infof("All IPs/networks loaded to ipsets")

@@ -6,7 +6,6 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -29,7 +28,7 @@ type DNSCheckSubscriber interface {
 
 // DNSServersProvider provides access to the currently used DNS servers.
 type DNSServersProvider interface {
-	GetDNSServers() []keenetic.DNSServerInfo
+	GetDNSStrings() []string
 }
 
 // Handler manages all API endpoints and dependencies.
@@ -82,7 +81,9 @@ func (h *Handler) validateConfig(cfg *config.Config) error {
 func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(DataResponse{Data: data})
+	if err := json.NewEncoder(w).Encode(DataResponse{Data: data}); err != nil {
+		log.Warnf("Failed to encode JSON response: %v", err)
+	}
 }
 
 // writeJSONData writes a successful JSON response with data.

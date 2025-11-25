@@ -82,16 +82,16 @@ func PrivateSubnetOnly(next http.Handler) http.Handler {
 	// Define private subnet ranges
 	privateIPBlocks := []*net.IPNet{
 		// IPv4 private ranges
-		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},        // 10.0.0.0/8
-		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},     // 172.16.0.0/12
-		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},    // 192.168.0.0/16
-		{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},       // 127.0.0.0/8 (localhost)
+		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},     // 10.0.0.0/8
+		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},  // 172.16.0.0/12
+		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)}, // 192.168.0.0/16
+		{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8, 32)},    // 127.0.0.0/8 (localhost)
 	}
 
 	// Parse IPv6 private ranges
-	_, ipv6ULA, _ := net.ParseCIDR("fc00::/7")         // IPv6 Unique Local Address
-	_, ipv6LinkLocal, _ := net.ParseCIDR("fe80::/10")  // IPv6 Link-Local
-	_, ipv6Loopback, _ := net.ParseCIDR("::1/128")     // IPv6 Loopback
+	_, ipv6ULA, _ := net.ParseCIDR("fc00::/7")        // IPv6 Unique Local Address
+	_, ipv6LinkLocal, _ := net.ParseCIDR("fe80::/10") // IPv6 Link-Local
+	_, ipv6Loopback, _ := net.ParseCIDR("::1/128")    // IPv6 Loopback
 
 	privateIPBlocks = append(privateIPBlocks, ipv6ULA, ipv6LinkLocal, ipv6Loopback)
 
@@ -149,4 +149,3 @@ func getClientIP(r *http.Request) string {
 	}
 	return ip
 }
-

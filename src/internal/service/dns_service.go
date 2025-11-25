@@ -2,10 +2,8 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
-	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
 // DNSServerInfo represents a DNS server with formatted output support.
@@ -50,36 +48,4 @@ func (s *DNSService) GetDNSServers() ([]DNSServerInfo, error) {
 	}
 
 	return result, nil
-}
-
-// FormatDNSServers returns a formatted string representation of DNS servers for CLI output.
-func (s *DNSService) FormatDNSServers(servers []DNSServerInfo) string {
-	var sb strings.Builder
-
-	for _, server := range servers {
-		domain := "-"
-		if server.Domain != nil {
-			domain = *server.Domain
-		}
-		if server.Port != "" {
-			sb.WriteString(fmt.Sprintf("  [%s] %-35s [for domain: %-15s] %s:%s\n",
-				server.Type, server.Endpoint, domain, server.Proxy, server.Port))
-		} else {
-			sb.WriteString(fmt.Sprintf("  [%s] %-35s [for domain: %-15s] %s\n",
-				server.Type, server.Endpoint, domain, server.Proxy))
-		}
-	}
-
-	return sb.String()
-}
-
-// FormatDNSServerForAPI converts keenetic.DNSServerInfo to our DNSServerInfo.
-func FormatDNSServerForAPI(server keenetic.DNSServerInfo) DNSServerInfo {
-	return DNSServerInfo{
-		Type:     string(server.Type),
-		Endpoint: server.Endpoint,
-		Domain:   server.Domain,
-		Proxy:    server.Proxy,
-		Port:     server.Port,
-	}
 }

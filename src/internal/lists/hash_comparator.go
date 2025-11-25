@@ -2,10 +2,12 @@ package lists
 
 import (
 	"errors"
-	"github.com/maksimkurb/keen-pbr/src/internal/hashing"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"io"
 	"os"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/hashing"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 func IsFileChanged(checksumProxy hashing.ChecksumProvider, filePath string) (bool, error) {
@@ -30,7 +32,7 @@ func readChecksum(checksumFilePath string) ([]byte, error) {
 	if checksumFile, err := os.Open(checksumFilePath); err != nil {
 		return nil, err
 	} else {
-		defer checksumFile.Close()
+		defer utils.CloseOrWarn(checksumFile)
 
 		return io.ReadAll(checksumFile)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 var (
@@ -60,7 +61,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	if err := toml.Unmarshal(content, &config); err != nil {
 		var derr *toml.DecodeError
 		if errors.As(err, &derr) {
-			log.Errorf(derr.String())
+			log.Errorf("%s", derr.String())
 			row, col := derr.Position()
 			log.Errorf("Error at line %d, column %d", row, col)
 			return nil, fmt.Errorf("failed to parse config file")
@@ -71,7 +72,7 @@ func LoadConfig(configPath string) (*Config, error) {
 	config._absConfigFilePath = configFile
 
 	log.Debugf("Configuration file path: %s", configFile)
-	log.Debugf("Downloaded lists directory: %s", config.GetAbsDownloadedListsDir())
+	log.Debugf("Downloaded lists directory: %s", utils.GetAbsolutePath(config.General.ListsOutputDir, filepath.Dir(configFile)))
 
 	return &config, nil
 }
@@ -100,13 +101,100 @@ func (c *Config) WriteConfig() error {
 func (c *Config) UpgradeConfig() (bool, error) {
 	upgraded := false
 
-	for _, ipset := range c.IPSets {
-		if ipset.IPVersion == 0 {
-			ipset.IPVersion = Ipv4
+	// Check if config needs version upgrade (version 0 or < 3)
+	if c.ConfigVersion < 3 {
+		log.Infof("Upgrading config from version %d to version 3", c.ConfigVersion)
 
-			log.Infof("Upgrading required field \"ip_version\" for ipset %s", ipset.IPSetName)
-			upgraded = true
+		// Ensure General config exists
+		if c.General == nil {
+			c.General = &GeneralConfig{}
 		}
+
+		// Set default values for General config fields if they are empty/zero
+		if c.General.ListsOutputDir == "" {
+			c.General.ListsOutputDir = "/opt/etc/keen-pbr/lists.d"
+			log.Infof("Setting default lists_output_dir: %s", c.General.ListsOutputDir)
+		}
+
+		// Set default values for new config version 0
+		if c.ConfigVersion == 0 {
+			// Ensure General sub-configs are initialized
+			// Ensure sub-configs are initialized
+			if c.General == nil {
+				c.General = &GeneralConfig{}
+			}
+			if c.General.AutoUpdate == nil {
+				c.General.AutoUpdate = &AutoUpdateConfig{}
+			}
+			if c.General.DNSServer == nil {
+				c.General.DNSServer = &DNSServerConfig{}
+			}
+			// Set defaults
+			c.General.InterfaceMonitoringIntervalSeconds = 0 // Disabled by default
+			c.General.AutoUpdate.Enabled = true
+			c.General.DNSServer.Enable = true
+			c.General.DNSServer.DropAAAA = true
+			c.General.DNSServer.Remap53Interfaces = []string{"br0", "br1"}
+			log.Infof("Setting default values for new config version 0")
+		}
+
+		// Set default int values
+		if c.General.AutoUpdate != nil {
+			if c.General.AutoUpdate.IntervalHours <= 0 {
+				c.General.AutoUpdate.IntervalHours = 24
+				log.Infof("Setting default update_interval_hours: %d", c.General.AutoUpdate.IntervalHours)
+			} else if c.General.AutoUpdate.IntervalHours < 1 {
+				c.General.AutoUpdate.IntervalHours = 1
+				log.Infof("Adjusting update_interval_hours to minimum: 1")
+			}
+		}
+
+		if c.General.DNSServer.ListenPort == 0 {
+			c.General.DNSServer.ListenPort = 15353
+			log.Infof("Setting default dns_proxy_port: %d", c.General.DNSServer.ListenPort)
+		}
+
+		if c.General.DNSServer.CacheMaxDomains == 0 {
+			c.General.DNSServer.CacheMaxDomains = 1000
+			log.Infof("Setting default dns_cache_max_domains: %d", c.General.DNSServer.CacheMaxDomains)
+		}
+
+		// Set default string values
+		if c.General.DNSServer.ListenAddr == "" {
+			c.General.DNSServer.ListenAddr = "[::]"
+			log.Infof("Setting default dns_proxy_listen_addr: %s", c.General.DNSServer.ListenAddr)
+		}
+
+		// Set default slice values
+		if len(c.General.DNSServer.Upstreams) == 0 {
+			c.General.DNSServer.Upstreams = []string{"keenetic://"}
+			log.Infof("Setting default dns_upstream: %v", c.General.DNSServer.Upstreams)
+		}
+
+		if len(c.General.DNSServer.Remap53Interfaces) == 0 {
+			c.General.DNSServer.Remap53Interfaces = []string{"br0", "br1"}
+			log.Infof("Setting default dns_proxy_interfaces: %v", c.General.DNSServer.Remap53Interfaces)
+		}
+
+		// Upgrade ipsets
+		for _, ipset := range c.IPSets {
+			// Set default IP version if not set
+			if ipset.IPVersion == 0 {
+				ipset.IPVersion = Ipv4
+				log.Infof("Setting default ip_version for ipset %s: 4", ipset.IPSetName)
+			}
+
+			// Set default KillSwitch value for routing config
+			if ipset.Routing != nil && c.ConfigVersion == 0 {
+				ipset.Routing.KillSwitch = true
+				log.Infof("Setting default kill_switch for ipset %s: true", ipset.IPSetName)
+			}
+		}
+
+		// Update version to 3
+		c.ConfigVersion = 3
+		upgraded = true
+		log.Infof("Config upgraded to version 3")
 	}
 
 	return upgraded, nil

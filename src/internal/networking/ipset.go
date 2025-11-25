@@ -153,7 +153,7 @@ func (w *IPSetWriter) Add(network netip.Prefix) error {
 		return nil
 	}
 
-	if _, err := w.stdin.WriteString(fmt.Sprintf("add %s %s\n", w.ipset.Name, network.String())); err != nil {
+	if _, err := fmt.Fprintf(w.stdin, "add %s %s\n", w.ipset.Name, network.String()); err != nil {
 		return fmt.Errorf("failed to write to ipset: %v", err)
 	}
 	return nil

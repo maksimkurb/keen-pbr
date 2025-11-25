@@ -57,18 +57,9 @@ export function KeeneticWidget() {
 						<div className="space-y-2">
 							{data.dns_servers.map((server, index) => (
 								<div key={index} className="flex items-center gap-2 text-sm">
-									<Badge variant="outline" className="text-xs">
-										{t(`dashboard.dnsServerTypes.${server.type}`) || server.type}
-									</Badge>
 									<span className="font-mono text-muted-foreground text-xs">
-										{server.endpoint}
-										{server.port && `:${server.port}`}
+										{server}
 									</span>
-									{server.domain && (
-										<span className="text-xs text-muted-foreground">
-											({server.domain})
-										</span>
-									)}
 								</div>
 							))}
 						</div>

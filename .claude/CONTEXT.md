@@ -331,7 +331,6 @@ Settings:
 System:
   GET    /api/v1/interfaces         # List network interfaces
   GET    /api/v1/status             # Service status and version
-  GET    /api/v1/health             # Health check
   POST   /api/v1/service            # Control service (start/stop/restart)
 
 Network Diagnostics:

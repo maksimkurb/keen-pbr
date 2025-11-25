@@ -16,33 +16,31 @@ import (
 // ServiceManager manages the lifecycle of the keen-pbr service
 // allowing it to be started, stopped, and restarted as a goroutine
 type ServiceManager struct {
-	mu              sync.RWMutex
-	ctx             *AppContext
-	cfg             *config.Config
-	monitorInterval int
-	running         bool
-	cancel          context.CancelFunc
-	networkMgr      domain.NetworkManager
-	deps            *domain.AppDependencies
-	done            chan error
-	configHasher    *config.ConfigHasher // DI component for hash tracking
-	onListsUpdated  func()               // Callback when lists are updated (e.g., for DNS proxy reload)
+	mu             sync.RWMutex
+	ctx            *AppContext
+	cfg            *config.Config
+	running        bool
+	cancel         context.CancelFunc
+	networkMgr     domain.NetworkManager
+	deps           *domain.AppDependencies
+	done           chan error
+	configHasher   *config.ConfigHasher // DI component for hash tracking
+	onListsUpdated func()               // Callback when lists are updated (e.g., for DNS proxy reload)
 }
 
 // NewServiceManager creates a new service manager
 // Note: This does not validate runtime requirements (like interface presence)
 // Those validations happen in Start() to allow the API server to start even with invalid config
-func NewServiceManager(ctx *AppContext, monitorInterval int, configHasher *config.ConfigHasher) (*ServiceManager, error) {
+func NewServiceManager(ctx *AppContext, configHasher *config.ConfigHasher) (*ServiceManager, error) {
 	deps := domain.NewDefaultDependencies()
 
 	return &ServiceManager{
-		ctx:             ctx,
-		cfg:             nil, // Will be loaded in Start()
-		monitorInterval: monitorInterval,
-		running:         false,
-		deps:            deps,
-		networkMgr:      deps.NetworkManager(),
-		configHasher:    configHasher,
+		ctx:          ctx,
+		cfg:          nil, // Will be loaded in Start()
+		running:      false,
+		deps:         deps,
+		networkMgr:   deps.NetworkManager(),
+		configHasher: configHasher,
 	}, nil
 }
 
@@ -76,9 +74,14 @@ func (sm *ServiceManager) Start() error {
 		return fmt.Errorf("service is already running")
 	}
 
-	// Load and validate configuration before starting
-	cfg, err := loadAndValidateConfigOrFail(sm.ctx.ConfigPath)
+	// Load configuration
+	cfg, err := loadConfigOrFail(sm.ctx.ConfigPath)
 	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Validate configuration before starting service
+	if err := cfg.ValidateConfig(); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -193,7 +196,6 @@ func (sm *ServiceManager) Reload() error {
 }
 
 // RefreshRouting refreshes the routing configuration (ip routes and ip rules).
-// This is typically triggered by SIGUSR1 signal.
 // It checks interfaces and updates routing only if changed (efficient mode).
 func (sm *ServiceManager) RefreshRouting() error {
 	sm.mu.RLock()
@@ -206,7 +208,7 @@ func (sm *ServiceManager) RefreshRouting() error {
 	networkMgr := sm.networkMgr
 	sm.mu.RUnlock()
 
-	log.Debugf("Refreshing routing (triggered by SIGUSR1)...")
+	log.Debugf("Refreshing routing...")
 
 	// Update interface list
 	var err error
@@ -242,8 +244,6 @@ func (sm *ServiceManager) RefreshFirewall() error {
 	networkMgr := sm.networkMgr
 	sm.mu.RUnlock()
 
-	log.Debugf("Refreshing firewall rules (triggered by SIGUSR2)...")
-
 	// Re-apply global components
 	globalCfg := networking.GlobalConfigFromAppConfig(cfg)
 	networkMgr.SetGlobalConfig(globalCfg)
@@ -254,7 +254,6 @@ func (sm *ServiceManager) RefreshFirewall() error {
 		return fmt.Errorf("failed to apply netfilter configuration: %v", err)
 	}
 
-	log.Infof("Firewall rules refreshed successfully")
 	return nil
 }
 
@@ -278,8 +277,6 @@ func (sm *ServiceManager) Restart() error {
 func (sm *ServiceManager) run(ctx context.Context) {
 	defer close(sm.done)
 
-	log.Infof("Starting keen-pbr service...")
-
 	// Capture config snapshot at startup - this is immutable for this service instance
 	// This ensures shutdown uses the same config that was used for startup,
 	// properly cleaning up all ipsets even if config changes on disk
@@ -297,13 +294,13 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	log.Infof("Service started with config hash: %s", configHash)
 
 	// Download missing lists (only downloads if files don't exist)
-	log.Infof("Checking and downloading missing lists...")
-	if err := lists.DownloadLists(startupCfg); err != nil {
+	log.Debugf("Checking and downloading missing lists...")
+	if err := lists.DownloadListsIfMissing(startupCfg); err != nil {
 		log.Warnf("Some lists failed to download: %v", err)
 	}
 
 	// Initial setup: create ipsets and fill them
-	log.Infof("Importing lists to ipsets...")
+	log.Debugf("Importing lists to ipsets...")
 	if err := lists.ImportListsToIPSets(startupCfg, sm.deps.ListManager()); err != nil {
 		sm.done <- fmt.Errorf("failed to import lists: %w", err)
 		return
@@ -315,26 +312,25 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	sm.networkMgr.SetGlobalConfig(globalCfg)
 
 	// Apply persistent network configuration (iptables rules, ip rules, and global components)
-	log.Infof("Applying persistent network configuration (iptables rules and global components)...")
+	log.Debugf("Applying persistent network configuration (iptables rules and global components)...")
 	if err := sm.networkMgr.ApplyNetfilter(startupCfg.IPSets); err != nil {
 		sm.done <- fmt.Errorf("failed to apply netfilter configuration: %w", err)
 		return
 	}
 
 	// Apply initial routing (ip routes and ip rules)
-	log.Infof("Applying initial routing configuration...")
+	log.Debugf("Applying initial routing configuration...")
 	if _, err := sm.networkMgr.ApplyRouting(startupCfg.IPSets, true); err != nil {
 		sm.done <- fmt.Errorf("failed to apply routing configuration: %w", err)
 		return
 	}
 
-	log.Infof("Service started successfully.")
-
-	// Start interface monitoring if enabled
+	// Start interface monitoring if enabled (interval > 0)
 	var interfaceTicker *time.Ticker
-	if startupCfg.General.IsInterfaceMonitoringEnabled() {
-		log.Infof("Interface monitoring enabled. Will check interface changes every %d seconds", sm.monitorInterval)
-		interfaceTicker = time.NewTicker(time.Duration(sm.monitorInterval) * time.Second)
+	monitorInterval := startupCfg.General.InterfaceMonitoringIntervalSeconds
+	if monitorInterval > 0 {
+		log.Infof("Interface monitoring enabled. Will check interface changes every %d seconds", monitorInterval)
+		interfaceTicker = time.NewTicker(time.Duration(monitorInterval) * time.Second)
 		defer interfaceTicker.Stop()
 	} else {
 		log.Infof("Interface monitoring disabled")
@@ -342,8 +338,8 @@ func (sm *ServiceManager) run(ctx context.Context) {
 
 	// Start auto-update timer if enabled
 	var updateTicker *time.Ticker
-	if startupCfg.General.IsAutoUpdateEnabled() {
-		interval := startupCfg.General.GetUpdateIntervalHours()
+	if startupCfg.General.AutoUpdate != nil && startupCfg.General.AutoUpdate.Enabled {
+		interval := startupCfg.General.AutoUpdate.IntervalHours
 		log.Infof("List auto-update enabled. Will check for updates every %d hour(s)", interval)
 		updateTicker = time.NewTicker(time.Duration(interval) * time.Hour)
 		defer updateTicker.Stop()
@@ -354,7 +350,7 @@ func (sm *ServiceManager) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Infof("Service context cancelled, shutting down...")
+			log.Debugf("Service context cancelled, shutting down...")
 			sm.done <- sm.shutdownWithConfig(startupCfg)
 			return
 
@@ -398,7 +394,7 @@ func (sm *ServiceManager) run(ctx context.Context) {
 func (sm *ServiceManager) updateLists(cfg *config.Config) error {
 	// Download all lists (forced update)
 	log.Infof("Downloading updated lists...")
-	if err := lists.DownloadListsForced(cfg); err != nil {
+	if err := lists.DownloadListsIfUpdated(cfg); err != nil {
 		return fmt.Errorf("failed to download lists: %w", err)
 	}
 
@@ -423,7 +419,7 @@ func (sm *ServiceManager) updateLists(cfg *config.Config) error {
 // shutdownWithConfig performs cleanup when the service stops
 // Uses the startup config to ensure all ipsets created at startup are properly removed
 func (sm *ServiceManager) shutdownWithConfig(startupCfg *config.Config) error {
-	log.Infof("Shutting down keen-pbr service...")
+	log.Debugf("Shutting down keen-pbr service...")
 
 	// Remove all network configuration using the startup config
 	// This ensures we clean up exactly what was created, even if config changed on disk
@@ -432,6 +428,6 @@ func (sm *ServiceManager) shutdownWithConfig(startupCfg *config.Config) error {
 		return err
 	}
 
-	log.Infof("Service shutdown complete")
+	log.Debugf("Service shutdown complete")
 	return nil
 }

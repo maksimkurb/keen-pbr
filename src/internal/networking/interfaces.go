@@ -1,17 +1,11 @@
 package networking
 
 import (
-	"fmt"
 	"net"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/vishvananda/netlink"
 )
-
-const colorCyan = "\033[0;36m"
-const colorRed = "\033[0;31m"
 
 // InterfaceLister provides access to Keenetic router interface information.
 // This is a subset interface to avoid circular imports with domain package.
@@ -42,86 +36,6 @@ func GetInterfaceList() ([]Interface, error) {
 		interfaces = append(interfaces, Interface{link})
 	}
 	return interfaces, nil
-}
-
-func PrintInterfaces(ifaces []Interface, printIPs bool, keeneticClient *keenetic.Client) {
-	var keeneticIfaces map[string]keenetic.Interface = nil
-	var err error
-	if keeneticClient != nil {
-		keeneticIfaces, err = keeneticClient.GetInterfaces()
-		if err != nil {
-			log.Warnf("failed to get Keenetic interfaces: %v", err)
-		}
-	}
-
-	for _, iface := range ifaces {
-		attrs := iface.Attrs()
-
-		up := attrs.Flags&net.FlagUp != 0
-
-		addrs, addrsErr := netlink.AddrList(iface, netlink.FAMILY_ALL)
-		var keeneticIface *keenetic.Interface = nil
-		if keeneticIfaces != nil {
-			// Try direct lookup by system name
-			if val, ok := keeneticIfaces[attrs.Name]; ok {
-				keeneticIface = &val
-			}
-		}
-
-		if keeneticIface != nil {
-			fmt.Printf("%d. %s%s%s (%s%s%s / \"%s\") (%sup%s=%s%v%s %slink%s=%s%s%s %sconnected%s=%s%s%s)\n",
-				attrs.Index,
-				colorCyan, attrs.Name, colorReset,
-				colorCyan, keeneticIface.ID, colorReset,
-				keeneticIface.Description,
-				colorCyan, colorReset,
-				colorGreenIfTrue(up), up, colorReset,
-				colorCyan, colorReset,
-				colorGreenIfEquals(keeneticIface.Link, keenetic.KeeneticLinkUp), keeneticIface.Link, colorReset,
-				colorCyan, colorReset,
-				colorGreenIfEquals(keeneticIface.Connected, keenetic.KeeneticConnected), keeneticIface.Connected, colorReset)
-		} else {
-			fmt.Printf("%d. %s%s%s (%sup%s=%s%v%s)\n",
-				attrs.Index,
-				colorCyan, attrs.Name, colorReset,
-				colorCyan, colorReset,
-				colorGreenIfTrue(up), up, colorReset)
-		}
-
-		if printIPs {
-			if addrsErr != nil {
-				fmt.Printf("failed to get addresses for interface %s: %v", attrs.Name, addrsErr)
-			} else {
-				for _, addr := range addrs {
-					fmt.Printf("  IP Address (IPv%d): %v\n", getIPFamily(addr.IP), addr.IPNet)
-				}
-			}
-		}
-	}
-}
-
-func colorGreenIfEquals(actual string, expected string) string {
-	if actual == expected {
-		return colorGreen
-	}
-	return colorRed
-}
-
-func colorGreenIfTrue(actual bool) string {
-	if actual {
-		return colorGreen
-	}
-	return colorRed
-}
-
-func getIPFamily(ip net.IP) config.IPFamily {
-	if len(ip) <= net.IPv4len {
-		return config.Ipv4
-	}
-	if ip.To4() != nil {
-		return config.Ipv4
-	}
-	return config.Ipv6
 }
 
 func (iface *Interface) IsUp() bool {

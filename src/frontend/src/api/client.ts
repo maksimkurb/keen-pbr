@@ -101,43 +101,34 @@ export interface InterfaceInfo {
 }
 
 // Settings types
+export interface AutoUpdateConfig {
+	enabled: boolean;
+	interval_hours: number;
+}
+
+export interface DNSServerConfig {
+	enable: boolean;
+	listen_addr: string;
+	listen_port: number;
+	upstreams: string[];
+	cache_max_domains: number;
+	drop_aaaa: boolean;
+	ttl_override: number;
+	remap_53_interfaces: string[];
+}
+
 export interface GeneralSettings {
 	lists_output_dir: string;
-	use_keenetic_dns: boolean;
-	fallback_dns?: string;
-	api_bind_address?: string; // Read-only, not configurable via UI
-	auto_update_lists?: boolean; // Auto-update lists with URLs
-	update_interval_hours?: number; // Interval in hours for auto-updates
-	enable_interface_monitoring?: boolean; // Enable periodic interface monitoring in web UI
-	
-	// DNS Proxy settings
-	enable_dns_proxy?: boolean;
-	dns_proxy_listen_addr?: string;
-	dns_proxy_port?: number;
-	dns_upstream?: string[];
-	dns_cache_max_domains?: number;
-	drop_aaaa?: boolean;
-	ttl_override?: number;
-	dns_proxy_interfaces?: string[];
-	dns_proxy_remap_53?: boolean;
+	interface_monitoring_interval_seconds: number; // 0 = disabled
+	auto_update_lists: AutoUpdateConfig;
+	dns_server: DNSServerConfig;
 }
 
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
-	use_keenetic_dns?: boolean;
-	fallback_dns?: string;
-	auto_update_lists?: boolean;
-	update_interval_hours?: number;
-	enable_interface_monitoring?: boolean;
-	enable_dns_proxy?: boolean;
-	dns_proxy_listen_addr?: string;
-	dns_proxy_port?: number;
-	dns_upstream?: string[];
-	dns_cache_max_domains?: number;
-	drop_aaaa?: boolean;
-	ttl_override?: number;
-	dns_proxy_interfaces?: string[];
-	dns_proxy_remap_53?: boolean;
+	interface_monitoring_interval_seconds?: number;
+	auto_update_lists?: AutoUpdateConfig;
+	dns_server?: DNSServerConfig;
 }
 
 // Status types
@@ -166,7 +157,7 @@ export interface StatusInfo {
 	services: Record<string, ServiceInfo>;
 	current_config_hash: string;
 	configuration_outdated: boolean;
-	dns_servers?: DNSServerInfo[]; // Upstream DNS servers
+	dns_servers?: string[]; // Upstream DNS servers
 }
 
 // Service control types
@@ -362,11 +353,6 @@ export class KeenPBRClient {
 		state: "started" | "stopped" | "restarted",
 	): Promise<ServiceControlResponse> {
 		return this.request<ServiceControlResponse>("POST", "/service", { state });
-	}
-
-	// Health Check API
-	async checkHealth(): Promise<HealthCheckResponse> {
-		return this.request<HealthCheckResponse>("GET", "/health");
 	}
 
 	// Network Check API

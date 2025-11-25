@@ -408,7 +408,7 @@ func (h *Handler) calculateFileStatistics(list *config.ListSource, cfg *config.C
 	if err != nil {
 		return 0, 0, 0
 	}
-	defer file.Close()
+	defer utils.CloseOrWarn(file)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -502,7 +502,7 @@ func (h *Handler) DownloadAllLists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Force download all lists (re-download even if they exist)
-	if err := lists.DownloadListsForced(cfg); err != nil {
+	if err := lists.DownloadListsIfUpdated(cfg); err != nil {
 		WriteInternalError(w, "Failed to download lists: "+err.Error())
 		return
 	}

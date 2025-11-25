@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Removing old UI files
+rm -Rf /opt/usr/share/keen-pbr/ui/
+
 echo "keen-pbr uninstallation complete"
 
 exit 0

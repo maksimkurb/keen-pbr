@@ -1,0 +1,15 @@
+{
+  "go.lintTool": "golangci-lint-v2",
+  "go.lintFlags": [
+    "--path-mode=abs",
+    "--fast-only"
+  ],
+  "go.formatTool": "custom",
+  "go.alternateTools": {
+    "customFormatter": "golangci-lint-v2"
+  },
+  "go.formatFlags": [
+    "fmt",
+    "--stdin"
+  ]
+}

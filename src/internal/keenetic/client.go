@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // Client is the main client for interacting with the Keenetic Router RCI API.
@@ -66,7 +68,7 @@ func fetchAndDeserializeForClient[T any](c *Client, endpoint string) (T, error) 
 	if err != nil {
 		return result, fmt.Errorf("failed to fetch %s: %w", endpoint, err)
 	}
-	defer resp.Body.Close()
+	defer utils.CloseOrWarn(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return result, fmt.Errorf("unexpected status code %d for %s", resp.StatusCode, endpoint)

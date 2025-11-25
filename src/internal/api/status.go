@@ -34,21 +34,7 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Get DNS servers from the running DNS proxy
 	if h.dnsServersProvider != nil {
-		dnsServers := h.dnsServersProvider.GetDNSServers()
-
-		// Convert to API types
-		if len(dnsServers) > 0 {
-			apiDNSServers := make([]DNSServerInfo, len(dnsServers))
-			for i, server := range dnsServers {
-				apiDNSServers[i] = DNSServerInfo{
-					Type:     string(server.Type),
-					Endpoint: server.Endpoint,
-					Port:     server.Port,
-					Domain:   server.Domain,
-				}
-			}
-			response.DNSServers = apiDNSServers
-		}
+		response.DNSServers = h.dnsServersProvider.GetDNSStrings()
 	}
 
 	// Get current config hash (cached) from ConfigHasher
@@ -92,4 +78,3 @@ func (h *Handler) getKeenPbrServiceStatus() ServiceInfo {
 		Message: "Service is not running",
 	}
 }
-

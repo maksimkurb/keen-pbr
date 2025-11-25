@@ -5,282 +5,294 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
+// ValidateConfig validates the entire configuration and returns all validation errors
 func (c *Config) ValidateConfig() error {
-	if err := c.validateGeneralConfig(); err != nil {
-		return err
+	var validationErrors ValidationErrors
+
+	// Validate general config
+	if c.General == nil {
+		validationErrors = append(validationErrors, ValidationError{
+			FieldPath: "general",
+			Message:   "configuration must contain 'general' section",
+		})
+		return validationErrors
 	}
 
-	if err := c.validateIPSets(); err != nil {
-		return err
+	// Use validator to validate General config
+	if err := validate.Struct(c.General); err != nil {
+		validationErrors = append(validationErrors, convertValidatorErrors(err, "general", "")...)
 	}
 
-	if err := c.validateLists(); err != nil {
-		return err
+	// Validate IPSets
+	if len(c.IPSets) == 0 {
+		validationErrors = append(validationErrors, ValidationError{
+			FieldPath: "ipset",
+			Message:   "configuration must contain at least one ipset",
+		})
+	} else {
+		validationErrors = append(validationErrors, c.validateIPSets()...)
+	}
+
+	// Validate Lists
+	validationErrors = append(validationErrors, c.validateLists()...)
+
+	if len(validationErrors) > 0 {
+		return validationErrors
 	}
 
 	return nil
 }
 
-func (c *Config) validateIPSets() error {
-	if c.IPSets == nil {
-		return fmt.Errorf("configuration should contain \"ipset\" field")
-	}
+func (c *Config) validateIPSets() ValidationErrors {
+	var validationErrors ValidationErrors
 
-	for _, ipset := range c.IPSets {
-		// Validate ipset name
-		if err := ipset.validateIPSet(); err != nil {
-			return err
+	// Track duplicates
+	seenNames := make(map[string]bool)
+	seenTables := make(map[int]bool)
+	seenPriorities := make(map[int]bool)
+	seenFwmarks := make(map[uint32]bool)
+
+	for i, ipset := range c.IPSets {
+		itemName := ipset.IPSetName
+		if itemName == "" {
+			itemName = fmt.Sprintf("ipset[%d]", i)
 		}
 
-		// Interfaces are optional - if not specified, only blackhole route will be used
-		// Check duplicate interfaces only if any are specified
-		if len(ipset.Routing.Interfaces) > 0 {
-			if err := checkIsDistinct(ipset.Routing.Interfaces, func(iface string) string { return iface }); err != nil {
-				return fmt.Errorf("there are duplicate interfaces in ipset %s: %v", ipset.IPSetName, err)
+		// Validate struct fields
+		if err := validate.Struct(ipset); err != nil {
+			validationErrors = append(validationErrors, convertValidatorErrors(err, fmt.Sprintf("ipset.%d", i), itemName)...)
+		}
+
+		// Check duplicate ipset name
+		if seenNames[ipset.IPSetName] {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "ipset_name",
+				Message:   fmt.Sprintf("duplicate ipset name: %s", ipset.IPSetName),
+			})
+		}
+		seenNames[ipset.IPSetName] = true
+
+		// Validate routing config exists
+		if ipset.Routing == nil {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "routing",
+				Message:   "routing configuration is required",
+			})
+			continue
+		}
+
+		// Validate routing struct
+		if err := validate.Struct(ipset.Routing); err != nil {
+			validationErrors = append(validationErrors, convertValidatorErrors(err, fmt.Sprintf("ipset.%d.routing", i), itemName)...)
+		}
+
+		// Check duplicate routing table
+		if seenTables[ipset.Routing.IPRouteTable] {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "routing.table",
+				Message:   fmt.Sprintf("duplicate routing table: %d", ipset.Routing.IPRouteTable),
+			})
+		}
+		seenTables[ipset.Routing.IPRouteTable] = true
+
+		// Check duplicate priority
+		if seenPriorities[ipset.Routing.IPRulePriority] {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "routing.priority",
+				Message:   fmt.Sprintf("duplicate rule priority: %d", ipset.Routing.IPRulePriority),
+			})
+		}
+		seenPriorities[ipset.Routing.IPRulePriority] = true
+
+		// Check duplicate fwmark
+		if seenFwmarks[ipset.Routing.FwMark] {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "routing.fwmark",
+				Message:   fmt.Sprintf("duplicate fwmark: %d", ipset.Routing.FwMark),
+			})
+		}
+		seenFwmarks[ipset.Routing.FwMark] = true
+
+		// Validate default gateway IP family matches ipset version
+		if ipset.Routing.DefaultGateway != "" {
+			ip := net.ParseIP(ipset.Routing.DefaultGateway)
+			if ip != nil {
+				if ipset.IPVersion == Ipv4 && ip.To4() == nil {
+					validationErrors = append(validationErrors, ValidationError{
+						ItemName:  itemName,
+						FieldPath: "routing.default_gateway",
+						Message:   fmt.Sprintf("IPv6 address %s cannot be used for IPv4 ipset", ipset.Routing.DefaultGateway),
+					})
+				} else if ipset.IPVersion == Ipv6 && ip.To4() != nil {
+					validationErrors = append(validationErrors, ValidationError{
+						ItemName:  itemName,
+						FieldPath: "routing.default_gateway",
+						Message:   fmt.Sprintf("IPv4 address %s cannot be used for IPv6 ipset", ipset.Routing.DefaultGateway),
+					})
+				}
 			}
 		}
 
-		if len(ipset.Lists) == 0 {
-			return fmt.Errorf("ipset %s should contain at least one list in the \"lists\" array", ipset.IPSetName)
-		}
-
+		// Validate lists exist
 		for _, listName := range ipset.Lists {
-			exists := false
+			found := false
 			for _, list := range c.Lists {
 				if list.ListName == listName {
-					exists = true
+					found = true
 					break
 				}
 			}
-
-			if !exists {
-				return fmt.Errorf("ipset %s contains unknown list \"%s\"", ipset.IPSetName, listName)
+			if !found {
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: "lists",
+					Message:   fmt.Sprintf("unknown list: %s", listName),
+				})
 			}
 		}
-	}
 
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) string { return ipset.IPSetName }); err != nil {
-		return fmt.Errorf("there are duplicate ipset names: %v", err)
-	}
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IPRouteTable }); err != nil {
-		return fmt.Errorf("there are duplicate routing tables: %v", err)
-	}
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) int { return ipset.Routing.IPRulePriority }); err != nil {
-		return fmt.Errorf("there are duplicate rule priorities: %v", err)
-	}
-	if err := checkIsDistinct(c.IPSets, func(ipset *IPSetConfig) uint32 { return ipset.Routing.FwMark }); err != nil {
-		return fmt.Errorf("there are duplicate fwmarks: %v", err)
-	}
-
-	return nil
-}
-
-func (c *Config) validateLists() error {
-	for _, list := range c.Lists {
-		if err := validateNonEmpty(list.ListName, "list_name"); err != nil {
-			return err
+		// Validate iptables rules
+		for j, rule := range ipset.IPTablesRules {
+			if rule.Chain == "" {
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: fmt.Sprintf("iptables_rule.%d.chain", j),
+					Message:   "chain cannot be empty",
+				})
+			}
+			if rule.Table == "" {
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: fmt.Sprintf("iptables_rule.%d.table", j),
+					Message:   "table cannot be empty",
+				})
+			}
+			if len(rule.Rule) == 0 {
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: fmt.Sprintf("iptables_rule.%d.rule", j),
+					Message:   "rule cannot be empty",
+				})
+			}
 		}
 
+		// Check duplicate interfaces
+		seenIfaces := make(map[string]bool)
+		for _, iface := range ipset.Routing.Interfaces {
+			if seenIfaces[iface] {
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: "routing.interfaces",
+					Message:   fmt.Sprintf("duplicate interface: %s", iface),
+				})
+			}
+			seenIfaces[iface] = true
+		}
+	}
+
+	return validationErrors
+}
+
+func (c *Config) validateLists() ValidationErrors {
+	var validationErrors ValidationErrors
+	seenNames := make(map[string]bool)
+
+	for i, list := range c.Lists {
+		itemName := list.ListName
+		if itemName == "" {
+			itemName = fmt.Sprintf("list[%d]", i)
+		}
+
+		// Validate struct fields
+		if err := validate.Struct(list); err != nil {
+			validationErrors = append(validationErrors, convertValidatorErrors(err, fmt.Sprintf("list.%d", i), itemName)...)
+		}
+
+		// Check duplicate list name
+		if seenNames[list.ListName] {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "list_name",
+				Message:   fmt.Sprintf("duplicate list name: %s", list.ListName),
+			})
+		}
+		seenNames[list.ListName] = true
+
+		// Validate that exactly one source is specified
 		isURL := list.URL != ""
 		isFile := list.File != ""
 		isHosts := len(list.Hosts) > 0
 
 		if !isURL && !isFile && !isHosts {
-			return fmt.Errorf("list %s should contain \"url\", \"file\" or non-empty \"hosts\" field", list.ListName)
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "source",
+				Message:   "must specify one of: url, file, or hosts",
+			})
 		}
 
 		if (isURL && (isFile || isHosts)) || (isFile && isHosts) {
-			return fmt.Errorf("list %s can contain only one of \"url\", \"file\" or \"hosts\" field, but not both", list.ListName)
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "source",
+				Message:   "can only specify one of: url, file, or hosts",
+			})
 		}
 
+		// Validate file exists if specified
 		if isFile {
 			list.File = utils.GetAbsolutePath(list.File, c.GetConfigDir())
 			if _, err := os.Stat(list.File); errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("list %s file \"%s\" does not exist", list.ListName, list.File)
+				validationErrors = append(validationErrors, ValidationError{
+					ItemName:  itemName,
+					FieldPath: "file",
+					Message:   fmt.Sprintf("file does not exist: %s", list.File),
+				})
 			}
 		}
 	}
 
-	if err := checkIsDistinct(c.Lists, func(list *ListSource) string { return list.ListName }); err != nil {
-		return fmt.Errorf("there are duplicate list names: %v", err)
-	}
-
-	return nil
+	return validationErrors
 }
 
-func (c *Config) validateGeneralConfig() error {
-	if c.General == nil {
-		return fmt.Errorf("configuration should contain \"general\" field")
-	}
+// convertValidatorErrors converts go-playground/validator errors to our ValidationError format
+func convertValidatorErrors(err error, fieldPrefix string, itemName string) ValidationErrors {
+	var validationErrors ValidationErrors
 
-	if c.General.UseKeeneticDNS == nil {
-		def := false
-		c.General.UseKeeneticDNS = &def
-	}
+	var validatorErrs validator.ValidationErrors
+	if errors.As(err, &validatorErrs) {
+		for _, e := range validatorErrs {
+			fieldPath := fieldPrefix
+			if e.Field() != "" {
+				// e.Field() now returns the TOML tag name because we registered TagNameFunc
+				fieldName := e.Field()
 
-	return nil
-}
-
-func (ipset *IPSetConfig) validateIPSet() error {
-	if err := validateNonEmpty(ipset.IPSetName, "ipset_name"); err != nil {
-		return err
-	}
-	if !ipsetRegexp.MatchString(ipset.IPSetName) {
-		return fmt.Errorf("ipset name should consist only of lowercase [a-z0-9_]")
-	}
-
-	if ipset.Routing == nil {
-		return fmt.Errorf("ipset %s should contain [ipset.routing] field", ipset.IPSetName)
-	}
-
-	// Validate IP version
-	if newVersion, err := validateIPVersion(ipset.IPVersion); err != nil {
-		return err
-	} else {
-		ipset.IPVersion = newVersion
-	}
-
-	// Validate iptables rules
-	if err := ipset.validateOrPrefillIPTablesRules(); err != nil {
-		return err
-	}
-
-	// Validate DNS override format
-	if ipset.Routing.DNSOverride != "" {
-		if err := validateDNSOverride(ipset.Routing.DNSOverride); err != nil {
-			return fmt.Errorf("ipset %s DNS override validation failed: %v", ipset.IPSetName, err)
-		}
-	}
-
-	// Validate default gateway format and IP family match
-	if ipset.Routing.DefaultGateway != "" {
-		if err := validateDefaultGateway(ipset.Routing.DefaultGateway, ipset.IPVersion); err != nil {
-			return fmt.Errorf("ipset %s default gateway validation failed: %v", ipset.IPSetName, err)
-		}
-	}
-
-	return nil
-}
-
-func (ipset *IPSetConfig) validateOrPrefillIPTablesRules() error {
-	if ipset.IPTablesRules == nil {
-		ipset.IPTablesRules = []*IPTablesRule{
-			{
-				Chain: "PREROUTING",
-				Table: "mangle",
-				Rule: []string{
-					"-m", "mark", "--mark", "0x0/0xffffffff", "-m", "set", "--match-set", "{{" + IPTablesTmplIpset + "}}", "dst,src", "-j", "MARK", "--set-mark", "{{" + IPTablesTmplFwmark + "}}",
-				},
-			},
-		}
-
-		return nil
-	}
-
-	if len(ipset.IPTablesRules) > 0 {
-		for _, rule := range ipset.IPTablesRules {
-			if rule.Chain == "" {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"chain\" field", ipset.IPSetName)
+				if fieldPrefix != "" {
+					fieldPath = fieldPrefix + "." + fieldName
+				} else {
+					fieldPath = fieldName
+				}
 			}
-			if rule.Table == "" {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"table\" field", ipset.IPSetName)
-			}
-			if len(rule.Rule) == 0 {
-				return fmt.Errorf("ipset %s iptables rule should contain non-empty \"rule\" field", ipset.IPSetName)
-			}
+
+			message := getValidationMessage(e)
+
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: fieldPath,
+				Message:   message,
+			})
 		}
 	}
 
-	return nil
-}
-
-func checkIsDistinct[U, T comparable](list []U, mapper func(U) T) error {
-	seen := make(map[T]bool)
-
-	for _, item := range list {
-		t := mapper(item)
-		if seen[t] {
-			return fmt.Errorf("value \"%v\" is used more than once", t)
-		}
-		seen[t] = true
-	}
-
-	return nil
-}
-
-func validateNonEmpty(value, fieldName string) error {
-	if value == "" {
-		return fmt.Errorf("%s cannot be empty", fieldName)
-	}
-	return nil
-}
-
-func validateIPVersion(version IPFamily) (IPFamily, error) {
-	switch version {
-	case Ipv4, Ipv6:
-		return version, nil
-	default:
-		return 0, fmt.Errorf("unknown IP version %d", version)
-	}
-}
-
-func validateDNSOverride(dnsOverride string) error {
-	if dnsOverride == "" {
-		return nil
-	}
-
-	// Check if it contains a port
-	if portIndex := strings.LastIndex(dnsOverride, "#"); portIndex != -1 {
-		ip := dnsOverride[:portIndex]
-		port := dnsOverride[portIndex+1:]
-
-		// Validate IP address
-		if !utils.IsIP(ip) {
-			return fmt.Errorf("invalid IP address: %s", ip)
-		}
-
-		// Validate port
-		if !utils.IsValidPort(port) {
-			return fmt.Errorf("invalid port: %s", port)
-		}
-	} else {
-		// No port specified, just validate IP
-		if !utils.IsIP(dnsOverride) {
-			return fmt.Errorf("invalid IP address: %s", dnsOverride)
-		}
-	}
-
-	return nil
-}
-
-func validateDefaultGateway(gateway string, ipVersion IPFamily) error {
-	if gateway == "" {
-		return nil
-	}
-
-	// Parse IP address
-	ip := net.ParseIP(gateway)
-	if ip == nil {
-		return fmt.Errorf("invalid IP address: %s", gateway)
-	}
-
-	// Check if IP family matches ipset version
-	if ipVersion == Ipv4 {
-		// IPv4 ipset requires IPv4 gateway
-		if ip.To4() == nil {
-			return fmt.Errorf("IPv6 address %s cannot be used for IPv4 ipset (ip_version=4)", gateway)
-		}
-	} else if ipVersion == Ipv6 {
-		// IPv6 ipset requires IPv6 gateway
-		if ip.To4() != nil {
-			return fmt.Errorf("IPv4 address %s cannot be used for IPv6 ipset (ip_version=6)", gateway)
-		}
-	}
-
-	return nil
+	return validationErrors
 }

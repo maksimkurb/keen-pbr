@@ -5,6 +5,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // IPSetManagerImpl implements the domain.IPSetManager interface.
@@ -47,7 +48,7 @@ func (m *IPSetManagerImpl) Import(ipsetCfg *config.IPSetConfig, networks []netip
 	if err != nil {
 		return err
 	}
-	defer writer.Close()
+	defer utils.CloseOrWarn(writer)
 
 	// Add each network
 	for _, network := range networks {

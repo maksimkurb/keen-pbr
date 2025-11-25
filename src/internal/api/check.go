@@ -16,6 +16,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
+	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // CheckRouting checks routing information for a given host.
@@ -179,7 +180,7 @@ func (h *Handler) checkHostInListFile(cfg *config.Config, listSource *config.Lis
 		log.Debugf("Failed to open list file %s: %v", filePath, err)
 		return ""
 	}
-	defer file.Close()
+	defer utils.CloseOrWarn(file)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -263,20 +264,20 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(w, "data: Error starting ping: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error starting ping: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
@@ -296,15 +297,14 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-ctx.Done():
 		// Context cancelled (client disconnected or server shutting down)
-		log.Debugf("Ping command cancelled due to context: %v", ctx.Err())
-		fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
 		flusher.Flush()
 		return
 	case err := <-done:
 		if err != nil {
-			fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+			_, _ = fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
 		} else {
-			fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+			_, _ = fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
 		}
 		flusher.Flush()
 	}
@@ -337,20 +337,20 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(w, "data: Error starting traceroute: %s\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: Error starting traceroute: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
@@ -370,15 +370,14 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-ctx.Done():
 		// Context cancelled (client disconnected or server shutting down)
-		log.Debugf("Traceroute command cancelled due to context: %v", ctx.Err())
-		fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
 		flusher.Flush()
 		return
 	case err := <-done:
 		if err != nil {
-			fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
+			_, _ = fmt.Fprintf(w, "data: [Process exited with error: %s]\n\n", err.Error())
 		} else {
-			fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
+			_, _ = fmt.Fprintf(w, "data: [Process completed successfully]\n\n")
 		}
 		flusher.Flush()
 	}
@@ -599,7 +598,7 @@ func (h *Handler) sendCheckEventWithContext(w http.ResponseWriter, flusher http.
 		return
 	}
 
-	fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
 	flusher.Flush()
 }
 
