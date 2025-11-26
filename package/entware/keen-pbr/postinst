@@ -10,7 +10,7 @@ if [ -f "${KEEN_PBR_CONF}" ]; then
 	echo "Existing keen-pbr.conf found, upgrading it. Old config will be backed up to 'keen-pbr.conf.before-update'"
 	cp "${KEEN_PBR_CONF}" "${KEEN_PBR_CONF}.before-update"
 	keen-pbr upgrade-config || echo "keen-pbr config upgrade failed"
-	echo "
+	echo ""
 fi
 NDM_MAJOR_VERSION=$(ndmc -c "show version" 2>/dev/null | grep "release:" | head -n 1 | awk '{print $2}' | cut -d'.' -f1)
 
