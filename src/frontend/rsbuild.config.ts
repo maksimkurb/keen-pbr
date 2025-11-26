@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://192.168.54.1:8080',
+      '/api': 'http://192.168.54.1:12121',
     },
   },
   html: {

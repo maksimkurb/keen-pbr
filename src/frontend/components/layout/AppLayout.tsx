@@ -12,12 +12,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="min-h-screen flex flex-col">
       <Header />
       <Separator />
-      {/* Global configuration warning - shows on all pages */}
-      <div className="container max-w-7xl mx-auto px-4 pt-6">
-        <ConfigurationWarning />
-      </div>
       <main className="flex-1 w-full">
         <div className="container max-w-7xl mx-auto px-4 py-6">
+          <ConfigurationWarning />
           {children}
         </div>
       </main>

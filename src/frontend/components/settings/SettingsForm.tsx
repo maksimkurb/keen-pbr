@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, Plus, X } from 'lucide-react';
 import { useSettings, useUpdateSettings } from '../../src/hooks/useSettings';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../ui/card';
-import { Field, FieldLabel, FieldDescription, FieldGroup } from '../ui/field';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
+import { Field, FieldLabel, FieldDescription, FieldGroup, FieldSeparator } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
-import { Button } from '../ui/button';
-import { Alert } from '../ui/alert';
 import { InterfaceSelector } from '../ui/interface-selector';
+import { StringArrayInput } from '../ui/string-array-input';
+import { BaseSettingsForm } from '../ui/base-settings-form';
 import type { GeneralSettings } from '../../src/api/client';
 
 export function SettingsForm() {
@@ -17,8 +15,7 @@ export function SettingsForm() {
   const { data: settings, isLoading, error } = useSettings();
   const updateSettings = useUpdateSettings();
 
-  // Form state
-  const [formData, setFormData] = useState<GeneralSettings>({
+  const defaultData: GeneralSettings = {
     lists_output_dir: '',
     interface_monitoring_interval_seconds: 0,
     auto_update_lists: {
@@ -32,21 +29,12 @@ export function SettingsForm() {
       upstreams: ['keenetic://'],
       cache_max_domains: 1000,
       drop_aaaa: true,
-      ttl_override: 0,
+      ipset_entry_additional_ttl_sec: 7200,
       remap_53_interfaces: ['br0', 'br1'],
     },
-  });
+  };
 
-  // Sync form data with fetched settings
-  useEffect(() => {
-    if (settings) {
-      setFormData(settings);
-    }
-  }, [settings]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSave = async (formData: GeneralSettings) => {
     try {
       await updateSettings.mutateAsync(formData);
       toast.success(t('common.success'), {
@@ -56,68 +44,27 @@ export function SettingsForm() {
       toast.error(t('common.error'), {
         description: error instanceof Error ? error.message : t('settings.saveError'),
       });
+      throw error; // Re-throw to prevent form state update
     }
   };
 
-  const addUpstream = () => {
-    setFormData((prev) => ({
-      ...prev,
-      dns_server: {
-        ...prev.dns_server,
-        upstreams: [...prev.dns_server.upstreams, ''],
-      },
-    }));
-  };
-
-  const updateUpstream = (index: number, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      dns_server: {
-        ...prev.dns_server,
-        upstreams: prev.dns_server.upstreams.map((u, i) => i === index ? value : u),
-      },
-    }));
-  };
-
-  const removeUpstream = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      dns_server: {
-        ...prev.dns_server,
-        upstreams: prev.dns_server.upstreams.filter((_, i) => i !== index),
-      },
-    }));
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <div>
-          <strong>{t('common.error')}</strong>
-          <p className="mt-1 text-sm">
-            {error instanceof Error ? error.message : t('settings.loadError')}
-          </p>
-        </div>
-      </Alert>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* General Settings */}
+    <BaseSettingsForm
+      data={settings}
+      isLoading={isLoading}
+      error={error}
+      isSaving={updateSettings.isPending}
+      onSave={handleSave}
+      defaultData={defaultData}
+    >
+      {(formData, setFormData) => (
+          <>
+      {/* Lists Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('settings.title')}</CardTitle>
+          <CardTitle>{t('settings.listsTitle')}</CardTitle>
           <CardDescription>
-            {t('settings.description')}
+            {t('settings.listsDescription')}
           </CardDescription>
         </CardHeader>
 
@@ -136,31 +83,12 @@ export function SettingsForm() {
                 type="text"
                 value={formData.lists_output_dir}
                 onChange={(e) => setFormData((prev) => ({ ...prev, lists_output_dir: e.target.value }))}
-                placeholder={t('settings.listsOutputDirPlaceholder')}
+                placeholder="/opt/etc/keen-pbr/lists.d"
                 required
               />
             </Field>
 
-            {/* Interface Monitoring Interval */}
-            <Field>
-              <FieldLabel htmlFor="interface_monitoring_interval_seconds">
-                {t('settings.interfaceMonitoringInterval', { defaultValue: 'Interface Monitoring Interval (seconds)' })}
-              </FieldLabel>
-              <FieldDescription>
-                {t('settings.interfaceMonitoringIntervalDescription', { defaultValue: 'Interval in seconds to monitor interface changes (0 = disabled)' })}
-              </FieldDescription>
-              <Input
-                id="interface_monitoring_interval_seconds"
-                type="number"
-                min="0"
-                value={formData.interface_monitoring_interval_seconds}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10) || 0;
-                  setFormData((prev) => ({ ...prev, interface_monitoring_interval_seconds: value }));
-                }}
-                placeholder="0"
-              />
-            </Field>
+            <FieldSeparator />
 
             {/* Auto-update Lists */}
             <Field orientation="horizontal">
@@ -173,14 +101,12 @@ export function SettingsForm() {
                     auto_update_lists: { ...prev.auto_update_lists, enabled: !!checked },
                   }))}
                 />
-                <div className="flex flex-col">
-                  <FieldLabel htmlFor="auto_update_enabled" className="cursor-pointer">
-                    {t('settings.autoUpdateLists')}
-                  </FieldLabel>
+                <FieldLabel htmlFor="auto_update_enabled" className="cursor-pointer flex flex-col items-start gap-0">
+                  {t('settings.autoUpdateLists')}
                   <FieldDescription>
                     {t('settings.autoUpdateListsDescription')}
                   </FieldDescription>
-                </div>
+                </FieldLabel>
               </div>
             </Field>
 
@@ -210,26 +136,71 @@ export function SettingsForm() {
             </Field>
           </FieldGroup>
         </CardContent>
+      </Card>
 
-        <CardFooter className="justify-end">
-          <Button
-            type="submit"
-            disabled={updateSettings.isPending}
-          >
-            {updateSettings.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            {t('settings.saveChanges')}
-          </Button>
-        </CardFooter>
+      {/* Interfaces Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('settings.interfacesTitle')}</CardTitle>
+          <CardDescription>
+            {t('settings.interfacesDescription')}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <FieldGroup>
+            {/* Enable Interface Monitoring */}
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="enable_interface_monitoring"
+                  checked={formData.interface_monitoring_interval_seconds > 0}
+                  onCheckedChange={(checked) => setFormData((prev) => ({
+                    ...prev,
+                    interface_monitoring_interval_seconds: checked ? 10 : 0,
+                  }))}
+                />
+                <FieldLabel htmlFor="enable_interface_monitoring" className="cursor-pointer flex flex-col items-start gap-0">
+                  {t('settings.enableInterfaceMonitoring')}
+                  <FieldDescription>
+                    {t('settings.enableInterfaceMonitoringDescription')}
+                  </FieldDescription>
+                </FieldLabel>
+              </div>
+            </Field>
+
+            {/* Interface Monitoring Interval */}
+            <Field>
+              <FieldLabel htmlFor="interface_monitoring_interval_seconds">
+                {t('settings.interfaceMonitoringInterval')}
+              </FieldLabel>
+              <FieldDescription>
+                {t('settings.interfaceMonitoringIntervalDescription')}
+              </FieldDescription>
+              <Input
+                id="interface_monitoring_interval_seconds"
+                type="number"
+                min="10"
+                step="1"
+                value={formData.interface_monitoring_interval_seconds}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10) || 10;
+                  setFormData((prev) => ({ ...prev, interface_monitoring_interval_seconds: Math.max(10, value) }));
+                }}
+                placeholder="10"
+                disabled={formData.interface_monitoring_interval_seconds === 0}
+              />
+            </Field>
+          </FieldGroup>
+        </CardContent>
       </Card>
 
       {/* DNS Server Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>DNS Server Settings</CardTitle>
+          <CardTitle>{t('settings.dnsServerTitle')}</CardTitle>
           <CardDescription>
-            Configure the transparent DNS proxy for domain-based routing
+            {t('settings.dnsServerDescription')}
           </CardDescription>
         </CardHeader>
 
@@ -246,24 +217,22 @@ export function SettingsForm() {
                     dns_server: { ...prev.dns_server, enable: !!checked },
                   }))}
                 />
-                <div className="flex flex-col">
-                  <FieldLabel htmlFor="dns_server_enable" className="cursor-pointer">
-                    Enable DNS Server
-                  </FieldLabel>
+                <FieldLabel htmlFor="dns_server_enable" className="cursor-pointer flex flex-col items-start gap-0">
+                  {t('settings.enableDnsServer')}
                   <FieldDescription>
-                    Enable transparent DNS proxy for domain-based routing
+                    {t('settings.enableDnsServerDescription')}
                   </FieldDescription>
-                </div>
+                </FieldLabel>
               </div>
             </Field>
 
             {/* DNS Listen Address */}
             <Field>
               <FieldLabel htmlFor="dns_listen_addr">
-                DNS Listen Address
+                {t('settings.dnsListenAddr')}
               </FieldLabel>
               <FieldDescription>
-                Listen address for DNS server (default: [::] for dual-stack)
+                {t('settings.dnsListenAddrDescription')}
               </FieldDescription>
               <Input
                 id="dns_listen_addr"
@@ -273,7 +242,7 @@ export function SettingsForm() {
                   ...prev,
                   dns_server: { ...prev.dns_server, listen_addr: e.target.value },
                 }))}
-                placeholder="[::]"
+                placeholder={t('settings.dnsListenAddrPlaceholder')}
                 disabled={!formData.dns_server.enable}
               />
             </Field>
@@ -281,10 +250,10 @@ export function SettingsForm() {
             {/* DNS Listen Port */}
             <Field>
               <FieldLabel htmlFor="dns_listen_port">
-                DNS Listen Port
+                {t('settings.dnsListenPort')}
               </FieldLabel>
               <FieldDescription>
-                Port for DNS server listener (default: 15353)
+                {t('settings.dnsListenPortDescription')}
               </FieldDescription>
               <Input
                 id="dns_listen_port"
@@ -299,73 +268,41 @@ export function SettingsForm() {
                     dns_server: { ...prev.dns_server, listen_port: value },
                   }));
                 }}
-                placeholder="15353"
+                placeholder={t('settings.dnsListenPortPlaceholder')}
                 disabled={!formData.dns_server.enable}
               />
             </Field>
 
-            {/* DNS Remap 53 Interfaces */}
-            <Field>
-              <FieldLabel>Remap Port 53 Interfaces</FieldLabel>
-              <FieldDescription>
-                Interfaces to redirect DNS traffic (port 53) to the DNS server using iptables
-              </FieldDescription>
-              <InterfaceSelector
-                value={formData.dns_server.remap_53_interfaces}
-                onChange={(interfaces) => setFormData((prev) => ({
-                  ...prev,
-                  dns_server: { ...prev.dns_server, remap_53_interfaces: interfaces },
-                }))}
-                allowReorder={false}
-              />
-            </Field>
+            <FieldSeparator />
 
             {/* DNS Upstreams */}
             <Field>
-              <FieldLabel>DNS Upstream Servers</FieldLabel>
+              <FieldLabel>{t('settings.dnsUpstreamServers')}</FieldLabel>
               <FieldDescription>
-                Upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path
+                {t('settings.dnsUpstreamServersDescription')}
               </FieldDescription>
-              <div className="space-y-2">
-                {formData.dns_server.upstreams.map((upstream, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={upstream}
-                      onChange={(e) => updateUpstream(index, e.target.value)}
-                      placeholder="keenetic:// or udp://8.8.8.8:53 or doh://dns.google/dns-query"
-                      disabled={!formData.dns_server.enable}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeUpstream(index)}
-                      disabled={!formData.dns_server.enable || formData.dns_server.upstreams.length <= 1}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addUpstream}
-                  disabled={!formData.dns_server.enable}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Upstream
-                </Button>
-              </div>
+              <StringArrayInput
+                value={formData.dns_server.upstreams}
+                onChange={(upstreams) => setFormData((prev) => ({
+                  ...prev,
+                  dns_server: { ...prev.dns_server, upstreams },
+                }))}
+                placeholder={t('settings.dnsUpstreamPlaceholder')}
+                disabled={!formData.dns_server.enable}
+                minItems={1}
+                addButtonLabel={t('settings.addUpstream')}
+              />
             </Field>
+
+            <FieldSeparator />
 
             {/* DNS Cache Max Domains */}
             <Field>
               <FieldLabel htmlFor="dns_cache_max_domains">
-                DNS Cache Max Domains
+                {t('settings.dnsCacheMaxDomains')}
               </FieldLabel>
               <FieldDescription>
-                Maximum number of domains to cache (default: 1000)
+                {t('settings.dnsCacheMaxDomainsDescription')}
               </FieldDescription>
               <Input
                 id="dns_cache_max_domains"
@@ -379,7 +316,7 @@ export function SettingsForm() {
                     dns_server: { ...prev.dns_server, cache_max_domains: value },
                   }));
                 }}
-                placeholder="1000"
+                placeholder={t('settings.dnsCacheMaxDomainsPlaceholder')}
                 disabled={!formData.dns_server.enable}
               />
             </Field>
@@ -396,56 +333,63 @@ export function SettingsForm() {
                   }))}
                   disabled={!formData.dns_server.enable}
                 />
-                <div className="flex flex-col">
-                  <FieldLabel htmlFor="drop_aaaa" className="cursor-pointer">
-                    Drop AAAA Records
-                  </FieldLabel>
+                <FieldLabel htmlFor="drop_aaaa" className="cursor-pointer flex flex-col items-start gap-0">
+                  {t('settings.dropAAAA')}
                   <FieldDescription>
-                    Drop IPv6 (AAAA) DNS responses to force IPv4
+                    {t('settings.dropAAAADescription')}
                   </FieldDescription>
-                </div>
+                </FieldLabel>
               </div>
             </Field>
 
-            {/* TTL Override */}
+            {/* IPSet Entry Additional TTL */}
             <Field>
-              <FieldLabel htmlFor="ttl_override">
-                TTL Override (seconds)
+              <FieldLabel htmlFor="ipset_entry_additional_ttl_sec">
+                {t('settings.ipsetEntryAdditionalTTL')}
               </FieldLabel>
               <FieldDescription>
-                Override TTL for DNS responses (0 = use original TTL)
+                {t('settings.ipsetEntryAdditionalTTLDescription')}
               </FieldDescription>
               <Input
-                id="ttl_override"
+                id="ipset_entry_additional_ttl_sec"
                 type="number"
                 min="0"
-                value={formData.dns_server.ttl_override}
+                max="2147483"
+                value={formData.dns_server.ipset_entry_additional_ttl_sec}
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10) || 0;
                   setFormData((prev) => ({
                     ...prev,
-                    dns_server: { ...prev.dns_server, ttl_override: value },
+                    dns_server: { ...prev.dns_server, ipset_entry_additional_ttl_sec: value },
                   }));
                 }}
-                placeholder="0"
+                placeholder="7200"
                 disabled={!formData.dns_server.enable}
+              />
+            </Field>
+
+            <FieldSeparator />
+
+            {/* DNS Remap 53 Interfaces */}
+            <Field>
+              <FieldLabel>{t('settings.dnsRemap53Interfaces')}</FieldLabel>
+              <FieldDescription>
+                {t('settings.dnsRemap53InterfacesDescription')}
+              </FieldDescription>
+              <InterfaceSelector
+                value={formData.dns_server.remap_53_interfaces}
+                onChange={(interfaces) => setFormData((prev) => ({
+                  ...prev,
+                  dns_server: { ...prev.dns_server, remap_53_interfaces: interfaces },
+                }))}
+                allowReorder={false}
               />
             </Field>
           </FieldGroup>
         </CardContent>
-
-        <CardFooter className="justify-end">
-          <Button
-            type="submit"
-            disabled={updateSettings.isPending}
-          >
-            {updateSettings.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            {t('settings.saveChanges')}
-          </Button>
-        </CardFooter>
       </Card>
-    </form>
+          </>
+      )}
+    </BaseSettingsForm>
   );
 }

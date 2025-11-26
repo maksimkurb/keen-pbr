@@ -113,7 +113,7 @@ export interface DNSServerConfig {
 	upstreams: string[];
 	cache_max_domains: number;
 	drop_aaaa: boolean;
-	ttl_override: number;
+	ipset_entry_additional_ttl_sec: number;
 	remap_53_interfaces: string[];
 }
 

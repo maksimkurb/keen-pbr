@@ -55,8 +55,8 @@ type DNSServerConfig struct {
 	CacheMaxDomains int `toml:"cache_max_domains" json:"cache_max_domains" validate:"min=0"`
 	// DropAAAA drops AAAA (IPv6) DNS responses (default: true).
 	DropAAAA bool `toml:"drop_aaaa" json:"drop_aaaa"`
-	// TTLOverride overrides TTL for DNS responses in seconds (0 = use original TTL).
-	TTLOverride uint32 `toml:"ttl_override" json:"ttl_override" validate:"min=0"`
+	// IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime in seconds (default: 7200 = 2 hours).
+	IPSetEntryAdditionalTTLSec uint32 `toml:"ipset_entry_additional_ttl_sec" json:"ipset_entry_additional_ttl_sec" validate:"min=0,max=2147483"`
 	// Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
 	Remap53Interfaces []string `toml:"remap_53_interfaces" json:"remap_53_interfaces" validate:"required_if=Enable true"`
 }

@@ -30,7 +30,7 @@ echo ""
 
 echo "Installation complete!"
 echo "Next steps:"
-echo "1. Open http://my.keenetic.net:8080 (or http://<router-ip>:8080) to access keen-pbr web interface"
+echo "1. Open http://my.keenetic.net:12121 (or http://<router-ip>:12121) to access keen-pbr web interface"
 echo "2. Configure your Lists and Rules"
 echo "3. Restart keen-pbr service through UI"
 echo "4. Run self-check on keen-pbr Dashboard"

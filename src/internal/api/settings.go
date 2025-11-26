@@ -53,7 +53,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	cfg.General.DNSServer.Upstreams = updates.DNSServer.Upstreams
 	cfg.General.DNSServer.CacheMaxDomains = updates.DNSServer.CacheMaxDomains
 	cfg.General.DNSServer.DropAAAA = updates.DNSServer.DropAAAA
-	cfg.General.DNSServer.TTLOverride = updates.DNSServer.TTLOverride
+	cfg.General.DNSServer.IPSetEntryAdditionalTTLSec = updates.DNSServer.IPSetEntryAdditionalTTLSec
 	cfg.General.DNSServer.Remap53Interfaces = updates.DNSServer.Remap53Interfaces
 
 	// Validate configuration

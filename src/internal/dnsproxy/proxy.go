@@ -55,8 +55,8 @@ type ProxyConfig struct {
 	// DropAAAA drops AAAA (IPv6) responses (default: true)
 	DropAAAA bool
 
-	// TTLOverride overrides TTL in seconds (0 = use original)
-	TTLOverride uint32
+	// IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime (default: 7200 = 2 hours)
+	IPSetEntryAdditionalTTLSec uint32
 
 	// MaxCacheDomains is the maximum number of domains to cache (default: 10000)
 	MaxCacheDomains int
@@ -68,12 +68,12 @@ func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 		return ProxyConfig{}
 	}
 	return ProxyConfig{
-		ListenAddr:      cfg.General.DNSServer.ListenAddr,
-		ListenPort:      cfg.General.DNSServer.ListenPort,
-		Upstreams:       cfg.General.DNSServer.Upstreams,
-		DropAAAA:        cfg.General.DNSServer.DropAAAA,
-		TTLOverride:     cfg.General.DNSServer.TTLOverride,
-		MaxCacheDomains: cfg.General.DNSServer.CacheMaxDomains,
+		ListenAddr:                 cfg.General.DNSServer.ListenAddr,
+		ListenPort:                 cfg.General.DNSServer.ListenPort,
+		Upstreams:                  cfg.General.DNSServer.Upstreams,
+		DropAAAA:                   cfg.General.DNSServer.DropAAAA,
+		IPSetEntryAdditionalTTLSec: cfg.General.DNSServer.IPSetEntryAdditionalTTLSec,
+		MaxCacheDomains:            cfg.General.DNSServer.CacheMaxDomains,
 	}
 }
 
@@ -667,12 +667,14 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 	return entries
 }
 
-// getTTL returns the TTL to use, applying override if configured.
+// getTTL returns the TTL to use for IPSet entries, adding additional seconds to the original DNS TTL.
+// If IPSetEntryAdditionalTTLSec is 0, returns the original TTL unchanged.
+// Otherwise, adds the configured additional TTL to the original TTL.
 func (p *DNSProxy) getTTL(originalTTL uint32) uint32 {
-	if p.config.TTLOverride > 0 {
-		return p.config.TTLOverride
+	if p.config.IPSetEntryAdditionalTTLSec == 0 {
+		return originalTTL
 	}
-	return originalTTL
+	return originalTTL + p.config.IPSetEntryAdditionalTTLSec
 }
 
 // cleanupLoop periodically cleans up expired cache entries.
@@ -698,19 +700,6 @@ func normalizeDomain(domain string) string {
 		return domain[:len(domain)-1]
 	}
 	return domain
-}
-
-// GetStats returns DNS proxy statistics.
-func (p *DNSProxy) GetStats() map[string]interface{} {
-	addressCount, aliasCount := p.recordsCache.Stats()
-	return map[string]interface{}{
-		"listen_port":   p.config.ListenPort,
-		"upstream":      strings.Join(p.upstream.GetDNSStrings(), ", "),
-		"drop_aaaa":     p.config.DropAAAA,
-		"ttl_override":  p.config.TTLOverride,
-		"cached_addrs":  addressCount,
-		"cached_cnames": aliasCount,
-	}
 }
 
 // GetDNSStrings returns the list of DNS server strings currently used by the proxy.
