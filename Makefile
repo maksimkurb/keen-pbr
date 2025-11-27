@@ -35,7 +35,7 @@ DEPLOY_IP := 192.168.54.1
 DEPLOY_PORT := 222
 
 deploy-mipsel: build-frontend
-	GOOS=linux GOARCH=mipsle go build -ldflags "$(GO_LDFLAGS) -w -s" -o keen-pbr ./src/cmd/keen-pbr
+	GOOS=linux GOARCH=mipsle go build -tags dev -ldflags "$(GO_LDFLAGS) -w -s" -o keen-pbr ./src/cmd/keen-pbr
 	scp -P $(DEPLOY_PORT) ./keen-pbr root@$(DEPLOY_IP):/opt/usr/bin/keen-pbr
 	scp -r -P $(DEPLOY_PORT) src/frontend/dist/* root@$(DEPLOY_IP):/opt/usr/share/keen-pbr/ui/
 

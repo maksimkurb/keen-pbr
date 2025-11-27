@@ -67,6 +67,8 @@ func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr Servi
 		r.Get("/check/split-dns", h.CheckSplitDNS)    // SSE stream
 	})
 
+	registerPprof(r)
+
 	// Serve static frontend files from /opt/usr/share/keen-pbr/ui
 	// Uses safe file system that prevents path traversal attacks
 	staticFS := frontend.GetHTTPFileSystem(frontend.DefaultUIPath)
