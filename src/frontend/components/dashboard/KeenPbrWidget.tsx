@@ -9,6 +9,7 @@ import { Badge } from '../ui/badge';
 import { Play, Square, RotateCw } from 'lucide-react';
 import { apiClient } from '@/src/api/client';
 import { useStatus } from '@/src/hooks/useStatus';
+import { cn } from '../../lib/utils';
 
 export function KeenPbrWidget() {
 	const { t } = useTranslation();
@@ -90,11 +91,12 @@ export function KeenPbrWidget() {
 						<Badge
 							variant={keenPbrStatus === 'running' ? 'default' : 'secondary'}
 							className={
-								keenPbrStatus === 'running'
-									? 'bg-green-500 hover:bg-green-600'
-									: keenPbrStatus === 'stopped'
-									? 'bg-gray-500'
-									: 'bg-yellow-500'
+								cn("text-white",
+									keenPbrStatus === 'running'
+										? 'bg-green-600'
+										: keenPbrStatus === 'stopped'
+											? 'bg-red-600'
+											: 'bg-yellow-600')
 							}
 						>
 							{t(`dashboard.status${keenPbrStatus.charAt(0).toUpperCase() + keenPbrStatus.slice(1)}`)}

@@ -6,13 +6,13 @@ export interface LineError {
   [lineNumber: number]: string[];
 }
 
-interface LineNumberedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextareaElement> {
+interface LineNumberedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   errors?: LineError;
 }
 
-export const LineNumberedTextarea = forwardRef<HTMLTextareaElement, LineNumberedTextareaProps>(
+export const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextareaProps>(
   ({ className, errors, value, onChange, ...props }, ref) => {
-    const textareaRef = useRef<HTMLTextareaElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const lineNumbersRef = useRef<HTMLDivElement>(null);
     const [lineCount, setLineCount] = useState(1);
 
@@ -93,23 +93,23 @@ export const LineNumberedTextarea = forwardRef<HTMLTextareaElement, LineNumbered
             })}
           </div>
 
-        {/* Textarea */}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={onChange}
-          onScroll={handleScroll}
-          className={cn(
-            "flex-1 min-h-[200px] resize-y bg-background text-sm p-2 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 leading-6 border-0",
-            hasErrors && "bg-red-50 dark:bg-red-950/20",
-            className
-          )}
-          style={{
-            fontFamily: 'monospace',
-            lineHeight: '1.5rem',
-          }}
-          {...props}
-        />
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            onScroll={handleScroll}
+            className={cn(
+              "flex-1 min-h-[200px] resize-y bg-background text-sm p-2 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 leading-6 border-0",
+              hasErrors && "bg-red-50 dark:bg-red-950/20",
+              className
+            )}
+            style={{
+              fontFamily: 'monospace',
+              lineHeight: '1.5rem',
+            }}
+            {...props}
+          />
         </div>
       </TooltipProvider>
     );

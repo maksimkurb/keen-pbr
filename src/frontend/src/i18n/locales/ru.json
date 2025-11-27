@@ -291,6 +291,7 @@
       "interfaces": "Интерфейсы",
       "interfacesDescription": "Добавьте интерфейсы в порядке приоритета (первый = наивысший приоритет)",
       "addInterface": "Добавить интерфейс",
+      "addCustomInterface": "Свой",
       "searchInterfaces": "Поиск интерфейсов...",
       "noInterfaces": "Интерфейсы не найдены.",
       "advancedConfiguration": "Расширенная конфигурация",

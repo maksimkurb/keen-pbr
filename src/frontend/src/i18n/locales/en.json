@@ -291,6 +291,7 @@
       "interfaces": "Interfaces",
       "interfacesDescription": "Add interfaces in priority order (first = highest priority)",
       "addInterface": "Add interface",
+      "addCustomInterface": "Custom",
       "searchInterfaces": "Search interfaces...",
       "noInterfaces": "No interfaces found.",
       "advancedConfiguration": "Advanced Configuration",

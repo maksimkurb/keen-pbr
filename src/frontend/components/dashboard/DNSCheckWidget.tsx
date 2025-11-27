@@ -34,7 +34,7 @@ export function DNSCheckWidget() {
 		switch (status) {
 			case 'success':
 			case 'pc-success':
-				return 'border-chart-2 bg-chart-2/10';
+				return 'border-green-600 bg-green-600/5';
 			case 'browser-fail':
 			case 'sse-fail':
 				return 'border-destructive bg-destructive/10';

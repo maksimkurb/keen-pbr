@@ -97,6 +97,8 @@ export interface UpdateIPSetRequest {
 // Interface types
 export interface InterfaceInfo {
 	name: string;
+	keenetic_id?: string;
+	keenetic_description?: string;
 	is_up: boolean;
 }
 
