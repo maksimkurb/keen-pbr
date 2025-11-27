@@ -5,10 +5,22 @@
 package domain
 
 import (
+	"net/netip"
+
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
+
+// IPSetManager defines the interface for managing ipsets.
+type IPSetManager interface {
+	Create(name string, family config.IPFamily) error
+	Flush(name string) error
+	Import(ipsetCfg *config.IPSetConfig, networks []netip.Prefix) error
+	CreateIfAbsent(cfg *config.Config) error
+	BatchAddWithTTL(entries []networking.IPSetEntry) error
+}
+
 
 // KeeneticClient defines the interface for interacting with the Keenetic Router RCI API.
 //

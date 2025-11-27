@@ -74,3 +74,9 @@ func (m *IPSetManagerImpl) CreateIfAbsent(cfg *config.Config) error {
 	}
 	return nil
 }
+
+// BatchAddWithTTL adds multiple entries to ipsets in a single command.
+func (m *IPSetManagerImpl) BatchAddWithTTL(entries []IPSetEntry) error {
+	return BatchAddWithTTL(entries)
+}
+

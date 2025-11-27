@@ -85,7 +85,7 @@ type DNSProxy struct {
 
 	// Dependencies
 	keeneticClient domain.KeeneticClient
-	ipsetManager   *networking.IPSetManagerImpl
+	ipsetManager   domain.IPSetManager
 	appConfig      *config.Config
 
 	// Upstream resolver
@@ -121,7 +121,7 @@ type DNSProxy struct {
 func NewDNSProxy(
 	cfg ProxyConfig,
 	keeneticClient domain.KeeneticClient,
-	ipsetManager *networking.IPSetManagerImpl,
+	ipsetManager domain.IPSetManager,
 	appConfig *config.Config,
 ) (*DNSProxy, error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -513,7 +513,7 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 
 	// Batch add to ipsets
 	if len(entries) > 0 {
-		if err := networking.BatchAddWithTTL(entries); err != nil {
+		if err := p.ipsetManager.BatchAddWithTTL(entries); err != nil {
 			log.Warnf("[%04x] Failed to batch add to ipsets: %v", reqMsg.Id, err)
 		}
 	}
