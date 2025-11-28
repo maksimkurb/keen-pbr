@@ -79,7 +79,7 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
                 <InputGroupAddon className='cursor-default'>
                   <InterfaceStatus iface={interfaceInfo} />
                 </InputGroupAddon>
-                <InputGroupAddon className='w-full justify-start cursor-default'>
+                <InputGroupAddon className='w-full justify-start text-foreground cursor-default'>
                   <InterfaceName iface={interfaceInfo} defaultName={iface} />
                 </InputGroupAddon>
                 <InputGroupAddon align="inline-end">

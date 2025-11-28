@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, X, Plus, Check, ChevronsUpDown, ListPlus, File, Globe, List } from 'lucide-react';
+import { Loader2, X, Plus } from 'lucide-react';
 import { useCreateIPSet, useUpdateIPSet } from '../../src/hooks/useIPSets';
 import {
   ResponsiveDialog,
@@ -17,14 +17,14 @@ import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '../ui/empty';
+
 import { InterfaceSelector } from '../ui/interface-selector';
-import { cn } from '../../src/lib/utils';
+import { ListSelector } from '../ui/list-selector';
+
 import type { IPSetConfig, CreateIPSetRequest, IPTablesRule, ListInfo } from '../../src/api/client';
 
 interface RuleDialogProps {
@@ -44,26 +44,13 @@ const DEFAULT_IPTABLES_RULE: IPTablesRule = {
 // Available template variables
 const TEMPLATE_VARS = ['{{ipset_name}}', '{{fwmark}}', '{{table}}', '{{priority}}'];
 
-// Helper function to get icon for list type
-const getListIcon = (type: string) => {
-  switch (type) {
-    case 'url':
-      return Globe;
-    case 'file':
-      return File;
-    case 'hosts':
-      return List;
-    default:
-      return ListPlus;
-  }
-};
+
 
 export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDialogProps) {
   const { t } = useTranslation();
   const isEditMode = !!ipset;
   const createIPSet = useCreateIPSet();
   const updateIPSet = useUpdateIPSet();
-  const [listsOpen, setListsOpen] = useState(false);
 
   const [formData, setFormData] = useState<CreateIPSetRequest>({
     ipset_name: '',
@@ -144,22 +131,7 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
     }
   };
 
-  const addList = (listName: string) => {
-    if (!formData.lists.includes(listName)) {
-      setFormData({
-        ...formData,
-        lists: [...formData.lists, listName],
-      });
-    }
-    setListsOpen(false);
-  };
 
-  const removeList = (listName: string) => {
-    setFormData({
-      ...formData,
-      lists: formData.lists.filter((l) => l !== listName),
-    });
-  };
 
   // IPTables Rules functions
   const addIPTablesRule = () => {
@@ -270,84 +242,11 @@ export function RuleDialog({ ipset, open, onOpenChange, availableLists }: RuleDi
                   {t('routingRules.dialog.selectListsDescription')}
                 </FieldDescription>
 
-                <Popover open={listsOpen} onOpenChange={setListsOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={listsOpen}
-                      className="w-full justify-between"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('routingRules.dialog.addList')}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
-                      <CommandList className="max-h-[300px] overflow-y-auto">
-                        <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
-                        <CommandGroup>
-                          {availableLists.map((list) => {
-                            const ListIcon = getListIcon(list.type);
-                            return (
-                              <CommandItem
-                                key={list.list_name}
-                                value={list.list_name}
-                                onSelect={() => addList(list.list_name)}
-                                disabled={formData.lists.includes(list.list_name)}
-                              >
-                                <ListIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    formData.lists.includes(list.list_name) ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <span className="flex-1">{list.list_name}</span>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                {formData.lists.length > 0 ? (
-                  <div className="mt-2 space-y-1 border rounded-md p-2">
-                    {formData.lists.map((listName, index) => {
-                      const listInfo = availableLists.find(l => l.list_name === listName);
-                      const ListIcon = listInfo ? getListIcon(listInfo.type) : ListPlus;
-                      return (
-                        <div key={`${listName}-${index}`} className="flex items-center justify-between text-sm py-1 px-2 hover:bg-accent rounded">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
-                            <ListIcon className="h-4 w-4 text-muted-foreground" />
-                            <span>{listName}</span>
-                          </div>
-                          <X
-                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
-                            onClick={() => removeList(listName)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Empty className="mt-2 border">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <ListPlus className="h-5 w-5" />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-base">{t('routingRules.dialog.emptyLists.title')}</EmptyTitle>
-                      <EmptyDescription>
-                        {t('routingRules.dialog.emptyLists.description')}
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                )}
+                <ListSelector
+                  value={formData.lists}
+                  onChange={(lists) => setFormData({ ...formData, lists })}
+                  availableLists={availableLists}
+                />
               </Field>
             </div>
 

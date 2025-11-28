@@ -31,10 +31,10 @@ export function Header() {
     <header className="border-b sticky">
       <div className="container max-w-7xl mx-auto px-4 flex h-16 items-center justify-between">
         <div className="flex items-center gap-4 flex-1">
-          <h1 className="text-xl font-bold flex flex-row gap-2">
+          <Link to="/" className="text-xl font-bold flex flex-row gap-2">
             <img src="/logo.svg" alt="Logo" className="h-8 rounded-sm" />
             keen-pbr
-          </h1>
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex gap-1">
