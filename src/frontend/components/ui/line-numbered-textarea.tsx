@@ -3,15 +3,16 @@ import { cn } from '../../src/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 export interface LineError {
-  [lineNumber: number]: string[];
+  [lineNumber: number]: string;
 }
 
 interface LineNumberedTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   errors?: LineError;
+  height?: string | number;
 }
 
 export const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumberedTextareaProps>(
-  ({ className, errors, value, onChange, ...props }, ref) => {
+  ({ className, errors, value, onChange, height = '400px', ...props }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const lineNumbersRef = useRef<HTMLDivElement>(null);
     const [lineCount, setLineCount] = useState(1);
@@ -42,48 +43,42 @@ export const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumbered
     };
 
     const hasErrors = errors && Object.keys(errors).length > 0;
+    const heightValue = typeof height === 'number' ? `${height}px` : height;
 
     return (
       <TooltipProvider>
-        <div className="relative flex border rounded-md overflow-hidden">
-          {/* Line numbers */}
-          <div
-            ref={lineNumbersRef}
-            className="flex flex-col bg-muted text-muted-foreground text-sm leading-6 py-2 px-2 overflow-hidden select-none"
-            style={{
-              minWidth: '3rem',
-              textAlign: 'right',
-              fontFamily: 'monospace',
-            }}
-          >
+        <div className="relative border rounded-md overflow-visible" style={{ height: heightValue }}>
+          <div className="flex h-full overflow-hidden">
+            {/* Line numbers */}
+            <div
+              ref={lineNumbersRef}
+              className="flex flex-col bg-muted text-muted-foreground text-sm py-2 select-none shrink-0 relative"
+              style={{
+                minWidth: '3rem',
+                textAlign: 'right',
+                fontFamily: 'monospace',
+                overflowY: 'hidden',
+                lineHeight: '1.5rem',
+              }}
+            >
             {Array.from({ length: lineCount }, (_, i) => {
               const lineNum = i + 1;
-              const lineErrors = errors && errors[lineNum];
-              const hasError = lineErrors && lineErrors.length > 0;
+              const errorMessage = errors?.[lineNum];
 
               const lineNumberElement = (
-                <div
-                  className={cn(
-                    "leading-6",
-                    hasError && "text-red-400 dark:text-red-400"
-                  )}
-                >
+                <div className={`px-2${errorMessage ? ' text-destructive-foreground bg-destructive' : ''}`}>
                   {lineNum}
                 </div>
               );
 
-              if (hasError) {
+              if (errorMessage) {
                 return (
                   <Tooltip key={lineNum}>
                     <TooltipTrigger asChild>
                       {lineNumberElement}
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
-                      <div className="space-y-1">
-                        {lineErrors.map((error, idx) => (
-                          <div key={idx} className="text-sm">{error}</div>
-                        ))}
-                      </div>
+                    <TooltipContent side="right">
+                      <div className="text-sm">{errorMessage}</div>
                     </TooltipContent>
                   </Tooltip>
                 );
@@ -91,25 +86,28 @@ export const LineNumberedTextarea = forwardRef<HTMLTextAreaElement, LineNumbered
 
               return <div key={lineNum}>{lineNumberElement}</div>;
             })}
-          </div>
+            </div>
 
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={onChange}
-            onScroll={handleScroll}
-            className={cn(
-              "flex-1 min-h-[200px] resize-y bg-background text-sm p-2 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 leading-6 border-0",
-              hasErrors && "bg-red-50 dark:bg-red-950/20",
-              className
-            )}
-            style={{
-              fontFamily: 'monospace',
-              lineHeight: '1.5rem',
-            }}
-            {...props}
-          />
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={onChange}
+              onScroll={handleScroll}
+              className={cn(
+                "flex-1 resize-none bg-background text-sm p-2 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-0",
+                hasErrors && "bg-red-50 dark:bg-red-950/20",
+                className
+              )}
+              style={{
+                fontFamily: 'monospace',
+                lineHeight: '1.5rem',
+                overflowY: 'scroll',
+                overflowX: 'hidden',
+              }}
+              {...props}
+            />
+          </div>
         </div>
       </TooltipProvider>
     );
