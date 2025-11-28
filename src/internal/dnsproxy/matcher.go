@@ -185,8 +185,8 @@ func (m *Matcher) Match(domain string) []string {
 		return indicesToNames(m.ipsetIndexToName, bestMatch)
 	}
 
-	// No match found
-	return []string{}
+	// No match found - return nil to avoid allocation
+	return nil
 }
 
 // indicesToNames converts a slice of indices to ipset names.

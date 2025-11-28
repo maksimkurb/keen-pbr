@@ -14,6 +14,7 @@ const (
 
 var (
 	verbose     = false
+	disableLogs = false
 	forceStdErr = false
 	logPrefixes = map[int]string{
 		levelDebug: "\033[37m[DBG]\033[0m", // White
@@ -26,6 +27,21 @@ var (
 // SetVerbose sets the logging verbosity. If true, all log levels are displayed.
 func SetVerbose(v bool) {
 	verbose = v
+}
+
+// IsVerbose returns true if verbose logging is enabled.
+func IsVerbose() bool {
+	return verbose
+}
+
+// DisableLogs disables all logging.
+func DisableLogs() {
+	disableLogs = true
+}
+
+// IsDisabled returns true if logging is disabled.
+func IsDisabled() bool {
+	return disableLogs
 }
 
 // Debugf logs a debug message if verbose is true.
@@ -58,6 +74,9 @@ func Fatalf(format string, args ...interface{}) {
 
 // logMessage formats and writes a log message with the specified log level.
 func logMessage(level int, format string, args ...interface{}) {
+	if disableLogs {
+		return
+	}
 	prefix := logPrefixes[level]
 	message := fmt.Sprintf(format, args...)
 	output := prefix + " " + message + "\n"

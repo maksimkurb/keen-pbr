@@ -10,6 +10,7 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/miekg/dns"
 )
@@ -76,13 +77,17 @@ func StartMockUpstream(t testing.TB) (string, func()) {
 	}
 }
 
-func BenchmarkDNSProxy(b *testing.B) {
+// BenchmarkDNSProxy_NotInIPSet benchmarks DNS queries for domains NOT in any IPSet
+// This should have ZERO allocations for IPSet operations (optimal path)
+func BenchmarkDNSProxy_NotInIPSet(b *testing.B) {
+	log.DisableLogs()
+
 	// Setup mock upstream
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
 
 	// Setup proxy config
-	proxyPort := 15354 // Use a different port than default
+	proxyPort := 15354
 	cfg := ProxyConfig{
 		ListenAddr:                 "127.0.0.1",
 		ListenPort:                 uint16(proxyPort),
@@ -121,25 +126,20 @@ func BenchmarkDNSProxy(b *testing.B) {
 		},
 	}
 
-	// Create proxy
 	proxy, err := NewDNSProxy(cfg, &MockKeeneticClient{}, &MockIPSetManager{}, appCfg)
 	if err != nil {
 		b.Fatalf("failed to create proxy: %v", err)
 	}
 
-	// Start proxy
 	if err := proxy.Start(); err != nil {
 		b.Fatalf("failed to start proxy: %v", err)
 	}
 	defer proxy.Stop()
 
-	// Wait for proxy to be ready
 	time.Sleep(100 * time.Millisecond)
 
-	// Client to send requests
 	client := new(dns.Client)
 	client.Timeout = 2 * time.Second
-
 	targetAddr := fmt.Sprintf("127.0.0.1:%d", proxyPort)
 
 	b.ResetTimer()
@@ -150,19 +150,177 @@ func BenchmarkDNSProxy(b *testing.B) {
 		for pb.Next() {
 			i++
 			m := new(dns.Msg)
-			// Use different subdomains to avoid full caching if we want to test processing
-			// But for "handling requests" benchmark, hitting cache or not is part of it.
-			// Let's mix it up or just use one domain.
-			// Using random domains would test map performance more.
-			// Using same domain tests cache hit performance.
-			// Let's use a rotating set of domains to simulate some traffic.
+			// Use domains NOT in IPSet (google.com not in list)
+			domain := fmt.Sprintf("sub%d.google.com.", i%100)
+			m.SetQuestion(domain, dns.TypeA)
+
+			_, _, err := client.Exchange(m, targetAddr)
+			if err != nil {
+				// Ignore errors in benchmark
+			}
+		}
+	})
+}
+
+// BenchmarkDNSProxy_InIPSet benchmarks DNS queries for domains IN IPSet (cache miss)
+// This will have allocations for IPSet operations (expected)
+func BenchmarkDNSProxy_InIPSet(b *testing.B) {
+	log.DisableLogs()
+
+	upstreamAddr, stopUpstream := StartMockUpstream(b)
+	defer stopUpstream()
+
+	proxyPort := 15355 // Different port
+	cfg := ProxyConfig{
+		ListenAddr:                 "127.0.0.1",
+		ListenPort:                 uint16(proxyPort),
+		Upstreams:                  []string{"udp://" + upstreamAddr},
+		DropAAAA:                   true,
+		IPSetEntryAdditionalTTLSec: 60,
+		MaxCacheDomains:            10, // Small cache to force misses
+	}
+
+	appCfg := &config.Config{
+		General: &config.GeneralConfig{
+			DNSServer: &config.DNSServerConfig{
+				ListenAddr:      "127.0.0.1",
+				ListenPort:      uint16(proxyPort),
+				Upstreams:       []string{"udp://" + upstreamAddr},
+				CacheMaxDomains: 10,
+			},
+		},
+		Lists: []*config.ListSource{
+			{
+				ListName: "test-list",
+				Hosts:    []string{"example.com"},
+			},
+		},
+		IPSets: []*config.IPSetConfig{
+			{
+				IPSetName: "test-ipset",
+				IPVersion: config.Ipv4,
+				Lists:     []string{"test-list"},
+				Routing: &config.RoutingConfig{
+					FwMark:         1,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
+				},
+			},
+		},
+	}
+
+	proxy, err := NewDNSProxy(cfg, &MockKeeneticClient{}, &MockIPSetManager{}, appCfg)
+	if err != nil {
+		b.Fatalf("failed to create proxy: %v", err)
+	}
+
+	if err := proxy.Start(); err != nil {
+		b.Fatalf("failed to start proxy: %v", err)
+	}
+	defer proxy.Stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	client := new(dns.Client)
+	client.Timeout = 2 * time.Second
+	targetAddr := fmt.Sprintf("127.0.0.1:%d", proxyPort)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			i++
+			m := new(dns.Msg)
+			// Use domains IN IPSet with unique subdomains to force cache misses
+			domain := fmt.Sprintf("unique%d.example.com.", i%10000)
+			m.SetQuestion(domain, dns.TypeA)
+
+			_, _, err := client.Exchange(m, targetAddr)
+			if err != nil {
+				// Ignore errors in benchmark
+			}
+		}
+	})
+}
+
+// BenchmarkDNSProxy is the legacy benchmark (mostly cache hits)
+func BenchmarkDNSProxy(b *testing.B) {
+	log.DisableLogs()
+
+	upstreamAddr, stopUpstream := StartMockUpstream(b)
+	defer stopUpstream()
+
+	proxyPort := 15356
+	cfg := ProxyConfig{
+		ListenAddr:                 "127.0.0.1",
+		ListenPort:                 uint16(proxyPort),
+		Upstreams:                  []string{"udp://" + upstreamAddr},
+		DropAAAA:                   true,
+		IPSetEntryAdditionalTTLSec: 60,
+		MaxCacheDomains:            1000,
+	}
+
+	appCfg := &config.Config{
+		General: &config.GeneralConfig{
+			DNSServer: &config.DNSServerConfig{
+				ListenAddr:      "127.0.0.1",
+				ListenPort:      uint16(proxyPort),
+				Upstreams:       []string{"udp://" + upstreamAddr},
+				CacheMaxDomains: 1000,
+			},
+		},
+		Lists: []*config.ListSource{
+			{
+				ListName: "test-list",
+				Hosts:    []string{"example.com"},
+			},
+		},
+		IPSets: []*config.IPSetConfig{
+			{
+				IPSetName: "test-ipset",
+				IPVersion: config.Ipv4,
+				Lists:     []string{"test-list"},
+				Routing: &config.RoutingConfig{
+					FwMark:         1,
+					IPRouteTable:   100,
+					IPRulePriority: 100,
+				},
+			},
+		},
+	}
+
+	proxy, err := NewDNSProxy(cfg, &MockKeeneticClient{}, &MockIPSetManager{}, appCfg)
+	if err != nil {
+		b.Fatalf("failed to create proxy: %v", err)
+	}
+
+	if err := proxy.Start(); err != nil {
+		b.Fatalf("failed to start proxy: %v", err)
+	}
+	defer proxy.Stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	client := new(dns.Client)
+	client.Timeout = 2 * time.Second
+	targetAddr := fmt.Sprintf("127.0.0.1:%d", proxyPort)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			i++
+			m := new(dns.Msg)
 			domain := fmt.Sprintf("sub%d.example.com.", i%100)
 			m.SetQuestion(domain, dns.TypeA)
 
 			_, _, err := client.Exchange(m, targetAddr)
 			if err != nil {
-				// Don't fail benchmark on timeout, just log count?
-				// b.Error(err) // This might be too noisy if load is high
+				// Ignore errors
 			}
 		}
 	})

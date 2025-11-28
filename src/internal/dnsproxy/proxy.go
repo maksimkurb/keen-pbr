@@ -115,6 +115,9 @@ type DNSProxy struct {
 	// Listeners
 	udpConn *net.UDPConn
 	tcpLn   net.Listener
+
+	// Buffer pool for UDP requests
+	bufferPool sync.Pool
 }
 
 // NewDNSProxy creates a new DNS proxy.
@@ -215,6 +218,14 @@ func NewDNSProxy(
 	// Create domain matcher
 	proxy.matcher = NewMatcher(appConfig)
 
+	// Initialize buffer pool for UDP requests
+	proxy.bufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := make([]byte, dns.MaxMsgSize)
+			return &buf
+		},
+	}
+
 	return proxy, nil
 }
 
@@ -297,8 +308,6 @@ func (p *DNSProxy) ReloadLists() {
 func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 	defer p.wg.Done()
 
-	buf := make([]byte, dns.MaxMsgSize)
-
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -306,24 +315,34 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 		default:
 		}
 
+		// Get buffer from pool
+		bufPtr := p.bufferPool.Get().(*[]byte)
+		buf := *bufPtr
+
 		if err := conn.SetReadDeadline(time.Now().Add(udpReadTimeout)); err != nil {
-			log.Debugf("UDP set read deadline error: %v", err)
+			if log.IsVerbose() {
+				log.Debugf("UDP set read deadline error: %v", err)
+			}
 		}
 		n, clientAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
+			p.bufferPool.Put(bufPtr)
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				continue
 			}
 			if p.ctx.Err() != nil {
 				return
 			}
-			log.Debugf("UDP read error: %v", err)
+			if log.IsVerbose() {
+				log.Debugf("UDP read error: %v", err)
+			}
 			continue
 		}
 
-		// Handle request in goroutine
+		// Copy request data for goroutine
 		req := make([]byte, n)
 		copy(req, buf[:n])
+		p.bufferPool.Put(bufPtr)
 
 		go func(conn *net.UDPConn, clientAddr *net.UDPAddr, req []byte) {
 			// Early exit if shutting down
@@ -333,13 +352,17 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 
 			resp, err := p.processRequest(clientAddr, req, networkUDP)
 			if err != nil {
-				log.Debugf("UDP request processing error: %v", err)
+				if log.IsVerbose() {
+					log.Debugf("UDP request processing error: %v", err)
+				}
 				return
 			}
 
 			_, err = conn.WriteToUDP(resp, clientAddr)
 			if err != nil {
-				log.Warnf("UDP write error to %s: %v", clientAddr, err)
+				if !log.IsDisabled() {
+					log.Warnf("UDP write error to %s: %v", clientAddr, err)
+				}
 			}
 		}(conn, clientAddr, req)
 	}
@@ -426,7 +449,7 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 	}
 
 	// Log request
-	if len(reqMsg.Question) > 0 {
+	if log.IsVerbose() && len(reqMsg.Question) > 0 {
 		q := reqMsg.Question[0]
 		log.Debugf("[%04x] DNS query: %s %s from %s via %s",
 			reqMsg.Id, q.Name, dns.TypeToString[q.Qtype], clientAddr, network)
@@ -446,7 +469,9 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 
 		for ipsetName, ipsetUpstream := range p.ipsetUpstreams {
 			if ipsetUpstream.MatchesDomain(queryDomain) {
-				log.Debugf("[%04x] Using ipset-specific DNS for %s (ipset: %s)", reqMsg.Id, queryDomain, ipsetName)
+				if log.IsVerbose() {
+					log.Debugf("[%04x] Using ipset-specific DNS for %s (ipset: %s)", reqMsg.Id, queryDomain, ipsetName)
+				}
 				selectedUpstream = ipsetUpstream
 				break
 			}
@@ -514,7 +539,9 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 	// Batch add to ipsets
 	if len(entries) > 0 {
 		if err := p.ipsetManager.BatchAddWithTTL(entries); err != nil {
-			log.Warnf("[%04x] Failed to batch add to ipsets: %v", reqMsg.Id, err)
+			if !log.IsDisabled() {
+				log.Warnf("[%04x] Failed to batch add to ipsets: %v", reqMsg.Id, err)
+			}
 		}
 	}
 }
@@ -523,7 +550,9 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	ttl := p.getTTL(record.Hdr.Ttl)
-	log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, ttl)
+	if log.IsVerbose() {
+		log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, ttl)
+	}
 
 	// Add to records cache - only collect ipset entries if this is a new/expired entry
 	if !p.recordsCache.AddAddress(domain, record.A, ttl) {
@@ -537,7 +566,9 @@ func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEn
 func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	ttl := p.getTTL(record.Hdr.Ttl)
-	log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, ttl)
+	if log.IsVerbose() {
+		log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, ttl)
+	}
 
 	// Add to records cache - only collect ipset entries if this is a new/expired entry
 	if !p.recordsCache.AddAddress(domain, record.AAAA, ttl) {
@@ -549,8 +580,16 @@ func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.I
 
 // collectIPSetEntries checks domain aliases against lists and returns IPSet entries.
 func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id uint16) []networking.IPSetEntry {
-	var entries []networking.IPSetEntry
+	// Quick check: if domain itself doesn't match, skip aliases lookup
+	// This avoids GetAliases() allocation for non-matching domains
+	quickMatches := p.matcher.Match(domain)
+	if len(quickMatches) == 0 {
+		return nil // No match, return nil to avoid allocation
+	}
+
+	// Domain matches, now check all aliases
 	aliases := p.recordsCache.GetAliases(domain)
+	var entries []networking.IPSetEntry
 
 	for _, alias := range aliases {
 		// Cache the address for this alias to prevent duplicate ipset additions
@@ -576,7 +615,9 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 			// Convert to netip.Prefix
 			addr, ok := netip.AddrFromSlice(ip)
 			if !ok {
-				log.Warnf("[%04x] Invalid IP address: %s", id, ip)
+				if !log.IsDisabled() {
+					log.Warnf("[%04x] Invalid IP address: %s", id, ip)
+				}
 				continue
 			}
 
@@ -586,8 +627,10 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 			}
 			prefix := netip.PrefixFrom(addr, prefixLen)
 
-			log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
-				id, ip, ipsetName, domain, alias, ttl)
+			if log.IsVerbose() {
+				log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
+					id, ip, ipsetName, domain, alias, ttl)
+			}
 
 			entries = append(entries, networking.IPSetEntry{
 				IPSetName: ipsetName,
@@ -605,7 +648,9 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 	target := normalizeDomain(record.Target)
 	ttl := p.getTTL(record.Hdr.Ttl)
 
-	log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", id, domain, target, ttl)
+	if log.IsVerbose() {
+		log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", id, domain, target, ttl)
+	}
 
 	// Add alias to cache
 	p.recordsCache.AddAlias(domain, target, ttl)
@@ -616,8 +661,8 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 		return nil
 	}
 
-	var entries []networking.IPSetEntry
 	aliases := p.recordsCache.GetAliases(domain)
+	var entries []networking.IPSetEntry
 
 	for _, alias := range aliases {
 		matches := p.matcher.Match(alias)
@@ -653,8 +698,10 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 				}
 				prefix := netip.PrefixFrom(addr, prefixLen)
 
-				log.Infof("[%04x] Adding %s to ipset %s (CNAME: %s -> %s, alias: %s, TTL: %d)",
-					id, cachedAddr.Address, ipsetName, domain, target, alias, ttl)
+				if log.IsVerbose() {
+					log.Infof("[%04x] Adding %s to ipset %s (CNAME: %s -> %s, alias: %s, TTL: %d)",
+						id, cachedAddr.Address, ipsetName, domain, target, alias, ttl)
+				}
 
 				entries = append(entries, networking.IPSetEntry{
 					IPSetName: ipsetName,
