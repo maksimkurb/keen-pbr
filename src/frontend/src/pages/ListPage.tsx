@@ -114,7 +114,7 @@ export default function ListPage() {
   const hasHostsErrors = Object.keys(hostsErrors).length > 0;
 
   // Fetch full list data when editing an inline hosts list
-  const { data: fullListData } = useQuery({
+  const { data: fullListData, isLoading: isLoadingFullList } = useQuery({
     queryKey: ['list', name],
     queryFn: () => apiClient.getList(name!),
     enabled: isEditMode && !!name,
@@ -130,11 +130,24 @@ export default function ListPage() {
           type: list.type,
           url: list.url,
           file: list.file,
-          hosts: fullListData?.hosts ? fullListData.hosts.join('\n') : '',
+          hosts: '',
         });
       }
     }
-  }, [isEditMode, lists, name, fullListData]);
+  }, [isEditMode, lists, name]);
+
+  // Update hosts content when full list data loads
+  useEffect(() => {
+    if (isEditMode && fullListData?.hosts) {
+      const list = lists?.find(l => l.list_name === name);
+      if (list?.type === 'hosts') {
+        setFormData(prev => ({
+          ...prev,
+          hosts: fullListData.hosts.join('\n'),
+        }));
+      }
+    }
+  }, [fullListData?.hosts?.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,7 +198,18 @@ export default function ListPage() {
 
   const isPending = isEditMode ? updateList.isPending : createList.isPending;
 
+  // Wait for lists to load first
   if (isEditMode && isLoadingLists) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // For hosts-type lists, also wait for full list data
+  const currentList = lists?.find(l => l.list_name === name);
+  if (isEditMode && currentList?.type === 'hosts' && isLoadingFullList) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -238,13 +262,15 @@ export default function ListPage() {
               {t('lists.dialog.listTypeDescription')}
             </FieldDescription>
             <Select
-              value={formData.type}
-              onValueChange={(value: 'url' | 'file' | 'hosts') =>
-                setFormData({ ...formData, type: value })
-              }
+              value={formData.type || ''}
+              onValueChange={(value: 'url' | 'file' | 'hosts') => {
+                if (value) {
+                  setFormData({ ...formData, type: value });
+                }
+              }}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder={t('lists.dialog.selectType')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="url">{t('lists.types.url')}</SelectItem>
