@@ -30,6 +30,7 @@ export function SettingsForm() {
       cache_max_domains: 1000,
       drop_aaaa: true,
       ipset_entry_additional_ttl_sec: 7200,
+      listed_domains_dns_cache_ttl_sec: 30,
       remap_53_interfaces: ['br0', 'br1'],
     },
   };
@@ -364,6 +365,32 @@ export function SettingsForm() {
                   }));
                 }}
                 placeholder="7200"
+                disabled={!formData.dns_server.enable}
+              />
+            </Field>
+
+            {/* Listed Domains DNS Cache TTL */}
+            <Field>
+              <FieldLabel htmlFor="listed_domains_dns_cache_ttl_sec">
+                {t('settings.listedDomainsDNSCacheTTL')}
+              </FieldLabel>
+              <FieldDescription>
+                {t('settings.listedDomainsDNSCacheTTLDescription')}
+              </FieldDescription>
+              <Input
+                id="listed_domains_dns_cache_ttl_sec"
+                type="number"
+                min="0"
+                max="2147483"
+                value={formData.dns_server.listed_domains_dns_cache_ttl_sec}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10) || 0;
+                  setFormData((prev) => ({
+                    ...prev,
+                    dns_server: { ...prev.dns_server, listed_domains_dns_cache_ttl_sec: value },
+                  }));
+                }}
+                placeholder="30"
                 disabled={!formData.dns_server.enable}
               />
             </Field>

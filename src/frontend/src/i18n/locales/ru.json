@@ -147,6 +147,8 @@
     "dropAAAADescription": "Отбрасывать IPv6 (AAAA) DNS-ответы для принудительного использования IPv4",
     "ipsetEntryAdditionalTTL": "Дополнительный TTL для записей IPSet (секунды)",
     "ipsetEntryAdditionalTTLDescription": "Дополнительный TTL, добавляемый к TTL DNS-записи для записей IPSet (0 = использовать только DNS TTL, по умолчанию: 7200 = 2 часа)",
+    "listedDomainsDNSCacheTTL": "TTL кэша DNS для доменов в списках (секунды)",
+    "listedDomainsDNSCacheTTLDescription": "TTL, используемый для записей кэша DNS доменов, найденных в списках (0 = отключить, по умолчанию: 30). Позволяет клиентам быстро забывать DNS для доменов в списках. Домены вне списков сохраняют исходный DNS TTL.",
     "dnsRemap53Interfaces": "Интерфейсы для перехвата порта 53",
     "dnsRemap53InterfacesDescription": "keen-pbr будет перехватывать (MITM) DNS-запросы на порт 53 с этих интерфейсов для маршрутизации на основе доменов",
     "saveChanges": "Сохранить изменения",

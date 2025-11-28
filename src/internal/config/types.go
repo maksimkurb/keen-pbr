@@ -57,6 +57,8 @@ type DNSServerConfig struct {
 	DropAAAA bool `toml:"drop_aaaa" json:"drop_aaaa"`
 	// IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime in seconds (default: 7200 = 2 hours).
 	IPSetEntryAdditionalTTLSec uint32 `toml:"ipset_entry_additional_ttl_sec" json:"ipset_entry_additional_ttl_sec" validate:"min=0,max=2147483"`
+	// ListedDomainsDNSCacheTTLSec is the TTL used for DNS cache entries of domains matched by lists (default: 30). Allows clients to forget DNS fast for listed domains. Other domains keep original TTL.
+	ListedDomainsDNSCacheTTLSec uint32 `toml:"listed_domains_dns_cache_ttl_sec" json:"listed_domains_dns_cache_ttl_sec" validate:"min=0,max=2147483"`
 	// Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
 	Remap53Interfaces []string `toml:"remap_53_interfaces" json:"remap_53_interfaces" validate:"required_if=Enable true"`
 }

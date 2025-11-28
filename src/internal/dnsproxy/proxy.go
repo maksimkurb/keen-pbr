@@ -58,6 +58,10 @@ type ProxyConfig struct {
 	// IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime (default: 7200 = 2 hours)
 	IPSetEntryAdditionalTTLSec uint32
 
+	// ListedDomainsDNSCacheTTLSec is the TTL to use for domains found by matcher in recordsCache (default: 30)
+	// This allows clients to forget DNS fast for domains that are in the matchers, while other domains keep original TTL
+	ListedDomainsDNSCacheTTLSec uint32
+
 	// MaxCacheDomains is the maximum number of domains to cache (default: 10000)
 	MaxCacheDomains int
 }
@@ -68,12 +72,13 @@ func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 		return ProxyConfig{}
 	}
 	return ProxyConfig{
-		ListenAddr:                 cfg.General.DNSServer.ListenAddr,
-		ListenPort:                 cfg.General.DNSServer.ListenPort,
-		Upstreams:                  cfg.General.DNSServer.Upstreams,
-		DropAAAA:                   cfg.General.DNSServer.DropAAAA,
-		IPSetEntryAdditionalTTLSec: cfg.General.DNSServer.IPSetEntryAdditionalTTLSec,
-		MaxCacheDomains:            cfg.General.DNSServer.CacheMaxDomains,
+		ListenAddr:                    cfg.General.DNSServer.ListenAddr,
+		ListenPort:                    cfg.General.DNSServer.ListenPort,
+		Upstreams:                     cfg.General.DNSServer.Upstreams,
+		DropAAAA:                      cfg.General.DNSServer.DropAAAA,
+		IPSetEntryAdditionalTTLSec:    cfg.General.DNSServer.IPSetEntryAdditionalTTLSec,
+		ListedDomainsDNSCacheTTLSec:   cfg.General.DNSServer.ListedDomainsDNSCacheTTLSec,
+		MaxCacheDomains:               cfg.General.DNSServer.CacheMaxDomains,
 	}
 }
 
@@ -550,43 +555,50 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 // processARecord processes an A (IPv4) record and returns IPSet entries.
 func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
-	ttl := p.getTTL(record.Hdr.Ttl)
+	originalTTL := record.Hdr.Ttl
+	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
+
 	if log.IsVerbose() {
-		log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, ttl)
+		log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, originalTTL)
 	}
 
 	// Add to records cache - only collect ipset entries if this is a new/expired entry
-	if !p.recordsCache.AddAddress(domain, record.A, ttl) {
+	if !p.recordsCache.AddAddress(domain, record.A, cacheTTL) {
 		return nil // Entry already cached and valid, skip ipset update
 	}
 
-	return p.collectIPSetEntries(domain, record.A, ttl, id)
+	return p.collectIPSetEntries(domain, record.A, originalTTL, id)
 }
 
 // processAAAARecord processes an AAAA (IPv6) record and returns IPSet entries.
 func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
-	ttl := p.getTTL(record.Hdr.Ttl)
+	originalTTL := record.Hdr.Ttl
+	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
+
 	if log.IsVerbose() {
-		log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, ttl)
+		log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, originalTTL)
 	}
 
 	// Add to records cache - only collect ipset entries if this is a new/expired entry
-	if !p.recordsCache.AddAddress(domain, record.AAAA, ttl) {
+	if !p.recordsCache.AddAddress(domain, record.AAAA, cacheTTL) {
 		return nil // Entry already cached and valid, skip ipset update
 	}
 
-	return p.collectIPSetEntries(domain, record.AAAA, ttl, id)
+	return p.collectIPSetEntries(domain, record.AAAA, originalTTL, id)
 }
 
 // collectIPSetEntries checks domain aliases against lists and returns IPSet entries.
-func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id uint16) []networking.IPSetEntry {
+// originalTTL parameter is the original DNS response TTL.
+func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, originalTTL uint32, id uint16) []networking.IPSetEntry {
 	// Quick check: if domain itself doesn't match, skip aliases lookup
 	// This avoids GetAliases() allocation for non-matching domains
 	quickMatches := p.matcher.Match(domain)
 	if len(quickMatches) == 0 {
 		return nil // No match, return nil to avoid allocation
 	}
+
+	ipsetTTL := p.getIPSetTTL(originalTTL)
 
 	// Domain matches, now check all aliases
 	aliases := p.recordsCache.GetAliases(domain)
@@ -596,7 +608,8 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 		// Cache the address for this alias to prevent duplicate ipset additions
 		// when CNAME record is processed later (or on subsequent lookups)
 		if alias != domain {
-			p.recordsCache.AddAddress(alias, ip, ttl)
+			aliasCacheTTL := p.getRecordsCacheTTL(originalTTL, alias)
+			p.recordsCache.AddAddress(alias, ip, aliasCacheTTL)
 		}
 
 		matches := p.matcher.Match(alias)
@@ -630,13 +643,13 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 
 			if log.IsVerbose() {
 				log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
-					id, ip, ipsetName, domain, alias, ttl)
+					id, ip, ipsetName, domain, alias, ipsetTTL)
 			}
 
 			entries = append(entries, networking.IPSetEntry{
 				IPSetName: ipsetName,
 				Network:   prefix,
-				TTL:       ttl,
+				TTL:       ipsetTTL,
 			})
 		}
 	}
@@ -647,14 +660,16 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, ttl uint32, id 
 func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking.IPSetEntry {
 	domain := normalizeDomain(record.Hdr.Name)
 	target := normalizeDomain(record.Target)
-	ttl := p.getTTL(record.Hdr.Ttl)
+	originalTTL := record.Hdr.Ttl
+	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
+	ipsetTTL := p.getIPSetTTL(originalTTL)
 
 	if log.IsVerbose() {
-		log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", id, domain, target, ttl)
+		log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", id, domain, target, originalTTL)
 	}
 
 	// Add alias to cache
-	p.recordsCache.AddAlias(domain, target, ttl)
+	p.recordsCache.AddAlias(domain, target, cacheTTL)
 
 	// Check if we already have addresses for the target
 	addresses := p.recordsCache.GetAddresses(target)
@@ -676,7 +691,7 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 			for _, cachedAddr := range addresses {
 				// Check if this domain+IP combination is already in cache and valid
 				// This prevents duplicate ipset additions for the same CNAME resolution
-				if !p.recordsCache.AddAddress(domain, cachedAddr.Address, ttl) {
+				if !p.recordsCache.AddAddress(domain, cachedAddr.Address, cacheTTL) {
 					continue // Already cached and valid, skip ipset update
 				}
 
@@ -701,13 +716,13 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 
 				if log.IsVerbose() {
 					log.Infof("[%04x] Adding %s to ipset %s (CNAME: %s -> %s, alias: %s, TTL: %d)",
-						id, cachedAddr.Address, ipsetName, domain, target, alias, ttl)
+						id, cachedAddr.Address, ipsetName, domain, target, alias, ipsetTTL)
 				}
 
 				entries = append(entries, networking.IPSetEntry{
 					IPSetName: ipsetName,
 					Network:   prefix,
-					TTL:       ttl,
+					TTL:       ipsetTTL,
 				})
 			}
 		}
@@ -715,10 +730,22 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 	return entries
 }
 
-// getTTL returns the TTL to use for IPSet entries, adding additional seconds to the original DNS TTL.
+// getRecordsCacheTTL returns the TTL to use for the records cache for a domain.
+// For domains matched by the matcher, uses ListedDomainsDNSCacheTTLSec if set (to make clients forget DNS fast).
+// For other domains, uses the original DNS response TTL.
+func (p *DNSProxy) getRecordsCacheTTL(originalTTL uint32, domain string) uint32 {
+	// Check if domain is in matcher (listed domain)
+	matches := p.matcher.Match(domain)
+	if len(matches) > 0 && p.config.ListedDomainsDNSCacheTTLSec > 0 {
+		return p.config.ListedDomainsDNSCacheTTLSec
+	}
+	return originalTTL
+}
+
+// getIPSetTTL returns the TTL to use for IPSet entries.
+// Uses original TTL plus IPSetEntryAdditionalTTLSec (e.g., original 300s + 7200s = 7500s total).
 // If IPSetEntryAdditionalTTLSec is 0, returns the original TTL unchanged.
-// Otherwise, adds the configured additional TTL to the original TTL.
-func (p *DNSProxy) getTTL(originalTTL uint32) uint32 {
+func (p *DNSProxy) getIPSetTTL(originalTTL uint32) uint32 {
 	if p.config.IPSetEntryAdditionalTTLSec == 0 {
 		return originalTTL
 	}

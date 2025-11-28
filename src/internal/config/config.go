@@ -159,6 +159,16 @@ func (c *Config) UpgradeConfig() (bool, error) {
 			log.Infof("Setting default dns_cache_max_domains: %d", c.General.DNSServer.CacheMaxDomains)
 		}
 
+		if c.General.DNSServer.ListedDomainsDNSCacheTTLSec == 0 {
+			c.General.DNSServer.ListedDomainsDNSCacheTTLSec = 30
+			log.Infof("Setting default listed_domains_dns_cache_ttl_sec: %d", c.General.DNSServer.ListedDomainsDNSCacheTTLSec)
+		}
+
+		if c.General.DNSServer.IPSetEntryAdditionalTTLSec == 0 {
+			c.General.DNSServer.IPSetEntryAdditionalTTLSec = 7200
+			log.Infof("Setting default ipset_entry_additional_ttl_sec: %d", c.General.DNSServer.IPSetEntryAdditionalTTLSec)
+		}
+
 		// Set default string values
 		if c.General.DNSServer.ListenAddr == "" {
 			c.General.DNSServer.ListenAddr = "[::]"

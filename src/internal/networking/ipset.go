@@ -14,6 +14,7 @@ import (
 )
 
 const ipsetCommand = "ipset"
+const ipsetMaxTTL = 2147483
 
 type IPSet struct {
 	Name     string
@@ -230,6 +231,9 @@ func BatchAddWithTTL(entries []IPSetEntry) error {
 
 			var line string
 			if entry.TTL > 0 {
+				if entry.TTL > ipsetMaxTTL {
+					entry.TTL = ipsetMaxTTL
+				}
 				line = fmt.Sprintf("add %s %s timeout %d\n", entry.IPSetName, entry.Network.String(), entry.TTL)
 			} else {
 				line = fmt.Sprintf("add %s %s\n", entry.IPSetName, entry.Network.String())

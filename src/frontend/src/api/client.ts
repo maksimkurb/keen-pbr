@@ -116,6 +116,7 @@ export interface DNSServerConfig {
 	cache_max_domains: number;
 	drop_aaaa: boolean;
 	ipset_entry_additional_ttl_sec: number;
+	listed_domains_dns_cache_ttl_sec: number;
 	remap_53_interfaces: string[];
 }
 

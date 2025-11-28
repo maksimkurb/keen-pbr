@@ -147,6 +147,8 @@
     "dropAAAADescription": "Drop IPv6 (AAAA) DNS responses to force IPv4",
     "ipsetEntryAdditionalTTL": "Additional TTL for IPSet Entries (seconds)",
     "ipsetEntryAdditionalTTLDescription": "Additional TTL added to DNS record TTL for IPSet entries (0 = use DNS TTL only, default: 7200 = 2 hours)",
+    "listedDomainsDNSCacheTTL": "DNS Cache TTL for Listed Domains (seconds)",
+    "listedDomainsDNSCacheTTLDescription": "TTL used for DNS cache entries of domains matched by lists (0 = disable, default: 30). Allows clients to forget DNS fast for listed domains. Unlisted domains keep original DNS TTL.",
     "dnsRemap53Interfaces": "Port 53 Hijacking Interfaces",
     "dnsRemap53InterfacesDescription": "keen-pbr will hijack (MITM) DNS requests to port 53 from these interfaces for domain-based routing",
     "saveChanges": "Save Changes",
