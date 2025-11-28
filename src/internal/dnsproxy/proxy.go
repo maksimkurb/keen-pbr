@@ -299,6 +299,7 @@ func (p *DNSProxy) Stop() error {
 // This should be called when lists are updated to pick up new domain entries.
 func (p *DNSProxy) ReloadLists() {
 	log.Infof("Reloading DNS proxy domain lists...")
+	p.recordsCache.Cleanup()
 	p.matcher.Rebuild(p.appConfig)
 	exactCount, wildcardCount := p.matcher.Stats()
 	log.Infof("DNS proxy lists reloaded: %d exact domains, %d wildcard suffixes", exactCount, wildcardCount)
