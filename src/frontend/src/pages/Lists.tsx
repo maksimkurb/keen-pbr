@@ -1,20 +1,19 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Plus, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { useLists, useDownloadAllLists } from '../hooks/useLists';
 import { useIPSets } from '../hooks/useIPSets';
 import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/alert';
 import { ListFilters } from '../../components/lists/ListFilters';
 import { ListsTable } from '../../components/lists/ListsTable';
-import { ListDialog } from '../../components/lists/ListDialog';
 
 export default function Lists() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: lists, isLoading: listsLoading, error: listsError } = useLists();
   const { data: ipsets, isLoading: ipsetsLoading } = useIPSets();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const downloadAllLists = useDownloadAllLists();
 
   const isLoading = listsLoading || ipsetsLoading;
@@ -72,7 +71,7 @@ export default function Lists() {
             <span className="hidden sm:inline">{t('lists.downloadAll.button')}</span>
             <span className="sm:hidden">{t('lists.downloadAll.buttonShort')}</span>
           </Button>
-          <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto">
+          <Button onClick={() => navigate('/lists/new')} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             {t('lists.newList')}
           </Button>
@@ -86,12 +85,6 @@ export default function Lists() {
       {lists && ipsets && (
         <ListsTable lists={lists} ipsets={ipsets} />
       )}
-
-      {/* Create Dialog */}
-      <ListDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
     </div>
   );
 }

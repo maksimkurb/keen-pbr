@@ -6,7 +6,9 @@ import { Toaster } from '../components/ui/sonner';
 import Dashboard from './pages/Dashboard';
 import GeneralSettings from './pages/GeneralSettings';
 import Lists from './pages/Lists';
+import ListPage from './pages/ListPage';
 import RoutingRules from './pages/RoutingRules';
+import RulePage from './pages/RulePage';
 import './i18n';
 import "./App.css";
 
@@ -54,7 +56,11 @@ const App = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/settings" element={<GeneralSettings />} />
             <Route path="/lists" element={<Lists />} />
+            <Route path="/lists/new" element={<ListPage />} />
+            <Route path="/lists/:name/edit" element={<ListPage />} />
             <Route path="/routing-rules" element={<RoutingRules />} />
+            <Route path="/routing-rules/new" element={<RulePage />} />
+            <Route path="/routing-rules/:name/edit" element={<RulePage />} />
           </Routes>
         </AppLayout>
       </HashRouter>

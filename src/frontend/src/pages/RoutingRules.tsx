@@ -1,18 +1,17 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { useIPSets } from '../hooks/useIPSets';
 import { useLists } from '../hooks/useLists';
 import { RuleFilters } from '../../components/routing-rules/RuleFilters';
 import { RoutingRulesTable } from '../../components/routing-rules/RoutingRulesTable';
-import { RuleDialog } from '../../components/routing-rules/RuleDialog';
 
 export default function RoutingRules() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: ipsets, isLoading: ipsetsLoading, error: ipsetsError } = useIPSets();
   const { data: lists } = useLists();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const availableLists = lists?.map((l) => l.list_name) || [];
 
@@ -44,7 +43,7 @@ export default function RoutingRules() {
             {t('routingRules.description')}
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} className="w-full md:w-auto">
+        <Button onClick={() => navigate('/routing-rules/new')} className="w-full md:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           {t('routingRules.newRule')}
         </Button>
@@ -55,13 +54,6 @@ export default function RoutingRules() {
 
       {/* Table */}
       <RoutingRulesTable ipsets={ipsets || []} />
-
-      {/* Create Dialog */}
-      <RuleDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        availableLists={availableLists}
-      />
     </div>
   );
 }

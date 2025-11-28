@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { StatsDisplay } from '../shared/StatsDisplay';
-import { ListDialog } from './ListDialog';
 import { DeleteListConfirmation } from './DeleteListConfirmation';
 import { useDownloadList } from '../../src/hooks/useLists';
 import type { ListInfo, IPSetConfig } from '../../src/api/client';
@@ -18,8 +17,8 @@ interface ListsTableProps {
 
 export function ListsTable({ lists, ipsets }: ListsTableProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [editingList, setEditingList] = useState<ListInfo | null>(null);
   const [deletingList, setDeletingList] = useState<string | null>(null);
   const downloadList = useDownloadList();
 
@@ -185,7 +184,7 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingList(list)}
+                        onClick={() => navigate(`/lists/${list.list_name}/edit`)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -204,12 +203,6 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
           </tbody>
         </table>
       </div>
-
-      <ListDialog
-        list={editingList}
-        open={!!editingList}
-        onOpenChange={(open) => !open && setEditingList(null)}
-      />
 
       <DeleteListConfirmation
         listName={deletingList}

@@ -4,9 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Pencil, Trash2, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { RuleDialog } from './RuleDialog';
 import { DeleteRuleConfirmation } from './DeleteRuleConfirmation';
-import { useLists } from '../../src/hooks/useLists';
 import type { IPSetConfig } from '../../src/api/client';
 
 interface RoutingRulesTableProps {
@@ -17,11 +15,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [editingIPSet, setEditingIPSet] = useState<IPSetConfig | null>(null);
   const [deletingIPSet, setDeletingIPSet] = useState<string | null>(null);
-  const { data: lists } = useLists();
-
-  const availableLists = lists || [];
 
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
@@ -150,7 +144,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingIPSet(ipset)}
+                      onClick={() => navigate(`/routing-rules/${ipset.ipset_name}/edit`)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -168,13 +162,6 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
           </tbody>
         </table>
       </div>
-
-      <RuleDialog
-        ipset={editingIPSet}
-        open={!!editingIPSet}
-        onOpenChange={(open) => !open && setEditingIPSet(null)}
-        availableLists={availableLists}
-      />
 
       <DeleteRuleConfirmation
         ipsetName={deletingIPSet}
