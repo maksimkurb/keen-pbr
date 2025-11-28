@@ -42,30 +42,30 @@ function validateIPv6(ip: string): boolean {
   return IPV6_PATTERN.test(ip);
 }
 
-function validateHostLine(line: string): string[] {
+function validateHostLine(line: string): string | null {
   const trimmed = line.trim();
 
   // Empty line is valid
-  if (trimmed === '') return [];
+  if (trimmed === '') return null;
 
   // Comment line is valid
-  if (trimmed.startsWith('#')) return [];
+  if (trimmed.startsWith('#')) return null;
 
   // Check if it's a domain
-  if (DOMAIN_PATTERN.test(trimmed)) return [];
+  if (DOMAIN_PATTERN.test(trimmed)) return null;
 
   // Check if it's IPv4 or IPv4 CIDR
   if (IPV4_PATTERN.test(trimmed)) {
     if (!validateIPv4(trimmed)) {
-      return ['Invalid IPv4 address or subnet'];
+      return 'Invalid IPv4 address or subnet';
     }
-    return [];
+    return null;
   }
 
   // Check if it's IPv6 or IPv6 CIDR
-  if (validateIPv6(trimmed)) return [];
+  if (validateIPv6(trimmed)) return null;
 
-  return ['Invalid format: must be empty, comment (#), domain, IPv4, or IPv6'];
+  return 'Invalid format: must be empty, comment (#), domain, IPv4, or IPv6';
 }
 
 function validateHosts(hosts: string): LineError {
@@ -73,9 +73,9 @@ function validateHosts(hosts: string): LineError {
   const errors: LineError = {};
 
   lines.forEach((line, index) => {
-    const lineErrors = validateHostLine(line);
-    if (lineErrors.length > 0) {
-      errors[index + 1] = lineErrors;
+    const lineError = validateHostLine(line);
+    if (lineError) {
+      errors[index + 1] = lineError;
     }
   });
 
@@ -143,7 +143,7 @@ export default function ListPage() {
       if (list?.type === 'hosts') {
         setFormData(prev => ({
           ...prev,
-          hosts: fullListData.hosts.join('\n'),
+          hosts: fullListData?.hosts?.join('\n'),
         }));
       }
     }
