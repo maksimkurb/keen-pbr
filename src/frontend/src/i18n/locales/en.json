@@ -10,6 +10,7 @@
     "description": "System status and domain routing checker",
     "systemStatus": "System Status",
     "configurationOutdated": "Configuration has been modified. Restart keen-pbr service to apply changes.",
+    "configurationOutdatedLink": "Go to Dashboard",
     "version": "keen-pbr Version",
     "keeneticVersion": "Keenetic OS",
     "keenPbrService": "keen-pbr Service",

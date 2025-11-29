@@ -22,7 +22,10 @@ install-dev-deps:
 test:
 	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./... && deadcode ./... && golangci-lint-v2 run
 
-build-frontend:
+generate-types:
+	go run ./cmd/generate-types
+
+build-frontend: generate-types
 	cd src/frontend && bun install && bun run build
 
 build:

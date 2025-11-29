@@ -26,18 +26,21 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Install Node.js
-      uses: actions/setup-node@v4
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
       with:
-        node-version: '20'
+        bun-version: latest
+
+    - name: Generate TypeScript types
+      run: make generate-types
 
     - name: Install frontend dependencies
       working-directory: src/frontend
-      run: npm ci
+      run: bun install
 
     - name: Build frontend
       working-directory: src/frontend
-      run: npm run build
+      run: bun run build
 
     - name: Install staticcheck
       run: go install honnef.co/go/tools/cmd/staticcheck@latest

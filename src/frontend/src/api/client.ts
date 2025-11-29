@@ -1,39 +1,75 @@
 /**
  * TypeScript client for keen-pbr REST API
- * Based on .claude/API_PLAN.md
  */
 
-// API Response types
-export interface DataResponse<T> {
-	data: T;
-}
+// Import all generated types
+import type {
+	// Response wrappers
+	DataResponse,
+	ErrorResponse,
+	// List types
+	ListInfo,
+	ListStatistics,
+	ListsResponse,
+	ListDownloadResponse,
+	// IPSet/Config types
+	IPSetConfig,
+	GeneralConfig,
+	AutoUpdateConfig,
+	DNSServerConfig,
+	RoutingConfig,
+	RoutingDNSConfig,
+	IPTablesRule,
+	// Interface types
+	InterfaceInfo,
+	InterfacesResponse,
+	// Settings types
+	SettingsResponse,
+	// Status types
+	StatusResponse,
+	ServiceInfo,
+	VersionInfo,
+	// Service control types
+	ServiceControlRequest,
+	ServiceControlResponse,
+	// Health check types
+	CheckResult,
+	HealthCheckResponse,
+	// Network check types
+	RoutingCheckResponse,
+	HostnameRuleMatch,
+	IPSetCheckResult,
+	RuleCheckResult,
+} from "./generated-types";
 
-export interface ErrorResponse {
-	error: {
-		code: string;
-		message: string;
-		details?: Record<string, unknown>;
-	};
-}
+// Re-export commonly used types
+export type {
+	DataResponse,
+	ErrorResponse,
+	ListStatistics,
+	ListInfo,
+	ListDownloadResponse,
+	RoutingConfig,
+	IPTablesRule,
+	IPSetConfig,
+	RoutingDNSConfig,
+	InterfaceInfo,
+	AutoUpdateConfig,
+	DNSServerConfig,
+	GeneralConfig,
+	ServiceInfo,
+	VersionInfo,
+	ServiceControlRequest,
+	ServiceControlResponse,
+	CheckResult,
+	HealthCheckResponse,
+	HostnameRuleMatch,
+	RuleCheckResult,
+	IPSetCheckResult,
+	RoutingCheckResponse,
+};
 
-// List types
-export interface ListStatistics {
-	total_hosts: number | null;
-	ipv4_subnets: number | null;
-	ipv6_subnets: number | null;
-	downloaded?: boolean;
-	last_modified?: string;
-}
-
-export interface ListInfo {
-	list_name: string;
-	type: "url" | "file" | "hosts";
-	url?: string;
-	file?: string;
-	hosts?: string[]; // Only populated in GET single list endpoint for inline hosts
-	stats: ListStatistics | null;
-}
-
+// Client-only request types (not generated from Go)
 export interface CreateListRequest {
 	list_name: string;
 	url?: string;
@@ -45,36 +81,6 @@ export interface UpdateListRequest {
 	url?: string;
 	file?: string;
 	hosts?: string[];
-}
-
-export interface ListDownloadResponse extends ListInfo {
-	changed: boolean; // true if the list was updated, false if unchanged
-}
-
-// IPSet types
-export interface RoutingConfig {
-	interfaces: string[];
-	default_gateway?: string;
-	kill_switch?: boolean;
-	fwmark: number;
-	table: number;
-	priority: number;
-	override_dns?: string;
-}
-
-export interface IPTablesRule {
-	chain: string;
-	table: string;
-	rule: string[];
-}
-
-export interface IPSetConfig {
-	ipset_name: string;
-	lists: string[];
-	ip_version: 4 | 6;
-	flush_before_applying: boolean;
-	routing?: RoutingConfig;
-	iptables_rule?: IPTablesRule[];
 }
 
 export interface CreateIPSetRequest {
@@ -94,39 +100,6 @@ export interface UpdateIPSetRequest {
 	iptables_rule?: IPTablesRule[];
 }
 
-// Interface types
-export interface InterfaceInfo {
-	name: string;
-	keenetic_id?: string;
-	keenetic_description?: string;
-	is_up: boolean;
-}
-
-// Settings types
-export interface AutoUpdateConfig {
-	enabled: boolean;
-	interval_hours: number;
-}
-
-export interface DNSServerConfig {
-	enable: boolean;
-	listen_addr: string;
-	listen_port: number;
-	upstreams: string[];
-	cache_max_domains: number;
-	drop_aaaa: boolean;
-	ipset_entry_additional_ttl_sec: number;
-	listed_domains_dns_cache_ttl_sec: number;
-	remap_53_interfaces: string[];
-}
-
-export interface GeneralSettings {
-	lists_output_dir: string;
-	interface_monitoring_interval_seconds: number; // 0 = disabled
-	auto_update_lists: AutoUpdateConfig;
-	dns_server: DNSServerConfig;
-}
-
 export interface UpdateSettingsRequest {
 	lists_output_dir?: string;
 	interface_monitoring_interval_seconds?: number;
@@ -134,80 +107,8 @@ export interface UpdateSettingsRequest {
 	dns_server?: DNSServerConfig;
 }
 
-// Status types
-export interface ServiceInfo {
-	status: "running" | "stopped" | "unknown";
-	message?: string;
-	config_hash?: string; // Hash of applied config (keen-pbr service only)
-}
-
-export interface VersionInfo {
-	version: string;
-	date: string;
-	commit: string;
-}
-
-export interface DNSServerInfo {
-	type: string; // "IP4", "IP6", "DoT", "DoH"
-	endpoint: string; // IP for plain DNS, SNI for DoT, URI for DoH
-	port?: string; // Port for DoT/DoH
-	domain?: string; // Domain scope (if any)
-}
-
-export interface StatusInfo {
-	version: VersionInfo;
-	keenetic_version?: string;
-	services: Record<string, ServiceInfo>;
-	current_config_hash: string;
-	configuration_outdated: boolean;
-	dns_servers?: string[]; // Upstream DNS servers
-}
-
-// Service control types
-export interface ServiceControlRequest {
-	up: boolean;
-}
-
-export interface ServiceControlResponse {
-	status: string;
-	message?: string;
-}
-
-// Health check types
-export interface CheckResult {
-	passed: boolean;
-	message?: string;
-}
-
-export interface HealthCheckResponse {
-	healthy: boolean;
-	checks: Record<string, CheckResult>;
-}
-
-// Network check types
-export interface HostnameRuleMatch {
-	rule_name: string;
-	pattern: string;
-}
-
-export interface RuleCheckResult {
-	rule_name: string;
-	present_in_ipset: boolean;
-	should_be_present: boolean;
-	match_reason?: string;
-}
-
-export interface IPSetCheckResult {
-	ip: string;
-	rule_results: RuleCheckResult[];
-}
-
-export interface RoutingCheckResponse {
-	host: string;
-	resolved_ips?: string[];
-	matched_by_hostname?: HostnameRuleMatch[];
-	ipset_checks: IPSetCheckResult[];
-}
+// Enhanced StatusInfo (StatusResponse from generated types)
+export type StatusInfo = StatusResponse;
 
 // API Client class
 export class KeenPBRClient {
@@ -240,14 +141,14 @@ export class KeenPBRClient {
 			throw new Error(error.error.message);
 		}
 
-		const result: DataResponse<T> = await response.json();
-		return result.data;
+		const result: DataResponse = await response.json();
+		return result.data as T;
 	}
 
 	// Lists API
 	async getLists(): Promise<ListInfo[]> {
-		const result = await this.request<{ lists: ListInfo[] }>("GET", "/lists");
-		return result.lists;
+		const result = await this.request<ListsResponse>("GET", "/lists");
+		return result.lists.filter((list): list is ListInfo => list !== null);
 	}
 
 	async getList(name: string): Promise<ListInfo> {
@@ -286,11 +187,11 @@ export class KeenPBRClient {
 
 	// IPSets API
 	async getIPSets(): Promise<IPSetConfig[]> {
-		const result = await this.request<{ ipsets: IPSetConfig[] }>(
+		const result = await this.request<{ ipsets: (IPSetConfig | null)[] }>(
 			"GET",
 			"/ipsets",
 		);
-		return result.ipsets;
+		return result.ipsets.filter((ipset): ipset is IPSetConfig => ipset !== null);
 	}
 
 	async getIPSet(name: string): Promise<IPSetConfig> {
@@ -321,7 +222,7 @@ export class KeenPBRClient {
 
 	// Interfaces API
 	async getInterfaces(): Promise<InterfaceInfo[]> {
-		const result = await this.request<{ interfaces: InterfaceInfo[] }>(
+		const result = await this.request<InterfacesResponse>(
 			"GET",
 			"/interfaces",
 		);
@@ -329,20 +230,26 @@ export class KeenPBRClient {
 	}
 
 	// Settings API
-	async getSettings(): Promise<GeneralSettings> {
-		const result = await this.request<{ general: GeneralSettings }>(
+	async getSettings(): Promise<GeneralConfig> {
+		const result = await this.request<SettingsResponse>(
 			"GET",
 			"/settings",
 		);
+		if (!result.general) {
+			throw new Error("Settings not found in response");
+		}
 		return result.general;
 	}
 
-	async updateSettings(data: UpdateSettingsRequest): Promise<GeneralSettings> {
-		const result = await this.request<{ general: GeneralSettings }>(
+	async updateSettings(data: UpdateSettingsRequest): Promise<GeneralConfig> {
+		const result = await this.request<SettingsResponse>(
 			"PATCH",
 			"/settings",
 			data,
 		);
+		if (!result.general) {
+			throw new Error("Settings not found in response");
+		}
 		return result.general;
 	}
 
