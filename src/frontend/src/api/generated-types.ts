@@ -111,6 +111,10 @@ export interface DNSServerConfig {
      */
     ipset_entry_additional_ttl_sec: number;
     /**
+     * ListedDomainsDNSCacheTTLSec is the TTL used for DNS cache entries of domains matched by lists (default: 30). Allows clients to forget DNS fast for listed domains. Other domains keep original TTL.
+     */
+    listed_domains_dns_cache_ttl_sec: number;
+    /**
      * Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
      */
     remap_53_interfaces: string[];

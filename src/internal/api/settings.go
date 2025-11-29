@@ -33,28 +33,8 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure general config exists
-	cfg.General = &config.GeneralConfig{}
-
-	// Apply partial updates (only update non-zero fields)
-	cfg.General.ListsOutputDir = updates.ListsOutputDir
-	cfg.General.InterfaceMonitoringIntervalSeconds = updates.InterfaceMonitoringIntervalSeconds
-
-	// AutoUpdate settings
-	cfg.General.AutoUpdate = &config.AutoUpdateConfig{}
-	cfg.General.AutoUpdate.Enabled = updates.AutoUpdate.Enabled
-	cfg.General.AutoUpdate.IntervalHours = updates.AutoUpdate.IntervalHours
-
-	// DNS Server settings
-	cfg.General.DNSServer = &config.DNSServerConfig{}
-	cfg.General.DNSServer.Enable = updates.DNSServer.Enable
-	cfg.General.DNSServer.ListenAddr = updates.DNSServer.ListenAddr
-	cfg.General.DNSServer.ListenPort = updates.DNSServer.ListenPort
-	cfg.General.DNSServer.Upstreams = updates.DNSServer.Upstreams
-	cfg.General.DNSServer.CacheMaxDomains = updates.DNSServer.CacheMaxDomains
-	cfg.General.DNSServer.DropAAAA = updates.DNSServer.DropAAAA
-	cfg.General.DNSServer.IPSetEntryAdditionalTTLSec = updates.DNSServer.IPSetEntryAdditionalTTLSec
-	cfg.General.DNSServer.Remap53Interfaces = updates.DNSServer.Remap53Interfaces
+	// Replace general config with updates
+	cfg.General = &updates
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {

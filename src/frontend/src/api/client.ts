@@ -1,75 +1,76 @@
 /**
  * TypeScript client for keen-pbr REST API
+ * All types are generated from Go code - see generated-types.ts
  */
 
-// Import all generated types
+// Import all types from generated file
 import type {
 	// Response wrappers
 	DataResponse,
 	ErrorResponse,
 	// List types
 	ListInfo,
-	ListStatistics,
 	ListsResponse,
 	ListDownloadResponse,
 	// IPSet/Config types
 	IPSetConfig,
+	IPSetsResponse,
 	GeneralConfig,
-	AutoUpdateConfig,
-	DNSServerConfig,
 	RoutingConfig,
-	RoutingDNSConfig,
 	IPTablesRule,
 	// Interface types
 	InterfaceInfo,
 	InterfacesResponse,
 	// Settings types
 	SettingsResponse,
+	AutoUpdateConfig,
+	DNSServerConfig,
 	// Status types
 	StatusResponse,
-	ServiceInfo,
-	VersionInfo,
-	// Service control types
-	ServiceControlRequest,
 	ServiceControlResponse,
-	// Health check types
-	CheckResult,
-	HealthCheckResponse,
 	// Network check types
 	RoutingCheckResponse,
-	HostnameRuleMatch,
-	IPSetCheckResult,
-	RuleCheckResult,
 } from "./generated-types";
 
-// Re-export commonly used types
+// Import enums (non-type imports)
+import { IPFamily } from "./generated-types";
+
+// Re-export all commonly used types
 export type {
 	DataResponse,
 	ErrorResponse,
-	ListStatistics,
 	ListInfo,
 	ListDownloadResponse,
+	IPSetConfig,
 	RoutingConfig,
 	IPTablesRule,
-	IPSetConfig,
-	RoutingDNSConfig,
 	InterfaceInfo,
+	GeneralConfig,
+	StatusResponse as StatusInfo,
+	ServiceControlResponse,
+	RoutingCheckResponse,
+} from "./generated-types";
+
+// Re-export additional useful types
+export type {
+	ListStatistics,
 	AutoUpdateConfig,
 	DNSServerConfig,
-	GeneralConfig,
+	RoutingDNSConfig,
 	ServiceInfo,
 	VersionInfo,
-	ServiceControlRequest,
-	ServiceControlResponse,
 	CheckResult,
 	HealthCheckResponse,
 	HostnameRuleMatch,
 	RuleCheckResult,
 	IPSetCheckResult,
-	RoutingCheckResponse,
-};
+	ErrorCode,
+} from "./generated-types";
 
-// Client-only request types (not generated from Go)
+// Re-export enums
+export { IPFamily } from "./generated-types";
+
+// Client-only request types (these don't exist in Go backend)
 export interface CreateListRequest {
 	list_name: string;
 	url?: string;
@@ -86,7 +87,7 @@ export interface UpdateListRequest {
 export interface CreateIPSetRequest {
 	ipset_name: string;
 	lists: string[];
-	ip_version: 4 | 6;
+	ip_version: IPFamily;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
 	iptables_rule?: IPTablesRule[];
@@ -94,7 +95,7 @@ export interface CreateIPSetRequest {
 
 export interface UpdateIPSetRequest {
 	lists?: string[];
-	ip_version?: 4 | 6;
+	ip_version?: IPFamily;
 	flush_before_applying?: boolean;
 	routing?: RoutingConfig;
 	iptables_rule?: IPTablesRule[];
@@ -106,9 +107,6 @@ export interface UpdateSettingsRequest {
 	auto_update_lists?: AutoUpdateConfig;
 	dns_server?: DNSServerConfig;
 }
-
-// Enhanced StatusInfo (StatusResponse from generated types)
-export type StatusInfo = StatusResponse;
 
 // API Client class
 export class KeenPBRClient {
@@ -187,10 +185,7 @@ export class KeenPBRClient {
 
 	// IPSets API
 	async getIPSets(): Promise<IPSetConfig[]> {
-		const result = await this.request<{ ipsets: (IPSetConfig | null)[] }>(
-			"GET",
-			"/ipsets",
-		);
+		const result = await this.request<IPSetsResponse>("GET", "/ipsets");
 		return result.ipsets.filter((ipset): ipset is IPSetConfig => ipset !== null);
 	}
 
@@ -231,10 +226,7 @@ export class KeenPBRClient {
 
 	// Settings API
 	async getSettings(): Promise<GeneralConfig> {
-		const result = await this.request<SettingsResponse>(
-			"GET",
-			"/settings",
-		);
+		const result = await this.request<SettingsResponse>("GET", "/settings");
 		if (!result.general) {
 			throw new Error("Settings not found in response");
 		}
@@ -254,8 +246,8 @@ export class KeenPBRClient {
 	}
 
 	// Status API
-	async getStatus(): Promise<StatusInfo> {
-		return this.request<StatusInfo>("GET", "/status");
+	async getStatus(): Promise<StatusResponse> {
+		return this.request<StatusResponse>("GET", "/status");
 	}
 
 	// Service Control API
