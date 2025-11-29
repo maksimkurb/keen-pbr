@@ -8,6 +8,9 @@ import type {
 	// Response wrappers
 	DataResponse,
 	ErrorResponse,
+	// Error types
+	APIError,
+	ValidationErrorDetail,
 	// List types
 	ListInfo,
 	ListsResponse,
@@ -65,10 +68,36 @@ export type {
 	RuleCheckResult,
 	IPSetCheckResult,
 	ErrorCode,
+	ValidationErrorDetail,
+	APIError,
 } from "./generated-types";
 
 // Re-export enums
 export { IPFamily } from "./generated-types";
+
+// Custom error class that preserves API error details
+export class KeenPBRAPIError extends Error {
+	public readonly apiError: APIError;
+	public readonly statusCode: number;
+
+	constructor(apiError: APIError, statusCode: number) {
+		super(apiError.message);
+		this.name = "KeenPBRAPIError";
+		this.apiError = apiError;
+		this.statusCode = statusCode;
+	}
+
+	// Helper to get validation errors if they exist
+	getValidationErrors(): ValidationErrorDetail[] | null {
+		if (
+			this.apiError.code === "validation_failed" &&
+			this.apiError.fieldErrors
+		) {
+			return this.apiError.fieldErrors;
+		}
+		return null;
+	}
+}
 
 // Client-only request types (these don't exist in Go backend)
 export interface CreateListRequest {
@@ -136,7 +165,7 @@ export class KeenPBRClient {
 
 		if (!response.ok) {
 			const error: ErrorResponse = await response.json();
-			throw new Error(error.error.message);
+			throw new KeenPBRAPIError(error.error, response.status);
 		}
 
 		const result: DataResponse = await response.json();

@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Alert } from '../../components/ui/alert';
 import { ListFilters } from '../../components/lists/ListFilters';
 import { ListsTable } from '../../components/lists/ListsTable';
+import { formatError } from '../utils/errorUtils';
 
 export default function Lists() {
   const { t } = useTranslation();
@@ -23,7 +24,7 @@ export default function Lists() {
       await downloadAllLists.mutateAsync();
       toast.success(t('lists.downloadAll.success'));
     } catch (error) {
-      toast.error(t('lists.downloadAll.error', { error: String(error) }));
+      toast.error(t('lists.downloadAll.error', { error: formatError(error) }));
     }
   };
 

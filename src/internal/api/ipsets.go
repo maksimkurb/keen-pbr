@@ -116,9 +116,7 @@ func (h *Handler) CreateIPSet(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !found {
-			WriteValidationError(w, "Referenced list '"+listName+"' does not exist", map[string]interface{}{
-				"list_name": listName,
-			})
+			WriteInvalidRequest(w, "Referenced list '"+listName+"' does not exist")
 			return
 		}
 	}
@@ -143,7 +141,7 @@ func (h *Handler) CreateIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 
@@ -214,9 +212,7 @@ func (h *Handler) UpdateIPSet(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				if !listFound {
-					WriteValidationError(w, "Referenced list '"+listName+"' does not exist", map[string]interface{}{
-						"list_name": listName,
-					})
+					WriteInvalidRequest(w, "Referenced list '"+listName+"' does not exist")
 					return
 				}
 			}
@@ -234,7 +230,7 @@ func (h *Handler) UpdateIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 
@@ -275,7 +271,7 @@ func (h *Handler) DeleteIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 

@@ -117,7 +117,7 @@ func (h *Handler) CreateList(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 
@@ -200,7 +200,7 @@ func (h *Handler) UpdateList(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 
@@ -256,7 +256,7 @@ func (h *Handler) DeleteList(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, "Configuration validation failed: "+err.Error(), nil)
+		WriteValidationError(w, err)
 		return
 	}
 

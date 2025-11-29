@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { LineNumberedTextarea, type LineError } from '../../components/ui/line-numbered-textarea';
 import { Button } from '../../components/ui/button';
 import type { CreateListRequest } from '../api/client';
+import { formatError } from '../utils/errorUtils';
 
 // Validation patterns
 const DOMAIN_PATTERN = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
@@ -191,7 +192,7 @@ export default function ListPage() {
       navigate('/lists');
     } catch (error) {
       toast.error(t('common.error'), {
-        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: error instanceof Error ? error.message : String(error) }),
+        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: formatError(error) }),
       });
     }
   };

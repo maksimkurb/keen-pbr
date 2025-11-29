@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -35,9 +37,10 @@ const (
 
 // APIError represents a structured API error response.
 type APIError struct {
-	Code    ErrorCode              `json:"code"`
-	Message string                 `json:"message"`
-	Details map[string]interface{} `json:"details,omitempty"`
+	Code        ErrorCode               `json:"code"`
+	Message     string                  `json:"message"`
+	Details     map[string]interface{}  `json:"details,omitempty"`
+	FieldErrors []ValidationErrorDetail `json:"fieldErrors,omitempty"`
 }
 
 // ErrorResponse wraps an APIError for JSON responses.
@@ -90,9 +93,34 @@ func WriteInternalError(w http.ResponseWriter, message string) {
 }
 
 // WriteValidationError writes a 400 Bad Request with validation details.
-func WriteValidationError(w http.ResponseWriter, message string, details map[string]interface{}) {
-	err := NewAPIError(ErrCodeValidationFailed, message).WithDetails(details)
-	WriteError(w, http.StatusBadRequest, err)
+// If err is a config.ValidationErrors, it will be formatted as an array of errors.
+// Otherwise, it falls back to the legacy format with a message string.
+func WriteValidationError(w http.ResponseWriter, err error) {
+	var validationErrs config.ValidationErrors
+
+	// Check if the error is ValidationErrors
+	if errors.As(err, &validationErrs) {
+		// Convert to API format
+		fieldErrors := make([]ValidationErrorDetail, len(validationErrs))
+		for i, ve := range validationErrs {
+			fieldErrors[i] = ValidationErrorDetail{
+				Field:   ve.FieldPath,
+				Message: ve.Message,
+			}
+		}
+
+		// Create error response with field errors array
+		apiErr := APIError{
+			Code:        ErrCodeValidationFailed,
+			Message:     "Configuration validation failed",
+			FieldErrors: fieldErrors,
+		}
+		WriteError(w, http.StatusBadRequest, apiErr)
+	} else {
+		// Legacy format for non-ValidationErrors
+		apiErr := NewAPIError(ErrCodeValidationFailed, err.Error())
+		WriteError(w, http.StatusBadRequest, apiErr)
+	}
 }
 
 // WriteServiceError writes a 500 Internal Server Error for service failures.

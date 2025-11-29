@@ -18,6 +18,7 @@ export interface APIError {
     message: string;
     // empty interface{} type, falling back to unknown
     details?: Record<string, unknown> | null;
+    fieldErrors?: ValidationErrorDetail[];
 }
 
 // From config/types.go
@@ -567,6 +568,15 @@ export interface ValidationError {
     ItemName: string; // For lists/ipsets: the name of the item (e.g., "vpn1", "local-file")
     FieldPath: string; // Dot-notation field path (e.g., "general.fallback_dns", "routing.fwmark")
     Message: string; // Human-readable error message
+}
+
+// From api/types.go
+/**
+ * ValidationErrorDetail represents a single validation error.
+ */
+export interface ValidationErrorDetail {
+    field: string; // Field path (e.g., "routing.interfaces")
+    message: string; // Error message
 }
 
 // From config/validation.go

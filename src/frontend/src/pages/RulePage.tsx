@@ -17,6 +17,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { InterfaceSelector } from '../../components/ui/interface-selector';
 import { ListSelector } from '../../components/ui/list-selector';
 import type { CreateIPSetRequest, IPTablesRule } from '../api/client';
+import { formatError } from '../utils/errorUtils';
 
 // Default iptables rule
 const DEFAULT_IPTABLES_RULE: IPTablesRule = {
@@ -101,7 +102,7 @@ export default function RulePage() {
       }
       navigate('/routing-rules');
     } catch (error) {
-      toast.error(t('routingRules.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: String(error) }));
+      toast.error(t('routingRules.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: formatError(error) }));
     }
   };
 

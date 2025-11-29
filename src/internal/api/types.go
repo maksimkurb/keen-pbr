@@ -189,3 +189,9 @@ type SelfCheckRow struct {
 	State      bool   `json:"state"`      // true = pass (✓), false = fail (✗)
 	Message    string `json:"message"`    // Detailed message
 }
+
+// ValidationErrorDetail represents a single validation error.
+type ValidationErrorDetail struct {
+	Field   string `json:"field"`   // Field path (e.g., "routing.interfaces")
+	Message string `json:"message"` // Error message
+}
