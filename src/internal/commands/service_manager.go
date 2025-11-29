@@ -85,12 +85,6 @@ func (sm *ServiceManager) Start() error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	// Validate that required interfaces exist
-	if err := networking.ValidateInterfacesArePresent(cfg, sm.ctx.Interfaces); err != nil {
-		networking.PrintMissingInterfacesHelp()
-		return fmt.Errorf("interface validation failed: %w", err)
-	}
-
 	// Store validated config
 	sm.cfg = cfg
 

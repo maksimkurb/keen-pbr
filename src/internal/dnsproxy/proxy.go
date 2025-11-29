@@ -779,5 +779,8 @@ func normalizeDomain(domain string) string {
 
 // GetDNSStrings returns the list of DNS server strings currently used by the proxy.
 func (p *DNSProxy) GetDNSStrings() []string {
+	if p == nil || p.upstream == nil {
+		return nil
+	}
 	return p.upstream.GetDNSStrings()
 }

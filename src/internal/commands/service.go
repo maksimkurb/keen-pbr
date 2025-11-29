@@ -15,7 +15,6 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
-	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
 
 // SIGUSR1 and SIGUSR2 debounce delay
@@ -93,10 +92,6 @@ func (s *ServiceCommand) Init(args []string, ctx *AppContext) error {
 		return err
 	} else {
 		s.cfg = cfg
-	}
-
-	if err := networking.ValidateInterfacesArePresent(s.cfg, ctx.Interfaces); err != nil {
-		return fmt.Errorf("failed to validate interfaces: %v", err)
 	}
 
 	// Create dependencies

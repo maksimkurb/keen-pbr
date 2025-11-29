@@ -123,6 +123,18 @@ func (c *Config) validateIPSets() ValidationErrors {
 		}
 		seenFwmarks[ipset.Routing.FwMark] = true
 
+		// Ensure either interfaces are configured OR default gateway is set
+		hasInterfaces := len(ipset.Routing.Interfaces) > 0
+		hasDefaultGateway := ipset.Routing.DefaultGateway != ""
+
+		if !hasInterfaces && !hasDefaultGateway {
+			validationErrors = append(validationErrors, ValidationError{
+				ItemName:  itemName,
+				FieldPath: "routing.interfaces",
+				Message:   "must specify at least one interface or configure default_gateway",
+			})
+		}
+
 		// Validate default gateway IP family matches ipset version
 		if ipset.Routing.DefaultGateway != "" {
 			ip := net.ParseIP(ipset.Routing.DefaultGateway)

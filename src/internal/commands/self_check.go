@@ -43,11 +43,6 @@ func (g *SelfCheckCommand) Init(args []string, ctx *AppContext) error {
 		g.cfg = cfg
 	}
 
-	if err := networking.ValidateInterfacesArePresent(g.cfg, ctx.Interfaces); err != nil {
-		log.Errorf("Configuration validation failed: %v", err)
-		networking.PrintMissingInterfacesHelp()
-	}
-
 	// Initialize dependencies
 	g.deps = domain.NewDefaultDependencies()
 
