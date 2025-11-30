@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Play, RotateCw, Square } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { apiClient } from '@/src/api/client';
 import { useStatus } from '@/src/hooks/useStatus';
 import { cn } from '../../lib/utils';
@@ -31,8 +32,15 @@ export function KeenPbrWidget() {
       // Wait a bit before refreshing status to allow service to change state
       await new Promise((resolve) => setTimeout(resolve, 500));
       queryClient.invalidateQueries({ queryKey: ['status'] });
+      toast.success(`${t(`common.${action}`)}: ${t('common.success').toLocaleLowerCase()}`);
     } catch (err) {
       console.error(`Failed to ${action} keen-pbr:`, err);
+      toast.error(`${t(`common.${action}`)}: ${t('common.error')}`, {
+        richColors: true,
+        dismissible: true,
+        duration: 100000,
+        description: err instanceof Error ? <div className='whitespace-pre-wrap'>{err.message}</div> : 'Unknown error',
+      });
     } finally {
       setControlLoading(null);
     }

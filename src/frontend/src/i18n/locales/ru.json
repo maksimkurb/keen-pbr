@@ -19,7 +19,7 @@
     "statusStopped": "остановлен",
     "statusUnknown": "неизвестно",
     "badgeMisconfigured": "не настроен",
-    "badgeStale": "устарел",
+    "badgeStale": "конфигурация устарела",
     "dnsServers": "DNS серверы",
     "noDnsServers": "DNS серверы не настроены",
     "dnsServerTypes": {
@@ -371,7 +371,7 @@
     "notAvailable": "Н/Д",
     "start": "Старт",
     "stop": "Стоп",
-    "restart": "Перезапук",
+    "restart": "Перезапуск",
     "update": "обновить",
     "language": {
       "en": "English",

@@ -16,7 +16,7 @@ export function DNSCheckWidget() {
   // Auto-run browser DNS check on component mount
   useEffect(() => {
     startCheck(true); // performBrowserRequest = true
-  });
+  }, [startCheck]);
 
   const isChecking = status === 'checking';
 

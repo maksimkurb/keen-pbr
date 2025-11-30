@@ -19,7 +19,7 @@
     "statusStopped": "stopped",
     "statusUnknown": "unknown",
     "badgeMisconfigured": "misconfigured",
-    "badgeStale": "stale",
+    "badgeStale": "configuration stale",
     "dnsServers": "DNS Servers",
     "noDnsServers": "No DNS servers configured",
     "dnsServerTypes": {
