@@ -5,14 +5,15 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCreateList, useUpdateList, useLists } from '../hooks/useLists';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../api/client';
-import { Field, FieldLabel, FieldDescription, FieldGroup } from '../../components/ui/field';
+import { apiClient, KeenPBRAPIError } from '../api/client';
+import { Field, FieldLabel, FieldDescription, FieldGroup, FieldError } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { LineNumberedTextarea, type LineError } from '../../components/ui/line-numbered-textarea';
+import { BaseFormActions } from '../../components/ui/base-form-actions';
+import type { ListSource } from '../api/client';
+import { mapValidationErrors, getFieldError } from '../utils/formValidation';
 import { Button } from '../../components/ui/button';
-import type { CreateListRequest } from '../api/client';
-import { formatError } from '../utils/errorUtils';
 
 // Validation patterns
 const DOMAIN_PATTERN = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
@@ -104,6 +105,9 @@ export default function ListPage() {
     type: 'url',
   });
 
+  // Validation errors from API
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   // Validate hosts field
   const hostsErrors = useMemo(() => {
     if (formData.type === 'hosts' && formData.hosts) {
@@ -128,7 +132,7 @@ export default function ListPage() {
       if (list) {
         setFormData({
           list_name: list.list_name,
-          type: list.type,
+          type: list.type as 'url' | 'file' | 'hosts',
           url: list.url,
           file: list.file,
           hosts: '',
@@ -162,7 +166,7 @@ export default function ListPage() {
     }
 
     try {
-      const requestData: CreateListRequest = {
+      const requestData: ListSource = {
         list_name: formData.list_name,
       };
 
@@ -175,9 +179,11 @@ export default function ListPage() {
       }
 
       if (isEditMode) {
+        // For update, omit list_name as it's in the URL
+        const { list_name, ...updateData } = requestData;
         await updateList.mutateAsync({
           name: name!,
-          data: requestData,
+          data: updateData,
         });
         toast.success(t('common.success'), {
           description: t('lists.dialog.updateSuccess', { name: formData.list_name }),
@@ -189,10 +195,20 @@ export default function ListPage() {
         });
       }
 
+      setValidationErrors({}); // Clear errors on success
       navigate('/lists');
     } catch (error) {
+      // Handle validation errors
+      if (error instanceof KeenPBRAPIError) {
+        const errors = error.getValidationErrors();
+        if (errors) {
+          setValidationErrors(mapValidationErrors(errors));
+          toast.error(t('lists.dialog.validationError'));
+          return;
+        }
+      }
       toast.error(t('common.error'), {
-        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: formatError(error) }),
+        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase() }),
       });
     }
   };
@@ -236,7 +252,7 @@ export default function ListPage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <FieldGroup>
-          <Field>
+          <Field data-invalid={!!getFieldError('list_name', validationErrors)}>
             <FieldLabel htmlFor="list_name">{t('lists.dialog.listName')}</FieldLabel>
             <Input
               id="list_name"
@@ -245,6 +261,7 @@ export default function ListPage() {
               placeholder={t('lists.dialog.listNamePlaceholder')}
               required
               disabled={isEditMode}
+              aria-invalid={!!getFieldError('list_name', validationErrors)}
             />
             {isEditMode ? (
               <FieldDescription>
@@ -254,6 +271,9 @@ export default function ListPage() {
               <FieldDescription>
                 {t('lists.dialog.listNameDescription')}
               </FieldDescription>
+            )}
+            {getFieldError('list_name', validationErrors) && (
+              <FieldError>{getFieldError('list_name', validationErrors)}</FieldError>
             )}
           </Field>
 
@@ -337,20 +357,12 @@ export default function ListPage() {
           )}
         </FieldGroup>
 
-        <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/lists')}
-            disabled={isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={isPending || hasHostsErrors}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditMode ? t('common.save') : t('common.create')}
-          </Button>
-        </div>
+        <BaseFormActions
+          isSaving={isPending}
+          disableSave={hasHostsErrors}
+          onCancel={() => navigate('/lists')}
+          isEditMode={isEditMode}
+        />
       </form>
     </div>
   );

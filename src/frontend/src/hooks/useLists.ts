@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, type ListInfo, type CreateListRequest } from '../api/client';
+import { apiClient, type ListSource } from '../api/client';
 
 /**
  * Hook for fetching all lists
@@ -29,7 +29,7 @@ export function useCreateList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateListRequest) => apiClient.createList(data),
+    mutationFn: (data: ListSource) => apiClient.createList(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lists'] });
     },
@@ -43,7 +43,7 @@ export function useUpdateList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, data }: { name: string; data: CreateListRequest }) =>
+    mutationFn: ({ name, data }: { name: string; data: Partial<Omit<ListSource, 'list_name'>> }) =>
       apiClient.updateList(name, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] });

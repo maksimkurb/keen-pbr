@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, type GeneralSettings, type UpdateSettingsRequest } from '../api/client';
+import { apiClient, type GeneralConfig } from '../api/client';
 
 /**
  * Hook for fetching general settings
@@ -18,7 +18,7 @@ export function useUpdateSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: UpdateSettingsRequest) => apiClient.updateSettings(data),
+    mutationFn: (data: Partial<GeneralConfig>) => apiClient.updateSettings(data),
     onSuccess: (data) => {
       // Update the cache with the new data
       queryClient.setQueryData(['settings'], data);

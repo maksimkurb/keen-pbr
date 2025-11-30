@@ -3,7 +3,7 @@
  * All types are generated from Go code - see generated-types.ts
  */
 
-// Import all types from generated file
+// Import types used internally in this file
 import type {
 	// Response wrappers
 	DataResponse,
@@ -13,21 +13,18 @@ import type {
 	ValidationErrorDetail,
 	// List types
 	ListInfo,
+	ListSource,
 	ListsResponse,
 	ListDownloadResponse,
 	// IPSet/Config types
 	IPSetConfig,
 	IPSetsResponse,
 	GeneralConfig,
-	RoutingConfig,
-	IPTablesRule,
 	// Interface types
 	InterfaceInfo,
 	InterfacesResponse,
 	// Settings types
 	SettingsResponse,
-	AutoUpdateConfig,
-	DNSServerConfig,
 	// Status types
 	StatusResponse,
 	ServiceControlResponse,
@@ -35,14 +32,12 @@ import type {
 	RoutingCheckResponse,
 } from "./generated-types";
 
-// Import enums (non-type imports)
-import { IPFamily } from "./generated-types";
-
 // Re-export all commonly used types
 export type {
 	DataResponse,
 	ErrorResponse,
 	ListInfo,
+	ListSource,
 	ListDownloadResponse,
 	IPSetConfig,
 	RoutingConfig,
@@ -99,44 +94,6 @@ export class KeenPBRAPIError extends Error {
 	}
 }
 
-// Client-only request types (these don't exist in Go backend)
-export interface CreateListRequest {
-	list_name: string;
-	url?: string;
-	file?: string;
-	hosts?: string[];
-}
-
-export interface UpdateListRequest {
-	url?: string;
-	file?: string;
-	hosts?: string[];
-}
-
-export interface CreateIPSetRequest {
-	ipset_name: string;
-	lists: string[];
-	ip_version: IPFamily;
-	flush_before_applying?: boolean;
-	routing?: RoutingConfig;
-	iptables_rule?: IPTablesRule[];
-}
-
-export interface UpdateIPSetRequest {
-	lists?: string[];
-	ip_version?: IPFamily;
-	flush_before_applying?: boolean;
-	routing?: RoutingConfig;
-	iptables_rule?: IPTablesRule[];
-}
-
-export interface UpdateSettingsRequest {
-	lists_output_dir?: string;
-	interface_monitoring_interval_seconds?: number;
-	auto_update_lists?: AutoUpdateConfig;
-	dns_server?: DNSServerConfig;
-}
-
 // API Client class
 export class KeenPBRClient {
 	private baseURL: string;
@@ -182,13 +139,13 @@ export class KeenPBRClient {
 		return this.request<ListInfo>("GET", `/lists/${encodeURIComponent(name)}`);
 	}
 
-	async createList(data: CreateListRequest): Promise<ListInfo> {
+	async createList(data: ListSource): Promise<ListInfo> {
 		return this.request<ListInfo>("POST", "/lists", data);
 	}
 
 	async updateList(
 		name: string,
-		data: UpdateListRequest,
+		data: Partial<Omit<ListSource, 'list_name'>>,
 	): Promise<ListInfo> {
 		return this.request<ListInfo>(
 			"PUT",
@@ -225,13 +182,13 @@ export class KeenPBRClient {
 		);
 	}
 
-	async createIPSet(data: CreateIPSetRequest): Promise<IPSetConfig> {
+	async createIPSet(data: IPSetConfig): Promise<IPSetConfig> {
 		return this.request<IPSetConfig>("POST", "/ipsets", data);
 	}
 
 	async updateIPSet(
 		name: string,
-		data: UpdateIPSetRequest,
+		data: Partial<Omit<IPSetConfig, 'ipset_name'>>,
 	): Promise<IPSetConfig> {
 		return this.request<IPSetConfig>(
 			"PUT",
@@ -262,7 +219,7 @@ export class KeenPBRClient {
 		return result.general;
 	}
 
-	async updateSettings(data: UpdateSettingsRequest): Promise<GeneralConfig> {
+	async updateSettings(data: Partial<GeneralConfig>): Promise<GeneralConfig> {
 		const result = await this.request<SettingsResponse>(
 			"PATCH",
 			"/settings",

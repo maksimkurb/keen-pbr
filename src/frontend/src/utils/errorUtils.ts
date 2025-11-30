@@ -11,10 +11,7 @@ export function formatError(error: unknown): string {
 		if (validationErrors && validationErrors.length > 0) {
 			// Format validation errors as a list
 			const errorList = validationErrors
-				.map((ve) => {
-					const prefix = ve.item ? `[${ve.item}] ` : "";
-					return `• ${prefix}${ve.field}: ${ve.message}`;
-				})
+				.map((ve) => `• ${ve.field}: ${ve.message}`)
 				.join("\n");
 
 			return `${error.message}:\n${errorList}`;

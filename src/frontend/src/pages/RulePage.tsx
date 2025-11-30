@@ -5,7 +5,7 @@ import { Loader2, X, Plus, ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCreateIPSet, useUpdateIPSet, useIPSets } from '../hooks/useIPSets';
 import { useLists } from '../hooks/useLists';
-import { Field, FieldLabel, FieldDescription, FieldGroup } from '../../components/ui/field';
+import { Field, FieldLabel, FieldDescription, FieldGroup, FieldError } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Button } from '../../components/ui/button';
@@ -16,8 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../components/ui/textarea';
 import { InterfaceSelector } from '../../components/ui/interface-selector';
 import { ListSelector } from '../../components/ui/list-selector';
-import type { CreateIPSetRequest, IPTablesRule } from '../api/client';
-import { formatError } from '../utils/errorUtils';
+import { StringArrayInput } from '../../components/ui/string-array-input';
+import { BaseFormActions } from '../../components/ui/base-form-actions';
+import type { IPSetConfig, IPTablesRule } from '../api/client';
+import { KeenPBRAPIError } from '../api/client';
+import { mapValidationErrors, getFieldError } from '../utils/formValidation';
 
 // Default iptables rule
 const DEFAULT_IPTABLES_RULE: IPTablesRule = {
@@ -34,7 +37,7 @@ export default function RulePage() {
   const navigate = useNavigate();
   const { name } = useParams<{ name: string }>();
   const isEditMode = !!name;
-  
+
   const createIPSet = useCreateIPSet();
   const updateIPSet = useUpdateIPSet();
   const { data: ipsets, isLoading: isLoadingIPSets } = useIPSets();
@@ -42,7 +45,7 @@ export default function RulePage() {
 
   const availableLists = lists || [];
 
-  const [formData, setFormData] = useState<CreateIPSetRequest>({
+  const [formData, setFormData] = useState<IPSetConfig>({
     ipset_name: '',
     lists: [],
     ip_version: 4,
@@ -56,6 +59,9 @@ export default function RulePage() {
     },
     iptables_rule: [{ ...DEFAULT_IPTABLES_RULE }],
   });
+
+  // Validation errors from API
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Initialize form when ipset changes (edit mode)
   useEffect(() => {
@@ -100,9 +106,19 @@ export default function RulePage() {
         await createIPSet.mutateAsync(formData);
         toast.success(t('routingRules.dialog.createSuccess', { name: formData.ipset_name }));
       }
+      setValidationErrors({}); // Clear errors on success
       navigate('/routing-rules');
     } catch (error) {
-      toast.error(t('routingRules.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase(), error: formatError(error) }));
+      // Handle validation errors
+      if (error instanceof KeenPBRAPIError) {
+        const errors = error.getValidationErrors();
+        if (errors) {
+          setValidationErrors(mapValidationErrors(errors));
+          toast.error(t('routingRules.dialog.validationError'));
+          return;
+        }
+      }
+      toast.error(t('routingRules.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase() }));
     }
   };
 
@@ -130,8 +146,11 @@ export default function RulePage() {
     if (!formData.iptables_rule) return;
 
     const newRules = [...formData.iptables_rule];
+    const currentRule = newRules[index];
+    if (!currentRule) return;
+
     newRules[index] = {
-      ...newRules[index],
+      ...currentRule,
       [field]: value,
     };
     setFormData({
@@ -144,6 +163,8 @@ export default function RulePage() {
     if (!formData.iptables_rule) return;
 
     const currentRule = formData.iptables_rule[ruleIndex];
+    if (!currentRule) return;
+
     const ruleString = currentRule.rule.join(' ');
     const newRuleString = ruleString ? `${ruleString} ${templateVar}` : templateVar;
 
@@ -240,7 +261,7 @@ export default function RulePage() {
             <div className="space-y-4">
               <h3 className="text-lg font-medium">{t('routingRules.dialog.routingConfig')}</h3>
 
-              <Field>
+              <Field data-invalid={!!getFieldError('routing.interfaces', validationErrors)}>
                 <FieldLabel>{t('routingRules.dialog.interfaces')}</FieldLabel>
                 <FieldDescription>
                   {t('routingRules.dialog.interfacesDescription')}
@@ -257,6 +278,9 @@ export default function RulePage() {
                   })}
                   allowReorder={true}
                 />
+                {getFieldError('routing.interfaces', validationErrors) && (
+                  <FieldError>{getFieldError('routing.interfaces', validationErrors)}</FieldError>
+                )}
               </Field>
 
               <Field>
@@ -276,18 +300,30 @@ export default function RulePage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="override_dns">{t('routingRules.dialog.dnsOverride')}</FieldLabel>
+                <FieldLabel>{t('routingRules.dialog.dnsOverride')}</FieldLabel>
                 <FieldDescription>
                   {t('routingRules.dialog.dnsOverrideDescription')}
+                  <ul className="list-disc list-inside mt-1 space-y-0.5">
+                    {(t('settings.dnsFormats', { returnObjects: true }) as string[]).map((format, index) => (
+                      <li key={index}><code>{format}</code></li>
+                    ))}
+                  </ul>
+                  <div className="mt-2">
+                    {t('settings.dnsUpstreamAdditionalInfo')}
+                  </div>
                 </FieldDescription>
-                <Input
-                  id="override_dns"
-                  value={formData.routing.override_dns || ''}
-                  onChange={(e) => setFormData({
+                <StringArrayInput
+                  value={formData.routing.dns?.upstreams || []}
+                  onChange={(upstreams) => setFormData({
                     ...formData,
-                    routing: { ...formData.routing!, override_dns: e.target.value || undefined },
+                    routing: {
+                      ...formData.routing!,
+                      dns: upstreams.length > 0 ? { upstreams } : undefined,
+                    },
                   })}
                   placeholder={t('routingRules.dialog.dnsOverridePlaceholder')}
+                  minItems={0}
+                  addButtonLabel={t('settings.addUpstream')}
                 />
               </Field>
             </div>
@@ -309,7 +345,7 @@ export default function RulePage() {
                       {t('routingRules.dialog.iptablesDescription', { vars: TEMPLATE_VARS.join(', ') })}
                     </p>
 
-                    {formData.iptables_rule?.map((rule, index) => (
+                    {formData.iptables_rule?.filter((rule): rule is IPTablesRule => rule !== null).map((rule, index) => (
                       <div key={index} className="border rounded-md p-4 space-y-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">{t('routingRules.dialog.iptablesRuleNumber', { number: index + 1 })}</span>
@@ -524,20 +560,11 @@ export default function RulePage() {
           </div>
         </FieldGroup>
 
-        <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/routing-rules')}
-            disabled={isPending}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditMode ? t('common.save') : t('common.create')}
-          </Button>
-        </div>
+        <BaseFormActions
+          isSaving={isPending}
+          onCancel={() => navigate('/routing-rules')}
+          isEditMode={isEditMode}
+        />
       </form>
     </div>
   );
