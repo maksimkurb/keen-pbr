@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import cidrRegex from 'cidr-regex';
+import ipRegex from 'ip-regex';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -31,32 +33,9 @@ import { getFieldError, mapValidationErrors } from '../utils/formValidation';
 // Validation patterns
 const DOMAIN_PATTERN =
   /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
-const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-const IPV6_PATTERN =
-  /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]+|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))(\/\d{1,3})?$/;
 
-function validateIPv4(ip: string): boolean {
-  const parts = ip.split('/');
-  const addr = parts[0].split('.');
-
-  if (addr.length !== 4) return false;
-
-  for (const part of addr) {
-    const num = parseInt(part, 10);
-    if (isNaN(num) || num < 0 || num > 255) return false;
-  }
-
-  if (parts.length === 2) {
-    const mask = parseInt(parts[1], 10);
-    if (isNaN(mask) || mask < 0 || mask > 32) return false;
-  }
-
-  return true;
-}
-
-function validateIPv6(ip: string): boolean {
-  return IPV6_PATTERN.test(ip);
-}
+const CIDR_VALIDATOR = cidrRegex({ exact: true });
+const IP_VALIDATOR = ipRegex({ exact: true });
 
 function validateHostLine(line: string): string | null {
   const trimmed = line.trim();
@@ -65,14 +44,13 @@ function validateHostLine(line: string): string | null {
   if (trimmed.startsWith('#')) return null;
   if (DOMAIN_PATTERN.test(trimmed)) return null;
 
-  if (IPV4_PATTERN.test(trimmed)) {
-    if (!validateIPv4(trimmed)) {
-      return 'Invalid IPv4 address or subnet';
-    }
+  if (CIDR_VALIDATOR.test(trimmed)) {
     return null;
   }
 
-  if (validateIPv6(trimmed)) return null;
+  if (IP_VALIDATOR.test(trimmed)) {
+    return null;
+  }
 
   return 'Invalid format: must be empty, comment (#), domain, IPv4, or IPv6';
 }
@@ -117,7 +95,7 @@ export default function ListPage() {
   // Fetch full list data when editing an inline hosts list
   const { data: fullListData, isLoading: isLoadingFullList } = useQuery({
     queryKey: ['list', name],
-    queryFn: () => apiClient.getList(name!),
+    queryFn: () => apiClient.getList(name || ''),
     enabled: isEditMode && !!name,
   });
 
@@ -169,10 +147,9 @@ export default function ListPage() {
       }
 
       if (isEditMode) {
-        const { list_name, ...updateData } = requestData;
         await updateList.mutateAsync({
-          name: name!,
-          data: updateData,
+          name: name || '',
+          data: requestData,
         });
         toast.success(t('common.success'), {
           description: t('lists.dialog.updateSuccess', {

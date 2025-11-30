@@ -7,11 +7,12 @@ import {
   Trash2,
   Unplug,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { InterfaceInfo } from '../../src/api/client';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
 import { cn } from '../../src/lib/utils';
+import { Badge } from './badge';
 import { Button } from './button';
 import {
   Command,
@@ -94,6 +95,16 @@ export function InterfaceSelector({
     }
   };
 
+  const commandProps = {
+    customInterface,
+    setCustomInterface,
+    interfaceOptions,
+    value,
+    onSelect: addInterface,
+    onAddCustom: addCustomInterface,
+    t,
+  };
+
   return (
     <div className={cn('max-w-lg', className)}>
       {value.length > 0 ? (
@@ -113,6 +124,9 @@ export function InterfaceSelector({
                 <InputGroupAddon align="inline-end">
                   {allowReorder && (
                     <>
+                      <InputGroupButton size="icon-xs">
+                        <Badge variant="outline">{index + 1}</Badge>
+                      </InputGroupButton>
                       <InputGroupButton
                         size="icon-xs"
                         onClick={() => moveInterfaceUp(index)}
@@ -146,69 +160,7 @@ export function InterfaceSelector({
               </InputGroup>
             );
           })}
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                role="combobox"
-                aria-expanded={open}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {t('routingRules.dialog.addInterface')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-100 p-0">
-              <Command>
-                <CommandInput
-                  placeholder={t('routingRules.dialog.searchInterfaces')}
-                  value={customInterface}
-                  onValueChange={setCustomInterface}
-                />
-                <CommandList className="max-h-[300px] overflow-y-auto">
-                  {customInterface &&
-                    !interfaceOptions.some(
-                      (i) => i.name === customInterface,
-                    ) && (
-                      <CommandItem
-                        onSelect={() => addCustomInterface()}
-                        className="text-sm"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {t('routingRules.dialog.addCustomInterface')}:{' '}
-                        {customInterface}
-                      </CommandItem>
-                    )}
-                  {interfaceOptions.length === 0 && !customInterface && (
-                    <CommandEmpty>
-                      {t('routingRules.dialog.noInterfaces')}
-                    </CommandEmpty>
-                  )}
-                  <CommandGroup>
-                    {interfaceOptions.map((iface) => (
-                      <CommandItem
-                        key={iface.name}
-                        value={iface.name}
-                        onSelect={() => addInterface(iface.name)}
-                        disabled={value.includes(iface.name)}
-                      >
-                        <Check
-                          className={cn(
-                            'mr-2 h-4 w-4',
-                            value.includes(iface.name)
-                              ? 'opacity-100'
-                              : 'opacity-0',
-                          )}
-                        />
-                        <InterfaceStatus iface={iface} />
-                        <InterfaceName iface={iface} />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <AddInterfaceButton open={open} setOpen={setOpen} {...commandProps} />
         </div>
       ) : (
         <Empty className="border">
@@ -223,66 +175,113 @@ export function InterfaceSelector({
               {t('routingRules.dialog.emptyInterfaces.description')}
             </EmptyDescription>
           </EmptyHeader>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                role="combobox"
-                aria-expanded={open}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {t('routingRules.dialog.addInterface')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-              <Command>
-                <CommandInput
-                  placeholder={t('routingRules.dialog.searchInterfaces')}
-                  value={customInterface}
-                  onValueChange={setCustomInterface}
-                />
-                <CommandList className="max-h-[300px] overflow-y-auto">
-                  {customInterface &&
-                    !interfaceOptions.some(
-                      (i) => i.name === customInterface,
-                    ) && (
-                      <CommandItem
-                        onSelect={() => addCustomInterface()}
-                        className="text-sm"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {t('routingRules.dialog.addCustomInterface')}:{' '}
-                        <span className="font-mono ml-1">
-                          {customInterface}
-                        </span>
-                      </CommandItem>
-                    )}
-                  {interfaceOptions.length === 0 && !customInterface && (
-                    <CommandEmpty>
-                      {t('routingRules.dialog.noInterfaces')}
-                    </CommandEmpty>
-                  )}
-                  <CommandGroup>
-                    {interfaceOptions.map((iface) => (
-                      <CommandItem
-                        key={iface.name}
-                        value={iface.name}
-                        onSelect={() => addInterface(iface.name)}
-                        disabled={value.includes(iface.name)}
-                      >
-                        <InterfaceStatus iface={iface} />
-                        <InterfaceName iface={iface} />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <AddInterfaceButton open={open} setOpen={setOpen} {...commandProps} />
         </Empty>
       )}
     </div>
+  );
+}
+
+interface InterfaceCommandProps {
+  customInterface: string;
+  setCustomInterface: (value: string) => void;
+  interfaceOptions: InterfaceInfo[];
+  value: string[];
+  onSelect: (iface: string) => void;
+  onAddCustom: () => void;
+  t: any;
+}
+
+function AddInterfaceButton({
+  open,
+  setOpen,
+  t,
+  ...props
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+} & InterfaceCommandProps) {
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          role="combobox"
+          aria-expanded={open}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          {t('routingRules.dialog.addInterface')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[300px] p-0">
+        <InterfaceCommand t={t} {...props} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function InterfaceCommand({
+  customInterface,
+  setCustomInterface,
+  interfaceOptions,
+  value,
+  onSelect,
+  onAddCustom,
+  t,
+}: InterfaceCommandProps) {
+  const optionsWithKeywords = useMemo(() => {
+    return interfaceOptions.map((iface) => ({
+      ...iface,
+      keywords: [
+        iface.name,
+        iface.keenetic_description || '',
+        ...(iface.ip_addresses || []),
+      ],
+    }));
+  }, [interfaceOptions]);
+
+  return (
+    <Command>
+      <CommandInput
+        placeholder={t('routingRules.dialog.searchInterfaces')}
+        value={customInterface}
+        onValueChange={setCustomInterface}
+      />
+      <CommandList className="max-h-[300px] overflow-y-auto">
+        {customInterface &&
+          !interfaceOptions.some((i) => i.name === customInterface) && (
+            <CommandItem onSelect={() => onAddCustom()} className="text-sm">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('routingRules.dialog.addCustomInterface')}:{' '}
+              <span className="font-mono ml-1">{customInterface}</span>
+            </CommandItem>
+          )}
+        {interfaceOptions.length === 0 && !customInterface && (
+          <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
+        )}
+        <CommandGroup>
+          {optionsWithKeywords.map((iface) => (
+            <CommandItem
+              key={iface.name}
+              value={iface.name}
+              keywords={iface.keywords}
+              onSelect={() => onSelect(iface.name)}
+              disabled={value.includes(iface.name)}
+            >
+              <Check
+                className={cn(
+                  'mr-2 h-4 w-4',
+                  value.includes(iface.name) ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+              <InterfaceStatus iface={iface} />
+              <InterfaceName iface={iface} />
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 }
 
@@ -317,12 +316,12 @@ export function InterfaceStatus({
   iface: InterfaceInfo | undefined;
 }) {
   if (iface == null) {
-    return <Unplug className="mr-2 h-4 w-4 text-gray-600" />;
+    return <Unplug className="h-4 w-4 text-gray-600" />;
   }
 
   if (!iface.is_up) {
-    return <Unplug className="mr-2 h-4 w-4 text-red-600" />;
+    return <Unplug className="h-4 w-4 text-red-600" />;
   }
 
-  return <Unplug className="mr-2 h-4 w-4 text-green-600" />;
+  return <Unplug className="h-4 w-4 text-green-600" />;
 }

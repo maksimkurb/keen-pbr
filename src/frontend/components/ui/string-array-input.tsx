@@ -39,7 +39,7 @@ export function StringArrayInput({
   return (
     <div className="space-y-2 border rounded-md p-4 max-w-lg">
       {value.map((item, index) => (
-        <InputGroup key={item}>
+        <InputGroup key={index}>
           <InputGroupInput
             value={item}
             onChange={(e) => updateItem(index, e.target.value)}
