@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../src/api/client';
 import type { RoutingCheckResponse } from '../../src/api/client';
-import { Route } from 'react-router-dom';
 
 type CheckType = 'routing' | 'ping' | 'traceroute';
 
@@ -267,7 +266,7 @@ export function DomainCheckerWidget() {
                 {t('dashboard.domainChecker.presentInRules')}
               </div>
               {state.routingResult.matched_by_hostname &&
-              state.routingResult.matched_by_hostname.length > 0 ? (
+                state.routingResult.matched_by_hostname.length > 0 ? (
                 <ul className="list-disc list-inside text-sm space-y-1">
                   {state.routingResult.matched_by_hostname.map((match) => (
                     <li key={match.rule_name}>
@@ -308,12 +307,11 @@ export function DomainCheckerWidget() {
                           {ipCheck.rule_results.map((ruleResult, index) => (
                             <tr
                               key={`${ipCheck.ip}-${ruleResult.rule_name}`}
-                              className={`border-b ${
-                                ruleResult.present_in_ipset !==
-                                ruleResult.should_be_present
+                              className={`border-b ${ruleResult.present_in_ipset !==
+                                  ruleResult.should_be_present
                                   ? 'bg-destructive/5'
                                   : ''
-                              }`}
+                                }`}
                             >
                               {index === 0 && (
                                 <td
@@ -332,7 +330,7 @@ export function DomainCheckerWidget() {
                                       : t('dashboard.domainChecker.no')}
                                   </span>
                                   {ruleResult.present_in_ipset ===
-                                  ruleResult.should_be_present ? (
+                                    ruleResult.should_be_present ? (
                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                                   ) : (
                                     <X className="h-4 w-4 text-red-600" />

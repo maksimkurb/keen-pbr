@@ -29,7 +29,6 @@ import {
   EmptyDescription,
 } from './empty';
 import { cn } from '../../src/lib/utils';
-import { Card } from './card';
 import type { InterfaceInfo } from '../../src/api/client';
 
 interface InterfaceSelectorProps {

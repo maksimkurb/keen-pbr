@@ -11,5 +11,6 @@
   "go.formatFlags": [
     "fmt",
     "--stdin"
-  ]
+  ],
+  "biome.lsp.bin": "src/frontend/node_modules/.bin/biome"
 }

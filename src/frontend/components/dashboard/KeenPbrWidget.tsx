@@ -68,7 +68,7 @@ export function KeenPbrWidget() {
     );
   }
 
-  const keenPbrStatus = data.services['keen-pbr']?.status || 'unknown';
+  const keenPbrStatus = data.services?.['keen-pbr']?.status || 'unknown';
   const configOutdated = data.configuration_outdated || false;
 
   return (

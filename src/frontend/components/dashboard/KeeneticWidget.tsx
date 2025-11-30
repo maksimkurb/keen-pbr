@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Badge } from '../ui/badge';
 import { useStatus } from '@/src/hooks/useStatus';
 
 export function KeeneticWidget() {

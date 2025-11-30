@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, ArrowRight, ArrowRightIcon } from 'lucide-react';
+import { AlertTriangle, ArrowRightIcon } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { useStatus } from '../src/hooks/useStatus';
 import { Link, useLocation } from 'react-router-dom';

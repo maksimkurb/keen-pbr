@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Header } from './Header';
-import { Separator } from '../ui/separator';
 import { ConfigurationWarning } from '../ConfigurationWarning';
+import { Separator } from '../ui/separator';
 
 interface AppLayoutProps {
   children: ReactNode;

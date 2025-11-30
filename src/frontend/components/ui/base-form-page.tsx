@@ -1,5 +1,4 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from './button';
@@ -53,7 +52,6 @@ export function BaseFormPage<T>({
   defaultData,
   canSubmit,
 }: BaseFormPageProps<T>) {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState<T>(defaultData);

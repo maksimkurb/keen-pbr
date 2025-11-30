@@ -17,9 +17,8 @@ import {
 } from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
-import { InterfaceSelector } from '../ui/interface-selector';
-import { StringArrayInput } from '../ui/string-array-input';
 import { BaseSettingsForm } from '../ui/base-settings-form';
+import { DNSServerSettings } from './DNSServerSettings';
 import type { GeneralConfig } from '../../src/api/generated-types';
 
 export function SettingsForm() {
@@ -114,12 +113,12 @@ export function SettingsForm() {
                   <div className="flex items-center space-x-3">
                     <Checkbox
                       id="auto_update_enabled"
-                      checked={formData.auto_update_lists.enabled}
+                      checked={formData.auto_update_lists?.enabled ?? false}
                       onCheckedChange={(checked) =>
                         setFormData((prev) => ({
                           ...prev,
                           auto_update_lists: {
-                            ...prev.auto_update_lists,
+                            ...(prev.auto_update_lists ?? { enabled: false, interval_hours: 24 }),
                             enabled: !!checked,
                           },
                         }))
@@ -149,19 +148,19 @@ export function SettingsForm() {
                     id="update_interval_hours"
                     type="number"
                     min="1"
-                    value={formData.auto_update_lists.interval_hours}
+                    value={formData.auto_update_lists?.interval_hours ?? 24}
                     onChange={(e) => {
                       const value = parseInt(e.target.value, 10) || 1;
                       setFormData((prev) => ({
                         ...prev,
                         auto_update_lists: {
-                          ...prev.auto_update_lists,
+                          ...(prev.auto_update_lists ?? { enabled: false, interval_hours: 24 }),
                           interval_hours: value,
                         },
                       }));
                     }}
                     placeholder="24"
-                    disabled={!formData.auto_update_lists.enabled}
+                    disabled={!formData.auto_update_lists?.enabled}
                   />
                 </Field>
               </FieldGroup>
@@ -243,272 +242,15 @@ export function SettingsForm() {
           </Card>
 
           {/* DNS Server Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.dnsServerTitle')}</CardTitle>
-              <CardDescription>
-                {t('settings.dnsServerDescription')}
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <FieldGroup>
-                {/* Enable DNS Server */}
-                <Field orientation="horizontal">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="dns_server_enable"
-                      checked={formData.dns_server.enable}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          dns_server: { ...prev.dns_server, enable: !!checked },
-                        }))
-                      }
-                    />
-                    <FieldLabel
-                      htmlFor="dns_server_enable"
-                      className="cursor-pointer flex flex-col items-start gap-0"
-                    >
-                      {t('settings.enableDnsServer')}
-                      <FieldDescription>
-                        {t('settings.enableDnsServerDescription')}
-                      </FieldDescription>
-                    </FieldLabel>
-                  </div>
-                </Field>
-
-                {/* DNS Listen Address */}
-                <Field>
-                  <FieldLabel htmlFor="dns_listen_addr">
-                    {t('settings.dnsListenAddr')}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t('settings.dnsListenAddrDescription')}
-                  </FieldDescription>
-                  <Input
-                    id="dns_listen_addr"
-                    type="text"
-                    value={formData.dns_server.listen_addr}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: {
-                          ...prev.dns_server,
-                          listen_addr: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder={t('settings.dnsListenAddrPlaceholder')}
-                    disabled={!formData.dns_server.enable}
-                  />
-                </Field>
-
-                {/* DNS Listen Port */}
-                <Field>
-                  <FieldLabel htmlFor="dns_listen_port">
-                    {t('settings.dnsListenPort')}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t('settings.dnsListenPortDescription')}
-                  </FieldDescription>
-                  <Input
-                    id="dns_listen_port"
-                    type="number"
-                    min="1"
-                    max="65535"
-                    value={formData.dns_server.listen_port}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value, 10) || 15353;
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: { ...prev.dns_server, listen_port: value },
-                      }));
-                    }}
-                    placeholder={t('settings.dnsListenPortPlaceholder')}
-                    disabled={!formData.dns_server.enable}
-                  />
-                </Field>
-
-                <FieldSeparator />
-
-                {/* DNS Upstreams */}
-                <Field>
-                  <FieldLabel>{t('settings.dnsUpstreamServers')}</FieldLabel>
-                  <FieldDescription>
-                    {t('settings.dnsUpstreamServersDescription')}
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-xs">
-                      {(
-                        t('settings.dnsFormats', {
-                          returnObjects: true,
-                        }) as string[]
-                      ).map((format, index) => (
-                        <li key={index}>
-                          <code>{format}</code>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-2">
-                      {t('settings.dnsUpstreamAdditionalInfo')}
-                    </div>
-                  </FieldDescription>
-                  <StringArrayInput
-                    value={formData.dns_server.upstreams}
-                    onChange={(upstreams) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: { ...prev.dns_server, upstreams },
-                      }))
-                    }
-                    placeholder={t('settings.dnsUpstreamPlaceholder')}
-                    disabled={!formData.dns_server.enable}
-                    minItems={1}
-                    addButtonLabel={t('settings.addUpstream')}
-                  />
-                </Field>
-
-                <FieldSeparator />
-
-                {/* DNS Cache Max Domains */}
-                <Field>
-                  <FieldLabel htmlFor="dns_cache_max_domains">
-                    {t('settings.dnsCacheMaxDomains')}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t('settings.dnsCacheMaxDomainsDescription')}
-                  </FieldDescription>
-                  <Input
-                    id="dns_cache_max_domains"
-                    type="number"
-                    min="100"
-                    value={formData.dns_server.cache_max_domains}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value, 10) || 1000;
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: {
-                          ...prev.dns_server,
-                          cache_max_domains: value,
-                        },
-                      }));
-                    }}
-                    placeholder={t('settings.dnsCacheMaxDomainsPlaceholder')}
-                    disabled={!formData.dns_server.enable}
-                  />
-                </Field>
-
-                {/* Drop AAAA */}
-                <Field orientation="horizontal">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="drop_aaaa"
-                      checked={formData.dns_server.drop_aaaa}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          dns_server: {
-                            ...prev.dns_server,
-                            drop_aaaa: !!checked,
-                          },
-                        }))
-                      }
-                      disabled={!formData.dns_server.enable}
-                    />
-                    <FieldLabel
-                      htmlFor="drop_aaaa"
-                      className="cursor-pointer flex flex-col items-start gap-0"
-                    >
-                      {t('settings.dropAAAA')}
-                      <FieldDescription>
-                        {t('settings.dropAAAADescription')}
-                      </FieldDescription>
-                    </FieldLabel>
-                  </div>
-                </Field>
-
-                {/* IPSet Entry Additional TTL */}
-                <Field>
-                  <FieldLabel htmlFor="ipset_entry_additional_ttl_sec">
-                    {t('settings.ipsetEntryAdditionalTTL')}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t('settings.ipsetEntryAdditionalTTLDescription')}
-                  </FieldDescription>
-                  <Input
-                    id="ipset_entry_additional_ttl_sec"
-                    type="number"
-                    min="0"
-                    max="2147483"
-                    value={formData.dns_server.ipset_entry_additional_ttl_sec}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value, 10) || 0;
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: {
-                          ...prev.dns_server,
-                          ipset_entry_additional_ttl_sec: value,
-                        },
-                      }));
-                    }}
-                    placeholder="7200"
-                    disabled={!formData.dns_server.enable}
-                  />
-                </Field>
-
-                {/* Listed Domains DNS Cache TTL */}
-                <Field>
-                  <FieldLabel htmlFor="listed_domains_dns_cache_ttl_sec">
-                    {t('settings.listedDomainsDNSCacheTTL')}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t('settings.listedDomainsDNSCacheTTLDescription')}
-                  </FieldDescription>
-                  <Input
-                    id="listed_domains_dns_cache_ttl_sec"
-                    type="number"
-                    min="0"
-                    max="2147483"
-                    value={formData.dns_server.listed_domains_dns_cache_ttl_sec}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value, 10) || 0;
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: {
-                          ...prev.dns_server,
-                          listed_domains_dns_cache_ttl_sec: value,
-                        },
-                      }));
-                    }}
-                    placeholder="30"
-                    disabled={!formData.dns_server.enable}
-                  />
-                </Field>
-
-                <FieldSeparator />
-
-                {/* DNS Remap 53 Interfaces */}
-                <Field>
-                  <FieldLabel>{t('settings.dnsRemap53Interfaces')}</FieldLabel>
-                  <FieldDescription>
-                    {t('settings.dnsRemap53InterfacesDescription')}
-                  </FieldDescription>
-                  <InterfaceSelector
-                    value={formData.dns_server.remap_53_interfaces}
-                    onChange={(interfaces) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dns_server: {
-                          ...prev.dns_server,
-                          remap_53_interfaces: interfaces,
-                        },
-                      }))
-                    }
-                    allowReorder={false}
-                  />
-                </Field>
-              </FieldGroup>
-            </CardContent>
-          </Card>
+          <DNSServerSettings
+            dnsServer={formData.dns_server}
+            onChange={(dnsServer) =>
+              setFormData((prev) => ({
+                ...prev,
+                dns_server: dnsServer,
+              }))
+            }
+          />
         </>
       )}
     </BaseSettingsForm>

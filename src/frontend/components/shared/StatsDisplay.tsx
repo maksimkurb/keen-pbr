@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 
 interface StatsDisplayProps {
   totalHosts: number | null;
@@ -11,7 +10,6 @@ export function StatsDisplay({
   ipv4Subnets,
   ipv6Subnets,
 }: StatsDisplayProps) {
-  const { t } = useTranslation();
 
   const formatStat = (value: number | null) => {
     return value !== null ? value.toString() : '-';
