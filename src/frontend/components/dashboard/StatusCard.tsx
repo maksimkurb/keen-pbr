@@ -19,7 +19,10 @@ interface StatusCardProps {
   className?: string;
 }
 
-const statusVariants: Record<ServiceStatus, 'default' | 'destructive' | 'secondary'> = {
+const statusVariants: Record<
+  ServiceStatus,
+  'default' | 'destructive' | 'secondary'
+> = {
   running: 'default',
   stopped: 'destructive',
   unknown: 'secondary',
@@ -31,7 +34,14 @@ const statusI18nKeys: Record<ServiceStatus, string> = {
   unknown: 'dashboard.statusUnknown',
 };
 
-export function StatusCard({ title, value, status, badges, actions, className }: StatusCardProps) {
+export function StatusCard({
+  title,
+  value,
+  status,
+  badges,
+  actions,
+  className,
+}: StatusCardProps) {
   const { t } = useTranslation();
 
   return (
@@ -43,9 +53,7 @@ export function StatusCard({ title, value, status, badges, actions, className }:
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {value && (
-            <div className="text-2xl font-bold">{value}</div>
-          )}
+          {value && <div className="text-2xl font-bold">{value}</div>}
           {(status || badges) && (
             <div className="flex flex-wrap gap-2">
               {status && (
@@ -53,18 +61,19 @@ export function StatusCard({ title, value, status, badges, actions, className }:
                   {t(statusI18nKeys[status])}
                 </Badge>
               )}
-              {badges && badges.map((badge, index) => (
-                <Badge key={index} variant={badge.variant} className="text-xs">
-                  {badge.label}
-                </Badge>
-              ))}
+              {badges &&
+                badges.map((badge, index) => (
+                  <Badge
+                    key={index}
+                    variant={badge.variant}
+                    className="text-xs"
+                  >
+                    {badge.label}
+                  </Badge>
+                ))}
             </div>
           )}
-          {actions && (
-            <div className="flex flex-wrap gap-2">
-              {actions}
-            </div>
-          )}
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
       </CardContent>
     </Card>

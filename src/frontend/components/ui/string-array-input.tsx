@@ -29,7 +29,7 @@ export function StringArrayInput({
   };
 
   const updateItem = (index: number, newValue: string) => {
-    onChange(value.map((item, i) => i === index ? newValue : item));
+    onChange(value.map((item, i) => (i === index ? newValue : item)));
   };
 
   const removeItem = (index: number) => {

@@ -107,11 +107,21 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
         <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="p-3 text-left text-sm font-medium">{t('lists.columns.name')}</th>
-              <th className="p-3 text-left text-sm font-medium">{t('lists.columns.type')}</th>
-              <th className="p-3 text-left text-sm font-medium">{t('lists.columns.stats')}</th>
-              <th className="p-3 text-left text-sm font-medium">{t('lists.columns.rules')}</th>
-              <th className="p-3 text-right text-sm font-medium">{t('lists.columns.actions')}</th>
+              <th className="p-3 text-left text-sm font-medium">
+                {t('lists.columns.name')}
+              </th>
+              <th className="p-3 text-left text-sm font-medium">
+                {t('lists.columns.type')}
+              </th>
+              <th className="p-3 text-left text-sm font-medium">
+                {t('lists.columns.stats')}
+              </th>
+              <th className="p-3 text-left text-sm font-medium">
+                {t('lists.columns.rules')}
+              </th>
+              <th className="p-3 text-right text-sm font-medium">
+                {t('lists.columns.actions')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -119,7 +129,10 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
               const usedByIPSets = getIPSetsUsingList(list.list_name);
 
               return (
-                <tr key={list.list_name} className="border-b last:border-0 hover:bg-muted/50">
+                <tr
+                  key={list.list_name}
+                  className="border-b last:border-0 hover:bg-muted/50"
+                >
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{list.list_name}</span>
@@ -135,11 +148,14 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                       )}
                     </div>
                     {list.file && (
-                      <div className="mt-1 text-xs text-muted-foreground">{list.file}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {list.file}
+                      </div>
                     )}
                     {list.url && list.stats?.last_modified && (
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {t('lists.lastUpdated')} {formatLastModified(list.stats.last_modified)}
+                        {t('lists.lastUpdated')}{' '}
+                        {formatLastModified(list.stats.last_modified)}
                       </div>
                     )}
                   </td>
@@ -178,13 +194,17 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                           disabled={downloadList.isPending}
                           title={t('lists.refreshTitle')}
                         >
-                          <RefreshCw className={`h-4 w-4 ${downloadList.isPending ? 'animate-spin' : ''}`} />
+                          <RefreshCw
+                            className={`h-4 w-4 ${downloadList.isPending ? 'animate-spin' : ''}`}
+                          />
                         </Button>
                       )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/lists/${list.list_name}/edit`)}
+                        onClick={() =>
+                          navigate(`/lists/${list.list_name}/edit`)
+                        }
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>

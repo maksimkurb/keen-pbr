@@ -2,7 +2,13 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { Button } from '../ui/button';
 
 interface RuleFiltersProps {
@@ -87,12 +93,17 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
 
         {/* Version Filter */}
         <div className="w-full sm:w-40">
-          <Select value={versionFilter || 'all'} onValueChange={updateVersionFilter}>
+          <Select
+            value={versionFilter || 'all'}
+            onValueChange={updateVersionFilter}
+          >
             <SelectTrigger>
               <SelectValue placeholder={t('routingRules.allVersions')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('routingRules.allVersions')}</SelectItem>
+              <SelectItem value="all">
+                {t('routingRules.allVersions')}
+              </SelectItem>
               <SelectItem value="4">{t('routingRules.ipVersion.4')}</SelectItem>
               <SelectItem value="6">{t('routingRules.ipVersion.6')}</SelectItem>
             </SelectContent>

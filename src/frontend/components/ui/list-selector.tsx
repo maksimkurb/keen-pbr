@@ -2,14 +2,23 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Check, Globe, File, List, ListPlus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './command';
-import { Button } from './button';
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-} from './input-group';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from './empty';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from './command';
+import { Button } from './button';
+import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from './empty';
 import { cn } from '../../src/lib/utils';
 import type { ListInfo } from '../../src/api/client';
 
@@ -34,7 +43,12 @@ const getListIcon = (type: string) => {
   }
 };
 
-export function ListSelector({ value, onChange, availableLists, className }: ListSelectorProps) {
+export function ListSelector({
+  value,
+  onChange,
+  availableLists,
+  className,
+}: ListSelectorProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -52,17 +66,19 @@ export function ListSelector({ value, onChange, availableLists, className }: Lis
   return (
     <div className={cn('max-w-lg', className)}>
       {value.length > 0 ? (
-        <div className='space-y-2 p-4 border rounded-md'>
+        <div className="space-y-2 p-4 border rounded-md">
           {value.map((listName, index) => {
-            const listInfo = availableLists.find(l => l.list_name === listName);
+            const listInfo = availableLists.find(
+              (l) => l.list_name === listName,
+            );
             const ListIcon = listInfo ? getListIcon(listInfo.type) : ListPlus;
-            
+
             return (
               <InputGroup key={`${listName}-${index}`}>
-                <InputGroupAddon className='cursor-default'>
+                <InputGroupAddon className="cursor-default">
                   <ListIcon className="h-4 w-4 text-foreground" />
                 </InputGroupAddon>
-                <InputGroupAddon className='w-full justify-start cursor-default text-foreground'>
+                <InputGroupAddon className="w-full justify-start cursor-default text-foreground">
                   <span>{listName}</span>
                 </InputGroupAddon>
                 <InputGroupAddon align="inline-end">
@@ -91,11 +107,15 @@ export function ListSelector({ value, onChange, availableLists, className }: Lis
                 {t('routingRules.dialog.addList')}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align='start' className="w-100 p-0">
+            <PopoverContent align="start" className="w-100 p-0">
               <Command>
-                <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
+                <CommandInput
+                  placeholder={t('routingRules.dialog.searchLists')}
+                />
                 <CommandList className="max-h-[300px] overflow-y-auto">
-                  <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
+                  <CommandEmpty>
+                    {t('routingRules.dialog.noLists')}
+                  </CommandEmpty>
                   <CommandGroup>
                     {availableLists.map((list) => {
                       const ListIcon = getListIcon(list.type);
@@ -108,8 +128,10 @@ export function ListSelector({ value, onChange, availableLists, className }: Lis
                         >
                           <Check
                             className={cn(
-                              "mr-2 h-4 w-4",
-                              value.includes(list.list_name) ? "opacity-100" : "opacity-0"
+                              'mr-2 h-4 w-4',
+                              value.includes(list.list_name)
+                                ? 'opacity-100'
+                                : 'opacity-0',
                             )}
                           />
                           <ListIcon className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -129,7 +151,9 @@ export function ListSelector({ value, onChange, availableLists, className }: Lis
             <EmptyMedia variant="icon">
               <ListPlus className="h-5 w-5" />
             </EmptyMedia>
-            <EmptyTitle className="text-base">{t('routingRules.dialog.emptyLists.title')}</EmptyTitle>
+            <EmptyTitle className="text-base">
+              {t('routingRules.dialog.emptyLists.title')}
+            </EmptyTitle>
             <EmptyDescription>
               {t('routingRules.dialog.emptyLists.description')}
             </EmptyDescription>
@@ -148,9 +172,13 @@ export function ListSelector({ value, onChange, availableLists, className }: Lis
             </PopoverTrigger>
             <PopoverContent className="w-full p-0">
               <Command>
-                <CommandInput placeholder={t('routingRules.dialog.searchLists')} />
+                <CommandInput
+                  placeholder={t('routingRules.dialog.searchLists')}
+                />
                 <CommandList className="max-h-[300px] overflow-y-auto">
-                  <CommandEmpty>{t('routingRules.dialog.noLists')}</CommandEmpty>
+                  <CommandEmpty>
+                    {t('routingRules.dialog.noLists')}
+                  </CommandEmpty>
                   <CommandGroup>
                     {availableLists.map((list) => {
                       const ListIcon = getListIcon(list.type);

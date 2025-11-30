@@ -47,7 +47,10 @@ export interface BaseSettingsFormProps<T> {
   /** Callback when form is submitted */
   onSave: (data: T) => Promise<void>;
   /** Function to render form fields - receives current form data and setter */
-  children: (formData: T, setFormData: React.Dispatch<React.SetStateAction<T>>) => ReactNode;
+  children: (
+    formData: T,
+    setFormData: React.Dispatch<React.SetStateAction<T>>,
+  ) => ReactNode;
   /** Optional: Default form data when no data is loaded */
   defaultData?: T;
 }
@@ -140,9 +143,7 @@ export function BaseSettingsForm<T>({
     <div className="relative">
       <form onSubmit={handleSubmit}>
         {/* Scrollable content area with padding for sticky footer */}
-        <div className="space-y-6 pb-24">
-          {children(formData, setFormData)}
-        </div>
+        <div className="space-y-6 pb-24">{children(formData, setFormData)}</div>
 
         {/* Fixed footer with buttons */}
         <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
@@ -156,13 +157,8 @@ export function BaseSettingsForm<T>({
               >
                 {t('common.cancel')}
               </Button>
-              <Button
-                type="submit"
-                disabled={!hasChanges || isSaving}
-              >
-                {isSaving && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+              <Button type="submit" disabled={!hasChanges || isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('settings.saveChanges')}
               </Button>
             </div>

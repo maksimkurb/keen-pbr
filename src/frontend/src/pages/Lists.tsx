@@ -13,7 +13,11 @@ import { formatError } from '../utils/errorUtils';
 export default function Lists() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: lists, isLoading: listsLoading, error: listsError } = useLists();
+  const {
+    data: lists,
+    isLoading: listsLoading,
+    error: listsError,
+  } = useLists();
   const { data: ipsets, isLoading: ipsetsLoading } = useIPSets();
   const downloadAllLists = useDownloadAllLists();
 
@@ -42,7 +46,9 @@ export default function Lists() {
         <div>
           <strong>{t('common.error')}</strong>
           <p className="mt-1 text-sm">
-            {listsError instanceof Error ? listsError.message : t('lists.loadError')}
+            {listsError instanceof Error
+              ? listsError.message
+              : t('lists.loadError')}
           </p>
         </div>
       </Alert>
@@ -68,11 +74,20 @@ export default function Lists() {
             disabled={downloadAllLists.isPending}
             className="w-full sm:w-auto"
           >
-            <Download className={`mr-2 h-4 w-4 ${downloadAllLists.isPending ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('lists.downloadAll.button')}</span>
-            <span className="sm:hidden">{t('lists.downloadAll.buttonShort')}</span>
+            <Download
+              className={`mr-2 h-4 w-4 ${downloadAllLists.isPending ? 'animate-spin' : ''}`}
+            />
+            <span className="hidden sm:inline">
+              {t('lists.downloadAll.button')}
+            </span>
+            <span className="sm:hidden">
+              {t('lists.downloadAll.buttonShort')}
+            </span>
           </Button>
-          <Button onClick={() => navigate('/lists/new')} className="w-full sm:w-auto">
+          <Button
+            onClick={() => navigate('/lists/new')}
+            className="w-full sm:w-auto"
+          >
             <Plus className="mr-2 h-4 w-4" />
             {t('lists.newList')}
           </Button>
@@ -83,9 +98,7 @@ export default function Lists() {
       <ListFilters ipsets={ipsetNames} />
 
       {/* Table */}
-      {lists && ipsets && (
-        <ListsTable lists={lists} ipsets={ipsets} />
-      )}
+      {lists && ipsets && <ListsTable lists={lists} ipsets={ipsets} />}
     </div>
   );
 }

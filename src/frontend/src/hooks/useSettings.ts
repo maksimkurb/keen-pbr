@@ -18,7 +18,8 @@ export function useUpdateSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<GeneralConfig>) => apiClient.updateSettings(data),
+    mutationFn: (data: Partial<GeneralConfig>) =>
+      apiClient.updateSettings(data),
     onSuccess: (data) => {
       // Update the cache with the new data
       queryClient.setQueryData(['settings'], data);

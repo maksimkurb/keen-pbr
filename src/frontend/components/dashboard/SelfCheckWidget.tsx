@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '../ui/card';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { CheckCircle2, XCircle, Play, Square, Loader2, Download, ListChecks } from 'lucide-react';
+import {
+  CheckCircle2,
+  XCircle,
+  Play,
+  Square,
+  Loader2,
+  Download,
+  ListChecks,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../src/api/client';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
@@ -46,8 +60,8 @@ export function SelfCheckWidget() {
                 checking: false,
                 reason: 'Split-DNS is working correctly from browser',
               }
-            : r
-        )
+            : r,
+        ),
       );
     } else if (dnsStatus === 'browser-fail' || dnsStatus === 'sse-fail') {
       setResults((prev) =>
@@ -57,10 +71,11 @@ export function SelfCheckWidget() {
                 ...r,
                 ok: false,
                 checking: false,
-                reason: 'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+                reason:
+                  'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
               }
-            : r
-        )
+            : r,
+        ),
       );
     }
   }, [dnsStatus]);
@@ -78,7 +93,8 @@ export function SelfCheckWidget() {
       ok: true, // Set to true to show as in-progress
       should_exist: true,
       checking: true,
-      reason: 'Split-DNS must be configured correctly for domain-based routing to work from browser',
+      reason:
+        'Split-DNS must be configured correctly for domain-based routing to work from browser',
     };
 
     // Add DNS check to results immediately with testing state
@@ -139,16 +155,27 @@ export function SelfCheckWidget() {
     return t('dashboard.selfCheck.status.present', { defaultValue: 'present' });
   };
 
-  const getActualStatus = (result: CheckEvent): { text: string; icon: 'check' | 'cross' | 'spinner' } => {
+  const getActualStatus = (
+    result: CheckEvent,
+  ): { text: string; icon: 'check' | 'cross' | 'spinner' } => {
     // Special case: testing state
     if (result.checking) {
-      return { text: t('common.loading', { defaultValue: 'testing...' }), icon: 'spinner' };
+      return {
+        text: t('common.loading', { defaultValue: 'testing...' }),
+        icon: 'spinner',
+      };
     }
 
     if (result.ok) {
-      return { text: t('dashboard.selfCheck.status.ok', { defaultValue: 'OK' }), icon: 'check' };
+      return {
+        text: t('dashboard.selfCheck.status.ok', { defaultValue: 'OK' }),
+        icon: 'check',
+      };
     } else {
-      return { text: t('dashboard.selfCheck.status.error', { defaultValue: 'error' }), icon: 'cross' };
+      return {
+        text: t('dashboard.selfCheck.status.error', { defaultValue: 'error' }),
+        icon: 'cross',
+      };
     }
   };
 
@@ -171,7 +198,12 @@ export function SelfCheckWidget() {
       const exportData = {
         timestamp: new Date().toISOString(),
         selfCheck: {
-          status: status === 'completed' ? 'passed' : status === 'failed' ? 'failed' : status,
+          status:
+            status === 'completed'
+              ? 'passed'
+              : status === 'failed'
+                ? 'failed'
+                : status,
           results: formattedResults,
         },
         system: statusInfo,
@@ -190,10 +222,18 @@ export function SelfCheckWidget() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success(t('dashboard.selfCheck.downloaded', { defaultValue: 'Results downloaded' }));
+      toast.success(
+        t('dashboard.selfCheck.downloaded', {
+          defaultValue: 'Results downloaded',
+        }),
+      );
     } catch (error) {
       console.error('Failed to download results:', error);
-      toast.error(t('dashboard.selfCheck.downloadFailed', { defaultValue: 'Failed to download results' }));
+      toast.error(
+        t('dashboard.selfCheck.downloadFailed', {
+          defaultValue: 'Failed to download results',
+        }),
+      );
     }
   };
 
@@ -201,7 +241,9 @@ export function SelfCheckWidget() {
     <Card>
       <CardHeader>
         <CardTitle>{t('dashboard.selfCheck.title')}</CardTitle>
-        <CardDescription>{t('dashboard.selfCheck.description')}</CardDescription>
+        <CardDescription>
+          {t('dashboard.selfCheck.description')}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -231,9 +273,15 @@ export function SelfCheckWidget() {
               </Button>
             )}
             {results.length > 0 && (
-              <Button onClick={downloadResults} variant="outline" size="default">
+              <Button
+                onClick={downloadResults}
+                variant="outline"
+                size="default"
+              >
                 <Download className="mr-2 h-4 w-4" />
-                {t('dashboard.selfCheck.download', { defaultValue: 'Download' })}
+                {t('dashboard.selfCheck.download', {
+                  defaultValue: 'Download',
+                })}
               </Button>
             )}
           </div>
@@ -251,14 +299,28 @@ export function SelfCheckWidget() {
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-muted/50 border-b">
                   <tr>
-                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.check', { defaultValue: 'Check' })}</th>
-                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.expected', { defaultValue: 'Expected' })}</th>
-                    <th className="text-left py-3 px-4 font-medium">{t('dashboard.selfCheck.table.actual', { defaultValue: 'Actual' })}</th>
+                    <th className="text-left py-3 px-4 font-medium">
+                      {t('dashboard.selfCheck.table.check', {
+                        defaultValue: 'Check',
+                      })}
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium">
+                      {t('dashboard.selfCheck.table.expected', {
+                        defaultValue: 'Expected',
+                      })}
+                    </th>
+                    <th className="text-left py-3 px-4 font-medium">
+                      {t('dashboard.selfCheck.table.actual', {
+                        defaultValue: 'Actual',
+                      })}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
-                    const filteredResults = results.filter((result) => result.check !== 'complete');
+                    const filteredResults = results.filter(
+                      (result) => result.check !== 'complete',
+                    );
                     let lastRule: string | null = null;
 
                     return filteredResults.map((result, index) => {
@@ -271,7 +333,10 @@ export function SelfCheckWidget() {
                         <>
                           {isNewGroup && (
                             <tr key={`${index}-header`} className="bg-muted/30">
-                              <td colSpan={3} className="py-2 px-4 font-medium border-t">
+                              <td
+                                colSpan={3}
+                                className="py-2 px-4 font-medium border-t"
+                              >
                                 {rule}
                               </td>
                             </tr>
@@ -282,14 +347,16 @@ export function SelfCheckWidget() {
                               result.reason === 'testing'
                                 ? 'bg-muted/10'
                                 : result.ok
-                                ? 'bg-green-500/5 dark:bg-green-500/10'
-                                : 'bg-red-500/5 dark:bg-red-500/10'
+                                  ? 'bg-green-500/5 dark:bg-green-500/10'
+                                  : 'bg-red-500/5 dark:bg-red-500/10'
                             }`}
                           >
                             <td className="py-3 px-4 pl-8">
                               <div>{getCheckTypeLabel(result.check)}</div>
                               {result.reason && result.reason !== 'testing' && (
-                                <div className="text-xs text-muted-foreground mt-1">{result.reason}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {result.reason}
+                                </div>
                               )}
                             </td>
                             <td className="py-3 px-4 text-muted-foreground">
@@ -316,7 +383,7 @@ export function SelfCheckWidget() {
               </table>
             </div>
           ) : status === 'idle' ? (
-            <Empty className='p-4 md:p-4'>
+            <Empty className="p-4 md:p-4">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ListChecks />
@@ -332,13 +399,17 @@ export function SelfCheckWidget() {
           {status === 'completed' && (
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>{t('dashboard.selfCheck.completed')}</AlertDescription>
+              <AlertDescription>
+                {t('dashboard.selfCheck.completed')}
+              </AlertDescription>
             </Alert>
           )}
           {status === 'failed' && (
             <Alert variant="destructive">
               <XCircle className="h-4 w-4" />
-              <AlertDescription>{t('dashboard.selfCheck.failed')}</AlertDescription>
+              <AlertDescription>
+                {t('dashboard.selfCheck.failed')}
+              </AlertDescription>
             </Alert>
           )}
         </div>

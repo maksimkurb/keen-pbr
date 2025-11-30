@@ -6,7 +6,11 @@ interface StatsDisplayProps {
   ipv6Subnets: number | null;
 }
 
-export function StatsDisplay({ totalHosts, ipv4Subnets, ipv6Subnets }: StatsDisplayProps) {
+export function StatsDisplay({
+  totalHosts,
+  ipv4Subnets,
+  ipv6Subnets,
+}: StatsDisplayProps) {
   const { t } = useTranslation();
 
   const formatStat = (value: number | null) => {
@@ -15,7 +19,8 @@ export function StatsDisplay({ totalHosts, ipv4Subnets, ipv6Subnets }: StatsDisp
 
   return (
     <span className="text-sm text-muted-foreground">
-      {formatStat(totalHosts)} / {formatStat(ipv4Subnets)} / {formatStat(ipv6Subnets)}
+      {formatStat(totalHosts)} / {formatStat(ipv4Subnets)} /{' '}
+      {formatStat(ipv6Subnets)}
     </span>
   );
 }

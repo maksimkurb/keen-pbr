@@ -19,7 +19,11 @@ interface DeleteRuleConfirmationProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function DeleteRuleConfirmation({ ipsetName, open, onOpenChange }: DeleteRuleConfirmationProps) {
+export function DeleteRuleConfirmation({
+  ipsetName,
+  open,
+  onOpenChange,
+}: DeleteRuleConfirmationProps) {
   const { t } = useTranslation();
   const deleteIPSet = useDeleteIPSet();
 
@@ -56,7 +60,9 @@ export function DeleteRuleConfirmation({ ipsetName, open, onOpenChange }: Delete
             disabled={deleteIPSet.isPending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {deleteIPSet.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {deleteIPSet.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             {t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>

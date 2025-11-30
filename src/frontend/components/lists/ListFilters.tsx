@@ -1,7 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { Button } from '../ui/button';
 import { X } from 'lucide-react';
 
@@ -52,7 +58,10 @@ export function ListFilters({ ipsets }: ListFiltersProps) {
           className="md:max-w-xs"
         />
 
-        <Select value={usedInRule || 'all'} onValueChange={handleRuleFilterChange}>
+        <Select
+          value={usedInRule || 'all'}
+          onValueChange={handleRuleFilterChange}
+        >
           <SelectTrigger className="md:w-48">
             <SelectValue placeholder={t('lists.usedInFilter')} />
           </SelectTrigger>

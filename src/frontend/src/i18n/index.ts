@@ -18,19 +18,17 @@ const getInitialLanguage = (): string => {
   return storedLang || getBrowserLanguage();
 };
 
-i18n
-  .use(initReactI18next)
-  .init({
-    resources: {
-      en: { translation: en },
-      ru: { translation: ru }
-    },
-    lng: getInitialLanguage(),
-    fallbackLng: 'en',
-    interpolation: {
-      escapeValue: false
-    }
-  });
+i18n.use(initReactI18next).init({
+  resources: {
+    en: { translation: en },
+    ru: { translation: ru },
+  },
+  lng: getInitialLanguage(),
+  fallbackLng: 'en',
+  interpolation: {
+    escapeValue: false,
+  },
+});
 
 // Save language preference to localStorage when it changes
 i18n.on('languageChanged', (lng) => {

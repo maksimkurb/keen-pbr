@@ -43,7 +43,8 @@ export function DeleteListConfirmation({
       onOpenChange(false);
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : t('lists.delete.error'),
+        description:
+          error instanceof Error ? error.message : t('lists.delete.error'),
       });
     }
   };
@@ -64,7 +65,8 @@ export function DeleteListConfirmation({
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <div className="ml-3">
-              <strong>{t('lists.delete.warning')}</strong> {t('lists.delete.warningMessage')}
+              <strong>{t('lists.delete.warning')}</strong>{' '}
+              {t('lists.delete.warningMessage')}
               <ul className="mt-2 list-disc pl-4">
                 {usedByIPSets.map((ipset) => (
                   <li key={ipset}>{ipset}</li>
@@ -92,7 +94,9 @@ export function DeleteListConfirmation({
             disabled={deleteList.isPending || isUsedByIPSets}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {deleteList.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {deleteList.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             {t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>

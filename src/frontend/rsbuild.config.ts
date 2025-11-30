@@ -20,14 +20,12 @@ export default defineConfig({
     meta: {
       viewport: 'width=device-width, initial-scale=1.0, maximum-scale=5.0',
     },
-    title: 'keen-pbr'
+    title: 'keen-pbr',
   },
   tools: {
     postcss: (config, { addPlugins }) => {
-      addPlugins([
-        tailwindcss
-      ]);
+      addPlugins([tailwindcss]);
       return config;
-    }
-  }
+    },
+  },
 });

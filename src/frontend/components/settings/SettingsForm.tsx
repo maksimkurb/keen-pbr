@@ -1,8 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSettings, useUpdateSettings } from '../../src/hooks/useSettings';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
-import { Field, FieldLabel, FieldDescription, FieldGroup, FieldSeparator } from '../ui/field';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '../ui/card';
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldGroup,
+  FieldSeparator,
+} from '../ui/field';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
 import { InterfaceSelector } from '../ui/interface-selector';
@@ -43,7 +55,8 @@ export function SettingsForm() {
       });
     } catch (error) {
       toast.error(t('common.error'), {
-        description: error instanceof Error ? error.message : t('settings.saveError'),
+        description:
+          error instanceof Error ? error.message : t('settings.saveError'),
       });
       throw error; // Re-throw to prevent form state update
     }
@@ -83,7 +96,12 @@ export function SettingsForm() {
                     id="lists_output_dir"
                     type="text"
                     value={formData.lists_output_dir}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, lists_output_dir: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        lists_output_dir: e.target.value,
+                      }))
+                    }
                     placeholder="/opt/etc/keen-pbr/lists.d"
                     required
                   />
@@ -97,12 +115,20 @@ export function SettingsForm() {
                     <Checkbox
                       id="auto_update_enabled"
                       checked={formData.auto_update_lists.enabled}
-                      onCheckedChange={(checked) => setFormData((prev) => ({
-                        ...prev,
-                        auto_update_lists: { ...prev.auto_update_lists, enabled: !!checked },
-                      }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          auto_update_lists: {
+                            ...prev.auto_update_lists,
+                            enabled: !!checked,
+                          },
+                        }))
+                      }
                     />
-                    <FieldLabel htmlFor="auto_update_enabled" className="cursor-pointer flex flex-col items-start gap-0">
+                    <FieldLabel
+                      htmlFor="auto_update_enabled"
+                      className="cursor-pointer flex flex-col items-start gap-0"
+                    >
                       {t('settings.autoUpdateLists')}
                       <FieldDescription>
                         {t('settings.autoUpdateListsDescription')}
@@ -128,7 +154,10 @@ export function SettingsForm() {
                       const value = parseInt(e.target.value, 10) || 1;
                       setFormData((prev) => ({
                         ...prev,
-                        auto_update_lists: { ...prev.auto_update_lists, interval_hours: value },
+                        auto_update_lists: {
+                          ...prev.auto_update_lists,
+                          interval_hours: value,
+                        },
                       }));
                     }}
                     placeholder="24"
@@ -155,13 +184,22 @@ export function SettingsForm() {
                   <div className="flex items-center space-x-3">
                     <Checkbox
                       id="enable_interface_monitoring"
-                      checked={formData.interface_monitoring_interval_seconds > 0}
-                      onCheckedChange={(checked) => setFormData((prev) => ({
-                        ...prev,
-                        interface_monitoring_interval_seconds: checked ? 10 : 0,
-                      }))}
+                      checked={
+                        formData.interface_monitoring_interval_seconds > 0
+                      }
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          interface_monitoring_interval_seconds: checked
+                            ? 10
+                            : 0,
+                        }))
+                      }
                     />
-                    <FieldLabel htmlFor="enable_interface_monitoring" className="cursor-pointer flex flex-col items-start gap-0">
+                    <FieldLabel
+                      htmlFor="enable_interface_monitoring"
+                      className="cursor-pointer flex flex-col items-start gap-0"
+                    >
                       {t('settings.enableInterfaceMonitoring')}
                       <FieldDescription>
                         {t('settings.enableInterfaceMonitoringDescription')}
@@ -186,10 +224,18 @@ export function SettingsForm() {
                     value={formData.interface_monitoring_interval_seconds}
                     onChange={(e) => {
                       const value = parseInt(e.target.value, 10) || 10;
-                      setFormData((prev) => ({ ...prev, interface_monitoring_interval_seconds: Math.max(10, value) }));
+                      setFormData((prev) => ({
+                        ...prev,
+                        interface_monitoring_interval_seconds: Math.max(
+                          10,
+                          value,
+                        ),
+                      }));
                     }}
                     placeholder="10"
-                    disabled={formData.interface_monitoring_interval_seconds === 0}
+                    disabled={
+                      formData.interface_monitoring_interval_seconds === 0
+                    }
                   />
                 </Field>
               </FieldGroup>
@@ -213,12 +259,17 @@ export function SettingsForm() {
                     <Checkbox
                       id="dns_server_enable"
                       checked={formData.dns_server.enable}
-                      onCheckedChange={(checked) => setFormData((prev) => ({
-                        ...prev,
-                        dns_server: { ...prev.dns_server, enable: !!checked },
-                      }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          dns_server: { ...prev.dns_server, enable: !!checked },
+                        }))
+                      }
                     />
-                    <FieldLabel htmlFor="dns_server_enable" className="cursor-pointer flex flex-col items-start gap-0">
+                    <FieldLabel
+                      htmlFor="dns_server_enable"
+                      className="cursor-pointer flex flex-col items-start gap-0"
+                    >
                       {t('settings.enableDnsServer')}
                       <FieldDescription>
                         {t('settings.enableDnsServerDescription')}
@@ -239,10 +290,15 @@ export function SettingsForm() {
                     id="dns_listen_addr"
                     type="text"
                     value={formData.dns_server.listen_addr}
-                    onChange={(e) => setFormData((prev) => ({
-                      ...prev,
-                      dns_server: { ...prev.dns_server, listen_addr: e.target.value },
-                    }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dns_server: {
+                          ...prev.dns_server,
+                          listen_addr: e.target.value,
+                        },
+                      }))
+                    }
                     placeholder={t('settings.dnsListenAddrPlaceholder')}
                     disabled={!formData.dns_server.enable}
                   />
@@ -282,8 +338,14 @@ export function SettingsForm() {
                   <FieldDescription>
                     {t('settings.dnsUpstreamServersDescription')}
                     <ul className="list-disc list-inside mt-1 space-y-0.5 text-xs">
-                      {(t('settings.dnsFormats', { returnObjects: true }) as string[]).map((format, index) => (
-                        <li key={index}><code>{format}</code></li>
+                      {(
+                        t('settings.dnsFormats', {
+                          returnObjects: true,
+                        }) as string[]
+                      ).map((format, index) => (
+                        <li key={index}>
+                          <code>{format}</code>
+                        </li>
                       ))}
                     </ul>
                     <div className="mt-2">
@@ -292,10 +354,12 @@ export function SettingsForm() {
                   </FieldDescription>
                   <StringArrayInput
                     value={formData.dns_server.upstreams}
-                    onChange={(upstreams) => setFormData((prev) => ({
-                      ...prev,
-                      dns_server: { ...prev.dns_server, upstreams },
-                    }))}
+                    onChange={(upstreams) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dns_server: { ...prev.dns_server, upstreams },
+                      }))
+                    }
                     placeholder={t('settings.dnsUpstreamPlaceholder')}
                     disabled={!formData.dns_server.enable}
                     minItems={1}
@@ -322,7 +386,10 @@ export function SettingsForm() {
                       const value = parseInt(e.target.value, 10) || 1000;
                       setFormData((prev) => ({
                         ...prev,
-                        dns_server: { ...prev.dns_server, cache_max_domains: value },
+                        dns_server: {
+                          ...prev.dns_server,
+                          cache_max_domains: value,
+                        },
                       }));
                     }}
                     placeholder={t('settings.dnsCacheMaxDomainsPlaceholder')}
@@ -336,13 +403,21 @@ export function SettingsForm() {
                     <Checkbox
                       id="drop_aaaa"
                       checked={formData.dns_server.drop_aaaa}
-                      onCheckedChange={(checked) => setFormData((prev) => ({
-                        ...prev,
-                        dns_server: { ...prev.dns_server, drop_aaaa: !!checked },
-                      }))}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          dns_server: {
+                            ...prev.dns_server,
+                            drop_aaaa: !!checked,
+                          },
+                        }))
+                      }
                       disabled={!formData.dns_server.enable}
                     />
-                    <FieldLabel htmlFor="drop_aaaa" className="cursor-pointer flex flex-col items-start gap-0">
+                    <FieldLabel
+                      htmlFor="drop_aaaa"
+                      className="cursor-pointer flex flex-col items-start gap-0"
+                    >
                       {t('settings.dropAAAA')}
                       <FieldDescription>
                         {t('settings.dropAAAADescription')}
@@ -369,7 +444,10 @@ export function SettingsForm() {
                       const value = parseInt(e.target.value, 10) || 0;
                       setFormData((prev) => ({
                         ...prev,
-                        dns_server: { ...prev.dns_server, ipset_entry_additional_ttl_sec: value },
+                        dns_server: {
+                          ...prev.dns_server,
+                          ipset_entry_additional_ttl_sec: value,
+                        },
                       }));
                     }}
                     placeholder="7200"
@@ -395,7 +473,10 @@ export function SettingsForm() {
                       const value = parseInt(e.target.value, 10) || 0;
                       setFormData((prev) => ({
                         ...prev,
-                        dns_server: { ...prev.dns_server, listed_domains_dns_cache_ttl_sec: value },
+                        dns_server: {
+                          ...prev.dns_server,
+                          listed_domains_dns_cache_ttl_sec: value,
+                        },
                       }));
                     }}
                     placeholder="30"
@@ -413,10 +494,15 @@ export function SettingsForm() {
                   </FieldDescription>
                   <InterfaceSelector
                     value={formData.dns_server.remap_53_interfaces}
-                    onChange={(interfaces) => setFormData((prev) => ({
-                      ...prev,
-                      dns_server: { ...prev.dns_server, remap_53_interfaces: interfaces },
-                    }))}
+                    onChange={(interfaces) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dns_server: {
+                          ...prev.dns_server,
+                          remap_53_interfaces: interfaces,
+                        },
+                      }))
+                    }
                     allowReorder={false}
                   />
                 </Field>

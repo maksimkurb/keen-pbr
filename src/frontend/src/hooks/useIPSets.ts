@@ -43,8 +43,13 @@ export function useUpdateIPSet() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, data }: { name: string; data: Partial<Omit<IPSetConfig, 'ipset_name'>> }) =>
-      apiClient.updateIPSet(name, data),
+    mutationFn: ({
+      name,
+      data,
+    }: {
+      name: string;
+      data: Partial<Omit<IPSetConfig, 'ipset_name'>>;
+    }) => apiClient.updateIPSet(name, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ipsets'] });
       queryClient.invalidateQueries({ queryKey: ['ipsets', variables.name] });

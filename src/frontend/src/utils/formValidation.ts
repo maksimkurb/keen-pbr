@@ -3,13 +3,13 @@ import type { ValidationErrorDetail } from '../api/client';
 /**
  * Maps validation errors from API to a field-name-keyed object.
  * This makes it easy to look up errors by field name.
- * 
+ *
  * Example:
  * Input: [{ field: "routing.interfaces", message: "must specify at least one interface" }]
  * Output: { "routing.interfaces": "must specify at least one interface" }
  */
 export function mapValidationErrors(
-  errors: ValidationErrorDetail[] | null | undefined
+  errors: ValidationErrorDetail[] | null | undefined,
 ): Record<string, string> {
   if (!errors || errors.length === 0) {
     return {};
@@ -28,7 +28,7 @@ export function mapValidationErrors(
  */
 export function getFieldError(
   fieldName: string,
-  errorMap: Record<string, string>
+  errorMap: Record<string, string>,
 ): string | undefined {
   return errorMap[fieldName];
 }

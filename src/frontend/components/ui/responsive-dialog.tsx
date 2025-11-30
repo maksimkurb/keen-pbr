@@ -25,7 +25,11 @@ interface ResponsiveDialogProps {
   children: React.ReactNode;
 }
 
-export function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDialogProps) {
+export function ResponsiveDialog({
+  open,
+  onOpenChange,
+  children,
+}: ResponsiveDialogProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {
@@ -43,7 +47,11 @@ export function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDia
   );
 }
 
-export function ResponsiveDialogContent({ className, children, ...props }: React.ComponentPropsWithoutRef<typeof DialogContent>) {
+export function ResponsiveDialogContent({
+  className,
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogContent>) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {
@@ -55,13 +63,16 @@ export function ResponsiveDialogContent({ className, children, ...props }: React
   }
 
   return (
-    <DrawerContent className={cn(className, "w-full max-w-full")} {...props}>
+    <DrawerContent className={cn(className, 'w-full max-w-full')} {...props}>
       {children}
     </DrawerContent>
   );
 }
 
-export function ResponsiveDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function ResponsiveDialogHeader({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {
@@ -71,7 +82,10 @@ export function ResponsiveDialogHeader({ className, ...props }: React.HTMLAttrib
   return <DrawerHeader className={`text-left ${className || ''}`} {...props} />;
 }
 
-export function ResponsiveDialogTitle({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogTitle>) {
+export function ResponsiveDialogTitle({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogTitle>) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {
@@ -81,7 +95,10 @@ export function ResponsiveDialogTitle({ className, ...props }: React.ComponentPr
   return <DrawerTitle className={className} {...props} />;
 }
 
-export function ResponsiveDialogDescription({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogDescription>) {
+export function ResponsiveDialogDescription({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogDescription>) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {
@@ -91,7 +108,10 @@ export function ResponsiveDialogDescription({ className, ...props }: React.Compo
   return <DrawerDescription className={className} {...props} />;
 }
 
-export function ResponsiveDialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function ResponsiveDialogFooter({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   if (isDesktop) {

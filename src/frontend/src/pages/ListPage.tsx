@@ -1,24 +1,39 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCreateList, useUpdateList, useLists } from '../hooks/useLists';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, KeenPBRAPIError } from '../api/client';
-import { Field, FieldLabel, FieldDescription, FieldGroup, FieldError } from '../../components/ui/field';
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldGroup,
+  FieldError,
+} from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { LineNumberedTextarea, type LineError } from '../../components/ui/line-numbered-textarea';
-import { BaseFormActions } from '../../components/ui/base-form-actions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  LineNumberedTextarea,
+  type LineError,
+} from '../../components/ui/line-numbered-textarea';
+import { BaseFormPage } from '../../components/ui/base-form-page';
 import type { ListSource } from '../api/client';
 import { mapValidationErrors, getFieldError } from '../utils/formValidation';
-import { Button } from '../../components/ui/button';
 
 // Validation patterns
-const DOMAIN_PATTERN = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
+const DOMAIN_PATTERN =
+  /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$|^xn--[a-zA-Z0-9-]+$/;
 const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-const IPV6_PATTERN = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]+|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))(\/\d{1,3})?$/;
+const IPV6_PATTERN =
+  /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]+|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))(\/\d{1,3})?$/;
 
 function validateIPv4(ip: string): boolean {
   const parts = ip.split('/');
@@ -40,23 +55,16 @@ function validateIPv4(ip: string): boolean {
 }
 
 function validateIPv6(ip: string): boolean {
-  // Basic IPv6 validation - full validation is complex
   return IPV6_PATTERN.test(ip);
 }
 
 function validateHostLine(line: string): string | null {
   const trimmed = line.trim();
 
-  // Empty line is valid
   if (trimmed === '') return null;
-
-  // Comment line is valid
   if (trimmed.startsWith('#')) return null;
-
-  // Check if it's a domain
   if (DOMAIN_PATTERN.test(trimmed)) return null;
 
-  // Check if it's IPv4 or IPv4 CIDR
   if (IPV4_PATTERN.test(trimmed)) {
     if (!validateIPv4(trimmed)) {
       return 'Invalid IPv4 address or subnet';
@@ -64,7 +72,6 @@ function validateHostLine(line: string): string | null {
     return null;
   }
 
-  // Check if it's IPv6 or IPv6 CIDR
   if (validateIPv6(trimmed)) return null;
 
   return 'Invalid format: must be empty, comment (#), domain, IPv4, or IPv6';
@@ -84,6 +91,14 @@ function validateHosts(hosts: string): LineError {
   return errors;
 }
 
+interface FormData {
+  list_name: string;
+  type: 'url' | 'file' | 'hosts';
+  url?: string;
+  file?: string;
+  hosts?: string;
+}
+
 export default function ListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -94,29 +109,10 @@ export default function ListPage() {
   const updateList = useUpdateList();
   const { data: lists, isLoading: isLoadingLists } = useLists();
 
-  const [formData, setFormData] = useState<{
-    list_name: string;
-    type: 'url' | 'file' | 'hosts';
-    url?: string;
-    file?: string;
-    hosts?: string;
-  }>({
-    list_name: '',
-    type: 'url',
-  });
-
   // Validation errors from API
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
-  // Validate hosts field
-  const hostsErrors = useMemo(() => {
-    if (formData.type === 'hosts' && formData.hosts) {
-      return validateHosts(formData.hosts);
-    }
-    return {};
-  }, [formData.type, formData.hosts]);
-
-  const hasHostsErrors = Object.keys(hostsErrors).length > 0;
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
   // Fetch full list data when editing an inline hosts list
   const { data: fullListData, isLoading: isLoadingFullList } = useQuery({
@@ -125,44 +121,38 @@ export default function ListPage() {
     enabled: isEditMode && !!name,
   });
 
-  // Initialize form when list changes (edit mode)
-  useEffect(() => {
-    if (isEditMode && lists) {
-      const list = lists.find(l => l.list_name === name);
-      if (list) {
-        setFormData({
-          list_name: list.list_name,
-          type: list.type as 'url' | 'file' | 'hosts',
-          url: list.url,
-          file: list.file,
-          hosts: '',
-        });
-      }
+  // Determine initial data for edit mode
+  const initialData: FormData | undefined = useMemo(() => {
+    if (!isEditMode || !lists) return undefined;
+
+    const list = lists.find((l) => l.list_name === name);
+    if (!list) return undefined;
+
+    return {
+      list_name: list.list_name,
+      type: list.type as 'url' | 'file' | 'hosts',
+      url: list.url,
+      file: list.file,
+      hosts: fullListData?.hosts?.join('\n') || '',
+    };
+  }, [isEditMode, lists, name, fullListData?.hosts]);
+
+  // Validate hosts field
+  const getHostsErrors = (formData: FormData): LineError => {
+    if (formData.type === 'hosts' && formData.hosts) {
+      return validateHosts(formData.hosts);
     }
-  }, [isEditMode, lists, name]);
+    return {};
+  };
 
-  // Update hosts content when full list data loads
-  useEffect(() => {
-    if (isEditMode && fullListData?.hosts) {
-      const list = lists?.find(l => l.list_name === name);
-      if (list?.type === 'hosts') {
-        setFormData(prev => ({
-          ...prev,
-          hosts: fullListData?.hosts?.join('\n'),
-        }));
-      }
-    }
-  }, [fullListData?.hosts?.length]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (formData: FormData) => {
     // Block saving if there are validation errors
-    if (hasHostsErrors) {
+    const hostsErrors = getHostsErrors(formData);
+    if (Object.keys(hostsErrors).length > 0) {
       toast.error(t('common.error'), {
         description: t('lists.dialog.validationError'),
       });
-      return;
+      throw new Error('Validation failed');
     }
 
     try {
@@ -179,191 +169,217 @@ export default function ListPage() {
       }
 
       if (isEditMode) {
-        // For update, omit list_name as it's in the URL
         const { list_name, ...updateData } = requestData;
         await updateList.mutateAsync({
           name: name!,
           data: updateData,
         });
         toast.success(t('common.success'), {
-          description: t('lists.dialog.updateSuccess', { name: formData.list_name }),
+          description: t('lists.dialog.updateSuccess', {
+            name: formData.list_name,
+          }),
         });
       } else {
         await createList.mutateAsync(requestData);
         toast.success(t('common.success'), {
-          description: t('lists.dialog.createSuccess', { name: formData.list_name }),
+          description: t('lists.dialog.createSuccess', {
+            name: formData.list_name,
+          }),
         });
       }
 
-      setValidationErrors({}); // Clear errors on success
+      setValidationErrors({});
       navigate('/lists');
     } catch (error) {
-      // Handle validation errors
       if (error instanceof KeenPBRAPIError) {
         const errors = error.getValidationErrors();
         if (errors) {
           setValidationErrors(mapValidationErrors(errors));
           toast.error(t('lists.dialog.validationError'));
-          return;
+          throw error;
         }
       }
       toast.error(t('common.error'), {
-        description: t('lists.dialog.saveError', { action: isEditMode ? t('common.update') : t('common.create').toLowerCase() }),
+        description: t('lists.dialog.saveError', {
+          action: isEditMode
+            ? t('common.update')
+            : t('common.create').toLowerCase(),
+        }),
       });
+      throw error;
     }
   };
 
+  // Check if currently loading
+  const currentList = lists?.find((l) => l.list_name === name);
+  const isLoading =
+    isEditMode &&
+    (isLoadingLists || (currentList?.type === 'hosts' && isLoadingFullList));
+
   const isPending = isEditMode ? updateList.isPending : createList.isPending;
 
-  // Wait for lists to load first
-  if (isEditMode && isLoadingLists) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  // For hosts-type lists, also wait for full list data
-  const currentList = lists?.find(l => l.list_name === name);
-  if (isEditMode && currentList?.type === 'hosts' && isLoadingFullList) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const defaultData: FormData = {
+    list_name: '',
+    type: 'url',
+  };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/lists')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">
-            {isEditMode ? t('lists.dialog.editTitle') : t('lists.dialog.createTitle')}
-          </h1>
-          <p className="text-muted-foreground">
-            {isEditMode ? t('lists.dialog.editDescription') : t('lists.dialog.createDescription')}
-          </p>
-        </div>
-      </div>
+    <BaseFormPage
+      title={
+        isEditMode ? t('lists.dialog.editTitle') : t('lists.dialog.createTitle')
+      }
+      description={
+        isEditMode
+          ? t('lists.dialog.editDescription')
+          : t('lists.dialog.createDescription')
+      }
+      backPath="/lists"
+      isEditMode={isEditMode}
+      initialData={initialData}
+      isLoading={isLoading}
+      isPending={isPending}
+      onSubmit={handleSubmit}
+      defaultData={defaultData}
+      canSubmit={(formData) =>
+        Object.keys(getHostsErrors(formData)).length === 0
+      }
+    >
+      {(formData, setFormData) => {
+        const hostsErrors = getHostsErrors(formData);
+        const hasHostsErrors = Object.keys(hostsErrors).length > 0;
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <FieldGroup>
-          <Field data-invalid={!!getFieldError('list_name', validationErrors)}>
-            <FieldLabel htmlFor="list_name">{t('lists.dialog.listName')}</FieldLabel>
-            <Input
-              id="list_name"
-              value={formData.list_name}
-              onChange={(e) => setFormData({ ...formData, list_name: e.target.value })}
-              placeholder={t('lists.dialog.listNamePlaceholder')}
-              required
-              disabled={isEditMode}
-              aria-invalid={!!getFieldError('list_name', validationErrors)}
-            />
-            {isEditMode ? (
-              <FieldDescription>
-                {t('lists.dialog.listNameDescriptionLocked')}
-              </FieldDescription>
-            ) : (
-              <FieldDescription>
-                {t('lists.dialog.listNameDescription')}
-              </FieldDescription>
-            )}
-            {getFieldError('list_name', validationErrors) && (
-              <FieldError>{getFieldError('list_name', validationErrors)}</FieldError>
-            )}
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="type">{t('lists.dialog.listType')}</FieldLabel>
-            <FieldDescription>
-              {t('lists.dialog.listTypeDescription')}
-            </FieldDescription>
-            <Select
-              value={formData.type || ''}
-              onValueChange={(value: 'url' | 'file' | 'hosts') => {
-                if (value) {
-                  setFormData({ ...formData, type: value });
-                }
-              }}
+        return (
+          <FieldGroup>
+            <Field
+              data-invalid={!!getFieldError('list_name', validationErrors)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder={t('lists.dialog.selectType')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="url">{t('lists.types.url')}</SelectItem>
-                <SelectItem value="file">{t('lists.types.file')}</SelectItem>
-                <SelectItem value="hosts">{t('lists.types.hosts')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {formData.type === 'url' && (
-            <Field>
-              <FieldLabel htmlFor="url">{t('lists.dialog.url')}</FieldLabel>
-              <FieldDescription>
-                {t('lists.dialog.urlDescription')}
-              </FieldDescription>
+              <FieldLabel htmlFor="list_name">
+                {t('lists.dialog.listName')}
+              </FieldLabel>
               <Input
-                id="url"
-                type="url"
-                value={formData.url || ''}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                placeholder={t('lists.dialog.urlPlaceholder')}
+                id="list_name"
+                value={formData.list_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, list_name: e.target.value })
+                }
+                placeholder={t('lists.dialog.listNamePlaceholder')}
                 required
+                disabled={isEditMode}
+                aria-invalid={!!getFieldError('list_name', validationErrors)}
               />
-            </Field>
-          )}
-
-          {formData.type === 'file' && (
-            <Field>
-              <FieldLabel htmlFor="file">{t('lists.dialog.filePath')}</FieldLabel>
-              <FieldDescription>
-                {t('lists.dialog.filePathDescription')}
-              </FieldDescription>
-              <Input
-                id="file"
-                value={formData.file || ''}
-                onChange={(e) => setFormData({ ...formData, file: e.target.value })}
-                placeholder={t('lists.dialog.filePathPlaceholder')}
-                required
-              />
-            </Field>
-          )}
-
-          {formData.type === 'hosts' && (
-            <Field>
-              <FieldLabel htmlFor="hosts">{t('lists.dialog.hosts')}</FieldLabel>
-              <FieldDescription>
-                {t('lists.dialog.hostsDescription')}
-              </FieldDescription>
-              <LineNumberedTextarea
-                id="hosts"
-                value={formData.hosts || ''}
-                onChange={(e) => setFormData({ ...formData, hosts: e.target.value })}
-                placeholder={t('lists.dialog.hostsPlaceholder')}
-                errors={hostsErrors}
-                required
-              />
-              {hasHostsErrors && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                  {t('lists.dialog.validationErrors', { count: Object.keys(hostsErrors).length })}
-                </p>
+              {isEditMode ? (
+                <FieldDescription>
+                  {t('lists.dialog.listNameDescriptionLocked')}
+                </FieldDescription>
+              ) : (
+                <FieldDescription>
+                  {t('lists.dialog.listNameDescription')}
+                </FieldDescription>
+              )}
+              {getFieldError('list_name', validationErrors) && (
+                <FieldError>
+                  {getFieldError('list_name', validationErrors)}
+                </FieldError>
               )}
             </Field>
-          )}
-        </FieldGroup>
 
-        <BaseFormActions
-          isSaving={isPending}
-          disableSave={hasHostsErrors}
-          onCancel={() => navigate('/lists')}
-          isEditMode={isEditMode}
-        />
-      </form>
-    </div>
+            <Field>
+              <FieldLabel htmlFor="type">
+                {t('lists.dialog.listType')}
+              </FieldLabel>
+              <FieldDescription>
+                {t('lists.dialog.listTypeDescription')}
+              </FieldDescription>
+              <Select
+                value={formData.type || ''}
+                onValueChange={(value: 'url' | 'file' | 'hosts') => {
+                  if (value) {
+                    setFormData({ ...formData, type: value });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('lists.dialog.selectType')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="url">{t('lists.types.url')}</SelectItem>
+                  <SelectItem value="file">{t('lists.types.file')}</SelectItem>
+                  <SelectItem value="hosts">
+                    {t('lists.types.hosts')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {formData.type === 'url' && (
+              <Field>
+                <FieldLabel htmlFor="url">{t('lists.dialog.url')}</FieldLabel>
+                <FieldDescription>
+                  {t('lists.dialog.urlDescription')}
+                </FieldDescription>
+                <Input
+                  id="url"
+                  type="url"
+                  value={formData.url || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, url: e.target.value })
+                  }
+                  placeholder={t('lists.dialog.urlPlaceholder')}
+                  required
+                />
+              </Field>
+            )}
+
+            {formData.type === 'file' && (
+              <Field>
+                <FieldLabel htmlFor="file">
+                  {t('lists.dialog.filePath')}
+                </FieldLabel>
+                <FieldDescription>
+                  {t('lists.dialog.filePathDescription')}
+                </FieldDescription>
+                <Input
+                  id="file"
+                  value={formData.file || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, file: e.target.value })
+                  }
+                  placeholder={t('lists.dialog.filePathPlaceholder')}
+                  required
+                />
+              </Field>
+            )}
+
+            {formData.type === 'hosts' && (
+              <Field>
+                <FieldLabel htmlFor="hosts">
+                  {t('lists.dialog.hosts')}
+                </FieldLabel>
+                <FieldDescription>
+                  {t('lists.dialog.hostsDescription')}
+                </FieldDescription>
+                <LineNumberedTextarea
+                  id="hosts"
+                  value={formData.hosts || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hosts: e.target.value })
+                  }
+                  placeholder={t('lists.dialog.hostsPlaceholder')}
+                  errors={hostsErrors}
+                  required
+                />
+                {hasHostsErrors && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                    {t('lists.dialog.validationErrors', {
+                      count: Object.keys(hostsErrors).length,
+                    })}
+                  </p>
+                )}
+              </Field>
+            )}
+          </FieldGroup>
+        );
+      }}
+    </BaseFormPage>
   );
 }

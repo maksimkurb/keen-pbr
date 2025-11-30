@@ -6,7 +6,11 @@ interface BadgeListProps {
   onClick?: (item: string) => void;
 }
 
-export function BadgeList({ items, variant = 'secondary', onClick }: BadgeListProps) {
+export function BadgeList({
+  items,
+  variant = 'secondary',
+  onClick,
+}: BadgeListProps) {
   if (!items || items.length === 0) {
     return <span className="text-sm text-muted-foreground">-</span>;
   }

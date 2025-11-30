@@ -10,7 +10,11 @@ import { RoutingRulesTable } from '../../components/routing-rules/RoutingRulesTa
 export default function RoutingRules() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { data: ipsets, isLoading: ipsetsLoading, error: ipsetsError } = useIPSets();
+  const {
+    data: ipsets,
+    isLoading: ipsetsLoading,
+    error: ipsetsError,
+  } = useIPSets();
   const { data: lists } = useLists();
 
   const availableLists = lists?.map((l) => l.list_name) || [];
@@ -38,12 +42,17 @@ export default function RoutingRules() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl md:text-3xl font-bold">{t('routingRules.title')}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {t('routingRules.title')}
+          </h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
             {t('routingRules.description')}
           </p>
         </div>
-        <Button onClick={() => navigate('/routing-rules/new')} className="w-full md:w-auto">
+        <Button
+          onClick={() => navigate('/routing-rules/new')}
+          className="w-full md:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
           {t('routingRules.newRule')}
         </Button>

@@ -10,7 +10,7 @@ import ListPage from './pages/ListPage';
 import RoutingRules from './pages/RoutingRules';
 import RulePage from './pages/RulePage';
 import './i18n';
-import "./App.css";
+import './App.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

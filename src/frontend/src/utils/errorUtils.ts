@@ -1,4 +1,4 @@
-import { KeenPBRAPIError } from "../api/client";
+import { KeenPBRAPIError } from '../api/client';
 
 /**
  * Formats an error for display to the user.
@@ -6,22 +6,22 @@ import { KeenPBRAPIError } from "../api/client";
  * Otherwise, returns the error message as-is.
  */
 export function formatError(error: unknown): string {
-	if (error instanceof KeenPBRAPIError) {
-		const validationErrors = error.getValidationErrors();
-		if (validationErrors && validationErrors.length > 0) {
-			// Format validation errors as a list
-			const errorList = validationErrors
-				.map((ve) => `• ${ve.field}: ${ve.message}`)
-				.join("\n");
+  if (error instanceof KeenPBRAPIError) {
+    const validationErrors = error.getValidationErrors();
+    if (validationErrors && validationErrors.length > 0) {
+      // Format validation errors as a list
+      const errorList = validationErrors
+        .map((ve) => `• ${ve.field}: ${ve.message}`)
+        .join('\n');
 
-			return `${error.message}:\n${errorList}`;
-		}
-		return error.message;
-	}
+      return `${error.message}:\n${errorList}`;
+    }
+    return error.message;
+  }
 
-	if (error instanceof Error) {
-		return error.message;
-	}
+  if (error instanceof Error) {
+    return error.message;
+  }
 
-	return String(error);
+  return String(error);
 }

@@ -1,17 +1,33 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, ChevronUp, ChevronDown, Unplug, Network, Check } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Unplug,
+  Network,
+  Check,
+} from 'lucide-react';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './command';
-import { Button } from './button';
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from './input-group';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from './empty';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from './command';
+import { Button } from './button';
+import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from './empty';
 import { cn } from '../../src/lib/utils';
 import { Card } from './card';
 import type { InterfaceInfo } from '../../src/api/client';
@@ -23,7 +39,12 @@ interface InterfaceSelectorProps {
   className?: string;
 }
 
-export function InterfaceSelector({ value, onChange, allowReorder = false, className }: InterfaceSelectorProps) {
+export function InterfaceSelector({
+  value,
+  onChange,
+  allowReorder = false,
+  className,
+}: InterfaceSelectorProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [customInterface, setCustomInterface] = useState('');
@@ -55,7 +76,10 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
   const moveInterfaceUp = (index: number) => {
     if (index > 0) {
       const newInterfaces = [...value];
-      [newInterfaces[index - 1], newInterfaces[index]] = [newInterfaces[index], newInterfaces[index - 1]];
+      [newInterfaces[index - 1], newInterfaces[index]] = [
+        newInterfaces[index],
+        newInterfaces[index - 1],
+      ];
       onChange(newInterfaces);
     }
   };
@@ -63,7 +87,10 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
   const moveInterfaceDown = (index: number) => {
     if (index < value.length - 1) {
       const newInterfaces = [...value];
-      [newInterfaces[index], newInterfaces[index + 1]] = [newInterfaces[index + 1], newInterfaces[index]];
+      [newInterfaces[index], newInterfaces[index + 1]] = [
+        newInterfaces[index + 1],
+        newInterfaces[index],
+      ];
       onChange(newInterfaces);
     }
   };
@@ -71,15 +98,17 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
   return (
     <div className={cn('max-w-lg', className)}>
       {value.length > 0 ? (
-        <div className='space-y-2 p-4 border rounded-md'>
+        <div className="space-y-2 p-4 border rounded-md">
           {value.map((iface, index) => {
-            const interfaceInfo = interfaceOptions.find(i => i.name === iface);
+            const interfaceInfo = interfaceOptions.find(
+              (i) => i.name === iface,
+            );
             return (
               <InputGroup key={`${iface}-${index}`}>
-                <InputGroupAddon className='cursor-default'>
+                <InputGroupAddon className="cursor-default">
                   <InterfaceStatus iface={interfaceInfo} />
                 </InputGroupAddon>
-                <InputGroupAddon className='w-full justify-start text-foreground cursor-default'>
+                <InputGroupAddon className="w-full justify-start text-foreground cursor-default">
                   <InterfaceName iface={interfaceInfo} defaultName={iface} />
                 </InputGroupAddon>
                 <InputGroupAddon align="inline-end">
@@ -130,7 +159,7 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
                 {t('routingRules.dialog.addInterface')}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align='start' className="w-100 p-0">
+            <PopoverContent align="start" className="w-100 p-0">
               <Command>
                 <CommandInput
                   placeholder={t('routingRules.dialog.searchInterfaces')}
@@ -138,17 +167,23 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
                   onValueChange={setCustomInterface}
                 />
                 <CommandList className="max-h-[300px] overflow-y-auto">
-                  {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
-                    <CommandItem
-                      onSelect={() => addCustomInterface()}
-                      className="text-sm"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('routingRules.dialog.addCustomInterface')}: {customInterface}
-                    </CommandItem>
-                  )}
+                  {customInterface &&
+                    !interfaceOptions.some(
+                      (i) => i.name === customInterface,
+                    ) && (
+                      <CommandItem
+                        onSelect={() => addCustomInterface()}
+                        className="text-sm"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t('routingRules.dialog.addCustomInterface')}:{' '}
+                        {customInterface}
+                      </CommandItem>
+                    )}
                   {interfaceOptions.length === 0 && !customInterface && (
-                    <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
+                    <CommandEmpty>
+                      {t('routingRules.dialog.noInterfaces')}
+                    </CommandEmpty>
                   )}
                   <CommandGroup>
                     {interfaceOptions.map((iface) => (
@@ -160,8 +195,10 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
                       >
                         <Check
                           className={cn(
-                            "mr-2 h-4 w-4",
-                            value.includes(iface.name) ? "opacity-100" : "opacity-0"
+                            'mr-2 h-4 w-4',
+                            value.includes(iface.name)
+                              ? 'opacity-100'
+                              : 'opacity-0',
                           )}
                         />
                         <InterfaceStatus iface={iface} />
@@ -180,7 +217,9 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
             <EmptyMedia variant="icon">
               <Network className="h-5 w-5" />
             </EmptyMedia>
-            <EmptyTitle className="text-base">{t('routingRules.dialog.emptyInterfaces.title')}</EmptyTitle>
+            <EmptyTitle className="text-base">
+              {t('routingRules.dialog.emptyInterfaces.title')}
+            </EmptyTitle>
             <EmptyDescription>
               {t('routingRules.dialog.emptyInterfaces.description')}
             </EmptyDescription>
@@ -205,17 +244,25 @@ export function InterfaceSelector({ value, onChange, allowReorder = false, class
                   onValueChange={setCustomInterface}
                 />
                 <CommandList className="max-h-[300px] overflow-y-auto">
-                  {customInterface && !interfaceOptions.some(i => i.name === customInterface) && (
-                    <CommandItem
-                      onSelect={() => addCustomInterface()}
-                      className="text-sm"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('routingRules.dialog.addCustomInterface')}: <span className="font-mono ml-1">{customInterface}</span>
-                    </CommandItem>
-                  )}
+                  {customInterface &&
+                    !interfaceOptions.some(
+                      (i) => i.name === customInterface,
+                    ) && (
+                      <CommandItem
+                        onSelect={() => addCustomInterface()}
+                        className="text-sm"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t('routingRules.dialog.addCustomInterface')}:{' '}
+                        <span className="font-mono ml-1">
+                          {customInterface}
+                        </span>
+                      </CommandItem>
+                    )}
                   {interfaceOptions.length === 0 && !customInterface && (
-                    <CommandEmpty>{t('routingRules.dialog.noInterfaces')}</CommandEmpty>
+                    <CommandEmpty>
+                      {t('routingRules.dialog.noInterfaces')}
+                    </CommandEmpty>
                   )}
                   <CommandGroup>
                     {interfaceOptions.map((iface) => (
@@ -253,18 +300,17 @@ export function InterfaceName({
         {iface.name}
         {iface.keenetic_description ? (
           <span className="text-primary">({iface.keenetic_description})</span>
-        ) : (
-          iface.keenetic_id ? (
-            <span className="text-muted-foreground">({iface.keenetic_id})</span>
-          ) : null
-        )}
+        ) : iface.keenetic_id ? (
+          <span className="text-muted-foreground">({iface.keenetic_id})</span>
+        ) : null}
       </>
     );
   }
 
-  return <span className="text-muted-foreground">{defaultName || "(unknown)"}</span>;
+  return (
+    <span className="text-muted-foreground">{defaultName || '(unknown)'}</span>
+  );
 }
-
 
 export function InterfaceStatus({
   iface,
@@ -272,18 +318,12 @@ export function InterfaceStatus({
   iface: InterfaceInfo | undefined;
 }) {
   if (iface == null) {
-    return (
-      <Unplug className="mr-2 h-4 w-4 text-gray-600" />
-    );
+    return <Unplug className="mr-2 h-4 w-4 text-gray-600" />;
   }
 
   if (!iface.is_up) {
-    return (
-      <Unplug className="mr-2 h-4 w-4 text-red-600" />
-    );
+    return <Unplug className="mr-2 h-4 w-4 text-red-600" />;
   }
 
-  return (
-    <Unplug className="mr-2 h-4 w-4 text-green-600" />
-  );
+  return <Unplug className="mr-2 h-4 w-4 text-green-600" />;
 }

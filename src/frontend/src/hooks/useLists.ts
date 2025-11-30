@@ -43,8 +43,13 @@ export function useUpdateList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, data }: { name: string; data: Partial<Omit<ListSource, 'list_name'>> }) =>
-      apiClient.updateList(name, data),
+    mutationFn: ({
+      name,
+      data,
+    }: {
+      name: string;
+      data: Partial<Omit<ListSource, 'list_name'>>;
+    }) => apiClient.updateList(name, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lists'] });
       queryClient.invalidateQueries({ queryKey: ['lists', variables.name] });

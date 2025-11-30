@@ -32,7 +32,8 @@ export function ConfigurationWarning() {
 
         {location.pathname !== '/' && (
           <Link to="/" className="text-blue-600 dark:text-blue-400">
-            {t('dashboard.configurationOutdatedLink')} <ArrowRightIcon className="inline w-[1em] h-[1em]" />
+            {t('dashboard.configurationOutdatedLink')}{' '}
+            <ArrowRightIcon className="inline w-[1em] h-[1em]" />
           </Link>
         )}
       </AlertDescription>
