@@ -1,7 +1,7 @@
-import { KeeneticWidget } from '../../components/dashboard/KeeneticWidget';
-import { KeenPbrWidget } from '../../components/dashboard/KeenPbrWidget';
 import { DNSCheckWidget } from '../../components/dashboard/DNSCheckWidget';
 import { DomainCheckerWidget } from '../../components/dashboard/DomainCheckerWidget';
+import { KeeneticWidget } from '../../components/dashboard/KeeneticWidget';
+import { KeenPbrWidget } from '../../components/dashboard/KeenPbrWidget';
 import { SelfCheckWidget } from '../../components/dashboard/SelfCheckWidget';
 
 export default function Dashboard() {

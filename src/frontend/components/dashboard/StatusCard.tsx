@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 type ServiceStatus = 'running' | 'stopped' | 'unknown';
 
@@ -61,16 +61,15 @@ export function StatusCard({
                   {t(statusI18nKeys[status])}
                 </Badge>
               )}
-              {badges &&
-                badges.map((badge, index) => (
-                  <Badge
-                    key={index}
-                    variant={badge.variant}
-                    className="text-xs"
-                  >
-                    {badge.label}
-                  </Badge>
-                ))}
+              {badges?.map((badge) => (
+                <Badge
+                  key={badge.label}
+                  variant={badge.variant}
+                  className="text-xs"
+                >
+                  {badge.label}
+                </Badge>
+              ))}
             </div>
           )}
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

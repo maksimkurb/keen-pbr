@@ -1,19 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { Alert, AlertDescription } from '../ui/alert';
 import {
-  Search,
-  Loader2,
   AlertCircle,
   CheckCircle2,
-  X,
+  Loader2,
   RouteIcon,
+  Search,
+  X,
 } from 'lucide-react';
-import { apiClient } from '../../src/api/client';
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { RoutingCheckResponse } from '../../src/api/client';
+import { apiClient } from '../../src/api/client';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
 
 type CheckType = 'routing' | 'ping' | 'traceroute';
 
@@ -36,14 +36,6 @@ export function DomainCheckerWidget() {
     consoleOutput: [],
   });
   const eventSourceRef = useRef<EventSource | null>(null);
-  const consoleEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll console to bottom when new output arrives
-  useEffect(() => {
-    if (consoleEndRef.current) {
-      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [state.consoleOutput]);
 
   // Cleanup EventSource on unmount
   useEffect(() => {
@@ -266,7 +258,7 @@ export function DomainCheckerWidget() {
                 {t('dashboard.domainChecker.presentInRules')}
               </div>
               {state.routingResult.matched_by_hostname &&
-                state.routingResult.matched_by_hostname.length > 0 ? (
+              state.routingResult.matched_by_hostname.length > 0 ? (
                 <ul className="list-disc list-inside text-sm space-y-1">
                   {state.routingResult.matched_by_hostname.map((match) => (
                     <li key={match.rule_name}>
@@ -307,11 +299,12 @@ export function DomainCheckerWidget() {
                           {ipCheck.rule_results.map((ruleResult, index) => (
                             <tr
                               key={`${ipCheck.ip}-${ruleResult.rule_name}`}
-                              className={`border-b ${ruleResult.present_in_ipset !==
-                                  ruleResult.should_be_present
+                              className={`border-b ${
+                                ruleResult.present_in_ipset !==
+                                ruleResult.should_be_present
                                   ? 'bg-destructive/5'
                                   : ''
-                                }`}
+                              }`}
                             >
                               {index === 0 && (
                                 <td
@@ -330,7 +323,7 @@ export function DomainCheckerWidget() {
                                       : t('dashboard.domainChecker.no')}
                                   </span>
                                   {ruleResult.present_in_ipset ===
-                                    ruleResult.should_be_present ? (
+                                  ruleResult.should_be_present ? (
                                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                                   ) : (
                                     <X className="h-4 w-4 text-red-600" />

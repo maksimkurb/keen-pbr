@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useDNSCheck } from '../../src/hooks/useDNSCheck';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { DNSCheckModal } from './DNSCheckModal';
 
 export function DNSCheckWidget() {
@@ -16,8 +16,7 @@ export function DNSCheckWidget() {
   // Auto-run browser DNS check on component mount
   useEffect(() => {
     startCheck(true); // performBrowserRequest = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  });
 
   const isChecking = status === 'checking';
 

@@ -1,23 +1,23 @@
-import * as React from 'react';
+import type * as React from 'react';
+import { cn } from '../../lib/utils';
 import { useMediaQuery } from '../../src/hooks/useMediaQuery';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from './dialog';
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerFooter,
 } from './drawer';
-import { cn } from '../../lib/utils';
 
 interface ResponsiveDialogProps {
   open: boolean;

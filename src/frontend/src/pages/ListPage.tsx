@@ -1,18 +1,21 @@
-import { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useCreateList, useUpdateList, useLists } from '../hooks/useLists';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient, KeenPBRAPIError } from '../api/client';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { BaseFormPage } from '../../components/ui/base-form-page';
 import {
   Field,
-  FieldLabel,
   FieldDescription,
-  FieldGroup,
   FieldError,
+  FieldGroup,
+  FieldLabel,
 } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
+import {
+  type LineError,
+  LineNumberedTextarea,
+} from '../../components/ui/line-numbered-textarea';
 import {
   Select,
   SelectContent,
@@ -20,13 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import {
-  LineNumberedTextarea,
-  type LineError,
-} from '../../components/ui/line-numbered-textarea';
-import { BaseFormPage } from '../../components/ui/base-form-page';
 import type { ListSource } from '../api/client';
-import { mapValidationErrors, getFieldError } from '../utils/formValidation';
+import { apiClient, KeenPBRAPIError } from '../api/client';
+import { useCreateList, useLists, useUpdateList } from '../hooks/useLists';
+import { getFieldError, mapValidationErrors } from '../utils/formValidation';
 
 // Validation patterns
 const DOMAIN_PATTERN =

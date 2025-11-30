@@ -1,7 +1,8 @@
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2, AlertTriangle } from 'lucide-react';
 import { useDeleteList } from '../../src/hooks/useLists';
+import { Alert } from '../ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/alert-dialog';
-import { Alert } from '../ui/alert';
 
 interface DeleteListConfirmationProps {
   listName: string | null;

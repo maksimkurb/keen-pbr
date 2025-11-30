@@ -1,14 +1,14 @@
-import { useState, useMemo } from 'react';
+import { ExternalLink, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Pencil, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { StatsDisplay } from '../shared/StatsDisplay';
-import { DeleteListConfirmation } from './DeleteListConfirmation';
+import type { IPSetConfig, ListInfo } from '../../src/api/client';
 import { useDownloadList } from '../../src/hooks/useLists';
-import type { ListInfo, IPSetConfig } from '../../src/api/client';
+import { StatsDisplay } from '../shared/StatsDisplay';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { DeleteListConfirmation } from './DeleteListConfirmation';
 
 interface ListsTableProps {
   lists: ListInfo[];

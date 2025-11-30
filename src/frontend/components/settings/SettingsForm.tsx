@@ -1,25 +1,25 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import type { GeneralConfig } from '../../src/api/generated-types';
 import { useSettings, useUpdateSettings } from '../../src/hooks/useSettings';
+import { BaseSettingsForm } from '../ui/base-settings-form';
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
 } from '../ui/card';
+import { Checkbox } from '../ui/checkbox';
 import {
   Field,
-  FieldLabel,
   FieldDescription,
   FieldGroup,
+  FieldLabel,
   FieldSeparator,
 } from '../ui/field';
 import { Input } from '../ui/input';
-import { Checkbox } from '../ui/checkbox';
-import { BaseSettingsForm } from '../ui/base-settings-form';
 import { DNSServerSettings } from './DNSServerSettings';
-import type { GeneralConfig } from '../../src/api/generated-types';
 
 export function SettingsForm() {
   const { t } = useTranslation();
@@ -118,7 +118,10 @@ export function SettingsForm() {
                         setFormData((prev) => ({
                           ...prev,
                           auto_update_lists: {
-                            ...(prev.auto_update_lists ?? { enabled: false, interval_hours: 24 }),
+                            ...(prev.auto_update_lists ?? {
+                              enabled: false,
+                              interval_hours: 24,
+                            }),
                             enabled: !!checked,
                           },
                         }))
@@ -154,7 +157,10 @@ export function SettingsForm() {
                       setFormData((prev) => ({
                         ...prev,
                         auto_update_lists: {
-                          ...(prev.auto_update_lists ?? { enabled: false, interval_hours: 24 }),
+                          ...(prev.auto_update_lists ?? {
+                            enabled: false,
+                            interval_hours: 24,
+                          }),
                           interval_hours: value,
                         },
                       }));

@@ -5,7 +5,9 @@ import ru from './locales/ru.json';
 
 // Detect browser language
 const getBrowserLanguage = (): string => {
-  const browserLang = navigator.language || (navigator as any).userLanguage;
+  const browserLang =
+    navigator.language ||
+    (navigator as unknown as { userLanguage: string }).userLanguage;
   // Extract the language code (e.g., 'en' from 'en-US', 'ru' from 'ru-RU')
   const langCode = browserLang.split('-')[0];
   // Check if we support this language, otherwise fallback to English

@@ -12,5 +12,9 @@
     "fmt",
     "--stdin"
   ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit"
+  },
+  "biome.configurationPath": "src/frontend/biome.json",
   "biome.lsp.bin": "src/frontend/node_modules/.bin/biome"
 }

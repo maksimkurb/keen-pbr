@@ -1,4 +1,3 @@
-
 interface StatsDisplayProps {
   totalHosts: number | null;
   ipv4Subnets: number | null;
@@ -10,7 +9,6 @@ export function StatsDisplay({
   ipv4Subnets,
   ipv6Subnets,
 }: StatsDisplayProps) {
-
   const formatStat = (value: number | null) => {
     return value !== null ? value.toString() : '-';
   };

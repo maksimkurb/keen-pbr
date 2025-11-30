@@ -29,7 +29,17 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "suspicious": {
+        "noArrayIndexKey": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "error"
+      },
+      "a11y": {
+        "useSemanticElements": "info",
+        "useKeyWithClickEvents": "info"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
+import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Button } from '../ui/button';
 
 interface RuleFiltersProps {
   lists: string[];

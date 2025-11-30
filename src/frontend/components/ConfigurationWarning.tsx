@@ -1,12 +1,13 @@
-import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ArrowRightIcon } from 'lucide-react';
-import { Alert, AlertDescription } from './ui/alert';
-import { useStatus } from '../src/hooks/useStatus';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
+import { useStatus } from '../src/hooks/useStatus';
+import { Alert, AlertDescription } from './ui/alert';
 
 export function ConfigurationWarning() {
   const { t } = useTranslation();
   const { data, isLoading } = useStatus();
+  const location = useLocation();
 
   // Don't show anything while loading or if no data
   if (isLoading || !data) {
@@ -19,8 +20,6 @@ export function ConfigurationWarning() {
   if (!configOutdated) {
     return null;
   }
-
-  const location = useLocation();
 
   return (
     <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 mb-4">

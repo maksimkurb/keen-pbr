@@ -1,7 +1,9 @@
+import { Check, File, Globe, List, ListPlus, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, Check, Globe, File, List, ListPlus } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import type { ListInfo } from '../../src/api/client';
+import { cn } from '../../src/lib/utils';
+import { Button } from './button';
 import {
   Command,
   CommandEmpty,
@@ -10,17 +12,15 @@ import {
   CommandItem,
   CommandList,
 } from './command';
-import { Button } from './button';
-import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
 import {
   Empty,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  EmptyDescription,
 } from './empty';
-import { cn } from '../../src/lib/utils';
-import type { ListInfo } from '../../src/api/client';
+import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 interface ListSelectorProps {
   value: string[];
@@ -67,14 +67,14 @@ export function ListSelector({
     <div className={cn('max-w-lg', className)}>
       {value.length > 0 ? (
         <div className="space-y-2 p-4 border rounded-md">
-          {value.map((listName, index) => {
+          {value.map((listName) => {
             const listInfo = availableLists.find(
               (l) => l.list_name === listName,
             );
             const ListIcon = listInfo ? getListIcon(listInfo.type) : ListPlus;
 
             return (
-              <InputGroup key={`${listName}-${index}`}>
+              <InputGroup key={listName}>
                 <InputGroupAddon className="cursor-default">
                   <ListIcon className="h-4 w-4 text-foreground" />
                 </InputGroupAddon>

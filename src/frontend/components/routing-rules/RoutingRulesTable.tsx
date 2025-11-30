@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Pencil, Trash2, Check, X } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { DeleteRuleConfirmation } from './DeleteRuleConfirmation';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { IPSetConfig } from '../../src/api/client';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { DeleteRuleConfirmation } from './DeleteRuleConfirmation';
 
 interface RoutingRulesTableProps {
   ipsets: IPSetConfig[];
@@ -146,8 +146,8 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
                 <td className="p-3">
                   {ipset.routing?.interfaces ? (
                     <div className="flex flex-wrap gap-1">
-                      {ipset.routing.interfaces.map((iface, index) => (
-                        <Badge key={`${iface}-${index}`} variant="secondary">
+                      {ipset.routing.interfaces.map((iface) => (
+                        <Badge key={iface} variant="secondary">
                           {iface}
                         </Badge>
                       ))}

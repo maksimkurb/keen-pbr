@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Alert, AlertDescription } from '../ui/alert';
 import { useStatus } from '@/src/hooks/useStatus';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 export function KeeneticWidget() {
   const { t } = useTranslation();
@@ -54,8 +54,8 @@ export function KeeneticWidget() {
               {t('dashboard.dnsServers')}
             </h3>
             <div className="space-y-2">
-              {data.dns_servers.map((server, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
+              {data.dns_servers.map((server) => (
+                <div key={server} className="flex items-center gap-2 text-sm">
                   <span className="font-mono text-muted-foreground text-xs">
                     {server}
                   </span>

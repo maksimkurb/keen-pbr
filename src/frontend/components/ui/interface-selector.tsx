@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Network,
   Plus,
   Trash2,
-  ChevronUp,
-  ChevronDown,
   Unplug,
-  Network,
-  Check,
 } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { InterfaceInfo } from '../../src/api/client';
 import { useInterfaces } from '../../src/hooks/useInterfaces';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { cn } from '../../src/lib/utils';
+import { Button } from './button';
 import {
   Command,
   CommandEmpty,
@@ -19,17 +21,15 @@ import {
   CommandItem,
   CommandList,
 } from './command';
-import { Button } from './button';
-import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
 import {
   Empty,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  EmptyDescription,
 } from './empty';
-import { cn } from '../../src/lib/utils';
-import type { InterfaceInfo } from '../../src/api/client';
+import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 interface InterfaceSelectorProps {
   value: string[];
@@ -103,7 +103,7 @@ export function InterfaceSelector({
               (i) => i.name === iface,
             );
             return (
-              <InputGroup key={`${iface}-${index}`}>
+              <InputGroup key={iface}>
                 <InputGroupAddon className="cursor-default">
                   <InterfaceStatus iface={interfaceInfo} />
                 </InputGroupAddon>

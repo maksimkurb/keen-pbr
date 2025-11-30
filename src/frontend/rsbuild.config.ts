@@ -1,7 +1,7 @@
+import path from 'node:path';
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import tailwindcss from '@tailwindcss/postcss';
-import path from 'path';
 
 // Docs: https://rsbuild.rs/config/
 export default defineConfig({

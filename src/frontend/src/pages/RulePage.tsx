@@ -1,28 +1,29 @@
-import { useState, useMemo } from 'react';
+import { Plus, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Plus } from 'lucide-react';
-import { useCreateIPSet, useUpdateIPSet, useIPSets } from '../hooks/useIPSets';
-import { useLists } from '../hooks/useLists';
-import {
-  Field,
-  FieldLabel,
-  FieldDescription,
-  FieldGroup,
-  FieldError,
-} from '../../components/ui/field';
-import { Input } from '../../components/ui/input';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Button } from '../../components/ui/button';
-import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
-import { Label } from '../../components/ui/label';
+import { toast } from 'sonner';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '../../components/ui/accordion';
+import { BaseFormPage } from '../../components/ui/base-form-page';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '../../components/ui/field';
+import { Input } from '../../components/ui/input';
+import { InterfaceSelector } from '../../components/ui/interface-selector';
+import { Label } from '../../components/ui/label';
+import { ListSelector } from '../../components/ui/list-selector';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -30,14 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select';
-import { Textarea } from '../../components/ui/textarea';
-import { InterfaceSelector } from '../../components/ui/interface-selector';
-import { ListSelector } from '../../components/ui/list-selector';
 import { StringArrayInput } from '../../components/ui/string-array-input';
-import { BaseFormPage } from '../../components/ui/base-form-page';
+import { Textarea } from '../../components/ui/textarea';
 import type { IPSetConfig, IPTablesRule } from '../api/client';
 import { KeenPBRAPIError } from '../api/client';
-import { mapValidationErrors, getFieldError } from '../utils/formValidation';
+import { useCreateIPSet, useIPSets, useUpdateIPSet } from '../hooks/useIPSets';
+import { useLists } from '../hooks/useLists';
+import { getFieldError, mapValidationErrors } from '../utils/formValidation';
 
 // Default iptables rule
 const DEFAULT_IPTABLES_RULE: IPTablesRule = {
@@ -123,7 +123,8 @@ export default function RulePage() {
 
     try {
       if (isEditMode) {
-        await updateIPSet.mutateAsync({ name: name!, data: formData });
+        if (!name) throw new Error('Name is required for update');
+        await updateIPSet.mutateAsync({ name, data: formData });
         toast.success(
           t('routingRules.dialog.updateSuccess', { name: formData.ipset_name }),
         );
@@ -349,10 +350,12 @@ export default function RulePage() {
                     onChange={(interfaces) =>
                       setFormData({
                         ...formData,
-                        routing: {
-                          ...formData.routing!,
-                          interfaces,
-                        },
+                        routing: formData.routing
+                          ? {
+                              ...formData.routing,
+                              interfaces,
+                            }
+                          : undefined,
                       })
                     }
                     allowReorder={true}
@@ -377,10 +380,12 @@ export default function RulePage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        routing: {
-                          ...formData.routing!,
-                          default_gateway: e.target.value || undefined,
-                        },
+                        routing: formData.routing
+                          ? {
+                              ...formData.routing,
+                              default_gateway: e.target.value || undefined,
+                            }
+                          : undefined,
                       })
                     }
                     placeholder={t(
@@ -415,10 +420,15 @@ export default function RulePage() {
                     onChange={(upstreams) =>
                       setFormData({
                         ...formData,
-                        routing: {
-                          ...formData.routing!,
-                          dns: upstreams.length > 0 ? { upstreams } : undefined,
-                        },
+                        routing: formData.routing
+                          ? {
+                              ...formData.routing,
+                              dns:
+                                upstreams.length > 0
+                                  ? { upstreams }
+                                  : undefined,
+                            }
+                          : undefined,
                       })
                     }
                     placeholder={t(
@@ -629,10 +639,12 @@ export default function RulePage() {
                               const value = e.target.value;
                               setFormData({
                                 ...formData,
-                                routing: {
-                                  ...formData.routing!,
-                                  priority: value ? parseInt(value) : 0,
-                                },
+                                routing: formData.routing
+                                  ? {
+                                      ...formData.routing,
+                                      priority: value ? parseInt(value) : 0,
+                                    }
+                                  : undefined,
                               });
                             }}
                             placeholder={t(
@@ -659,10 +671,12 @@ export default function RulePage() {
                               const value = e.target.value;
                               setFormData({
                                 ...formData,
-                                routing: {
-                                  ...formData.routing!,
-                                  table: value ? parseInt(value) : 0,
-                                },
+                                routing: formData.routing
+                                  ? {
+                                      ...formData.routing,
+                                      table: value ? parseInt(value) : 0,
+                                    }
+                                  : undefined,
                               });
                             }}
                             placeholder={t(
@@ -689,10 +703,12 @@ export default function RulePage() {
                               const value = e.target.value;
                               setFormData({
                                 ...formData,
-                                routing: {
-                                  ...formData.routing!,
-                                  fwmark: value ? parseInt(value) : 0,
-                                },
+                                routing: formData.routing
+                                  ? {
+                                      ...formData.routing,
+                                      fwmark: value ? parseInt(value) : 0,
+                                    }
+                                  : undefined,
                               });
                             }}
                             placeholder={t(
@@ -746,10 +762,12 @@ export default function RulePage() {
                     onCheckedChange={(checked) =>
                       setFormData({
                         ...formData,
-                        routing: {
-                          ...formData.routing!,
-                          kill_switch: checked as boolean,
-                        },
+                        routing: formData.routing
+                          ? {
+                              ...formData.routing,
+                              kill_switch: checked as boolean,
+                            }
+                          : undefined,
                       })
                     }
                   />

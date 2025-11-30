@@ -1,8 +1,8 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { Button } from './button';
 import { BaseFormActions } from './base-form-actions';
+import { Button } from './button';
 
 export interface BaseFormPageProps<T> {
   /** Page title */

@@ -1,27 +1,27 @@
-import { useState, useRef, useEffect } from 'react';
+import {
+  CheckCircle2,
+  Download,
+  ListChecks,
+  Loader2,
+  Play,
+  Square,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { apiClient } from '../../src/api/client';
+import { useDNSCheck } from '../../src/hooks/useDNSCheck';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '../ui/card';
-import { Button } from '../ui/button';
-import { Alert, AlertDescription } from '../ui/alert';
-import {
-  CheckCircle2,
-  XCircle,
-  Play,
-  Square,
-  Loader2,
-  Download,
-  ListChecks,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { apiClient } from '../../src/api/client';
-import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '../ui/empty';
-import { useDNSCheck } from '../../src/hooks/useDNSCheck';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '../ui/empty';
 
 interface CheckEvent {
   check: string;
@@ -323,7 +323,7 @@ export function SelfCheckWidget() {
                     );
                     let lastRule: string | null = null;
 
-                    return filteredResults.map((result, index) => {
+                    return filteredResults.map((result) => {
                       const rule = result.ipset_name || 'global';
                       const actualStatus = getActualStatus(result);
                       const isNewGroup = rule !== lastRule;
@@ -332,7 +332,10 @@ export function SelfCheckWidget() {
                       return (
                         <>
                           {isNewGroup && (
-                            <tr key={`${index}-header`} className="bg-muted/30">
+                            <tr
+                              key={`${rule}-${result.check}-header`}
+                              className="bg-muted/30"
+                            >
                               <td
                                 colSpan={3}
                                 className="py-2 px-4 font-medium border-t"
@@ -342,7 +345,7 @@ export function SelfCheckWidget() {
                             </tr>
                           )}
                           <tr
-                            key={`${index}-main`}
+                            key={`${rule}-${result.check}-main`}
                             className={`border-b-0 ${
                               result.reason === 'testing'
                                 ? 'bg-muted/10'

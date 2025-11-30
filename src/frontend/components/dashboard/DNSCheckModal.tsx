@@ -1,10 +1,10 @@
+import { AlertCircle, CheckCircle2, Loader2, Terminal } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type CheckStatus, useDNSCheck } from '../../src/hooks/useDNSCheck';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Loader2, CheckCircle2, AlertCircle, Terminal } from 'lucide-react';
-import { useDNSCheck, type CheckStatus } from '../../src/hooks/useDNSCheck';
 
 interface DNSCheckModalProps {
   open: boolean;

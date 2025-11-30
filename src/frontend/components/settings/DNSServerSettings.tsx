@@ -1,30 +1,33 @@
 import { useTranslation } from 'react-i18next';
+import type { DNSServerConfig } from '../../src/api/generated-types';
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
 } from '../ui/card';
+import { Checkbox } from '../ui/checkbox';
 import {
   Field,
-  FieldLabel,
   FieldDescription,
   FieldGroup,
+  FieldLabel,
   FieldSeparator,
 } from '../ui/field';
 import { Input } from '../ui/input';
-import { Checkbox } from '../ui/checkbox';
 import { InterfaceSelector } from '../ui/interface-selector';
 import { StringArrayInput } from '../ui/string-array-input';
-import type { DNSServerConfig } from '../../src/api/generated-types';
 
 interface DNSServerSettingsProps {
   dnsServer: DNSServerConfig | null | undefined;
   onChange: (dnsServer: DNSServerConfig) => void;
 }
 
-export function DNSServerSettings({ dnsServer, onChange }: DNSServerSettingsProps) {
+export function DNSServerSettings({
+  dnsServer,
+  onChange,
+}: DNSServerSettingsProps) {
   const { t } = useTranslation();
 
   const updateDNSServer = (updates: Partial<DNSServerConfig>) => {
@@ -40,9 +43,7 @@ export function DNSServerSettings({ dnsServer, onChange }: DNSServerSettingsProp
     <Card>
       <CardHeader>
         <CardTitle>{t('settings.dnsServerTitle')}</CardTitle>
-        <CardDescription>
-          {t('settings.dnsServerDescription')}
-        </CardDescription>
+        <CardDescription>{t('settings.dnsServerDescription')}</CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -81,9 +82,7 @@ export function DNSServerSettings({ dnsServer, onChange }: DNSServerSettingsProp
               id="dns_listen_addr"
               type="text"
               value={dnsServer.listen_addr}
-              onChange={(e) =>
-                updateDNSServer({ listen_addr: e.target.value })
-              }
+              onChange={(e) => updateDNSServer({ listen_addr: e.target.value })}
               placeholder={t('settings.dnsListenAddrPlaceholder')}
               disabled={!dnsServer.enable}
             />
@@ -136,9 +135,7 @@ export function DNSServerSettings({ dnsServer, onChange }: DNSServerSettingsProp
             </FieldDescription>
             <StringArrayInput
               value={dnsServer.upstreams}
-              onChange={(upstreams) =>
-                updateDNSServer({ upstreams })
-              }
+              onChange={(upstreams) => updateDNSServer({ upstreams })}
               placeholder={t('settings.dnsUpstreamPlaceholder')}
               disabled={!dnsServer.enable}
               minItems={1}

@@ -5,12 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "rsbuild build",
-    "check": "biome check --write",
+    "check": "tsc --noEmit && biome check --write",
     "dev": "rsbuild dev --open",
     "format": "biome format --write",
     "preview": "rsbuild preview",
-    "generate-types": "cd ../.. && go run ./cmd/generate-types",
-    "type-check": "tsc --noEmit"
+    "generate-types": "cd ../.. && go run ./cmd/generate-types"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

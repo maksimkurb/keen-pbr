@@ -1,6 +1,6 @@
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
 import { useDeleteIPSet } from '../../src/hooks/useIPSets';
 import {
   AlertDialog,
