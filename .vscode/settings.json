@@ -1,0 +1,20 @@
+{
+  "go.lintTool": "golangci-lint-v2",
+  "go.lintFlags": [
+    "--path-mode=abs",
+    "--fast-only"
+  ],
+  "go.formatTool": "custom",
+  "go.alternateTools": {
+    "customFormatter": "golangci-lint-v2"
+  },
+  "go.formatFlags": [
+    "fmt",
+    "--stdin"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit"
+  },
+  "biome.configurationPath": "src/frontend/biome.json",
+  "biome.lsp.bin": "src/frontend/node_modules/.bin/biome"
+}

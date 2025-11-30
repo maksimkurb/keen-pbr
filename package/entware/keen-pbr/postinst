@@ -1,10 +1,6 @@
 #!/bin/sh
 
 # Essential paths
-DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
-DNSMASQ_ORIGINAL_BAK="${DNSMASQ_CONF}.keen-pbr.orig"
-DNSMASQ_KEEN_PBR_BAK="${DNSMASQ_CONF}.keen-pbr.old"
-DNSMASQ_DEFAULT="${DNSMASQ_CONF}.keen-pbr"
 KEEN_PBR_CONF="/opt/etc/keen-pbr/keen-pbr.conf"
 
 echo "keen-pbr installation"
@@ -14,72 +10,30 @@ if [ -f "${KEEN_PBR_CONF}" ]; then
 	echo "Existing keen-pbr.conf found, upgrading it. Old config will be backed up to 'keen-pbr.conf.before-update'"
 	cp "${KEEN_PBR_CONF}" "${KEEN_PBR_CONF}.before-update"
 	keen-pbr upgrade-config || echo "keen-pbr config upgrade failed"
+	echo ""
 fi
+NDM_MAJOR_VERSION=$(ndmc -c "show version" 2>/dev/null | grep "release:" | head -n 1 | awk '{print $2}' | cut -d'.' -f1)
 
-# rm all files /opt/etc/dnsmasq.d/*.keen-pbr.conf
-echo "Removing old generated dnsmasq ipset configs (dnsmasq.d/*.keen-pbr.conf)"
-rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.conf
-rm -f /opt/etc/dnsmasq.d/*.keenetic-pbr.md5
-
-# Backup existing config if present
-if [ -f "${DNSMASQ_CONF}" ]; then
-	echo "Existing dnsmasq.conf found, backing up to '$DNSMASQ_ORIGINAL_BAK'"
-    cp "${DNSMASQ_CONF}" "${DNSMASQ_ORIGINAL_BAK}"
-
-	while true; do
-		echo ""
-        echo "Select dnsmasq.conf configuration:"
-        echo "1. Replace dnsmasq.conf with provided from keen-pbr (recommended)"
-        echo "2. Keep current dnsmasq.conf"
-
-        if [ -f "${DNSMASQ_KEEN_PBR_BAK}" ]; then
-        	echo "3. Restore dnsmasq.conf from previous keen-pbr installation"
-        fi
-
-        printf "Please enter your choice: "
-		read -r choice
-		case "${choice}" in
-			1)
-				echo "Replacing dnsmasq.conf with provided from keen-pbr"
-				echo "Copying '${DNSMASQ_DEFAULT}' to '${DNSMASQ_CONF}'..."
-				cp "${DNSMASQ_DEFAULT}" "${DNSMASQ_CONF}"
-				break
-				;;
-			2)
-				echo "Keeping current dnsmasq.conf"
-				echo "You can copy keen-pbr config later manually, it will be stored at '${DNSMASQ_DEFAULT}'"
-				break
-				;;
-			3)
-				if [ -f "${DNSMASQ_KEEN_PBR_BAK}" ]; then
-					echo "Restoring dnsmasq.conf from previous keen-pbr installation"
-					echo "Copying '${DNSMASQ_KEEN_PBR_BAK}' to '${DNSMASQ_CONF}'..."
-					cp "${DNSMASQ_KEEN_PBR_BAK}" "${DNSMASQ_CONF}"
-					break
-				else
-					echo "Invalid option."
-					continue
-				fi
-				;;
-			*)
-				echo "Invalid option."
-				continue
-				;;
-		esac
-	done
+if [ -n "$NDM_MAJOR_VERSION" ] && [ "$NDM_MAJOR_VERSION" -ge 4 ]; then
+    echo "KeeneticOS major version is ${NDM_MAJOR_VERSION}, which is >= 4.0. Using 'iflayerchanged.d' hook instead of 'ifstatechanged.d'"
+    rm -f /opt/etc/ifstatechanged.d/50-keen-pbr-routing.sh
 else
-    # No existing config, use default
-    cp "${DNSMASQ_DEFAULT}" "${DNSMASQ_CONF}"
+		echo "KeeneticOS major version is ${NDM_MAJOR_VERSION}, which is < 4.0. Using 'ifstatechanged.d' hook instead of 'iflayerchanged.d'"
+    rm -f /opt/etc/iflayerchanged.d/50-keen-pbr-routing.sh
 fi
+
+echo ""
+# try to start and log error if not possible
+/opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"
+echo ""
+
 
 echo "Installation complete!"
-echo "Please make sure to:"
-echo "1. Configure ${KEEN_PBR_CONF}"
-echo "2. Configure ${DNSMASQ_CONF}"
-echo "3. (recommended) Install dnscrypt-proxy2 and configure it"
-echo "4. Run the following command: keen-pbr download"
-echo "5. Enable opkg dns-override"
-echo "6. Restart OPKG"
+echo "Next steps:"
+echo "1. Open http://my.keenetic.net:12121 (or http://<router-ip>:12121) to access keen-pbr web interface"
+echo "2. Configure your Lists and Rules"
+echo "3. Restart keen-pbr service through UI"
+echo "4. Run self-check on keen-pbr Dashboard"
 echo ""
 
 exit 0

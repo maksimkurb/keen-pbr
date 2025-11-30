@@ -33,7 +33,7 @@ _repository:
 
 	echo "Package: keen-pbr" > out/_pages/$(BUILD_DIR)/Packages
 	echo "Version: $(VERSION)" >> out/_pages/$(BUILD_DIR)/Packages
-	echo "Depends: dnsmasq-full, ipset, iptables, cron" >> out/_pages/$(BUILD_DIR)/Packages
+	echo "Depends: ipset, iptables, cron" >> out/_pages/$(BUILD_DIR)/Packages
 	echo "Conflicts: keenetic-pbr" >> out/_pages/$(BUILD_DIR)/Packages
 	echo "License: MIT" >> out/_pages/$(BUILD_DIR)/Packages
 	echo "Section: net" >> out/_pages/$(BUILD_DIR)/Packages

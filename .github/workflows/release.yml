@@ -1,0 +1,229 @@
+# Credits:
+# https://github.com/Anonym-tsk/nfqws-keenetic/blob/master/.github/workflows/release.yml
+# https://github.com/Waujito/youtubeUnblock/blob/main/.github/workflows/build-ci.yml
+
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+  workflow_dispatch: { }
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Generate TypeScript types
+      run: make generate-types
+
+    - name: Install frontend dependencies
+      working-directory: src/frontend
+      run: bun install
+
+    - name: Build frontend
+      working-directory: src/frontend
+      run: bun run build
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+    - name: Run tests
+      run: go test -v ./...
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+  build-entware:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch:
+          - aarch64-3.10
+          - mips-3.4
+          - mipsel-3.4
+          - x64-3.2
+          - armv7-3.2
+
+    container:
+      image: ghcr.io/maksimkurb/entware-builder:${{ matrix.arch }}
+      options: --user root
+
+    outputs:
+      version: ${{ steps.gh.outputs.version }}
+      sha: ${{ steps.gh.outputs.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: gh
+        env:
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+          echo "version=$(cat VERSION)" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
+            echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_OUTPUT
+            echo "sha=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Entware packages
+        id: build
+        working-directory: /home/me/Entware
+        env:
+          VERSION: ${{ steps.gh.outputs.version }}
+          SHA: ${{ steps.gh.outputs.sha }}
+        run: |
+          echo "src-link keenPbr $GITHUB_WORKSPACE/package/entware" >> ./feeds.conf
+
+          ./scripts/feeds update keenPbr
+          ./scripts/feeds install -a -p keenPbr
+          ln -s $GITHUB_WORKSPACE/.git ./feeds/keenPbr/keen-pbr/git-src
+
+          echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
+          echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
+
+          make package/keen-pbr/compile V=s
+
+          mv $(find ./bin -type f -name 'keen-pbr*.ipk') ./keen-pbr-$VERSION-$SHA-entware-${{ matrix.arch }}.ipk
+
+      - name: Upload packages
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: keen-pbr-entware-${{ matrix.arch }}
+          path: |
+            /home/me/Entware/keen-pbr*.ipk
+          if-no-files-found: error
+
+  build-repository:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-entware
+      - test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Display artifacts
+        run: ls ./
+
+      - name: Build repository
+        run:  |
+          git clone https://github.com/maksimkurb/ipk-html-indexer
+          ./ipk-html-indexer/index_feed.sh -h ./out
+          cp -r ./ipk-html-indexer/css ./out/css
+          mv ./out/Packages.html ./out/index.html
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+      - name: Summary
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -R ./out >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  create-release:
+    runs-on: ubuntu-22.04
+    needs: [ build-repository ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: ./VERSION
+          trim: true
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+
+      - name: Display artifacts
+        run: ls -R ./out
+
+      - name: Tag version
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git tag -a v${{ steps.version.outputs.content }} -m "Version ${{ steps.version.outputs.content }}"
+          git push origin v${{ steps.version.outputs.content }}
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2.2.1
+        with:
+          tag_name: v${{ steps.version.outputs.content }}
+          name: Release v${{ steps.version.outputs.content }}
+          draft: true
+          prerelease: false
+          files: |
+            ./out/**/keen-pbr-*.ipk
+
+      - name: Summary
+        run: |
+          echo "Release v${{ steps.version.outputs.content }} created" >> $GITHUB_STEP_SUMMARY
+
+  deploy-repository:
+    runs-on: ubuntu-22.04
+    needs: [ build-repository ]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Summary
+        run: |
+          echo "Repository deployed" >> $GITHUB_STEP_SUMMARY
