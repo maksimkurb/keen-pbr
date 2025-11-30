@@ -234,7 +234,6 @@
     "delete": {
       "title": "Delete List",
       "description": "Are you sure you want to delete the list \"{{name}}\"?",
-      "warning": "Warning:",
       "warningMessage": "This list is referenced by the following IPSets:",
       "warningInstruction": "You must remove these references before deleting this list.",
       "confirmation": "This action cannot be undone. The list configuration will be permanently deleted.",

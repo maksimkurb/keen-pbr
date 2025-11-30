@@ -50,7 +50,7 @@ export function DNSCheckWidget() {
 
       case 'success':
         return (
-          <div className="flex items-center gap-2 text-chart-2">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="h-5 w-5" />
             <span>{t('dnsCheck.success')}</span>
           </div>
@@ -74,7 +74,7 @@ export function DNSCheckWidget() {
 
       case 'pc-success':
         return (
-          <div className="flex items-center gap-2 text-chart-2">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle2 className="h-5 w-5" />
             <span>{t('dnsCheck.pcSuccess')}</span>
           </div>

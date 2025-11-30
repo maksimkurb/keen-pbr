@@ -79,7 +79,7 @@ export function DNSCheckModal({
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2">
               {isBrowserSuccess ? (
-                <CheckCircle2 className="h-4 w-4 text-chart-2" />
+                <CheckCircle2 className="h-4 w-4 text-success" />
               ) : browserStatus === 'checking' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -89,7 +89,7 @@ export function DNSCheckModal({
             </div>
             <div className="flex items-center gap-2">
               {isPcSuccess ? (
-                <CheckCircle2 className="h-4 w-4 text-chart-2" />
+                <CheckCircle2 className="h-4 w-4 text-success" />
               ) : pcCheckState.waiting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -114,9 +114,9 @@ export function DNSCheckModal({
 
           {/* Warning message */}
           {pcCheckState.showWarning && (
-            <Alert className="border-chart-4 bg-chart-4/10">
-              <AlertCircle className="h-4 w-4 text-chart-4" />
-              <AlertDescription className="text-chart-4">
+            <Alert variant="warning">
+              <AlertCircle />
+              <AlertDescription>
                 {t('dnsCheck.pcCheckWarning')}
               </AlertDescription>
             </Alert>

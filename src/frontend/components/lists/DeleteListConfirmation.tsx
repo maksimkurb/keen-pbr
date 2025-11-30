@@ -64,10 +64,9 @@ export function DeleteListConfirmation({
         {isUsedByIPSets && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <div className="ml-3">
-              <strong>{t('lists.delete.warning')}</strong>{' '}
+            <div>
               {t('lists.delete.warningMessage')}
-              <ul className="mt-2 list-disc pl-4">
+              <ul className="mt-2 list-disc pl-5">
                 {usedByIPSets.map((ipset) => (
                   <li key={ipset}>{ipset}</li>
                 ))}

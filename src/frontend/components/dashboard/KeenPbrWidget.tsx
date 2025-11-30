@@ -81,7 +81,7 @@ export function KeenPbrWidget() {
 
   return (
     <Card
-      className={`lg:col-span-2 ${configOutdated ? 'bg-yellow-50 dark:bg-yellow-950' : ''}`}
+      className={`lg:col-span-2 ${configOutdated ? 'bg-warning/5 border-warning/50' : ''}`}
     >
       <CardHeader>
         <CardTitle>keen-pbr</CardTitle>
@@ -120,7 +120,7 @@ export function KeenPbrWidget() {
               )}
             </Badge>
             {configOutdated && (
-              <Badge variant="outline">{t('dashboard.badgeStale')}</Badge>
+              <Badge variant="warning">{t('dashboard.badgeStale')}</Badge>
             )}
           </div>
         </div>

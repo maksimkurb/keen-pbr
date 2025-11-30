@@ -22,12 +22,10 @@ export function ConfigurationWarning() {
   }
 
   return (
-    <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 mb-4">
-      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+    <Alert variant="warning" className="mb-4">
+      <AlertTriangle className="h-4 w-4" />
       <AlertDescription>
-        <span className="text-yellow-800 dark:text-yellow-200">
-          {t('dashboard.configurationOutdated')}
-        </span>
+        {t('dashboard.configurationOutdated')}
 
         {location.pathname !== '/' && (
           <Link to="/" className="text-blue-600 dark:text-blue-400">
