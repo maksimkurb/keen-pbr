@@ -135,9 +135,12 @@ function FieldTitle({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
+function FieldDescription({
+  className,
+  ...props
+}: React.ComponentProps<'div'>) {
   return (
-    <p
+    <div
       data-slot="field-description"
       className={cn(
         'text-muted-foreground text-sm leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',

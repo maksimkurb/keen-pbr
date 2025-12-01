@@ -1,14 +1,47 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
-	"regexp"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 )
 
-var ipsetNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+// writeIPSetValidationError filters and formats validation errors for a specific ipset.
+func writeIPSetValidationError(w http.ResponseWriter, err error, ipsetName string, index int) {
+	var ve config.ValidationErrors
+	if errors.As(err, &ve) {
+		var newErrs config.ValidationErrors
+
+		expectedItemName := ipsetName
+		if expectedItemName == "" {
+			expectedItemName = fmt.Sprintf("ipset[%d]", index)
+		}
+
+		for _, e := range ve {
+			if e.ItemName == expectedItemName {
+				// Fix FieldPath: remove "ipset.N." prefix
+				// ipset.0.ipset_name -> [ipset, 0, ipset_name]
+				parts := strings.SplitN(e.FieldPath, ".", 3)
+				if len(parts) >= 3 && parts[0] == "ipset" {
+					e.FieldPath = parts[2]
+				}
+				newErrs = append(newErrs, e)
+			}
+		}
+
+		if len(newErrs) > 0 {
+			WriteValidationError(w, newErrs)
+			return
+		}
+	}
+
+	// Fallback to original error if no specific errors found or not a ValidationErrors type
+	WriteValidationError(w, err)
+}
 
 // findLowestAvailablePriority finds the lowest available priority in the range 500-1000
 // that is not already used by any existing ipset.
@@ -75,50 +108,10 @@ func (h *Handler) CreateIPSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate ipset name
-	if ipset.IPSetName == "" {
-		WriteInvalidRequest(w, "ipset_name is required")
-		return
-	}
-
-	if !ipsetNamePattern.MatchString(ipset.IPSetName) {
-		WriteInvalidRequest(w, "ipset_name must match pattern ^[a-z][a-z0-9_]*$")
-		return
-	}
-
-	// Validate IP version
-	if ipset.IPVersion != 4 && ipset.IPVersion != 6 {
-		WriteInvalidRequest(w, "ip_version must be 4 or 6")
-		return
-	}
-
 	cfg, err := h.loadConfig()
 	if err != nil {
 		WriteInternalError(w, "Failed to load configuration: "+err.Error())
 		return
-	}
-
-	// Check if ipset already exists
-	for _, existingIPSet := range cfg.IPSets {
-		if existingIPSet.IPSetName == ipset.IPSetName {
-			WriteConflict(w, "IPSet with name '"+ipset.IPSetName+"' already exists")
-			return
-		}
-	}
-
-	// Validate list references
-	for _, listName := range ipset.Lists {
-		found := false
-		for _, list := range cfg.Lists {
-			if list.ListName == listName {
-				found = true
-				break
-			}
-		}
-		if !found {
-			WriteInvalidRequest(w, "Referenced list '"+listName+"' does not exist")
-			return
-		}
 	}
 
 	// Auto-assign priority/table/fwmark if not provided (or if they're 0)
@@ -138,10 +131,11 @@ func (h *Handler) CreateIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Add the ipset
 	cfg.IPSets = append(cfg.IPSets, &ipset)
+	index := len(cfg.IPSets) - 1
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, err)
+		writeIPSetValidationError(w, err, ipset.IPSetName, index)
 		return
 	}
 
@@ -165,23 +159,6 @@ func (h *Handler) UpdateIPSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate ipset name
-	if updatedIPSet.IPSetName == "" {
-		WriteInvalidRequest(w, "ipset_name is required")
-		return
-	}
-
-	if !ipsetNamePattern.MatchString(updatedIPSet.IPSetName) {
-		WriteInvalidRequest(w, "ipset_name must match pattern ^[a-z][a-z0-9_]*$")
-		return
-	}
-
-	// Validate IP version
-	if updatedIPSet.IPVersion != 4 && updatedIPSet.IPVersion != 6 {
-		WriteInvalidRequest(w, "ip_version must be 4 or 6")
-		return
-	}
-
 	cfg, err := h.loadConfig()
 	if err != nil {
 		WriteInternalError(w, "Failed to load configuration: "+err.Error())
@@ -190,35 +167,12 @@ func (h *Handler) UpdateIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Find and update the ipset
 	found := false
+	index := -1
 	for i, ipset := range cfg.IPSets {
 		if ipset.IPSetName == name {
-			// Check if renaming to an existing name
-			if updatedIPSet.IPSetName != name {
-				for _, existingIPSet := range cfg.IPSets {
-					if existingIPSet.IPSetName == updatedIPSet.IPSetName {
-						WriteConflict(w, "IPSet with name '"+updatedIPSet.IPSetName+"' already exists")
-						return
-					}
-				}
-			}
-
-			// Validate list references
-			for _, listName := range updatedIPSet.Lists {
-				listFound := false
-				for _, list := range cfg.Lists {
-					if list.ListName == listName {
-						listFound = true
-						break
-					}
-				}
-				if !listFound {
-					WriteInvalidRequest(w, "Referenced list '"+listName+"' does not exist")
-					return
-				}
-			}
-
 			cfg.IPSets[i] = &updatedIPSet
 			found = true
+			index = i
 			break
 		}
 	}
@@ -230,7 +184,7 @@ func (h *Handler) UpdateIPSet(w http.ResponseWriter, r *http.Request) {
 
 	// Validate configuration
 	if err := h.validateConfig(cfg); err != nil {
-		WriteValidationError(w, err)
+		writeIPSetValidationError(w, err, updatedIPSet.IPSetName, index)
 		return
 	}
 

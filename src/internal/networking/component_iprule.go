@@ -19,7 +19,7 @@ func NewIPRuleComponent(cfg *config.IPSetConfig) *IPRuleComponent {
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
 			componentType: ComponentTypeIPRule,
-			description:   "IP rule routes packets marked by iptables to the custom routing table",
+			description:   rule.String(),
 		},
 		rule: rule,
 		cfg:  cfg,

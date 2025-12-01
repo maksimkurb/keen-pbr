@@ -289,7 +289,7 @@
       "ipVersion": "IP Version",
       "ipv4": "IPv4",
       "ipv6": "IPv6",
-      "lists": "Lists",
+      "lists": "Routing conditions",
       "selectLists": "Select Lists",
       "selectListsDescription": "Choose which lists to include in this routing rule",
       "addList": "Add list",
@@ -334,11 +334,11 @@
       "iptablesInsertVariable": "Insert variable",
       "iptablesRuleDescription": "Space-separated iptables rule arguments",
       "iptablesAddRule": "Add IPTables Rule",
-      "selectListsError": "At least one list must be selected",
       "selectInterfacesError": "At least one interface must be specified",
       "updateSuccess": "Routing rule \"{{name}}\" updated successfully",
       "createSuccess": "Routing rule \"{{name}}\" created successfully",
       "saveError": "Failed to {{action}} routing rule: {{error}}",
+      "validationError": "Please fix validation errors before saving",
       "emptyLists": {
         "title": "No lists selected",
         "description": "Click \"Add list\" above to select at least one list for this routing rule."

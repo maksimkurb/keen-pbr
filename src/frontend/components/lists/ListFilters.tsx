@@ -74,14 +74,14 @@ export function ListFilters({ ipsets }: ListFiltersProps) {
             ))}
           </SelectContent>
         </Select>
-      </div>
 
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          <X className="mr-2 h-4 w-4" />
-          {t('lists.filters.clearFilters')}
-        </Button>
-      )}
+        {hasActiveFilters && (
+          <Button variant="ghost" onClick={clearFilters}>
+            <X className="h-4 w-4" />
+            {t('lists.filters.clearFilters')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

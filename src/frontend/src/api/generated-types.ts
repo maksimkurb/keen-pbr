@@ -14,23 +14,23 @@
  * APIError represents a structured API error response.
  */
 export interface APIError {
-  code: ErrorCode;
-  message: string;
-  // empty interface{} type, falling back to unknown
-  details?: Record<string, unknown> | null;
-  fieldErrors?: ValidationErrorDetail[];
+    code: ErrorCode;
+    message: string;
+    // empty interface{} type, falling back to unknown
+    details?: Record<string, unknown> | null;
+    fieldErrors?: ValidationErrorDetail[];
 }
 
 // From config/types.go
 export interface AutoUpdateConfig {
-  /**
-   * Enabled enables automatic background updates of lists with URLs (default: true).
-   */
-  enabled: boolean;
-  /**
-   * IntervalHours is the interval in hours for automatic list updates (default: 24 hours, min: 1 hour).
-   */
-  interval_hours: number;
+    /**
+     * Enabled enables automatic background updates of lists with URLs (default: true).
+     */
+    enabled: boolean;
+    /**
+     * IntervalHours is the interval in hours for automatic list updates (default: 24 hours, min: 1 hour).
+     */
+    interval_hours: number;
 }
 
 // From api/types.go
@@ -38,7 +38,7 @@ export interface AutoUpdateConfig {
  * CheckRequest contains the host (domain or IP) to check.
  */
 export interface CheckRequest {
-  host: string;
+    host: string;
 }
 
 // From api/types.go
@@ -46,28 +46,28 @@ export interface CheckRequest {
  * CheckResult contains the result of a single health check.
  */
 export interface CheckResult {
-  passed: boolean;
-  message?: string;
+    passed: boolean;
+    message?: string;
 }
 
 // From config/types.go
 export interface Config {
-  /**
-   * ConfigVersion is the configuration file version.
-   */
-  config_version: number;
-  /**
-   * General holds general configuration.
-   */
-  General: GeneralConfig | null;
-  /**
-   * IPSets is the ipset configuration. You can add multiple ipsets.
-   */
-  IPSets: (IPSetConfig | null)[];
-  /**
-   * Lists contains lists with domains/IPs/CIDRs. You can add multiple lists and use them in ipsets by providing their name. You must set "name" and either "url", "file" or "hosts" field for each list.
-   */
-  Lists: (ListSource | null)[];
+    /**
+     * ConfigVersion is the configuration file version.
+     */
+    config_version: number;
+    /**
+     * General holds general configuration.
+     */
+    General: GeneralConfig | null;
+    /**
+     * IPSets is the ipset configuration. You can add multiple ipsets.
+     */
+    IPSets: (IPSetConfig | null)[];
+    /**
+     * Lists contains lists with domains/IPs/CIDRs. You can add multiple lists and use them in ipsets by providing their name. You must set "name" and either "url", "file" or "hosts" field for each list.
+     */
+    Lists: (ListSource | null)[];
 }
 
 // From config/hasher.go
@@ -75,50 +75,50 @@ export interface Config {
  * ConfigHashData represents the structure used for hashing
  */
 export interface ConfigHashData {
-  general: GeneralConfig | null;
-  ipsets: (IPSetHashData | null)[];
-  list_md5s: Record<string, string> | null;
-  dns_servers: string[]; // Resolved DNS server strings
+    general: GeneralConfig | null;
+    ipsets: (IPSetHashData | null)[];
+    list_md5s: Record<string, string> | null;
+    dns_servers: string[]; // Resolved DNS server strings
 }
 
 // From config/types.go
 export interface DNSServerConfig {
-  /**
-   * Enable enables transparent DNS proxy for domain-based routing (default: true).
-   */
-  enable: boolean;
-  /**
-   * ListenAddr is the DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or a specific IP like 127.0.0.1).
-   */
-  listen_addr: string;
-  /**
-   * ListenPort is the port for DNS proxy listener (default: 15353).
-   */
-  listen_port: number;
-  /**
-   * Upstreams lists upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: ["keenetic://"]).
-   */
-  upstreams: string[];
-  /**
-   * CacheMaxDomains is the maximum number of domains to cache in DNS proxy (default: 1000).
-   */
-  cache_max_domains: number;
-  /**
-   * DropAAAA drops AAAA (IPv6) DNS responses (default: true).
-   */
-  drop_aaaa: boolean;
-  /**
-   * IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime in seconds (default: 7200 = 2 hours).
-   */
-  ipset_entry_additional_ttl_sec: number;
-  /**
-   * ListedDomainsDNSCacheTTLSec is the TTL used for DNS cache entries of domains matched by lists (default: 30). Allows clients to forget DNS fast for listed domains. Other domains keep original TTL.
-   */
-  listed_domains_dns_cache_ttl_sec: number;
-  /**
-   * Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
-   */
-  remap_53_interfaces: string[];
+    /**
+     * Enable enables transparent DNS proxy for domain-based routing (default: true).
+     */
+    enable: boolean;
+    /**
+     * ListenAddr is the DNS proxy listen address (default: [::] for dual-stack IPv4/IPv6, or a specific IP like 127.0.0.1).
+     */
+    listen_addr: string;
+    /**
+     * ListenPort is the port for DNS proxy listener (default: 15353).
+     */
+    listen_port: number;
+    /**
+     * Upstreams lists upstream DNS servers. Supported: keenetic://, udp://ip:port, doh://host/path (default: ["keenetic://"]).
+     */
+    upstreams: string[];
+    /**
+     * CacheMaxDomains is the maximum number of domains to cache in DNS proxy (default: 1000).
+     */
+    cache_max_domains: number;
+    /**
+     * DropAAAA drops AAAA (IPv6) DNS responses (default: true).
+     */
+    drop_aaaa: boolean;
+    /**
+     * IPSetEntryAdditionalTTLSec is added to DNS record TTL to determine IPSet entry lifetime in seconds (default: 7200 = 2 hours).
+     */
+    ipset_entry_additional_ttl_sec: number;
+    /**
+     * ListedDomainsDNSCacheTTLSec is the TTL used for DNS cache entries of domains matched by lists (default: 30). Allows clients to forget DNS fast for listed domains. Other domains keep original TTL.
+     */
+    listed_domains_dns_cache_ttl_sec: number;
+    /**
+     * Remap53Interfaces are interfaces to intercept DNS traffic on (default: ["br0", "br1"]).
+     */
+    remap_53_interfaces: string[];
 }
 
 // From service/dns_service.go
@@ -126,11 +126,11 @@ export interface DNSServerConfig {
  * DNSServerInfo represents a DNS server with formatted output support.
  */
 export interface DNSServerInfo {
-  type: string;
-  endpoint: string;
-  domain?: string | null;
-  proxy: string;
-  port?: string;
+    type: string;
+    endpoint: string;
+    domain?: string | null;
+    proxy: string;
+    port?: string;
 }
 
 // From api/dns.go
@@ -139,7 +139,7 @@ export interface DNSServerInfo {
  * Uses DNSServerInfo from types.go (which uses the shared service type).
  */
 export interface DNSServersResponse {
-  servers: DNSServerInfo[];
+    servers: DNSServerInfo[];
 }
 
 // From api/types.go
@@ -147,19 +147,19 @@ export interface DNSServersResponse {
  * DataResponse wraps successful responses with a "data" field.
  */
 export interface DataResponse {
-  // empty interface{} type, falling back to unknown
-  data: unknown;
+    // empty interface{} type, falling back to unknown
+    data: unknown;
 }
 
 // From api/errors.go
 export enum ErrorCode {
-  ErrCodeConflict = 'conflict',
-  ErrCodeForbidden = 'forbidden',
-  ErrCodeInternalError = 'internal_error',
-  ErrCodeInvalidRequest = 'invalid_request',
-  ErrCodeNotFound = 'not_found',
-  ErrCodeServiceError = 'service_error',
-  ErrCodeValidationFailed = 'validation_failed',
+    ErrCodeConflict = "conflict",
+    ErrCodeForbidden = "forbidden",
+    ErrCodeInternalError = "internal_error",
+    ErrCodeInvalidRequest = "invalid_request",
+    ErrCodeNotFound = "not_found",
+    ErrCodeServiceError = "service_error",
+    ErrCodeValidationFailed = "validation_failed"
 }
 
 // From api/errors.go
@@ -167,27 +167,27 @@ export enum ErrorCode {
  * ErrorResponse wraps an APIError for JSON responses.
  */
 export interface ErrorResponse {
-  error: APIError;
+    error: APIError;
 }
 
 // From config/types.go
 export interface GeneralConfig {
-  /**
-   * ListsOutputDir is the directory for downloaded lists.
-   */
-  lists_output_dir: string;
-  /**
-   * InterfaceMonitoringIntervalSeconds is the interval in seconds for interface monitoring (0 = disabled, default: 0).
-   */
-  interface_monitoring_interval_seconds: number;
-  /**
-   * AutoUpdate lists settings
-   */
-  auto_update_lists: AutoUpdateConfig | null;
-  /**
-   * DNS Server settings
-   */
-  dns_server: DNSServerConfig | null;
+    /**
+     * ListsOutputDir is the directory for downloaded lists.
+     */
+    lists_output_dir: string;
+    /**
+     * InterfaceMonitoringIntervalSeconds is the interval in seconds for interface monitoring (0 = disabled, default: 0).
+     */
+    interface_monitoring_interval_seconds: number;
+    /**
+     * AutoUpdate lists settings
+     */
+    auto_update_lists: AutoUpdateConfig | null;
+    /**
+     * DNS Server settings
+     */
+    dns_server: DNSServerConfig | null;
 }
 
 // From api/types.go
@@ -195,8 +195,8 @@ export interface GeneralConfig {
  * HealthCheckRequest contains parameters for health checks.
  */
 export interface HealthCheckRequest {
-  ipset_name?: string;
-  domain?: string;
+    ipset_name?: string;
+    domain?: string;
 }
 
 // From api/types.go
@@ -204,8 +204,8 @@ export interface HealthCheckRequest {
  * HealthCheckResponse returns health check results.
  */
 export interface HealthCheckResponse {
-  healthy: boolean;
-  checks: Record<string, CheckResult> | null;
+    healthy: boolean;
+    checks: Record<string, CheckResult> | null;
 }
 
 // From api/types.go
@@ -213,14 +213,14 @@ export interface HealthCheckResponse {
  * HostnameRuleMatch represents a rule that matched by hostname pattern.
  */
 export interface HostnameRuleMatch {
-  rule_name: string;
-  pattern: string;
+    rule_name: string;
+    pattern: string;
 }
 
 // From config/config.go
 export enum IPFamily {
-  Ipv4 = 4,
-  Ipv6 = 6,
+    Ipv4 = 4,
+    Ipv6 = 6
 }
 
 // From api/types.go
@@ -228,33 +228,33 @@ export enum IPFamily {
  * IPSetCheckResult contains check results for one IP address.
  */
 export interface IPSetCheckResult {
-  ip: string;
-  rule_results: RuleCheckResult[];
+    ip: string;
+    rule_results: RuleCheckResult[];
 }
 
 // From config/types.go
 export interface IPSetConfig {
-  /**
-   * IPSetName is the name of the ipset.
-   */
-  ipset_name: string;
-  /**
-   * Lists adds all hosts from the following lists to this ipset.
-   */
-  lists: string[];
-  /**
-   * IPVersion is the IP version (4 or 6).
-   */
-  ip_version: IPFamily;
-  /**
-   * FlushBeforeApplying clears ipset each time before filling it.
-   */
-  flush_before_applying: boolean;
-  routing?: RoutingConfig | null;
-  /**
-   * IPTablesRules are iptables rules for this ipset (you can provide multiple rules). Available variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}.
-   */
-  iptables_rule?: (IPTablesRule | null)[];
+    /**
+     * IPSetName is the name of the ipset.
+     */
+    ipset_name: string;
+    /**
+     * Lists adds all hosts from the following lists to this ipset.
+     */
+    lists: string[];
+    /**
+     * IPVersion is the IP version (4 or 6).
+     */
+    ip_version: IPFamily;
+    /**
+     * FlushBeforeApplying clears ipset each time before filling it.
+     */
+    flush_before_applying: boolean;
+    routing?: RoutingConfig | null;
+    /**
+     * IPTablesRules are iptables rules for this ipset (you can provide multiple rules). Available variables: {{ipset_name}}, {{fwmark}}, {{table}}, {{priority}}.
+     */
+    iptables_rule?: (IPTablesRule | null)[];
 }
 
 // From config/hasher.go
@@ -262,12 +262,12 @@ export interface IPSetConfig {
  * IPSetHashData represents hashable IPSet configuration
  */
 export interface IPSetHashData {
-  ipset_name: string;
-  lists: string[];
-  ip_version: IPFamily;
-  flush_before_applying: boolean;
-  routing: RoutingConfig | null;
-  iptables_rules: (IPTablesRule | null)[];
+    ipset_name: string;
+    lists: string[];
+    ip_version: IPFamily;
+    flush_before_applying: boolean;
+    routing: RoutingConfig | null;
+    iptables_rules: (IPTablesRule | null)[];
 }
 
 // From api/types.go
@@ -275,45 +275,45 @@ export interface IPSetHashData {
  * IPSetsResponse returns all ipsets in the configuration.
  */
 export interface IPSetsResponse {
-  ipsets: (IPSetConfig | null)[];
+    ipsets: (IPSetConfig | null)[];
 }
 
 // From config/types.go
 export interface IPTablesRule {
-  chain: string;
-  table: string;
-  rule: string[];
+    chain: string;
+    table: string;
+    rule: string[];
 }
 
 // From config/config.go
-export const IPTablesTmplFwmark = 'fwmark';
+export const IPTablesTmplFwmark = "fwmark";
 
 // From config/config.go
-export const IPTablesTmplIpset = 'ipset_name';
+export const IPTablesTmplIpset = "ipset_name";
 
 // From config/config.go
-export const IPTablesTmplPriority = 'priority';
+export const IPTablesTmplPriority = "priority";
 
 // From config/config.go
-export const IPTablesTmplTable = 'table';
+export const IPTablesTmplTable = "table";
 
 // From service/interface_service.go
 /**
  * InterfaceInfo represents a network interface with optional Keenetic metadata.
  */
 export interface InterfaceInfo {
-  index: number;
-  name: string;
-  is_up: boolean;
-  is_loopback: boolean;
-  ip_addresses?: string[];
-  /**
-   * Keenetic-specific fields (nil if Keenetic API not available)
-   */
-  keenetic_id?: string;
-  keenetic_description?: string;
-  keenetic_link?: string;
-  keenetic_connected?: string;
+    index: number;
+    name: string;
+    is_up: boolean;
+    is_loopback: boolean;
+    ip_addresses?: string[];
+    /**
+     * Keenetic-specific fields (nil if Keenetic API not available)
+     */
+    keenetic_id?: string;
+    keenetic_description?: string;
+    keenetic_link?: string;
+    keenetic_connected?: string;
 }
 
 // From api/interfaces.go
@@ -321,7 +321,7 @@ export interface InterfaceInfo {
  * InterfacesResponse represents the response for the interfaces list endpoint.
  */
 export interface InterfacesResponse {
-  interfaces: InterfaceInfo[];
+    interfaces: InterfaceInfo[];
 }
 
 // From api/types.go
@@ -329,7 +329,7 @@ export interface InterfacesResponse {
  * ListDownloadResponse returns the result of downloading a list.
  */
 export interface ListDownloadResponse extends ListInfo {
-  changed: boolean; // true if the list was updated, false if unchanged
+    changed: boolean; // true if the list was updated, false if unchanged
 }
 
 // From api/types.go
@@ -337,32 +337,32 @@ export interface ListDownloadResponse extends ListInfo {
  * ListInfo contains list information with statistics.
  */
 export interface ListInfo {
-  list_name: string;
-  type: string; // "url", "file", "hosts"
-  url?: string;
-  file?: string;
-  hosts?: string[]; // Only included for GET single list of type "hosts"
-  stats: ListStatistics | null; // nil if statistics not yet calculated
+    list_name: string;
+    type: string; // "url", "file", "hosts"
+    url?: string;
+    file?: string;
+    hosts?: string[]; // Only included for GET single list of type "hosts"
+    stats: ListStatistics | null; // nil if statistics not yet calculated
 }
 
 // From config/types.go
 export interface ListSource {
-  /**
-   * ListName is the name of the list.
-   */
-  list_name: string;
-  /**
-   * URL is the URL of the list (optional).
-   */
-  url?: string;
-  /**
-   * File is the local file path of the list (optional).
-   */
-  file?: string;
-  /**
-   * Hosts is a list of host entries for the list (optional).
-   */
-  hosts?: string[];
+    /**
+     * ListName is the name of the list.
+     */
+    list_name: string;
+    /**
+     * URL is the URL of the list (optional).
+     */
+    url?: string;
+    /**
+     * File is the local file path of the list (optional).
+     */
+    file?: string;
+    /**
+     * Hosts is a list of host entries for the list (optional).
+     */
+    hosts?: string[];
 }
 
 // From api/types.go
@@ -373,11 +373,11 @@ export interface ListSource {
  * Download status (Downloaded, LastModified) is always available for URL-based lists.
  */
 export interface ListStatistics {
-  total_hosts: number | null; // null if not yet calculated
-  ipv4_subnets: number | null; // null if not yet calculated
-  ipv6_subnets: number | null; // null if not yet calculated
-  downloaded?: boolean; // Only for URL-based lists
-  last_modified?: string | null; // RFC3339 format, only for URL-based lists
+    total_hosts: number | null; // null if not yet calculated
+    ipv4_subnets: number | null; // null if not yet calculated
+    ipv6_subnets: number | null; // null if not yet calculated
+    downloaded?: boolean; // Only for URL-based lists
+    last_modified?: string | null; // RFC3339 format, only for URL-based lists
 }
 
 // From api/types.go
@@ -385,7 +385,7 @@ export interface ListStatistics {
  * ListsResponse returns all lists in the configuration.
  */
 export interface ListsResponse {
-  lists: (ListInfo | null)[];
+    lists: (ListInfo | null)[];
 }
 
 // From api/types.go
@@ -393,17 +393,17 @@ export interface ListsResponse {
  * PingCheckResponse returns ping results for a host.
  */
 export interface PingCheckResponse {
-  host: string;
-  resolved_ip?: string;
-  success: boolean;
-  packets_sent?: number;
-  packets_received?: number;
-  packet_loss?: number;
-  min_rtt?: number; // milliseconds
-  avg_rtt?: number; // milliseconds
-  max_rtt?: number; // milliseconds
-  output?: string;
-  error?: string;
+    host: string;
+    resolved_ip?: string;
+    success: boolean;
+    packets_sent?: number;
+    packets_received?: number;
+    packet_loss?: number;
+    min_rtt?: number; // milliseconds
+    avg_rtt?: number; // milliseconds
+    max_rtt?: number; // milliseconds
+    output?: string;
+    error?: string;
 }
 
 // From api/types.go
@@ -411,50 +411,50 @@ export interface PingCheckResponse {
  * RoutingCheckResponse returns detailed routing information for a host.
  */
 export interface RoutingCheckResponse {
-  host: string;
-  resolved_ips?: string[];
-  matched_by_hostname?: HostnameRuleMatch[];
-  ipset_checks: IPSetCheckResult[];
+    host: string;
+    resolved_ips?: string[];
+    matched_by_hostname?: HostnameRuleMatch[];
+    ipset_checks: IPSetCheckResult[];
 }
 
 // From config/types.go
 export interface RoutingConfig {
-  /**
-   * Interfaces is the list of interfaces to direct traffic for IPs in this ipset. keen-pbr will use the first available interface. Keenetic API will be queried automatically to check network connectivity on interfaces. If all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting.
-   */
-  interfaces: string[];
-  /**
-   * DefaultGateway is the default gateway IP address to use instead of interface-based routing. Must match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6). If set, this gateway will be used when no interface is available or no interfaces are configured.
-   */
-  default_gateway?: string;
-  /**
-   * KillSwitch defines kill switch behavior when all interfaces are down. If true (default): traffic is blocked via blackhole route (no leaks). If false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed).
-   */
-  kill_switch: boolean;
-  /**
-   * FwMark is the fwmark to apply to packets matching the list criteria.
-   */
-  fwmark: number;
-  /**
-   * IPRouteTable is the iptables routing table number.
-   */
-  table: number;
-  /**
-   * IPRulePriority is the iptables routing rule priority.
-   */
-  priority: number;
-  /**
-   * DNS settings for this routing rule
-   */
-  dns?: RoutingDNSConfig | null;
+    /**
+     * Interfaces is the list of interfaces to direct traffic for IPs in this ipset. keen-pbr will use the first available interface. Keenetic API will be queried automatically to check network connectivity on interfaces. If all interfaces are down, traffic will be blocked (blackhole route) or allowed to leak based on kill_switch setting.
+     */
+    interfaces: string[];
+    /**
+     * DefaultGateway is the default gateway IP address to use instead of interface-based routing. Must match the IP version of the ipset (IPv4 for ipv4, IPv6 for ipv6). If set, this gateway will be used when no interface is available or no interfaces are configured.
+     */
+    default_gateway?: string;
+    /**
+     * KillSwitch defines kill switch behavior when all interfaces are down. If true (default): traffic is blocked via blackhole route (no leaks). If false: ip rules and iptables rules are removed, allowing traffic to use default routing (leaks allowed).
+     */
+    kill_switch: boolean;
+    /**
+     * FwMark is the fwmark to apply to packets matching the list criteria.
+     */
+    fwmark: number;
+    /**
+     * IPRouteTable is the iptables routing table number.
+     */
+    table: number;
+    /**
+     * IPRulePriority is the iptables routing rule priority.
+     */
+    priority: number;
+    /**
+     * DNS settings for this routing rule
+     */
+    dns?: RoutingDNSConfig | null;
 }
 
 // From config/types.go
 export interface RoutingDNSConfig {
-  /**
-   * Upstreams overrides DNS server for domains in this ipset. Format: <server>[#port] (e.g., 1.1.1.1#53 or 8.8.8.8).
-   */
-  upstreams: string[];
+    /**
+     * Upstreams overrides DNS server for domains in this ipset. Format: <server>[#port] (e.g., 1.1.1.1#53 or 8.8.8.8).
+     */
+    upstreams: string[];
 }
 
 // From api/types.go
@@ -462,10 +462,10 @@ export interface RoutingDNSConfig {
  * RuleCheckResult shows if an IP is present in a rule's IPSet.
  */
 export interface RuleCheckResult {
-  rule_name: string;
-  present_in_ipset: boolean;
-  should_be_present: boolean;
-  match_reason?: string; // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
+    rule_name: string;
+    present_in_ipset: boolean;
+    should_be_present: boolean;
+    match_reason?: string; // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
 }
 
 // From api/types.go
@@ -473,7 +473,7 @@ export interface RuleCheckResult {
  * SelfCheckResponse returns self-check results as a table.
  */
 export interface SelfCheckResponse {
-  checks: SelfCheckRow[];
+    checks: SelfCheckRow[];
 }
 
 // From api/types.go
@@ -481,11 +481,11 @@ export interface SelfCheckResponse {
  * SelfCheckRow represents a single row in the self-check table.
  */
 export interface SelfCheckRow {
-  ipset: string; // IPSet name (empty for global checks)
-  validation: string; // Type of check (e.g., "ipset", "ip_rule", "iptables")
-  comment: string; // Explanation of what is being validated
-  state: boolean; // true = pass (✓), false = fail (✗)
-  message: string; // Detailed message
+    ipset: string; // IPSet name (empty for global checks)
+    validation: string; // Type of check (e.g., "ipset", "ip_rule", "iptables")
+    comment: string; // Explanation of what is being validated
+    state: boolean; // true = pass (✓), false = fail (✗)
+    message: string; // Detailed message
 }
 
 // From api/types.go
@@ -493,7 +493,7 @@ export interface SelfCheckRow {
  * ServiceControlRequest controls the keen-pbr service.
  */
 export interface ServiceControlRequest {
-  state: string; // "started", "stopped", "restarted"
+    state: string; // "started", "stopped", "restarted"
 }
 
 // From api/types.go
@@ -501,8 +501,8 @@ export interface ServiceControlRequest {
  * ServiceControlResponse returns the result of service control operation.
  */
 export interface ServiceControlResponse {
-  status: string;
-  message?: string;
+    status: string;
+    message?: string;
 }
 
 // From api/types.go
@@ -510,9 +510,9 @@ export interface ServiceControlResponse {
  * ServiceInfo contains information about a service.
  */
 export interface ServiceInfo {
-  status: string; // "running", "stopped", "unknown"
-  message?: string;
-  config_hash?: string; // Hash of applied config (keen-pbr service only)
+    status: string; // "running", "stopped", "unknown"
+    message?: string;
+    config_hash?: string; // Hash of applied config (keen-pbr service only)
 }
 
 // From api/types.go
@@ -520,7 +520,7 @@ export interface ServiceInfo {
  * SettingsResponse returns general settings.
  */
 export interface SettingsResponse {
-  general: GeneralConfig | null;
+    general: GeneralConfig | null;
 }
 
 // From api/types.go
@@ -528,12 +528,12 @@ export interface SettingsResponse {
  * StatusResponse returns system status information.
  */
 export interface StatusResponse {
-  version: VersionInfo;
-  keenetic_version: string;
-  services: Record<string, ServiceInfo> | null;
-  current_config_hash: string;
-  configuration_outdated: boolean;
-  dns_servers: string[]; // Upstream DNS servers
+    version: VersionInfo;
+    keenetic_version: string;
+    services: Record<string, ServiceInfo> | null;
+    current_config_hash: string;
+    configuration_outdated: boolean;
+    dns_servers: string[]; // Upstream DNS servers
 }
 
 // From api/types.go
@@ -541,12 +541,12 @@ export interface StatusResponse {
  * TracerouteCheckResponse returns traceroute results for a host.
  */
 export interface TracerouteCheckResponse {
-  host: string;
-  resolved_ip?: string;
-  success: boolean;
-  hops?: TracerouteHop[];
-  output?: string;
-  error?: string;
+    host: string;
+    resolved_ip?: string;
+    success: boolean;
+    hops?: TracerouteHop[];
+    output?: string;
+    error?: string;
 }
 
 // From api/types.go
@@ -554,10 +554,10 @@ export interface TracerouteCheckResponse {
  * TracerouteHop represents a single hop in a traceroute.
  */
 export interface TracerouteHop {
-  hop: number;
-  ip?: string;
-  hostname?: string;
-  rtt?: number; // milliseconds
+    hop: number;
+    ip?: string;
+    hostname?: string;
+    rtt?: number; // milliseconds
 }
 
 // From config/validation.go
@@ -565,9 +565,9 @@ export interface TracerouteHop {
  * ValidationError represents a single validation error with context
  */
 export interface ValidationError {
-  ItemName: string; // For lists/ipsets: the name of the item (e.g., "vpn1", "local-file")
-  FieldPath: string; // Dot-notation field path (e.g., "general.fallback_dns", "routing.fwmark")
-  Message: string; // Human-readable error message
+    ItemName: string; // For lists/ipsets: the name of the item (e.g., "vpn1", "local-file")
+    FieldPath: string; // Dot-notation field path (e.g., "general.fallback_dns", "routing.fwmark")
+    Message: string; // Human-readable error message
 }
 
 // From api/types.go
@@ -575,8 +575,8 @@ export interface ValidationError {
  * ValidationErrorDetail represents a single validation error.
  */
 export interface ValidationErrorDetail {
-  field: string; // Field path (e.g., "routing.interfaces")
-  message: string; // Error message
+    field: string; // Field path (e.g., "routing.interfaces")
+    message: string; // Error message
 }
 
 // From config/validation.go
@@ -590,7 +590,8 @@ export type ValidationErrors = ValidationError[];
  * VersionInfo contains build version information.
  */
 export interface VersionInfo {
-  version: string;
-  date: string;
-  commit: string;
+    version: string;
+    date: string;
+    commit: string;
 }
+

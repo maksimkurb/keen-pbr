@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import cidrRegex from 'cidr-regex';
 import ipRegex from 'ip-regex';
 import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BaseFormPage } from '../../components/ui/base-form-page';
+import { BaseForm } from '../../components/ui/base-form';
 import {
   Field,
   FieldDescription,
@@ -115,17 +116,34 @@ export default function ListPage() {
     };
   }, [isEditMode, lists, name, fullListData?.hosts]);
 
-  // Validate hosts field
-  const getHostsErrors = (formData: FormData): LineError => {
+  const defaultData: FormData = {
+    list_name: '',
+    type: 'url',
+  };
+
+  // Initialize form at component level
+  const methods = useForm<FormData>({
+    defaultValues: initialData ?? defaultData,
+    mode: 'onChange',
+  });
+
+  const { watch, setValue } = methods;
+  const formData = watch();
+
+  // Validate hosts field - defined at component level
+  const getHostsErrors = (): LineError => {
     if (formData.type === 'hosts' && formData.hosts) {
       return validateHosts(formData.hosts);
     }
     return {};
   };
 
+  const hostsErrors = getHostsErrors();
+  const hasHostsErrors = Object.keys(hostsErrors).length > 0;
+
   const handleSubmit = async (formData: FormData) => {
     // Block saving if there are validation errors
-    const hostsErrors = getHostsErrors(formData);
+    const hostsErrors = getHostsErrors();
     if (Object.keys(hostsErrors).length > 0) {
       toast.error(t('common.error'), {
         description: t('lists.dialog.validationError'),
@@ -195,13 +213,9 @@ export default function ListPage() {
 
   const isPending = isEditMode ? updateList.isPending : createList.isPending;
 
-  const defaultData: FormData = {
-    list_name: '',
-    type: 'url',
-  };
-
   return (
-    <BaseFormPage
+    <BaseForm
+      methods={methods}
       title={
         isEditMode ? t('lists.dialog.editTitle') : t('lists.dialog.createTitle')
       }
@@ -212,151 +226,132 @@ export default function ListPage() {
       }
       backPath="/lists"
       isEditMode={isEditMode}
-      initialData={initialData}
+      data={initialData}
       isLoading={isLoading}
       isPending={isPending}
       onSubmit={handleSubmit}
-      defaultData={defaultData}
-      canSubmit={(formData) =>
-        Object.keys(getHostsErrors(formData)).length === 0
-      }
     >
-      {(formData, setFormData) => {
-        const hostsErrors = getHostsErrors(formData);
-        const hasHostsErrors = Object.keys(hostsErrors).length > 0;
+      <FieldGroup>
+        <Field data-invalid={!!getFieldError('list_name', validationErrors)}>
+          <FieldLabel htmlFor="list_name">
+            {t('lists.dialog.listName')}
+          </FieldLabel>
+          <Input
+            id="list_name"
+            value={formData.list_name}
+            onChange={(e) =>
+              setValue('list_name', e.target.value, { shouldDirty: true })
+            }
+            placeholder={t('lists.dialog.listNamePlaceholder')}
+            required
+            disabled={isEditMode}
+            aria-invalid={!!getFieldError('list_name', validationErrors)}
+          />
+          {isEditMode ? (
+            <FieldDescription>
+              {t('lists.dialog.listNameDescriptionLocked')}
+            </FieldDescription>
+          ) : (
+            <FieldDescription>
+              {t('lists.dialog.listNameDescription')}
+            </FieldDescription>
+          )}
+          {getFieldError('list_name', validationErrors) && (
+            <FieldError>
+              {getFieldError('list_name', validationErrors)}
+            </FieldError>
+          )}
+        </Field>
 
-        return (
-          <FieldGroup>
-            <Field
-              data-invalid={!!getFieldError('list_name', validationErrors)}
-            >
-              <FieldLabel htmlFor="list_name">
-                {t('lists.dialog.listName')}
-              </FieldLabel>
-              <Input
-                id="list_name"
-                value={formData.list_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, list_name: e.target.value })
-                }
-                placeholder={t('lists.dialog.listNamePlaceholder')}
-                required
-                disabled={isEditMode}
-                aria-invalid={!!getFieldError('list_name', validationErrors)}
-              />
-              {isEditMode ? (
-                <FieldDescription>
-                  {t('lists.dialog.listNameDescriptionLocked')}
-                </FieldDescription>
-              ) : (
-                <FieldDescription>
-                  {t('lists.dialog.listNameDescription')}
-                </FieldDescription>
-              )}
-              {getFieldError('list_name', validationErrors) && (
-                <FieldError>
-                  {getFieldError('list_name', validationErrors)}
-                </FieldError>
-              )}
-            </Field>
+        <Field>
+          <FieldLabel htmlFor="type">{t('lists.dialog.listType')}</FieldLabel>
+          <FieldDescription>
+            {t('lists.dialog.listTypeDescription')}
+          </FieldDescription>
+          <Select
+            value={formData.type || ''}
+            onValueChange={(value: 'url' | 'file' | 'hosts') => {
+              if (value) {
+                setValue('type', value, { shouldDirty: true });
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t('lists.dialog.selectType')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="url">{t('lists.types.url')}</SelectItem>
+              <SelectItem value="file">{t('lists.types.file')}</SelectItem>
+              <SelectItem value="hosts">{t('lists.types.hosts')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
 
-            <Field>
-              <FieldLabel htmlFor="type">
-                {t('lists.dialog.listType')}
-              </FieldLabel>
-              <FieldDescription>
-                {t('lists.dialog.listTypeDescription')}
-              </FieldDescription>
-              <Select
-                value={formData.type || ''}
-                onValueChange={(value: 'url' | 'file' | 'hosts') => {
-                  if (value) {
-                    setFormData({ ...formData, type: value });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t('lists.dialog.selectType')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url">{t('lists.types.url')}</SelectItem>
-                  <SelectItem value="file">{t('lists.types.file')}</SelectItem>
-                  <SelectItem value="hosts">
-                    {t('lists.types.hosts')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+        {formData.type === 'url' && (
+          <Field>
+            <FieldLabel htmlFor="url">{t('lists.dialog.url')}</FieldLabel>
+            <FieldDescription>
+              {t('lists.dialog.urlDescription')}
+            </FieldDescription>
+            <Input
+              id="url"
+              type="url"
+              value={formData.url || ''}
+              onChange={(e) =>
+                setValue('url', e.target.value, { shouldDirty: true })
+              }
+              placeholder={t('lists.dialog.urlPlaceholder')}
+              required
+            />
+          </Field>
+        )}
 
-            {formData.type === 'url' && (
-              <Field>
-                <FieldLabel htmlFor="url">{t('lists.dialog.url')}</FieldLabel>
-                <FieldDescription>
-                  {t('lists.dialog.urlDescription')}
-                </FieldDescription>
-                <Input
-                  id="url"
-                  type="url"
-                  value={formData.url || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, url: e.target.value })
-                  }
-                  placeholder={t('lists.dialog.urlPlaceholder')}
-                  required
-                />
-              </Field>
+        {formData.type === 'file' && (
+          <Field>
+            <FieldLabel htmlFor="file">
+              {t('lists.dialog.filePath')}
+            </FieldLabel>
+            <FieldDescription>
+              {t('lists.dialog.filePathDescription')}
+            </FieldDescription>
+            <Input
+              id="file"
+              value={formData.file || ''}
+              onChange={(e) =>
+                setValue('file', e.target.value, { shouldDirty: true })
+              }
+              placeholder={t('lists.dialog.filePathPlaceholder')}
+              required
+            />
+          </Field>
+        )}
+
+        {formData.type === 'hosts' && (
+          <Field>
+            <FieldLabel htmlFor="hosts">{t('lists.dialog.hosts')}</FieldLabel>
+            <FieldDescription>
+              {t('lists.dialog.hostsDescription')}
+            </FieldDescription>
+            <LineNumberedTextarea
+              id="hosts"
+              value={formData.hosts || ''}
+              onChange={(e) =>
+                setValue('hosts', e.target.value, { shouldDirty: true })
+              }
+              placeholder={t('lists.dialog.hostsPlaceholder')}
+              errors={hostsErrors}
+              required
+            />
+            {hasHostsErrors && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                {t('lists.dialog.validationErrors', {
+                  count: Object.keys(hostsErrors).length,
+                })}
+              </p>
             )}
-
-            {formData.type === 'file' && (
-              <Field>
-                <FieldLabel htmlFor="file">
-                  {t('lists.dialog.filePath')}
-                </FieldLabel>
-                <FieldDescription>
-                  {t('lists.dialog.filePathDescription')}
-                </FieldDescription>
-                <Input
-                  id="file"
-                  value={formData.file || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, file: e.target.value })
-                  }
-                  placeholder={t('lists.dialog.filePathPlaceholder')}
-                  required
-                />
-              </Field>
-            )}
-
-            {formData.type === 'hosts' && (
-              <Field>
-                <FieldLabel htmlFor="hosts">
-                  {t('lists.dialog.hosts')}
-                </FieldLabel>
-                <FieldDescription>
-                  {t('lists.dialog.hostsDescription')}
-                </FieldDescription>
-                <LineNumberedTextarea
-                  id="hosts"
-                  value={formData.hosts || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, hosts: e.target.value })
-                  }
-                  placeholder={t('lists.dialog.hostsPlaceholder')}
-                  errors={hostsErrors}
-                  required
-                />
-                {hasHostsErrors && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                    {t('lists.dialog.validationErrors', {
-                      count: Object.keys(hostsErrors).length,
-                    })}
-                  </p>
-                )}
-              </Field>
-            )}
-          </FieldGroup>
-        );
-      }}
-    </BaseFormPage>
+          </Field>
+        )}
+      </FieldGroup>
+    </BaseForm>
   );
 }

@@ -122,6 +122,11 @@ export class KeenPBRClient {
       throw new KeenPBRAPIError(error.error, response.status);
     }
 
+    // Handle 204 No Content - no response body to parse
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     const result: DataResponse = await response.json();
     return result.data as T;
   }

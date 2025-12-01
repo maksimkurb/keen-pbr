@@ -77,7 +77,7 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
         {/* List Filter */}
         <div className="w-full sm:w-48">
           <Select value={listFilter || 'all'} onValueChange={updateListFilter}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder={t('routingRules.allLists')} />
             </SelectTrigger>
             <SelectContent>
@@ -97,7 +97,7 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
             value={versionFilter || 'all'}
             onValueChange={updateVersionFilter}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder={t('routingRules.allVersions')} />
             </SelectTrigger>
             <SelectContent>
@@ -109,15 +109,15 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      {/* Clear Filters Button */}
-      {hasActiveFilters && (
-        <Button variant="outline" size="sm" onClick={clearFilters}>
-          <X className="mr-2 h-4 w-4" />
-          {t('routingRules.empty.clearFilters')}
-        </Button>
-      )}
+        {/* Clear Filters Button */}
+        {hasActiveFilters && (
+          <Button variant="ghost" onClick={clearFilters}>
+            <X className="h-4 w-4" />
+            {t('routingRules.filters.clearFilters')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

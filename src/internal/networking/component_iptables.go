@@ -28,7 +28,7 @@ func NewIPTablesRuleComponents(cfg *config.IPSetConfig) ([]*IPTablesRuleComponen
 			ComponentBase: ComponentBase{
 				ipsetName:     cfg.IPSetName,
 				componentType: ComponentTypeIPTables,
-				description:   "IPTables rule marks packets matching the ipset with fwmark for policy routing",
+				description:   rules.rules[idx].String(),
 			},
 			rules:     rules,
 			ruleIndex: idx,

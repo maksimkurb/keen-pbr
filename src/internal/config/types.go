@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
@@ -114,6 +115,10 @@ type ListSource struct {
 	File string `toml:"file,omitempty" json:"file,omitempty"`
 	// Hosts is a list of host entries for the list (optional).
 	Hosts []string `toml:"hosts,omitempty" json:"hosts,omitempty"`
+}
+
+func (r *IPTablesRule) String() string {
+	return fmt.Sprintf("iptables -t %s -A %s %s", r.Table, r.Chain, strings.Join(r.Rule, " "))
 }
 
 func (c *Config) GetConfigDir() string {

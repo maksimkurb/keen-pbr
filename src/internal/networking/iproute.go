@@ -38,6 +38,8 @@ func (ipr *IPRoute) String() string {
 		} else {
 			linkName = link.Attrs().Name
 		}
+	} else if ipr.Type == unix.RTN_BLACKHOLE {
+		linkName = "blackhole"
 	}
 
 	return fmt.Sprintf("table %d: src=%s dst=%s -> dev %s (idx=%d) [metric:%d]",

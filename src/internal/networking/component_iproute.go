@@ -46,7 +46,7 @@ func NewDefaultRouteComponent(cfg *config.IPSetConfig, iface *Interface, selecto
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
 			componentType: ComponentTypeIPRoute,
-			description:   "IP routes define the gateway/interface for packets in the custom routing table",
+			description:   route.String(),
 		},
 		route:         route,
 		routeType:     RouteTypeDefault,
@@ -63,7 +63,7 @@ func NewBlackholeRouteComponent(cfg *config.IPSetConfig, selector *InterfaceSele
 		ComponentBase: ComponentBase{
 			ipsetName:     cfg.IPSetName,
 			componentType: ComponentTypeIPRoute,
-			description:   "Blackhole route blocks traffic when kill-switch is enabled (prevents leaks)",
+			description:   route.String(),
 		},
 		route:     route,
 		routeType: RouteTypeBlackhole,
