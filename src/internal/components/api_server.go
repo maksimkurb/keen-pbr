@@ -9,13 +9,14 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/api"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 // DNSProxyProvider provides access to the DNS proxy instance
 type DNSProxyProvider interface {
-	GetDNSProxy() interface{}
+	GetDNSProxy() *dnsproxy.DNSProxy
 }
 
 // APIServer manages the HTTP API server
@@ -64,18 +65,9 @@ func (a *APIServer) Start() error {
 	log.Infof("Starting keen-pbr API server on %s", a.bindAddr)
 
 	// Get DNS proxy from provider (may be nil if not started)
-	var dnsCheckSubscriber api.DNSCheckSubscriber
-	var dnsServersProvider api.DNSServersProvider
+	var dnsproxy *dnsproxy.DNSProxy
 	if a.dnsProvider != nil {
-		if dnsProxy := a.dnsProvider.GetDNSProxy(); dnsProxy != nil {
-			// Type assert to the interfaces we need
-			if subscriber, ok := dnsProxy.(api.DNSCheckSubscriber); ok {
-				dnsCheckSubscriber = subscriber
-			}
-			if provider, ok := dnsProxy.(api.DNSServersProvider); ok {
-				dnsServersProvider = provider
-			}
-		}
+		dnsproxy = a.dnsProvider.GetDNSProxy()
 	}
 
 	// Create router with service manager
@@ -84,8 +76,7 @@ func (a *APIServer) Start() error {
 		a.deps,
 		a.serviceMgr,
 		a.configHasher,
-		dnsCheckSubscriber,
-		dnsServersProvider,
+		dnsproxy,
 	)
 
 	// Create HTTP server

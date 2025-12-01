@@ -27,24 +27,3 @@ func (m *mockNetlinkLink) Attrs() *netlink.LinkAttrs {
 }
 
 func (m *mockNetlinkLink) Type() string { return "mock" }
-
-// Helper functions
-
-
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		len(s) > len(substr) && (s[:len(substr)] == substr || 
-		s[len(s)-len(substr):] == substr || 
-		containsRecursive(s[1:], substr)))
-}
-
-func containsRecursive(s, substr string) bool {
-	if len(s) < len(substr) {
-		return false
-	}
-	if s[:len(substr)] == substr {
-		return true
-	}
-	return containsRecursive(s[1:], substr)
-}

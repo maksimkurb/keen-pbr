@@ -34,11 +34,6 @@ func IsVerbose() bool {
 	return verbose
 }
 
-// DisableLogs disables all logging.
-func DisableLogs() {
-	disableLogs = true
-}
-
 // IsDisabled returns true if logging is disabled.
 func IsDisabled() bool {
 	return disableLogs

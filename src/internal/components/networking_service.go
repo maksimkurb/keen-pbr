@@ -109,7 +109,7 @@ func (n *NetworkingService) IsRunning() bool {
 }
 
 // GetDNSProxy returns the DNS proxy instance (for API server)
-func (n *NetworkingService) GetDNSProxy() interface{} {
+func (n *NetworkingService) GetDNSProxy() *dnsproxy.DNSProxy {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return n.dnsProxy

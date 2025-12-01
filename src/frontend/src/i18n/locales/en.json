@@ -40,7 +40,7 @@
       "placeholderNote": "Note: This is a placeholder. API integration is pending.",
       "host": "Host:",
       "presentInRules": "Present in Rules:",
-      "hostname": "hostname \"",
+      "hostname": "contains hostname",
       "notFoundInRules": "Host was not found in any rules",
       "ipAddress": "IP Address",
       "rule": "Rule",

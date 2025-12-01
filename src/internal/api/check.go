@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
-	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 // CheckRouting checks routing information for a given host.
@@ -61,7 +59,7 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check which rules match by hostname pattern
-	hostnameMatches := h.findHostnameMatches(cfg, req.Host)
+	hostnameMatches := h.findHostnameMatches(req.Host)
 	response.MatchedByHostname = hostnameMatches
 
 	// Build map of rules that should contain IPs (matched by hostname)
@@ -93,14 +91,6 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 				matchReason = "hostname match"
 			}
 
-			// Should be present if IP matches a list in this rule
-			if !shouldBePresent {
-				if reason := h.checkIPMatchesLists(cfg, ipsetConfig, ip); reason != "" {
-					shouldBePresent = true
-					matchReason = reason
-				}
-			}
-
 			ipCheck.RuleResults = append(ipCheck.RuleResults, RuleCheckResult{
 				RuleName:        ruleName,
 				PresentInIPSet:  presentInIPSet,
@@ -116,97 +106,17 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 }
 
 // findHostnameMatches finds which rules match the hostname by domain pattern
-func (h *Handler) findHostnameMatches(cfg *config.Config, host string) []HostnameRuleMatch {
+func (h *Handler) findHostnameMatches(host string) []HostnameRuleMatch {
 	matches := []HostnameRuleMatch{}
 
-	for _, ipsetConfig := range cfg.IPSets {
-		// Check each list in this IPSet
-		for _, listName := range ipsetConfig.Lists {
-			// Find the list config
-			var listSource *config.ListSource
-			for _, ls := range cfg.Lists {
-				if ls.Name() == listName {
-					listSource = ls
-					break
-				}
-			}
-
-			if listSource == nil {
-				continue
-			}
-
-			// Check inline hosts
-			if listSource.Hosts != nil {
-				for _, domainPattern := range listSource.Hosts {
-					if h.matchesDomain(host, domainPattern) {
-						matches = append(matches, HostnameRuleMatch{
-							RuleName: ipsetConfig.IPSetName,
-							Pattern:  domainPattern,
-						})
-						goto nextIPSet
-					}
-				}
-			}
-
-			// Check file-based or URL-based lists
-			if listSource.URL != "" || listSource.File != "" {
-				if pattern := h.checkHostInListFile(cfg, listSource, host); pattern != "" {
-					matches = append(matches, HostnameRuleMatch{
-						RuleName: ipsetConfig.IPSetName,
-						Pattern:  pattern,
-					})
-					goto nextIPSet
-				}
-			}
-		}
-	nextIPSet:
+	for _, match := range h.dnsProxy.MatchesIPSets(host) {
+		matches = append(matches, HostnameRuleMatch{
+			RuleName: match,
+			Pattern:  match,
+		})
 	}
 
 	return matches
-}
-
-// checkHostInListFile checks if a host matches any domain pattern in a list file
-func (h *Handler) checkHostInListFile(cfg *config.Config, listSource *config.ListSource, host string) string {
-	// Get the file path
-	filePath, err := listSource.GetAbsolutePathAndCheckExists(cfg)
-	if err != nil {
-		log.Debugf("Failed to get list file path: %v", err)
-		return ""
-	}
-
-	// Open and read the file
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Debugf("Failed to open list file %s: %v", filePath, err)
-		return ""
-	}
-	defer utils.CloseOrWarn(file)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Check if this line is a domain pattern that matches
-		if h.matchesDomain(host, line) {
-			return line
-		}
-	}
-
-	return ""
-}
-
-// checkIPMatchesLists checks if an IP matches any list patterns in an IPSet
-// Returns the match reason if found, empty string otherwise
-func (h *Handler) checkIPMatchesLists(cfg *config.Config, ipsetConfig *config.IPSetConfig, ip string) string {
-	// For now, we can't easily check IP/CIDR matches without parsing all list files
-	// We rely on the ipset test command to tell us if it's present
-	// This function could be enhanced to check inline IP lists or CIDR ranges
-	return ""
 }
 
 // testIPInIPSet tests if an IP is in an IPSet using the ipset test command
@@ -217,24 +127,6 @@ func (h *Handler) testIPInIPSet(ipsetName, ip string) bool {
 
 	// ipset test returns exit code 0 if IP is in the set, 1 if not
 	return err == nil
-}
-
-// matchesDomain checks if a host matches a domain pattern (supports wildcards)
-func (h *Handler) matchesDomain(host, pattern string) bool {
-	// Exact match
-	if host == pattern {
-		return true
-	}
-
-	// Wildcard subdomain match (e.g., *.example.com matches sub.example.com)
-	if strings.HasPrefix(pattern, "*.") {
-		baseDomain := pattern[2:]
-		if host == baseDomain || strings.HasSuffix(host, "."+baseDomain) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // CheckPing performs a ping to the given host and streams output via SSE.
@@ -618,14 +510,14 @@ func (h *Handler) CheckSplitDNS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get DNS check subscriber from handler dependencies
-	if h.dnsCheckSubscriber == nil {
+	if h.dnsProxy == nil {
 		WriteInternalError(w, "DNS check not available")
 		return
 	}
 
 	// Subscribe to DNS check events
-	eventCh := h.dnsCheckSubscriber.Subscribe()
-	defer h.dnsCheckSubscriber.Unsubscribe(eventCh)
+	eventCh := h.dnsProxy.Subscribe()
+	defer h.dnsProxy.Unsubscribe(eventCh)
 
 	log.Debugf("Client connected to split-DNS check SSE stream")
 

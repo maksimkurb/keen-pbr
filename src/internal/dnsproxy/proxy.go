@@ -72,13 +72,13 @@ func ProxyConfigFromAppConfig(cfg *config.Config) ProxyConfig {
 		return ProxyConfig{}
 	}
 	return ProxyConfig{
-		ListenAddr:                    cfg.General.DNSServer.ListenAddr,
-		ListenPort:                    cfg.General.DNSServer.ListenPort,
-		Upstreams:                     cfg.General.DNSServer.Upstreams,
-		DropAAAA:                      cfg.General.DNSServer.DropAAAA,
-		IPSetEntryAdditionalTTLSec:    cfg.General.DNSServer.IPSetEntryAdditionalTTLSec,
-		ListedDomainsDNSCacheTTLSec:   cfg.General.DNSServer.ListedDomainsDNSCacheTTLSec,
-		MaxCacheDomains:               cfg.General.DNSServer.CacheMaxDomains,
+		ListenAddr:                  cfg.General.DNSServer.ListenAddr,
+		ListenPort:                  cfg.General.DNSServer.ListenPort,
+		Upstreams:                   cfg.General.DNSServer.Upstreams,
+		DropAAAA:                    cfg.General.DNSServer.DropAAAA,
+		IPSetEntryAdditionalTTLSec:  cfg.General.DNSServer.IPSetEntryAdditionalTTLSec,
+		ListedDomainsDNSCacheTTLSec: cfg.General.DNSServer.ListedDomainsDNSCacheTTLSec,
+		MaxCacheDomains:             cfg.General.DNSServer.CacheMaxDomains,
 	}
 }
 
@@ -366,9 +366,7 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 
 			_, err = conn.WriteToUDP(resp, clientAddr)
 			if err != nil {
-				if !log.IsDisabled() {
-					log.Warnf("UDP write error to %s: %v", clientAddr, err)
-				}
+				log.Warnf("UDP write error to %s: %v", clientAddr, err)
 			}
 		}(conn, clientAddr, req)
 	}
@@ -586,6 +584,10 @@ func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.I
 	}
 
 	return p.collectIPSetEntries(domain, record.AAAA, originalTTL, id)
+}
+
+func (p *DNSProxy) MatchesIPSets(domain string) []string {
+	return p.matcher.Match(domain)
 }
 
 // collectIPSetEntries checks domain aliases against lists and returns IPSet entries.

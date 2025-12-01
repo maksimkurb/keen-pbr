@@ -10,7 +10,6 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
-	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/miekg/dns"
 )
@@ -80,8 +79,6 @@ func StartMockUpstream(t testing.TB) (string, func()) {
 // BenchmarkDNSProxy_NotInIPSet benchmarks DNS queries for domains NOT in any IPSet
 // This should have ZERO allocations for IPSet operations (optimal path)
 func BenchmarkDNSProxy_NotInIPSet(b *testing.B) {
-	log.DisableLogs()
-
 	// Setup mock upstream
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
@@ -154,10 +151,7 @@ func BenchmarkDNSProxy_NotInIPSet(b *testing.B) {
 			domain := fmt.Sprintf("sub%d.google.com.", i%100)
 			m.SetQuestion(domain, dns.TypeA)
 
-			_, _, err := client.Exchange(m, targetAddr)
-			if err != nil {
-				// Ignore errors in benchmark
-			}
+			_, _, _ = client.Exchange(m, targetAddr)
 		}
 	})
 }
@@ -165,8 +159,6 @@ func BenchmarkDNSProxy_NotInIPSet(b *testing.B) {
 // BenchmarkDNSProxy_InIPSet benchmarks DNS queries for domains IN IPSet (cache miss)
 // This will have allocations for IPSet operations (expected)
 func BenchmarkDNSProxy_InIPSet(b *testing.B) {
-	log.DisableLogs()
-
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
 
@@ -237,18 +229,13 @@ func BenchmarkDNSProxy_InIPSet(b *testing.B) {
 			domain := fmt.Sprintf("unique%d.example.com.", i%10000)
 			m.SetQuestion(domain, dns.TypeA)
 
-			_, _, err := client.Exchange(m, targetAddr)
-			if err != nil {
-				// Ignore errors in benchmark
-			}
+			_, _, _ = client.Exchange(m, targetAddr)
 		}
 	})
 }
 
 // BenchmarkDNSProxy is the legacy benchmark (mostly cache hits)
 func BenchmarkDNSProxy(b *testing.B) {
-	log.DisableLogs()
-
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
 
@@ -318,10 +305,7 @@ func BenchmarkDNSProxy(b *testing.B) {
 			domain := fmt.Sprintf("sub%d.example.com.", i%100)
 			m.SetQuestion(domain, dns.TypeA)
 
-			_, _, err := client.Exchange(m, targetAddr)
-			if err != nil {
-				// Ignore errors
-			}
+			_, _, _ = client.Exchange(m, targetAddr)
 		}
 	})
 }

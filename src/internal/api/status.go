@@ -33,8 +33,8 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get DNS servers from the running DNS proxy
-	if h.dnsServersProvider != nil {
-		response.DNSServers = h.dnsServersProvider.GetDNSStrings()
+	if h.dnsProxy != nil {
+		response.DNSServers = h.dnsProxy.GetDNSStrings()
 	}
 
 	// Get current config hash (cached) from ConfigHasher
