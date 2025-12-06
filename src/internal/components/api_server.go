@@ -9,8 +9,8 @@ import (
 
 	"github.com/maksimkurb/keen-pbr/src/internal/api"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -23,7 +23,7 @@ type DNSProxyProvider interface {
 type APIServer struct {
 	bindAddr     string
 	configPath   string
-	deps         *domain.AppDependencies
+	deps         *core.AppDependencies
 	serviceMgr   api.ServiceManager
 	configHasher *config.ConfigHasher
 	dnsProvider  DNSProxyProvider
@@ -37,7 +37,7 @@ type APIServer struct {
 func NewAPIServer(
 	bindAddr string,
 	configPath string,
-	deps *domain.AppDependencies,
+	deps *core.AppDependencies,
 	serviceMgr api.ServiceManager,
 	configHasher *config.ConfigHasher,
 	dnsProvider DNSProxyProvider,

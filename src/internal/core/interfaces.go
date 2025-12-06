@@ -2,7 +2,7 @@
 //
 // This package contains the fundamental interfaces that enable loose coupling between
 // components and facilitate testing through dependency injection.
-package domain
+package core
 
 import (
 	"net/netip"
@@ -20,7 +20,6 @@ type IPSetManager interface {
 	CreateIfAbsent(cfg *config.Config) error
 	BatchAddWithTTL(entries []networking.IPSetEntry) error
 }
-
 
 // KeeneticClient defines the interface for interacting with the Keenetic Router RCI API.
 //

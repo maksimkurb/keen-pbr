@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -14,7 +14,7 @@ import (
 type NetworkingService struct {
 	configPath string
 	serviceMgr ServiceManager
-	deps       *domain.AppDependencies
+	deps       *core.AppDependencies
 	dnsProxy   *dnsproxy.DNSProxy
 	cfg        *config.Config
 	running    bool
@@ -22,7 +22,7 @@ type NetworkingService struct {
 }
 
 // NewNetworkingService creates a new networking service component
-func NewNetworkingService(configPath string, serviceMgr ServiceManager, deps *domain.AppDependencies) *NetworkingService {
+func NewNetworkingService(configPath string, serviceMgr ServiceManager, deps *core.AppDependencies) *NetworkingService {
 	return &NetworkingService{
 		configPath: configPath,
 		serviceMgr: serviceMgr,

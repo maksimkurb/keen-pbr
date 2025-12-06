@@ -1,6 +1,7 @@
 package upstreams
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -97,7 +98,8 @@ func (d *DoHUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, error)
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, strings.NewReader(string(packed)))
+	// Use bytes.NewReader instead of strings.NewReader to avoid []byte -> string conversion
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewReader(packed))
 	if err != nil {
 		log.Debugf("[%04x] Upstream error for query %s (upstream: %s): failed to create HTTP request: %v", req.Id, queryInfo, upstreamStr, err)
 		return nil, err

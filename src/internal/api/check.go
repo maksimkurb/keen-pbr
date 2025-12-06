@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
@@ -428,7 +428,7 @@ func (h *Handler) checkIPSetSelfSSE(w http.ResponseWriter, flusher http.Flusher,
 	hasFailures := false
 
 	// Build components for this IPSet using the networking component abstraction
-	var keeneticClient domain.KeeneticClient
+	var keeneticClient core.KeeneticClient
 	if h.deps != nil {
 		keeneticClient = h.deps.KeeneticClient()
 	}

@@ -14,7 +14,33 @@ import (
 	"github.com/miekg/dns"
 )
 
-// MockIPSetManager implements domain.IPSetManager for benchmarking
+// findAvailablePort finds an available port in the range 20000-20100
+func findAvailablePort(t testing.TB) int {
+	for port := 20000; port <= 20100; port++ {
+		// Try UDP first
+		udpAddr := fmt.Sprintf("127.0.0.1:%d", port)
+		udpConn, err := net.ListenPacket("udp", udpAddr)
+		if err != nil {
+			continue // Port in use, try next
+		}
+		udpConn.Close()
+
+		// Try TCP to make sure it's really free
+		tcpAddr := fmt.Sprintf("127.0.0.1:%d", port)
+		tcpLn, err := net.Listen("tcp", tcpAddr)
+		if err != nil {
+			continue // Port in use, try next
+		}
+		tcpLn.Close()
+
+		// Port is available
+		return port
+	}
+	t.Fatal("no available ports in range 20000-20100")
+	return 0
+}
+
+// MockIPSetManager implements core.IPSetManager for benchmarking
 type MockIPSetManager struct {
 	AddCount uint64
 }
@@ -30,7 +56,7 @@ func (m *MockIPSetManager) BatchAddWithTTL(entries []networking.IPSetEntry) erro
 	return nil
 }
 
-// MockKeeneticClient implements domain.KeeneticClient for benchmarking
+// MockKeeneticClient implements core.KeeneticClient for benchmarking
 type MockKeeneticClient struct{}
 
 func (m *MockKeeneticClient) GetVersion() (*keenetic.KeeneticVersion, error) {
@@ -84,7 +110,7 @@ func BenchmarkDNSProxy_NotInIPSet(b *testing.B) {
 	defer stopUpstream()
 
 	// Setup proxy config
-	proxyPort := 15354
+	proxyPort := findAvailablePort(b)
 	cfg := ProxyConfig{
 		ListenAddr:                 "127.0.0.1",
 		ListenPort:                 uint16(proxyPort),
@@ -162,7 +188,7 @@ func BenchmarkDNSProxy_InIPSet(b *testing.B) {
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
 
-	proxyPort := 15355 // Different port
+	proxyPort := findAvailablePort(b)
 	cfg := ProxyConfig{
 		ListenAddr:                 "127.0.0.1",
 		ListenPort:                 uint16(proxyPort),
@@ -239,7 +265,7 @@ func BenchmarkDNSProxy(b *testing.B) {
 	upstreamAddr, stopUpstream := StartMockUpstream(b)
 	defer stopUpstream()
 
-	proxyPort := 15356
+	proxyPort := findAvailablePort(b)
 	cfg := ProxyConfig{
 		ListenAddr:                 "127.0.0.1",
 		ListenPort:                 uint16(proxyPort),

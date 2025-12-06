@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 )
 
 // DNSServerInfo represents a DNS server with formatted output support.
@@ -17,11 +17,11 @@ type DNSServerInfo struct {
 
 // DNSService provides unified DNS server retrieval for both CLI and API.
 type DNSService struct {
-	client domain.KeeneticClient
+	client core.KeeneticClient
 }
 
 // NewDNSService creates a new DNS service.
-func NewDNSService(client domain.KeeneticClient) *DNSService {
+func NewDNSService(client core.KeeneticClient) *DNSService {
 	return &DNSService{client: client}
 }
 

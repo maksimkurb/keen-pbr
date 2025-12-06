@@ -1,4 +1,4 @@
-package dnsproxy
+package caching
 
 import (
 	"fmt"
@@ -88,7 +88,7 @@ func TestRecordsCache_Cleanup(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Run cleanup
-	cache.Cleanup()
+	cache.EvictExpiredEntries()
 
 	// Address should be gone
 	addrs := cache.GetAddresses("example.com")
@@ -185,7 +185,7 @@ func TestRecordsCache_ConcurrencyLifecycle(t *testing.T) {
 			case <-stop:
 				return
 			case <-ticker.C:
-				cache.Cleanup()
+				cache.EvictExpiredEntries()
 			}
 		}
 	}()
@@ -197,7 +197,7 @@ func TestRecordsCache_ConcurrencyLifecycle(t *testing.T) {
 
 	// Final verification: Wait for TTL to expire and ensure cache is empty
 	time.Sleep(time.Duration(ttl)*time.Second + 100*time.Millisecond)
-	cache.Cleanup()
+	cache.EvictExpiredEntries()
 
 	addrCount, aliasCount := cache.Stats()
 	if addrCount != 0 || aliasCount != 0 {
@@ -322,7 +322,7 @@ func TestRecordsCache_CNAMEChainResolution(t *testing.T) {
 	// Verify GetAliases returns correct chain
 	aliases := cache.GetAliases("vps-1.node.kurb.me")
 	expected := map[string]bool{
-		"vps-1.node.kurb.me":  true,
+		"vps-1.node.kurb.me": true,
 		"test97.svc.kurb.me": true,
 	}
 	if len(aliases) != len(expected) {
@@ -537,138 +537,4 @@ func TestRecordsCache_CNAMEBeforeARecordFixed(t *testing.T) {
 	if result5 {
 		t.Error("3rd: A record should return false")
 	}
-}
-
-// Benchmarks
-
-func BenchmarkRecordsCache_AddAddress(b *testing.B) {
-	cache := NewRecordsCache(10000)
-	ip := net.ParseIP("1.2.3.4")
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		domain := fmt.Sprintf("domain-%d.com", i%1000)
-		cache.AddAddress(domain, ip, 300)
-	}
-}
-
-func BenchmarkRecordsCache_GetAddresses(b *testing.B) {
-	cache := NewRecordsCache(10000)
-	ip := net.ParseIP("1.2.3.4")
-
-	// Pre-populate cache
-	for i := 0; i < 1000; i++ {
-		domain := fmt.Sprintf("domain-%d.com", i)
-		cache.AddAddress(domain, ip, 300)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		domain := fmt.Sprintf("domain-%d.com", i%1000)
-		cache.GetAddresses(domain)
-	}
-}
-
-func BenchmarkRecordsCache_AddAlias(b *testing.B) {
-	cache := NewRecordsCache(10000)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		domain := fmt.Sprintf("alias-%d.com", i%1000)
-		target := fmt.Sprintf("target-%d.com", i%100)
-		cache.AddAlias(domain, target, 300)
-	}
-}
-
-func BenchmarkRecordsCache_GetAliases(b *testing.B) {
-	cache := NewRecordsCache(10000)
-
-	// Pre-populate with CNAME chains
-	for i := 0; i < 100; i++ {
-		target := fmt.Sprintf("target-%d.com", i)
-		for j := 0; j < 5; j++ {
-			alias := fmt.Sprintf("alias-%d-%d.com", i, j)
-			cache.AddAlias(alias, target, 300)
-		}
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		target := fmt.Sprintf("target-%d.com", i%100)
-		cache.GetAliases(target)
-	}
-}
-
-func BenchmarkRecordsCache_Cleanup(b *testing.B) {
-	cache := NewRecordsCache(10000)
-	ip := net.ParseIP("1.2.3.4")
-
-	// Pre-populate cache with mix of expired and valid entries
-	for i := 0; i < 500; i++ {
-		domain := fmt.Sprintf("domain-%d.com", i)
-		cache.AddAddress(domain, ip, 300)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cache.Cleanup()
-	}
-}
-
-func BenchmarkRecordsCache_MemoryUsage(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		cache := NewRecordsCache(10000)
-
-		// Add 1000 domains with 2 addresses each
-		for j := 0; j < 1000; j++ {
-			domain := fmt.Sprintf("domain-%d.example.com", j)
-			cache.AddAddress(domain, net.ParseIP(fmt.Sprintf("1.2.%d.%d", j/256, j%256)), 300)
-			cache.AddAddress(domain, net.ParseIP(fmt.Sprintf("2.2.%d.%d", j/256, j%256)), 300)
-		}
-
-		// Add 500 aliases
-		for j := 0; j < 500; j++ {
-			alias := fmt.Sprintf("www-%d.example.com", j)
-			target := fmt.Sprintf("domain-%d.example.com", j)
-			cache.AddAlias(alias, target, 300)
-		}
-	}
-}
-
-func BenchmarkRecordsCache_ConcurrentReads(b *testing.B) {
-	cache := NewRecordsCache(10000)
-	ip := net.ParseIP("1.2.3.4")
-
-	// Pre-populate cache
-	for i := 0; i < 1000; i++ {
-		domain := fmt.Sprintf("domain-%d.com", i)
-		cache.AddAddress(domain, ip, 300)
-	}
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			domain := fmt.Sprintf("domain-%d.com", i%1000)
-			cache.GetAddresses(domain)
-			i++
-		}
-	})
-}
-
-func BenchmarkRecordsCache_ConcurrentWrites(b *testing.B) {
-	cache := NewRecordsCache(10000)
-	ip := net.ParseIP("1.2.3.4")
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			domain := fmt.Sprintf("domain-%d.com", i%1000)
-			cache.AddAddress(domain, ip, 300)
-			i++
-		}
-	})
 }

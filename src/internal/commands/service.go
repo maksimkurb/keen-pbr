@@ -12,7 +12,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/api"
 	"github.com/maksimkurb/keen-pbr/src/internal/components"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -37,8 +37,8 @@ type ServiceCommand struct {
 	APIBindAddress string // Command-line flag for API server bind address
 
 	// Dependencies
-	deps         *domain.AppDependencies
-	networkMgr   domain.NetworkManager
+	deps         *core.AppDependencies
+	networkMgr   core.NetworkManager
 	configHasher *config.ConfigHasher
 
 	// Service manager for controlling the routing service
@@ -95,7 +95,7 @@ func (s *ServiceCommand) Init(args []string, ctx *AppContext) error {
 	}
 
 	// Create dependencies
-	s.deps = domain.NewDefaultDependencies()
+	s.deps = core.NewDefaultDependencies()
 	s.networkMgr = s.deps.NetworkManager()
 
 	// Create ConfigHasher DI component

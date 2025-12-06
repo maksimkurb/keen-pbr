@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/miekg/dns"
 )
@@ -102,7 +102,7 @@ func (b *BaseUpstream) MatchesDomain(queryDomain string) bool {
 //
 // The domain parameter restricts the upstream to a specific domain (empty = all domains).
 // Returns (upstream, provider, error) - exactly one of upstream or provider will be non-nil.
-func ParseUpstream(upstreamURL string, keeneticClient domain.KeeneticClient, restrictedDomain string) (Upstream, UpstreamProvider, error) {
+func ParseUpstream(upstreamURL string, keeneticClient core.KeeneticClient, restrictedDomain string) (Upstream, UpstreamProvider, error) {
 	if strings.HasPrefix(upstreamURL, "keenetic://") {
 		return parseKeeneticProvider(keeneticClient, restrictedDomain)
 	}
@@ -125,7 +125,7 @@ func ParseUpstream(upstreamURL string, keeneticClient domain.KeeneticClient, res
 	}
 }
 
-func parseKeeneticProvider(keeneticClient domain.KeeneticClient, restrictedDomain string) (Upstream, UpstreamProvider, error) {
+func parseKeeneticProvider(keeneticClient core.KeeneticClient, restrictedDomain string) (Upstream, UpstreamProvider, error) {
 	if keeneticClient == nil {
 		return nil, nil, fmt.Errorf("keenetic:// upstream requires KeeneticClient")
 	}

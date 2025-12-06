@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
@@ -35,14 +35,14 @@ type DNSServersProvider interface {
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
 	configPath   string
-	deps         *domain.AppDependencies
+	deps         *core.AppDependencies
 	serviceMgr   ServiceManager
 	configHasher *config.ConfigHasher
 	dnsProxy     *dnsproxy.DNSProxy
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
-func NewHandler(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsProxy *dnsproxy.DNSProxy) *Handler {
+func NewHandler(configPath string, deps *core.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsProxy *dnsproxy.DNSProxy) *Handler {
 	return &Handler{
 		configPath:   configPath,
 		deps:         deps,

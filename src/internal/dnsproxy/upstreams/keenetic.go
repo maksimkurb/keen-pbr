@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
@@ -21,11 +21,11 @@ const (
 // Note: Domain restrictions come from individual DNS servers returned by Keenetic RCI,
 // not from the provider itself.
 type KeeneticProvider struct {
-	keeneticClient domain.KeeneticClient
+	keeneticClient core.KeeneticClient
 }
 
 // NewKeeneticProvider creates a new Keenetic upstream provider.
-func NewKeeneticProvider(keeneticClient domain.KeeneticClient, restrictedDomain string) *KeeneticProvider {
+func NewKeeneticProvider(keeneticClient core.KeeneticClient, restrictedDomain string) *KeeneticProvider {
 	// Note: restrictedDomain parameter is ignored - Keenetic RCI already provides
 	// domain restrictions per DNS server
 	return &KeeneticProvider{

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/lists"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
@@ -21,8 +21,8 @@ type ServiceManager struct {
 	cfg            *config.Config
 	running        bool
 	cancel         context.CancelFunc
-	networkMgr     domain.NetworkManager
-	deps           *domain.AppDependencies
+	networkMgr     core.NetworkManager
+	deps           *core.AppDependencies
 	done           chan error
 	configHasher   *config.ConfigHasher // DI component for hash tracking
 	onListsUpdated func()               // Callback when lists are updated (e.g., for DNS proxy reload)
@@ -32,7 +32,7 @@ type ServiceManager struct {
 // Note: This does not validate runtime requirements (like interface presence)
 // Those validations happen in Start() to allow the API server to start even with invalid config
 func NewServiceManager(ctx *AppContext, configHasher *config.ConfigHasher) (*ServiceManager, error) {
-	deps := domain.NewDefaultDependencies()
+	deps := core.NewDefaultDependencies()
 
 	return &ServiceManager{
 		ctx:          ctx,

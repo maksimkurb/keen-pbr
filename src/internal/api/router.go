@@ -6,12 +6,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/maksimkurb/keen-pbr/src/frontend"
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 )
 
 // NewRouter creates a new HTTP router with all API endpoints.
-func NewRouter(configPath string, deps *domain.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsProxy *dnsproxy.DNSProxy) http.Handler {
+func NewRouter(configPath string, deps *core.AppDependencies, serviceMgr ServiceManager, configHasher *config.ConfigHasher, dnsProxy *dnsproxy.DNSProxy) http.Handler {
 	r := chi.NewRouter()
 
 	// Apply middleware

@@ -34,7 +34,7 @@ func NewClient(httpClient HTTPClient) *Client {
 	return &Client{
 		httpClient: httpClient,
 		baseURL:    rciPrefix,
-		cache:      NewCache(0), // No TTL - cache forever
+		cache:      NewCache(),
 	}
 }
 
@@ -56,7 +56,7 @@ func NewClientWithBaseURL(baseURL string, httpClient HTTPClient) *Client {
 	return &Client{
 		httpClient: httpClient,
 		baseURL:    baseURL,
-		cache:      NewCache(0), // No TTL - cache forever
+		cache:      NewCache(),
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 )
@@ -23,7 +23,7 @@ type SelfCheckCommand struct {
 	fs   *flag.FlagSet
 	ctx  *AppContext
 	cfg  *config.Config
-	deps *domain.AppDependencies
+	deps *core.AppDependencies
 }
 
 func (g *SelfCheckCommand) Name() string {
@@ -44,7 +44,7 @@ func (g *SelfCheckCommand) Init(args []string, ctx *AppContext) error {
 	}
 
 	// Initialize dependencies
-	g.deps = domain.NewDefaultDependencies()
+	g.deps = core.NewDefaultDependencies()
 
 	return nil
 }
@@ -142,7 +142,7 @@ func (g *SelfCheckCommand) checkIPSetComponents(ipsetCfg *config.IPSetConfig) bo
 	hasFailures := false
 
 	// Get Keenetic client from dependencies
-	var keeneticClient domain.KeeneticClient
+	var keeneticClient core.KeeneticClient
 	if g.deps != nil {
 		keeneticClient = g.deps.KeeneticClient()
 	}

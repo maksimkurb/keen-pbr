@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/service"
 )
 
@@ -20,7 +20,7 @@ type InterfacesCommand struct {
 	fs   *flag.FlagSet
 	ctx  *AppContext
 	cfg  *config.Config
-	deps *domain.AppDependencies
+	deps *core.AppDependencies
 }
 
 func (g *InterfacesCommand) Name() string {
@@ -41,7 +41,7 @@ func (g *InterfacesCommand) Init(args []string, ctx *AppContext) error {
 	}
 
 	// Initialize dependencies
-	g.deps = domain.NewDefaultDependencies()
+	g.deps = core.NewDefaultDependencies()
 
 	return nil
 }

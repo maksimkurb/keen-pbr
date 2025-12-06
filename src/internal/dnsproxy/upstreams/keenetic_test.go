@@ -6,7 +6,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 )
 
-// mockKeeneticClient is a mock implementation of domain.KeeneticClient for testing.
+// mockKeeneticClient is a mock implementation of core.KeeneticClient for testing.
 type mockKeeneticClient struct {
 	dnsServers []keenetic.DNSServerInfo
 	err        error

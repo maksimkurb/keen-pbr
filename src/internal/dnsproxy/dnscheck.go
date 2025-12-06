@@ -19,33 +19,33 @@ var dnsCheckResponseIP = net.ParseIP("8.8.8.8")
 // Returns a channel that will receive domain names when DNS check queries are received.
 func (p *DNSProxy) Subscribe() chan string {
 	ch := make(chan string, 10)
-	p.sseSubscribersMu.Lock()
-	p.sseSubscribers[ch] = struct{}{}
-	p.sseSubscribersMu.Unlock()
+	p.dnscheckSubscribersMu.Lock()
+	p.dnscheckSubscribers[ch] = struct{}{}
+	p.dnscheckSubscribersMu.Unlock()
 	return ch
 }
 
 // Unsubscribe removes an SSE subscriber.
 func (p *DNSProxy) Unsubscribe(ch chan string) {
-	p.sseSubscribersMu.Lock()
-	if _, exists := p.sseSubscribers[ch]; exists {
-		delete(p.sseSubscribers, ch)
+	p.dnscheckSubscribersMu.Lock()
+	if _, exists := p.dnscheckSubscribers[ch]; exists {
+		delete(p.dnscheckSubscribers, ch)
 		close(ch)
 	}
-	p.sseSubscribersMu.Unlock()
+	p.dnscheckSubscribersMu.Unlock()
 }
 
 // CloseAllSubscribers closes all SSE subscriber channels.
 // This should be called during shutdown to unblock any waiting readers.
 func (p *DNSProxy) CloseAllSubscribers() {
-	p.sseSubscribersMu.Lock()
-	defer p.sseSubscribersMu.Unlock()
+	p.dnscheckSubscribersMu.Lock()
+	defer p.dnscheckSubscribersMu.Unlock()
 
-	for ch := range p.sseSubscribers {
+	for ch := range p.dnscheckSubscribers {
 		close(ch)
 	}
 	// Clear the map
-	p.sseSubscribers = make(map[chan string]struct{})
+	p.dnscheckSubscribers = make(map[chan string]struct{})
 }
 
 // broadcastDNSCheck broadcasts a domain to all SSE subscribers.
@@ -55,10 +55,10 @@ func (p *DNSProxy) broadcastDNSCheck(domain string) {
 		return
 	}
 
-	p.sseSubscribersMu.RLock()
-	defer p.sseSubscribersMu.RUnlock()
+	p.dnscheckSubscribersMu.RLock()
+	defer p.dnscheckSubscribersMu.RUnlock()
 
-	for ch := range p.sseSubscribers {
+	for ch := range p.dnscheckSubscribers {
 		select {
 		case ch <- domain:
 		default:
@@ -70,14 +70,13 @@ func (p *DNSProxy) broadcastDNSCheck(domain string) {
 // isDNSCheckDomain checks if a domain matches the DNS check pattern.
 // Returns true if domain is "dns-check.keen-pbr.internal" or "*.dns-check.keen-pbr.internal"
 func isDNSCheckDomain(domain string) bool {
-	domain = strings.ToLower(domain)
 	if domain == dnsCheckDomain {
 		return true
 	}
 	return strings.HasSuffix(domain, "."+dnsCheckDomain)
 }
 
-// createDNSCheckResponse creates a DNS response with 192.168.255.255 for DNS check queries.
+// createDNSCheckResponse creates a DNS response for DNS check queries.
 func (p *DNSProxy) createDNSCheckResponse(reqMsg *dns.Msg) *dns.Msg {
 	respMsg := new(dns.Msg)
 	respMsg.SetReply(reqMsg)

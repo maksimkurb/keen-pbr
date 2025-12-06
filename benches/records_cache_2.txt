@@ -1,0 +1,40 @@
+goos: linux
+goarch: amd64
+pkg: github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/caching
+cpu: AMD Ryzen 7 5700X3D 8-Core Processor           
+BenchmarkRecordsCache_CacheMiss-16                      	 9988388	       115.3 ns/op	      32 B/op	       2 allocs/op
+BenchmarkRecordsCache_FullCache-16                      	 4783970	       230.9 ns/op	      94 B/op	       3 allocs/op
+BenchmarkRecordsCache_AddNewOnFullCache-16              	 2332870	       514.7 ns/op	     123 B/op	       5 allocs/op
+BenchmarkRecordsCache_AddNewOnEmptyCache-16             	 5230141	       220.4 ns/op	      22 B/op	       1 allocs/op
+BenchmarkRecordsCache_GetCachedOnFullCache-16           	 5209846	       242.5 ns/op	      94 B/op	       3 allocs/op
+BenchmarkRecordsCache_GetCachedOnAlmostEmptyCache-16    	 4716273	       239.4 ns/op	      88 B/op	       3 allocs/op
+BenchmarkRecordsCache_GetTargetChain-16                 	 2485812	       479.2 ns/op	     137 B/op	       3 allocs/op
+BenchmarkRecordsCache_ReverseAliasRebuild-16            	  174422	      6820 ns/op	    4610 B/op	       9 allocs/op
+BenchmarkRecordsCache_ConcurrentMixed-16                	 4308105	       289.5 ns/op	      84 B/op	       3 allocs/op
+BenchmarkRecordsCache_IPv4vsIPv6/IPv4-16                	 5624794	       226.9 ns/op	      22 B/op	       1 allocs/op
+BenchmarkRecordsCache_IPv4vsIPv6/IPv6-16                	 5126298	       231.1 ns/op	      22 B/op	       1 allocs/op
+BenchmarkRecordsCache_CacheHitRatio/HitRate0-16         	 1952140	       618.5 ns/op	     129 B/op	       5 allocs/op
+BenchmarkRecordsCache_CacheHitRatio/HitRate50-16        	 2683713	       501.1 ns/op	      75 B/op	       3 allocs/op
+BenchmarkRecordsCache_CacheHitRatio/HitRate90-16        	 4162863	       282.6 ns/op	      33 B/op	       2 allocs/op
+BenchmarkRecordsCache_CacheHitRatio/HitRate100-16       	 5284506	       245.7 ns/op	      21 B/op	       1 allocs/op
+BenchmarkRecordsCache_DeepCNAMEChains/Depth1-16         	 3675913	       322.9 ns/op	     152 B/op	       2 allocs/op
+BenchmarkRecordsCache_DeepCNAMEChains/Depth5-16         	 2201202	       540.1 ns/op	     152 B/op	       2 allocs/op
+BenchmarkRecordsCache_DeepCNAMEChains/Depth10-16        	  884328	      1359 ns/op	     706 B/op	       4 allocs/op
+BenchmarkRecordsCache_DeepCNAMEChains/Depth20-16        	  368006	      3294 ns/op	    1921 B/op	       6 allocs/op
+BenchmarkRecordsCache_LargeScale_10k-16                 	 3935816	       310.8 ns/op	     103 B/op	       3 allocs/op
+BenchmarkRecordsCache_LargeScale_100k-16                	 3813661	       274.1 ns/op	     103 B/op	       3 allocs/op
+BenchmarkRecordsCache_MixedWorkload_ReadHeavy-16        	 2238135	       539.9 ns/op	     221 B/op	       6 allocs/op
+BenchmarkRecordsCache_MultipleIPsPerDomain/1IPs-16      	 4924322	       234.5 ns/op	      94 B/op	       3 allocs/op
+BenchmarkRecordsCache_MultipleIPsPerDomain/2IPs-16      	 4040080	       281.6 ns/op	     166 B/op	       4 allocs/op
+BenchmarkRecordsCache_MultipleIPsPerDomain/5IPs-16      	 2794756	       407.7 ns/op	     382 B/op	       7 allocs/op
+BenchmarkRecordsCache_MultipleIPsPerDomain/10IPs-16     	 1961460	       635.8 ns/op	     742 B/op	      12 allocs/op
+BenchmarkRecordsCache_AddAddress-16                     	 5578064	       219.2 ns/op	      22 B/op	       1 allocs/op
+BenchmarkRecordsCache_GetAddresses-16                   	 5226614	       242.8 ns/op	      94 B/op	       3 allocs/op
+BenchmarkRecordsCache_AddAlias-16                       	 3679184	       338.0 ns/op	      38 B/op	       2 allocs/op
+BenchmarkRecordsCache_GetAliases-16                     	 2545833	       432.4 ns/op	     144 B/op	       2 allocs/op
+BenchmarkRecordsCache_EvictExpiredEntries-16            	  257911	      4992 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRecordsCache_MemoryUsage-16                    	     914	   1342301 ns/op	  743112 B/op	   10355 allocs/op
+BenchmarkRecordsCache_ConcurrentReads-16                	14956018	        85.06 ns/op	      94 B/op	       3 allocs/op
+BenchmarkRecordsCache_ConcurrentWrites-16               	 3739621	       338.2 ns/op	      22 B/op	       1 allocs/op
+PASS
+ok  	github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/caching	54.716s

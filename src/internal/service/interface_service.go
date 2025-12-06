@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
@@ -29,11 +29,11 @@ type InterfaceInfo struct {
 
 // InterfaceService provides unified interface information for both CLI and API.
 type InterfaceService struct {
-	keeneticClient domain.KeeneticClient
+	keeneticClient core.KeeneticClient
 }
 
 // NewInterfaceService creates a new interface service.
-func NewInterfaceService(keeneticClient domain.KeeneticClient) *InterfaceService {
+func NewInterfaceService(keeneticClient core.KeeneticClient) *InterfaceService {
 	return &InterfaceService{keeneticClient: keeneticClient}
 }
 

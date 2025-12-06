@@ -2,7 +2,6 @@ package keenetic
 
 import (
 	"sync"
-	"time"
 )
 
 // Cache manages cached data with thread-safe access.
@@ -12,16 +11,13 @@ import (
 type Cache struct {
 	mu      sync.RWMutex
 	version *KeeneticVersion
-	ttl     time.Duration
 }
 
 // NewCache creates a new cache instance with the specified TTL.
 //
 // If ttl is 0, cached values never expire.
-func NewCache(ttl time.Duration) *Cache {
-	return &Cache{
-		ttl: ttl,
-	}
+func NewCache() *Cache {
+	return &Cache{}
 }
 
 // GetVersion retrieves the cached Keenetic version.

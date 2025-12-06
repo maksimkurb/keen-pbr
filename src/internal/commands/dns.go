@@ -3,14 +3,14 @@ package commands
 import (
 	"fmt"
 
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/upstreams"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
 type DNSCommand struct {
 	ctx  *AppContext
-	deps *domain.AppDependencies
+	deps *core.AppDependencies
 }
 
 func CreateDNSCommand() *DNSCommand {
@@ -24,7 +24,7 @@ func (c *DNSCommand) Name() string {
 func (c *DNSCommand) Init(args []string, ctx *AppContext) error {
 	c.ctx = ctx
 	// Initialize dependencies
-	c.deps = domain.NewDefaultDependencies()
+	c.deps = core.NewDefaultDependencies()
 	return nil
 }
 

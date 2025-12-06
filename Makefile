@@ -20,10 +20,17 @@ install-dev-deps:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2
 
 test:
-	go vet ./... && go test ./... && staticcheck -checks 'all,-U1000' ./... && unparam ./... && deadcode ./... && golangci-lint-v2 run
+	go vet ./...
+	go test ./...
+
+lint:
+	staticcheck -checks 'all,-U1000' ./...
+	unparam ./...
+	deadcode ./...
+	golangci-lint-v2 run
 
 generate-types:
-	go run ./cmd/generate-types
+	go run ./src/cmd/generate-types
 
 build-frontend: generate-types
 	cd src/frontend && bun install && bun run build

@@ -4,15 +4,20 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
+	"github.com/maksimkurb/keen-pbr/src/internal/core"
+	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/caching"
+	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/matcher"
 	"github.com/maksimkurb/keen-pbr/src/internal/dnsproxy/upstreams"
-	"github.com/maksimkurb/keen-pbr/src/internal/domain"
 	"github.com/maksimkurb/keen-pbr/src/internal/log"
 	"github.com/maksimkurb/keen-pbr/src/internal/networking"
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
@@ -25,11 +30,10 @@ const (
 	networkTCP = "tcp"
 
 	// Timeout durations
-	udpReadTimeout       = 3 * time.Second  // UDP read deadline - increased to handle packet bursts
 	tcpConnectionTimeout = 15 * time.Second // TCP connection total timeout - increased for upstream+operations
-	upstreamQueryTimeout = 10 * time.Second // Timeout for upstream DNS queries - should be longest
+	upstreamQueryTimeout = 5 * time.Second  // Timeout for upstream DNS queries - should be longest
 
-	// Cleanup intervals
+	// EvictExpiredEntries intervals
 	cacheCleanupInterval = 1 * time.Minute // How often to clean up expired cache entries
 
 	// Size limits
@@ -64,6 +68,34 @@ type ProxyConfig struct {
 
 	// MaxCacheDomains is the maximum number of domains to cache (default: 10000)
 	MaxCacheDomains int
+
+	// WorkerPoolSize is the number of UDP worker goroutines (default: runtime.NumCPU() * 2)
+	WorkerPoolSize int
+
+	// TCPWorkerPoolSize is the number of TCP worker goroutines (default: runtime.NumCPU())
+	TCPWorkerPoolSize int
+
+	// WorkQueueSize is the UDP request queue depth (default: WorkerPoolSize * 8)
+	WorkQueueSize int
+
+	// TCPQueueSize is the TCP request queue depth (default: TCPWorkerPoolSize * 4)
+	TCPQueueSize int
+
+	// MaxTCPConnections is the maximum concurrent TCP connections (default: 100)
+	MaxTCPConnections int
+}
+
+// udpRequest represents a UDP DNS request to be processed by a worker.
+type udpRequest struct {
+	conn       *net.UDPConn
+	clientAddr *net.UDPAddr
+	buf        []byte // From pool, worker must return to pool after processing
+	n          int    // Actual bytes read
+}
+
+// tcpRequest represents a TCP DNS connection to be processed by a worker.
+type tcpRequest struct {
+	conn net.Conn
 }
 
 // ProxyConfigFromAppConfig creates a ProxyConfig from the application config.
@@ -89,8 +121,8 @@ type DNSProxy struct {
 	config ProxyConfig
 
 	// Dependencies
-	keeneticClient domain.KeeneticClient
-	ipsetManager   domain.IPSetManager
+	keeneticClient core.KeeneticClient
+	ipsetManager   core.IPSetManager
 	appConfig      *config.Config
 
 	// Upstream resolver
@@ -102,15 +134,18 @@ type DNSProxy struct {
 	// Per-ipset DNS overrides
 	ipsetUpstreams map[string]upstreams.Upstream
 
+	// IPSet name to config mapping for O(1) lookups
+	ipsetsByName map[string]*config.IPSetConfig
+
 	// Domain matcher for routing decisions
-	matcher *Matcher
+	matcher *matcher.Matcher
 
 	// Records cache for CNAME tracking
-	recordsCache *RecordsCache
+	recordsCache *caching.RecordsCache
 
 	// SSE broadcasting for DNS check
-	sseSubscribersMu sync.RWMutex
-	sseSubscribers   map[chan string]struct{}
+	dnscheckSubscribersMu sync.RWMutex
+	dnscheckSubscribers   map[chan string]struct{}
 
 	// Lifecycle
 	ctx    context.Context
@@ -121,15 +156,24 @@ type DNSProxy struct {
 	udpConn *net.UDPConn
 	tcpLn   net.Listener
 
-	// Buffer pool for UDP requests
-	bufferPool sync.Pool
+	// Worker pools for bounded concurrency
+	udpRequestChan chan udpRequest
+	tcpRequestChan chan tcpRequest
+	udpWorkerWg    sync.WaitGroup
+	tcpWorkerWg    sync.WaitGroup
+	tcpActiveSem   chan struct{} // Semaphore for limiting concurrent TCP connections
+
+	// Buffer pools for zero-allocation processing
+	udpReadBufferPool   sync.Pool // UDP read buffers (4096 bytes)
+	tcpReadBufferPool   sync.Pool // TCP read buffers (4096 bytes)
+	ipsetEntrySlicePool sync.Pool // []networking.IPSetEntry slices
 }
 
 // NewDNSProxy creates a new DNS proxy.
 func NewDNSProxy(
 	cfg ProxyConfig,
-	keeneticClient domain.KeeneticClient,
-	ipsetManager domain.IPSetManager,
+	keeneticClient core.KeeneticClient,
+	ipsetManager core.IPSetManager,
 	appConfig *config.Config,
 ) (*DNSProxy, error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -139,16 +183,23 @@ func NewDNSProxy(
 		maxCacheDomains = 1000 // default - reduced for memory efficiency on embedded devices
 	}
 
+	// Build ipsetsByName map for O(1) lookups
+	ipsetsByName := make(map[string]*config.IPSetConfig, len(appConfig.IPSets))
+	for _, ipset := range appConfig.IPSets {
+		ipsetsByName[ipset.IPSetName] = ipset
+	}
+
 	proxy := &DNSProxy{
-		config:         cfg,
-		keeneticClient: keeneticClient,
-		ipsetManager:   ipsetManager,
-		appConfig:      appConfig,
-		recordsCache:   NewRecordsCache(maxCacheDomains),
-		ipsetUpstreams: make(map[string]upstreams.Upstream),
-		sseSubscribers: make(map[chan string]struct{}),
-		ctx:            ctx,
-		cancel:         cancel,
+		config:              cfg,
+		keeneticClient:      keeneticClient,
+		ipsetManager:        ipsetManager,
+		appConfig:           appConfig,
+		recordsCache:        caching.NewRecordsCache(maxCacheDomains),
+		ipsetUpstreams:      make(map[string]upstreams.Upstream),
+		ipsetsByName:        ipsetsByName,
+		dnscheckSubscribers: make(map[chan string]struct{}),
+		ctx:                 ctx,
+		cancel:              cancel,
 	}
 
 	// Parse default upstream(s) and providers
@@ -221,13 +272,25 @@ func NewDNSProxy(
 	}
 
 	// Create domain matcher
-	proxy.matcher = NewMatcher(appConfig)
+	proxy.matcher = matcher.NewMatcher(appConfig)
 
-	// Initialize buffer pool for UDP requests
-	proxy.bufferPool = sync.Pool{
+	// Initialize buffer pools for zero-allocation processing
+	proxy.udpReadBufferPool = sync.Pool{
 		New: func() interface{} {
 			buf := make([]byte, dns.MaxMsgSize)
 			return &buf
+		},
+	}
+	proxy.tcpReadBufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := make([]byte, dns.MaxMsgSize)
+			return &buf
+		},
+	}
+	proxy.ipsetEntrySlicePool = sync.Pool{
+		New: func() interface{} {
+			slice := make([]networking.IPSetEntry, 0, 8)
+			return &slice
 		},
 	}
 
@@ -249,13 +312,79 @@ func (p *DNSProxy) Start() error {
 		return fmt.Errorf("failed to listen UDP: %w", err)
 	}
 
+	// Configure UDP socket options for better performance
+	if udpFile, err := p.udpConn.File(); err == nil {
+		fd := int(udpFile.Fd())
+		// Increase receive buffer to handle bursts (8MB)
+		_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, 8*1024*1024)
+		// Enable address reuse for fast restart
+		_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+		udpFile.Close()
+	}
+
 	p.tcpLn, err = net.Listen("tcp", listenAddr)
 	if err != nil {
 		utils.CloseOrWarn(p.udpConn)
 		return fmt.Errorf("failed to listen TCP: %w", err)
 	}
 
-	log.Infof("DNS proxy started on %s (UDP/TCP) with upstream %v (cache: %d domains)", listenAddr, p.config.Upstreams, p.config.MaxCacheDomains)
+	// Configure TCP socket options for better performance
+	if tcpLn, ok := p.tcpLn.(*net.TCPListener); ok {
+		if tcpFile, err := tcpLn.File(); err == nil {
+			fd := int(tcpFile.Fd())
+			// Enable address reuse
+			_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+			// Disable Nagle's algorithm for lower latency
+			_ = syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_NODELAY, 1)
+			tcpFile.Close()
+		}
+	}
+
+	// Initialize worker pool configuration with sensible defaults
+	udpWorkerCount := p.config.WorkerPoolSize
+	if udpWorkerCount <= 0 {
+		udpWorkerCount = runtime.NumCPU() * 2 // I/O-bound, use 2x CPU cores
+	}
+
+	tcpWorkerCount := p.config.TCPWorkerPoolSize
+	if tcpWorkerCount <= 0 {
+		tcpWorkerCount = runtime.NumCPU() // TCP has persistent connections, needs fewer workers
+	}
+
+	udpQueueSize := p.config.WorkQueueSize
+	if udpQueueSize <= 0 {
+		udpQueueSize = udpWorkerCount * 8 // 8 requests per worker
+	}
+
+	tcpQueueSize := p.config.TCPQueueSize
+	if tcpQueueSize <= 0 {
+		tcpQueueSize = tcpWorkerCount * 4 // 4 requests per worker
+	}
+
+	maxTCPConns := p.config.MaxTCPConnections
+	if maxTCPConns <= 0 {
+		maxTCPConns = 100 // Default limit
+	}
+
+	// Create worker channels
+	p.udpRequestChan = make(chan udpRequest, udpQueueSize)
+	p.tcpRequestChan = make(chan tcpRequest, tcpQueueSize)
+	p.tcpActiveSem = make(chan struct{}, maxTCPConns)
+
+	// Start UDP worker pool
+	p.udpWorkerWg.Add(udpWorkerCount)
+	for i := 0; i < udpWorkerCount; i++ {
+		go p.udpWorker(i)
+	}
+
+	// Start TCP worker pool
+	p.tcpWorkerWg.Add(tcpWorkerCount)
+	for i := 0; i < tcpWorkerCount; i++ {
+		go p.tcpWorker(i)
+	}
+
+	log.Infof("DNS proxy started on %s (UDP/TCP) with upstream %v (cache: %d domains, %d UDP workers, %d TCP workers)",
+		listenAddr, p.config.Upstreams, p.config.MaxCacheDomains, udpWorkerCount, tcpWorkerCount)
 
 	// Start listener goroutines
 	p.wg.Add(2)
@@ -272,23 +401,64 @@ func (p *DNSProxy) Start() error {
 // Stop stops the DNS proxy.
 func (p *DNSProxy) Stop() error {
 	log.Infof("Stopping DNS proxy...")
+
+	// Cancel context first to signal all goroutines to stop
 	p.cancel()
 
-	// Close all SSE subscribers first to unblock any waiting HTTP handlers
+	// Close all SSE subscribers to unblock any waiting HTTP handlers
 	p.CloseAllSubscribers()
 
-	// Close listeners
-	if p.udpConn != nil {
-		utils.CloseOrWarn(p.udpConn)
-	}
-	if p.tcpLn != nil {
-		utils.CloseOrWarn(p.tcpLn)
+	// Wait for listener goroutines to finish (they will exit when context is cancelled and deadline expires)
+	// We DON'T close sockets here because that can cause deadlocks with concurrent SetReadDeadline/SetDeadline calls
+	// Since we use 100ms deadlines, goroutines should exit within 200-300ms of context cancellation
+	done := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Listeners exited cleanly
+	case <-time.After(500 * time.Millisecond): // 5x the deadline to handle load
+		log.Warnf("Listener goroutines did not exit within timeout, forcing shutdown")
 	}
 
-	// Wait for goroutines
-	p.wg.Wait()
+	// Close sockets in background goroutine to avoid blocking Stop()
+	// This ensures ports are released even if Close() blocks temporarily
+	socketsClosed := make(chan struct{})
+	go func() {
+		if p.udpConn != nil {
+			utils.CloseOrWarn(p.udpConn)
+		}
+		if p.tcpLn != nil {
+			utils.CloseOrWarn(p.tcpLn)
+		}
+		close(socketsClosed)
+	}()
 
-	// Close upstreams
+	// Wait for socket close to complete (with timeout)
+	select {
+	case <-socketsClosed:
+		// Sockets closed successfully
+	case <-time.After(200 * time.Millisecond):
+		log.Warnf("Socket close did not complete within timeout")
+	}
+
+	// Close worker channels to signal workers to stop
+	// Workers will process any remaining items in the queue then exit
+	if p.udpRequestChan != nil {
+		close(p.udpRequestChan)
+	}
+	if p.tcpRequestChan != nil {
+		close(p.tcpRequestChan)
+	}
+
+	// Wait for all workers to finish processing (they exit when channel is closed)
+	p.udpWorkerWg.Wait()
+	p.tcpWorkerWg.Wait()
+
+	// Close upstreams after all workers are done
 	if p.upstream != nil {
 		utils.CloseOrWarn(p.upstream)
 	}
@@ -304,7 +474,7 @@ func (p *DNSProxy) Stop() error {
 // This should be called when lists are updated to pick up new domain entries.
 func (p *DNSProxy) ReloadLists() {
 	log.Infof("Reloading DNS proxy domain lists...")
-	p.recordsCache.Cleanup()
+	p.recordsCache.Clear()
 	p.matcher.Rebuild(p.appConfig)
 	exactCount, wildcardCount := p.matcher.Stats()
 	log.Infof("DNS proxy lists reloaded: %d exact domains, %d wildcard suffixes", exactCount, wildcardCount)
@@ -322,59 +492,67 @@ func (p *DNSProxy) serveUDP(conn *net.UDPConn) {
 		}
 
 		// Get buffer from pool
-		bufPtr := p.bufferPool.Get().(*[]byte)
+		bufPtr := p.udpReadBufferPool.Get().(*[]byte)
 		buf := *bufPtr
 
-		if err := conn.SetReadDeadline(time.Now().Add(udpReadTimeout)); err != nil {
-			if log.IsVerbose() {
-				log.Debugf("UDP set read deadline error: %v", err)
-			}
-		}
-		n, clientAddr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			p.bufferPool.Put(bufPtr)
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue
-			}
+		// Set a short deadline so we can check context frequently
+		if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+			p.udpReadBufferPool.Put(bufPtr)
 			if p.ctx.Err() != nil {
 				return
 			}
+			continue
+		}
+		n, clientAddr, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			p.udpReadBufferPool.Put(bufPtr)
+			// Check if connection was closed (happens during shutdown)
+			if p.ctx.Err() != nil {
+				return
+			}
+			// Check for timeout - expected due to short deadline
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			// Any other error (including closed connection) - check if we're shutting down
+			if strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "use of closed network connection") {
+				return
+			}
+			// Log unexpected errors
 			if log.IsVerbose() {
 				log.Debugf("UDP read error: %v", err)
 			}
 			continue
 		}
 
-		// Copy request data for goroutine
-		req := make([]byte, n)
-		copy(req, buf[:n])
-		p.bufferPool.Put(bufPtr)
+		// Create request and enqueue for worker processing (no copy, transfer ownership)
+		req := udpRequest{
+			conn:       conn,
+			clientAddr: clientAddr,
+			buf:        buf,
+			n:          n,
+		}
 
-		go func(conn *net.UDPConn, clientAddr *net.UDPAddr, req []byte) {
-			// Early exit if shutting down
-			if p.ctx.Err() != nil {
-				return
+		// Non-blocking send to worker channel (backpressure: drop if queue full)
+		select {
+		case p.udpRequestChan <- req:
+			// Successfully enqueued, worker will handle and return buffer to pool
+		default:
+			// Queue full, drop request and return buffer to pool immediately
+			p.udpReadBufferPool.Put(bufPtr)
+			if log.IsVerbose() {
+				log.Warnf("UDP request dropped (queue full) from %s", clientAddr)
 			}
-
-			resp, err := p.processRequest(clientAddr, req, networkUDP)
-			if err != nil {
-				if log.IsVerbose() {
-					log.Debugf("UDP request processing error: %v", err)
-				}
-				return
-			}
-
-			_, err = conn.WriteToUDP(resp, clientAddr)
-			if err != nil {
-				log.Warnf("UDP write error to %s: %v", clientAddr, err)
-			}
-		}(conn, clientAddr, req)
+		}
 	}
 }
 
 // serveTCP handles incoming TCP DNS queries.
 func (p *DNSProxy) serveTCP(ln net.Listener) {
 	defer p.wg.Done()
+
+	// Set accept deadline to allow context checking
+	tcpLn := ln.(*net.TCPListener)
 
 	for {
 		select {
@@ -383,16 +561,56 @@ func (p *DNSProxy) serveTCP(ln net.Listener) {
 		default:
 		}
 
-		conn, err := ln.Accept()
-		if err != nil {
+		// Set a short deadline so we can check context frequently
+		if err := tcpLn.SetDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
 			if p.ctx.Err() != nil {
 				return
 			}
-			log.Debugf("TCP accept error: %v", err)
 			continue
 		}
 
-		go p.handleTCPConnection(conn)
+		conn, err := ln.Accept()
+		if err != nil {
+			// Check if we're shutting down
+			if p.ctx.Err() != nil {
+				return
+			}
+			// Check for timeout - expected due to short deadline
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			// Check for closed listener error
+			if strings.Contains(err.Error(), "closed") || strings.Contains(err.Error(), "use of closed network connection") {
+				return
+			}
+			// Log unexpected errors
+			if log.IsVerbose() {
+				log.Debugf("TCP accept error: %v", err)
+			}
+			continue
+		}
+
+		// Acquire semaphore slot to limit concurrent TCP connections
+		select {
+		case p.tcpActiveSem <- struct{}{}:
+			// Got slot, enqueue for worker processing
+			req := tcpRequest{conn: conn}
+			select {
+			case p.tcpRequestChan <- req:
+				// Successfully enqueued, worker will handle and release semaphore
+			default:
+				// Queue full, close connection and release semaphore
+				<-p.tcpActiveSem
+				utils.CloseOrWarn(conn)
+				log.Warnf("TCP connection dropped (queue full) from %s", conn.RemoteAddr())
+			}
+		default:
+			// Too many active connections, reject immediately
+			utils.CloseOrWarn(conn)
+			if log.IsVerbose() {
+				log.Warnf("TCP connection rejected (too many active) from %s", conn.RemoteAddr())
+			}
+		}
 	}
 }
 
@@ -418,18 +636,27 @@ func (p *DNSProxy) handleTCPConnection(conn net.Conn) {
 		return
 	}
 
-	// Read DNS message
-	req := make([]byte, length)
-	if _, err := conn.Read(req); err != nil {
+	// Get buffer from pool
+	bufPtr := p.tcpReadBufferPool.Get().(*[]byte)
+	buf := *bufPtr
+	defer p.tcpReadBufferPool.Put(bufPtr)
+
+	// Read DNS message using io.ReadFull to guarantee complete read (fixes partial read bug)
+	if _, err := io.ReadFull(conn, buf[:length]); err != nil {
 		log.Debugf("TCP read message error: %v", err)
 		return
 	}
 
-	// Process request
-	resp, err := p.processRequest(conn.RemoteAddr(), req, networkTCP)
+	// Process request (use slice of pooled buffer, no allocation)
+	resp, err := p.processRequest(conn.RemoteAddr(), buf[:length], networkTCP)
 	if err != nil {
 		log.Debugf("TCP request processing error: %v", err)
 		return
+	}
+
+	// Set write deadline for response
+	if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		log.Debugf("TCP set write deadline error: %v", err)
 	}
 
 	// Write length prefix
@@ -441,6 +668,79 @@ func (p *DNSProxy) handleTCPConnection(conn net.Conn) {
 	// Write response
 	if _, err := conn.Write(resp); err != nil {
 		log.Debugf("TCP write response error: %v", err)
+	}
+}
+
+// udpWorker processes UDP DNS requests from the worker channel.
+func (p *DNSProxy) udpWorker(id int) {
+	defer p.udpWorkerWg.Done()
+
+	for {
+		// Don't use select with ctx.Done() here - let the channel closure signal exit
+		// This ensures workers drain the queue before exiting
+		req, ok := <-p.udpRequestChan
+		if !ok {
+			// Channel closed, worker should exit
+			return
+		}
+
+		// Check if context is cancelled before processing (skip work if shutting down)
+		if p.ctx.Err() != nil {
+			// Return buffer to pool and skip processing
+			bufPtr := &req.buf
+			p.udpReadBufferPool.Put(bufPtr)
+			continue
+		}
+
+		// Process request and always return buffer to pool
+		func() {
+			bufPtr := &req.buf
+			defer p.udpReadBufferPool.Put(bufPtr)
+
+			// Process the request
+			resp, err := p.processRequest(req.clientAddr, req.buf[:req.n], networkUDP)
+			if err != nil {
+				if log.IsVerbose() {
+					log.Debugf("UDP worker %d: request processing error: %v", id, err)
+				}
+				return
+			}
+
+			// Send response
+			_, err = req.conn.WriteToUDP(resp, req.clientAddr)
+			if err != nil {
+				log.Warnf("UDP worker %d: write error to %s: %v", id, req.clientAddr, err)
+			}
+		}()
+	}
+}
+
+// tcpWorker processes TCP DNS connections from the worker channel.
+func (p *DNSProxy) tcpWorker(_ int) {
+	defer p.tcpWorkerWg.Done()
+
+	for {
+		// Don't use select with ctx.Done() here - let the channel closure signal exit
+		// This ensures workers drain the queue before exiting
+		req, ok := <-p.tcpRequestChan
+		if !ok {
+			// Channel closed, worker should exit
+			return
+		}
+
+		// Check if context is cancelled before processing (skip work if shutting down)
+		if p.ctx.Err() != nil {
+			// Close connection and release semaphore
+			utils.CloseOrWarn(req.conn)
+			<-p.tcpActiveSem
+			continue
+		}
+
+		// Handle connection and always release semaphore slot when done
+		func() {
+			defer func() { <-p.tcpActiveSem }()
+			p.handleTCPConnection(req.conn)
+		}()
 	}
 }
 
@@ -482,17 +782,29 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 		}
 	}
 
-	// Forward to selected upstream
-	ctx, cancel := context.WithTimeout(p.ctx, upstreamQueryTimeout)
-	defer cancel()
+	// Try to get response from cache first
+	respMsg := p.getCachedResponse(&reqMsg)
+	if respMsg != nil {
+		// Cache hit - log and return cached response
+		if log.IsVerbose() && len(reqMsg.Question) > 0 {
+			q := reqMsg.Question[0]
+			log.Debugf("[%04x] Response served from cache for %s %s",
+				reqMsg.Id, q.Name, dns.TypeToString[q.Qtype])
+		}
+	} else {
+		// Cache miss - forward to selected upstream
+		ctx, cancel := context.WithTimeout(p.ctx, upstreamQueryTimeout)
+		defer cancel()
 
-	respMsg, err := selectedUpstream.Query(ctx, &reqMsg)
-	if err != nil {
-		return nil, err
+		var err error
+		respMsg, err = selectedUpstream.Query(ctx, &reqMsg)
+		if err != nil {
+			return nil, err
+		}
+
+		// Process response (filter AAAA, match domains, add to ipsets)
+		p.processResponse(&reqMsg, respMsg)
 	}
-
-	// Process response (filter AAAA, match domains, add to ipsets)
-	p.processResponse(&reqMsg, respMsg)
 
 	// Pack response
 	respBytes, err := respMsg.Pack()
@@ -503,18 +815,128 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 	return respBytes, nil
 }
 
+// getCachedResponse attempts to build a DNS response from cached data.
+// Returns nil if cache miss or data expired.
+func (p *DNSProxy) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
+	// Only cache A and AAAA queries
+	if len(reqMsg.Question) == 0 {
+		return nil
+	}
+
+	q := reqMsg.Question[0]
+	if q.Qtype != dns.TypeA && q.Qtype != dns.TypeAAAA {
+		return nil // Only cache A/AAAA queries
+	}
+
+	domain := normalizeDomain(q.Name)
+
+	// Get CNAME chain (if any) - expired CNAMEs are automatically excluded
+	chain := p.recordsCache.GetTargetChain(domain)
+	if len(chain) == 0 {
+		return nil // No data in cache (never cached or all expired)
+	}
+
+	// Get addresses for final target in chain - expired addresses are automatically excluded
+	finalTarget := chain[len(chain)-1]
+	cachedAddrs := p.recordsCache.GetAddresses(finalTarget)
+	if len(cachedAddrs) == 0 {
+		return nil // No addresses cached (never cached or all expired)
+	}
+
+	// Filter addresses by record type (A or AAAA)
+	var validAddrs []caching.CachedAddress
+	for _, addr := range cachedAddrs {
+		isIPv4 := addr.Address.To4() != nil
+		if (q.Qtype == dns.TypeA && isIPv4) || (q.Qtype == dns.TypeAAAA && !isIPv4) {
+			validAddrs = append(validAddrs, addr)
+		}
+	}
+
+	if len(validAddrs) == 0 {
+		return nil // No matching addresses for this type
+	}
+
+	// Build response
+	respMsg := new(dns.Msg)
+	respMsg.SetReply(reqMsg)
+	respMsg.Authoritative = false
+	respMsg.RecursionAvailable = true
+
+	now := time.Now().Unix()
+
+	// Add CNAME records to Answer section (if chain > 1)
+	for i := 0; i < len(chain)-1; i++ {
+		// Use minimum TTL from addresses for CNAME records
+		// (proper fix would be to get actual CNAME TTL from cache)
+		minTTL := uint32(300) // Default fallback
+		if len(validAddrs) > 0 {
+			remaining := validAddrs[0].Deadline.Unix() - now
+			if remaining > 0 && remaining < int64(minTTL) {
+				minTTL = uint32(remaining)
+			}
+		}
+
+		cname := &dns.CNAME{
+			Hdr: dns.RR_Header{
+				Name:   dns.Fqdn(chain[i]),
+				Rrtype: dns.TypeCNAME,
+				Class:  dns.ClassINET,
+				Ttl:    minTTL,
+			},
+			Target: dns.Fqdn(chain[i+1]),
+		}
+		respMsg.Answer = append(respMsg.Answer, cname)
+	}
+
+	// Add A/AAAA records to Answer section
+	for _, addr := range validAddrs {
+		remaining := addr.Deadline.Unix() - now
+		if remaining <= 0 {
+			continue // Expired during processing
+		}
+		ttl := uint32(remaining)
+
+		if q.Qtype == dns.TypeA {
+			a := &dns.A{
+				Hdr: dns.RR_Header{
+					Name:   dns.Fqdn(finalTarget),
+					Rrtype: dns.TypeA,
+					Class:  dns.ClassINET,
+					Ttl:    ttl,
+				},
+				A: addr.Address,
+			}
+			respMsg.Answer = append(respMsg.Answer, a)
+		} else { // TypeAAAA
+			aaaa := &dns.AAAA{
+				Hdr: dns.RR_Header{
+					Name:   dns.Fqdn(finalTarget),
+					Rrtype: dns.TypeAAAA,
+					Class:  dns.ClassINET,
+					Ttl:    ttl,
+				},
+				AAAA: addr.Address,
+			}
+			respMsg.Answer = append(respMsg.Answer, aaaa)
+		}
+	}
+
+	return respMsg
+}
+
 // processResponse processes a DNS response, filtering AAAA records if configured
 // and adding resolved IPs to ipsets.
 func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
-	// Filter AAAA records if configured
+	// Filter AAAA records in-place if configured (zero allocations)
 	if p.config.DropAAAA {
-		var filtered []dns.RR
+		n := 0
 		for _, rr := range respMsg.Answer {
 			if _, ok := rr.(*dns.AAAA); !ok {
-				filtered = append(filtered, rr)
+				respMsg.Answer[n] = rr
+				n++
 			}
 		}
-		respMsg.Answer = filtered
+		respMsg.Answer = respMsg.Answer[:n]
 	}
 
 	// Skip if no successful response
@@ -522,7 +944,17 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 		return
 	}
 
-	var entries []networking.IPSetEntry
+	// Get pooled slice for IPSet entries
+	entriesPtr := p.ipsetEntrySlicePool.Get().(*[]networking.IPSetEntry)
+	entries := (*entriesPtr)[:0] // Reset length but keep capacity
+	defer func() {
+		// Clear entries before returning to pool to prevent memory leaks
+		for i := range entries {
+			entries[i] = networking.IPSetEntry{}
+		}
+		*entriesPtr = entries
+		p.ipsetEntrySlicePool.Put(entriesPtr)
+	}()
 
 	// Process each answer record
 	for _, rr := range respMsg.Answer {
@@ -616,7 +1048,7 @@ func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, originalTTL uin
 
 		matches := p.matcher.Match(alias)
 		for _, ipsetName := range matches {
-			ipsetCfg := p.matcher.GetIPSet(ipsetName)
+			ipsetCfg := p.ipsetsByName[ipsetName]
 			if ipsetCfg == nil {
 				continue
 			}
@@ -685,7 +1117,7 @@ func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking
 	for _, alias := range aliases {
 		matches := p.matcher.Match(alias)
 		for _, ipsetName := range matches {
-			ipsetCfg := p.matcher.GetIPSet(ipsetName)
+			ipsetCfg := p.ipsetsByName[ipsetName]
 			if ipsetCfg == nil {
 				continue
 			}
@@ -766,7 +1198,7 @@ func (p *DNSProxy) cleanupLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			p.recordsCache.Cleanup()
+			p.recordsCache.EvictExpiredEntries()
 		}
 	}
 }
@@ -776,7 +1208,7 @@ func normalizeDomain(domain string) string {
 	if len(domain) > 0 && domain[len(domain)-1] == '.' {
 		return domain[:len(domain)-1]
 	}
-	return domain
+	return strings.ToLower(domain)
 }
 
 // GetDNSStrings returns the list of DNS server strings currently used by the proxy.

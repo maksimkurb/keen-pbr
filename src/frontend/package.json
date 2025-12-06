@@ -9,7 +9,7 @@
     "dev": "rsbuild dev --open",
     "format": "biome format --write",
     "preview": "rsbuild preview",
-    "generate-types": "cd ../.. && go run ./cmd/generate-types"
+    "generate-types": "cd .. && go run ./cmd/generate-types"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

@@ -8,7 +8,7 @@ import (
 	"github.com/maksimkurb/keen-pbr/src/internal/utils"
 )
 
-// IPSetManagerImpl implements the domain.IPSetManager interface.
+// IPSetManagerImpl implements the core.IPSetManager interface.
 //
 // It provides a facade over the low-level IPSet operations, implementing
 // the interface required by the service layer.
@@ -79,4 +79,3 @@ func (m *IPSetManagerImpl) CreateIfAbsent(cfg *config.Config) error {
 func (m *IPSetManagerImpl) BatchAddWithTTL(entries []IPSetEntry) error {
 	return BatchAddWithTTL(entries)
 }
-

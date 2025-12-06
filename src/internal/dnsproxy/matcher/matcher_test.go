@@ -1,4 +1,4 @@
-package dnsproxy
+package matcher
 
 import (
 	"testing"

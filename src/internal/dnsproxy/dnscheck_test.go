@@ -12,13 +12,13 @@ func TestIsDNSCheckDomain(t *testing.T) {
 	}{
 		// Should match
 		{"dns-check.keen-pbr.internal", true},
-		{"DNS-CHECK.KEEN-PBR.INTERNAL", true},
 		{"test.dns-check.keen-pbr.internal", true},
-		{"TEST.DNS-CHECK.KEEN-PBR.INTERNAL", true},
 		{"deep.subdomain.dns-check.keen-pbr.internal", true},
 		{"123.dns-check.keen-pbr.internal", true},
 
 		// Should not match
+		{"DNS-CHECK.KEEN-PBR.INTERNAL", false},
+		{"TEST.DNS-CHECK.KEEN-PBR.INTERNAL", false},
 		{"example.com", false},
 		{"keen-pbr.internal", false},
 		{"other.keen-pbr.internal", false},
@@ -38,9 +38,9 @@ func TestIsDNSCheckDomain(t *testing.T) {
 }
 
 func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
-	// Create a minimal proxy for testing SSE functionality
+	// Create a minimal proxy for testing subscription functionality
 	proxy := &DNSProxy{
-		sseSubscribers: make(map[chan string]struct{}),
+		dnscheckSubscribers: make(map[chan string]struct{}),
 	}
 
 	// Subscribe two clients
@@ -104,7 +104,7 @@ func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
 func TestDNSProxy_BroadcastFullChannel(t *testing.T) {
 	// Create a minimal proxy for testing
 	proxy := &DNSProxy{
-		sseSubscribers: make(map[chan string]struct{}),
+		dnscheckSubscribers: make(map[chan string]struct{}),
 	}
 
 	// Subscribe a client

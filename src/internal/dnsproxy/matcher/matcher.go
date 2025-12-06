@@ -1,4 +1,4 @@
-package dnsproxy
+package matcher
 
 import (
 	"bufio"
@@ -26,9 +26,6 @@ type Matcher struct {
 
 	// ipsetIndexToName maps ipset index back to name
 	ipsetIndexToName []string
-
-	// ipsets stores ipset configurations for reference
-	ipsets map[string]*config.IPSetConfig
 }
 
 // NewMatcher creates a new domain matcher from the application config.
@@ -36,7 +33,6 @@ func NewMatcher(cfg *config.Config) *Matcher {
 	m := &Matcher{
 		domainSuffixes:   make(map[string][]uint16),
 		ipsetIndexToName: make([]string, 0),
-		ipsets:           make(map[string]*config.IPSetConfig),
 	}
 
 	m.rebuild(cfg)
@@ -55,12 +51,10 @@ func (m *Matcher) rebuild(cfg *config.Config) {
 	// Clear existing maps
 	m.domainSuffixes = make(map[string][]uint16)
 	m.ipsetIndexToName = make([]string, 0, len(cfg.IPSets))
-	m.ipsets = make(map[string]*config.IPSetConfig)
 
-	// Build ipset index mapping and store configs
+	// Build ipset index mapping
 	for _, ipset := range cfg.IPSets {
 		m.ipsetIndexToName = append(m.ipsetIndexToName, ipset.IPSetName)
-		m.ipsets[ipset.IPSetName] = ipset
 	}
 
 	// Build list name -> list source mapping
@@ -196,13 +190,6 @@ func indicesToNames(indexToName []string, indices []uint16) []string {
 		result = append(result, indexToName[idx])
 	}
 	return result
-}
-
-// GetIPSet returns the ipset configuration for the given name.
-func (m *Matcher) GetIPSet(name string) *config.IPSetConfig {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.ipsets[name]
 }
 
 // Stats returns matcher statistics.

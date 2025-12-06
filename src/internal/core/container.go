@@ -1,4 +1,4 @@
-package domain
+package core
 
 import (
 	"github.com/maksimkurb/keen-pbr/src/internal/keenetic"
@@ -15,12 +15,12 @@ import (
 //
 // Usage:
 //
-//	deps := domain.NewAppDependencies(domain.AppConfig{
+//	deps := core.NewAppDependencies(core.AppConfig{
 //	    KeeneticURL: "http://192.168.1.1/rci",
 //	})
 //	networkMgr := deps.NetworkManager()
 type AppDependencies struct {
-	// Core clients
+	// Router client
 	keeneticClient KeeneticClient
 
 	// Domain managers
