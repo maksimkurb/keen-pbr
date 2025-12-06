@@ -744,6 +744,197 @@ func (p *DNSProxy) tcpWorker(_ int) {
 	}
 }
 
+// buildCacheOperations parses all DNS answer records and creates cache operations.
+// Also handles verbose logging for received records.
+func (p *DNSProxy) buildCacheOperations(reqMsg, respMsg *dns.Msg) []caching.CacheOperation {
+	var ops []caching.CacheOperation
+
+	for _, rr := range respMsg.Answer {
+		if rr == nil {
+			continue
+		}
+
+		switch v := rr.(type) {
+		case *dns.A:
+			domain := normalizeDomain(v.Hdr.Name)
+			ttl := v.Hdr.Ttl
+			cacheTTL := p.getRecordsCacheTTL(ttl, domain)
+
+			if log.IsVerbose() {
+				log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", reqMsg.Id, domain, v.A, ttl)
+			}
+
+			ops = append(ops, caching.CacheOperation{
+				Type:        caching.CacheOpAddress,
+				Domain:      domain,
+				Address:     v.A,
+				TTL:         cacheTTL,
+				OriginalTTL: ttl,
+			})
+
+		case *dns.AAAA:
+			domain := normalizeDomain(v.Hdr.Name)
+			ttl := v.Hdr.Ttl
+			cacheTTL := p.getRecordsCacheTTL(ttl, domain)
+
+			if log.IsVerbose() {
+				log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", reqMsg.Id, domain, v.AAAA, ttl)
+			}
+
+			ops = append(ops, caching.CacheOperation{
+				Type:        caching.CacheOpAddress,
+				Domain:      domain,
+				Address:     v.AAAA,
+				TTL:         cacheTTL,
+				OriginalTTL: ttl,
+			})
+
+		case *dns.CNAME:
+			domain := normalizeDomain(v.Hdr.Name)
+			target := normalizeDomain(v.Target)
+			ttl := v.Hdr.Ttl
+			cacheTTL := p.getRecordsCacheTTL(ttl, domain)
+
+			if log.IsVerbose() {
+				log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", reqMsg.Id, domain, target, ttl)
+			}
+
+			ops = append(ops, caching.CacheOperation{
+				Type:   caching.CacheOpAlias,
+				Domain: domain,
+				Target: target,
+				TTL:    cacheTTL,
+			})
+		}
+	}
+
+	return ops
+}
+
+// buildDomainMatches determines which domains in the DNS response match our configured lists.
+// Returns map of domain → ipset names.
+func (p *DNSProxy) buildDomainMatches(respMsg *dns.Msg, requestedDomain string) map[string][]string {
+	domainMatches := make(map[string][]string)
+
+	// Check requested domain
+	if requestedDomain != "" {
+		if matches := p.matcher.Match(requestedDomain); len(matches) > 0 {
+			domainMatches[requestedDomain] = matches
+		}
+	}
+
+	// Check all CNAME domains in response
+	for _, rr := range respMsg.Answer {
+		if cname, ok := rr.(*dns.CNAME); ok {
+			domain := normalizeDomain(cname.Hdr.Name)
+			target := normalizeDomain(cname.Target)
+
+			// Check both the CNAME source and target
+			if _, exists := domainMatches[domain]; !exists {
+				if matches := p.matcher.Match(domain); len(matches) > 0 {
+					domainMatches[domain] = matches
+				}
+			}
+			if _, exists := domainMatches[target]; !exists {
+				if matches := p.matcher.Match(target); len(matches) > 0 {
+					domainMatches[target] = matches
+				}
+			}
+		}
+	}
+
+	return domainMatches
+}
+
+// buildIPSetEntries creates IPSet entries from cache results and domain matches.
+// Only creates entries for NEW IPs (IsNew=true) that belong to matched domains.
+func (p *DNSProxy) buildIPSetEntries(
+	msgID uint16,
+	cacheResults []caching.CacheAddResult,
+	domainMatches map[string][]string,
+) []networking.IPSetEntry {
+	// Get pooled slice for IPSet entries
+	entriesPtr := p.ipsetEntrySlicePool.Get().(*[]networking.IPSetEntry)
+	entries := (*entriesPtr)[:0] // Reset length but keep capacity
+	defer func() {
+		// Clear entries before returning to pool to prevent memory leaks
+		for i := range entries {
+			entries[i] = networking.IPSetEntry{}
+		}
+		*entriesPtr = entries
+		p.ipsetEntrySlicePool.Put(entriesPtr)
+	}()
+
+	// For each cached IP address
+	for _, result := range cacheResults {
+		// Skip if not new (already cached, no need to update ipset)
+		if !result.IsNew {
+			continue
+		}
+
+		// Check if this domain (or any of its aliases via CNAME) matches
+		aliases := p.recordsCache.GetAliases(result.Domain)
+		var matchingIPSets []string
+
+		for _, alias := range aliases {
+			if ipsets, exists := domainMatches[alias]; exists {
+				matchingIPSets = append(matchingIPSets, ipsets...)
+			}
+		}
+
+		// No matches, skip this IP
+		if len(matchingIPSets) == 0 {
+			continue
+		}
+
+		// Calculate IPSet TTL using the original DNS record TTL
+		ipsetTTL := p.getIPSetTTL(result.OriginalTTL)
+
+		// Create entries for all matching ipsets
+		for _, ipsetName := range matchingIPSets {
+			ipsetCfg := p.ipsetsByName[ipsetName]
+			if ipsetCfg == nil {
+				continue
+			}
+
+			// Check IP version matches ipset
+			isIPv4 := result.IP.To4() != nil
+			if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||
+				(!isIPv4 && ipsetCfg.IPVersion != config.Ipv6) {
+				continue
+			}
+
+			// Convert to netip.Prefix
+			addr, ok := netip.AddrFromSlice(result.IP)
+			if !ok {
+				if !log.IsDisabled() {
+					log.Warnf("[%04x] Invalid IP address: %s", msgID, result.IP)
+				}
+				continue
+			}
+
+			prefixLen := ipv4PrefixLen
+			if !isIPv4 {
+				prefixLen = ipv6PrefixLen
+			}
+			prefix := netip.PrefixFrom(addr, prefixLen)
+
+			if log.IsVerbose() {
+				log.Infof("[%04x] Adding %s to ipset %s (domain: %s, TTL: %d)",
+					msgID, result.IP, ipsetName, result.Domain, ipsetTTL)
+			}
+
+			entries = append(entries, networking.IPSetEntry{
+				IPSetName: ipsetName,
+				Network:   prefix,
+				TTL:       ipsetTTL,
+			})
+		}
+	}
+
+	return entries
+}
+
 // processRequest processes a DNS request and returns the response.
 func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network string) ([]byte, error) {
 	// Parse request
@@ -927,7 +1118,7 @@ func (p *DNSProxy) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
 // processResponse processes a DNS response, filtering AAAA records if configured
 // and adding resolved IPs to ipsets.
 func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
-	// Filter AAAA records in-place if configured (zero allocations)
+	// 1. Filter AAAA if configured (existing logic - in-place)
 	if p.config.DropAAAA {
 		n := 0
 		for _, rr := range respMsg.Answer {
@@ -939,40 +1130,30 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 		respMsg.Answer = respMsg.Answer[:n]
 	}
 
-	// Skip if no successful response
+	// 2. Early exit if not successful
 	if respMsg.Rcode != dns.RcodeSuccess {
 		return
 	}
 
-	// Get pooled slice for IPSet entries
-	entriesPtr := p.ipsetEntrySlicePool.Get().(*[]networking.IPSetEntry)
-	entries := (*entriesPtr)[:0] // Reset length but keep capacity
-	defer func() {
-		// Clear entries before returning to pool to prevent memory leaks
-		for i := range entries {
-			entries[i] = networking.IPSetEntry{}
-		}
-		*entriesPtr = entries
-		p.ipsetEntrySlicePool.Put(entriesPtr)
-	}()
+	// 3. Parse ALL records into cache operations
+	cacheOps := p.buildCacheOperations(reqMsg, respMsg)
 
-	// Process each answer record
-	for _, rr := range respMsg.Answer {
-		if rr == nil {
-			continue
-		}
+	// 4. Bulk add to cache - get results indicating which IPs are NEW
+	cacheResults := p.recordsCache.BulkAdd(cacheOps)
 
-		switch v := rr.(type) {
-		case *dns.A:
-			entries = append(entries, p.processARecord(v, reqMsg.Id)...)
-		case *dns.AAAA:
-			entries = append(entries, p.processAAAARecord(v, reqMsg.Id)...)
-		case *dns.CNAME:
-			entries = append(entries, p.processCNAMERecord(v, reqMsg.Id)...)
-		}
+	// 5. Get requested domain from question
+	var requestedDomain string
+	if len(reqMsg.Question) > 0 {
+		requestedDomain = normalizeDomain(reqMsg.Question[0].Name)
 	}
 
-	// Batch add to ipsets
+	// 6. Check which domains match (requested + CNAMEs)
+	domainMatches := p.buildDomainMatches(respMsg, requestedDomain)
+
+	// 7. Collect ipset entries from cache results + domain matches
+	entries := p.buildIPSetEntries(reqMsg.Id, cacheResults, domainMatches)
+
+	// 8. Batch add to ipsets
 	if len(entries) > 0 {
 		if err := p.ipsetManager.BatchAddWithTTL(entries); err != nil {
 			if !log.IsDisabled() {
@@ -980,188 +1161,6 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 			}
 		}
 	}
-}
-
-// processARecord processes an A (IPv4) record and returns IPSet entries.
-func (p *DNSProxy) processARecord(record *dns.A, id uint16) []networking.IPSetEntry {
-	domain := normalizeDomain(record.Hdr.Name)
-	originalTTL := record.Hdr.Ttl
-	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
-
-	if log.IsVerbose() {
-		log.Debugf("[%04x] A record: %s -> %s (TTL: %d)", id, domain, record.A, originalTTL)
-	}
-
-	// Add to records cache - only collect ipset entries if this is a new/expired entry
-	if !p.recordsCache.AddAddress(domain, record.A, cacheTTL) {
-		return nil // Entry already cached and valid, skip ipset update
-	}
-
-	return p.collectIPSetEntries(domain, record.A, originalTTL, id)
-}
-
-// processAAAARecord processes an AAAA (IPv6) record and returns IPSet entries.
-func (p *DNSProxy) processAAAARecord(record *dns.AAAA, id uint16) []networking.IPSetEntry {
-	domain := normalizeDomain(record.Hdr.Name)
-	originalTTL := record.Hdr.Ttl
-	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
-
-	if log.IsVerbose() {
-		log.Debugf("[%04x] AAAA record: %s -> %s (TTL: %d)", id, domain, record.AAAA, originalTTL)
-	}
-
-	// Add to records cache - only collect ipset entries if this is a new/expired entry
-	if !p.recordsCache.AddAddress(domain, record.AAAA, cacheTTL) {
-		return nil // Entry already cached and valid, skip ipset update
-	}
-
-	return p.collectIPSetEntries(domain, record.AAAA, originalTTL, id)
-}
-
-func (p *DNSProxy) MatchesIPSets(domain string) []string {
-	return p.matcher.Match(domain)
-}
-
-// collectIPSetEntries checks domain aliases against lists and returns IPSet entries.
-// originalTTL parameter is the original DNS response TTL.
-func (p *DNSProxy) collectIPSetEntries(domain string, ip net.IP, originalTTL uint32, id uint16) []networking.IPSetEntry {
-	// Quick check: if domain itself doesn't match, skip aliases lookup
-	// This avoids GetAliases() allocation for non-matching domains
-	quickMatches := p.matcher.Match(domain)
-	if len(quickMatches) == 0 {
-		return nil // No match, return nil to avoid allocation
-	}
-
-	ipsetTTL := p.getIPSetTTL(originalTTL)
-
-	// Domain matches, now check all aliases
-	aliases := p.recordsCache.GetAliases(domain)
-	var entries []networking.IPSetEntry
-
-	for _, alias := range aliases {
-		// Cache the address for this alias to prevent duplicate ipset additions
-		// when CNAME record is processed later (or on subsequent lookups)
-		if alias != domain {
-			aliasCacheTTL := p.getRecordsCacheTTL(originalTTL, alias)
-			p.recordsCache.AddAddress(alias, ip, aliasCacheTTL)
-		}
-
-		matches := p.matcher.Match(alias)
-		for _, ipsetName := range matches {
-			ipsetCfg := p.ipsetsByName[ipsetName]
-			if ipsetCfg == nil {
-				continue
-			}
-
-			// Check IP version
-			isIPv4 := ip.To4() != nil
-			if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||
-				(!isIPv4 && ipsetCfg.IPVersion != config.Ipv6) {
-				continue
-			}
-
-			// Convert to netip.Prefix
-			addr, ok := netip.AddrFromSlice(ip)
-			if !ok {
-				if !log.IsDisabled() {
-					log.Warnf("[%04x] Invalid IP address: %s", id, ip)
-				}
-				continue
-			}
-
-			prefixLen := ipv4PrefixLen
-			if !isIPv4 {
-				prefixLen = ipv6PrefixLen
-			}
-			prefix := netip.PrefixFrom(addr, prefixLen)
-
-			if log.IsVerbose() {
-				log.Infof("[%04x] Adding %s to ipset %s (domain: %s, alias: %s, TTL: %d)",
-					id, ip, ipsetName, domain, alias, ipsetTTL)
-			}
-
-			entries = append(entries, networking.IPSetEntry{
-				IPSetName: ipsetName,
-				Network:   prefix,
-				TTL:       ipsetTTL,
-			})
-		}
-	}
-	return entries
-}
-
-// processCNAMERecord processes a CNAME record and returns IPSet entries.
-func (p *DNSProxy) processCNAMERecord(record *dns.CNAME, id uint16) []networking.IPSetEntry {
-	domain := normalizeDomain(record.Hdr.Name)
-	target := normalizeDomain(record.Target)
-	originalTTL := record.Hdr.Ttl
-	cacheTTL := p.getRecordsCacheTTL(originalTTL, domain)
-	ipsetTTL := p.getIPSetTTL(originalTTL)
-
-	if log.IsVerbose() {
-		log.Debugf("[%04x] CNAME record: %s -> %s (TTL: %d)", id, domain, target, originalTTL)
-	}
-
-	// Add alias to cache
-	p.recordsCache.AddAlias(domain, target, cacheTTL)
-
-	// Check if we already have addresses for the target
-	addresses := p.recordsCache.GetAddresses(target)
-	if len(addresses) == 0 {
-		return nil
-	}
-
-	aliases := p.recordsCache.GetAliases(domain)
-	var entries []networking.IPSetEntry
-
-	for _, alias := range aliases {
-		matches := p.matcher.Match(alias)
-		for _, ipsetName := range matches {
-			ipsetCfg := p.ipsetsByName[ipsetName]
-			if ipsetCfg == nil {
-				continue
-			}
-
-			for _, cachedAddr := range addresses {
-				// Check if this domain+IP combination is already in cache and valid
-				// This prevents duplicate ipset additions for the same CNAME resolution
-				if !p.recordsCache.AddAddress(domain, cachedAddr.Address, cacheTTL) {
-					continue // Already cached and valid, skip ipset update
-				}
-
-				// Check IP version matches ipset
-				isIPv4 := cachedAddr.Address.To4() != nil
-				if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||
-					(!isIPv4 && ipsetCfg.IPVersion != config.Ipv6) {
-					continue
-				}
-
-				// Convert to netip.Prefix
-				addr, ok := netip.AddrFromSlice(cachedAddr.Address)
-				if !ok {
-					continue
-				}
-
-				prefixLen := ipv4PrefixLen
-				if !isIPv4 {
-					prefixLen = ipv6PrefixLen
-				}
-				prefix := netip.PrefixFrom(addr, prefixLen)
-
-				if log.IsVerbose() {
-					log.Infof("[%04x] Adding %s to ipset %s (CNAME: %s -> %s, alias: %s, TTL: %d)",
-						id, cachedAddr.Address, ipsetName, domain, target, alias, ipsetTTL)
-				}
-
-				entries = append(entries, networking.IPSetEntry{
-					IPSetName: ipsetName,
-					Network:   prefix,
-					TTL:       ipsetTTL,
-				})
-			}
-		}
-	}
-	return entries
 }
 
 // getRecordsCacheTTL returns the TTL to use for the records cache for a domain.
@@ -1174,6 +1173,11 @@ func (p *DNSProxy) getRecordsCacheTTL(originalTTL uint32, domain string) uint32 
 		return p.config.ListedDomainsDNSCacheTTLSec
 	}
 	return originalTTL
+}
+
+// MatchesIPSets returns the ipset names that match the given domain.
+func (p *DNSProxy) MatchesIPSets(domain string) []string {
+	return p.matcher.Match(domain)
 }
 
 // getIPSetTTL returns the TTL to use for IPSet entries.
