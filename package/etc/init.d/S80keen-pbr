@@ -2,103 +2,34 @@
 
 . /opt/etc/keen-pbr/defaults
 
-log()
-{
-  logger -t "keen-pbr" "$1"
-  echo -e "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
+ENABLED=yes
+PROCS=$(basename "$KEEN_PBR")
+ARGS="-config $CONFIG service -api 0.0.0.0:12121"
+PREARGS=""
+DESC="keen-pbr"
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+log() {
+    logger -t "keen-pbr" "$1"
+    echo -e "${ansi_blue}[keen-pbr]${ansi_white} $1${ansi_std}" >&2
 }
 
-enable_hwnat()
-{
-  log "Enabling HW NAT..."
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true # NDMS3
+enable_hwnat() {
+    log "Enabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true
 }
 
-disable_hwnat()
-{
-  log "Disabling HW NAT..."
-  sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true # NDMS2
-  sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true # NDMS3
+disable_hwnat() {
+    log "Disabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true
 }
 
-apply_lists_and_routing()
-{
-  log "Applying routing configuration and importing IPs/CIDRs to ipsets..."
-  $KEEN_PBR -config "$CONFIG" apply
-}
+PRECMD="disable_hwnat"
 
-apply_routing()
-{
-  log "Applying routing configuration..."
-  $KEEN_PBR -config "$CONFIG" apply -skip-ipset
-}
+. /opt/etc/init.d/rc.func
 
-unapply_routing()
-{
-  log "Removing routing configuration..."
-  $KEEN_PBR -config "$CONFIG" undo-routing
-}
-
-check() {
-  # Checking dnsmasq
-  /opt/etc/init.d/S56dnsmasq check
-
-  # Checking keen-pbr state
-  echo "Checking keen-pbr state"
-  $KEEN_PBR -config "$CONFIG" self-check
-
-  echo "Currently configured ipset lists:"
-  ipset list -t
-}
-
-generate_dnsmasq_config()
-{
-  $KEEN_PBR -config "$CONFIG" print-dnsmasq-config
-}
-
-start()
-{
-  disable_hwnat
-  apply_lists_and_routing
-}
-
-stop()
-{
-  enable_hwnat
-  unapply_routing
-}
-
-case "$1" in
-  start)
-    start
-    ;;
-  stop)
-    stop
-    ;;
-  restart)
-    stop
-    sleep 2
-    start
-    ;;
-  download-lists|download_lists|update)
-    log "Downloading lists..."
-    $KEEN_PBR -config "$CONFIG" download
-    log "Lists downloaded. Please run '/opt/etc/init.d/S80keen-pbr restart' to make use of them or restart OPKG."
-    ;;
-  apply-lists|apply_lists)
-    apply_lists_and_routing
-    ;;
-  apply-routing|apply_routing)
-    apply_routing
-    ;;
-  generate-dnsmasq-config)
-    generate_dnsmasq_config
-    ;;
-  check|status|self-check|self_check)
-    check
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart|check|status|download-lists|apply-lists|apply-routing}"
-    ;;
-esac
+if [ "$1" = "stop" ] || [ "$1" = "kill" ]; then
+    enable_hwnat
+fi

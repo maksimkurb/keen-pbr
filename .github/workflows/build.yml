@@ -1,0 +1,200 @@
+# Credits:
+# https://github.com/Anonym-tsk/nfqws-keenetic/blob/master/.github/workflows/release.yml
+# https://github.com/Waujito/youtubeUnblock/blob/main/.github/workflows/build-ci.yml
+
+name: Build
+
+on:
+  push: { }
+  workflow_dispatch: { }
+
+jobs:
+
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Generate TypeScript types
+      run: make generate-types
+
+    - name: Install frontend dependencies
+      working-directory: src/frontend
+      run: bun install
+
+    - name: Build frontend
+      working-directory: src/frontend
+      run: bun run build
+
+    - name: Cache Go modules
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: src/frontend/dist
+        retention-days: 1
+
+    - name: Upload generated types
+      uses: actions/upload-artifact@v4
+      with:
+        name: generated-types
+        path: src/frontend/src/api
+        retention-days: 1
+
+  test:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+
+    - name: Restore Go modules cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+    - name: Run tests
+      run: make test
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        cache: true
+
+    - name: Restore Go modules cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+    - name: Install lint dependencies
+      run: make install-dev-deps
+
+    - name: Run lint
+      run: make lint
+
+
+  build-entware:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch:
+          - aarch64-3.10
+          - mips-3.4
+          - mipsel-3.4
+          - x64-3.2
+          - armv7-3.2
+
+    container:
+      image: ghcr.io/maksimkurb/entware-builder:${{ matrix.arch }}
+      options: --user root
+
+    outputs:
+      version: ${{ steps.gh.outputs.version }}
+      sha: ${{ steps.gh.outputs.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Get version and determine package name
+        id: gh
+        env:
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            SHA=$(echo ${GITHUB_SHA::7})
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "sha=$SHA" >> $GITHUB_STEP_SUMMARY
+          else
+            SHA=$(gh api repos/$REPO/commits/main --jq '.sha[:7]')
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "sha=$SHA" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Add SHA suffix to package name if not on main branch
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            PACKAGE_NAME="keen-pbr-$VERSION-entware-${{ matrix.arch }}.ipk"
+          else
+            PACKAGE_NAME="keen-pbr-$VERSION-sha$SHA-entware-${{ matrix.arch }}.ipk"
+          fi
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+
+      - name: Build Entware packages
+        id: build
+        working-directory: /home/me/Entware
+        env:
+          VERSION: ${{ steps.gh.outputs.version }}
+          SHA: ${{ steps.gh.outputs.sha }}
+        run: |
+          echo "src-link keenPbr $GITHUB_WORKSPACE/package/entware" >> ./feeds.conf
+
+          ./scripts/feeds update keenPbr
+          ./scripts/feeds install -a -p keenPbr
+          ln -s $GITHUB_WORKSPACE/.git ./feeds/keenPbr/keen-pbr/git-src
+
+          echo "CONFIG_SRC_TREE_OVERRIDE=y" >> ./.config
+          echo "CONFIG_PACKAGE_keen-pbr=m" >> ./.config
+
+          make package/keen-pbr/compile V=s
+
+          mv $(find ./bin -type f -name 'keen-pbr*.ipk') ./${{ steps.gh.outputs.package_name }}
+
+      - name: Upload packages
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: keen-pbr-entware-${{ matrix.arch }}
+          path: |
+            /home/me/Entware/keen-pbr*.ipk
+          if-no-files-found: error
