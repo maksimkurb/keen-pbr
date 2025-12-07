@@ -43,8 +43,8 @@ GO_LDFLAGS += -X 'github.com/maksimkurb/keen-pbr/src/internal/api.Version=$(PKG_
 define Build/Compile
 	# Build frontend
 	cd $(PKG_BUILD_DIR)/src/frontend && \
-		npm install && \
-		npm run build
+		bun install && \
+		bun run build
 
 	# Build Go binary (frontend is served from filesystem, not embedded)
 	$(call Build/Compile/Go)
