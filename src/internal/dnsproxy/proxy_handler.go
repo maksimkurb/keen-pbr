@@ -342,6 +342,9 @@ func (h *ProxyHandler) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
 		}
 	}
 
+	// Check if domain matches our lists for TTL override
+	isMatched := h.recordsCache.IsMatched(finalTarget)
+
 	// Add A/AAAA records to Answer section
 	for _, addr := range validAddrs {
 		remaining := addr.Deadline.Unix() - now
@@ -349,6 +352,7 @@ func (h *ProxyHandler) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
 			continue // Should be rare due to cache logic, but good for safety
 		}
 		ttl := uint32(remaining)
+		ttl = h.calculateDNSResponseTTL(ttl, isMatched)
 
 		if q.Qtype == dns.TypeA {
 			a := &dns.A{
@@ -406,7 +410,7 @@ func (h *ProxyHandler) processResponse(reqMsg, respMsg *dns.Msg) {
 	var entries []networking.IPSetEntry
 	var entriesPtr *[]networking.IPSetEntry
 
-	for _, rr := range respMsg.Answer {
+	for i, rr := range respMsg.Answer {
 		if rr == nil {
 			continue
 		}
@@ -428,6 +432,12 @@ func (h *ProxyHandler) processResponse(reqMsg, respMsg *dns.Msg) {
 
 			entries = h.processAddressRecord(reqMsg.Id, domain, v.A, ttl, domainMatches, entries)
 
+			// Override TTL for matched domains
+			ipsets := domainMatches[domain]
+			if len(ipsets) > 0 {
+				respMsg.Answer[i].Header().Ttl = h.calculateDNSResponseTTL(ttl, true)
+			}
+
 		case *dns.AAAA:
 			domain := normalizeDomain(v.Hdr.Name)
 			ttl := v.Hdr.Ttl
@@ -444,6 +454,12 @@ func (h *ProxyHandler) processResponse(reqMsg, respMsg *dns.Msg) {
 
 			entries = h.processAddressRecord(reqMsg.Id, domain, v.AAAA, ttl, domainMatches, entries)
 
+			// Override TTL for matched domains
+			ipsets := domainMatches[domain]
+			if len(ipsets) > 0 {
+				respMsg.Answer[i].Header().Ttl = h.calculateDNSResponseTTL(ttl, true)
+			}
+
 		case *dns.CNAME:
 			domain := normalizeDomain(v.Hdr.Name)
 			target := normalizeDomain(v.Target)
@@ -458,7 +474,7 @@ func (h *ProxyHandler) processResponse(reqMsg, respMsg *dns.Msg) {
 		}
 	}
 
-	// 4. Batch add to ipsets if we have any entries
+	// 5. Batch add to ipsets if we have any entries
 	if len(entries) > 0 {
 		if err := h.ipsetManager.BatchAddWithTTL(entries); err != nil {
 			if !log.IsDisabled() {
@@ -487,19 +503,25 @@ func (h *ProxyHandler) processAddressRecord(
 	domainMatches map[string][]string,
 	entries []networking.IPSetEntry,
 ) []networking.IPSetEntry {
+	// Step 1: Add address to cache first
 	isNew := h.recordsCache.AddAddress(domain, ip, originalTTL)
 
-	// If not new, skip IPSet processing
+	// If not new, skip further processing
 	if !isNew {
 		return entries
 	}
 
-	// Check if we've already looked up this domain's matches
+	// Step 2: Only call expensive Match() if this is a new entry
 	ipsets, seen := domainMatches[domain]
 	if !seen {
 		// First time seeing this domain - check if it matches
 		ipsets = h.matcher.Match(domain)
 		domainMatches[domain] = ipsets // Cache result (even if empty)
+	}
+
+	// Step 3: Update cache with matched status if domain matches
+	if len(ipsets) > 0 {
+		h.recordsCache.MarkMatched(domain)
 	}
 
 	// If domain doesn't match any ipsets, we're done
@@ -562,6 +584,19 @@ func (h *ProxyHandler) getIPSetTTL(originalTTL uint32) uint32 {
 		return originalTTL
 	}
 	return originalTTL + h.config.IPSetEntryAdditionalTTLSec
+}
+
+// calculateDNSResponseTTL returns the TTL to use in DNS responses for a domain.
+// If the domain matches our lists, TTL is capped at ListedDomainsDNSCacheTTLSec.
+// Otherwise, the original TTL is returned.
+func (h *ProxyHandler) calculateDNSResponseTTL(ttl uint32, isMatched bool) uint32 {
+	if !isMatched {
+		return ttl
+	}
+	if h.config.ListedDomainsDNSCacheTTLSec > 0 && ttl > h.config.ListedDomainsDNSCacheTTLSec {
+		return min(h.config.ListedDomainsDNSCacheTTLSec, ttl)
+	}
+	return ttl
 }
 
 // cleanupLoop periodically cleans up expired cache entries.

@@ -45,6 +45,7 @@ type addressEntry struct {
 	counts      byte   // Packed IPv4/IPv6 counts
 	addrs       []byte // Dynamic byte array: only allocated size needed
 	minDeadline int64  // Earliest expiration across all addresses
+	matched     bool   // Whether this domain matches any of our lists
 }
 
 // getCounts returns the number of IPv4 and IPv6 addresses.
@@ -179,6 +180,7 @@ func (e *addressEntry) clear() {
 	e.counts = 0
 	e.addrs = nil
 	e.minDeadline = 0
+	e.matched = false
 }
 
 // RecordsCache stores DNS records (addresses and CNAME aliases) with TTL-based expiration.
@@ -527,6 +529,33 @@ func (r *RecordsCache) Clear() {
 	r.reverseValid = false
 	r.lruList = list.New()
 	r.lruIndex = make(map[string]*list.Element)
+}
+
+// IsMatched returns whether a domain in the cache matches any of our lists.
+// Returns false if the domain is not in the cache.
+func (r *RecordsCache) IsMatched(domain string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	entry, exists := r.addresses[domain]
+	if !exists {
+		return false
+	}
+	return entry.matched
+}
+
+// MarkMatched marks a domain in the cache as matched by our lists.
+// Does nothing if the domain is not in the cache.
+func (r *RecordsCache) MarkMatched(domain string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry, exists := r.addresses[domain]
+	if !exists {
+		return
+	}
+	entry.matched = true
+	r.addresses[domain] = entry
 }
 
 // Stats returns cache statistics.
