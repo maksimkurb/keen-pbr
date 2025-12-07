@@ -47,7 +47,47 @@ export function DomainCheckerWidget() {
     };
   }, []);
 
+  const sanitizeHostInput = (input: string): string | null => {
+    const trimmed = input.trim();
+
+    // Try to parse as URL
+    try {
+      const url = new URL(trimmed);
+      return url.hostname;
+    } catch {
+      // Not a valid URL, check if it's a valid domain/IPv4/IPv6
+      if (/^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(trimmed)) {
+        return trimmed; // Valid domain
+      }
+      if (/^(\d{1,3}\.){3}\d{1,3}$/.test(trimmed)) {
+        return trimmed; // Valid IPv4
+      }
+      if (/^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::)$/.test(trimmed) || /^[0-9a-fA-F:]+$/.test(trimmed)) {
+        return trimmed; // Valid IPv6
+      }
+      return null; // Invalid input
+    }
+  };
+
   const handleCheckRouting = async () => {
+    const sanitized = sanitizeHostInput(host);
+
+    if (!sanitized) {
+      setState({
+        type: 'routing',
+        loading: false,
+        error: t('dashboard.domainChecker.invalidHostInput'),
+        routingResult: null,
+        consoleOutput: [],
+      });
+      return;
+    }
+
+    // Update the input field with sanitized value
+    if (sanitized !== host) {
+      setHost(sanitized);
+    }
+
     setState({
       type: 'routing',
       loading: true,
@@ -57,7 +97,7 @@ export function DomainCheckerWidget() {
     });
 
     try {
-      const result = await apiClient.checkRouting(host);
+      const result = await apiClient.checkRouting(sanitized);
       setState((prev) => ({
         ...prev,
         loading: false,

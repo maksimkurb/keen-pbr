@@ -1,8 +1,9 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "ignore": [
-      "src/api/generated-types.ts"
+    "includes": [
+      "**",
+      "!src/api/generated-types.ts"
     ]
   },
   "assist": {
@@ -36,7 +37,7 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noArrayIndexKey": "warn"
+        "noArrayIndexKey": "info"
       },
       "style": {
         "noNonNullAssertion": "error"
