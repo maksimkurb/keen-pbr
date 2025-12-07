@@ -15,7 +15,7 @@ func BenchmarkRecordsCache_CacheMiss(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("nonexistent-%d.com", i)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -32,7 +32,7 @@ func BenchmarkRecordsCache_FullCache(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("domain-%d.com", i%1000)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -78,7 +78,7 @@ func BenchmarkRecordsCache_GetCachedOnFullCache(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("domain-%d.com", i%1000)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -95,7 +95,7 @@ func BenchmarkRecordsCache_GetCachedOnAlmostEmptyCache(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("domain-%d.com", i%10)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -159,7 +159,7 @@ func BenchmarkRecordsCache_ConcurrentMixed(b *testing.B) {
 
 			switch op {
 			case 0, 1, 2, 3, 4, 5: // 60% reads
-				cache.GetAddresses(domain)
+				getAddressesForTest(cache, domain)
 			case 6, 7: // 20% writes
 				cache.AddAddress(domain, ip, 300)
 			case 8: // 10% alias ops
@@ -262,7 +262,7 @@ func BenchmarkRecordsCache_LargeScale_10k(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("domain-%d.example.com", i%10000)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -279,7 +279,7 @@ func BenchmarkRecordsCache_LargeScale_100k(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("d%d.example.com", i%100000)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -298,7 +298,7 @@ func BenchmarkRecordsCache_MixedWorkload_ReadHeavy(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if i%10 < 9 { // 90% reads
-			cache.GetAddresses(fmt.Sprintf("domain-%d.com", i%1000))
+			getAddressesForTest(cache, fmt.Sprintf("domain-%d.com", i%1000))
 			cache.GetAliases(fmt.Sprintf("domain-%d.com", i%1000))
 		} else { // 10% writes
 			cache.AddAddress(fmt.Sprintf("domain-%d.com", i%1000), ip, 300)
@@ -326,7 +326,7 @@ func BenchmarkRecordsCache_MultipleIPsPerDomain(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				domain := fmt.Sprintf("domain-%d.com", i%1000)
-				cache.GetAddresses(domain)
+				getAddressesForTest(cache, domain)
 			}
 		})
 	}
@@ -356,7 +356,7 @@ func BenchmarkRecordsCache_GetAddresses(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		domain := fmt.Sprintf("domain-%d.com", i%1000)
-		cache.GetAddresses(domain)
+		getAddressesForTest(cache, domain)
 	}
 }
 
@@ -443,7 +443,7 @@ func BenchmarkRecordsCache_ConcurrentReads(b *testing.B) {
 		i := 0
 		for pb.Next() {
 			domain := fmt.Sprintf("domain-%d.com", i%1000)
-			cache.GetAddresses(domain)
+			getAddressesForTest(cache, domain)
 			i++
 		}
 	})

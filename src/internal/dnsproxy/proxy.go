@@ -164,9 +164,10 @@ type DNSProxy struct {
 	tcpActiveSem   chan struct{} // Semaphore for limiting concurrent TCP connections
 
 	// Buffer pools for zero-allocation processing
-	udpReadBufferPool   sync.Pool // UDP read buffers (4096 bytes)
-	tcpReadBufferPool   sync.Pool // TCP read buffers (4096 bytes)
-	ipsetEntrySlicePool sync.Pool // []networking.IPSetEntry slices
+	udpReadBufferPool     sync.Pool // UDP read buffers (4096 bytes)
+	tcpReadBufferPool     sync.Pool // TCP read buffers (4096 bytes)
+	ipsetEntrySlicePool   sync.Pool // []networking.IPSetEntry slices
+	cachedAddrSlicePool   sync.Pool // []caching.CachedAddress slices
 }
 
 // NewDNSProxy creates a new DNS proxy.
@@ -290,6 +291,13 @@ func NewDNSProxy(
 	proxy.ipsetEntrySlicePool = sync.Pool{
 		New: func() interface{} {
 			slice := make([]networking.IPSetEntry, 0, 8)
+			return &slice
+		},
+	}
+	proxy.cachedAddrSlicePool = sync.Pool{
+		New: func() interface{} {
+			// Pre-allocate with a capacity of 8, a reasonable number for A/AAAA records
+			slice := make([]caching.CachedAddress, 0, 8)
 			return &slice
 		},
 	}
@@ -899,7 +907,6 @@ func (p *DNSProxy) processRequest(clientAddr net.Addr, reqBytes []byte, network 
 // getCachedResponse attempts to build a DNS response from cached data.
 // Returns nil if cache miss or data expired.
 func (p *DNSProxy) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
-	// Only cache A and AAAA queries
 	if len(reqMsg.Question) == 0 {
 		return nil
 	}
@@ -911,27 +918,27 @@ func (p *DNSProxy) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
 
 	domain := normalizeDomain(q.Name)
 
-	// Get CNAME chain (if any) - expired CNAMEs are automatically excluded
+	// Get CNAME chain (if any)
 	chain := p.recordsCache.GetTargetChain(domain)
 	if len(chain) == 0 {
-		return nil // No data in cache (never cached or all expired)
+		return nil // No data in cache
 	}
 
-	// Get addresses for final target in chain - expired addresses are automatically excluded
-	finalTarget := chain[len(chain)-1]
-	cachedAddrs := p.recordsCache.GetAddresses(finalTarget)
-	if len(cachedAddrs) == 0 {
-		return nil // No addresses cached (never cached or all expired)
-	}
-
-	// Filter addresses by record type (A or AAAA)
-	var validAddrs []caching.CachedAddress
-	for _, addr := range cachedAddrs {
-		isIPv4 := addr.Address.To4() != nil
-		if (q.Qtype == dns.TypeA && isIPv4) || (q.Qtype == dns.TypeAAAA && !isIPv4) {
-			validAddrs = append(validAddrs, addr)
+	// Get a pooled slice for the results
+	validAddrsPtr := p.cachedAddrSlicePool.Get().(*[]caching.CachedAddress)
+	validAddrs := (*validAddrsPtr)[:0] // Reset slice length to 0
+	defer func() {
+		// Clear slice to prevent memory leaks and return to pool
+		for i := range validAddrs {
+			validAddrs[i] = caching.CachedAddress{} // Zero out the structs
 		}
-	}
+		*validAddrsPtr = validAddrs
+		p.cachedAddrSlicePool.Put(validAddrsPtr)
+	}()
+
+	// Get addresses for final target in chain, filtering by qtype directly
+	finalTarget := chain[len(chain)-1]
+	validAddrs = p.recordsCache.GetFilteredAddresses(finalTarget, q.Qtype, validAddrs)
 
 	if len(validAddrs) == 0 {
 		return nil // No matching addresses for this type
@@ -946,34 +953,34 @@ func (p *DNSProxy) getCachedResponse(reqMsg *dns.Msg) *dns.Msg {
 	now := time.Now().Unix()
 
 	// Add CNAME records to Answer section (if chain > 1)
-	for i := 0; i < len(chain)-1; i++ {
-		// Use minimum TTL from addresses for CNAME records
-		// (proper fix would be to get actual CNAME TTL from cache)
-		minTTL := uint32(300) // Default fallback
-		if len(validAddrs) > 0 {
-			remaining := validAddrs[0].Deadline.Unix() - now
-			if remaining > 0 && remaining < int64(minTTL) {
-				minTTL = uint32(remaining)
-			}
+	if len(chain) > 1 {
+		// Use the TTL from the first valid address for all CNAMEs in the chain.
+		// This is a reasonable approximation.
+		remaining := validAddrs[0].Deadline.Unix() - now
+		ttl := uint32(0)
+		if remaining > 0 {
+			ttl = uint32(remaining)
 		}
 
-		cname := &dns.CNAME{
-			Hdr: dns.RR_Header{
-				Name:   dns.Fqdn(chain[i]),
-				Rrtype: dns.TypeCNAME,
-				Class:  dns.ClassINET,
-				Ttl:    minTTL,
-			},
-			Target: dns.Fqdn(chain[i+1]),
+		for i := 0; i < len(chain)-1; i++ {
+			cname := &dns.CNAME{
+				Hdr: dns.RR_Header{
+					Name:   dns.Fqdn(chain[i]),
+					Rrtype: dns.TypeCNAME,
+					Class:  dns.ClassINET,
+					Ttl:    ttl,
+				},
+				Target: dns.Fqdn(chain[i+1]),
+			}
+			respMsg.Answer = append(respMsg.Answer, cname)
 		}
-		respMsg.Answer = append(respMsg.Answer, cname)
 	}
 
 	// Add A/AAAA records to Answer section
 	for _, addr := range validAddrs {
 		remaining := addr.Deadline.Unix() - now
 		if remaining <= 0 {
-			continue // Expired during processing
+			continue // Should be rare due to cache logic, but good for safety
 		}
 		ttl := uint32(remaining)
 

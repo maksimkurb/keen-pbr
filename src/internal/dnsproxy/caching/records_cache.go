@@ -165,36 +165,39 @@ func (e *addressEntry) addAddress(ip net.IP) bool {
 	return false
 }
 
-// getAllAddresses returns all addresses as []net.IP.
-func (e *addressEntry) getAllAddresses(deadline time.Time) []CachedAddress {
+// getAllAddressesFiltered appends addresses of a specific type to the destination slice.
+// It avoids allocating a new slice for the result.
+// qtype should be dns.TypeA (1) for IPv4 or dns.TypeAAAA (28) for IPv6.
+func (e *addressEntry) getAllAddressesFiltered(qtype uint16, deadline time.Time, dst []CachedAddress) []CachedAddress {
 	ipv4Count, ipv6Count := e.getCounts()
-	total := ipv4Count + ipv6Count
-	result := make([]CachedAddress, 0, total)
 
-	// Extract IPv4 addresses
-	offset := 0
-	for i := 0; i < ipv4Count; i++ {
-		ip := net.IP(make([]byte, 4))
-		copy(ip, e.addrs[offset:offset+4])
-		result = append(result, CachedAddress{
-			Address:  ip,
-			Deadline: deadline,
-		})
-		offset += 4
+	// Extract IPv4 addresses if requested (qtype == 1 is dns.TypeA)
+	if qtype == 1 {
+		offset := 0
+		for i := 0; i < ipv4Count; i++ {
+			ip := net.IP(make([]byte, 4))
+			copy(ip, e.addrs[offset:offset+4])
+			dst = append(dst, CachedAddress{
+				Address:  ip,
+				Deadline: deadline,
+			})
+			offset += 4
+		}
+	} else if qtype == 28 { // dns.TypeAAAA
+		// Extract IPv6 addresses if requested
+		offset := ipv4Count * 4
+		for i := 0; i < ipv6Count; i++ {
+			ip := net.IP(make([]byte, 16))
+			copy(ip, e.addrs[offset:offset+16])
+			dst = append(dst, CachedAddress{
+				Address:  ip,
+				Deadline: deadline,
+			})
+			offset += 16
+		}
 	}
 
-	// Extract IPv6 addresses
-	for i := 0; i < ipv6Count; i++ {
-		ip := net.IP(make([]byte, 16))
-		copy(ip, e.addrs[offset:offset+16])
-		result = append(result, CachedAddress{
-			Address:  ip,
-			Deadline: deadline,
-		})
-		offset += 16
-	}
-
-	return result
+	return dst
 }
 
 // clear resets the entry to empty.
@@ -395,57 +398,55 @@ func (r *RecordsCache) rebuildReverseAliases(now int64) {
 	r.reverseValid = true
 }
 
-// GetAddresses returns all non-expired addresses for a domain.
-// If ANY address has expired, the entire domain entry is invalidated and nil is returned.
-func (r *RecordsCache) GetAddresses(domain string) []CachedAddress {
+// GetFilteredAddresses appends non-expired addresses for a domain that match qtype
+// to the provided destination slice `dst`.
+// It is highly optimized to reduce allocations on the cache-hit path.
+// It returns the (potentially re-allocated) destination slice.
+// qtype should be dns.TypeA (1) for IPv4 or dns.TypeAAAA (28) for IPv6.
+func (r *RecordsCache) GetFilteredAddresses(domain string, qtype uint16, dst []CachedAddress) []CachedAddress {
 	r.mu.RLock()
 
 	entry, exists := r.addresses[domain]
 	if !exists {
 		r.mu.RUnlock()
-		return nil
+		return dst // Return original slice unchanged
 	}
 
 	now := time.Now().Unix()
 
 	// Fast path: All addresses guaranteed valid if minDeadline not reached
 	if now < entry.minDeadline {
-		result := entry.getAllAddresses(time.Unix(entry.minDeadline, 0))
+		result := entry.getAllAddressesFiltered(qtype, time.Unix(entry.minDeadline, 0), dst)
 		r.mu.RUnlock()
 		return result
 	}
 
-	// Slow path: Entry expired - upgrade to write lock
+	// Slow path: Entry might be expired - requires write lock
 	r.mu.RUnlock()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Re-check after lock upgrade (race condition protection)
+	// Re-check after lock upgrade
 	entry, exists = r.addresses[domain]
 	if !exists {
-		return nil
+		return dst
 	}
 
-	now = time.Now().Unix() // Re-read time after lock upgrade
+	now = time.Now().Unix() // Re-read time
 
 	// Check if expired
 	if entry.minDeadline <= now {
-		// Invalidate entire domain entry atomically
 		delete(r.addresses, domain)
 		r.removeDomainFromLRU(domain)
-
-		// Also invalidate any alias pointing FROM this domain
-		if _, exists := r.aliases[domain]; exists {
+		if _, hasAlias := r.aliases[domain]; hasAlias {
 			delete(r.aliases, domain)
 			r.reverseValid = false
 		}
-
-		return nil // Cache miss - will trigger upstream query
+		return dst
 	}
 
 	// Still valid after re-check, build result
-	result := entry.getAllAddresses(time.Unix(entry.minDeadline, 0))
-	return result
+	return entry.getAllAddressesFiltered(qtype, time.Unix(entry.minDeadline, 0), dst)
 }
 
 // GetAliases returns all domain names that resolve to the given domain,

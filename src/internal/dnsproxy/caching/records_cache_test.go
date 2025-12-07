@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+
 func TestRecordsCache_AddAddress(t *testing.T) {
 	cache := NewRecordsCache(10000)
 
@@ -17,7 +18,7 @@ func TestRecordsCache_AddAddress(t *testing.T) {
 	cache.AddAddress("example.com", ip, 300)
 
 	// Get addresses
-	addrs := cache.GetAddresses("example.com")
+	addrs := getAddressesForTest(cache, "example.com")
 	if len(addrs) != 1 {
 		t.Errorf("expected 1 address, got %d", len(addrs))
 	}
@@ -91,7 +92,7 @@ func TestRecordsCache_Cleanup(t *testing.T) {
 	cache.EvictExpiredEntries()
 
 	// Address should be gone
-	addrs := cache.GetAddresses("example.com")
+	addrs := getAddressesForTest(cache, "example.com")
 	if len(addrs) != 0 {
 		t.Errorf("expected 0 addresses after cleanup, got %d", len(addrs))
 	}
@@ -162,7 +163,7 @@ func TestRecordsCache_ConcurrencyLifecycle(t *testing.T) {
 					return
 				default:
 					domain := fmt.Sprintf("domain-%d.com", rand.Intn(100))
-					cache.GetAddresses(domain)
+					getAddressesForTest(cache, domain)
 
 					alias := fmt.Sprintf("alias-%d.com", rand.Intn(100))
 					cache.GetAliases(alias)
@@ -217,14 +218,14 @@ func TestRecordsCache_LRU(t *testing.T) {
 	cache.AddAddress("domain4.com", net.ParseIP("4.4.4.4"), 300)
 
 	// domain1 should be evicted
-	addrs := cache.GetAddresses("domain1.com")
+	addrs := getAddressesForTest(cache, "domain1.com")
 	if len(addrs) != 0 {
 		t.Errorf("expected domain1 to be evicted, but got %d addresses", len(addrs))
 	}
 
 	// domain2, domain3, domain4 should still exist
 	for _, domain := range []string{"domain2.com", "domain3.com", "domain4.com"} {
-		addrs := cache.GetAddresses(domain)
+		addrs := getAddressesForTest(cache, domain)
 		if len(addrs) != 1 {
 			t.Errorf("expected %s to have 1 address, got %d", domain, len(addrs))
 		}
@@ -251,7 +252,7 @@ func TestRecordsCache_NoDuplicateAddressForSameDomain(t *testing.T) {
 	}
 
 	// Verify only one address is stored
-	addrs := cache.GetAddresses("example.com")
+	addrs := getAddressesForTest(cache, "example.com")
 	if len(addrs) != 1 {
 		t.Errorf("expected 1 address, got %d", len(addrs))
 	}
@@ -483,7 +484,7 @@ func TestRecordsCache_CNAMEBeforeARecordFixed(t *testing.T) {
 	cache.AddAlias("test97.svc.kurb.me", "vps-1.node.kurb.me", 300)
 
 	// processCNAMERecord: GetAddresses(target) -> EMPTY, early return
-	addrs := cache.GetAddresses("vps-1.node.kurb.me")
+	addrs := getAddressesForTest(cache, "vps-1.node.kurb.me")
 	if len(addrs) != 0 {
 		t.Errorf("expected 0 addresses before A record, got %d", len(addrs))
 	}
@@ -509,7 +510,7 @@ func TestRecordsCache_CNAMEBeforeARecordFixed(t *testing.T) {
 	cache.AddAlias("test97.svc.kurb.me", "vps-1.node.kurb.me", 300)
 
 	// Now GetAddresses returns the IP
-	addrs = cache.GetAddresses("vps-1.node.kurb.me")
+	addrs = getAddressesForTest(cache, "vps-1.node.kurb.me")
 	if len(addrs) != 1 {
 		t.Errorf("expected 1 address, got %d", len(addrs))
 	}
