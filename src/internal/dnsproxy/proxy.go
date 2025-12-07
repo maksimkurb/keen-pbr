@@ -813,33 +813,25 @@ func (p *DNSProxy) buildCacheOperations(reqMsg, respMsg *dns.Msg) []caching.Cach
 
 // buildDomainMatches determines which domains in the DNS response match our configured lists.
 // Returns map of domain → ipset names.
-func (p *DNSProxy) buildDomainMatches(respMsg *dns.Msg, requestedDomain string) map[string][]string {
+func (p *DNSProxy) buildDomainMatches(cacheResults []caching.CacheAddResult) map[string][]string {
 	domainMatches := make(map[string][]string)
 
-	// Check requested domain
-	if requestedDomain != "" {
-		if matches := p.matcher.Match(requestedDomain); len(matches) > 0 {
-			domainMatches[requestedDomain] = matches
+	// Check only domains with NEW cache entries
+	seenDomains := make(map[string]struct{})
+	for _, result := range cacheResults {
+		if !result.IsNew {
+			continue
 		}
-	}
 
-	// Check all CNAME domains in response
-	for _, rr := range respMsg.Answer {
-		if cname, ok := rr.(*dns.CNAME); ok {
-			domain := normalizeDomain(cname.Hdr.Name)
-			target := normalizeDomain(cname.Target)
+		// Process each domain only once
+		if _, seen := seenDomains[result.Domain]; seen {
+			continue
+		}
+		seenDomains[result.Domain] = struct{}{}
 
-			// Check both the CNAME source and target
-			if _, exists := domainMatches[domain]; !exists {
-				if matches := p.matcher.Match(domain); len(matches) > 0 {
-					domainMatches[domain] = matches
-				}
-			}
-			if _, exists := domainMatches[target]; !exists {
-				if matches := p.matcher.Match(target); len(matches) > 0 {
-					domainMatches[target] = matches
-				}
-			}
+		// Check if domain matches
+		if matches := p.matcher.Match(result.Domain); len(matches) > 0 {
+			domainMatches[result.Domain] = matches
 		}
 	}
 
@@ -847,7 +839,6 @@ func (p *DNSProxy) buildDomainMatches(respMsg *dns.Msg, requestedDomain string) 
 }
 
 // buildIPSetEntries creates IPSet entries from cache results and domain matches.
-// Only creates entries for NEW IPs (IsNew=true) that belong to matched domains.
 func (p *DNSProxy) buildIPSetEntries(
 	msgID uint16,
 	cacheResults []caching.CacheAddResult,
@@ -867,38 +858,24 @@ func (p *DNSProxy) buildIPSetEntries(
 
 	// For each cached IP address
 	for _, result := range cacheResults {
-		// Skip if not new (already cached, no need to update ipset)
-		if !result.IsNew {
+		// Get matching ipsets for this domain
+		ipsets, exists := domainMatches[result.Domain]
+		if !exists || len(ipsets) == 0 {
 			continue
 		}
 
-		// Check if this domain (or any of its aliases via CNAME) matches
-		aliases := p.recordsCache.GetAliases(result.Domain)
-		var matchingIPSets []string
-
-		for _, alias := range aliases {
-			if ipsets, exists := domainMatches[alias]; exists {
-				matchingIPSets = append(matchingIPSets, ipsets...)
-			}
-		}
-
-		// No matches, skip this IP
-		if len(matchingIPSets) == 0 {
-			continue
-		}
-
-		// Calculate IPSet TTL using the original DNS record TTL
+		// Calculate IPSet TTL
 		ipsetTTL := p.getIPSetTTL(result.OriginalTTL)
+		isIPv4 := result.IP.To4() != nil
 
 		// Create entries for all matching ipsets
-		for _, ipsetName := range matchingIPSets {
+		for _, ipsetName := range ipsets {
 			ipsetCfg := p.ipsetsByName[ipsetName]
 			if ipsetCfg == nil {
 				continue
 			}
 
 			// Check IP version matches ipset
-			isIPv4 := result.IP.To4() != nil
 			if (isIPv4 && ipsetCfg.IPVersion != config.Ipv4) ||
 				(!isIPv4 && ipsetCfg.IPVersion != config.Ipv6) {
 				continue
@@ -1141,14 +1118,8 @@ func (p *DNSProxy) processResponse(reqMsg, respMsg *dns.Msg) {
 	// 4. Bulk add to cache - get results indicating which IPs are NEW
 	cacheResults := p.recordsCache.BulkAdd(cacheOps)
 
-	// 5. Get requested domain from question
-	var requestedDomain string
-	if len(reqMsg.Question) > 0 {
-		requestedDomain = normalizeDomain(reqMsg.Question[0].Name)
-	}
-
-	// 6. Check which domains match (requested + CNAMEs)
-	domainMatches := p.buildDomainMatches(respMsg, requestedDomain)
+	// 5. Check which domains match (only domains with NEW cache entries)
+	domainMatches := p.buildDomainMatches(cacheResults)
 
 	// 7. Collect ipset entries from cache results + domain matches
 	entries := p.buildIPSetEntries(reqMsg.Id, cacheResults, domainMatches)
