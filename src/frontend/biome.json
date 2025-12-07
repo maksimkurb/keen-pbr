@@ -1,10 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": [
-      "**",
-      "!src/api/generated-types.ts"
-    ]
+    "includes": ["**", "!src/api/generated-types.ts"]
   },
   "assist": {
     "actions": {

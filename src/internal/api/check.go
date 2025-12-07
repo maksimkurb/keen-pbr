@@ -39,9 +39,9 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := RoutingCheckResponse{
-		Host:              req.Host,
-		MatchedByHostname: []HostnameRuleMatch{},
-		IPSetChecks:       []IPSetCheckResult{},
+		Host:        req.Host,
+		Rules:       []RuleInfo{},
+		IPSetChecks: []IPSetCheckResult{},
 	}
 
 	// Try to resolve the host
@@ -60,12 +60,19 @@ func (h *Handler) CheckRouting(w http.ResponseWriter, r *http.Request) {
 
 	// Check which rules match by hostname pattern
 	hostnameMatches := h.findHostnameMatches(req.Host)
-	response.MatchedByHostname = hostnameMatches
 
 	// Build map of rules that should contain IPs (matched by hostname)
 	shouldContainByHostname := make(map[string]bool)
 	for _, match := range hostnameMatches {
 		shouldContainByHostname[match.RuleName] = true
+	}
+
+	// Populate rules array with all configured IPSets
+	for _, ipsetConfig := range cfg.IPSets {
+		response.Rules = append(response.Rules, RuleInfo{
+			RuleName:          ipsetConfig.IPSetName,
+			MatchedByHostname: shouldContainByHostname[ipsetConfig.IPSetName],
+		})
 	}
 
 	// For each resolved IP, check against all rules

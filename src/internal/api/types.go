@@ -117,10 +117,16 @@ type CheckRequest struct {
 
 // RoutingCheckResponse returns detailed routing information for a host.
 type RoutingCheckResponse struct {
-	Host              string              `json:"host"`
-	ResolvedIPs       []string            `json:"resolved_ips,omitempty"`
-	MatchedByHostname []HostnameRuleMatch `json:"matched_by_hostname,omitempty"`
-	IPSetChecks       []IPSetCheckResult  `json:"ipset_checks"`
+	Host        string             `json:"host"`
+	ResolvedIPs []string           `json:"resolved_ips,omitempty"`
+	Rules       []RuleInfo         `json:"rules"`
+	IPSetChecks []IPSetCheckResult `json:"ipset_checks"`
+}
+
+// RuleInfo contains metadata about a rule.
+type RuleInfo struct {
+	RuleName          string `json:"rule_name"`
+	MatchedByHostname bool   `json:"matched_by_hostname"`
 }
 
 // HostnameRuleMatch represents a rule that matched by hostname pattern.

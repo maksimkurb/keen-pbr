@@ -308,9 +308,7 @@ export default function ListPage() {
 
         {formData.type === 'file' && (
           <Field>
-            <FieldLabel htmlFor="file">
-              {t('lists.dialog.filePath')}
-            </FieldLabel>
+            <FieldLabel htmlFor="file">{t('lists.dialog.filePath')}</FieldLabel>
             <FieldDescription>
               {t('lists.dialog.filePathDescription')}
             </FieldDescription>

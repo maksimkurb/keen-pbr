@@ -159,13 +159,13 @@ function IPTablesRules({
                         `iptables_rule[${index}].chain`,
                         validationErrors,
                       ) && (
-                          <FieldError>
-                            {getFieldError(
-                              `iptables_rule[${index}].chain`,
-                              validationErrors,
-                            )}
-                          </FieldError>
-                        )}
+                        <FieldError>
+                          {getFieldError(
+                            `iptables_rule[${index}].chain`,
+                            validationErrors,
+                          )}
+                        </FieldError>
+                      )}
                     </Field>
 
                     <Field
@@ -192,13 +192,13 @@ function IPTablesRules({
                         `iptables_rule[${index}].table`,
                         validationErrors,
                       ) && (
-                          <FieldError>
-                            {getFieldError(
-                              `iptables_rule[${index}].table`,
-                              validationErrors,
-                            )}
-                          </FieldError>
-                        )}
+                        <FieldError>
+                          {getFieldError(
+                            `iptables_rule[${index}].table`,
+                            validationErrors,
+                          )}
+                        </FieldError>
+                      )}
                     </Field>
                   </div>
 
@@ -252,13 +252,13 @@ function IPTablesRules({
                       `iptables_rule[${index}].rule`,
                       validationErrors,
                     ) && (
-                        <FieldError>
-                          {getFieldError(
-                            `iptables_rule[${index}].rule`,
-                            validationErrors,
-                          )}
-                        </FieldError>
-                      )}
+                      <FieldError>
+                        {getFieldError(
+                          `iptables_rule[${index}].rule`,
+                          validationErrors,
+                        )}
+                      </FieldError>
+                    )}
                   </Field>
                 </div>
               ))}

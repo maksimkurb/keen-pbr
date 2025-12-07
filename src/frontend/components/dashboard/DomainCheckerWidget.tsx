@@ -128,6 +128,24 @@ export function DomainCheckerWidget() {
       eventSourceRef.current.close();
     }
 
+    const sanitized = sanitizeHostInput(host);
+
+    if (!sanitized) {
+      setState({
+        type: 'routing',
+        loading: false,
+        error: t('dashboard.domainChecker.invalidHostInput'),
+        routingResult: null,
+        consoleOutput: [],
+      });
+      return;
+    }
+
+    // Update the input field with sanitized value
+    if (sanitized !== host) {
+      setHost(sanitized);
+    }
+
     setState({
       type: 'ping',
       loading: true,
@@ -136,7 +154,7 @@ export function DomainCheckerWidget() {
       consoleOutput: [],
     });
 
-    const url = apiClient.getPingSSEUrl(host);
+    const url = apiClient.getPingSSEUrl(sanitized);
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
     let completed = false;
@@ -180,6 +198,24 @@ export function DomainCheckerWidget() {
       eventSourceRef.current.close();
     }
 
+    const sanitized = sanitizeHostInput(host);
+
+    if (!sanitized) {
+      setState({
+        type: 'routing',
+        loading: false,
+        error: t('dashboard.domainChecker.invalidHostInput'),
+        routingResult: null,
+        consoleOutput: [],
+      });
+      return;
+    }
+
+    // Update the input field with sanitized value
+    if (sanitized !== host) {
+      setHost(sanitized);
+    }
+
     setState({
       type: 'traceroute',
       loading: true,
@@ -188,7 +224,7 @@ export function DomainCheckerWidget() {
       consoleOutput: [],
     });
 
-    const url = apiClient.getTracerouteSSEUrl(host);
+    const url = apiClient.getTracerouteSSEUrl(sanitized);
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
     let completed = false;
@@ -293,19 +329,14 @@ export function DomainCheckerWidget() {
         {/* Routing Check Results */}
         {state.routingResult && (
           <div className="space-y-4 rounded-lg border p-4">
-
             {/* Unified Results Table */}
             <div className="overflow-x-auto">
               {state.routingResult &&
                 (() => {
-                  // Collect all unique rule names
-                  const ruleNames = Array.from(
-                    new Set(
-                      state.routingResult.ipset_checks?.flatMap((ipCheck) =>
-                        ipCheck.rule_results.map((r) => r.rule_name),
-                      ) || [],
-                    ),
-                  ).sort();
+                  // Get all rule names from the rules field
+                  const ruleNames = (state.routingResult.rules || []).map(
+                    (rule) => rule.rule_name,
+                  );
 
                   return (
                     <table className="w-full text-sm border-collapse">
@@ -334,10 +365,9 @@ export function DomainCheckerWidget() {
                               {t('dashboard.domainChecker.hostPresentInRules')}
                             </td>
                             {ruleNames.map((ruleName) => {
-                              const matchedRule =
-                                state.routingResult?.matched_by_hostname?.find(
-                                  (m) => m.rule_name === ruleName,
-                                );
+                              const rule = state.routingResult?.rules?.find(
+                                (r) => r.rule_name === ruleName,
+                              );
                               const host = state.routingResult?.host || '';
                               return (
                                 <td
@@ -345,7 +375,7 @@ export function DomainCheckerWidget() {
                                   className="text-center p-2"
                                 >
                                   <div className="flex items-center justify-center">
-                                    {matchedRule ? (
+                                    {rule?.matched_by_hostname ? (
                                       <CircleCheckBig className="h-5 w-5 text-green-600" />
                                     ) : (
                                       <CircleOff className="h-5 w-5 text-gray-400" />

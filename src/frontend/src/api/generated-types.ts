@@ -413,7 +413,7 @@ export interface PingCheckResponse {
 export interface RoutingCheckResponse {
     host: string;
     resolved_ips?: string[];
-    matched_by_hostname?: HostnameRuleMatch[];
+    rules: RuleInfo[];
     ipset_checks: IPSetCheckResult[];
 }
 
@@ -466,6 +466,15 @@ export interface RuleCheckResult {
     present_in_ipset: boolean;
     should_be_present: boolean;
     match_reason?: string; // e.g., "hostname acme.corp", "ipv4 1.2.3.0/24"
+}
+
+// From api/types.go
+/**
+ * RuleInfo contains metadata about a rule.
+ */
+export interface RuleInfo {
+    rule_name: string;
+    matched_by_hostname: boolean;
 }
 
 // From api/types.go

@@ -85,9 +85,7 @@ export function SettingsForm() {
       <Card>
         <CardHeader>
           <CardTitle>{t('settings.listsTitle')}</CardTitle>
-          <CardDescription>
-            {t('settings.listsDescription')}
-          </CardDescription>
+          <CardDescription>{t('settings.listsDescription')}</CardDescription>
         </CardHeader>
 
         <CardContent>
