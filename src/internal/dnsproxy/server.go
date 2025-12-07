@@ -31,16 +31,14 @@ type Server struct {
 	udpRequestChan chan udpRequest
 	tcpActiveSem   chan struct{} // Limits concurrent TCP connections
 
-	udpBufPool sync.Pool
-	tcpBufPool sync.Pool
+	bufPool sync.Pool
 }
 
 func NewServer(cfg ProxyConfig, handler Handler) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		handler: handler, config: cfg, ctx: ctx, cancel: cancel,
-		udpBufPool: sync.Pool{New: func() interface{} { b := make([]byte, dns.MaxMsgSize); return &b }},
-		tcpBufPool: sync.Pool{New: func() interface{} { b := make([]byte, dns.MaxMsgSize); return &b }},
+		bufPool: sync.Pool{New: func() interface{} { b := make([]byte, dns.MaxMsgSize); return &b }},
 	}
 }
 
@@ -131,11 +129,11 @@ func (s *Server) serveUDP() {
 		}
 
 		// Optimization: Don't set deadlines per packet, rely on Close() to unblock ReadFromUDP
-		bufPtr := s.udpBufPool.Get().(*[]byte)
+		bufPtr := s.bufPool.Get().(*[]byte)
 		n, addr, err := s.udpConn.ReadFromUDP(*bufPtr)
 
 		if err != nil {
-			s.udpBufPool.Put(bufPtr)
+			s.bufPool.Put(bufPtr)
 			if isClosedError(err) {
 				return
 			}
@@ -146,7 +144,7 @@ func (s *Server) serveUDP() {
 		// Use clientAddr field name to match types.go definition
 		case s.udpRequestChan <- udpRequest{clientAddr: addr, buf: *bufPtr, n: n, conn: s.udpConn}:
 		default:
-			s.udpBufPool.Put(bufPtr) // Drop if queue full
+			s.bufPool.Put(bufPtr) // Drop if queue full
 			log.Warnf("UDP dropped (queue full) from %s", addr)
 		}
 	}
@@ -158,7 +156,7 @@ func (s *Server) udpWorker() {
 		bufPtr := &req.buf
 		// Use clientAddr field name to match types.go definition
 		resp, err := s.handler.HandleRequest(req.clientAddr, req.buf[:req.n], networkUDP)
-		s.udpBufPool.Put(bufPtr) // Return to pool immediately
+		s.bufPool.Put(bufPtr) // Return to pool immediately
 
 		if err == nil && len(resp) > 0 {
 			// Reuse conn from request or s.udpConn
@@ -202,8 +200,8 @@ func (s *Server) handleTCP(conn net.Conn) {
 		return
 	}
 
-	bufPtr := s.tcpBufPool.Get().(*[]byte)
-	defer s.tcpBufPool.Put(bufPtr)
+	bufPtr := s.bufPool.Get().(*[]byte)
+	defer s.bufPool.Put(bufPtr)
 
 	if _, err := io.ReadFull(conn, (*bufPtr)[:length]); err != nil {
 		return
