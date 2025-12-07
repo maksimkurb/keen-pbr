@@ -618,42 +618,32 @@ func (h *ProxyHandler) Shutdown() {
 	log.Infof("Shutting down DNS proxy handler...")
 
 	// Cancel context to stop cleanup loop
-	log.Debugf("Cancelling handler context")
 	h.cancel()
-	log.Debugf("Handler context cancelled")
 
 	// Close all SSE subscribers
-	log.Debugf("Closing all SSE subscribers")
 	h.CloseAllSubscribers()
-	log.Debugf("SSE subscribers closed")
 
 	// Wait for cleanup loop to finish with timeout
-	log.Debugf("Waiting for cleanup loop to exit")
 	done := make(chan struct{})
 	go func() {
-		log.Debugf("Background wait: starting h.wg.Wait()")
 		h.wg.Wait()
-		log.Debugf("Background wait: h.wg.Wait() completed")
 		close(done)
 	}()
 
 	select {
 	case <-done:
 		// Cleanup loop exited cleanly
-		log.Debugf("Cleanup loop exited cleanly")
 	case <-time.After(100 * time.Millisecond):
 		log.Warnf("Cleanup loop did not exit within timeout - proceeding anyway")
 	}
 
 	// Close upstreams
-	log.Debugf("Closing upstreams")
 	if h.upstream != nil {
 		utils.CloseOrWarn(h.upstream)
 	}
 	for _, upstream := range h.ipsetUpstreams {
 		utils.CloseOrWarn(upstream)
 	}
-	log.Debugf("Upstreams closed")
 
 	log.Infof("DNS proxy handler shut down")
 }

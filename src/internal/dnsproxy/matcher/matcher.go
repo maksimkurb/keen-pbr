@@ -1,3 +1,4 @@
+// Package matcher contains domain matcher implementation.
 package matcher
 
 import (

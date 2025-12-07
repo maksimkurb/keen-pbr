@@ -1,4 +1,4 @@
-// Package domain defines core interfaces for dependency injection and abstraction.
+// Package core defines core interfaces for dependency injection and abstraction.
 //
 // This package contains the fundamental interfaces that enable loose coupling between
 // components and facilitate testing through dependency injection.

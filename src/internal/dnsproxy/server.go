@@ -21,8 +21,8 @@ import (
 // It delegates the processing of DNS requests to a Handler.
 // This component has NO knowledge of business logic (caching, ipsets, etc.).
 type Server struct {
-	handler Handler      // The business logic handler
-	config  ProxyConfig  // Server configuration
+	handler Handler     // The business logic handler
+	config  ProxyConfig // Server configuration
 
 	// Lifecycle
 	ctx    context.Context
@@ -90,7 +90,7 @@ func (s *Server) Start() error {
 		_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, 8*1024*1024)
 		// Enable address reuse for fast restart
 		_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-		udpFile.Close()
+		utils.CloseOrWarn(udpFile)
 	}
 
 	s.tcpLn, err = net.Listen("tcp", listenAddr)
@@ -107,7 +107,7 @@ func (s *Server) Start() error {
 			_ = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 			// Disable Nagle's algorithm for lower latency
 			_ = syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_NODELAY, 1)
-			tcpFile.Close()
+			utils.CloseOrWarn(tcpFile)
 		}
 	}
 

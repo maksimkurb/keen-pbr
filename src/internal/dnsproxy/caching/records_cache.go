@@ -1,3 +1,4 @@
+// Package caching implements a DNS records cache.
 package caching
 
 import (
@@ -5,6 +6,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 // extractIPv4Count extracts IPv4 count from the combined byte (lower 5 bits).
@@ -147,7 +150,8 @@ func (e *addressEntry) getAllAddressesFiltered(qtype uint16, deadline time.Time,
 	ipv4Count, ipv6Count := e.getCounts()
 
 	// Extract IPv4 addresses if requested (qtype == 1 is dns.TypeA)
-	if qtype == 1 {
+	switch qtype {
+	case dns.TypeA:
 		offset := 0
 		for i := 0; i < ipv4Count; i++ {
 			ip := net.IP(make([]byte, 4))
@@ -158,7 +162,7 @@ func (e *addressEntry) getAllAddressesFiltered(qtype uint16, deadline time.Time,
 			})
 			offset += 4
 		}
-	} else if qtype == 28 { // dns.TypeAAAA
+	case dns.TypeAAAA:
 		// Extract IPv6 addresses if requested
 		offset := ipv4Count * 4
 		for i := 0; i < ipv6Count; i++ {

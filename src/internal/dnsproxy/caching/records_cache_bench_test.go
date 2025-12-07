@@ -5,7 +5,16 @@ import (
 	"math/rand"
 	"net"
 	"testing"
+
+	"github.com/miekg/dns"
 )
+
+// getAddressesForTest is a helper function for benchmarks that retrieves all cached addresses for a domain.
+func getAddressesForTest(cache *RecordsCache, domain string) []CachedAddress {
+	// First get IPv4 addresses, then IPv6
+	addrs := cache.GetFilteredAddresses(domain, dns.TypeA, []CachedAddress{})
+	return cache.GetFilteredAddresses(domain, dns.TypeAAAA, addrs)
+}
 
 // User-requested benchmarks - cache scenarios
 

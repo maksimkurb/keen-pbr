@@ -2,7 +2,6 @@ package dnsproxy
 
 import (
 	"net"
-	"runtime"
 	"strings"
 	"time"
 
@@ -105,9 +104,4 @@ func normalizeDomain(domain string) string {
 		return domain[:len(domain)-1]
 	}
 	return strings.ToLower(domain)
-}
-
-// getDefaultWorkerCount returns the default number of workers based on CPU count.
-func getDefaultWorkerCount() int {
-	return runtime.NumCPU() * 2
 }

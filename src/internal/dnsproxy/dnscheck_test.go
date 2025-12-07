@@ -38,18 +38,18 @@ func TestIsDNSCheckDomain(t *testing.T) {
 }
 
 func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
-	// Create a minimal proxy for testing subscription functionality
-	proxy := &DNSProxy{
+	// Create a minimal handler for testing subscription functionality
+	handler := &ProxyHandler{
 		dnscheckSubscribers: make(map[chan string]struct{}),
 	}
 
 	// Subscribe two clients
-	ch1 := proxy.Subscribe()
-	ch2 := proxy.Subscribe()
+	ch1 := handler.Subscribe()
+	ch2 := handler.Subscribe()
 
 	// Broadcast a domain
 	testDomain := "test.dns-check.keen-pbr.internal"
-	proxy.broadcastDNSCheck(testDomain)
+	handler.broadcastDNSCheck(testDomain)
 
 	// Both channels should receive the domain
 	select {
@@ -71,11 +71,11 @@ func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
 	}
 
 	// Unsubscribe ch1
-	proxy.Unsubscribe(ch1)
+	handler.Unsubscribe(ch1)
 
 	// Broadcast again - only ch2 should receive
 	testDomain2 := "test2.dns-check.keen-pbr.internal"
-	proxy.broadcastDNSCheck(testDomain2)
+	handler.broadcastDNSCheck(testDomain2)
 
 	select {
 	case domain := <-ch2:
@@ -87,7 +87,7 @@ func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
 	}
 
 	// Unsubscribe ch2
-	proxy.Unsubscribe(ch2)
+	handler.Unsubscribe(ch2)
 
 	// Verify both channels are closed
 	_, ok := <-ch1
@@ -102,23 +102,23 @@ func TestDNSProxy_SubscribeBroadcast(t *testing.T) {
 }
 
 func TestDNSProxy_BroadcastFullChannel(t *testing.T) {
-	// Create a minimal proxy for testing
-	proxy := &DNSProxy{
+	// Create a minimal handler for testing
+	handler := &ProxyHandler{
 		dnscheckSubscribers: make(map[chan string]struct{}),
 	}
 
 	// Subscribe a client
-	ch := proxy.Subscribe()
+	ch := handler.Subscribe()
 
 	// Fill up the channel buffer (buffer size is 10)
 	for i := 0; i < 10; i++ {
-		proxy.broadcastDNSCheck("test.dns-check.keen-pbr.internal")
+		handler.broadcastDNSCheck("test.dns-check.keen-pbr.internal")
 	}
 
 	// This should not block even though channel is full
 	done := make(chan bool)
 	go func() {
-		proxy.broadcastDNSCheck("overflow.dns-check.keen-pbr.internal")
+		handler.broadcastDNSCheck("overflow.dns-check.keen-pbr.internal")
 		done <- true
 	}()
 
@@ -129,5 +129,5 @@ func TestDNSProxy_BroadcastFullChannel(t *testing.T) {
 		t.Error("broadcastDNSCheck blocked on full channel")
 	}
 
-	proxy.Unsubscribe(ch)
+	handler.Unsubscribe(ch)
 }
