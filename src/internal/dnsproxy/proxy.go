@@ -3,6 +3,7 @@ package dnsproxy
 import (
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/core"
+	"github.com/maksimkurb/keen-pbr/src/internal/log"
 )
 
 // DNSProxy is a facade that combines the Server (network layer) and ProxyHandler (business logic).
@@ -36,10 +37,13 @@ func (p *DNSProxy) Start() error {
 
 // Stop stops the DNS proxy (both server and handler).
 func (p *DNSProxy) Stop() error {
+	log.Infof("Stopping DNS proxy server...")
 	if err := p.server.Stop(); err != nil {
 		return err
 	}
+	log.Infof("DNS proxy server stopped, now shutting down handler...")
 	p.handler.Shutdown()
+	log.Infof("DNS proxy handler shutdown complete")
 	return nil
 }
 
