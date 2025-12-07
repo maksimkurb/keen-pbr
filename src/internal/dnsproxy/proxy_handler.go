@@ -454,8 +454,7 @@ func (h *ProxyHandler) processResponse(reqMsg, respMsg *dns.Msg) {
 			}
 
 			// Add CNAME to cache
-			cacheTTL := h.getRecordsCacheTTL(ttl, domain)
-			h.recordsCache.AddAlias(domain, target, cacheTTL)
+			h.recordsCache.AddAlias(domain, target, ttl)
 		}
 	}
 
@@ -488,9 +487,7 @@ func (h *ProxyHandler) processAddressRecord(
 	domainMatches map[string][]string,
 	entries []networking.IPSetEntry,
 ) []networking.IPSetEntry {
-	// Calculate cache TTL and add to cache
-	cacheTTL := h.getRecordsCacheTTL(originalTTL, domain)
-	isNew := h.recordsCache.AddAddress(domain, ip, cacheTTL)
+	isNew := h.recordsCache.AddAddress(domain, ip, originalTTL)
 
 	// If not new, skip IPSet processing
 	if !isNew {
@@ -555,18 +552,6 @@ func (h *ProxyHandler) processAddressRecord(
 	}
 
 	return entries
-}
-
-// getRecordsCacheTTL returns the TTL to use for the records cache for a domain.
-// For domains matched by the matcher, uses ListedDomainsDNSCacheTTLSec if set (to make clients forget DNS fast).
-// For other domains, uses the original DNS response TTL.
-func (h *ProxyHandler) getRecordsCacheTTL(originalTTL uint32, domain string) uint32 {
-	// Check if domain is in matcher (listed domain)
-	matches := h.matcher.Match(domain)
-	if len(matches) > 0 && h.config.ListedDomainsDNSCacheTTLSec > 0 {
-		return h.config.ListedDomainsDNSCacheTTLSec
-	}
-	return originalTTL
 }
 
 // getIPSetTTL returns the TTL to use for IPSet entries.
@@ -764,4 +749,3 @@ func (h *ProxyHandler) processDNSCheckRequest(reqMsg *dns.Msg) ([]byte, error) {
 
 	return respBytes, nil
 }
-

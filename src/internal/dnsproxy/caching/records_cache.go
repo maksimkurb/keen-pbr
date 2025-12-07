@@ -7,32 +7,6 @@ import (
 	"time"
 )
 
-// CacheOpType defines the type of cache operation
-type CacheOpType uint8
-
-const (
-	CacheOpAddress CacheOpType = iota
-	CacheOpAlias
-)
-
-// CacheOperation represents a single cache operation to be performed in bulk
-type CacheOperation struct {
-	Type        CacheOpType
-	Domain      string
-	Address     net.IP // used for CacheOpAddress
-	Target      string // used for CacheOpAlias
-	TTL         uint32 // Cache TTL (may differ from OriginalTTL if ListedDomainsDNSCacheTTLSec is set)
-	OriginalTTL uint32 // Original DNS record TTL (for ipset TTL calculation)
-}
-
-// CacheAddResult represents the result of adding an address to the cache
-type CacheAddResult struct {
-	Domain      string
-	IP          net.IP
-	OriginalTTL uint32 // Original DNS record TTL (for ipset TTL calculation)
-	IsNew       bool   // true if this IP was newly added (should add to ipset)
-}
-
 // extractIPv4Count extracts IPv4 count from the combined byte (lower 5 bits).
 func extractIPv4Count(b byte) int {
 	return int(b & 0x1F) // Lower 5 bits
@@ -288,9 +262,9 @@ func (r *RecordsCache) removeDomainFromLRU(domain string) {
 // addAddressLocked adds an IP address for a domain with the specified TTL (must be called with lock held).
 // Returns true if this is a new entry that should be added to ipset,
 // false if the entry already exists and is still valid.
-func (r *RecordsCache) addAddressLocked(domain string, address net.IP, ttl uint32) bool {
+func (r *RecordsCache) addAddressLocked(domain string, address net.IP, originalTTL uint32) bool {
 	now := time.Now().Unix()
-	deadline := now + int64(ttl)
+	deadline := now + int64(originalTTL)
 
 	entry, exists := r.addresses[domain]
 
@@ -346,11 +320,11 @@ func (r *RecordsCache) addAddressLocked(domain string, address net.IP, ttl uint3
 // AddAddress adds an IP address for a domain with the specified TTL.
 // Returns true if this is a new entry that should be added to ipset,
 // false if the entry already exists and is still valid.
-func (r *RecordsCache) AddAddress(domain string, address net.IP, ttl uint32) bool {
+func (r *RecordsCache) AddAddress(domain string, address net.IP, originalTTL uint32) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	isNew := r.addAddressLocked(domain, address, ttl)
+	isNew := r.addAddressLocked(domain, address, originalTTL)
 	r.evictIfNeeded()
 	return isNew
 }
@@ -567,33 +541,4 @@ func (r *RecordsCache) Stats() (addressCount, aliasCount int) {
 	aliasCount = len(r.aliases)
 
 	return
-}
-
-// BulkAdd adds multiple cache entries in a single operation.
-// Returns slice of results indicating which IP addresses were newly added.
-func (r *RecordsCache) BulkAdd(operations []CacheOperation) []CacheAddResult {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	var results []CacheAddResult
-
-	for _, op := range operations {
-		switch op.Type {
-		case CacheOpAddress:
-			isNew := r.addAddressLocked(op.Domain, op.Address, op.TTL)
-			results = append(results, CacheAddResult{
-				Domain:      op.Domain,
-				IP:          op.Address,
-				OriginalTTL: op.OriginalTTL,
-				IsNew:       isNew,
-			})
-		case CacheOpAlias:
-			r.addAliasLocked(op.Domain, op.Target, op.TTL)
-		}
-	}
-
-	// Call evictIfNeeded once at the end instead of per-operation
-	r.evictIfNeeded()
-
-	return results
 }
