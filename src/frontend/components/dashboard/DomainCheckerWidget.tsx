@@ -1,17 +1,17 @@
 import {
   AlertCircle,
-  CheckCircle2,
+  CircleCheckBig,
+  CircleOff,
   Loader2,
-  RouteIcon,
+  Route,
+  RouteOff,
   Search,
-  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RoutingCheckResponse } from '../../src/api/client';
 import { apiClient } from '../../src/api/client';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -56,13 +56,20 @@ export function DomainCheckerWidget() {
       return url.hostname;
     } catch {
       // Not a valid URL, check if it's a valid domain/IPv4/IPv6
-      if (/^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(trimmed)) {
+      if (
+        /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(
+          trimmed,
+        )
+      ) {
         return trimmed; // Valid domain
       }
       if (/^(\d{1,3}\.){3}\d{1,3}$/.test(trimmed)) {
         return trimmed; // Valid IPv4
       }
-      if (/^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::)$/.test(trimmed) || /^[0-9a-fA-F:]+$/.test(trimmed)) {
+      if (
+        /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::)$/.test(trimmed) ||
+        /^[0-9a-fA-F:]+$/.test(trimmed)
+      ) {
         return trimmed; // Valid IPv6
       }
       return null; // Invalid input
@@ -286,104 +293,147 @@ export function DomainCheckerWidget() {
         {/* Routing Check Results */}
         {state.routingResult && (
           <div className="space-y-4 rounded-lg border p-4">
-            <div className="flex items-center gap-2">
-              <RouteIcon className="h-5 w-5" />
-              <h3 className="font-semibold">
-                {t('dashboard.domainChecker.host')} {state.routingResult.host}
-              </h3>
-            </div>
 
-            {/* Hostname Matches */}
-            <div>
-              <div className="text-sm font-medium mb-2">
-                {t('dashboard.domainChecker.presentInRules')}
-              </div>
-              {state.routingResult.matched_by_hostname &&
-                state.routingResult.matched_by_hostname.length > 0 ? (
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {state.routingResult.matched_by_hostname.map((match) => (
-                    <li key={match.rule_name}>
-                      {t('dashboard.domainChecker.rule')}{' '}
-                      <strong>{match.rule_name}</strong>{' '}
-                      {t('dashboard.domainChecker.hostname')}{' '}
-                      <Badge variant="default">{match.pattern}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-sm text-muted-foreground italic">
-                  {t('dashboard.domainChecker.notFoundInRules')}
-                </div>
-              )}
-            </div>
+            {/* Unified Results Table */}
+            <div className="overflow-x-auto">
+              {state.routingResult &&
+                (() => {
+                  // Collect all unique rule names
+                  const ruleNames = Array.from(
+                    new Set(
+                      state.routingResult.ipset_checks?.flatMap((ipCheck) =>
+                        ipCheck.rule_results.map((r) => r.rule_name),
+                      ) || [],
+                    ),
+                  ).sort();
 
-            {/* IP -> Rule -> Present Table */}
-            {state.routingResult.ipset_checks &&
-              state.routingResult.ipset_checks.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2 font-medium">
-                          {t('dashboard.domainChecker.ipAddress')}
-                        </th>
-                        <th className="text-left p-2 font-medium">
-                          {t('dashboard.domainChecker.rule')}
-                        </th>
-                        <th className="text-left p-2 font-medium">
-                          {t('dashboard.domainChecker.presentInIPSet')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.routingResult.ipset_checks.map((ipCheck) => (
-                        <>
-                          {ipCheck.rule_results.map((ruleResult, index) => (
-                            <tr
-                              key={`${ipCheck.ip}-${ruleResult.rule_name}`}
-                              className={`border-b ${ruleResult.present_in_ipset !==
-                                ruleResult.should_be_present
-                                ? 'bg-destructive/5'
-                                : ''
-                                }`}
+                  return (
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b bg-accent">
+                          <th className="text-left p-2 font-medium">
+                            {t('dashboard.domainChecker.host', {
+                              host: state.routingResult.host,
+                            })}
+                          </th>
+                          {ruleNames.map((ruleName) => (
+                            <th
+                              key={ruleName}
+                              className="text-center p-2 font-medium text-xs"
                             >
-                              {index === 0 && (
-                                <td
-                                  rowSpan={ipCheck.rule_results.length}
-                                  className="p-2 font-mono border-r align-top"
-                                >
-                                  {ipCheck.ip}
-                                </td>
-                              )}
-                              <td className="p-2">{ruleResult.rule_name}</td>
-                              <td className="p-2">
-                                <div className="flex items-center gap-2">
-                                  <span>
-                                    {ruleResult.present_in_ipset
-                                      ? t('dashboard.domainChecker.yes')
-                                      : t('dashboard.domainChecker.no')}
-                                  </span>
-                                  {ruleResult.present_in_ipset ===
-                                    ruleResult.should_be_present ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                  ) : (
-                                    <X className="h-4 w-4 text-red-600" />
-                                  )}
-                                  {ruleResult.match_reason && (
-                                    <span className="text-xs text-muted-foreground">
-                                      ({ruleResult.match_reason})
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
+                              {ruleName}
+                            </th>
                           ))}
-                        </>
-                      ))}
-                    </tbody>
-                  </table>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Host row - domain lists */}
+                        {state.routingResult && (
+                          <tr className="border-b bg-secondary">
+                            <td className="p-2">
+                              {t('dashboard.domainChecker.hostPresentInRules')}
+                            </td>
+                            {ruleNames.map((ruleName) => {
+                              const matchedRule =
+                                state.routingResult?.matched_by_hostname?.find(
+                                  (m) => m.rule_name === ruleName,
+                                );
+                              const host = state.routingResult?.host || '';
+                              return (
+                                <td
+                                  key={`${host}-${ruleName}`}
+                                  className="text-center p-2"
+                                >
+                                  <div className="flex items-center justify-center">
+                                    {matchedRule ? (
+                                      <CircleCheckBig className="h-5 w-5 text-green-600" />
+                                    ) : (
+                                      <CircleOff className="h-5 w-5 text-gray-400" />
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        )}
+
+                        {/* IP rows - IPSets */}
+                        {state.routingResult?.ipset_checks?.map((ipCheck) => (
+                          <tr key={ipCheck.ip} className="border-b">
+                            <td className="p-2 font-mono">{ipCheck.ip}</td>
+                            {ruleNames.map((ruleName) => {
+                              const ruleResult = ipCheck.rule_results.find(
+                                (r) => r.rule_name === ruleName,
+                              );
+                              if (!ruleResult) return null;
+
+                              const isInIPSet = ruleResult.present_in_ipset;
+                              const shouldBeInIPSet =
+                                ruleResult.should_be_present;
+
+                              const isProblematic =
+                                (isInIPSet && !shouldBeInIPSet) ||
+                                (!isInIPSet && shouldBeInIPSet);
+
+                              return (
+                                <td
+                                  key={`${ipCheck.ip}-${ruleName}`}
+                                  className={`text-center p-2 ${isProblematic ? 'bg-destructive/10' : ''}`}
+                                >
+                                  <div className="flex items-center justify-center">
+                                    {isInIPSet && shouldBeInIPSet ? (
+                                      <Route className="h-5 w-5 text-green-600" />
+                                    ) : isInIPSet && !shouldBeInIPSet ? (
+                                      <Route className="h-5 w-5 text-yellow-500" />
+                                    ) : !isInIPSet && shouldBeInIPSet ? (
+                                      <RouteOff className="h-5 w-5 text-red-600" />
+                                    ) : (
+                                      <RouteOff className="h-5 w-5 text-gray-400" />
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
+            </div>
+
+            {/* Legend */}
+            <div className="mt-4 space-y-2 text-sm">
+              <div className="font-medium text-muted-foreground">
+                {t('dashboard.domainChecker.legend')}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <CircleCheckBig className="h-4 w-4 text-green-600" />
+                  <span>{t('dashboard.domainChecker.inLists')}</span>
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <CircleOff className="h-4 w-4 text-gray-400" />
+                  <span>{t('dashboard.domainChecker.notInLists')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Route className="h-4 w-4 text-green-600" />
+                  <span>{t('dashboard.domainChecker.inIPSetCorrect')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RouteOff className="h-4 w-4 text-gray-400" />
+                  <span>{t('dashboard.domainChecker.notInIPSetCorrect')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Route className="h-4 w-4 text-yellow-500" />
+                  <span>{t('dashboard.domainChecker.inIPSetUnexpected')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RouteOff className="h-4 w-4 text-red-600" />
+                  <span>{t('dashboard.domainChecker.notInIPSetExpected')}</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

@@ -37,7 +37,7 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noArrayIndexKey": "info"
+        "noArrayIndexKey": "off"
       },
       "style": {
         "noNonNullAssertion": "error"
