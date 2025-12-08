@@ -1,7 +1,16 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!src/api/generated-types.ts"]
+    "includes": [
+      "**",
+      "!src/api/generated-types.ts",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/coverage",
+      "!**/.cache"
+    ],
+    "ignoreUnknown": true
   },
   "assist": {
     "actions": {
@@ -13,7 +22,8 @@
   "vcs": {
     "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": true
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   },
   "formatter": {
     "indentStyle": "space"

@@ -207,10 +207,9 @@
       "error": "Failed to download list: {{error}}"
     },
     "downloadAll": {
-      "button": "Download All Lists",
-      "buttonShort": "Download All",
-      "success": "All lists downloaded successfully",
-      "error": "Failed to download lists: {{error}}"
+      "button": "Update all URL lists",
+      "success": "All lists updated successfully",
+      "error": "Failed to update some lists: {{error}}"
     },
     "lastUpdated": "Last updated:",
     "ruleCount": "{{count}} rule",

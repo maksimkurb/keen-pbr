@@ -86,7 +86,7 @@ export function BaseForm<T extends FieldValues>({
 
   // Store original data for reset functionality
   const originalData = useMemo(() => {
-    return data ?? ({} as T);
+    return data;
   }, [data]);
 
   // Sync form data with fetched data
@@ -107,8 +107,13 @@ export function BaseForm<T extends FieldValues>({
       // Use custom cancel handler if provided
       onCancel();
     } else {
-      // Reset form to original data
-      reset(originalData as any);
+      // Reset form to original data (or defaultValues if no data)
+      if (originalData) {
+        reset(originalData as any);
+      } else {
+        // Reset to form's defaultValues
+        reset();
+      }
     }
   };
 

@@ -77,11 +77,8 @@ export default function Lists() {
             <Download
               className={`mr-2 h-4 w-4 ${downloadAllLists.isPending ? 'animate-spin' : ''}`}
             />
-            <span className="hidden sm:inline">
+            <span>
               {t('lists.downloadAll.button')}
-            </span>
-            <span className="sm:hidden">
-              {t('lists.downloadAll.buttonShort')}
             </span>
           </Button>
           <Button
