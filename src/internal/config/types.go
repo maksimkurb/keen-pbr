@@ -112,7 +112,7 @@ type ListSource struct {
 	// URL is the URL of the list (optional).
 	URL string `toml:"url,omitempty" json:"url,omitempty" validate:"omitempty,url"`
 	// File is the local file path of the list (optional).
-	File string `toml:"file,omitempty" json:"file,omitempty"`
+	File string `toml:"file,omitempty" json:"file,omitempty" validate:"omitempty,path_exists,is_file"`
 	// Hosts is a list of host entries for the list (optional).
 	Hosts []string `toml:"hosts,omitempty" json:"hosts,omitempty"`
 }

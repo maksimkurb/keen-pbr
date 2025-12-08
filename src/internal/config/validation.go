@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"os"
 	"reflect"
 	"strings"
 
@@ -35,6 +36,10 @@ func getValidationMessage(e validator.FieldError) string {
 		return "must be a valid upstream URL (keenetic://, udp://ip:port, or doh://host/path)"
 	case "dns_override":
 		return "must be a valid DNS override (ip or ip#port, IPv6 must be in square brackets)"
+	case "path_exists":
+		return "file does not exist"
+	case "is_file":
+		return "path must be a file, not a directory"
 	default:
 		return fmt.Sprintf("validation failed: %s", e.Tag())
 	}
@@ -87,6 +92,12 @@ func init() {
 		panic(err)
 	}
 	if err := validate.RegisterValidation("ipset_name", validateIPSetName); err != nil {
+		panic(err)
+	}
+	if err := validate.RegisterValidation("path_exists", validatePathExists); err != nil {
+		panic(err)
+	}
+	if err := validate.RegisterValidation("is_file", validateIsFile); err != nil {
 		panic(err)
 	}
 
@@ -164,6 +175,32 @@ func validateDNSOverrideTag(fl validator.FieldLevel) bool {
 func validateIPSetName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
 	return ipsetRegexp.MatchString(name)
+}
+
+// Custom validator: path exists
+func validatePathExists(fl validator.FieldLevel) bool {
+	path := fl.Field().String()
+	if path == "" {
+		return true // Empty is allowed (omitempty will handle required validation)
+	}
+
+	_, err := os.Stat(path)
+	return err == nil // Path must exist
+}
+
+// Custom validator: path is a file (not a directory)
+func validateIsFile(fl validator.FieldLevel) bool {
+	path := fl.Field().String()
+	if path == "" {
+		return true // Empty is allowed (omitempty will handle required validation)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return true // If path doesn't exist, let path_exists validator handle it
+	}
+
+	return !info.IsDir() // Must be a file, not a directory
 }
 
 // validateUpstreamURL validates DNS upstream URL format
