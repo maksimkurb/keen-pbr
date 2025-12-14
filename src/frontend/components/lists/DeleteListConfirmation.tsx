@@ -45,6 +45,7 @@ export function DeleteListConfirmation({
       toast.error(t('common.error'), {
         description:
           error instanceof Error ? error.message : t('lists.delete.error'),
+        richColors: true,
       });
     }
   };

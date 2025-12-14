@@ -24,11 +24,15 @@ export default function Lists() {
   const isLoading = listsLoading || ipsetsLoading;
 
   const handleDownloadAllLists = async () => {
+    if (lists?.filter((l) => l.type === 'url').length === 0) {
+      toast.error(t('lists.downloadAll.noLists'));
+      return;
+    }
     try {
       await downloadAllLists.mutateAsync();
       toast.success(t('lists.downloadAll.success'));
     } catch (error) {
-      toast.error(t('lists.downloadAll.error', { error: formatError(error) }));
+      toast.error(t('lists.downloadAll.error', { error: formatError(error), richColors: true }));
     }
   };
 

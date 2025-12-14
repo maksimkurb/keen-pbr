@@ -209,6 +209,7 @@
     "downloadAll": {
       "button": "Update all URL lists",
       "success": "All lists updated successfully",
+      "noLists": "There is no URL lists to update",
       "error": "Failed to update some lists: {{error}}"
     },
     "lastUpdated": "Last updated:",

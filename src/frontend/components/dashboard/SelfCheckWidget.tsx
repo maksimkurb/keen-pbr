@@ -55,11 +55,11 @@ export function SelfCheckWidget() {
         prev.map((r) =>
           r.check === 'split_dns_client'
             ? {
-                ...r,
-                ok: true,
-                checking: false,
-                reason: 'Split-DNS is working correctly from browser',
-              }
+              ...r,
+              ok: true,
+              checking: false,
+              reason: 'Split-DNS is working correctly from browser',
+            }
             : r,
         ),
       );
@@ -68,12 +68,12 @@ export function SelfCheckWidget() {
         prev.map((r) =>
           r.check === 'split_dns_client'
             ? {
-                ...r,
-                ok: false,
-                checking: false,
-                reason:
-                  'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
-              }
+              ...r,
+              ok: false,
+              checking: false,
+              reason:
+                'Split-DNS is NOT working from browser (queries not reaching keen-pbr)',
+            }
             : r,
         ),
       );
@@ -232,6 +232,7 @@ export function SelfCheckWidget() {
       toast.error(
         t('dashboard.selfCheck.downloadFailed', {
           defaultValue: 'Failed to download results',
+          richColors: true,
         }),
       );
     }
@@ -346,13 +347,12 @@ export function SelfCheckWidget() {
                           )}
                           <tr
                             key={`${rule}-${result.check}-main`}
-                            className={`border-b-0 ${
-                              result.reason === 'testing'
+                            className={`border-b-0 ${result.reason === 'testing'
                                 ? 'bg-muted/10'
                                 : result.ok
                                   ? 'bg-green-500/5 dark:bg-green-500/10'
                                   : 'bg-red-500/5 dark:bg-red-500/10'
-                            }`}
+                              }`}
                           >
                             <td className="py-3 px-4 pl-8">
                               <div>{getCheckTypeLabel(result.check)}</div>
