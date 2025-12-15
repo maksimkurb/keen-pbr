@@ -36,11 +36,11 @@ type DNSServersProvider interface {
 
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
-	configPath    string
-	deps          *core.AppDependencies
-	serviceMgr    ServiceManager
-	configHasher  *config.ConfigHasher
-	dnsProxy      *dnsproxy.DNSProxy
+	configPath   string
+	deps         *core.AppDependencies
+	serviceMgr   ServiceManager
+	configHasher *config.ConfigHasher
+	dnsProxy     *dnsproxy.DNSProxy
 	// Tracking active check process (only one allowed at a time)
 	activeCheckMu sync.Mutex
 	activeProcess *os.Process
@@ -106,6 +106,7 @@ func (h *Handler) clearActiveProcess(process *os.Process) {
 
 	// Only clear if it's the same process
 	if h.activeProcess == process {
+		log.Debugf("Killed cancelled check process (PID: %d)", h.activeProcess.Pid)
 		h.activeProcess = nil
 	}
 }
