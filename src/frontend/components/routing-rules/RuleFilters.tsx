@@ -112,7 +112,7 @@ export function RuleFilters({ lists }: RuleFiltersProps) {
 
         {/* Clear Filters Button */}
         {hasActiveFilters && (
-          <Button variant="ghost" onClick={clearFilters}>
+          <Button variant="ghost" className='text-destructive' onClick={clearFilters}>
             <X className="h-4 w-4" />
             {t('routingRules.filters.clearFilters')}
           </Button>

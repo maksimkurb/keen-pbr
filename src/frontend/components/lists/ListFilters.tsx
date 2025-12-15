@@ -76,7 +76,7 @@ export function ListFilters({ ipsets }: ListFiltersProps) {
         </Select>
 
         {hasActiveFilters && (
-          <Button variant="ghost" onClick={clearFilters}>
+          <Button variant="ghost" className='text-destructive' onClick={clearFilters}>
             <X className="h-4 w-4" />
             {t('lists.filters.clearFilters')}
           </Button>

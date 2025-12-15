@@ -35,6 +35,10 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
     }
   };
 
+  const handleRuleClick = (ruleName: string) => {
+    navigate(`/routing-rules?search=${encodeURIComponent(ruleName)}`);
+  };
+
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
   const ruleFilter = searchParams.get('rule') || '';
@@ -176,10 +180,18 @@ export function ListsTable({ lists, ipsets }: ListsTableProps) {
                     )}
                   </td>
                   <td className="p-3">
+                    { }
                     {usedByIPSets.length > 0 ? (
-                      <span className="text-sm text-muted-foreground">
-                        {t('lists.ruleCount', { count: usedByIPSets.length })}
-                      </span>
+                      usedByIPSets.map((ipset) => (
+                        <Badge
+                          key={ipset}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-accent"
+                          onClick={() => handleRuleClick(ipset)}
+                        >
+                          {ipset}
+                        </Badge>
+                      ))
                     ) : (
                       <span className="text-sm text-muted-foreground">-</span>
                     )}

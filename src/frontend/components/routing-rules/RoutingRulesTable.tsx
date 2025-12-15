@@ -52,7 +52,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   };
 
   const handleListClick = (listName: string) => {
-    navigate(`/lists?list=${encodeURIComponent(listName)}`);
+    navigate(`/lists?search=${encodeURIComponent(listName)}`);
   };
 
   if (filteredIPSets.length === 0) {

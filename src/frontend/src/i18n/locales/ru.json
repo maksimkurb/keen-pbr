@@ -214,8 +214,6 @@
       "error": "Не удалось обновить некоторые списки: {{error}}"
     },
     "lastUpdated": "Последнее обновление:",
-    "ruleCount": "{{count}} правило",
-    "ruleCount_plural": "{{count}} правил",
     "refreshTitle": "Обновить список",
     "loadError": "Не удалось загрузить списки",
     "dialog": {

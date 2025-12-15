@@ -214,8 +214,6 @@
       "error": "Failed to update some lists: {{error}}"
     },
     "lastUpdated": "Last updated:",
-    "ruleCount": "{{count}} rule",
-    "ruleCount_plural": "{{count}} rules",
     "refreshTitle": "Refresh list",
     "loadError": "Failed to load lists",
     "dialog": {
