@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"sync"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/core"
@@ -34,11 +36,14 @@ type DNSServersProvider interface {
 
 // Handler manages all API endpoints and dependencies.
 type Handler struct {
-	configPath   string
-	deps         *core.AppDependencies
-	serviceMgr   ServiceManager
-	configHasher *config.ConfigHasher
-	dnsProxy     *dnsproxy.DNSProxy
+	configPath    string
+	deps          *core.AppDependencies
+	serviceMgr    ServiceManager
+	configHasher  *config.ConfigHasher
+	dnsProxy      *dnsproxy.DNSProxy
+	// Tracking active check process (only one allowed at a time)
+	activeCheckMu sync.Mutex
+	activeProcess *os.Process
 }
 
 // NewHandler creates a new API handler with the given configuration path and dependencies.
@@ -74,6 +79,35 @@ func (h *Handler) saveConfig(cfg *config.Config) error {
 // validateConfig validates the configuration.
 func (h *Handler) validateConfig(cfg *config.Config) error {
 	return cfg.ValidateConfig()
+}
+
+// setActiveProcess sets the active check process and kills any existing one.
+// This ensures only one check (ping/traceroute) runs at a time.
+func (h *Handler) setActiveProcess(newProcess *os.Process) {
+	h.activeCheckMu.Lock()
+	defer h.activeCheckMu.Unlock()
+
+	// Kill existing process if any
+	if h.activeProcess != nil {
+		_ = h.activeProcess.Kill()
+		log.Debugf("Killed existing check process (PID: %d)", h.activeProcess.Pid)
+	}
+
+	h.activeProcess = newProcess
+	if newProcess != nil {
+		log.Debugf("Set active check process (PID: %d)", newProcess.Pid)
+	}
+}
+
+// clearActiveProcess clears the active process reference.
+func (h *Handler) clearActiveProcess(process *os.Process) {
+	h.activeCheckMu.Lock()
+	defer h.activeCheckMu.Unlock()
+
+	// Only clear if it's the same process
+	if h.activeProcess == process {
+		h.activeProcess = nil
+	}
 }
 
 // writeJSON writes a JSON response with the given status code and data.

@@ -6,6 +6,7 @@ import {
   Route,
   RouteOff,
   Search,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,12 +38,16 @@ export function DomainCheckerWidget() {
     consoleOutput: [],
   });
   const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cleanup EventSource on unmount
   useEffect(() => {
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
@@ -74,6 +79,18 @@ export function DomainCheckerWidget() {
       }
       return null; // Invalid input
     }
+  };
+
+  const handleCancel = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setState((prev) => ({ ...prev, loading: false }));
   };
 
   const handleCheckRouting = async () => {
@@ -123,9 +140,12 @@ export function DomainCheckerWidget() {
   };
 
   const handlePing = () => {
-    // Close any existing EventSource
+    // Close any existing EventSource and abort controller
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
 
     const sanitized = sanitizeHostInput(host);
@@ -154,6 +174,9 @@ export function DomainCheckerWidget() {
       consoleOutput: [],
     });
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const url = apiClient.getPingSSEUrl(sanitized);
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
@@ -181,7 +204,7 @@ export function DomainCheckerWidget() {
     eventSource.onerror = (error) => {
       eventSource.close();
       // Only show error if process didn't complete successfully
-      if (!completed) {
+      if (!completed && !abortController.signal.aborted) {
         console.error('SSE Error:', error);
         setState((prev) => ({
           ...prev,
@@ -193,9 +216,12 @@ export function DomainCheckerWidget() {
   };
 
   const handleTraceroute = () => {
-    // Close any existing EventSource
+    // Close any existing EventSource and abort controller
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
 
     const sanitized = sanitizeHostInput(host);
@@ -224,6 +250,9 @@ export function DomainCheckerWidget() {
       consoleOutput: [],
     });
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const url = apiClient.getTracerouteSSEUrl(sanitized);
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
@@ -251,7 +280,7 @@ export function DomainCheckerWidget() {
     eventSource.onerror = (error) => {
       eventSource.close();
       // Only show error if process didn't complete successfully
-      if (!completed) {
+      if (!completed && !abortController.signal.aborted) {
         console.error('SSE Error:', error);
         setState((prev) => ({
           ...prev,
@@ -317,6 +346,16 @@ export function DomainCheckerWidget() {
             )}
             {t('dashboard.domainChecker.traceroute')}
           </Button>
+          {state.loading && (state.type === 'ping' || state.type === 'traceroute') && (
+            <Button
+              onClick={handleCancel}
+              variant="destructive"
+              size="sm"
+            >
+              <X className="mr-2 h-4 w-4" />
+              {t("common.cancel")}
+            </Button>
+          )}
         </div>
 
         {state.error && (

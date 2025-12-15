@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/maksimkurb/keen-pbr/src/internal/config"
 	"github.com/maksimkurb/keen-pbr/src/internal/core"
@@ -157,8 +158,11 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a context with 30 second timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
 	// Run ping command with context (4 packets, 2 second timeout)
-	ctx := r.Context()
 	cmd := exec.CommandContext(ctx, "ping", "-c", "4", "-W", "2", host)
 
 	stdout, err := cmd.StdoutPipe()
@@ -181,6 +185,10 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set this as the active check process (kills any existing process)
+	h.setActiveProcess(cmd.Process)
+	defer h.clearActiveProcess(cmd.Process)
+
 	// Stream stdout
 	go h.streamOutput(ctx, stdout, w, flusher)
 
@@ -195,8 +203,16 @@ func (h *Handler) CheckPing(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-ctx.Done():
-		// Context cancelled (client disconnected or server shutting down)
-		_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		// Context cancelled (client disconnected) or timeout (server-side 30sec limit)
+		// Kill the process if it's still running
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			_, _ = fmt.Fprintf(w, "data: [Process timeout - 30 second limit exceeded]\n\n")
+		} else {
+			_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		}
 		flusher.Flush()
 		return
 	case err := <-done:
@@ -230,8 +246,11 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a context with 30 second timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
 	// Run traceroute command with context (max 30 hops, 2 second timeout per hop)
-	ctx := r.Context()
 	cmd := exec.CommandContext(ctx, "traceroute", "-m", "30", "-w", "2", host)
 
 	stdout, err := cmd.StdoutPipe()
@@ -254,6 +273,10 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set this as the active check process (kills any existing process)
+	h.setActiveProcess(cmd.Process)
+	defer h.clearActiveProcess(cmd.Process)
+
 	// Stream stdout
 	go h.streamOutput(ctx, stdout, w, flusher)
 
@@ -268,8 +291,16 @@ func (h *Handler) CheckTraceroute(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-ctx.Done():
-		// Context cancelled (client disconnected or server shutting down)
-		_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		// Context cancelled (client disconnected) or timeout (server-side 30sec limit)
+		// Kill the process if it's still running
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			_, _ = fmt.Fprintf(w, "data: [Process timeout - 30 second limit exceeded]\n\n")
+		} else {
+			_, _ = fmt.Fprintf(w, "data: [Connection closed]\n\n")
+		}
 		flusher.Flush()
 		return
 	case err := <-done:
