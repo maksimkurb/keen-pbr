@@ -7,7 +7,7 @@ import {
   Square,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { apiClient } from '../../src/api/client';
@@ -324,19 +324,16 @@ export function SelfCheckWidget() {
                     );
                     let lastRule: string | null = null;
 
-                    return filteredResults.map((result) => {
+                    return filteredResults.map((result, index) => {
                       const rule = result.ipset_name || 'global';
                       const actualStatus = getActualStatus(result);
                       const isNewGroup = rule !== lastRule;
                       lastRule = rule;
 
                       return (
-                        <>
+                        <React.Fragment key={index}>
                           {isNewGroup && (
-                            <tr
-                              key={`${rule}-${result.check}-header`}
-                              className="bg-muted/30"
-                            >
+                            <tr className="bg-muted/30">
                               <td
                                 colSpan={3}
                                 className="py-2 px-4 font-medium border-t"
@@ -346,7 +343,6 @@ export function SelfCheckWidget() {
                             </tr>
                           )}
                           <tr
-                            key={`${rule}-${result.check}-main`}
                             className={`border-b-0 ${result.reason === 'testing'
                                 ? 'bg-muted/10'
                                 : result.ok
@@ -378,7 +374,7 @@ export function SelfCheckWidget() {
                               </div>
                             </td>
                           </tr>
-                        </>
+                        </React.Fragment>
                       );
                     });
                   })()}

@@ -123,7 +123,8 @@
     "browserUnknown": "Browser: Not checked",
     "pcWorking": "PC: DNS working",
     "pcWaiting": "PC: Waiting for DNS query...",
-    "pcUnknown": "PC: Not checked yet"
+    "pcUnknown": "PC: Not checked yet",
+    "commandCopied": "Command copied to clipboard"
   },
   "settings": {
     "listsTitle": "Lists",
@@ -370,6 +371,7 @@
   },
   "common": {
     "save": "Save",
+    "copy": "Copy",
     "cancel": "Cancel",
     "close": "Close",
     "delete": "Delete",

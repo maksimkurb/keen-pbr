@@ -1,10 +1,29 @@
-import { AlertCircle, CheckCircle2, Loader2, Terminal } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Terminal,
+} from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { type CheckStatus, useDNSCheck } from '../../src/hooks/useDNSCheck';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '../ui/input-group';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface DNSCheckModalProps {
   open: boolean;
@@ -69,7 +88,7 @@ export function DNSCheckModal({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t('dnsCheck.pcCheckTitle')}</DialogTitle>
         </DialogHeader>
@@ -105,10 +124,38 @@ export function DNSCheckModal({
               <p className="text-sm text-muted-foreground mb-3">
                 {t('dnsCheck.pcCheckDescription')}
               </p>
-              <code className="block bg-muted p-3 rounded text-sm break-all">
-                <Terminal className="inline h-4 w-4 mr-2" />
-                nslookup {pcCheckState.randomString}.dns-check.keen-pbr.internal
-              </code>
+              <InputGroup>
+                <InputGroupAddon className="pointer-events-none">
+                  <Terminal className="h-4 w-4" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  readOnly
+                  value={`nslookup ${pcCheckState.randomString}.dns-check.keen-pbr.internal`}
+                  onClick={(e) => {
+                    e.currentTarget.select();
+                    navigator.clipboard.writeText(e.currentTarget.value);
+                    toast.success(t('dnsCheck.commandCopied'));
+                  }}
+                  className="font-mono text-sm cursor-pointer"
+                />
+                <InputGroupAddon align="inline-end">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <InputGroupButton
+                        onClick={() => {
+                          const text = `nslookup ${pcCheckState.randomString}.dns-check.keen-pbr.internal`;
+                          navigator.clipboard.writeText(text);
+                          toast.success(t('dnsCheck.commandCopied'));
+                        }}
+                        size="icon-xs"
+                      >
+                        <Copy />
+                      </InputGroupButton>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('common.copy')}</TooltipContent>
+                  </Tooltip>
+                </InputGroupAddon>
+              </InputGroup>
             </div>
           )}
 
