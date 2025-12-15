@@ -106,8 +106,8 @@ func (m *MultiUpstream) refreshUpstreams() {
 }
 
 // Query routes the query to the appropriate upstream based on domain matching.
-// It first tries domain-specific upstreams, then falls back to general upstreams.
-// For each category, it selects a random upstream if multiple are available.
+// It selects from upstreams with the maximum match depth.
+// If all upstreams have depth 0 (no restriction), it picks a random one directly.
 func (m *MultiUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 	// Get the query domain
 	var queryDomain string
@@ -124,28 +124,27 @@ func (m *MultiUpstream) Query(ctx context.Context, req *dns.Msg) (*dns.Msg, erro
 		return nil, fmt.Errorf("no upstreams configured")
 	}
 
-	// Separate domain-specific and general upstreams that match the query
-	var domainSpecific []Upstream
-	var general []Upstream
+	// Find the maximum match depth and collect all upstreams with that depth
+	maxDepth := -1
+	var bestMatches []Upstream
 
 	for _, upstream := range allUpstreams {
-		if upstream.GetDomain() != "" && upstream.MatchesDomain(queryDomain) {
-			domainSpecific = append(domainSpecific, upstream)
-		} else if upstream.GetDomain() == "" {
-			general = append(general, upstream)
+		matchDepth := upstream.MatchesDomain(queryDomain)
+		if matchDepth >= 0 {
+			if matchDepth > maxDepth {
+				// Found a better match depth, reset collection
+				maxDepth = matchDepth
+				bestMatches = []Upstream{upstream}
+			} else if matchDepth == maxDepth {
+				// Same depth as current best, add to collection
+				bestMatches = append(bestMatches, upstream)
+			}
 		}
 	}
 
-	// Try domain-specific upstreams first (random selection)
-	if len(domainSpecific) > 0 {
-		if resp, err := m.tryUpstreams(ctx, req, domainSpecific); err == nil {
-			return resp, nil
-		}
-	}
-
-	// Fall back to general upstreams (random selection)
-	if len(general) > 0 {
-		if resp, err := m.tryUpstreams(ctx, req, general); err == nil {
+	// Try upstreams with maximum depth (random selection if multiple)
+	if len(bestMatches) > 0 {
+		if resp, err := m.tryUpstreams(ctx, req, bestMatches); err == nil {
 			return resp, nil
 		}
 	}
@@ -217,7 +216,7 @@ func (m *MultiUpstream) GetDomain() string {
 	return ""
 }
 
-// MatchesDomain always returns true as MultiUpstream handles routing internally.
-func (m *MultiUpstream) MatchesDomain(domain string) bool {
-	return true
+// MatchesDomain always returns 0 (matches all) as MultiUpstream handles routing internally.
+func (m *MultiUpstream) MatchesDomain(domain string) int {
+	return 0
 }

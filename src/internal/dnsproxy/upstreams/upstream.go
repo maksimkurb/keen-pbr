@@ -37,8 +37,11 @@ type Upstream interface {
 	Close() error
 	// GetDomain returns the domain this upstream is restricted to (empty = all domains).
 	GetDomain() string
-	// MatchesDomain returns true if this upstream should handle the given domain.
-	MatchesDomain(domain string) bool
+	// MatchesDomain returns the match depth if this upstream should handle the given domain.
+	// Returns 0 if no restriction (matches all domains).
+	// Returns > 0 indicating the number of domain labels matched (e.g., "zzz.com" matches "xxx.yyy.zzz.com" with depth 2).
+	// Returns -1 if domain does not match.
+	MatchesDomain(domain string) int
 	// GetDNSStrings returns an array of DNS server strings in URL format.
 	// Format: "protocol://address?domain=example.com" (domain param is optional)
 	GetDNSStrings() []string
@@ -72,26 +75,36 @@ func (b *BaseUpstream) GetDomain() string {
 	return b.Domain
 }
 
-// MatchesDomain returns true if this upstream should handle the given domain.
-func (b *BaseUpstream) MatchesDomain(queryDomain string) bool {
+// MatchesDomain returns the match depth for domain matching.
+// Returns 0 if no restriction (matches all domains).
+// Returns > 0 indicating the number of domain labels matched.
+// Returns -1 if domain does not match.
+// Example with domain "xxx.yyy.zzz.com":
+//   - restrictedDomain="" -> 0 (matches all)
+//   - restrictedDomain="com" -> 1 (matches .com)
+//   - restrictedDomain="zzz.com" -> 2 (matches .zzz.com)
+//   - restrictedDomain="yyy.zzz.com" -> 3 (matches .yyy.zzz.com)
+//   - restrictedDomain="xxx.yyy.zzz.com" -> 4 (exact match)
+//   - restrictedDomain="other.com" -> -1 (no match)
+func (b *BaseUpstream) MatchesDomain(queryDomain string) int {
 	if b.normalizedDomain == "" {
-		return true // No restriction, matches all domains
+		return 0 // No restriction, matches all domains
 	}
 
 	// Normalize query domain once (can't avoid since it's input)
 	normalizedQuery := strings.ToLower(strings.TrimSuffix(queryDomain, "."))
 
-	// Exact match
+	// Exact match - count the dots in normalizedDomain to get depth
 	if normalizedQuery == b.normalizedDomain {
-		return true
+		return strings.Count(b.normalizedDomain, ".") + 1
 	}
 
 	// Subdomain match (query is a subdomain of restricted domain)
 	if strings.HasSuffix(normalizedQuery, "."+b.normalizedDomain) {
-		return true
+		return strings.Count(b.normalizedDomain, ".") + 1
 	}
 
-	return false
+	return -1 // No match
 }
 
 // ParseUpstream parses an upstream URL and returns either an Upstream or UpstreamProvider.

@@ -248,18 +248,24 @@ func (h *ProxyHandler) HandleRequest(clientAddr net.Addr, reqBytes []byte, netwo
 }
 
 // selectUpstream selects the appropriate upstream for a DNS query.
-// Checks ipset-specific overrides first, then uses default.
+// Checks ipset-specific overrides first (preferring the best match by depth), then uses default.
 func (h *ProxyHandler) selectUpstream(reqMsg *dns.Msg) upstreams.Upstream {
 	selectedUpstream := h.upstream // Default upstream
+	bestMatchDepth := -1
 
 	// Check if any ipset has DNS override matching this query domain
 	if len(reqMsg.Question) > 0 {
 		queryDomain := reqMsg.Question[0].Name
 
 		for _, ipsetUpstream := range h.ipsetUpstreams {
-			if ipsetUpstream.MatchesDomain(queryDomain) {
+			matchDepth := ipsetUpstream.MatchesDomain(queryDomain)
+			// Select the best match (highest depth > 0, or first match if depth is 0)
+			if matchDepth > 0 && matchDepth > bestMatchDepth {
 				selectedUpstream = ipsetUpstream
-				break
+				bestMatchDepth = matchDepth
+			} else if matchDepth > 0 && bestMatchDepth == -1 {
+				selectedUpstream = ipsetUpstream
+				bestMatchDepth = matchDepth
 			}
 		}
 	}

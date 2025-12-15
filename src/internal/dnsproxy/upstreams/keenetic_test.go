@@ -250,18 +250,18 @@ func TestCreateUpstreamFromDNSServerInfo_WithDomain(t *testing.T) {
 		t.Errorf("Expected domain 'example.com', got %q", upstream.GetDomain())
 	}
 
-	// Should match exact domain
-	if !upstream.MatchesDomain("example.com") {
-		t.Error("Expected to match 'example.com'")
+	// Should match exact domain (depth 2 for "example.com")
+	if upstream.MatchesDomain("example.com") <= 0 {
+		t.Error("Expected to match 'example.com' with depth > 0")
 	}
 
-	// Should match subdomain
-	if !upstream.MatchesDomain("sub.example.com") {
-		t.Error("Expected to match 'sub.example.com'")
+	// Should match subdomain (depth 2 for "example.com")
+	if upstream.MatchesDomain("sub.example.com") <= 0 {
+		t.Error("Expected to match 'sub.example.com' with depth > 0")
 	}
 
-	// Should not match different domain
-	if upstream.MatchesDomain("other.com") {
+	// Should not match different domain (depth should be -1)
+	if upstream.MatchesDomain("other.com") >= 0 {
 		t.Error("Should not match 'other.com'")
 	}
 }

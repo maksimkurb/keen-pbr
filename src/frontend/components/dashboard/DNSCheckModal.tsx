@@ -8,6 +8,7 @@ import {
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { copyToClipboard } from '../../src/utils/clipboard';
 import { type CheckStatus, useDNSCheck } from '../../src/hooks/useDNSCheck';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -133,8 +134,13 @@ export function DNSCheckModal({
                   value={`nslookup ${pcCheckState.randomString}.dns-check.keen-pbr.internal`}
                   onClick={(e) => {
                     e.currentTarget.select();
-                    navigator.clipboard.writeText(e.currentTarget.value);
-                    toast.success(t('dnsCheck.commandCopied'));
+                    copyToClipboard(e.currentTarget.value)
+                      .then(() => {
+                        toast.success(t('dnsCheck.commandCopied'));
+                      })
+                      .catch(() => {
+                        toast.error(t('dnsCheck.copyFailed'));
+                      });
                   }}
                   className="font-mono text-sm cursor-pointer"
                 />
@@ -144,8 +150,13 @@ export function DNSCheckModal({
                       <InputGroupButton
                         onClick={() => {
                           const text = `nslookup ${pcCheckState.randomString}.dns-check.keen-pbr.internal`;
-                          navigator.clipboard.writeText(text);
-                          toast.success(t('dnsCheck.commandCopied'));
+                          copyToClipboard(text)
+                            .then(() => {
+                              toast.success(t('dnsCheck.commandCopied'));
+                            })
+                            .catch(() => {
+                              toast.error(t('dnsCheck.copyFailed'));
+                            });
                         }}
                         size="icon-xs"
                       >
