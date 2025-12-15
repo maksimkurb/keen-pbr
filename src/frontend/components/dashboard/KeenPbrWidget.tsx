@@ -55,7 +55,7 @@ export function KeenPbrWidget() {
 
   if (error) {
     return (
-      <Card className="lg:col-span-2">
+      <Card className="col-span-2 lg:col-span-1">
         <CardHeader>
           <CardTitle>keen-pbr</CardTitle>
         </CardHeader>
@@ -72,7 +72,7 @@ export function KeenPbrWidget() {
 
   if (isLoading || !data) {
     return (
-      <Card className="lg:col-span-2">
+      <Card className="col-span-2 lg:col-span-1">
         <CardHeader>
           <CardTitle>keen-pbr</CardTitle>
         </CardHeader>
@@ -88,21 +88,31 @@ export function KeenPbrWidget() {
 
   return (
     <Card
-      className={`lg:col-span-2 ${configOutdated ? 'bg-warning/5 border-warning/50' : ''}`}
+      className={`col-span-2 lg:col-span-1 ${configOutdated ? 'bg-warning/5 border-warning/50' : ''}`}
     >
       <CardHeader>
         <CardTitle>keen-pbr</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <div className="text-sm text-muted-foreground mb-1">
-            {t('dashboard.version')}
+      <CardContent className="flex flex-col space-y-4 flex-1">
+        <div className="grid gap-4 grid-cols-2">
+          <div>
+            <div className="text-sm text-muted-foreground mb-1">
+              {t('dashboard.version')}
+            </div>
+            <div className="text-lg font-semibold">
+              {data.version.version}
+              <span className="text-xs text-muted-foreground ml-2">
+                ({data.version.commit})
+              </span>
+            </div>
           </div>
-          <div className="text-lg font-semibold">
-            {data.version.version}
-            <span className="text-xs text-muted-foreground ml-2">
-              ({data.version.commit})
-            </span>
+          <div>
+            <div className="text-sm text-muted-foreground mb-1">
+              {t('dashboard.keeneticVersion')}
+            </div>
+            <div className="text-lg font-semibold">
+              {data.keenetic_version || t('common.notAvailable')}
+            </div>
           </div>
         </div>
 
@@ -132,7 +142,7 @@ export function KeenPbrWidget() {
           </div>
         </div>
 
-        <ButtonGroup className="w-full [&>*]:flex-1">
+        <ButtonGroup className="w-full [&>*]:flex-1 mt-auto">
           <Button
             size="sm"
             variant="outline"

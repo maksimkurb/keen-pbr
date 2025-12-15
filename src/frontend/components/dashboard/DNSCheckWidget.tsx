@@ -2,13 +2,16 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDNSCheck } from '../../src/hooks/useDNSCheck';
+import { useStatus } from '../../src/hooks/useStatus';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Separator } from '../ui/separator';
 import { DNSCheckModal } from './DNSCheckModal';
 
 export function DNSCheckWidget() {
   const { t } = useTranslation();
   const [showPCCheckDialog, setShowPCCheckDialog] = useState(false);
+  const { data, isLoading, error } = useStatus();
 
   // Main widget DNS check (browser-based)
   const { status, startCheck, reset } = useDNSCheck();
@@ -29,7 +32,7 @@ export function DNSCheckWidget() {
     switch (status) {
       case 'success':
       case 'pc-success':
-        return 'border-green-600 bg-green-600/5';
+        return '';
       case 'browser-fail':
       case 'sse-fail':
         return 'border-destructive bg-destructive/10';
@@ -38,7 +41,7 @@ export function DNSCheckWidget() {
     }
   };
 
-  const renderContent = () => {
+  const renderDNSCheckContent = () => {
     switch (status) {
       case 'idle':
       case 'checking':
@@ -87,29 +90,65 @@ export function DNSCheckWidget() {
 
   return (
     <>
-      <Card className={`flex flex-col ${getCardClassName()}`}>
+      <Card
+        className={`col-span-2 lg:col-span-1 flex flex-col ${getCardClassName()}`}
+      >
         <CardHeader>
           <CardTitle>{t('dnsCheck.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col flex-1 justify-between gap-4">
-          {renderContent()}
+        <CardContent>
+          <div className="flex flex-row space-x-4">
+            <div>
+              {/* DNS Servers section */}
+              {isLoading || !data ? (
+                <div className="h-20 bg-muted animate-pulse rounded-lg" />
+              ) : (
+                data.dns_servers &&
+                data.dns_servers.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                      {t('dashboard.dnsServers')}
+                    </h3>
+                    <div className="space-y-2">
+                      {data.dns_servers.map((server) => (
+                        <div
+                          key={server}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span className="font-mono text-muted-foreground text-xs">
+                            {server}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+            <Separator orientation="vertical" className="h-[150px]! self-center" />
+            <div className="flex flex-col flex-1 justify-between gap-4 min-h-[200px]">
+              {renderDNSCheckContent()}
 
-          <div className="flex flex-col gap-2 mt-auto">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleRetry}
-              disabled={isChecking}
-            >
-              {isChecking ? t('dnsCheck.checking') : t('dnsCheck.checkAgain')}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowPCCheckDialog(true)}
-            >
-              {t('dnsCheck.checkFromPC')}
-            </Button>
+              <div className="flex flex-col gap-2 mt-auto">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleRetry}
+                  disabled={isChecking}
+                >
+                  {isChecking
+                    ? t('dnsCheck.checking')
+                    : t('dnsCheck.checkAgain')}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowPCCheckDialog(true)}
+                >
+                  {t('dnsCheck.checkFromPC')}
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
