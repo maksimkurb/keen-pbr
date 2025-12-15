@@ -404,6 +404,45 @@ func TestParseDnsProxyConfig_CommentsWithSpaces(t *testing.T) {
 	}
 }
 
+func TestParseDnsProxyConfig_DuplicateRemoval(t *testing.T) {
+	config := `dns_server = 10.5.0.101 h.cubly.ru
+dns_server = 192.168.55.1 lan
+dns_server = 192.168.55.1 .
+dns_server = 10.5.0.101 h.cubly.ru
+dns_server = 192.168.55.1 lan
+dns_server = 127.0.0.1:40508 asd # https://dns.google
+dns_server = 10.5.0.101 h.cubly.ru
+dns_server = 192.168.55.1 lan
+dns_server = 192.168.55.1 .`
+
+	result := ParseDNSProxyConfig(config)
+	if len(result) != 4 {
+		t.Fatalf("Expected 4 unique entries (duplicates removed), got %d", len(result))
+	}
+
+	// Verify the unique entries are present
+	expected := map[string]bool{
+		"10.5.0.101||h.cubly.ru":   false,
+		"192.168.55.1||lan":         false,
+		"192.168.55.1||":            false,
+		"127.0.0.1|40508|asd":       false,
+	}
+
+	for _, server := range result {
+		key := generateDNSServerKey(server)
+		if _, exists := expected[key]; !exists {
+			t.Errorf("Unexpected server key: %s", key)
+		}
+		expected[key] = true
+	}
+
+	for key, found := range expected {
+		if !found {
+			t.Errorf("Expected server key not found: %s", key)
+		}
+	}
+}
+
 // TestRciShowInterfaceMappedById_WithMock, TestRciShowInterfaceMappedByIPNet_WithMock,
 // TestRciShowDnsServers_WithMock, TestFetchAndDeserialize_ErrorHandling,
 // TestFetchAndDeserializeWithRetry_WithMock, and TestFetchAndDeserializeWithRetry_Concept

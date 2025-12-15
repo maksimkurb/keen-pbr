@@ -7,7 +7,7 @@ import (
 )
 
 // ParseDNSProxyConfig parses the Keenetic DNS proxy configuration string and
-// returns a list of DNS server information.
+// returns a list of DNS server information with duplicates removed.
 //
 // The configuration format includes lines like:
 //
@@ -17,8 +17,10 @@ import (
 //
 // This function extracts DNS server type (Plain IPv4, Plain IPv6, DoT, DoH),
 // the proxy address, endpoint, port, and optional domain.
+// Duplicate entries are automatically removed.
 func ParseDNSProxyConfig(config string) []DNSServerInfo {
 	var servers []DNSServerInfo
+	seen := make(map[string]bool)
 	lines := strings.Split(config, "\n")
 
 	for _, line := range lines {
@@ -53,10 +55,25 @@ func ParseDNSProxyConfig(config string) []DNSServerInfo {
 
 		server := parseDNSServerEntry(addr, comment)
 		server.Domain = domain
-		servers = append(servers, server)
+
+		// Create a deduplication key based on the server's unique identity
+		key := generateDNSServerKey(server)
+		if !seen[key] {
+			seen[key] = true
+			servers = append(servers, server)
+		}
 	}
 
 	return servers
+}
+
+// generateDNSServerKey creates a unique identifier for a DNS server to detect duplicates.
+func generateDNSServerKey(server DNSServerInfo) string {
+	domain := ""
+	if server.Domain != nil {
+		domain = *server.Domain
+	}
+	return server.Proxy + "|" + server.Port + "|" + domain
 }
 
 // parseDNSServerEntry parses a single DNS server entry from the address and comment.
