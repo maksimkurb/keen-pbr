@@ -1,14 +1,53 @@
+import { t } from 'i18next';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { IPSetConfig } from '../../src/api/client';
+import type { StatusResponse } from '../../src/api/generated-types';
+import { useStatus } from '../../src/hooks/useStatus';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { DeleteRuleConfirmation } from './DeleteRuleConfirmation';
 
 interface RoutingRulesTableProps {
   ipsets: IPSetConfig[];
+}
+
+function isInterfaceActive(
+  statusData: StatusResponse | undefined,
+  ipsetName: string,
+  iface: string,
+) {
+  return statusData?.ipsets?.[ipsetName]?.active_interface === iface;
+}
+
+interface InterfaceBadgeProps {
+  iface: string;
+  ipsetName: string;
+  statusData: StatusResponse | undefined;
+}
+
+function InterfaceBadge({ iface, ipsetName, statusData }: InterfaceBadgeProps) {
+  const active = isInterfaceActive(statusData, ipsetName, iface);
+
+  return (
+    <Badge key={iface} variant={active ? 'outlineGreen' : 'outline'}>
+      {active && (
+        <Tooltip>
+          <TooltipContent>{t('routingRules.connected')}</TooltipContent>
+          <TooltipTrigger>
+            <span className="relative flex size-2 mt-0.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex size-2 rounded-full bg-success"></span>
+            </span>
+          </TooltipTrigger>
+        </Tooltip>
+      )}
+      {iface}
+    </Badge>
+  );
 }
 
 export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
@@ -16,6 +55,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [deletingIPSet, setDeletingIPSet] = useState<string | null>(null);
+  const { data: statusData } = useStatus();
 
   // Get filter values from URL
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
@@ -48,7 +88,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
   }, [ipsets, searchQuery, listFilter, versionFilter]);
 
   const getVersionBadgeVariant = (version: number) => {
-    return version === 4 ? 'default' : 'secondary';
+    return version === 4 ? 'outline' : 'secondary';
   };
 
   const handleListClick = (listName: string) => {
@@ -147,9 +187,12 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
                   {ipset.routing?.interfaces ? (
                     <div className="flex flex-wrap gap-1">
                       {ipset.routing.interfaces.map((iface) => (
-                        <Badge key={iface} variant="secondary">
-                          {iface}
-                        </Badge>
+                        <InterfaceBadge
+                          key={iface}
+                          iface={iface}
+                          ipsetName={ipset.ipset_name}
+                          statusData={statusData}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -159,7 +202,7 @@ export function RoutingRulesTable({ ipsets }: RoutingRulesTableProps) {
                 <td className="p-3">
                   {ipset.routing?.kill_switch !== undefined ? (
                     ipset.routing.kill_switch ? (
-                      <Check className="h-5 w-5 text-green-600" />
+                      <Check className="h-5 w-5 text-success" />
                     ) : (
                       <X className="h-5 w-5 text-muted-foreground" />
                     )

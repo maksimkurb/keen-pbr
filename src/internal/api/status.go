@@ -60,6 +60,11 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 	response.Services["keen-pbr"] = keenPbrInfo
 
+	// Add IPSet status information (only if service is running)
+	if h.serviceMgr.IsRunning() {
+		response.IPSets = h.getIPSetStatuses()
+	}
+
 	writeJSONData(w, response)
 }
 
@@ -77,4 +82,39 @@ func (h *Handler) getKeenPbrServiceStatus() ServiceInfo {
 		Status:  "stopped",
 		Message: "Service is not running",
 	}
+}
+
+// getIPSetStatuses returns status information for all configured IPSets.
+// Returns nil if NetworkManager has no active state (service not running or no routing applied).
+func (h *Handler) getIPSetStatuses() map[string]IPSetStatusInfo {
+	// Get active interfaces from NetworkManager (shared dependency)
+	activeInterfaces := h.deps.NetworkManager().GetActiveInterfaces()
+
+	// If no active interfaces tracked, return nil (service likely not running)
+	if len(activeInterfaces) == 0 {
+		return nil
+	}
+
+	// Build status info map for each IPSet that has active state
+	statuses := make(map[string]IPSetStatusInfo, len(activeInterfaces))
+	for ipsetName, activeIface := range activeInterfaces {
+		var ifacePtr *string
+		isBlackhole := false
+
+		if activeIface == "" {
+			// Empty string means blackhole route
+			isBlackhole = true
+			// ifacePtr remains nil
+		} else {
+			// Active interface exists
+			ifacePtr = &activeIface
+		}
+
+		statuses[ipsetName] = IPSetStatusInfo{
+			ActiveInterface: ifacePtr,
+			IsBlackhole:     isBlackhole,
+		}
+	}
+
+	return statuses
 }

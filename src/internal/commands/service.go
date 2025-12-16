@@ -102,7 +102,7 @@ func (s *ServiceCommand) Init(args []string, ctx *AppContext) error {
 	s.configHasher = config.NewConfigHasher(ctx.ConfigPath)
 
 	// Create service manager
-	serviceMgr, err := NewServiceManager(ctx, s.configHasher)
+	serviceMgr, err := NewServiceManager(ctx, s.configHasher, s.deps)
 	if err != nil {
 		return fmt.Errorf("failed to create service manager: %w", err)
 	}

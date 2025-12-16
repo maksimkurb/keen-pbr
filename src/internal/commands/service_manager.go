@@ -31,9 +31,7 @@ type ServiceManager struct {
 // NewServiceManager creates a new service manager
 // Note: This does not validate runtime requirements (like interface presence)
 // Those validations happen in Start() to allow the API server to start even with invalid config
-func NewServiceManager(ctx *AppContext, configHasher *config.ConfigHasher) (*ServiceManager, error) {
-	deps := core.NewDefaultDependencies()
-
+func NewServiceManager(ctx *AppContext, configHasher *config.ConfigHasher, deps *core.AppDependencies) (*ServiceManager, error) {
 	return &ServiceManager{
 		ctx:          ctx,
 		cfg:          nil, // Will be loaded in Start()
@@ -55,6 +53,15 @@ func (sm *ServiceManager) IsRunning() bool {
 // Delegates to ConfigHasher DI component
 func (sm *ServiceManager) GetAppliedConfigHash() string {
 	return sm.configHasher.GetKeenPbrActiveConfigHash()
+}
+
+// GetDependencies returns the service's AppDependencies instance.
+// This ensures the API uses the same dependencies as the service,
+// providing a single source of truth for NetworkManager and other components.
+func (sm *ServiceManager) GetDependencies() *core.AppDependencies {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.deps
 }
 
 // SetOnListsUpdated sets a callback that will be invoked when lists are updated.

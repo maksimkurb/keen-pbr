@@ -265,6 +265,7 @@
     "versionFilter": "Версия IP",
     "allLists": "Все списки",
     "allVersions": "Все версии",
+    "connected": "Активный интерфейс",
     "columns": {
       "name": "Название IPSet",
       "routing": "Маршрутизация",
@@ -371,6 +372,9 @@
     }
   },
   "common": {
+    "priority": "Приоритет",
+    "moveUp": "Выше",
+    "moveDown": "Ниже",
     "save": "Сохранить",
     "copy": "Копировать",
     "cancel": "Отмена",

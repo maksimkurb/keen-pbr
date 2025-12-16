@@ -20,6 +20,7 @@ type ServiceManager interface {
 	Restart() error
 	IsRunning() bool
 	GetAppliedConfigHash() string
+	GetDependencies() *core.AppDependencies
 }
 
 // DNSCheckSubscriber is an interface for subscribing to DNS check events.

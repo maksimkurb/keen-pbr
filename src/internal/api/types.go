@@ -55,12 +55,13 @@ type SettingsResponse struct {
 
 // StatusResponse returns system status information.
 type StatusResponse struct {
-	Version               VersionInfo            `json:"version"`
-	KeeneticVersion       string                 `json:"keenetic_version"`
-	Services              map[string]ServiceInfo `json:"services"`
-	CurrentConfigHash     string                 `json:"current_config_hash"`
-	ConfigurationOutdated bool                   `json:"configuration_outdated"`
-	DNSServers            []string               `json:"dns_servers"` // Upstream DNS servers
+	Version               VersionInfo                   `json:"version"`
+	KeeneticVersion       string                        `json:"keenetic_version"`
+	Services              map[string]ServiceInfo        `json:"services"`
+	CurrentConfigHash     string                        `json:"current_config_hash"`
+	ConfigurationOutdated bool                          `json:"configuration_outdated"`
+	DNSServers            []string                      `json:"dns_servers"` // Upstream DNS servers
+	IPSets                map[string]IPSetStatusInfo    `json:"ipsets,omitempty"`
 }
 
 // DNSServerInfo contains information about a DNS server.
@@ -79,6 +80,12 @@ type ServiceInfo struct {
 	Status     string `json:"status"` // "running", "stopped", "unknown"
 	Message    string `json:"message,omitempty"`
 	ConfigHash string `json:"config_hash,omitempty"` // Hash of applied config (keen-pbr service only)
+}
+
+// IPSetStatusInfo contains runtime status information for an IPSet.
+type IPSetStatusInfo struct {
+	ActiveInterface *string `json:"active_interface"` // null for blackhole
+	IsBlackhole     bool    `json:"is_blackhole"`
 }
 
 // ServiceControlRequest controls the keen-pbr service.

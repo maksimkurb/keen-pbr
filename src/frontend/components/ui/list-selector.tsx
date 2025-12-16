@@ -85,8 +85,8 @@ export function ListSelector({
                   <InputGroupButton
                     size="icon-xs"
                     onClick={() => removeList(listName)}
-                    aria-label="Remove"
-                    title="Remove"
+                    aria-label={t("common.delete")}
+                    title={t("common.delete")}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 />

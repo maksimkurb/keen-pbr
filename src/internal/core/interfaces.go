@@ -66,4 +66,8 @@ type NetworkManager interface {
 	// UndoConfig removes all network configuration for the specified ipsets,
 	// including iptables rules, ip rules, ip routes, and global components.
 	UndoConfig(ipsets []*config.IPSetConfig) error
+
+	// GetActiveInterfaces returns a map of ipset names to their active interface names.
+	// Returns empty string for ipsets using blackhole routes.
+	GetActiveInterfaces() map[string]string
 }

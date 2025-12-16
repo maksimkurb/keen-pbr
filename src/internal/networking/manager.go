@@ -212,3 +212,9 @@ func (m *Manager) UndoConfig(ipsets []*config.IPSetConfig) error {
 	log.Debugf("Undo routing completed successfully")
 	return nil
 }
+
+// GetActiveInterfaces returns the current active interface for each ipset.
+// Empty string values indicate blackhole routes (no interface available).
+func (m *Manager) GetActiveInterfaces() map[string]string {
+	return m.routingConfig.GetActiveInterfaces()
+}

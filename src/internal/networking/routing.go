@@ -47,6 +47,21 @@ func NewRoutingConfigManager(interfaceSelector *InterfaceSelector, persistentCon
 	}
 }
 
+// GetActiveInterfaces returns a copy of the active interfaces map.
+// This method is thread-safe and returns a snapshot to prevent concurrent modification.
+// Empty string values represent blackhole routes (no interface available).
+func (r *RoutingConfigManager) GetActiveInterfaces() map[string]string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Return a copy to prevent concurrent modification
+	result := make(map[string]string, len(r.activeInterfaces))
+	for k, v := range r.activeInterfaces {
+		result[k] = v
+	}
+	return result
+}
+
 // ApplyIfChanged applies routing configuration for a single ipset only if
 // the best interface has changed since the last application.
 //

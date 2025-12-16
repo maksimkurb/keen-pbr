@@ -265,6 +265,7 @@
     "versionFilter": "IP Version",
     "allLists": "All lists",
     "allVersions": "All versions",
+    "connected": "Active interface",
     "columns": {
       "name": "IPSet Name",
       "routing": "Routing",
@@ -368,6 +369,9 @@
     }
   },
   "common": {
+    "priority": "Priority",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "save": "Save",
     "copy": "Copy",
     "cancel": "Cancel",

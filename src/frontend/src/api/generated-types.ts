@@ -272,6 +272,15 @@ export interface IPSetHashData {
 
 // From api/types.go
 /**
+ * IPSetStatusInfo contains runtime status information for an IPSet.
+ */
+export interface IPSetStatusInfo {
+    active_interface: string | null; // null for blackhole
+    is_blackhole: boolean;
+}
+
+// From api/types.go
+/**
  * IPSetsResponse returns all ipsets in the configuration.
  */
 export interface IPSetsResponse {
@@ -543,6 +552,7 @@ export interface StatusResponse {
     current_config_hash: string;
     configuration_outdated: boolean;
     dns_servers: string[]; // Upstream DNS servers
+    ipsets?: Record<string, IPSetStatusInfo> | null;
 }
 
 // From api/types.go

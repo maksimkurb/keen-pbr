@@ -31,6 +31,7 @@ import {
 } from './empty';
 import { InputGroup, InputGroupAddon, InputGroupButton } from './input-group';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 interface InterfaceSelectorProps {
   value: string[];
@@ -124,15 +125,20 @@ export function InterfaceSelector({
                 <InputGroupAddon align="inline-end">
                   {allowReorder && (
                     <>
-                      <InputGroupButton size="icon-xs">
-                        <Badge variant="outline">{index + 1}</Badge>
-                      </InputGroupButton>
+                      <Tooltip>
+                        <TooltipContent>{t("common.priority")}</TooltipContent>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="cursor-default">
+                            {index + 1}
+                          </Badge>
+                        </TooltipTrigger>
+                      </Tooltip>
                       <InputGroupButton
                         size="icon-xs"
                         onClick={() => moveInterfaceUp(index)}
                         disabled={index === 0}
-                        aria-label="Move up"
-                        title="Move up"
+                        aria-label={t("common.moveUp")}
+                        title={t("common.moveUp")}
                       >
                         <ChevronUp />
                       </InputGroupButton>
@@ -140,8 +146,8 @@ export function InterfaceSelector({
                         size="icon-xs"
                         onClick={() => moveInterfaceDown(index)}
                         disabled={index === value.length - 1}
-                        aria-label="Move down"
-                        title="Move down"
+                        aria-label={t("common.moveDown")}
+                        title={t("common.moveDown")}
                       >
                         <ChevronDown />
                       </InputGroupButton>
@@ -150,8 +156,8 @@ export function InterfaceSelector({
                   <InputGroupButton
                     size="icon-xs"
                     onClick={() => removeInterface(iface)}
-                    aria-label="Remove"
-                    title="Remove"
+                    aria-label={t("common.delete")}
+                    title={t("common.delete")}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 />

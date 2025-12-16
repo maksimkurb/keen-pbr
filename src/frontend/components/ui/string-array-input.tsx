@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   InputGroup,
@@ -24,6 +25,8 @@ export function StringArrayInput({
   minItems = 1,
   addButtonLabel = 'Add',
 }: StringArrayInputProps) {
+  const { t } = useTranslation();
+
   const addItem = () => {
     onChange([...value, '']);
   };
@@ -51,8 +54,8 @@ export function StringArrayInput({
               size="icon-xs"
               onClick={() => removeItem(index)}
               disabled={disabled || value.length <= minItems}
-              aria-label="Remove"
-              title="Remove"
+              aria-label={t('common.delete')}
+              title={t('common.delete')}
               className="text-destructive hover:text-destructive"
             >
               <Trash2 />
