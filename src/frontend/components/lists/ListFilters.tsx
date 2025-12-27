@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../ui/button';
@@ -51,12 +51,17 @@ export function ListFilters({ ipsets }: ListFiltersProps) {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
-        <Input
-          placeholder={t('lists.searchPlaceholder')}
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="md:max-w-xs"
-        />
+        {/* Search Input */}
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder={t('lists.searchPlaceholder')}
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
 
         <Select
           value={usedInRule || 'all'}

@@ -1,9 +1,9 @@
 {
   "nav": {
     "dashboard": "Панель управления",
-    "settings": "Основные настройки",
+    "settings": "Настройки",
     "lists": "Списки",
-    "routingRules": "Правила маршрутизации"
+    "routingRules": "Маршруты"
   },
   "dashboard": {
     "title": "Панель управления",
@@ -179,7 +179,7 @@
   },
   "lists": {
     "title": "Списки",
-    "description": "Управление списками IP/доменов ({{count}})",
+    "description": "Управление списками IP/доменов",
     "newList": "Новый список",
     "searchPlaceholder": "Поиск списков...",
     "usedInFilter": "Используется в правиле",

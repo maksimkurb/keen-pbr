@@ -66,9 +66,11 @@ export default function Lists() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">{t('lists.title')}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">
+            {t('lists.title')}
+          </h1>
           <p className="mt-1 md:mt-2 text-sm md:text-base text-muted-foreground">
-            {t('lists.description', { count: lists?.length || 0 })}
+            {t('lists.description')}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">

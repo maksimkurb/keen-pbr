@@ -1,9 +1,10 @@
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ComputerIcon, LaptopIcon, Loader2, PanelTopIcon, RefreshCwIcon, RouterIcon, SquareTerminalIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDNSCheck } from '../../src/hooks/useDNSCheck';
 import { useStatus } from '../../src/hooks/useStatus';
 import { Button } from '../ui/button';
+import { ButtonGroup } from '../ui/button-group';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Separator } from '../ui/separator';
 import { DNSCheckModal } from './DNSCheckModal';
@@ -97,8 +98,8 @@ export function DNSCheckWidget() {
           <CardTitle>{t('dnsCheck.title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-row space-x-4">
-            <div>
+          <div className="flex flex-col md:flex-row space-y-4 md:space-x-4">
+            <div className="flex-1">
               {/* DNS Servers section */}
               {isLoading || !data ? (
                 <div className="h-20 bg-muted animate-pulse rounded-lg" />
@@ -125,17 +126,25 @@ export function DNSCheckWidget() {
                 )
               )}
             </div>
-            <Separator orientation="vertical" className="h-[150px]! self-center" />
-            <div className="flex flex-col flex-1 justify-between gap-4 min-h-[200px]">
+            <Separator
+              orientation="vertical"
+              className="hidden md:block h-[150px]! self-center"
+            />
+            <Separator
+              orientation="horizontal"
+              className="md:hidden w-[80%]! self-center"
+            />
+            <div className="flex flex-col flex-1 justify-between gap-4 md:min-h-[200px]">
               {renderDNSCheckContent()}
 
-              <div className="flex flex-col gap-2 mt-auto">
+              <div className="flex flex-col gap-2 mt-auto items-center">
                 <Button
                   variant="outline"
                   className="w-full"
                   onClick={handleRetry}
                   disabled={isChecking}
                 >
+                  <RefreshCwIcon />
                   {isChecking
                     ? t('dnsCheck.checking')
                     : t('dnsCheck.checkAgain')}
@@ -145,6 +154,7 @@ export function DNSCheckWidget() {
                   className="w-full"
                   onClick={() => setShowPCCheckDialog(true)}
                 >
+                  <SquareTerminalIcon />
                   {t('dnsCheck.checkFromPC')}
                 </Button>
               </div>

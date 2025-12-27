@@ -40,22 +40,24 @@ export default function RoutingRules() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex-1">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
           <h1 className="text-2xl md:text-3xl font-bold">
             {t('routingRules.title')}
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">
+          <p className="mt-1 md:mt-2 text-sm md:text-base text-muted-foreground">
             {t('routingRules.description')}
           </p>
         </div>
-        <Button
-          onClick={() => navigate('/routing-rules/new')}
-          className="w-full md:w-auto"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {t('routingRules.newRule')}
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            onClick={() => navigate('/routing-rules/new')}
+            className="w-full sm:w-auto"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t('routingRules.newRule')}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

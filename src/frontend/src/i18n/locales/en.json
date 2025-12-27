@@ -1,9 +1,9 @@
 {
   "nav": {
     "dashboard": "Dashboard",
-    "settings": "General Settings",
+    "settings": "Settings",
     "lists": "Lists",
-    "routingRules": "Routing Rules"
+    "routingRules": "Routes"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -179,7 +179,7 @@
   },
   "lists": {
     "title": "Lists",
-    "description": "Manage IP/domain lists ({{count}})",
+    "description": "Manage IP/domain lists",
     "newList": "New List",
     "searchPlaceholder": "Search lists...",
     "usedInFilter": "Used in rule",
