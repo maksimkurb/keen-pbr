@@ -17,22 +17,125 @@
 keen-pbr/
 ├── src/                              # Go source code (standard layout)
 │   ├── cmd/                          # Application entry points
+│   │   ├── generate-types/
+│   │   │   └── main.go               # API type generator for TypeScript
 │   │   └── keen-pbr/
 │   │       └── main.go               # CLI flag parsing and command dispatch
 │   │
 │   ├── frontend/                     # React web UI (embedded in binary)
 │   │   ├── src/                      # React source code
 │   │   │   ├── App.tsx               # Main application
-│   │   │   ├── api/client.ts         # API client
+│   │   │   ├── App.css               # App styles
+│   │   │   ├── index.tsx             # Entry point
+│   │   │   ├── env.d.ts              # Environment types
+│   │   │   ├── api/
+│   │   │   │   ├── client.ts         # API client
+│   │   │   │   └── generated-types.ts # Generated TypeScript types
 │   │   │   ├── hooks/                # React Query hooks
+│   │   │   │   ├── useDNSCheck.ts
+│   │   │   │   ├── useIPSets.ts
+│   │   │   │   ├── useInterfaces.ts
+│   │   │   │   ├── useLists.ts
+│   │   │   │   ├── useMediaQuery.ts
+│   │   │   │   ├── useSettings.ts
+│   │   │   │   └── useStatus.ts
 │   │   │   ├── pages/                # Page components
-│   │   │   └── i18n/                 # Internationalization
-│   │   ├── components/               # UI components
+│   │   │   │   ├── Dashboard.tsx
+│   │   │   │   ├── GeneralSettings.tsx
+│   │   │   │   ├── ListPage.tsx
+│   │   │   │   ├── Lists.tsx
+│   │   │   │   ├── RoutingRules.tsx
+│   │   │   │   └── RulePage.tsx
+│   │   │   ├── i18n/                 # Internationalization
+│   │   │   │   ├── index.ts
+│   │   │   │   └── locales/
+│   │   │   │       ├── en.json
+│   │   │   │       └── ru.json
+│   │   │   ├── lib/
+│   │   │   │   └── utils.ts          # Utility functions
+│   │   │   ├── utils/
+│   │   │   │   ├── clipboard.ts
+│   │   │   │   ├── errorUtils.ts
+│   │   │   │   └── formValidation.ts
+│   │   │   └── components/
+│   │   │       └── ui/
+│   │   │           └── shadcn-io/    # shadcn/ui source components
+│   │   │
+│   │   ├── components/               # UI components (root level)
 │   │   │   ├── ui/                   # shadcn/ui components
+│   │   │   │   ├── accordion.tsx
+│   │   │   │   ├── alert-dialog.tsx
+│   │   │   │   ├── alert.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── base-form.tsx
+│   │   │   │   ├── button-group.tsx
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── checkbox.tsx
+│   │   │   │   ├── command.tsx
+│   │   │   │   ├── delete-confirmation-dialog.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── drawer.tsx
+│   │   │   │   ├── empty.tsx
+│   │   │   │   ├── field.tsx
+│   │   │   │   ├── input-group.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── interface-selector.tsx
+│   │   │   │   ├── item.tsx
+│   │   │   │   ├── label.tsx
+│   │   │   │   ├── line-numbered-textarea.tsx
+│   │   │   │   ├── list-selector.tsx
+│   │   │   │   ├── popover.tsx
+│   │   │   │   ├── radio-group.tsx
+│   │   │   │   ├── responsive-dialog.tsx
+│   │   │   │   ├── scroll-area.tsx
+│   │   │   │   ├── select.tsx
+│   │   │   │   ├── separator.tsx
+│   │   │   │   ├── sonner.tsx
+│   │   │   │   ├── spinner.tsx
+│   │   │   │   ├── string-array-input.tsx
+│   │   │   │   ├── textarea.tsx
+│   │   │   │   └── tooltip.tsx
+│   │   │   ├── dashboard/            # Dashboard widgets
+│   │   │   │   ├── DNSCheckModal.tsx
+│   │   │   │   ├── DNSCheckWidget.tsx
+│   │   │   │   ├── DomainCheckerWidget.tsx
+│   │   │   │   ├── KeenPbrWidget.tsx
+│   │   │   │   ├── SelfCheckWidget.tsx
+│   │   │   │   └── StatusCard.tsx
+│   │   │   ├── layout/               # Layout components
+│   │   │   │   ├── AppLayout.tsx
+│   │   │   │   └── Header.tsx
 │   │   │   ├── lists/                # Lists page components
-│   │   │   └── routing-rules/        # Routing rules components
-│   │   ├── package.json              # NPM dependencies
-│   │   └── embed.go                  # Embed dist/ into binary
+│   │   │   │   ├── DeleteListConfirmation.tsx
+│   │   │   │   ├── ListFilters.tsx
+│   │   │   │   └── ListsTable.tsx
+│   │   │   ├── routing-rules/        # Routing rules components
+│   │   │   │   ├── DeleteRuleConfirmation.tsx
+│   │   │   │   ├── RoutingRulesTable.tsx
+│   │   │   │   └── RuleFilters.tsx
+│   │   │   ├── settings/             # Settings components
+│   │   │   │   ├── DNSServerSettings.tsx
+│   │   │   │   └── SettingsForm.tsx
+│   │   │   ├── shared/               # Shared components
+│   │   │   │   ├── BadgeList.tsx
+│   │   │   │   ├── LanguageSelector.tsx
+│   │   │   │   └── StatsDisplay.tsx
+│   │   │   └── ConfigurationWarning.tsx
+│   │   │
+│   │   ├── lib/
+│   │   │   └── utils.ts              # Utility functions
+│   │   ├── public/
+│   │   │   ├── favicon.png
+│   │   │   └── logo.svg
+│   │   ├── AGENTS.md                 # Agent documentation
+│   │   ├── biome.json                # Biome configuration
+│   │   ├── bun.lock                  # Bun lock file
+│   │   ├── package.json              # bun dependencies
+│   │   ├── rsbuild.config.ts         # Rsbuild configuration
+│   │   ├── tsconfig.json             # TypeScript configuration
+│   │   ├── components.json           # shadcn/ui configuration
+│   │   └── static.go                 # Embed dist/ into binary
 │   │
 │   └── internal/                     # Private application packages (not importable)
 │       ├── api/                      # REST API server (chi router)
@@ -45,112 +148,153 @@ keen-pbr/
 │       │   ├── interfaces.go         # Interfaces endpoint
 │       │   ├── service.go            # Service control
 │       │   ├── check.go              # Network diagnostics and health checks
+│       │   ├── dns.go                # DNS proxy endpoints
 │       │   ├── types.go              # API types
+│       │   ├── errors.go             # API error handling
 │       │   ├── middleware.go         # HTTP middleware
-│       │   └── response.go           # Response helpers
+│       │   ├── pprof_dev.go          # Profiling endpoints (dev)
+│       │   ├── pprof_prod.go         # Profiling endpoints (prod)
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── commands/                 # CLI command handlers (thin wrappers)
-│       │   ├── doc.go                # Package documentation
 │       │   ├── common.go             # Runner interface, AppContext, config loading
-│       │   ├── apply.go              # Apply routing configuration
 │       │   ├── download.go           # Download IP lists
-│       │   ├── undo.go               # Remove routing configuration
-│       │   ├── service.go            # Daemon mode with interface monitoring
-│       │   ├── self_check.go         # Configuration validation
 │       │   ├── dns.go                # DNS server command
 │       │   ├── interfaces.go         # Network interface lister
+│       │   ├── self_check.go         # Configuration validation
+│       │   ├── service.go            # Daemon mode with interface monitoring
+│       │   ├── service_manager.go    # Service lifecycle management
 │       │   ├── upgrade_config.go     # Configuration format upgrader
-│       │   ├── server.go             # API server command
-│       │   └── service_manager.go    # Service lifecycle management
+│       │   └── doc.go                # Package documentation
+│       │
+│       ├── core/                     # Core dependency injection
+│       │   ├── container.go          # DI container
+│       │   ├── container_test.go     # Container tests
+│       │   └── interfaces.go         # Core interfaces
+│       │
+│       ├── components/               # Application components
+│       │   ├── api_server.go         # API server component
+│       │   ├── interface.go          # Component interfaces
+│       │   ├── networking_service.go # Networking service component
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── service/                  # Business logic orchestration layer
-│       │   ├── doc.go                # Package documentation
-│       │   ├── routing_service.go    # Orchestrates routing operations
-│       │   ├── ipset_service.go      # Orchestrates ipset operations
-│       │   ├── validation_service.go # Centralized configuration validation
-│       │   ├── *_test.go             # Service layer tests
+│       │   ├── dns_service.go        # DNS service orchestration
+│       │   ├── interface_service.go  # Interface monitoring service
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── networking/               # Network configuration management
-│       │   ├── doc.go                # Package documentation
 │       │   ├── manager.go            # Main facade for network operations
+│       │   ├── component.go          # Network component abstraction
+│       │   ├── component_base.go     # Base component implementation
+│       │   ├── component_builder.go  # Component builder
+│       │   ├── component_builder_test.go
+│       │   ├── component_dns_redirect.go # DNS redirect component
+│       │   ├── component_dns_redirect_test.go
+│       │   ├── component_iproute.go  # IP route component
+│       │   ├── component_iprule.go   # IP rule component
+│       │   ├── component_ipset.go    # IPSet component
+│       │   ├── component_iptables.go # IPTables component
+│       │   ├── component_test.go
+│       │   ├── global_component_builder.go
 │       │   ├── persistent.go         # Persistent config (iptables, ip rules)
 │       │   ├── routing.go            # Dynamic routing config (ip routes)
 │       │   ├── interface_selector.go # Best interface selection logic
+│       │   ├── interface_selector_test.go
 │       │   ├── ipset_manager.go      # IPSet manager (domain interface impl)
 │       │   ├── builders.go           # Builder patterns for IPTables/IPRule
 │       │   ├── ipset.go              # IPSet operations
 │       │   ├── iptables.go           # IPTables rules management
+│       │   ├── iptables_test.go
 │       │   ├── iproute.go            # IP route management
+│       │   ├── iproute_test.go
 │       │   ├── iprule.go             # IP rule management
 │       │   ├── interfaces.go         # Interface information
-│       │   ├── config_checker.go     # Network state validation
-│       │   ├── network.go            # Network utilities
-│       │   ├── shell.go              # Shell command execution
-│       │   └── *_test.go             # Networking layer tests
+│       │   ├── mocks_test.go         # Test mocks
+│       │   └── doc.go                # Package documentation
+│       │
+│       ├── dnsproxy/                 # DNS proxy server
+│       │   ├── server.go             # DNS server
+│       │   ├── proxy.go              # DNS proxy logic
+│       │   ├── proxy_handler.go      # Proxy request handler
+│       │   ├── proxy_benchmark_test.go
+│       │   ├── handler.go            # DNS query handler
+│       │   ├── types.go              # DNS types
+│       │   ├── dnscheck_test.go      # DNS check tests
+│       │   ├── caching/              # DNS caching
+│       │   │   ├── records_cache.go
+│       │   │   ├── records_cache_test.go
+│       │   │   └── records_cache_bench_test.go
+│       │   ├── matcher/              # Domain matching
+│       │   │   ├── matcher.go
+│       │   │   └── matcher_test.go
+│       │   ├── upstreams/            # DNS upstreams
+│       │   │   ├── upstream.go
+│       │   │   ├── udp.go
+│       │   │   ├── doh.go
+│       │   │   ├── keenetic.go
+│       │   │   ├── keenetic_test.go
+│       │   │   ├── multi.go
+│       │   │   └── multi_test.go
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── keenetic/                 # Keenetic router API client
-│       │   ├── doc.go                # Package documentation
 │       │   ├── client.go             # RCI API client with caching
+│       │   ├── common.go             # Common types
+│       │   ├── rci.go                # RCI protocol
+│       │   ├── rci_test.go
 │       │   ├── version.go            # Version detection
 │       │   ├── interfaces.go         # Interface retrieval
 │       │   ├── dns.go                # DNS configuration
 │       │   ├── cache.go              # Response caching
-│       │   ├── http.go               # HTTP client abstraction
-│       │   └── *_test.go             # API client tests
-│       │
-│       ├── domain/                   # Core interfaces and abstractions
-│       │   ├── doc.go                # Package documentation
-│       │   └── interfaces.go         # Domain interfaces for DI
-│       │       ├── NetworkManager    # Facade for network operations
-│       │       ├── RouteManager      # IP route management interface
-│       │       ├── InterfaceProvider # Interface information provider
-│       │       ├── IPSetManager      # IPSet operations interface
-│       │       ├── KeeneticClient    # Router API client interface
-│       │
-│       ├── mocks/                    # Test doubles for unit testing
-│       │   ├── doc.go                # Package documentation
-│       │   ├── networking.go         # Mock networking implementations
-│       │   ├── keenetic.go           # Mock Keenetic client
-│       │   └── *_test.go             # Mock tests
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── lists/                    # IP/domain list management
-│       │   ├── doc.go                # Package documentation
 │       │   ├── downloader.go         # HTTP list downloading
+│       │   ├── downloader_test.go
 │       │   ├── common.go             # List iteration and parsing
-│       │   ├── domain_store.go       # Domain storage
+│       │   ├── common_test.go
+│       │   ├── hash_comparator.go    # Hash comparison
+│       │   ├── hash_comparator_test.go
 │       │   ├── ipset_importer.go     # Import IPs to ipset
 │       │   ├── manager.go            # List manager
-│       │   └── *_test.go             # List processing tests
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── config/                   # Configuration management
-│       │   ├── doc.go                # Package documentation
 │       │   ├── config.go             # TOML parsing and loading
+│       │   ├── config_test.go
 │       │   ├── types.go              # Config data structures
-│       │   ├── validator.go          # Config validation rules
-│       │   └── *_test.go             # Config parsing tests
-│       │
-│       ├── errors/                   # Domain-specific error types
-│       │   ├── doc.go                # Package documentation
-│       │   └── errors.go             # Structured errors with codes
+│       │   ├── types_test.go
+│       │   ├── validation.go         # Validation rules
+│       │   ├── validator.go          # Config validator
+│       │   ├── validator_test.go
+│       │   ├── hasher.go             # Config hashing
+│       │   ├── hasher_test.go
+│       │   ├── hasher_deadlock_test.go
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── utils/                    # General-purpose utilities
-│       │   ├── doc.go                # Package documentation
+│       │   ├── domain.go             # Domain utilities
+│       │   ├── domain_test.go
 │       │   ├── ips.go                # IP address conversion
+│       │   ├── ips_test.go
 │       │   ├── paths.go              # Path resolution
+│       │   ├── paths_test.go
 │       │   ├── files.go              # File operations
+│       │   ├── files_test.go
 │       │   ├── validator.go          # DNS/domain validation
-│       │   ├── bitset.go             # Bit manipulation
-│       │   └── *_test.go             # Utility tests
+│       │   ├── validator_test.go
+│       │   └── doc.go                # Package documentation
 │       │
 │       ├── hashing/                  # MD5 checksum utilities
-│       │   ├── doc.go                # Package documentation
 │       │   ├── md5proxy.go           # Transparent checksum calculation
-│       │   └── *_test.go             # Hashing tests
+│       │   ├── md5proxy_test.go
+│       │   └── doc.go                # Package documentation
 │       │
 │       └── log/                      # Leveled logging
-│           ├── doc.go                # Package documentation
 │           ├── logger.go             # Colored console logging
-│           └── *_test.go             # Logger tests
+│           ├── logger_test.go
+│           └── doc.go                # Package documentation
 │
 ├── .claude/                          # Claude AI assistant context
 │   ├── CONTEXT.md                    # This file - project documentation
@@ -550,9 +694,9 @@ if staticFS, err := frontend.GetHTTPFileSystem(); err == nil {
 ### Frontend Development Guide
 
 **Commands**:
-- `npm run dev` - Start the dev server
-- `npm run build` - Build the app for production
-- `npm run preview` - Preview the production build locally
+- `bun run dev` - Start the dev server
+- `bun run build` - Build the app for production
+- `bun run preview` - Preview the production build locally
 
 **Docs**:
 - Rsbuild: https://rsbuild.rs/llms.txt
@@ -560,8 +704,8 @@ if staticFS, err := frontend.GetHTTPFileSystem(); err == nil {
 
 **Tools**:
 - **Biome**:
-  - Run `npm run lint` to lint your code
-  - Run `npm run format` to format your code
+  - Run `bun run lint` to lint your code
+  - Run `bun run format` to format your code
 
 ---
 
