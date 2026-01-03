@@ -211,6 +211,11 @@ func (h *ProxyHandler) HandleRequest(clientAddr net.Addr, reqBytes []byte, netwo
 		return respBytes, err
 	}
 
+	// Check if this is a DNS over HTTPS canary domain - intercept and respond immediately
+	if respBytes, err := h.processDNSOverHTTPSCanaryDomain(&reqMsg); respBytes != nil || err != nil {
+		return respBytes, err
+	}
+
 	// Select upstream: check ipset-specific overrides first, then use default
 	selectedUpstream := h.selectUpstream(&reqMsg)
 
@@ -792,6 +797,34 @@ func (h *ProxyHandler) processDNSCheckRequest(reqMsg *dns.Msg) ([]byte, error) {
 	// Create and return DNS check response
 	respMsg := h.createDNSCheckResponse(reqMsg)
 	respBytes, err := respMsg.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack DNS check response: %w", err)
+	}
+
+	return respBytes, nil
+}
+
+// processDNSOverHTTPSCanaryDomain handles DNS over HTTPS canary domain requests.
+// Returns the response bytes if the domain matches, or nil if it doesn't match.
+func (h *ProxyHandler) processDNSOverHTTPSCanaryDomain(reqMsg *dns.Msg) ([]byte, error) {
+	if len(reqMsg.Question) == 0 {
+		return nil, nil
+	}
+
+	domain := normalizeDomain(reqMsg.Question[0].Name)
+
+	if domain != "use-application-dns.net" {
+		return nil, nil
+	}
+
+	log.Debugf("[%04x] DNS over HTTPS canary domain query intercepted: %s", reqMsg.Id, domain)
+
+	// Create and return NXDOMAIN response
+	respMsg := new(dns.Msg)
+	respMsg.SetReply(reqMsg)
+	respMsg.Rcode = dns.RcodeRefused
+	respBytes, err := respMsg.Pack()
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack DNS check response: %w", err)
 	}
