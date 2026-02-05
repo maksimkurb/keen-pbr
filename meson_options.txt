@@ -1,0 +1,2 @@
+option('with_api', type: 'boolean', value: true, description: 'Build with optional REST API support (cpp-httplib)')
+option('firewall_backend', type: 'combo', choices: ['auto', 'iptables', 'nftables'], value: 'auto', description: 'Firewall backend to use')
