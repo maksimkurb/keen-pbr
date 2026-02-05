@@ -45,6 +45,7 @@ inc = include_directories('include')
 # Sources will be added as stories are implemented
 sources = [
   'src/http/http_client.cpp',
+  'src/config/config.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)

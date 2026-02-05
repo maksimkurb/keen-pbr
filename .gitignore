@@ -4,3 +4,10 @@ progress.txt
 scripts/ralph
 build/
 dist/
+
+# Conan generated files
+conan_meson_native.ini
+conanbuild*.sh
+conanrun*.sh
+deactivate_conan*.sh
+*.pc
