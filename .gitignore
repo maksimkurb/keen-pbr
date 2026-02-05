@@ -2,3 +2,5 @@ PLAN/
 prd.json
 progress.txt
 scripts/ralph
+build/
+dist/
