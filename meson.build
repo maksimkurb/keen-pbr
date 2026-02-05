@@ -43,7 +43,9 @@ endif
 inc = include_directories('include')
 
 # Sources will be added as stories are implemented
-sources = []
+sources = [
+  'src/http/http_client.cpp',
+]
 
 # Executable target (will be populated with sources in later stories)
 # executable(
