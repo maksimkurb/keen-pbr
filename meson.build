@@ -47,6 +47,7 @@ sources = [
   'src/http/http_client.cpp',
   'src/config/config.cpp',
   'src/config/list_parser.cpp',
+  'src/lists/ipset.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)
