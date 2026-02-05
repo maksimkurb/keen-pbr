@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -43,11 +44,65 @@ struct BlackholeOutbound {
 
 using Outbound = std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound>;
 
-// --- Top-level Config (partial, extended in US-006) ---
+// --- List definitions ---
+
+struct ListConfig {
+    std::optional<std::string> url;
+    std::vector<std::string> domains;
+    std::vector<std::string> ip_cidrs;
+    std::optional<std::string> file;
+};
+
+// --- Route section ---
+
+struct SkipAction {};
+
+struct RouteRule {
+    std::vector<std::string> lists;
+    // Single outbound tag, failover chain of tags, or skip action
+    std::variant<std::string, std::vector<std::string>, SkipAction> action;
+};
+
+struct RouteConfig {
+    std::vector<RouteRule> rules;
+    std::string fallback;
+};
+
+// --- DNS section ---
+
+struct DnsServer {
+    std::string tag;
+    std::string address; // IP, DoH URL, "system", or "rcode://refused"
+    std::optional<std::string> detour;
+};
+
+struct DnsRule {
+    std::vector<std::string> lists;
+    std::string server;
+};
+
+struct DnsConfig {
+    std::vector<DnsServer> servers;
+    std::vector<DnsRule> rules;
+    std::string fallback;
+};
+
+// --- API section ---
+
+struct ApiConfig {
+    bool enabled{false};
+    std::string listen{"127.0.0.1:8080"};
+};
+
+// --- Top-level Config ---
 
 struct Config {
     DaemonConfig daemon;
+    ApiConfig api;
     std::vector<Outbound> outbounds;
+    DnsConfig dns;
+    RouteConfig route;
+    std::map<std::string, ListConfig> lists;
 };
 
 // --- JSON deserialization ---

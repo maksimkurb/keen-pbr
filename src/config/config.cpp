@@ -103,6 +103,141 @@ static Outbound parse_outbound(const json& j) {
     }
 }
 
+static ApiConfig parse_api(const json& j) {
+    ApiConfig cfg;
+    if (j.contains("enabled")) {
+        cfg.enabled = j.at("enabled").get<bool>();
+    }
+    if (j.contains("listen")) {
+        cfg.listen = j.at("listen").get<std::string>();
+    }
+    return cfg;
+}
+
+static ListConfig parse_list(const std::string& name, const json& j) {
+    ListConfig cfg;
+    if (j.contains("url")) {
+        cfg.url = j.at("url").get<std::string>();
+    }
+    if (j.contains("domains")) {
+        for (const auto& d : j.at("domains")) {
+            cfg.domains.push_back(d.get<std::string>());
+        }
+    }
+    if (j.contains("ip_cidrs")) {
+        for (const auto& c : j.at("ip_cidrs")) {
+            cfg.ip_cidrs.push_back(c.get<std::string>());
+        }
+    }
+    if (j.contains("file")) {
+        cfg.file = j.at("file").get<std::string>();
+    }
+    // At least one source must be specified
+    if (!cfg.url && cfg.domains.empty() && cfg.ip_cidrs.empty() && !cfg.file) {
+        throw ConfigError("List '" + name +
+                          "' must have at least one of: url, domains, ip_cidrs, file");
+    }
+    return cfg;
+}
+
+static RouteRule parse_route_rule(const json& j) {
+    RouteRule rule;
+
+    if (!j.contains("list")) {
+        throw ConfigError("Route rule missing 'list' field");
+    }
+    for (const auto& l : j.at("list")) {
+        rule.lists.push_back(l.get<std::string>());
+    }
+
+    if (j.contains("action")) {
+        std::string action_str = j.at("action").get<std::string>();
+        if (action_str == "skip") {
+            rule.action = SkipAction{};
+        } else {
+            throw ConfigError("Unknown route action: " + action_str);
+        }
+    } else if (j.contains("outbounds")) {
+        std::vector<std::string> chain;
+        for (const auto& o : j.at("outbounds")) {
+            chain.push_back(o.get<std::string>());
+        }
+        if (chain.empty()) {
+            throw ConfigError("Route rule 'outbounds' array must not be empty");
+        }
+        rule.action = std::move(chain);
+    } else if (j.contains("outbound")) {
+        rule.action = j.at("outbound").get<std::string>();
+    } else {
+        throw ConfigError(
+            "Route rule must have 'outbound', 'outbounds', or 'action' field");
+    }
+
+    return rule;
+}
+
+static RouteConfig parse_route(const json& j) {
+    RouteConfig cfg;
+    if (j.contains("rules")) {
+        for (const auto& r : j.at("rules")) {
+            cfg.rules.push_back(parse_route_rule(r));
+        }
+    }
+    if (j.contains("fallback")) {
+        cfg.fallback = j.at("fallback").get<std::string>();
+    }
+    return cfg;
+}
+
+static DnsServer parse_dns_server(const json& j) {
+    DnsServer srv;
+    if (!j.contains("tag")) {
+        throw ConfigError("DNS server missing 'tag' field");
+    }
+    if (!j.contains("address")) {
+        throw ConfigError("DNS server missing 'address' field");
+    }
+    srv.tag = j.at("tag").get<std::string>();
+    srv.address = j.at("address").get<std::string>();
+    if (j.contains("detour")) {
+        srv.detour = j.at("detour").get<std::string>();
+    }
+    return srv;
+}
+
+static DnsRule parse_dns_rule(const json& j) {
+    DnsRule rule;
+    if (!j.contains("list")) {
+        throw ConfigError("DNS rule missing 'list' field");
+    }
+    if (!j.contains("server")) {
+        throw ConfigError("DNS rule missing 'server' field");
+    }
+    for (const auto& l : j.at("list")) {
+        rule.lists.push_back(l.get<std::string>());
+    }
+    rule.server = j.at("server").get<std::string>();
+    return rule;
+}
+
+static DnsConfig parse_dns(const json& j) {
+    DnsConfig cfg;
+    if (j.contains("servers")) {
+        for (const auto& s : j.at("servers")) {
+            cfg.servers.push_back(parse_dns_server(s));
+        }
+    }
+    if (j.contains("rules")) {
+        for (const auto& r : j.at("rules")) {
+            cfg.rules.push_back(parse_dns_rule(r));
+        }
+    }
+    if (j.contains("fallback")) {
+        cfg.fallback = j.at("fallback").get<std::string>();
+    }
+    return cfg;
+}
+
 Config parse_config(const std::string& json_str) {
     json j;
     try {
@@ -117,9 +252,27 @@ Config parse_config(const std::string& json_str) {
         config.daemon = parse_daemon(j.at("daemon"));
     }
 
+    if (j.contains("api")) {
+        config.api = parse_api(j.at("api"));
+    }
+
     if (j.contains("outbounds")) {
         for (const auto& ob_json : j.at("outbounds")) {
             config.outbounds.push_back(parse_outbound(ob_json));
+        }
+    }
+
+    if (j.contains("dns")) {
+        config.dns = parse_dns(j.at("dns"));
+    }
+
+    if (j.contains("route")) {
+        config.route = parse_route(j.at("route"));
+    }
+
+    if (j.contains("lists")) {
+        for (const auto& [name, list_json] : j.at("lists").items()) {
+            config.lists[name] = parse_list(name, list_json);
         }
     }
 
