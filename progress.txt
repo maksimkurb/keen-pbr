@@ -36,6 +36,9 @@
 - DNS: DnsServerType enum classifies addresses as PlainIP, DoH, System, or Blocked
 - DNS: DnsServerConfig enriches config-level DnsServer with parsed type and extracted fields (resolved_ip, doh_url)
 - DNS: New module directory: `src/dns/` for DNS-related code
+- DNS: DnsRouter takes `const ListManager&` (non-owning ref) and `DnsConfig` to resolve domains to DNS servers
+- DNS: DnsRouter validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
+- DNS: Wildcard domain matching: `*.example.com` matches both subdomains and the base domain itself
 
 ## Iteration Log
 
@@ -321,4 +324,18 @@
   - IPv6 validation checks for colons, valid hex characters, and at most one `::` (basic but sufficient)
   - DoH detection is a simple `https://` prefix check
   - New module directory: `src/dns/` for all DNS-related code
+---
+
+## 2026-02-06 - US-019
+- What was implemented: DNS rule matching and router that resolves domain names to DNS server configs based on configured rules and list membership
+- Files changed:
+  - `src/dns/dns_router.hpp` - DnsRouter class declaration with resolve(), get_server(), fallback() methods
+  - `src/dns/dns_router.cpp` - Implementation with rule matching against ListManager domains, wildcard pattern support, config validation
+  - `meson.build` - Added `src/dns/dns_router.cpp` to sources list
+- **Learnings for future iterations:**
+  - DnsRouter takes `const ListManager&` by reference - caller must ensure ListManager outlives DnsRouter (same pattern as RouteTable/PolicyRuleManager with NetlinkManager)
+  - Constructor validates all server tag references (fallback + rules) and throws DnsError if any tag is missing - fail-fast on bad config
+  - Wildcard pattern `*.example.com` matches both subdomains (like `sub.example.com`) and the base domain itself (`example.com`)
+  - Domain matching only checks against `ParsedList::domains` vector (not IPs/CIDRs) since DNS routing is domain-based
+  - Rule matching processes rules in config order with first-match-wins semantics, same as route rules
 ---
