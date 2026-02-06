@@ -57,6 +57,7 @@ sources = [
   'src/health/circuit_breaker.cpp',
   'src/firewall/firewall.cpp',
   'src/firewall/iptables.cpp',
+  'src/firewall/nftables.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)
