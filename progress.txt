@@ -235,3 +235,18 @@
   - `IPPROTO_ICMPV6` and `IPPROTO_ICMP` need explicit `static_cast<int>()` in ternary to avoid `-Wenum-compare` warning
   - New module directory: `src/health/` for health check and circuit breaker code
 ---
+
+## 2026-02-06 - US-014
+- What was implemented: Circuit breaker for failover stability with three states (closed/open/half-open)
+- Files changed:
+  - `src/health/circuit_breaker.hpp` - CircuitBreaker class declaration with CircuitState enum, CircuitBreakerEntry struct, record_success/failure, is_allowed, state, failure_count, reset methods
+  - `src/health/circuit_breaker.cpp` - Implementation with configurable failure threshold and cooldown period, state machine transitions
+  - `meson.build` - Added `src/health/circuit_breaker.cpp` to sources list
+  - `prd.json` - Marked US-014 as passes: true
+- **Learnings for future iterations:**
+  - Circuit breaker uses `std::chrono::steady_clock` (monotonic) for timing, not `system_clock` which can be adjusted
+  - `entries_[tag]` default-constructs CircuitBreakerEntry with closed state and zero failures (via `get_or_create`)
+  - State transitions: closed->open (after N failures), open->half_open (after cooldown), half_open->closed (on success), half_open->open (on failure)
+  - `is_allowed()` has side effect: transitions open->half_open when cooldown expires (caller doesn't need separate transition call)
+  - No dependencies on other modules (config, health_checker) - circuit breaker is a standalone state machine keyed by string tags
+---
