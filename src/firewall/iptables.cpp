@@ -1,5 +1,6 @@
 #include "iptables.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <sys/socket.h>

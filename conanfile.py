@@ -1,4 +1,5 @@
 from conan import ConanFile
+from conan.tools.gnu import PkgConfigDeps
 from conan.tools.meson import MesonToolchain
 
 
@@ -12,7 +13,6 @@ class KeenPbr3Conan(ConanFile):
     default_options = {
         "with_api": True,
     }
-    generators = "PkgConfigDeps"
 
     def requirements(self):
         self.requires("libcurl/8.5.0")
@@ -23,5 +23,7 @@ class KeenPbr3Conan(ConanFile):
             self.requires("cpp-httplib/0.14.0")
 
     def generate(self):
+        deps = PkgConfigDeps(self)
+        deps.generate()
         tc = MesonToolchain(self)
         tc.generate()

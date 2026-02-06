@@ -5,7 +5,7 @@ scripts/ralph
 build/
 dist/
 
-# Conan generated files
+# Conan generated files (in case someone runs without --output-folder)
 conan_meson_native.ini
 conanbuild*.sh
 conanrun*.sh

@@ -1,5 +1,6 @@
 #include "nftables.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 #include <sys/socket.h>
