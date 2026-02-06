@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - mips-be-openwrt
+          - mips-le-openwrt
+          - arm-openwrt
+          - aarch64-openwrt
+          - x86_64-openwrt
+          - mips-le-keenetic
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile.openwrt -t keen-pbr3-builder .
+
+      - name: Build for ${{ matrix.arch }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/dist:/src/dist" \
+            keen-pbr3-builder \
+            ${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: keen-pbr3-${{ matrix.arch }}
+          path: dist/${{ matrix.arch }}/keen-pbr3
+          if-no-files-found: error
