@@ -62,6 +62,7 @@ sources = [
   'src/dns/dns_router.cpp',
   'src/dns/dnsmasq_gen.cpp',
   'src/daemon/daemon.cpp',
+  'src/daemon/scheduler.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)

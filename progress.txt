@@ -43,6 +43,9 @@
 - DNS: Dnsmasq `server=` directives only work with PlainIP DNS servers (not DoH/system/blocked)
 - Daemon: Epoll-based event loop with signalfd for signal handling; external fds registered via add_fd/remove_fd
 - Daemon: signalfd requires signals blocked via sigprocmask first; use SFD_NONBLOCK | SFD_CLOEXEC flags
+- Scheduler: timerfd_create with CLOCK_MONOTONIC + TFD_NONBLOCK | TFD_CLOEXEC; registered with Daemon's epoll via add_fd
+- Scheduler: One-shot timers use it_interval={0,0}; repeating timers set both it_value and it_interval
+- Scheduler: Must read(fd, &uint64_t, 8) to acknowledge timer expiration, otherwise timerfd stays readable
 
 ## Iteration Log
 
@@ -374,4 +377,19 @@
   - epoll_wait with timeout -1 blocks indefinitely; EINTR is handled by continuing the loop
   - FdCallback receives uint32_t epoll events so callers can distinguish EPOLLIN/EPOLLOUT/EPOLLERR
   - add_fd/remove_fd allow external components (scheduler timerfds, API server socket) to integrate with the event loop
+---
+
+## 2026-02-06 - US-022
+- What was implemented: Periodic task scheduler using timerfd, integrated with Daemon epoll event loop
+- Files changed:
+  - `src/daemon/scheduler.hpp` - Scheduler class declaration with schedule_repeating(), schedule_oneshot(), cancel(), cancel_all() methods
+  - `src/daemon/scheduler.cpp` - Implementation using timerfd_create/timerfd_settime with CLOCK_MONOTONIC, epoll integration via Daemon::add_fd/remove_fd
+  - `meson.build` - Added `src/daemon/scheduler.cpp` to sources list
+- **Learnings for future iterations:**
+  - timerfd_create with CLOCK_MONOTONIC avoids issues with system clock adjustments (same reasoning as steady_clock for circuit breaker)
+  - TFD_NONBLOCK | TFD_CLOEXEC flags match the pattern used by signalfd (SFD_NONBLOCK | SFD_CLOEXEC)
+  - itimerspec.it_interval of {0,0} makes timerfd one-shot; non-zero makes it repeat automatically
+  - Must read exactly sizeof(uint64_t) from timerfd to acknowledge expiration and re-arm for next interval
+  - One-shot timers auto-remove from the scheduler after callback fires; the entry is copied before removal to avoid use-after-free
+  - Scheduler takes Daemon& (non-owning ref) - same pattern as RouteTable/PolicyRuleManager with NetlinkManager
 ---
