@@ -39,6 +39,10 @@
 - DNS: DnsRouter takes `const ListManager&` (non-owning ref) and `DnsConfig` to resolve domains to DNS servers
 - DNS: DnsRouter validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
 - DNS: Wildcard domain matching: `*.example.com` matches both subdomains and the base domain itself
+- DNS: Dnsmasq ipset directives use `_ip,_net` suffix pair to match iptables backend's dual sub-set convention
+- DNS: Dnsmasq `server=` directives only work with PlainIP DNS servers (not DoH/system/blocked)
+- Daemon: Epoll-based event loop with signalfd for signal handling; external fds registered via add_fd/remove_fd
+- Daemon: signalfd requires signals blocked via sigprocmask first; use SFD_NONBLOCK | SFD_CLOEXEC flags
 
 ## Iteration Log
 
@@ -338,4 +342,36 @@
   - Wildcard pattern `*.example.com` matches both subdomains (like `sub.example.com`) and the base domain itself (`example.com`)
   - Domain matching only checks against `ParsedList::domains` vector (not IPs/CIDRs) since DNS routing is domain-based
   - Rule matching processes rules in config order with first-match-wins semantics, same as route rules
+---
+
+## 2026-02-06 - US-020
+- What was implemented: Dnsmasq config file generator that produces ipset= and server= directives for domain-based routing
+- Files changed:
+  - `src/dns/dnsmasq_gen.hpp` - DnsmasqGenerator class declaration with generate() and write() methods
+  - `src/dns/dnsmasq_gen.cpp` - Implementation generating dnsmasq directives from route rules, DNS rules, and loaded domain lists
+  - `meson.build` - Added `src/dns/dnsmasq_gen.cpp` to sources list
+- **Learnings for future iterations:**
+  - DnsmasqGenerator takes const refs to DnsRouter, ListManager, RouteConfig, and DnsConfig - same non-owning reference pattern as other components
+  - Ipset directives use the format `ipset=/domain/setname_ip,setname_net` to match the iptables backend's dual sub-set convention (`_ip` for hash:ip, `_net` for hash:net)
+  - Only PlainIP DNS servers can be used in dnsmasq `server=` directives (DoH/system/blocked types are not supported by dnsmasq)
+  - Wildcard domains (`*.example.com`) are stripped to base domain (`example.com`) for dnsmasq directives since dnsmasq inherently matches subdomains
+  - Route rules with SkipAction are excluded from ipset generation (no routing needed)
+  - Deduplication of domains per list prevents duplicate directives in generated config
+  - `write()` creates parent directories if they don't exist (consistent with ListManager's cache directory pattern)
+---
+
+## 2026-02-06 - US-021
+- What was implemented: Daemon event loop with epoll-based signal handling for SIGUSR1, SIGTERM, and SIGINT
+- Files changed:
+  - `src/daemon/daemon.hpp` - Daemon class declaration with run/stop, on_sigusr1, add_fd/remove_fd methods, FdCallback type alias
+  - `src/daemon/daemon.cpp` - Epoll-based event loop with signalfd for signal handling, fd registration/dispatch
+  - `meson.build` - Added `src/daemon/daemon.cpp` to sources list
+- **Learnings for future iterations:**
+  - New module directory: `src/daemon/` for daemon event loop and scheduler code
+  - signalfd requires signals to be blocked via sigprocmask first; signals are then read from the fd
+  - SFD_NONBLOCK and SFD_CLOEXEC flags used for signalfd; EPOLL_CLOEXEC for epoll_create1
+  - Daemon destructor restores signal disposition by unblocking the masked signals
+  - epoll_wait with timeout -1 blocks indefinitely; EINTR is handled by continuing the loop
+  - FdCallback receives uint32_t epoll events so callers can distinguish EPOLLIN/EPOLLOUT/EPOLLERR
+  - add_fd/remove_fd allow external components (scheduler timerfds, API server socket) to integrate with the event loop
 ---
