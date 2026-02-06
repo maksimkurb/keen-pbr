@@ -26,6 +26,10 @@
 - ICMP ping: `IPPROTO_ICMPV6` and `IPPROTO_ICMP` are different unnamed enums; cast to `int` to avoid -Wenum-compare warning
 - ICMP ping: For SOCK_DGRAM ICMP, kernel strips IP header from received packets; first byte is ICMP header directly
 - Health checking: Outbounds without `ping_target` are always considered healthy (no check needed)
+- Firewall: Abstract base class in `src/firewall/firewall.hpp`; backends use factory pattern via `create_firewall("auto"|"iptables"|"nftables")`
+- Firewall: Backend implementations provide `create_iptables_firewall()` / `create_nftables_firewall()` forward-declared in firewall.cpp
+- Firewall (iptables): Uses two ipset sub-sets per logical set: `_ip` (hash:ip) and `_net` (hash:net) for addresses vs CIDRs
+- Firewall (iptables): Mark rules in mangle table; cleanup removes rules before ipsets (dependency order)
 
 ## Iteration Log
 
@@ -249,4 +253,36 @@
   - State transitions: closed->open (after N failures), open->half_open (after cooldown), half_open->closed (on success), half_open->open (on failure)
   - `is_allowed()` has side effect: transitions open->half_open when cooldown expires (caller doesn't need separate transition call)
   - No dependencies on other modules (config, health_checker) - circuit breaker is a standalone state machine keyed by string tags
+---
+
+## 2026-02-06 - US-015
+- What was implemented: Abstract firewall interface with pure virtual base class and factory function for backend detection
+- Files changed:
+  - `src/firewall/firewall.hpp` - Abstract Firewall base class with virtual methods (create_ipset, add_to_ipset, delete_ipset, create_mark_rule, delete_mark_rule, apply, cleanup), FirewallError exception, FirewallBackend enum, detect_firewall_backend() and create_firewall() factory functions
+  - `src/firewall/firewall.cpp` - Implementation of detect_firewall_backend() (checks nft first, then iptables) and create_firewall() factory (auto/iptables/nftables backend preference)
+  - `meson.build` - Added `src/firewall/firewall.cpp` to sources list
+- **Learnings for future iterations:**
+  - New module directory: `src/firewall/` for firewall-related code
+  - Backend detection uses `command -v` via `std::system()` to check for nft/iptables availability
+  - Factory function `create_firewall()` uses forward-declared `create_iptables_firewall()` and `create_nftables_firewall()` - these will be implemented in US-016 and US-017 respectively
+  - Firewall interface is non-copyable (deleted copy ctor/assignment) with protected default constructor
+  - `create_mark_rule` and `delete_mark_rule` have default chain parameter "PREROUTING" for mangle table marking
+  - `create_ipset` takes `int family` (AF_INET or AF_INET6) to support both IPv4 and IPv6 sets
+---
+
+## 2026-02-06 - US-016
+- What was implemented: iptables/ipset firewall backend implementing the abstract Firewall interface
+- Files changed:
+  - `src/firewall/iptables.hpp` - IptablesFirewall class declaration implementing Firewall, with MarkRule tracking struct
+  - `src/firewall/iptables.cpp` - Full implementation using `ipset` and `iptables` CLI commands: create/add/delete ipsets, create/delete mangle mark rules, apply (no-op, commands are immediate), cleanup (reverse-order teardown)
+  - `meson.build` - Added `src/firewall/iptables.cpp` to sources list
+- **Learnings for future iterations:**
+  - iptables/ipset uses two sub-sets per logical set: `_ip` (hash:ip) for individual addresses and `_net` (hash:net) for CIDRs, because ipset hash:ip doesn't support CIDR entries
+  - ipset `-exist` flag makes create/add idempotent (no error if already exists)
+  - iptables mark rules go in the mangle table (`-t mangle`), using `-m set --match-set` to match against ipsets
+  - Mark value formatted as hex (`0x...`) for consistency with routing fwmark values
+  - `apply()` is a no-op for iptables backend since commands execute immediately; could be enhanced to use `ipset restore` for batched atomicity
+  - Cleanup removes mark rules in reverse order (LIFO) before destroying ipsets, since iptables rules reference the ipset names
+  - `exec_cmd` uses `std::system()` for shell command execution; `exec_cmd_checked` throws FirewallError on non-zero exit
+  - IPv6 sets use `ip6tables` command instead of `iptables`; family is tracked per set name in `created_sets_`
 ---
