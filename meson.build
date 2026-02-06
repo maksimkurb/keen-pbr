@@ -68,6 +68,7 @@ sources = [
 # Optional API sources (guarded by #ifdef WITH_API in source)
 if get_option('with_api')
   sources += 'src/api/server.cpp'
+  sources += 'src/api/handlers.cpp'
 endif
 
 # Executable target (will be populated with sources in later stories)

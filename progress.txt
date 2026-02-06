@@ -48,6 +48,7 @@
 - Scheduler: Must read(fd, &uint64_t, 8) to acknowledge timer expiration, otherwise timerfd stays readable
 - API: cpp-httplib Server::listen() is blocking; run in std::thread, stop via Server::stop() (thread-safe)
 - API: Pimpl pattern hides httplib.h from header; meson.build conditionally adds API sources inside `if get_option('with_api')` block
+- API: Handlers use ApiContext struct with non-owning refs to subsystems; register_api_handlers() wires them to ApiServer routes before start()
 
 ## Iteration Log
 
@@ -410,4 +411,19 @@
   - ApiConfig.listen is "host:port" format; parsed with rfind(':') to handle IPv6 hosts correctly
   - New module directory: `src/api/` for REST API server and handler code
   - meson.build conditionally adds API sources inside `if get_option('with_api')` block (source files also have #ifdef guards as defense-in-depth)
+---
+
+## 2026-02-06 - US-024
+- What was implemented: REST API endpoint handlers for status, reload, and health check
+- Files changed:
+  - `src/api/handlers.hpp` - Handler declarations, ApiContext struct holding refs to subsystems (outbounds, ListManager, HealthChecker, reload callback)
+  - `src/api/handlers.cpp` - Implementation of GET /api/status (version, outbounds, loaded list stats), POST /api/reload (triggers reload callback), GET /api/health (per-outbound health status)
+  - `meson.build` - Added `src/api/handlers.cpp` to conditional API sources
+- **Learnings for future iterations:**
+  - ApiContext uses non-owning const refs for read-only data (outbounds, ListManager, HealthChecker) and std::function for the mutable reload action
+  - register_api_handlers() takes ApiServer& and ApiContext& - called before ApiServer::start() to register routes
+  - Outbound tag/type extraction uses std::visit with generic lambda and std::decay_t + std::is_same_v for variant dispatch
+  - List stats in /api/status report counts (ips, cidrs, domains) per list name, not full list contents (avoids large responses)
+  - Unmonitored outbounds (no ping_target) report as "healthy" in /api/health since they're always considered healthy
+  - nlohmann_json included via `<nlohmann/json.hpp>` (not direct path) - resolved through pkg-config
 ---
