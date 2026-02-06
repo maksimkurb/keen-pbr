@@ -60,6 +60,7 @@ sources = [
   'src/firewall/nftables.cpp',
   'src/dns/dns_server.cpp',
   'src/dns/dns_router.cpp',
+  'src/dns/dnsmasq_gen.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)
