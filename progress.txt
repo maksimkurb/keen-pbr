@@ -49,6 +49,8 @@
 - API: cpp-httplib Server::listen() is blocking; run in std::thread, stop via Server::stop() (thread-safe)
 - API: Pimpl pattern hides httplib.h from header; meson.build conditionally adds API sources inside `if get_option('with_api')` block
 - API: Handlers use ApiContext struct with non-owning refs to subsystems; register_api_handlers() wires them to ApiServer routes before start()
+- main.cpp: `<sys/socket.h>` needed for AF_INET; daemonize (fork/setsid) before creating epoll/signal fds but after loading config
+- Shutdown order: API server → scheduler → route_table → policy_rules → firewall → PID file
 
 ## Iteration Log
 
@@ -426,4 +428,20 @@
   - List stats in /api/status report counts (ips, cidrs, domains) per list name, not full list contents (avoids large responses)
   - Unmonitored outbounds (no ping_target) report as "healthy" in /api/health since they're always considered healthy
   - nlohmann_json included via `<nlohmann/json.hpp>` (not direct path) - resolved through pkg-config
+---
+
+## 2026-02-06 - US-025
+- What was implemented: Main daemon entry point (main.cpp) that parses CLI flags, loads config, initializes all subsystems, and runs the daemon
+- Files changed:
+  - `src/main.cpp` - Complete daemon entry point: CLI parsing (--config, -d, --no-api, --version, --help), config loading, subsystem initialization (ListManager, HealthChecker, CircuitBreaker, Firewall, NetlinkManager, RouteTable, PolicyRuleManager, DnsRouter, DnsmasqGenerator, Scheduler, optional ApiServer), list download & apply, health check scheduling, periodic list update, SIGUSR1 reload handler, graceful shutdown with cleanup
+  - `meson.build` - Added `src/main.cpp` to sources list
+- **Learnings for future iterations:**
+  - `<sys/socket.h>` must be included for AF_INET constant in main.cpp (not transitively included from other headers)
+  - Daemonization (fork + setsid + redirect stdio) must happen before creating file descriptors (epoll, signalfd, timerfd) but after loading config
+  - Firewall marks start at 0x10000 and increment per route rule; routing table IDs are derived as 100 + (fwmark & 0xFFFF)
+  - Policy rule priority matches table ID for simplicity (100 + offset)
+  - Health check scheduling: one repeating timer per interface outbound with ping_target, using the outbound's own ping_interval
+  - SIGUSR1 callback and API reload both use the same reload_fn lambda for consistency
+  - Shutdown order matters: stop API server first, cancel scheduled tasks, clear routes/rules, cleanup firewall, remove PID file
+  - main.cpp compiles with and without WITH_API flag (verified both paths)
 ---

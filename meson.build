@@ -63,6 +63,7 @@ sources = [
   'src/dns/dnsmasq_gen.cpp',
   'src/daemon/daemon.cpp',
   'src/daemon/scheduler.cpp',
+  'src/main.cpp',
 ]
 
 # Optional API sources (guarded by #ifdef WITH_API in source)
