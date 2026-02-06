@@ -42,7 +42,7 @@ endif
 # Include directories
 inc = include_directories('include')
 
-# Sources will be added as stories are implemented
+# Source files
 sources = [
   'src/http/http_client.cpp',
   'src/config/config.cpp',
@@ -72,11 +72,16 @@ if get_option('with_api')
   sources += 'src/api/handlers.cpp'
 endif
 
-# Executable target (will be populated with sources in later stories)
-# executable(
-#   'keen-pbr3',
-#   sources,
-#   include_directories: inc,
-#   dependencies: deps,
-#   install: true,
-# )
+# Static linking for embedded targets (cross-compilation)
+if meson.is_cross_build()
+  add_project_link_arguments('-static', language: 'cpp')
+endif
+
+# Executable target
+executable(
+  'keen-pbr3',
+  sources,
+  include_directories: inc,
+  dependencies: deps,
+  install: true,
+)

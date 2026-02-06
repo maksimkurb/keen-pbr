@@ -445,3 +445,26 @@
   - Shutdown order matters: stop API server first, cancel scheduled tasks, clear routes/rules, cleanup firewall, remove PID file
   - main.cpp compiles with and without WITH_API flag (verified both paths)
 ---
+
+## 2026-02-06 - US-026
+- What was implemented: GitHub Actions CI/CD workflow with matrix builds for all 6 target architectures
+- Files changed:
+  - `.github/workflows/build.yml` - CI workflow: matrix build (mips-be-openwrt, mips-le-openwrt, arm-openwrt, aarch64-openwrt, x86_64-openwrt, mips-le-keenetic), Docker-based builds via docker/build.sh, artifact upload per architecture
+- **Learnings for future iterations:**
+  - Workflow uses `fail-fast: false` in matrix strategy so one arch failure doesn't cancel others
+  - Docker image is built per-job (each arch); could be optimized with a separate build-image job + caching
+  - Artifact names include architecture suffix for unique identification: `keen-pbr3-<arch>`
+  - The dist directory is bind-mounted (`-v`) so artifacts survive container removal
+  - `if-no-files-found: error` in upload-artifact ensures build failures are caught
+---
+
+## 2026-02-06 - US-027
+- What was implemented: Final meson.build integration - uncommented executable target, added static linking for cross-builds, verified all 22 source files are included
+- Files changed:
+  - `meson.build` - Uncommented executable target `keen-pbr3`, added `meson.is_cross_build()` guard for static linking (`-static`), updated comment from "will be added" to final form
+- **Learnings for future iterations:**
+  - `meson.is_cross_build()` is the proper way to conditionally add flags only for cross-compilation targets
+  - Static linking via `-static` in link arguments ensures the binary is self-contained for embedded deployments
+  - All 22 source files (20 core + 2 conditional API) compile cleanly with `-fsyntax-only` and all dependency flags
+  - The project is now fully buildable: `conan install . --build=missing && meson setup build && meson compile -C build`
+---
