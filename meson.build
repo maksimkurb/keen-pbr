@@ -50,6 +50,7 @@ sources = [
   'src/lists/ipset.cpp',
   'src/lists/list_manager.cpp',
   'src/routing/target.cpp',
+  'src/routing/netlink.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)

@@ -1,0 +1,286 @@
+#include "netlink.hpp"
+
+#include <cstring>
+#include <memory>
+#include <net/if.h>
+#include <netinet/in.h>
+
+#include <netlink/netlink.h>
+#include <netlink/route/route.h>
+#include <netlink/route/rule.h>
+#include <netlink/route/nexthop.h>
+
+namespace keen_pbr3 {
+
+namespace {
+
+// Parse an IP address string to nl_addr, auto-detecting family.
+// For CIDR notation (e.g., "10.0.0.0/8"), the prefix length is preserved.
+// For plain IPs, uses host prefix length (32 for v4, 128 for v6).
+struct NlAddrDeleter {
+    void operator()(struct nl_addr* a) const {
+        if (a) nl_addr_put(a);
+    }
+};
+using NlAddrPtr = std::unique_ptr<struct nl_addr, NlAddrDeleter>;
+
+NlAddrPtr parse_addr(const std::string& addr_str, int hint_family = AF_UNSPEC) {
+    struct nl_addr* addr = nullptr;
+    int err = nl_addr_parse(addr_str.c_str(), hint_family, &addr);
+    if (err < 0) {
+        throw NetlinkError("Failed to parse address '" + addr_str + "': " +
+                           nl_geterror(err));
+    }
+    return NlAddrPtr(addr);
+}
+
+int detect_family(const std::string& addr_str) {
+    if (addr_str.find(':') != std::string::npos) {
+        return AF_INET6;
+    }
+    return AF_INET;
+}
+
+// RAII wrapper for rtnl_route
+struct RouteDeleter {
+    void operator()(struct rtnl_route* r) const {
+        if (r) rtnl_route_put(r);
+    }
+};
+using RoutePtr = std::unique_ptr<struct rtnl_route, RouteDeleter>;
+
+// RAII wrapper for rtnl_nexthop
+struct NexthopDeleter {
+    void operator()(struct rtnl_nexthop* nh) const {
+        if (nh) rtnl_route_nh_free(nh);
+    }
+};
+using NexthopPtr = std::unique_ptr<struct rtnl_nexthop, NexthopDeleter>;
+
+// RAII wrapper for rtnl_rule
+struct RuleDeleter {
+    void operator()(struct rtnl_rule* r) const {
+        if (r) rtnl_rule_put(r);
+    }
+};
+using RulePtr = std::unique_ptr<struct rtnl_rule, RuleDeleter>;
+
+} // anonymous namespace
+
+struct NetlinkManager::Impl {
+    struct nl_sock* sock{nullptr};
+
+    Impl() {
+        sock = nl_socket_alloc();
+        if (!sock) {
+            throw NetlinkError("Failed to allocate netlink socket");
+        }
+        int err = nl_connect(sock, NETLINK_ROUTE);
+        if (err < 0) {
+            nl_socket_free(sock);
+            throw NetlinkError(std::string("Failed to connect netlink socket: ") +
+                               nl_geterror(err));
+        }
+    }
+
+    ~Impl() {
+        if (sock) {
+            nl_close(sock);
+            nl_socket_free(sock);
+        }
+    }
+};
+
+NetlinkManager::NetlinkManager() : impl_(new Impl()) {}
+
+NetlinkManager::~NetlinkManager() {
+    delete impl_;
+}
+
+void NetlinkManager::add_route(const RouteSpec& spec) {
+    int family = spec.family;
+    if (family == 0) {
+        if (spec.destination == "default") {
+            family = AF_INET;
+        } else {
+            family = detect_family(spec.destination);
+        }
+    }
+
+    RoutePtr route(rtnl_route_alloc());
+    if (!route) {
+        throw NetlinkError("Failed to allocate route object");
+    }
+
+    rtnl_route_set_family(route.get(), family);
+
+    if (spec.table != 0) {
+        rtnl_route_set_table(route.get(), spec.table);
+    }
+
+    // Set destination
+    if (spec.destination == "default") {
+        // Default route: destination is 0.0.0.0/0 or ::/0
+        NlAddrPtr dst = parse_addr(family == AF_INET6 ? "::/0" : "0.0.0.0/0", family);
+        rtnl_route_set_dst(route.get(), dst.get());
+    } else {
+        NlAddrPtr dst = parse_addr(spec.destination, family);
+        rtnl_route_set_dst(route.get(), dst.get());
+    }
+
+    if (spec.blackhole) {
+        rtnl_route_set_type(route.get(), RTN_BLACKHOLE);
+    } else {
+        // Create nexthop with interface and optional gateway
+        NexthopPtr nh(rtnl_route_nh_alloc());
+        if (!nh) {
+            throw NetlinkError("Failed to allocate nexthop object");
+        }
+
+        if (spec.interface) {
+            unsigned int ifindex = if_nametoindex(spec.interface->c_str());
+            if (ifindex == 0) {
+                throw NetlinkError("Interface not found: " + *spec.interface);
+            }
+            rtnl_route_nh_set_ifindex(nh.get(), static_cast<int>(ifindex));
+        }
+
+        if (spec.gateway) {
+            NlAddrPtr gw = parse_addr(*spec.gateway, family);
+            rtnl_route_nh_set_gateway(nh.get(), gw.get());
+        }
+
+        // rtnl_route_add_nexthop takes ownership of nh
+        rtnl_route_add_nexthop(route.get(), nh.release());
+    }
+
+    int err = rtnl_route_add(impl_->sock, route.get(), NLM_F_CREATE | NLM_F_REPLACE);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to add route: ") + nl_geterror(err));
+    }
+}
+
+void NetlinkManager::delete_route(const RouteSpec& spec) {
+    int family = spec.family;
+    if (family == 0) {
+        if (spec.destination == "default") {
+            family = AF_INET;
+        } else {
+            family = detect_family(spec.destination);
+        }
+    }
+
+    RoutePtr route(rtnl_route_alloc());
+    if (!route) {
+        throw NetlinkError("Failed to allocate route object");
+    }
+
+    rtnl_route_set_family(route.get(), family);
+
+    if (spec.table != 0) {
+        rtnl_route_set_table(route.get(), spec.table);
+    }
+
+    if (spec.destination == "default") {
+        NlAddrPtr dst = parse_addr(family == AF_INET6 ? "::/0" : "0.0.0.0/0", family);
+        rtnl_route_set_dst(route.get(), dst.get());
+    } else {
+        NlAddrPtr dst = parse_addr(spec.destination, family);
+        rtnl_route_set_dst(route.get(), dst.get());
+    }
+
+    if (spec.blackhole) {
+        rtnl_route_set_type(route.get(), RTN_BLACKHOLE);
+    } else if (spec.interface) {
+        NexthopPtr nh(rtnl_route_nh_alloc());
+        if (!nh) {
+            throw NetlinkError("Failed to allocate nexthop object");
+        }
+        unsigned int ifindex = if_nametoindex(spec.interface->c_str());
+        if (ifindex == 0) {
+            throw NetlinkError("Interface not found: " + *spec.interface);
+        }
+        rtnl_route_nh_set_ifindex(nh.get(), static_cast<int>(ifindex));
+
+        if (spec.gateway) {
+            NlAddrPtr gw = parse_addr(*spec.gateway, family);
+            rtnl_route_nh_set_gateway(nh.get(), gw.get());
+        }
+
+        rtnl_route_add_nexthop(route.get(), nh.release());
+    }
+
+    int err = rtnl_route_delete(impl_->sock, route.get(), 0);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to delete route: ") + nl_geterror(err));
+    }
+}
+
+void NetlinkManager::add_rule(const RuleSpec& spec) {
+    auto add_for_family = [&](int fam) {
+        RulePtr rule(rtnl_rule_alloc());
+        if (!rule) {
+            throw NetlinkError("Failed to allocate rule object");
+        }
+
+        rtnl_rule_set_family(rule.get(), fam);
+        rtnl_rule_set_table(rule.get(), spec.table);
+        rtnl_rule_set_mark(rule.get(), spec.fwmark);
+        rtnl_rule_set_mask(rule.get(), spec.fwmask);
+
+        if (spec.priority != 0) {
+            rtnl_rule_set_prio(rule.get(), spec.priority);
+        }
+
+        rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
+
+        int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
+        if (err < 0) {
+            throw NetlinkError(std::string("Failed to add rule (family ") +
+                               std::to_string(fam) + "): " + nl_geterror(err));
+        }
+    };
+
+    if (spec.family == 0) {
+        // Add for both IPv4 and IPv6
+        add_for_family(AF_INET);
+        add_for_family(AF_INET6);
+    } else {
+        add_for_family(spec.family);
+    }
+}
+
+void NetlinkManager::delete_rule(const RuleSpec& spec) {
+    auto del_for_family = [&](int fam) {
+        RulePtr rule(rtnl_rule_alloc());
+        if (!rule) {
+            throw NetlinkError("Failed to allocate rule object");
+        }
+
+        rtnl_rule_set_family(rule.get(), fam);
+        rtnl_rule_set_table(rule.get(), spec.table);
+        rtnl_rule_set_mark(rule.get(), spec.fwmark);
+        rtnl_rule_set_mask(rule.get(), spec.fwmask);
+
+        if (spec.priority != 0) {
+            rtnl_rule_set_prio(rule.get(), spec.priority);
+        }
+
+        rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
+
+        int err = rtnl_rule_delete(impl_->sock, rule.get(), 0);
+        if (err < 0) {
+            throw NetlinkError(std::string("Failed to delete rule (family ") +
+                               std::to_string(fam) + "): " + nl_geterror(err));
+        }
+    };
+
+    if (spec.family == 0) {
+        del_for_family(AF_INET);
+        del_for_family(AF_INET6);
+    } else {
+        del_for_family(spec.family);
+    }
+}
+
+} // namespace keen_pbr3
