@@ -1,0 +1,108 @@
+#ifdef WITH_API
+
+#include "server.hpp"
+
+#include <httplib.h>
+
+namespace keen_pbr3 {
+
+struct ApiServer::Impl {
+    httplib::Server server;
+    std::string host;
+    int port;
+    std::thread listen_thread;
+    bool is_listening{false};
+};
+
+ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
+    // Parse "host:port" from config.listen
+    auto colon = config.listen.rfind(':');
+    if (colon == std::string::npos) {
+        throw ApiError("Invalid listen address: " + config.listen +
+                       " (expected host:port)");
+    }
+
+    impl_->host = config.listen.substr(0, colon);
+    std::string port_str = config.listen.substr(colon + 1);
+
+    try {
+        impl_->port = std::stoi(port_str);
+    } catch (const std::exception&) {
+        throw ApiError("Invalid port in listen address: " + port_str);
+    }
+
+    if (impl_->port <= 0 || impl_->port > 65535) {
+        throw ApiError("Port out of range: " + port_str);
+    }
+}
+
+ApiServer::~ApiServer() {
+    stop();
+}
+
+void ApiServer::get(const std::string& path, RouteHandler handler) {
+    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request&,
+                                                      httplib::Response& res) {
+        try {
+            std::string body = h();
+            res.set_content(body, "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(
+                R"({"error":")" + std::string(e.what()) + R"("})",
+                "application/json");
+        }
+    });
+}
+
+void ApiServer::post(const std::string& path, RouteHandler handler) {
+    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request&,
+                                                       httplib::Response& res) {
+        try {
+            std::string body = h();
+            res.set_content(body, "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(
+                R"({"error":")" + std::string(e.what()) + R"("})",
+                "application/json");
+        }
+    });
+}
+
+void ApiServer::start() {
+    if (impl_->is_listening) {
+        return;
+    }
+
+    impl_->listen_thread = std::thread([this]() {
+        impl_->is_listening = impl_->server.listen(impl_->host, impl_->port);
+    });
+
+    // Wait briefly for the server to start listening
+    while (!impl_->server.is_running()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    impl_->is_listening = true;
+}
+
+void ApiServer::stop() {
+    if (impl_ && impl_->server.is_running()) {
+        impl_->server.stop();
+    }
+    if (impl_ && impl_->listen_thread.joinable()) {
+        impl_->listen_thread.join();
+    }
+    if (impl_) {
+        impl_->is_listening = false;
+    }
+}
+
+bool ApiServer::listening() const {
+    return impl_->is_listening && impl_->server.is_running();
+}
+
+} // namespace keen_pbr3
+
+#endif // WITH_API

@@ -46,6 +46,8 @@
 - Scheduler: timerfd_create with CLOCK_MONOTONIC + TFD_NONBLOCK | TFD_CLOEXEC; registered with Daemon's epoll via add_fd
 - Scheduler: One-shot timers use it_interval={0,0}; repeating timers set both it_value and it_interval
 - Scheduler: Must read(fd, &uint64_t, 8) to acknowledge timer expiration, otherwise timerfd stays readable
+- API: cpp-httplib Server::listen() is blocking; run in std::thread, stop via Server::stop() (thread-safe)
+- API: Pimpl pattern hides httplib.h from header; meson.build conditionally adds API sources inside `if get_option('with_api')` block
 
 ## Iteration Log
 
@@ -392,4 +394,20 @@
   - Must read exactly sizeof(uint64_t) from timerfd to acknowledge expiration and re-arm for next interval
   - One-shot timers auto-remove from the scheduler after callback fires; the entry is copied before removal to avoid use-after-free
   - Scheduler takes Daemon& (non-owning ref) - same pattern as RouteTable/PolicyRuleManager with NetlinkManager
+---
+
+## 2026-02-06 - US-023
+- What was implemented: REST API server using cpp-httplib, wrapped in #ifdef WITH_API guards, running in a background thread
+- Files changed:
+  - `src/api/server.hpp` - ApiServer class declaration with get/post/start/stop methods, pimpl pattern hiding httplib types
+  - `src/api/server.cpp` - Implementation using httplib::Server in a background thread, address parsing from ApiConfig
+  - `meson.build` - Conditionally adds `src/api/server.cpp` to sources when with_api option is true
+- **Learnings for future iterations:**
+  - cpp-httplib's Server::listen() is blocking; must run in a separate std::thread
+  - Server::stop() is thread-safe and can be called from the main thread to terminate the listener
+  - Server::is_running() provides a way to check if the server has started listening (spin-wait in start())
+  - Pimpl pattern hides httplib.h from the header, keeping compile times down and hiding the library dependency
+  - ApiConfig.listen is "host:port" format; parsed with rfind(':') to handle IPv6 hosts correctly
+  - New module directory: `src/api/` for REST API server and handler code
+  - meson.build conditionally adds API sources inside `if get_option('with_api')` block (source files also have #ifdef guards as defense-in-depth)
 ---

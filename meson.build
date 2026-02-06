@@ -65,6 +65,11 @@ sources = [
   'src/daemon/scheduler.cpp',
 ]
 
+# Optional API sources (guarded by #ifdef WITH_API in source)
+if get_option('with_api')
+  sources += 'src/api/server.cpp'
+endif
+
 # Executable target (will be populated with sources in later stories)
 # executable(
 #   'keen-pbr3',
