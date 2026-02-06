@@ -58,6 +58,7 @@ sources = [
   'src/firewall/firewall.cpp',
   'src/firewall/iptables.cpp',
   'src/firewall/nftables.cpp',
+  'src/dns/dns_server.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)

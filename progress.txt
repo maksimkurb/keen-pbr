@@ -30,6 +30,12 @@
 - Firewall: Backend implementations provide `create_iptables_firewall()` / `create_nftables_firewall()` forward-declared in firewall.cpp
 - Firewall (iptables): Uses two ipset sub-sets per logical set: `_ip` (hash:ip) and `_net` (hash:net) for addresses vs CIDRs
 - Firewall (iptables): Mark rules in mangle table; cleanup removes rules before ipsets (dependency order)
+- Firewall (nftables): Uses `inet` family table for dual-stack; single set with `flags interval` supports both IPs and CIDRs (unlike iptables which needs two sub-sets)
+- Firewall (nftables): Cleanup simply deletes the entire table (cascades to all chains, rules, sets)
+- Firewall (nftables): Rule deletion by handle: `nft -a list chain` to find handle, then `nft delete rule ... handle N`
+- DNS: DnsServerType enum classifies addresses as PlainIP, DoH, System, or Blocked
+- DNS: DnsServerConfig enriches config-level DnsServer with parsed type and extracted fields (resolved_ip, doh_url)
+- DNS: New module directory: `src/dns/` for DNS-related code
 
 ## Iteration Log
 
@@ -285,4 +291,34 @@
   - Cleanup removes mark rules in reverse order (LIFO) before destroying ipsets, since iptables rules reference the ipset names
   - `exec_cmd` uses `std::system()` for shell command execution; `exec_cmd_checked` throws FirewallError on non-zero exit
   - IPv6 sets use `ip6tables` command instead of `iptables`; family is tracked per set name in `created_sets_`
+---
+
+## 2026-02-06 - US-017
+- What was implemented: nftables firewall backend implementing the abstract Firewall interface using `nft` CLI commands
+- Files changed:
+  - `src/firewall/nftables.hpp` - NftablesFirewall class declaration implementing Firewall, with MarkRule tracking struct, table/chain creation tracking
+  - `src/firewall/nftables.cpp` - Full implementation using `nft` CLI: create sets (flags interval), add elements, mark rules in prerouting chain, handle-based rule deletion, table-level cleanup
+  - `meson.build` - Added `src/firewall/nftables.cpp` to sources list
+- **Learnings for future iterations:**
+  - nftables `inet` family is dual-stack (IPv4+IPv6 in one table) - simpler than iptables/ip6tables split
+  - nft sets with `flags interval` support both individual IPs and CIDR prefixes in a single set (no need for separate hash:ip/hash:net like ipset)
+  - nft rule deletion requires finding the rule handle first: `nft -a list chain` + grep + `nft delete rule ... handle N`
+  - nft cleanup is simpler than iptables: `nft delete table inet <name>` removes everything (chains, rules, sets) in one command
+  - nft chain creation for prerouting hook uses `type filter hook prerouting priority mangle` to match iptables mangle table behavior
+  - `nft add` commands are idempotent for tables and chains (no error if already exists)
+---
+
+## 2026-02-06 - US-018
+- What was implemented: DNS server type abstraction with address parsing and validation
+- Files changed:
+  - `src/dns/dns_server.hpp` - DnsServerType enum (PlainIP/DoH/System/Blocked), DnsServerConfig struct with parsed fields, DnsError exception, parse/validate functions
+  - `src/dns/dns_server.cpp` - Implementation of address type detection (IPv4/IPv6 validation, DoH URL detection, system/rcode parsing), DnsServerConfig construction
+  - `meson.build` - Added `src/dns/dns_server.cpp` to sources list
+- **Learnings for future iterations:**
+  - DnsServerType classifies addresses into 4 categories: PlainIP (raw IP), DoH (https:// URL), System ("system"), Blocked ("rcode://refused")
+  - DnsServerConfig enriches the config-level DnsServer with a parsed type and extracted type-specific fields (resolved_ip for PlainIP, doh_url for DoH)
+  - IPv4 validation uses `std::from_chars` for safe octet parsing (same pattern as list_parser)
+  - IPv6 validation checks for colons, valid hex characters, and at most one `::` (basic but sufficient)
+  - DoH detection is a simple `https://` prefix check
+  - New module directory: `src/dns/` for all DNS-related code
 ---
