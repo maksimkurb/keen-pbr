@@ -1,0 +1,459 @@
+{
+  "project": "keen-pbr3",
+  "branchName": "ralph/keen-pbr3-cpp-port",
+  "description": "Port keen-pbr (Lua) to C++20 as an always-running daemon with optional REST API, targeting OpenWRT and Keenetic routers. Selective routing for IP addresses, subnets, and domains with interface failover and health checks.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create Meson build system and Conan dependency files",
+      "description": "As a developer, I need the build system foundation so that all subsequent code can compile. Create conanfile.py with dependencies (libcurl, nlohmann_json, libnl, mbedtls, cpp-httplib optional), meson.build with size-optimized flags and feature toggles, and meson_options.txt with build options (with_api, firewall_backend).",
+      "acceptanceCriteria": [
+        "conanfile.py exists with dependencies: libcurl/8.5.0, nlohmann_json/3.11.3, libnl/3.8.0, mbedtls/3.5.0, cpp-httplib/0.14.0 (optional)",
+        "conanfile.py uses PkgConfigDeps and MesonToolchain generators",
+        "meson.build exists with project name 'keen-pbr3', C++20, size optimization flags (-Os -ffunction-sections -fdata-sections --gc-sections, LTO)",
+        "meson.build has 'with_api' feature flag for optional REST API compilation",
+        "meson_options.txt defines options: with_api (boolean, default true), firewall_backend (combo: auto/iptables/nftables)",
+        "include/keen-pbr3/version.hpp exists with version macros"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Create cross-compilation profiles and cross-files",
+      "description": "As a developer, I need cross-compilation support for embedded targets (MIPS, ARM, AArch64, x86_64) on OpenWRT and Keenetic.",
+      "acceptanceCriteria": [
+        "conan/profiles/base-embedded exists with shared settings for embedded targets",
+        "conan/profiles/ has profiles for: mips-be-openwrt, mips-le-openwrt, arm-openwrt, aarch64-openwrt, x86_64-openwrt, mips-le-keenetic",
+        "Each profile includes base-embedded and sets correct arch, compiler, and OS settings",
+        "meson/cross/ directory has .ini cross-files for each architecture",
+        "Cross-files specify correct toolchain binaries (gcc, g++, ar, strip, pkg-config)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create Docker build infrastructure",
+      "description": "As a developer, I need Docker-based builds using OpenWRT SDK images so that cross-compilation requires zero local toolchain setup.",
+      "acceptanceCriteria": [
+        "docker/Dockerfile.openwrt exists, based on OpenWRT SDK image",
+        "Dockerfile installs Conan 2.x, Meson, Ninja, and required build tools",
+        "docker/build.sh exists and is executable",
+        "build.sh accepts architecture argument (e.g., mipsel_24kc)",
+        "build.sh runs Conan install, Meson setup, and Meson compile inside container",
+        "build.sh outputs binary to dist/<arch>/keen-pbr3"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Implement HTTP client wrapper",
+      "description": "As a developer, I need a libcurl wrapper for downloading IP/domain lists from URLs with HTTPS support via mbedTLS.",
+      "acceptanceCriteria": [
+        "src/http/http_client.hpp declares HttpClient class with download method",
+        "src/http/http_client.cpp implements HttpClient using libcurl",
+        "Supports HTTPS via mbedTLS backend",
+        "download() method accepts URL string, returns response body as string",
+        "Supports setting timeout and user-agent",
+        "Handles HTTP errors by throwing exceptions with status code info",
+        "Typecheck passes (meson.build updated to include this source)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement JSON configuration parser - outbounds and daemon sections",
+      "description": "As a developer, I need to parse the JSON config file's 'daemon' and 'outbounds' sections using nlohmann_json.",
+      "acceptanceCriteria": [
+        "src/config/config.hpp declares Config struct with DaemonConfig and outbound types (InterfaceOutbound, TableOutbound, BlackholeOutbound)",
+        "Uses std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound> for Outbound type",
+        "InterfaceOutbound has: tag, interface, optional gateway, optional ping_target, ping_interval (default 30s), ping_timeout (default 5s)",
+        "TableOutbound has: tag, table_id",
+        "BlackholeOutbound has: tag",
+        "DaemonConfig has: pid_file, list_update_interval (default 24h)",
+        "src/config/config.cpp implements JSON deserialization for these types",
+        "Throws descriptive exceptions on invalid config",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement JSON configuration parser - lists, route, and DNS sections",
+      "description": "As a developer, I need to parse the remaining config sections: lists definitions, route rules, and DNS configuration.",
+      "acceptanceCriteria": [
+        "Config struct extended with ListConfig (url, domains, ip_cidrs, file path), RouteConfig, and DnsConfig",
+        "ListConfig supports: url (optional), inline domains (optional), inline ip_cidrs (optional), file path (optional)",
+        "RouteRule has: list names, action as variant of single outbound tag / failover chain / skip action",
+        "RouteConfig has: rules vector, fallback outbound tag",
+        "DnsServer has: tag, address (IP/DoH URL/system/rcode://refused), optional detour",
+        "DnsConfig has: servers vector, dns rules (list -> server), fallback server tag",
+        "ApiConfig has: enabled flag, listen address",
+        "Full Config struct has all sections: daemon, api, outbounds, dns, route, lists",
+        "JSON deserialization works for complete config format from PLAN.md",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement IP/domain list parser",
+      "description": "As a developer, I need to parse text files containing IP addresses, CIDR subnets, and domain names (one per line).",
+      "acceptanceCriteria": [
+        "src/config/list_parser.hpp declares ListParser with parse method",
+        "src/config/list_parser.cpp implements parsing of mixed IP/domain lists",
+        "Correctly identifies and parses: IPv4 addresses, IPv4 CIDR notation, IPv6 addresses, IPv6 CIDR notation, domain names, wildcard domains (*.example.com)",
+        "Skips empty lines and comment lines (starting with #)",
+        "Returns a struct with separate vectors for IPs, CIDRs, and domains",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Implement in-memory IP/subnet set",
+      "description": "As a developer, I need an efficient in-memory data structure to check if an IP address matches any stored IP or CIDR subnet.",
+      "acceptanceCriteria": [
+        "src/lists/ipset.hpp declares IpSet class",
+        "src/lists/ipset.cpp implements IpSet with add/contains operations",
+        "Supports adding individual IPv4/IPv6 addresses",
+        "Supports adding IPv4/IPv6 CIDR subnets",
+        "contains() method checks if an IP matches any stored address or falls within any stored subnet",
+        "Uses efficient lookup (not linear scan for every check)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement list manager for downloading and caching lists",
+      "description": "As a developer, I need a list manager that downloads remote lists, reads local files, merges inline entries, caches results, and supports periodic refresh.",
+      "acceptanceCriteria": [
+        "src/lists/list_manager.hpp declares ListManager class",
+        "src/lists/list_manager.cpp implements list loading from: URLs (via HttpClient), local files, inline domains/ip_cidrs",
+        "Merges all sources for a single list definition into one combined result",
+        "Caches downloaded lists to disk for offline startup",
+        "Provides a reload() method to re-download and refresh all lists",
+        "Returns parsed list data (IPs, CIDRs, domains) per list name",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Implement routing target type definitions",
+      "description": "As a developer, I need the routing target type definitions that represent how traffic should be routed.",
+      "acceptanceCriteria": [
+        "src/routing/target.hpp defines Outbound variant type matching config types",
+        "Defines RoutingDecision struct that resolves a route rule to a concrete outbound",
+        "Supports failover chain resolution: given a list of outbound tags, select the first healthy one",
+        "Defines SkipAction type for rules that should be ignored",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Implement netlink route and rule management",
+      "description": "As a developer, I need netlink-based route and policy rule management to add/remove routes and ip rules in the Linux kernel.",
+      "acceptanceCriteria": [
+        "src/routing/netlink.hpp declares NetlinkManager class",
+        "src/routing/netlink.cpp implements route operations via libnl: add route, delete route, add ip rule, delete ip rule",
+        "Supports routing to interface with optional gateway",
+        "Supports routing to specific table ID",
+        "Supports blackhole routes",
+        "Supports adding fwmark-based ip rules",
+        "Properly initializes and cleans up netlink sockets",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Implement abstract route table and policy rule management",
+      "description": "As a developer, I need an abstract routing state manager that tracks which routes/rules are installed and can apply/remove them.",
+      "acceptanceCriteria": [
+        "src/routing/route_table.hpp declares RouteTable class for managing installed routes",
+        "src/routing/route_table.cpp implements add/remove/clear operations for routes",
+        "Tracks currently installed routes to avoid duplicates and enable cleanup",
+        "src/routing/policy_rule.hpp declares PolicyRuleManager for ip rule management",
+        "src/routing/policy_rule.cpp implements add/remove/clear for policy rules",
+        "Both use NetlinkManager for actual kernel operations",
+        "Provides cleanup method to remove all installed routes/rules on shutdown",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Implement health checker with ping-based monitoring",
+      "description": "As a developer, I need a health checker that monitors interface availability using ICMP ping.",
+      "acceptanceCriteria": [
+        "src/health/health_checker.hpp declares HealthChecker class",
+        "src/health/health_checker.cpp implements ping-based health checking",
+        "Sends ICMP echo request to configured ping_target through specified interface",
+        "Respects ping_timeout from outbound config",
+        "Returns health status (healthy/unhealthy) per interface",
+        "Supports checking multiple interfaces",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Implement circuit breaker for failover stability",
+      "description": "As a developer, I need a circuit breaker to prevent rapid failover oscillation between interfaces.",
+      "acceptanceCriteria": [
+        "src/health/circuit_breaker.hpp declares CircuitBreaker class",
+        "src/health/circuit_breaker.cpp implements failure tracking per outbound",
+        "States: closed (healthy), open (failed, blocking), half-open (testing recovery)",
+        "Configurable failure threshold before opening circuit",
+        "Configurable cooldown period before attempting recovery (half-open)",
+        "Records success/failure and transitions states accordingly",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Implement abstract firewall interface",
+      "description": "As a developer, I need an abstract firewall interface that both iptables and nftables backends will implement.",
+      "acceptanceCriteria": [
+        "src/firewall/firewall.hpp declares abstract Firewall base class/interface",
+        "Interface methods: create_ipset, add_to_ipset, delete_ipset, create_mark_rule, delete_mark_rule, apply, cleanup",
+        "Supports creating named IP sets for domain/IP groups",
+        "Supports marking packets matching an IP set with a firewall mark (fwmark)",
+        "Includes factory function to detect and create appropriate backend (iptables vs nftables)",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Implement iptables/ipset firewall backend",
+      "description": "As a developer, I need the iptables + ipset firewall backend for Keenetic and legacy OpenWRT systems.",
+      "acceptanceCriteria": [
+        "src/firewall/iptables.hpp declares IptablesFirewall implementing Firewall interface",
+        "src/firewall/iptables.cpp implements all Firewall methods using iptables/ipset commands",
+        "Creates ipset sets (hash:ip, hash:net) for IP/CIDR entries",
+        "Creates iptables mangle rules to mark packets matching ipsets",
+        "apply() installs all pending rules atomically where possible",
+        "cleanup() removes all created rules and ipsets on shutdown",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Implement nftables firewall backend stub",
+      "description": "As a developer, I need an nftables firewall backend stub for modern OpenWRT systems.",
+      "acceptanceCriteria": [
+        "src/firewall/nftables.hpp declares NftablesFirewall implementing Firewall interface",
+        "src/firewall/nftables.cpp implements all Firewall methods using nft commands",
+        "Creates nft sets for IP/CIDR entries",
+        "Creates nft rules to mark packets matching sets",
+        "apply() and cleanup() work correctly",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Implement DNS server abstraction",
+      "description": "As a developer, I need DNS server type abstractions supporting system DNS, DNS-over-HTTPS, and blocking (rcode://refused).",
+      "acceptanceCriteria": [
+        "src/dns/dns_server.hpp declares DnsServerType enum and DnsServerConfig struct",
+        "Parses address formats: plain IP, DoH URL (https://...), 'system', 'rcode://refused'",
+        "src/dns/dns_server.cpp implements address parsing and validation",
+        "Each DNS server has a tag and optional detour (outbound tag for DNS traffic routing)",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Implement DNS rule matching and router",
+      "description": "As a developer, I need DNS rule matching to route domain queries to the appropriate DNS server based on configured rules.",
+      "acceptanceCriteria": [
+        "src/dns/dns_router.hpp declares DnsRouter class",
+        "src/dns/dns_router.cpp implements rule matching: given a domain, find matching DNS server",
+        "Matches against list names from dns.rules config",
+        "First match wins (rules processed in config order)",
+        "Falls back to dns.fallback server if no rule matches",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Implement dnsmasq config generation",
+      "description": "As a developer, I need to generate dnsmasq configuration files that direct domain resolution to specific DNS servers and populate ipsets.",
+      "acceptanceCriteria": [
+        "src/dns/dnsmasq_gen.hpp declares DnsmasqGenerator class",
+        "src/dns/dnsmasq_gen.cpp generates dnsmasq ipset directives: ipset=/domain/setname",
+        "Generates server directives for domain-specific DNS: server=/domain/dns-ip",
+        "Writes generated config to a specified output file",
+        "Supports wildcard domains (*.example.com)",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Implement daemon event loop with signal handling",
+      "description": "As a developer, I need the main daemon event loop with epoll-based signal handling for SIGUSR1, SIGTERM, and SIGINT.",
+      "acceptanceCriteria": [
+        "src/daemon/daemon.hpp declares Daemon class with run/stop methods",
+        "src/daemon/daemon.cpp implements epoll-based event loop",
+        "Handles SIGUSR1 to trigger immediate interface re-check",
+        "Handles SIGTERM and SIGINT for graceful shutdown",
+        "Uses signalfd for signal handling within the event loop",
+        "Supports registering additional file descriptors (for API socket)",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Implement periodic task scheduler",
+      "description": "As a developer, I need a scheduler for periodic tasks like list updates, integrated with the daemon event loop.",
+      "acceptanceCriteria": [
+        "src/daemon/scheduler.hpp declares Scheduler class",
+        "src/daemon/scheduler.cpp implements timerfd-based periodic task scheduling",
+        "Supports registering callbacks with configurable intervals",
+        "Integrates with daemon's epoll loop via file descriptor",
+        "Used for periodic list update (default 24h interval from config)",
+        "Supports one-shot and repeating tasks",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Implement REST API server (optional, compile-time)",
+      "description": "As a developer, I need an optional REST API server using cpp-httplib, guarded by the with_api compile-time flag.",
+      "acceptanceCriteria": [
+        "src/api/server.hpp declares ApiServer class",
+        "src/api/server.cpp implements HTTP server using cpp-httplib",
+        "Listens on configured address (default 127.0.0.1:8080)",
+        "Integrates with daemon event loop",
+        "All API code is wrapped in #ifdef WITH_API / #endif preprocessor guards",
+        "meson.build correctly defines WITH_API when with_api option is true",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Implement REST API endpoint handlers",
+      "description": "As a developer, I need API endpoint handlers for status, reload, and health check.",
+      "acceptanceCriteria": [
+        "src/api/handlers.hpp declares handler functions",
+        "src/api/handlers.cpp implements: GET /api/status (returns daemon status, loaded lists, active outbounds), POST /api/reload (triggers list re-download and re-apply), GET /api/health (returns health check results for all outbounds)",
+        "Responses are JSON formatted using nlohmann_json",
+        "All handler code guarded by #ifdef WITH_API",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Implement main.cpp daemon entry point",
+      "description": "As a developer, I need the main entry point that parses CLI arguments, loads config, initializes all subsystems, and runs the daemon.",
+      "acceptanceCriteria": [
+        "src/main.cpp implements main() function",
+        "Parses CLI flags: --config (config path), -d (daemonize/background), --no-api (disable API at runtime)",
+        "Loads and validates JSON config file",
+        "Initializes: ListManager, HealthChecker, CircuitBreaker, Firewall, RouteTable, PolicyRuleManager, DnsRouter, DnsmasqGenerator, Scheduler, optional ApiServer",
+        "Downloads and applies lists on startup",
+        "Sets up health check schedule and list update schedule",
+        "Runs daemon event loop",
+        "On shutdown: cleans up routes, firewall rules, ipsets",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Create GitHub Actions CI/CD workflow",
+      "description": "As a developer, I need a GitHub Actions workflow that builds the project for all target architectures.",
+      "acceptanceCriteria": [
+        ".github/workflows/build.yml exists",
+        "Matrix build for architectures: mips-be, mips-le, arm, aarch64, x86_64, mips-le-keenetic",
+        "Uses Docker-based builds via docker/build.sh",
+        "Uploads built binaries as artifacts",
+        "Runs on push to main and pull requests",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Update meson.build with all source files and final integration",
+      "description": "As a developer, I need the final meson.build to include all source files, link all dependencies, and produce the keen-pbr3 binary.",
+      "acceptanceCriteria": [
+        "meson.build lists all src/**/*.cpp source files",
+        "All dependencies correctly linked: libcurl, nlohmann_json, libnl, mbedtls",
+        "cpp-httplib conditionally linked when with_api is true",
+        "Static linking configured for embedded targets",
+        "Executable target 'keen-pbr3' defined",
+        "install target configured",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

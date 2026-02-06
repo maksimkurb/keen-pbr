@@ -1,0 +1,237 @@
+# keen-pbr3 Progress
+
+## Codebase Patterns
+- Build system: Meson + Conan 2.x with PkgConfigDeps and MesonToolchain generators
+- C++20 standard with size optimization (-Os, -ffunction-sections, -fdata-sections, --gc-sections, LTO)
+- Optional features use Meson options (e.g., `with_api`) and C++ preprocessor guards (e.g., `#ifdef WITH_API`)
+- Include path: `include/keen-pbr3/` for public headers
+- Source path: `src/` for implementation files
+- Cross-compilation: Conan profiles in `conan/profiles/`, Meson cross-files in `meson/cross/`
+- Conan profiles use `include(base-embedded)` to share common embedded settings
+- OpenWRT toolchain prefix pattern: `<arch>-openwrt-linux-musl-` (e.g., `mipsel-openwrt-linux-musl-gcc`)
+- Keenetic toolchain prefix pattern: `<arch>-linux-musl-` (e.g., `mipsel-linux-musl-gcc`)
+- Docker build: `docker/build.sh <arch>` runs full Conan + Meson build, outputs to `dist/<arch>/keen-pbr3`
+- Source file layout: `src/<module>/<file>.hpp` and `src/<module>/<file>.cpp` (headers co-located with source, not in `include/`)
+- Namespace: `keen_pbr3` for all project code
+- Error handling: custom exception classes inheriting from `std::runtime_error`
+- JSON config parsing: use nlohmann_json, parse duration strings ("30s", "5m", "24h") with `parse_duration()` helper
+- Config errors: throw `ConfigError` (inherits `std::runtime_error`) with descriptive messages
+- Outbound discrimination: JSON "type" field determines variant type ("interface", "table", "blackhole")
+- Local typecheck: `export PKG_CONFIG_PATH=/home/maksimkurb/Dev/keen-pbr3 && g++ -std=c++20 -fsyntax-only -I include $(pkg-config --cflags ...) <file>`
+- IP/subnet matching: IpSet uses binary trie (IpTrie) with separate v4/v6 tries for efficient CIDR lookup
+- Netlink: libnl3 requires `-I /usr/include/libnl3` for local typecheck; use RAII wrappers with custom deleters for nl_addr, rtnl_route, rtnl_nexthop, rtnl_rule
+- Netlink: `rtnl_route_add_nexthop()` takes ownership of the nexthop pointer (use `.release()`, not `.get()`)
+- Netlink: For ip rules with `family == 0`, add rules for both AF_INET and AF_INET6
+- ICMP ping: Use SOCK_DGRAM (not SOCK_RAW) for ICMP sockets - avoids needing CAP_NET_RAW in many kernels
+- ICMP ping: `IPPROTO_ICMPV6` and `IPPROTO_ICMP` are different unnamed enums; cast to `int` to avoid -Wenum-compare warning
+- ICMP ping: For SOCK_DGRAM ICMP, kernel strips IP header from received packets; first byte is ICMP header directly
+- Health checking: Outbounds without `ping_target` are always considered healthy (no check needed)
+
+## Iteration Log
+
+## 2026-02-06 - US-001
+- What was implemented: Meson build system, Conan dependency file, build options, version header
+- Files changed:
+  - `conanfile.py` - Conan 2.x recipe with dependencies (libcurl, nlohmann_json, libnl, mbedtls, optional cpp-httplib)
+  - `meson.build` - Project definition with C++20, size optimization, dependency resolution, with_api feature flag
+  - `meson_options.txt` - Build options: with_api (boolean), firewall_backend (combo)
+  - `include/keen-pbr3/version.hpp` - Version macros (3.0.0)
+- **Learnings for future iterations:**
+  - The executable target in meson.build is commented out until source files are added (US-027 will finalize it)
+  - libnl requires both `libnl-3.0` and `libnl-route-3.0` pkg-config packages
+  - No local build verification possible without installing all dependencies; acceptance is based on file correctness
+---
+
+## 2026-02-06 - US-002
+- What was implemented: Cross-compilation Conan profiles and Meson cross-files for all target architectures
+- Files changed:
+  - `conan/profiles/base-embedded` - Shared embedded settings (Linux, GCC, C++20, MinSizeRel)
+  - `conan/profiles/mips-be-openwrt` - MIPS big-endian OpenWRT profile
+  - `conan/profiles/mips-le-openwrt` - MIPS little-endian OpenWRT profile
+  - `conan/profiles/arm-openwrt` - ARM (armv7hf) OpenWRT profile
+  - `conan/profiles/aarch64-openwrt` - AArch64 (armv8) OpenWRT profile
+  - `conan/profiles/x86_64-openwrt` - x86_64 OpenWRT profile
+  - `conan/profiles/mips-le-keenetic` - MIPS little-endian Keenetic profile
+  - `meson/cross/mips-be-openwrt.ini` - MIPS BE cross-file
+  - `meson/cross/mips-le-openwrt.ini` - MIPS LE OpenWRT cross-file
+  - `meson/cross/arm-openwrt.ini` - ARM cross-file
+  - `meson/cross/aarch64-openwrt.ini` - AArch64 cross-file
+  - `meson/cross/x86_64-openwrt.ini` - x86_64 cross-file
+  - `meson/cross/mips-le-keenetic.ini` - MIPS LE Keenetic cross-file
+- **Learnings for future iterations:**
+  - OpenWRT toolchains use musl libc, toolchain prefix follows `<arch>-openwrt-linux-musl-` pattern
+  - Keenetic toolchains differ: prefix is `<arch>-linux-musl-` (no "openwrt" in the name)
+  - Conan profile `include()` directive uses relative paths from the profiles directory
+  - Meson cross-files referenced from Conan profiles via `tools.meson:cross_file` conf
+  - MIPS little-endian uses `mipsel` prefix, MIPS big-endian uses `mips` prefix
+---
+
+## 2026-02-06 - US-003
+- What was implemented: Docker build infrastructure with Dockerfile and build script
+- Files changed:
+  - `docker/Dockerfile.openwrt` - Ubuntu 22.04-based build image with Conan 2.x, Meson, Ninja, and build tools
+  - `docker/build.sh` - Executable build script accepting architecture argument, runs Conan install → Meson setup → Meson compile
+  - `.gitignore` - Added `build/` and `dist/` directories
+- **Learnings for future iterations:**
+  - build.sh uses `--wipe` on meson setup to handle re-runs cleanly, falling back to fresh setup
+  - Architecture names match Conan profile and Meson cross-file names (e.g., `mips-le-openwrt`)
+  - Output goes to `dist/<arch>/keen-pbr3`
+  - Conan's MesonToolchain generates `conan_meson_native.ini` which is passed as `--native-file` to meson setup
+---
+
+## 2026-02-06 - US-004
+- What was implemented: HTTP client wrapper using libcurl for downloading IP/domain lists with HTTPS support
+- Files changed:
+  - `src/http/http_client.hpp` - HttpClient class declaration with HttpError exception, download(), set_timeout(), set_user_agent() methods
+  - `src/http/http_client.cpp` - libcurl-based implementation with write callback, error handling, HTTPS/redirect support
+  - `meson.build` - Added `src/http/http_client.cpp` to sources list
+- **Learnings for future iterations:**
+  - Source files go in `src/<module>/` directory, headers alongside the source (not in `include/`)
+  - curl_global_init is done once via static local variable in constructor
+  - HttpError carries status_code for HTTP-level errors (>= 400), 0 for transport-level errors
+  - The version.hpp macro `KEEN_PBR3_VERSION_STRING` is used for default user-agent via string literal concatenation
+  - meson.build executable target is still commented out (will be enabled in US-027)
+---
+
+## 2026-02-06 - US-005
+- What was implemented: JSON configuration parser for daemon and outbound sections
+- Files changed:
+  - `src/config/config.hpp` - Config struct with DaemonConfig, InterfaceOutbound, TableOutbound, BlackholeOutbound, Outbound variant, parse_config() function
+  - `src/config/config.cpp` - JSON deserialization using nlohmann_json, duration string parsing, outbound type discrimination
+  - `meson.build` - Added `src/config/config.cpp` to sources list
+  - `.gitignore` - Added Conan-generated files (*.pc, conan*.sh, etc.)
+- **Learnings for future iterations:**
+  - Conan generates .pc files and shell scripts in the project root; these must be in .gitignore
+  - nlohmann_json `j.contains()` + `j.at().get<T>()` pattern for optional fields with defaults
+  - Duration parsing supports "s" (seconds), "m" (minutes), "h" (hours) suffixes
+  - Config struct is partial in US-005 (only daemon + outbounds); US-006 will extend it with lists, route, dns, api sections
+  - Local conan install: `export PATH="$HOME/.asdf/installs/python/3.12.11/bin:$PATH" && conan install . --build=missing`
+---
+
+## 2026-02-06 - US-006
+- What was implemented: JSON configuration parser extended with lists, route, DNS, and API sections
+- Files changed:
+  - `src/config/config.hpp` - Added ListConfig, SkipAction, RouteRule, RouteConfig, DnsServer, DnsRule, DnsConfig, ApiConfig structs; extended Config with all sections
+  - `src/config/config.cpp` - Added parse functions for api, lists, route rules (single/failover/skip), route config, DNS servers, DNS rules, DNS config; extended parse_config() to parse all sections
+- **Learnings for future iterations:**
+  - Lists are stored as `std::map<std::string, ListConfig>` keyed by list name (JSON uses object with name keys, not array)
+  - Route rules use three mutually exclusive JSON fields: `outbound` (single tag string), `outbounds` (failover chain array), or `action: "skip"`
+  - DNS rules and route rules both use `"list"` as the JSON field name (array of list name strings)
+  - Config sections are all optional - parse_config handles missing sections gracefully with defaults
+  - SkipAction is an empty struct used as a variant alternative for route rule actions
+---
+
+## 2026-02-06 - US-007
+- What was implemented: IP/domain list parser for mixed text files containing IPs, CIDRs, and domains
+- Files changed:
+  - `src/config/list_parser.hpp` - ParsedList struct and ListParser class with static parse method and validation helpers
+  - `src/config/list_parser.cpp` - Implementation with IPv4/IPv6 address validation, CIDR notation parsing, domain name detection (including wildcards)
+  - `meson.build` - Added `src/config/list_parser.cpp` to sources list
+- **Learnings for future iterations:**
+  - IPv4 detection uses `std::from_chars` for safe integer parsing of octets
+  - IPv6 detection is basic but sufficient: checks for colons, hex digits, allows `::` shorthand and mapped v4
+  - CIDR detection checks for `/` then validates IP part and prefix length (0-32 for v4, 0-128 for v6)
+  - Domain detection requires at least one alpha character to distinguish from pure-numeric IPv4 addresses
+  - Wildcard domains (`*.example.com`) are preserved as-is in the domains vector
+  - Unrecognized lines are silently skipped (no error thrown)
+  - Trim helper strips spaces, tabs, and carriage returns from line edges
+---
+
+## 2026-02-06 - US-008
+- What was implemented: In-memory IP/subnet set using binary trie for efficient prefix matching
+- Files changed:
+  - `src/lists/ipset.hpp` - IpSet and IpTrie class declarations
+  - `src/lists/ipset.cpp` - Implementation with IPv4/IPv6 parsing, trie insert/contains, CIDR support
+  - `meson.build` - Added `src/lists/ipset.cpp` to sources list
+- **Learnings for future iterations:**
+  - Binary trie (radix tree on individual bits) gives O(W) lookup where W is address width (32 for IPv4, 128 for IPv6)
+  - IpTrie::insert skips remaining bits if an existing shorter prefix already covers the new one (optimization)
+  - IPv6 parsing handles `::` expansion, hex groups, and IPv4-mapped addresses (`::ffff:1.2.3.4`)
+  - IpSet uses separate tries for v4/v6 - `contains()` tries v4 first, falls back to v6
+  - `std::from_chars` with base 16 is used for hex group parsing; base 10 for IPv4 octets and CIDR prefix lengths
+  - New module directory: `src/lists/` for list-related data structures
+---
+
+## 2026-02-06 - US-009
+- What was implemented: List manager for downloading remote lists, reading local files, merging inline entries, caching to disk, and reloading
+- Files changed:
+  - `src/lists/list_manager.hpp` - ListManager class declaration with load/reload/get methods
+  - `src/lists/list_manager.cpp` - Implementation with URL download+cache, local file reading, inline entry merging
+  - `meson.build` - Added `src/lists/list_manager.cpp` to sources list
+- **Learnings for future iterations:**
+  - ListManager takes `std::map<std::string, ListConfig>` (from Config::lists) and a cache directory path
+  - Downloaded lists are cached to `<cache_dir>/<list_name>.txt` for offline startup resilience
+  - On download failure, falls back to cached copy if available; otherwise propagates the exception
+  - Inline ip_cidrs entries are parsed through ListParser to classify them as IPs or CIDRs
+  - Inline domain entries are added directly without parsing (they're already domain strings)
+  - `reload()` clears all loaded data and calls `load()` again (full re-download)
+  - `get()` returns `const ParsedList*` (nullptr if not found) to avoid exceptions for missing lists
+  - `std::filesystem::create_directories` is used to ensure cache dir exists before downloading
+---
+
+## 2026-02-06 - US-010
+- What was implemented: Routing target type definitions with RoutingDecision struct and failover chain resolution
+- Files changed:
+  - `src/routing/target.hpp` - RoutingDecision struct (skip/route_to/none factories), HealthCheckFn type alias, resolve_route_action() declaration
+  - `src/routing/target.cpp` - Implementation of resolve_route_action() with single/failover/skip action handling
+  - `meson.build` - Added `src/routing/target.cpp` to sources list
+- **Learnings for future iterations:**
+  - RoutingDecision uses `std::optional<const Outbound*>` to represent resolved outbound (nullopt = no match)
+  - `is_skip` flag distinguishes "skip this rule" from "no outbound found"
+  - HealthCheckFn is a `std::function<bool(const std::string&)>` - when null, all outbounds are considered healthy
+  - `resolve_route_action()` takes the action variant from RouteRule and resolves it against the outbound list
+  - For failover chains, iterates tags in order, selects first healthy outbound (or first found if no health check)
+  - Helper `get_outbound_tag()` uses `std::visit` to extract tag from any outbound variant
+  - New module directory: `src/routing/` for routing-related code
+---
+
+## 2026-02-06 - US-011
+- What was implemented: Netlink route and policy rule management via libnl3
+- Files changed:
+  - `src/routing/netlink.hpp` - NetlinkManager class, RouteSpec and RuleSpec structs, NetlinkError exception
+  - `src/routing/netlink.cpp` - Implementation using libnl3 (rtnl_route, rtnl_rule, rtnl_nexthop) with RAII wrappers
+  - `meson.build` - Added `src/routing/netlink.cpp` to sources list
+- **Learnings for future iterations:**
+  - libnl3 headers are under `/usr/include/libnl3/` - local typecheck needs `-I /usr/include/libnl3`
+  - RAII wrappers (unique_ptr with custom deleter) are essential for libnl objects that need explicit free/put
+  - `rtnl_route_add_nexthop()` takes ownership of the nexthop, so use `.release()` not `.get()`
+  - Route and rule operations use Impl (pimpl) pattern to hide libnl types from the header
+  - RouteSpec supports: interface routing, gateway routing, table routing, and blackhole routes
+  - RuleSpec supports fwmark-based ip rules with configurable mask and priority
+  - When family == 0 for rules, add for both AF_INET and AF_INET6
+  - `nl_addr_parse()` handles both plain IPs and CIDR notation automatically
+  - Route add uses `NLM_F_CREATE | NLM_F_REPLACE` to be idempotent
+  - Rule add uses `NLM_F_CREATE | NLM_F_EXCL` to fail if duplicate exists
+---
+
+## 2026-02-06 - US-012
+- What was implemented: Abstract route table and policy rule management classes that track installed routes/rules to avoid duplicates and enable cleanup
+- Files changed:
+  - `src/routing/route_table.hpp` - RouteTable class declaration with add/remove/clear/size methods
+  - `src/routing/route_table.cpp` - Implementation with duplicate tracking via vector comparison, reverse-order cleanup
+  - `src/routing/policy_rule.hpp` - PolicyRuleManager class declaration with add/remove/clear/size methods
+  - `src/routing/policy_rule.cpp` - Implementation with duplicate tracking via vector comparison, reverse-order cleanup
+  - `meson.build` - Added both new .cpp files to sources list
+- **Learnings for future iterations:**
+  - RouteTable and PolicyRuleManager follow the same pattern: track installed specs in a vector, compare equality by value, skip duplicates, remove in reverse order during cleanup
+  - Both classes take `NetlinkManager&` by reference (non-owning) - the caller must ensure NetlinkManager outlives these managers
+  - Destructors do best-effort cleanup (catch all exceptions) to ensure no-throw guarantee
+  - RouteSpec equality compares all fields: destination, table, interface, gateway, blackhole, family
+  - RuleSpec equality compares all fields: fwmark, fwmask, table, priority, family
+  - The `clear()` method removes routes/rules in reverse order (LIFO) to properly unwind dependencies
+---
+
+## 2026-02-06 - US-013
+- What was implemented: Health checker with ICMP ping-based monitoring for interface outbounds
+- Files changed:
+  - `src/health/health_checker.hpp` - HealthChecker class declaration with HealthStatus enum, HealthResult struct, PingTarget internal struct
+  - `src/health/health_checker.cpp` - Implementation using raw ICMP sockets (SOCK_DGRAM), SO_BINDTODEVICE for interface binding, poll() for timeout
+  - `meson.build` - Added `src/health/health_checker.cpp` to sources list
+- **Learnings for future iterations:**
+  - SOCK_DGRAM ICMP sockets (instead of SOCK_RAW) work on Linux without CAP_NET_RAW on many kernels (ping_group_range sysctl)
+  - ICMPv6 checksums are computed by the kernel; only IPv4 ICMP needs manual checksum computation
+  - SO_BINDTODEVICE requires the interface name including null terminator (pass `.size() + 1`)
+  - poll() is preferred over select() for single-fd timeout waiting
+  - `IPPROTO_ICMPV6` and `IPPROTO_ICMP` need explicit `static_cast<int>()` in ternary to avoid `-Wenum-compare` warning
+  - New module directory: `src/health/` for health check and circuit breaker code
+---

@@ -53,6 +53,7 @@ sources = [
   'src/routing/netlink.cpp',
   'src/routing/route_table.cpp',
   'src/routing/policy_rule.cpp',
+  'src/health/health_checker.cpp',
 ]
 
 # Executable target (will be populated with sources in later stories)
