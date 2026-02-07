@@ -73,24 +73,32 @@ std::string DnsmasqGenerator::generate() const {
             }
         }
 
-        // Use a set to avoid duplicate domain entries
+        // Collect unique domains for this list
+        std::vector<std::string> unique_domains;
         std::set<std::string> seen_domains;
-
         for (const auto& domain : list->domains) {
             std::string bare = strip_wildcard(domain);
-            if (bare.empty() || !seen_domains.insert(bare).second) {
-                continue;
+            if (!bare.empty() && seen_domains.insert(bare).second) {
+                unique_domains.push_back(bare);
             }
+        }
 
-            // Generate ipset directive: ipset=/domain/setname
-            if (needs_ipset) {
-                out << "ipset=/" << bare << "/" << ipset << "\n";
-            }
+        if (unique_domains.empty()) continue;
 
-            // Generate server directive: server=/domain/dns-ip
-            if (!dns_ip.empty()) {
-                out << "server=/" << bare << "/" << dns_ip << "\n";
-            }
+        // Build combined domain path: /domain1/domain2/.../domainN/
+        std::string domain_path;
+        for (const auto& d : unique_domains) {
+            domain_path += "/" + d;
+        }
+
+        // Generate ipset directive: ipset=/d1/d2/.../setname
+        if (needs_ipset) {
+            out << "ipset=" << domain_path << "/" << ipset << "\n";
+        }
+
+        // Generate server directive: server=/d1/d2/.../dns-ip
+        if (!dns_ip.empty()) {
+            out << "server=" << domain_path << "/" << dns_ip << "\n";
         }
 
         out << "\n";
