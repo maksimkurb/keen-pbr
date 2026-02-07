@@ -1,6 +1,5 @@
 #include "dnsmasq_gen.hpp"
 
-#include <fstream>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -83,10 +82,9 @@ std::string DnsmasqGenerator::generate() const {
                 continue;
             }
 
-            // Generate ipset directive: ipset=/domain/setname_ip,setname_net
+            // Generate ipset directive: ipset=/domain/setname
             if (needs_ipset) {
-                out << "ipset=/" << bare << "/" << ipset << "_ip,"
-                    << ipset << "_net\n";
+                out << "ipset=/" << bare << "/" << ipset << "\n";
             }
 
             // Generate server directive: server=/domain/dns-ip
@@ -99,27 +97,6 @@ std::string DnsmasqGenerator::generate() const {
     }
 
     return out.str();
-}
-
-void DnsmasqGenerator::write(const std::filesystem::path& output_path) const {
-    // Ensure parent directory exists
-    if (output_path.has_parent_path()) {
-        std::filesystem::create_directories(output_path.parent_path());
-    }
-
-    std::ofstream file(output_path);
-    if (!file.is_open()) {
-        throw std::runtime_error(
-            "Failed to open dnsmasq config file for writing: " +
-            output_path.string());
-    }
-
-    file << generate();
-
-    if (!file.good()) {
-        throw std::runtime_error(
-            "Failed to write dnsmasq config file: " + output_path.string());
-    }
 }
 
 std::string DnsmasqGenerator::ipset_name(const std::string& list_name) {

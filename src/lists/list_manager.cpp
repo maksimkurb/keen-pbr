@@ -7,11 +7,14 @@
 namespace keen_pbr3 {
 
 ListManager::ListManager(const std::map<std::string, ListConfig>& lists,
-                         const std::filesystem::path& cache_dir)
-    : list_configs_(lists), cache_dir_(cache_dir) {}
+                         const std::filesystem::path& cache_dir,
+                         bool readonly)
+    : list_configs_(lists), cache_dir_(cache_dir), readonly_(readonly) {}
 
 void ListManager::load() {
-    std::filesystem::create_directories(cache_dir_);
+    if (!readonly_) {
+        std::filesystem::create_directories(cache_dir_);
+    }
 
     for (const auto& [name, config] : list_configs_) {
         loaded_lists_[name] = load_list(name, config);
@@ -80,10 +83,12 @@ std::string ListManager::download_or_cache(const std::string& name,
     try {
         std::string content = http_client_.download(url);
 
-        // Write to cache
-        std::ofstream ofs(cache_file, std::ios::binary);
-        if (ofs) {
-            ofs << content;
+        // Write to cache (skip in readonly mode)
+        if (!readonly_) {
+            std::ofstream ofs(cache_file, std::ios::binary);
+            if (ofs) {
+                ofs << content;
+            }
         }
 
         return content;

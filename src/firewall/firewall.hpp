@@ -22,11 +22,15 @@ public:
     // Create a named IP set for storing IP addresses and/or CIDR subnets.
     // set_name: unique name for the set
     // family: AF_INET or AF_INET6
-    virtual void create_ipset(const std::string& set_name, int family) = 0;
+    // timeout: TTL in seconds for entries (0 = no timeout)
+    virtual void create_ipset(const std::string& set_name, int family,
+                              uint32_t timeout = 0) = 0;
 
     // Add an IP address or CIDR subnet to a named set.
     // entry: IP address (e.g., "1.2.3.4") or CIDR (e.g., "10.0.0.0/8")
-    virtual void add_to_ipset(const std::string& set_name, const std::string& entry) = 0;
+    // entry_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
+    virtual void add_to_ipset(const std::string& set_name, const std::string& entry,
+                              int32_t entry_timeout = -1) = 0;
 
     // Delete a named IP set and all its entries.
     virtual void delete_ipset(const std::string& set_name) = 0;

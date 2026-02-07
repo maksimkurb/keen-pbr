@@ -132,6 +132,15 @@ static ListConfig parse_list(const std::string& name, const json& j) {
     if (j.contains("file")) {
         cfg.file = j.at("file").get<std::string>();
     }
+    if (j.contains("ttl")) {
+        auto ttl_val = j.at("ttl");
+        if (ttl_val.is_string()) {
+            auto dur = parse_duration(ttl_val.get<std::string>());
+            cfg.ttl = static_cast<uint32_t>(dur.count());
+        } else {
+            cfg.ttl = ttl_val.get<uint32_t>();
+        }
+    }
     // At least one source must be specified
     if (!cfg.url && cfg.domains.empty() && cfg.ip_cidrs.empty() && !cfg.file) {
         throw ConfigError("List '" + name +

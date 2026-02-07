@@ -37,6 +37,7 @@ struct CliOptions {
     std::string config_path{"/etc/keen-pbr3/config.json"};
     bool daemonize{false};
     bool no_api{false};
+    bool print_dnsmasq_config{false};
     bool show_help{false};
     bool show_version{false};
 };
@@ -49,7 +50,10 @@ void print_usage(const char* argv0) {
               << "  -d               Daemonize (run in background)\n"
               << "  --no-api         Disable REST API at runtime\n"
               << "  --version        Show version and exit\n"
-              << "  --help           Show this help and exit\n";
+              << "  --help           Show this help and exit\n"
+              << "\n"
+              << "Commands:\n"
+              << "  print-dnsmasq-config  Print generated dnsmasq config to stdout and exit\n";
 }
 
 CliOptions parse_args(int argc, char* argv[]) {
@@ -69,6 +73,8 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.show_help = true;
         } else if (std::strcmp(argv[i], "--version") == 0 || std::strcmp(argv[i], "-v") == 0) {
             opts.show_version = true;
+        } else if (std::strcmp(argv[i], "print-dnsmasq-config") == 0) {
+            opts.print_dnsmasq_config = true;
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
@@ -144,6 +150,17 @@ int main(int argc, char* argv[]) {
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
 
+        // Handle print-dnsmasq-config command: load lists, generate, print, exit
+        if (opts.print_dnsmasq_config) {
+            keen_pbr3::ListManager list_manager(config.lists, "/var/cache/keen-pbr3", true);
+            list_manager.load();
+            keen_pbr3::DnsRouter dns_router(config.dns, list_manager);
+            keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_router, list_manager,
+                                                     config.route, config.dns);
+            std::cout << dnsmasq_gen.generate();
+            return 0;
+        }
+
         // Daemonize if requested (before creating fds)
         if (opts.daemonize) {
             daemonize_process();
@@ -171,15 +188,6 @@ int main(int argc, char* argv[]) {
         // Download and load all lists
         std::cerr << "Loading lists...\n";
         list_manager.load();
-
-        // Initialize DNS router and dnsmasq generator
-        keen_pbr3::DnsRouter dns_router(config.dns, list_manager);
-        keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_router, list_manager,
-                                                 config.route, config.dns);
-
-        // Generate dnsmasq config
-        dnsmasq_gen.write("/tmp/keen-pbr3-dnsmasq.conf");
-        std::cerr << "Dnsmasq config written to /tmp/keen-pbr3-dnsmasq.conf\n";
 
         // Apply firewall rules and routing for loaded lists
         // (IP-based entries go into firewall ipsets; routing rules and policy rules
@@ -214,13 +222,24 @@ int main(int argc, char* argv[]) {
 
                 std::string set_name = list_name;
 
-                // Add IPs and CIDRs to firewall ipsets
-                firewall->create_ipset(set_name, AF_INET);
+                // Determine TTL: use list's ttl when the list has domains
+                // (dnsmasq will populate resolved IPs with set-level timeout)
+                auto list_cfg_it = config.lists.find(list_name);
+                uint32_t set_timeout = 0;
+                if (list_cfg_it != config.lists.end() &&
+                    !parsed->domains.empty() && list_cfg_it->second.ttl > 0) {
+                    set_timeout = list_cfg_it->second.ttl;
+                }
+
+                firewall->create_ipset(set_name, AF_INET, set_timeout);
+
+                // Static IPs/CIDRs get timeout 0 (permanent) when set has TTL
+                int32_t static_timeout = (set_timeout > 0) ? 0 : -1;
                 for (const auto& ip : parsed->ips) {
-                    firewall->add_to_ipset(set_name, ip);
+                    firewall->add_to_ipset(set_name, ip, static_timeout);
                 }
                 for (const auto& cidr : parsed->cidrs) {
-                    firewall->add_to_ipset(set_name, cidr);
+                    firewall->add_to_ipset(set_name, cidr, static_timeout);
                 }
 
                 // Create mark rule for the ipset
@@ -284,8 +303,6 @@ int main(int argc, char* argv[]) {
         auto reload_fn = [&]() {
             std::cerr << "Reloading lists...\n";
             list_manager.reload();
-            // Regenerate dnsmasq config
-            dnsmasq_gen.write("/tmp/keen-pbr3-dnsmasq.conf");
             std::cerr << "Lists reloaded.\n";
         };
 

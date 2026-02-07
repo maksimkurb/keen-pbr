@@ -1,0 +1,3 @@
+some.com
+www.some.com
+google.ru

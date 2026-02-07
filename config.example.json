@@ -1,0 +1,106 @@
+{
+  "daemon": {
+    "pid_file": "/var/run/keen-pbr3.pid",
+    "list_update_interval": "24h"
+  },
+
+  "api": {
+    "enabled": true,
+    "listen": "127.0.0.1:8080"
+  },
+
+  "outbounds": [
+    {
+      "type": "interface",
+      "tag": "vpn",
+      "interface": "tun0",
+      "gateway": "10.8.0.1",
+      "ping_target": "8.8.8.8",
+      "ping_interval": "30s",
+      "ping_timeout": "5s"
+    },
+    {
+      "type": "interface",
+      "tag": "wan",
+      "interface": "eth0",
+      "gateway": "192.168.1.1"
+    },
+    {
+      "type": "table",
+      "tag": "custom-table",
+      "table": 200
+    },
+    {
+      "type": "blackhole",
+      "tag": "block"
+    }
+  ],
+
+  "lists": {
+    "my-domains": {
+      "domains": [
+        "example.com",
+        "*.example.org"
+      ]
+    },
+    "my-ips": {
+      "ip_cidrs": [
+        "93.184.216.34",
+        "10.0.0.0/8"
+      ]
+    },
+    "remote-list": {
+      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/instagram"
+    },
+    "local-list": {
+      "file": "./my-list.txt"
+    }
+  },
+
+  "dns": {
+    "servers": [
+      {
+        "tag": "vpn-dns",
+        "address": "10.8.0.1"
+      },
+      {
+        "tag": "google-dns",
+        "address": "8.8.8.8"
+      },
+      {
+        "tag": "doh",
+        "address": "https://dns.google/dns-query",
+        "detour": "vpn"
+      },
+      {
+        "tag": "blocked",
+        "address": "rcode://refused"
+      }
+    ],
+    "rules": [
+      {
+        "list": ["my-domains", "remote-list"],
+        "server": "vpn-dns"
+      }
+    ],
+    "fallback": "google-dns"
+  },
+
+  "route": {
+    "rules": [
+      {
+        "list": ["my-domains", "my-ips", "remote-list"],
+        "outbound": "vpn"
+      },
+      {
+        "list": ["local-list"],
+        "outbounds": ["vpn", "wan"]
+      },
+      {
+        "list": ["my-domains"],
+        "action": "skip"
+      }
+    ],
+    "fallback": "wan"
+  }
+}

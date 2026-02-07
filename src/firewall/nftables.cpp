@@ -49,22 +49,33 @@ void NftablesFirewall::ensure_chain(const std::string& family_str, const std::st
     created_chains_[key] = true;
 }
 
-void NftablesFirewall::create_ipset(const std::string& set_name, int family) {
+void NftablesFirewall::create_ipset(const std::string& set_name, int family,
+                                     uint32_t timeout) {
     ensure_table("inet");
 
-    // nftables sets natively support both individual IPs and CIDR prefixes
-    // in a single set using the "flags interval" feature.
     std::string type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
 
+    std::string flags = "interval";
+    std::string extra;
+    if (timeout > 0) {
+        flags += ", timeout";
+        extra = " timeout " + std::to_string(timeout) + "s;";
+    }
+
     exec_cmd_checked("nft add set inet " + std::string(TABLE_NAME) + " " + set_name +
-                     " '{ type " + type + "; flags interval; }'");
+                     " '{ type " + type + "; flags " + flags + ";" + extra + " }'");
 
     created_sets_[set_name] = family;
 }
 
-void NftablesFirewall::add_to_ipset(const std::string& set_name, const std::string& entry) {
+void NftablesFirewall::add_to_ipset(const std::string& set_name, const std::string& entry,
+                                     int32_t entry_timeout) {
+    std::string element = entry;
+    if (entry_timeout >= 0) {
+        element += " timeout " + std::to_string(entry_timeout) + "s";
+    }
     exec_cmd_checked("nft add element inet " + std::string(TABLE_NAME) + " " + set_name +
-                     " '{ " + entry + " }'");
+                     " '{ " + element + " }'");
 }
 
 void NftablesFirewall::delete_ipset(const std::string& set_name) {

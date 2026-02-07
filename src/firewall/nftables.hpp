@@ -15,8 +15,10 @@ public:
     NftablesFirewall();
     ~NftablesFirewall() override;
 
-    void create_ipset(const std::string& set_name, int family) override;
-    void add_to_ipset(const std::string& set_name, const std::string& entry) override;
+    void create_ipset(const std::string& set_name, int family,
+                      uint32_t timeout = 0) override;
+    void add_to_ipset(const std::string& set_name, const std::string& entry,
+                      int32_t entry_timeout = -1) override;
     void delete_ipset(const std::string& set_name) override;
 
     void create_mark_rule(const std::string& set_name, uint32_t fwmark,

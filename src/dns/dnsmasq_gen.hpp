@@ -4,7 +4,6 @@
 #include "../lists/list_manager.hpp"
 #include "dns_router.hpp"
 
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -23,9 +22,6 @@ public:
     // Generate dnsmasq configuration content as a string.
     // Produces ipset= and server= directives for all matched domains.
     std::string generate() const;
-
-    // Generate and write configuration to the specified file path.
-    void write(const std::filesystem::path& output_path) const;
 
 private:
     // Build the ipset name for a given list name.

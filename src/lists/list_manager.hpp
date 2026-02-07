@@ -13,8 +13,10 @@ namespace keen_pbr3 {
 class ListManager {
 public:
     // cache_dir: directory where downloaded lists are cached on disk
+    // readonly: if true, use existing cache but never create dirs or write files
     explicit ListManager(const std::map<std::string, ListConfig>& lists,
-                         const std::filesystem::path& cache_dir);
+                         const std::filesystem::path& cache_dir,
+                         bool readonly = false);
 
     // Load all lists: download URLs, read files, merge inline entries.
     // Uses cached copies if download fails and cache exists.
@@ -42,6 +44,7 @@ private:
 
     std::map<std::string, ListConfig> list_configs_;
     std::filesystem::path cache_dir_;
+    bool readonly_;
     std::map<std::string, ParsedList> loaded_lists_;
     HttpClient http_client_;
 };

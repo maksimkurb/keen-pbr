@@ -28,42 +28,37 @@ void IptablesFirewall::exec_cmd_checked(const std::string& cmd) {
     }
 }
 
-void IptablesFirewall::create_ipset(const std::string& set_name, int family) {
-    // Create two ipset sets per logical set: one for individual IPs (hash:ip)
-    // and one for CIDR subnets (hash:net). This is because ipset hash:ip
-    // doesn't support CIDR entries and hash:net has different performance
-    // characteristics for single IPs.
+void IptablesFirewall::create_ipset(const std::string& set_name, int family,
+                                     uint32_t timeout) {
     std::string family_str = (family == AF_INET6) ? "inet6" : "inet";
 
-    // hash:ip set for individual addresses
-    exec_cmd_checked("ipset create " + set_name + "_ip hash:ip family " +
-                     family_str + " -exist");
+    // Use hash:net for all entries (supports both individual IPs and CIDRs)
+    std::string cmd = "ipset create " + set_name + " hash:net family " +
+                      family_str;
 
-    // hash:net set for CIDR subnets
-    exec_cmd_checked("ipset create " + set_name + "_net hash:net family " +
-                     family_str + " -exist");
+    if (timeout > 0) {
+        cmd += " timeout " + std::to_string(timeout);
+    }
+
+    cmd += " -exist";
+    exec_cmd_checked(cmd);
 
     created_sets_[set_name] = family;
 }
 
-std::string IptablesFirewall::ipset_type_for_entry(const std::string& entry) {
-    if (entry.find('/') != std::string::npos) {
-        return "_net";
+void IptablesFirewall::add_to_ipset(const std::string& set_name, const std::string& entry,
+                                     int32_t entry_timeout) {
+    std::string cmd = "ipset add " + set_name + " " + entry;
+    if (entry_timeout >= 0) {
+        cmd += " timeout " + std::to_string(entry_timeout);
     }
-    return "_ip";
-}
-
-void IptablesFirewall::add_to_ipset(const std::string& set_name, const std::string& entry) {
-    std::string suffix = ipset_type_for_entry(entry);
-    exec_cmd_checked("ipset add " + set_name + suffix + " " + entry + " -exist");
+    cmd += " -exist";
+    exec_cmd_checked(cmd);
 }
 
 void IptablesFirewall::delete_ipset(const std::string& set_name) {
-    // Flush and destroy both sub-sets; ignore errors if they don't exist
-    exec_cmd("ipset flush " + set_name + "_ip 2>/dev/null");
-    exec_cmd("ipset destroy " + set_name + "_ip 2>/dev/null");
-    exec_cmd("ipset flush " + set_name + "_net 2>/dev/null");
-    exec_cmd("ipset destroy " + set_name + "_net 2>/dev/null");
+    exec_cmd("ipset flush " + set_name + " 2>/dev/null");
+    exec_cmd("ipset destroy " + set_name + " 2>/dev/null");
 
     created_sets_.erase(set_name);
 }
@@ -76,23 +71,14 @@ void IptablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fw
         return oss.str();
     })();
 
-    // Determine iptables command based on set family
     auto it = created_sets_.find(set_name);
     std::string ipt_cmd = "iptables";
     if (it != created_sets_.end() && it->second == AF_INET6) {
         ipt_cmd = "ip6tables";
     }
 
-    // Create mark rules for both the _ip and _net sub-sets
-    // Using -t mangle for packet marking
-    // -m set --match-set matches against the ipset
-    // -j MARK --set-mark sets the fwmark on matching packets
     exec_cmd_checked(ipt_cmd + " -t mangle -A " + chain +
-                     " -m set --match-set " + set_name + "_ip dst" +
-                     " -j MARK --set-mark " + mark_hex);
-
-    exec_cmd_checked(ipt_cmd + " -t mangle -A " + chain +
-                     " -m set --match-set " + set_name + "_net dst" +
+                     " -m set --match-set " + set_name + " dst" +
                      " -j MARK --set-mark " + mark_hex);
 
     mark_rules_.push_back({set_name, fwmark, chain});
@@ -112,13 +98,8 @@ void IptablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
         ipt_cmd = "ip6tables";
     }
 
-    // Delete rules (use -D instead of -A); ignore errors if rule doesn't exist
     exec_cmd(ipt_cmd + " -t mangle -D " + chain +
-             " -m set --match-set " + set_name + "_ip dst" +
-             " -j MARK --set-mark " + mark_hex + " 2>/dev/null");
-
-    exec_cmd(ipt_cmd + " -t mangle -D " + chain +
-             " -m set --match-set " + set_name + "_net dst" +
+             " -m set --match-set " + set_name + " dst" +
              " -j MARK --set-mark " + mark_hex + " 2>/dev/null");
 
     // Remove from tracking
@@ -134,9 +115,6 @@ void IptablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
 
 void IptablesFirewall::apply() {
     // iptables and ipset commands are applied immediately (no staging).
-    // This method exists for interface compatibility.
-    // In a future enhancement, we could batch ipset operations using
-    // ipset restore for atomicity.
 }
 
 void IptablesFirewall::cleanup() {
@@ -155,17 +133,12 @@ void IptablesFirewall::cleanup() {
         }
 
         exec_cmd(ipt_cmd + " -t mangle -D " + it->chain +
-                 " -m set --match-set " + it->set_name + "_ip dst" +
-                 " -j MARK --set-mark " + mark_hex + " 2>/dev/null");
-
-        exec_cmd(ipt_cmd + " -t mangle -D " + it->chain +
-                 " -m set --match-set " + it->set_name + "_net dst" +
+                 " -m set --match-set " + it->set_name + " dst" +
                  " -j MARK --set-mark " + mark_hex + " 2>/dev/null");
     }
     mark_rules_.clear();
 
     // Destroy all created ipsets
-    // Copy keys since delete_ipset modifies the map
     std::vector<std::string> set_names;
     set_names.reserve(created_sets_.size());
     for (const auto& [name, _] : created_sets_) {

@@ -51,6 +51,7 @@ struct ListConfig {
     std::vector<std::string> domains;
     std::vector<std::string> ip_cidrs;
     std::optional<std::string> file;
+    uint32_t ttl{0}; // TTL in seconds for dnsmasq-resolved ipset entries (0 = no timeout)
 };
 
 // --- Route section ---

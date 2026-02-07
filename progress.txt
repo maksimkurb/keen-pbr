@@ -14,7 +14,8 @@
 - Source file layout: `src/<module>/<file>.hpp` and `src/<module>/<file>.cpp` (headers co-located with source, not in `include/`)
 - Namespace: `keen_pbr3` for all project code
 - Error handling: custom exception classes inheriting from `std::runtime_error`
-- JSON config parsing: use nlohmann_json, parse duration strings ("30s", "5m", "24h") with `parse_duration()` helper
+- JSON config parsing: use nlohmann_json, parse duration strings ("30s", "5m", "24h") with `parse_duration()` helper; `ttl` in ListConfig accepts both duration string and integer (seconds)
+- ListConfig TTL: applies to dnsmasq-resolved ipset entries only; user-supplied IPs/CIDRs are always permanent (timeout 0)
 - Config errors: throw `ConfigError` (inherits `std::runtime_error`) with descriptive messages
 - Outbound discrimination: JSON "type" field determines variant type ("interface", "table", "blackhole")
 - Local typecheck: `export PKG_CONFIG_PATH=/home/maksimkurb/Dev/keen-pbr3 && g++ -std=c++20 -fsyntax-only -I include $(pkg-config --cflags ...) <file>`
@@ -28,9 +29,12 @@
 - Health checking: Outbounds without `ping_target` are always considered healthy (no check needed)
 - Firewall: Abstract base class in `src/firewall/firewall.hpp`; backends use factory pattern via `create_firewall("auto"|"iptables"|"nftables")`
 - Firewall: Backend implementations provide `create_iptables_firewall()` / `create_nftables_firewall()` forward-declared in firewall.cpp
-- Firewall (iptables): Uses two ipset sub-sets per logical set: `_ip` (hash:ip) and `_net` (hash:net) for addresses vs CIDRs
+- Firewall (iptables): Uses single `hash:net` ipset per logical set (supports both individual IPs and CIDRs)
+- Firewall: `create_ipset()` accepts optional `timeout` parameter for TTL-based entry expiration (used by dnsmasq-resolved entries)
+- Firewall: `add_to_ipset()` accepts optional `entry_timeout` parameter (-1=set default, 0=permanent) for per-entry timeout override
 - Firewall (iptables): Mark rules in mangle table; cleanup removes rules before ipsets (dependency order)
-- Firewall (nftables): Uses `inet` family table for dual-stack; single set with `flags interval` supports both IPs and CIDRs (unlike iptables which needs two sub-sets)
+- Firewall (nftables): Uses `inet` family table for dual-stack; single set with `flags interval` supports both IPs and CIDRs
+- Firewall (nftables): Sets with timeout use `flags interval, timeout` and `timeout Ns` syntax
 - Firewall (nftables): Cleanup simply deletes the entire table (cascades to all chains, rules, sets)
 - Firewall (nftables): Rule deletion by handle: `nft -a list chain` to find handle, then `nft delete rule ... handle N`
 - DNS: DnsServerType enum classifies addresses as PlainIP, DoH, System, or Blocked
@@ -39,7 +43,7 @@
 - DNS: DnsRouter takes `const ListManager&` (non-owning ref) and `DnsConfig` to resolve domains to DNS servers
 - DNS: DnsRouter validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
 - DNS: Wildcard domain matching: `*.example.com` matches both subdomains and the base domain itself
-- DNS: Dnsmasq ipset directives use `_ip,_net` suffix pair to match iptables backend's dual sub-set convention
+- DNS: Dnsmasq ipset directives use plain set name (single `hash:net` set per list)
 - DNS: Dnsmasq `server=` directives only work with PlainIP DNS servers (not DoH/system/blocked)
 - Daemon: Epoll-based event loop with signalfd for signal handling; external fds registered via add_fd/remove_fd
 - Daemon: signalfd requires signals blocked via sigprocmask first; use SFD_NONBLOCK | SFD_CLOEXEC flags
@@ -298,7 +302,7 @@
   - `src/firewall/iptables.cpp` - Full implementation using `ipset` and `iptables` CLI commands: create/add/delete ipsets, create/delete mangle mark rules, apply (no-op, commands are immediate), cleanup (reverse-order teardown)
   - `meson.build` - Added `src/firewall/iptables.cpp` to sources list
 - **Learnings for future iterations:**
-  - iptables/ipset uses two sub-sets per logical set: `_ip` (hash:ip) for individual addresses and `_net` (hash:net) for CIDRs, because ipset hash:ip doesn't support CIDR entries
+  - iptables/ipset uses single `hash:net` set per logical set (supports both individual IPs and CIDRs); optional `timeout` parameter enables TTL for dnsmasq-resolved entries
   - ipset `-exist` flag makes create/add idempotent (no error if already exists)
   - iptables mark rules go in the mangle table (`-t mangle`), using `-m set --match-set` to match against ipsets
   - Mark value formatted as hex (`0x...`) for consistency with routing fwmark values
@@ -316,7 +320,7 @@
   - `meson.build` - Added `src/firewall/nftables.cpp` to sources list
 - **Learnings for future iterations:**
   - nftables `inet` family is dual-stack (IPv4+IPv6 in one table) - simpler than iptables/ip6tables split
-  - nft sets with `flags interval` support both individual IPs and CIDR prefixes in a single set (no need for separate hash:ip/hash:net like ipset)
+  - nft sets with `flags interval` support both individual IPs and CIDR prefixes in a single set; `flags interval, timeout` enables TTL for dnsmasq-resolved entries
   - nft rule deletion requires finding the rule handle first: `nft -a list chain` + grep + `nft delete rule ... handle N`
   - nft cleanup is simpler than iptables: `nft delete table inet <name>` removes everything (chains, rules, sets) in one command
   - nft chain creation for prerouting hook uses `type filter hook prerouting priority mangle` to match iptables mangle table behavior
@@ -360,7 +364,7 @@
   - `meson.build` - Added `src/dns/dnsmasq_gen.cpp` to sources list
 - **Learnings for future iterations:**
   - DnsmasqGenerator takes const refs to DnsRouter, ListManager, RouteConfig, and DnsConfig - same non-owning reference pattern as other components
-  - Ipset directives use the format `ipset=/domain/setname_ip,setname_net` to match the iptables backend's dual sub-set convention (`_ip` for hash:ip, `_net` for hash:net)
+  - Ipset directives use the format `ipset=/domain/setname` (single `hash:net` set per list)
   - Only PlainIP DNS servers can be used in dnsmasq `server=` directives (DoH/system/blocked types are not supported by dnsmasq)
   - Wildcard domains (`*.example.com`) are stripped to base domain (`example.com`) for dnsmasq directives since dnsmasq inherently matches subdomains
   - Route rules with SkipAction are excluded from ipset generation (no routing needed)
