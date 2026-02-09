@@ -19,7 +19,7 @@ public:
 
 struct DaemonConfig {
     std::string pid_file;
-    std::chrono::seconds list_update_interval{86400}; // 24h
+    std::string cache_dir{"/var/cache/keen-pbr3"};
 };
 
 // --- Outbound types ---

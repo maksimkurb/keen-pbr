@@ -488,3 +488,16 @@
   - ParsedList struct and parse() method remain for backward compatibility until US-043 removes them
   - The relative include `../lists/list_entry_visitor.hpp` from config/ to lists/ works because meson.build doesn't add src/ to include path (files use relative includes between modules)
 ---
+
+## 2026-02-09 - US-029
+- What was implemented: Added configurable `cache_dir` to DaemonConfig (default `/var/cache/keen-pbr3`) and removed `list_update_interval` field since downloading is now a separate command
+- Files changed:
+  - `src/config/config.hpp` - Replaced `list_update_interval` with `cache_dir` in DaemonConfig
+  - `src/config/config.cpp` - Updated `parse_daemon()` to parse `cache_dir` instead of `list_update_interval`
+  - `src/main.cpp` - Replaced hardcoded `/var/cache/keen-pbr3` with `config.daemon.cache_dir` in both print-dnsmasq-config and daemon mode; removed periodic list update scheduler
+  - `config.example.json` - Replaced `list_update_interval` with `cache_dir`
+- **Learnings for future iterations:**
+  - `parse_duration()` helper is still used by outbound ping_interval/ping_timeout and list TTL parsing, so it remains in config.cpp
+  - The `<chrono>` include in config.hpp is still needed by InterfaceOutbound's ping_interval/ping_timeout fields
+  - Typecheck uses build dir for pkg-config: `export PKG_CONFIG_PATH=.../build`
+---

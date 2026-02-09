@@ -44,9 +44,8 @@ static DaemonConfig parse_daemon(const json& j) {
     if (j.contains("pid_file")) {
         cfg.pid_file = j.at("pid_file").get<std::string>();
     }
-    if (j.contains("list_update_interval")) {
-        cfg.list_update_interval =
-            parse_duration(j.at("list_update_interval").get<std::string>());
+    if (j.contains("cache_dir")) {
+        cfg.cache_dir = j.at("cache_dir").get<std::string>();
     }
     return cfg;
 }

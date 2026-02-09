@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
 
         // Handle print-dnsmasq-config command: load lists, generate, print, exit
         if (opts.print_dnsmasq_config) {
-            keen_pbr3::ListManager list_manager(config.lists, "/var/cache/keen-pbr3", true);
+            keen_pbr3::ListManager list_manager(config.lists, config.daemon.cache_dir, true);
             list_manager.load();
             keen_pbr3::DnsRouter dns_router(config.dns, list_manager);
             keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_router, list_manager,
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
         write_pid_file(config.daemon.pid_file);
 
         // Initialize subsystems
-        keen_pbr3::ListManager list_manager(config.lists, "/var/cache/keen-pbr3");
+        keen_pbr3::ListManager list_manager(config.lists, config.daemon.cache_dir);
         keen_pbr3::HealthChecker health_checker;
         keen_pbr3::CircuitBreaker circuit_breaker;
         auto firewall = keen_pbr3::create_firewall("auto");
@@ -308,9 +308,6 @@ int main(int argc, char* argv[]) {
 
         // SIGUSR1 triggers immediate reload
         daemon.on_sigusr1(reload_fn);
-
-        // Schedule periodic list update
-        scheduler.schedule_repeating(config.daemon.list_update_interval, reload_fn);
 
         // Schedule periodic health checks for interface outbounds
         for (const auto& outbound : config.outbounds) {

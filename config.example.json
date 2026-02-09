@@ -1,7 +1,7 @@
 {
   "daemon": {
     "pid_file": "/var/run/keen-pbr3.pid",
-    "list_update_interval": "24h"
+    "cache_dir": "/var/cache/keen-pbr3"
   },
 
   "api": {
