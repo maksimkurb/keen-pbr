@@ -59,6 +59,7 @@
 - Streaming parser: ListParser::stream_parse(istream, visitor) reads line-by-line; classify_entry(string_view, visitor) dispatches a single entry
 - HTTP conditional downloads: `download_conditional()` uses `If-None-Match`/`If-Modified-Since` request headers and captures `ETag`/`Last-Modified` from response via curl header callback
 - CacheManager: `src/cache/cache_manager.hpp` manages download + metadata; cache files as `<cache_dir>/<name>.txt`, metadata as `<cache_dir>/<name>.meta.json`; uses nlohmann_json for metadata serialization
+- ListStreamer: `src/lists/list_streamer.hpp` streams list entries from cache files and inline config through ListEntryVisitor without storing in memory; depends on CacheManager (const ref)
 
 ## Iteration Log
 
@@ -530,4 +531,19 @@
   - CacheMetadata counts (ips, cidrs, domains) are std::optional<size_t> - left as nullopt after download, caller updates via save_metadata() after counting entries
   - Metadata JSON is written with 2-space indent for readability
   - `gmtime_r` used for thread-safe ISO 8601 timestamp generation
+---
+
+## 2026-02-09 - US-032
+- What was implemented: ListStreamer for streaming list entries from cache files and inline config through a visitor without storing them in memory
+- Files changed:
+  - `src/lists/list_streamer.hpp` - ListStreamer class declaration with stream_list(), stream_cache(), and stream_file() methods; depends on CacheManager (const ref) and ListConfig
+  - `src/lists/list_streamer.cpp` - Implementation: stream_list() sequentially streams cached URL file, local file, inline ip_cidrs via classify_entry(), inline domains as Domain entries; calls on_list_complete() after all sources
+  - `meson.build` - Added `src/lists/list_streamer.cpp` to sources list
+- **Learnings for future iterations:**
+  - ListStreamer takes `const CacheManager&` (non-owning ref) - same pattern as other components
+  - stream_list() checks `cache_.has_cache(name)` before attempting to stream cache file (graceful if not yet downloaded)
+  - stream_file() is a private static helper that opens ifstream and calls ListParser::stream_parse()
+  - Inline ip_cidrs use ListParser::classify_entry() to correctly dispatch as Ip or Cidr types
+  - Inline domains are dispatched directly as EntryType::Domain without reclassification
+  - No entries are stored in memory - everything flows through the visitor pattern
 ---
