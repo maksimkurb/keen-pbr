@@ -49,6 +49,7 @@ sources = [
   'src/config/list_parser.cpp',
   'src/lists/ipset.cpp',
   'src/lists/list_manager.cpp',
+  'src/lists/list_streamer.cpp',
   'src/cache/cache_manager.cpp',
   'src/routing/target.cpp',
   'src/routing/netlink.cpp',
