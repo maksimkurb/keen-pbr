@@ -454,6 +454,271 @@
       "priority": 27,
       "passes": true,
       "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Create ListEntryVisitor streaming interface and streaming ListParser",
+      "description": "As a developer, I need a callback-based visitor pattern for processing list entries one-by-one without storing them in memory, and a streaming parser that reads from std::istream line-by-line.",
+      "acceptanceCriteria": [
+        "src/lists/list_entry_visitor.hpp declares EntryType enum (Ip, Cidr, Domain) and ListEntryVisitor abstract class with on_entry(), on_list_complete(), finish() virtual methods",
+        "Includes FunctionalVisitor convenience class wrapping a std::function callback",
+        "Includes EntryCounter visitor class that counts ips/cidrs/domains without storing entries",
+        "src/config/list_parser.hpp adds static stream_parse(std::istream&, ListEntryVisitor&) and classify_entry(std::string_view, ListEntryVisitor&) methods",
+        "src/config/list_parser.cpp implements stream_parse() reading line-by-line with std::getline and dispatching to visitor via classify_entry()",
+        "classify_entry() reuses existing is_ipv4/is_cidr_v4/is_ipv6/is_cidr_v6/is_domain classification methods",
+        "ParsedList struct and parse() method remain temporarily for backward compatibility",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Add configurable cache_dir to DaemonConfig and remove list_update_interval",
+      "description": "As a developer, I need the cache directory to be configurable in the JSON config instead of hardcoded, and remove periodic list update interval since downloading is now a separate command.",
+      "acceptanceCriteria": [
+        "DaemonConfig in src/config/config.hpp has cache_dir field with default '/var/cache/keen-pbr3'",
+        "list_update_interval field removed from DaemonConfig",
+        "src/config/config.cpp parses 'cache_dir' from daemon JSON section",
+        "config.example.json updated to show cache_dir option and remove list_update_interval",
+        "All references to hardcoded '/var/cache/keen-pbr3' in src/main.cpp replaced with config.daemon.cache_dir",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Add conditional HTTP downloads with ETag and If-Modified-Since",
+      "description": "As a developer, I need the HTTP client to support conditional downloads using ETag and If-Modified-Since headers to avoid re-downloading unchanged lists.",
+      "acceptanceCriteria": [
+        "src/http/http_client.hpp declares ConditionalDownloadResult struct with fields: not_modified (bool), body (string), etag (string), last_modified (string)",
+        "HttpClient has new method download_conditional(url, if_none_match, if_modified_since) returning ConditionalDownloadResult",
+        "Implementation uses curl_slist_append to set If-None-Match and If-Modified-Since request headers",
+        "Implementation uses a header callback to capture ETag and Last-Modified from response headers",
+        "HTTP 304 Not Modified is handled as not_modified=true with empty body",
+        "Existing download() method remains unchanged for backward compatibility",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Implement CacheManager with metadata storage",
+      "description": "As a developer, I need a CacheManager that handles downloading lists to cache files with ETag/If-Modified-Since support and stores metadata in .meta.json files.",
+      "acceptanceCriteria": [
+        "src/cache/cache_manager.hpp declares CacheManager class with methods: ensure_dir(), download(name, url), has_cache(name), cache_path(name), meta_path(name), load_metadata(name), save_metadata(name, meta)",
+        "CacheMetadata struct has fields: etag, last_modified, url, download_time, and optional counts (ips, cidrs, domains)",
+        "src/cache/cache_manager.cpp implements download() using HttpClient::download_conditional() with stored ETag/Last-Modified from previous metadata",
+        "Cache files stored as <cache_dir>/<name>.txt, metadata as <cache_dir>/<name>.meta.json",
+        "download() returns true if content was updated, false if 304 Not Modified",
+        "On download failure, does not overwrite existing cache (falls back gracefully)",
+        "Metadata serialized/deserialized using nlohmann_json",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Implement ListStreamer for streaming from cache and inline entries",
+      "description": "As a developer, I need a ListStreamer that replaces ListManager by streaming list entries from cache files and inline config through a visitor without storing them in memory.",
+      "acceptanceCriteria": [
+        "src/lists/list_streamer.hpp declares ListStreamer class with methods: stream_list(name, ListConfig, visitor), stream_cache(name, visitor)",
+        "src/lists/list_streamer.cpp implements stream_list() which sequentially streams: cached URL file, local file (config.file), inline ip_cidrs via classify_entry(), inline domains as Domain entries",
+        "stream_file() opens file as std::ifstream and calls ListParser::stream_parse()",
+        "Calls visitor.on_list_complete(name) after all sources for a list are processed",
+        "Does not store any list entries in memory",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Implement IpsetRestoreVisitor for batch ipset loading",
+      "description": "As a developer, I need a visitor that pipes IP/CIDR entries to 'ipset restore -exist' via popen to avoid one system() call per entry.",
+      "acceptanceCriteria": [
+        "src/firewall/ipset_restore_pipe.hpp declares IpsetRestoreVisitor extending ListEntryVisitor",
+        "Constructor takes set_name and static_timeout, opens popen('ipset restore -exist', 'w')",
+        "on_entry() writes 'add <setname> <entry> [timeout N]\\n' for Ip and Cidr types, ignores Domain entries",
+        "finish() calls pclose() and throws FirewallError if exit code is non-zero",
+        "Destructor calls finish() if not already called",
+        "count() returns number of entries written",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Implement NftBatchVisitor for batch nft set loading",
+      "description": "As a developer, I need a visitor that pipes nftables element additions to 'nft -f -' via popen for batch loading.",
+      "acceptanceCriteria": [
+        "src/firewall/nft_batch_pipe.hpp declares NftBatchVisitor extending ListEntryVisitor",
+        "Constructor takes set_name and static_timeout, opens popen('nft -f -', 'w')",
+        "on_entry() writes 'add element inet keen_pbr3 <setname> { <entry> [timeout Ns] }\\n' for Ip and Cidr types, ignores Domain entries",
+        "finish() calls pclose() and throws FirewallError if exit code is non-zero",
+        "Destructor calls finish() if not already called",
+        "count() returns number of entries written",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Add create_batch_loader() and flush_ipset() to Firewall interface and backends",
+      "description": "As a developer, I need the Firewall abstract interface extended with batch loading and flush methods, implemented by both iptables and nftables backends.",
+      "acceptanceCriteria": [
+        "src/firewall/firewall.hpp adds virtual create_batch_loader(set_name, entry_timeout) returning unique_ptr<ListEntryVisitor> and virtual flush_ipset(set_name)",
+        "src/firewall/iptables.hpp and .cpp implement create_batch_loader() returning IpsetRestoreVisitor",
+        "src/firewall/iptables.cpp implements flush_ipset() executing 'ipset flush <name>'",
+        "src/firewall/nftables.hpp and .cpp implement create_batch_loader() returning NftBatchVisitor",
+        "src/firewall/nftables.cpp implements flush_ipset() executing 'nft flush set inet keen_pbr3 <name>'",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Simplify DnsRouter to DnsServerRegistry",
+      "description": "As a developer, I need to simplify DnsRouter into a DnsServerRegistry that only does server tag lookup, removing domain matching and ListManager dependency.",
+      "acceptanceCriteria": [
+        "src/dns/dns_router.hpp renames/refactors DnsRouter to DnsServerRegistry",
+        "Constructor takes only DnsConfig (no ListManager dependency)",
+        "Keeps get_server(tag) and fallback() methods",
+        "Removes resolve(), domain_matches_list(), domain_matches_pattern() methods",
+        "Removes list_manager_ member and rules_ member",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Rewrite DnsmasqGenerator to use streaming with batched domain output",
+      "description": "As a developer, I need DnsmasqGenerator to stream list entries via ListStreamer instead of reading from ListManager, outputting domains in batches of ~50 per ipset=/server= line.",
+      "acceptanceCriteria": [
+        "src/dns/dnsmasq_gen.hpp updated: depends on ListStreamer and DnsServerRegistry instead of ListManager and DnsRouter",
+        "generate() takes std::ostream& parameter and streams output directly",
+        "For each list, creates a domain-collecting visitor with std::set<string> for dedup",
+        "Domains batched into groups of ~50 per ipset= and server= line",
+        "Dedup set cleared between lists to minimize memory usage",
+        "Only PlainIP DNS servers generate server= directives",
+        "Wildcard domains stripped to base domain (*.example.com -> example.com)",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Add SIGHUP handler to daemon for full reload",
+      "description": "As a developer, I need the daemon to handle SIGHUP for full config re-read and firewall/routing rebuild.",
+      "acceptanceCriteria": [
+        "src/daemon/daemon.hpp adds on_sighup() callback registration method",
+        "src/daemon/daemon.cpp adds SIGHUP to the signalfd signal mask alongside SIGTERM/SIGINT/SIGUSR1",
+        "SIGHUP dispatches to registered callback in the event loop",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "Implement 'keen-pbr3 download' CLI command",
+      "description": "As a developer, I need a 'download' CLI command that downloads all configured lists to cache using ETag/If-Modified-Since, and counts entries in metadata.",
+      "acceptanceCriteria": [
+        "CliOptions in src/main.cpp has download_lists bool field",
+        "'download' parsed as CLI command alongside 'print-dnsmasq-config'",
+        "Download command: creates CacheManager, calls ensure_dir(), iterates config.lists, calls cache.download(name, url) for each list with URL",
+        "After successful download, streams through EntryCounter to count entries and updates .meta.json counts",
+        "Prints status to stderr per list: 'Updated (N entries)' or 'Not modified (304)' or error message",
+        "Exits after completing all downloads",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Rewrite print-dnsmasq-config to use streaming architecture",
+      "description": "As a developer, I need the print-dnsmasq-config command to use CacheManager and streaming DnsmasqGenerator instead of ListManager.",
+      "acceptanceCriteria": [
+        "print-dnsmasq-config path in main.cpp creates CacheManager and ListStreamer",
+        "Downloads lists only if not already cached (calls cache.download() only when !cache.has_cache(name))",
+        "Uses DnsServerRegistry instead of DnsRouter",
+        "Uses streaming DnsmasqGenerator with std::cout as output stream",
+        "No ParsedList or ListManager used",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "Rewrite daemon mode to use streaming firewall population and new signal semantics",
+      "description": "As a developer, I need the daemon mode in main.cpp to use batch loaders for ipset population, SIGUSR1 for outbound re-selection, SIGHUP for full reload, and no periodic list update timer.",
+      "acceptanceCriteria": [
+        "Daemon firewall loop uses firewall->create_batch_loader() + ListStreamer::stream_list() instead of iterating ParsedList vectors",
+        "Batch loader's finish() called after streaming each list",
+        "SIGUSR1 handler re-evaluates resolve_route_action() for failover routes using cached circuit breaker state, updates routes via 'ip route replace' if outbound changed",
+        "SIGHUP handler does full teardown (route_table.clear(), policy_rules.clear(), firewall->cleanup()) then full rebuild (re-read config, download if not cached, re-stream all lists, re-apply routing)",
+        "Periodic list update scheduler removed (no schedule_repeating for list refresh)",
+        "Health check periodic scheduler remains for interface outbounds",
+        "No ParsedList or ListManager used in daemon mode",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-042",
+      "title": "Update API handlers to use cache metadata for status",
+      "description": "As a developer, I need the REST API handlers updated to read list counts from .meta.json instead of in-memory ParsedList.",
+      "acceptanceCriteria": [
+        "ApiContext in src/api/handlers.hpp holds CacheManager& and const std::map<std::string, ListConfig>& instead of ListManager&",
+        "GET /api/status reads entry counts from CacheManager::load_metadata() per list, plus inline config sizes",
+        "POST /api/reload triggers SIGHUP-like full reload callback",
+        "Typecheck passes"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043",
+      "title": "Remove ListManager, ParsedList, and update meson.build",
+      "description": "As a developer, I need to remove the now-unused ListManager and ParsedList, and update the build system with all new source files.",
+      "acceptanceCriteria": [
+        "src/lists/list_manager.hpp and list_manager.cpp deleted",
+        "ParsedList struct removed from src/config/list_parser.hpp",
+        "Old ListParser::parse() method that returns ParsedList removed",
+        "No remaining references to ParsedList or ListManager anywhere in the codebase",
+        "meson.build updated: removes list_manager.cpp, adds list_streamer.cpp, cache_manager.cpp, ipset_restore_pipe.cpp, nft_batch_pipe.cpp",
+        "All #include directives for removed headers updated throughout codebase",
+        "Typecheck passes"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
