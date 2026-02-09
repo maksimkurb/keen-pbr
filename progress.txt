@@ -60,6 +60,7 @@
 - HTTP conditional downloads: `download_conditional()` uses `If-None-Match`/`If-Modified-Since` request headers and captures `ETag`/`Last-Modified` from response via curl header callback
 - CacheManager: `src/cache/cache_manager.hpp` manages download + metadata; cache files as `<cache_dir>/<name>.txt`, metadata as `<cache_dir>/<name>.meta.json`; uses nlohmann_json for metadata serialization
 - ListStreamer: `src/lists/list_streamer.hpp` streams list entries from cache files and inline config through ListEntryVisitor without storing in memory; depends on CacheManager (const ref)
+- Batch pipe visitors: IpsetRestoreVisitor (`ipset restore -exist`) and NftBatchVisitor (`nft -f -`) follow identical popen/fwrite/pclose pattern; both ignore Domain entries, only process Ip and Cidr
 
 ## Iteration Log
 
@@ -560,4 +561,17 @@
   - Domain entries are silently ignored (only Ip and Cidr types are written to ipset)
   - Per-entry timeout is appended only when static_timeout >= 0 (-1 means use set default)
   - fwrite used instead of fprintf for efficiency with pre-built string lines
+---
+
+## 2026-02-09 - US-034
+- What was implemented: NftBatchVisitor that pipes nftables element additions to 'nft -f -' via popen for batch loading
+- Files changed:
+  - `src/firewall/nft_batch_pipe.hpp` - NftBatchVisitor class extending ListEntryVisitor with set_name, static_timeout constructor params, on_entry(), finish(), count() methods
+  - `src/firewall/nft_batch_pipe.cpp` - Implementation: popen("nft -f -", "w"), writes 'add element inet keen_pbr3 <setname> { <entry> [timeout Ns] }\n' per Ip/Cidr entry, pclose() with error checking in finish()
+  - `meson.build` - Added `src/firewall/nft_batch_pipe.cpp` to sources list
+- **Learnings for future iterations:**
+  - NftBatchVisitor follows identical pattern to IpsetRestoreVisitor (popen/fwrite/pclose lifecycle)
+  - nft batch format: `add element inet keen_pbr3 <setname> { <entry> [timeout Ns] }` - note curly braces and `s` suffix on timeout
+  - nft `-f -` flag reads commands from stdin, enabling pipe-based batch loading
+  - Domain entries are silently ignored (only Ip and Cidr types written to nft sets)
 ---
