@@ -55,6 +55,8 @@
 - API: Handlers use ApiContext struct with non-owning refs to subsystems; register_api_handlers() wires them to ApiServer routes before start()
 - main.cpp: `<sys/socket.h>` needed for AF_INET; daemonize (fork/setsid) before creating epoll/signal fds but after loading config
 - Shutdown order: API server → scheduler → route_table → policy_rules → firewall → PID file
+- Visitor pattern: ListEntryVisitor (header-only abstract class) in `src/lists/list_entry_visitor.hpp`; EntryType enum (Ip, Cidr, Domain); FunctionalVisitor wraps std::function; EntryCounter counts without storing
+- Streaming parser: ListParser::stream_parse(istream, visitor) reads line-by-line; classify_entry(string_view, visitor) dispatches a single entry
 
 ## Iteration Log
 
@@ -471,4 +473,18 @@
   - Static linking via `-static` in link arguments ensures the binary is self-contained for embedded deployments
   - All 22 source files (20 core + 2 conditional API) compile cleanly with `-fsyntax-only` and all dependency flags
   - The project is now fully buildable: `conan install . --build=missing && meson setup build && meson compile -C build`
+---
+
+## 2026-02-09 - US-028
+- What was implemented: ListEntryVisitor streaming interface with EntryType enum, abstract ListEntryVisitor class, FunctionalVisitor convenience wrapper, EntryCounter visitor, and streaming ListParser methods (stream_parse, classify_entry)
+- Files changed:
+  - `src/lists/list_entry_visitor.hpp` - New file: EntryType enum (Ip, Cidr, Domain), abstract ListEntryVisitor with on_entry/on_list_complete/finish virtual methods, FunctionalVisitor wrapping std::function, EntryCounter counting entries by type
+  - `src/config/list_parser.hpp` - Added stream_parse(std::istream&, ListEntryVisitor&) and classify_entry(std::string_view, ListEntryVisitor&) static methods; added #include for istream and list_entry_visitor.hpp
+  - `src/config/list_parser.cpp` - Implemented classify_entry() reusing existing is_ipv4/is_cidr_v4/is_ipv6/is_cidr_v6/is_domain methods, and stream_parse() reading line-by-line with std::getline
+- **Learnings for future iterations:**
+  - ListEntryVisitor is header-only (no .cpp needed) since it's an abstract interface + small inline implementations
+  - classify_entry() returns bool indicating whether the entry was recognized (useful for callers that want to log unrecognized entries)
+  - stream_parse() reuses the existing trim() helper from list_parser.cpp (file-local static function)
+  - ParsedList struct and parse() method remain for backward compatibility until US-043 removes them
+  - The relative include `../lists/list_entry_visitor.hpp` from config/ to lists/ works because meson.build doesn't add src/ to include path (files use relative includes between modules)
 ---

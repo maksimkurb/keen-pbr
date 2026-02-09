@@ -1,8 +1,11 @@
 #pragma once
 
+#include <istream>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "../lists/list_entry_visitor.hpp"
 
 namespace keen_pbr3 {
 
@@ -17,6 +20,13 @@ public:
     // Parse a multi-line text containing a mix of IPs, CIDRs, and domains.
     // Skips empty lines and comment lines (starting with #).
     static ParsedList parse(const std::string& text);
+
+    // Stream-parse from an istream, dispatching each entry to the visitor.
+    static void stream_parse(std::istream& input, ListEntryVisitor& visitor);
+
+    // Classify a single trimmed entry and dispatch to the visitor.
+    // Returns true if the entry was recognized and dispatched.
+    static bool classify_entry(std::string_view entry, ListEntryVisitor& visitor);
 
 private:
     static bool is_ipv4(std::string_view s);

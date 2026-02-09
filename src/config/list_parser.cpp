@@ -114,6 +114,30 @@ bool ListParser::is_domain(std::string_view s) {
     return has_alpha;
 }
 
+bool ListParser::classify_entry(std::string_view entry, ListEntryVisitor& visitor) {
+    if (is_cidr_v4(entry) || is_cidr_v6(entry)) {
+        visitor.on_entry(EntryType::Cidr, entry);
+        return true;
+    } else if (is_ipv4(entry) || is_ipv6(entry)) {
+        visitor.on_entry(EntryType::Ip, entry);
+        return true;
+    } else if (is_domain(entry)) {
+        visitor.on_entry(EntryType::Domain, entry);
+        return true;
+    }
+    return false;
+}
+
+void ListParser::stream_parse(std::istream& input, ListEntryVisitor& visitor) {
+    std::string line;
+    while (std::getline(input, line)) {
+        auto sv = trim(std::string_view(line));
+        if (sv.empty()) continue;
+        if (sv.front() == '#') continue;
+        classify_entry(sv, visitor);
+    }
+}
+
 ParsedList ListParser::parse(const std::string& text) {
     ParsedList result;
     std::istringstream stream(text);
