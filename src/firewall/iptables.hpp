@@ -26,6 +26,10 @@ public:
     void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
                           const std::string& chain = "PREROUTING") override;
 
+    std::unique_ptr<ListEntryVisitor> create_batch_loader(
+        const std::string& set_name, int32_t entry_timeout = -1) override;
+    void flush_ipset(const std::string& set_name) override;
+
     void apply() override;
     void cleanup() override;
 

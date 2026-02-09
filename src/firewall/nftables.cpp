@@ -1,4 +1,5 @@
 #include "nftables.hpp"
+#include "nft_batch_pipe.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -135,6 +136,15 @@ void NftablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
                                    r.chain == chain;
                         }),
         mark_rules_.end());
+}
+
+std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
+    const std::string& set_name, int32_t entry_timeout) {
+    return std::make_unique<NftBatchVisitor>(set_name, entry_timeout);
+}
+
+void NftablesFirewall::flush_ipset(const std::string& set_name) {
+    exec_cmd_checked("nft flush set inet " + std::string(TABLE_NAME) + " " + set_name);
 }
 
 void NftablesFirewall::apply() {

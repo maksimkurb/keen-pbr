@@ -8,6 +8,8 @@
 
 namespace keen_pbr3 {
 
+class ListEntryVisitor;
+
 class FirewallError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
@@ -46,6 +48,16 @@ public:
     // Delete a mark rule previously created with create_mark_rule.
     virtual void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
                                   const std::string& chain = "PREROUTING") = 0;
+
+    // Create a batch loader visitor for streaming IP/CIDR entries into a set.
+    // Returns a ListEntryVisitor that pipes entries to the backend's batch command.
+    // entry_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
+    // Caller must call finish() on the returned visitor after streaming is complete.
+    virtual std::unique_ptr<ListEntryVisitor> create_batch_loader(
+        const std::string& set_name, int32_t entry_timeout = -1) = 0;
+
+    // Flush all entries from a named IP set without destroying the set itself.
+    virtual void flush_ipset(const std::string& set_name) = 0;
 
     // Apply all pending changes atomically (where supported by the backend).
     virtual void apply() = 0;

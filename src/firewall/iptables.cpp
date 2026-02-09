@@ -1,4 +1,5 @@
 #include "iptables.hpp"
+#include "ipset_restore_pipe.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -111,6 +112,15 @@ void IptablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
                                    r.chain == chain;
                         }),
         mark_rules_.end());
+}
+
+std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
+    const std::string& set_name, int32_t entry_timeout) {
+    return std::make_unique<IpsetRestoreVisitor>(set_name, entry_timeout);
+}
+
+void IptablesFirewall::flush_ipset(const std::string& set_name) {
+    exec_cmd_checked("ipset flush " + set_name);
 }
 
 void IptablesFirewall::apply() {
