@@ -57,6 +57,8 @@
 - Shutdown order: API server → scheduler → route_table → policy_rules → firewall → PID file
 - Visitor pattern: ListEntryVisitor (header-only abstract class) in `src/lists/list_entry_visitor.hpp`; EntryType enum (Ip, Cidr, Domain); FunctionalVisitor wraps std::function; EntryCounter counts without storing
 - Streaming parser: ListParser::stream_parse(istream, visitor) reads line-by-line; classify_entry(string_view, visitor) dispatches a single entry
+- HTTP conditional downloads: `download_conditional()` uses `If-None-Match`/`If-Modified-Since` request headers and captures `ETag`/`Last-Modified` from response via curl header callback
+- CacheManager: `src/cache/cache_manager.hpp` manages download + metadata; cache files as `<cache_dir>/<name>.txt`, metadata as `<cache_dir>/<name>.meta.json`; uses nlohmann_json for metadata serialization
 
 ## Iteration Log
 
@@ -500,4 +502,32 @@
   - `parse_duration()` helper is still used by outbound ping_interval/ping_timeout and list TTL parsing, so it remains in config.cpp
   - The `<chrono>` include in config.hpp is still needed by InterfaceOutbound's ping_interval/ping_timeout fields
   - Typecheck uses build dir for pkg-config: `export PKG_CONFIG_PATH=.../build`
+---
+
+## 2026-02-09 - US-030
+- What was implemented: Conditional HTTP downloads using ETag and If-Modified-Since headers to avoid re-downloading unchanged lists
+- Files changed:
+  - `src/http/http_client.hpp` - Added `ConditionalDownloadResult` struct (not_modified, body, etag, last_modified) and `download_conditional()` method declaration
+  - `src/http/http_client.cpp` - Added `HeaderCapture` struct, `trim_header_value()` helper, `header_callback()` for capturing ETag/Last-Modified response headers, and `download_conditional()` implementation using `curl_slist_append` for request headers
+- **Learnings for future iterations:**
+  - curl header callback receives one header per call including CRLF terminator; must trim whitespace from values
+  - `curl_slist_append` returns a new list head (or same if appending); must free with `curl_slist_free_all` after perform
+  - HTTP 304 Not Modified still delivers response headers, so ETag/Last-Modified can be captured even on 304
+  - Header names are case-insensitive per HTTP spec; use manual case-insensitive prefix matching
+  - `<algorithm>` include added for `std::tolower` (used in case-insensitive header matching)
+---
+
+## 2026-02-09 - US-031
+- What was implemented: CacheManager with metadata storage for downloading lists to cache with ETag/If-Modified-Since conditional request support
+- Files changed:
+  - `src/cache/cache_manager.hpp` - CacheManager class with CacheMetadata struct (etag, last_modified, url, download_time, optional counts), methods: ensure_dir(), download(), has_cache(), cache_path(), meta_path(), load_metadata(), save_metadata()
+  - `src/cache/cache_manager.cpp` - Implementation using HttpClient::download_conditional() with stored ETag/Last-Modified from previous .meta.json, nlohmann_json for metadata serialization
+  - `meson.build` - Added `src/cache/cache_manager.cpp` to sources list
+- **Learnings for future iterations:**
+  - New module directory: `src/cache/` for cache-related code
+  - CacheManager::download() returns bool: true = content updated, false = 304 Not Modified
+  - On download failure (exception), existing cache file is preserved (no overwrite)
+  - CacheMetadata counts (ips, cidrs, domains) are std::optional<size_t> - left as nullopt after download, caller updates via save_metadata() after counting entries
+  - Metadata JSON is written with 2-space indent for readability
+  - `gmtime_r` used for thread-safe ISO 8601 timestamp generation
 ---
