@@ -575,3 +575,17 @@
   - nft `-f -` flag reads commands from stdin, enabling pipe-based batch loading
   - Domain entries are silently ignored (only Ip and Cidr types written to nft sets)
 ---
+
+## 2026-02-09 - US-035
+- What was implemented: Added create_batch_loader() and flush_ipset() virtual methods to Firewall interface, implemented by both IptablesFirewall and NftablesFirewall backends
+- Files changed:
+  - `src/firewall/firewall.hpp` - Added forward declaration of ListEntryVisitor, added pure virtual create_batch_loader() and flush_ipset() methods
+  - `src/firewall/iptables.hpp` - Added override declarations for create_batch_loader() and flush_ipset()
+  - `src/firewall/iptables.cpp` - Implemented create_batch_loader() returning IpsetRestoreVisitor, flush_ipset() executing 'ipset flush <name>'
+  - `src/firewall/nftables.hpp` - Added override declarations for create_batch_loader() and flush_ipset()
+  - `src/firewall/nftables.cpp` - Implemented create_batch_loader() returning NftBatchVisitor, flush_ipset() executing 'nft flush set inet keen_pbr3 <name>'
+- **Learnings for future iterations:**
+  - Firewall::create_batch_loader() uses forward-declared ListEntryVisitor to avoid circular header dependency (firewall.hpp doesn't include list_entry_visitor.hpp)
+  - IptablesFirewall::flush_ipset() uses checked exec ('ipset flush') since the set should exist; nftables uses same approach with 'nft flush set'
+  - The batch loader pattern decouples streaming from the firewall backend: callers use the ListEntryVisitor interface and don't need to know which backend is in use
+---
