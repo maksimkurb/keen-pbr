@@ -17,6 +17,13 @@ private:
     long status_code_;
 };
 
+struct ConditionalDownloadResult {
+    bool not_modified = false;
+    std::string body;
+    std::string etag;
+    std::string last_modified;
+};
+
 class HttpClient {
 public:
     HttpClient();
@@ -29,6 +36,11 @@ public:
     void set_user_agent(const std::string& user_agent);
 
     std::string download(const std::string& url);
+
+    ConditionalDownloadResult download_conditional(
+        const std::string& url,
+        const std::string& if_none_match = "",
+        const std::string& if_modified_since = "");
 
 private:
     std::chrono::seconds timeout_{30};
