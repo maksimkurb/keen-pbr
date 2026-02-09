@@ -547,3 +547,17 @@
   - Inline domains are dispatched directly as EntryType::Domain without reclassification
   - No entries are stored in memory - everything flows through the visitor pattern
 ---
+
+## 2026-02-09 - US-033
+- What was implemented: IpsetRestoreVisitor that pipes IP/CIDR entries to 'ipset restore -exist' via popen for batch loading
+- Files changed:
+  - `src/firewall/ipset_restore_pipe.hpp` - IpsetRestoreVisitor class extending ListEntryVisitor with set_name, static_timeout constructor params, on_entry(), finish(), count() methods
+  - `src/firewall/ipset_restore_pipe.cpp` - Implementation: popen("ipset restore -exist", "w"), writes 'add <setname> <entry> [timeout N]\n' per Ip/Cidr entry, pclose() with error checking in finish()
+  - `meson.build` - Added `src/firewall/ipset_restore_pipe.cpp` to sources list
+- **Learnings for future iterations:**
+  - IpsetRestoreVisitor owns a FILE* from popen; finish() must be called to close the pipe and check exit status
+  - Destructor calls finish() if not already called (best-effort, exceptions caught)
+  - Domain entries are silently ignored (only Ip and Cidr types are written to ipset)
+  - Per-entry timeout is appended only when static_timeout >= 0 (-1 means use set default)
+  - fwrite used instead of fprintf for efficiency with pre-built string lines
+---
