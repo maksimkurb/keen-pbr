@@ -667,3 +667,18 @@
   - The apply_all() lambda captures all subsystem references and encapsulates the full firewall/routing setup, making it reusable for initial setup, SIGHUP reload, and API reload
   - List TTL determination in streaming mode uses config-level `has_domains` heuristic (checks inline domains, URL presence, file presence) rather than parsed content
 ---
+
+## 2026-02-11 - US-043
+- What was implemented: Removed now-unused ListManager class and ParsedList struct, updated meson.build and includes
+- Files changed:
+  - `src/lists/list_manager.hpp` - Deleted
+  - `src/lists/list_manager.cpp` - Deleted
+  - `src/config/list_parser.hpp` - Removed ParsedList struct and parse() method declaration; removed unused `<string>` and `<vector>` includes
+  - `src/config/list_parser.cpp` - Removed parse() implementation and `<sstream>` include
+  - `src/main.cpp` - Removed unused `#include "config/list_parser.hpp"`
+  - `meson.build` - Removed `src/lists/list_manager.cpp` from sources list
+- **Learnings for future iterations:**
+  - After streaming architecture migration, the only ListParser methods still in use are `stream_parse()` and `classify_entry()` - both are used by ListStreamer
+  - main.cpp included list_parser.hpp but didn't use it directly (EntryCounter comes from list_entry_visitor.hpp, streaming from ListStreamer)
+  - Grep for all references before deletion ensures nothing is missed; all ParsedList/ListManager usage was confined to the deleted files themselves
+---
