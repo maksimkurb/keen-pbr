@@ -617,3 +617,14 @@
   - The print-dnsmasq-config path in main.cpp now downloads lists only if not already cached (cache.has_cache check), deferring full streaming download support to US-040
   - FunctionalVisitor from list_entry_visitor.hpp is convenient for ad-hoc domain collection without needing a custom visitor class
 ---
+
+## 2026-02-10 - US-038
+- What was implemented: Added SIGHUP handler to daemon event loop for full config reload support
+- Files changed:
+  - `src/daemon/daemon.hpp` - Added on_sighup() method and sighup_cb_ member
+  - `src/daemon/daemon.cpp` - Added SIGHUP to signalfd signal mask, handle_signal() dispatch, on_sighup() implementation, destructor signal unblock
+- **Learnings for future iterations:**
+  - SIGHUP follows the exact same pattern as SIGUSR1: blocked via sigprocmask, received via signalfd, dispatched to callback
+  - Adding a new signal to the daemon requires 4 changes: sigprocmask block, signalfd mask, handle_signal() case, destructor unblock
+  - The destructor must unblock ALL signals that were blocked in setup_signals(), including newly added ones
+---
