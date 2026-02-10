@@ -21,7 +21,7 @@
 #include "firewall/firewall.hpp"
 #include "health/circuit_breaker.hpp"
 #include "health/health_checker.hpp"
-#include "lists/list_manager.hpp"
+#include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "routing/netlink.hpp"
 #include "routing/policy_rule.hpp"
@@ -218,7 +218,8 @@ int main(int argc, char* argv[]) {
         write_pid_file(config.daemon.pid_file);
 
         // Initialize subsystems
-        keen_pbr3::ListManager list_manager(config.lists, config.daemon.cache_dir);
+        keen_pbr3::CacheManager cache(config.daemon.cache_dir);
+        cache.ensure_dir();
         keen_pbr3::HealthChecker health_checker;
         keen_pbr3::CircuitBreaker circuit_breaker;
         auto firewall = keen_pbr3::create_firewall("auto");
@@ -233,80 +234,23 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Download and load all lists
-        std::cerr << "Loading lists...\n";
-        list_manager.load();
+        // Helper: get tag from any outbound variant
+        auto get_outbound_tag = [](const keen_pbr3::Outbound& ob) -> std::string {
+            return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+        };
 
-        // Apply firewall rules and routing for loaded lists
-        // (IP-based entries go into firewall ipsets; routing rules and policy rules
-        //  are set up per route rule with fwmark-based routing)
-        uint32_t fwmark = 0x10000; // Starting mark value
-        for (const auto& rule : config.route.rules) {
-            // Build a health check function that uses the circuit breaker
-            keen_pbr3::HealthCheckFn health_fn = [&](const std::string& tag) -> bool {
-                if (!circuit_breaker.is_allowed(tag)) return false;
-                if (!health_checker.has_target(tag)) return true;
-                bool healthy = health_checker.check(tag);
-                if (healthy) {
-                    circuit_breaker.record_success(tag);
-                } else {
-                    circuit_breaker.record_failure(tag);
-                }
-                return healthy;
-            };
-
-            auto decision = keen_pbr3::resolve_route_action(
-                rule.action, config.outbounds, health_fn);
-
-            if (decision.is_skip || !decision.outbound.has_value()) continue;
-
-            const keen_pbr3::Outbound* ob = *decision.outbound;
-            if (!ob) continue;
-
-            // Create firewall ipsets and mark rules for each list in this rule
-            for (const auto& list_name : rule.lists) {
-                const auto* parsed = list_manager.get(list_name);
-                if (!parsed) continue;
-
-                std::string set_name = list_name;
-
-                // Determine TTL: use list's ttl when the list has domains
-                // (dnsmasq will populate resolved IPs with set-level timeout)
-                auto list_cfg_it = config.lists.find(list_name);
-                uint32_t set_timeout = 0;
-                if (list_cfg_it != config.lists.end() &&
-                    !parsed->domains.empty() && list_cfg_it->second.ttl > 0) {
-                    set_timeout = list_cfg_it->second.ttl;
-                }
-
-                firewall->create_ipset(set_name, AF_INET, set_timeout);
-
-                // Static IPs/CIDRs get timeout 0 (permanent) when set has TTL
-                int32_t static_timeout = (set_timeout > 0) ? 0 : -1;
-                for (const auto& ip : parsed->ips) {
-                    firewall->add_to_ipset(set_name, ip, static_timeout);
-                }
-                for (const auto& cidr : parsed->cidrs) {
-                    firewall->add_to_ipset(set_name, cidr, static_timeout);
-                }
-
-                // Create mark rule for the ipset
-                firewall->create_mark_rule(set_name, fwmark);
-            }
-
-            // Set up routing for this fwmark
+        // Helper: apply routing for a resolved outbound with a given fwmark
+        auto apply_routing = [&](const keen_pbr3::Outbound& ob, uint32_t mark) {
             std::visit([&](const auto& outbound) {
                 using T = std::decay_t<decltype(outbound)>;
                 if constexpr (std::is_same_v<T, keen_pbr3::InterfaceOutbound>) {
-                    // Add ip rule: fwmark -> table
-                    uint32_t table_id = 100 + (fwmark & 0xFFFF);
+                    uint32_t table_id = 100 + (mark & 0xFFFF);
                     keen_pbr3::RuleSpec ip_rule;
-                    ip_rule.fwmark = fwmark;
+                    ip_rule.fwmark = mark;
                     ip_rule.table = table_id;
-                    ip_rule.priority = 100 + (fwmark & 0xFFFF);
+                    ip_rule.priority = 100 + (mark & 0xFFFF);
                     policy_rules.add(ip_rule);
 
-                    // Add default route in the table
                     keen_pbr3::RouteSpec route;
                     route.destination = "default";
                     route.table = table_id;
@@ -317,16 +261,16 @@ int main(int argc, char* argv[]) {
                     route_table.add(route);
                 } else if constexpr (std::is_same_v<T, keen_pbr3::TableOutbound>) {
                     keen_pbr3::RuleSpec ip_rule;
-                    ip_rule.fwmark = fwmark;
+                    ip_rule.fwmark = mark;
                     ip_rule.table = outbound.table_id;
-                    ip_rule.priority = 100 + (fwmark & 0xFFFF);
+                    ip_rule.priority = 100 + (mark & 0xFFFF);
                     policy_rules.add(ip_rule);
                 } else if constexpr (std::is_same_v<T, keen_pbr3::BlackholeOutbound>) {
-                    uint32_t table_id = 100 + (fwmark & 0xFFFF);
+                    uint32_t table_id = 100 + (mark & 0xFFFF);
                     keen_pbr3::RuleSpec ip_rule;
-                    ip_rule.fwmark = fwmark;
+                    ip_rule.fwmark = mark;
                     ip_rule.table = table_id;
-                    ip_rule.priority = 100 + (fwmark & 0xFFFF);
+                    ip_rule.priority = 100 + (mark & 0xFFFF);
                     policy_rules.add(ip_rule);
 
                     keen_pbr3::RouteSpec route;
@@ -335,27 +279,212 @@ int main(int argc, char* argv[]) {
                     route.blackhole = true;
                     route_table.add(route);
                 }
-            }, *ob);
+            }, ob);
+        };
 
-            ++fwmark;
+        // Helper: build health check function using circuit breaker state
+        auto make_health_fn = [&]() -> keen_pbr3::HealthCheckFn {
+            return [&](const std::string& tag) -> bool {
+                if (!circuit_breaker.is_allowed(tag)) return false;
+                if (!health_checker.has_target(tag)) return true;
+                bool healthy = health_checker.check(tag);
+                if (healthy) {
+                    circuit_breaker.record_success(tag);
+                } else {
+                    circuit_breaker.record_failure(tag);
+                }
+                return healthy;
+            };
+        };
+
+        // Track per-rule resolved outbound tag for SIGUSR1 re-selection
+        // Index matches config.route.rules index, stores resolved outbound tag or empty
+        std::vector<std::string> rule_outbound_tags;
+
+        // Helper: apply all firewall and routing rules from config + cache
+        auto apply_all = [&]() {
+            keen_pbr3::ListStreamer list_streamer(cache);
+            auto health_fn = make_health_fn();
+            rule_outbound_tags.clear();
+
+            uint32_t fwmark = 0x10000;
+            for (const auto& rule : config.route.rules) {
+                auto decision = keen_pbr3::resolve_route_action(
+                    rule.action, config.outbounds, health_fn);
+
+                if (decision.is_skip || !decision.outbound.has_value()) {
+                    rule_outbound_tags.emplace_back();
+                    ++fwmark;
+                    continue;
+                }
+
+                const keen_pbr3::Outbound* ob = *decision.outbound;
+                if (!ob) {
+                    rule_outbound_tags.emplace_back();
+                    ++fwmark;
+                    continue;
+                }
+
+                rule_outbound_tags.push_back(get_outbound_tag(*ob));
+
+                // Create firewall ipsets and stream entries via batch loader
+                for (const auto& list_name : rule.lists) {
+                    auto list_cfg_it = config.lists.find(list_name);
+                    if (list_cfg_it == config.lists.end()) continue;
+
+                    const auto& list_cfg = list_cfg_it->second;
+
+                    // Determine TTL: use list's ttl when the list has domains
+                    bool has_domains = !list_cfg.domains.empty() ||
+                                       !list_cfg.url.value_or("").empty() ||
+                                       list_cfg.file.has_value();
+                    uint32_t set_timeout = 0;
+                    if (has_domains && list_cfg.ttl > 0) {
+                        set_timeout = list_cfg.ttl;
+                    }
+
+                    firewall->create_ipset(list_name, AF_INET, set_timeout);
+
+                    // Stream IP/CIDR entries via batch loader
+                    int32_t static_timeout = (set_timeout > 0) ? 0 : -1;
+                    auto loader = firewall->create_batch_loader(list_name, static_timeout);
+                    list_streamer.stream_list(list_name, list_cfg, *loader);
+                    loader->finish();
+
+                    // Create mark rule for the ipset
+                    firewall->create_mark_rule(list_name, fwmark);
+                }
+
+                // Set up routing for this fwmark
+                apply_routing(*ob, fwmark);
+                ++fwmark;
+            }
+
+            firewall->apply();
+        };
+
+        // Download lists if not already cached, then apply
+        std::cerr << "Loading lists...\n";
+        for (const auto& [name, list_cfg] : config.lists) {
+            if (list_cfg.url.has_value() && !cache.has_cache(name)) {
+                try {
+                    cache.download(name, list_cfg.url.value());
+                } catch (const std::exception& e) {
+                    std::cerr << "Warning: failed to download list '" << name
+                              << "': " << e.what() << "\n";
+                }
+            }
         }
 
-        firewall->apply();
+        apply_all();
         std::cerr << "Firewall rules and routing applied.\n";
 
         // Set up daemon event loop
         keen_pbr3::Daemon daemon;
         keen_pbr3::Scheduler scheduler(daemon);
 
-        // Reload callback (used by SIGUSR1 and API)
-        auto reload_fn = [&]() {
-            std::cerr << "Reloading lists...\n";
-            list_manager.reload();
-            std::cerr << "Lists reloaded.\n";
-        };
+        // SIGUSR1: re-evaluate failover route decisions using cached circuit breaker state
+        daemon.on_sigusr1([&]() {
+            std::cerr << "SIGUSR1: re-evaluating outbound selection...\n";
+            auto health_fn = make_health_fn();
 
-        // SIGUSR1 triggers immediate reload
-        daemon.on_sigusr1(reload_fn);
+            uint32_t fwmark = 0x10000;
+            for (size_t i = 0; i < config.route.rules.size(); ++i) {
+                const auto& rule = config.route.rules[i];
+
+                auto decision = keen_pbr3::resolve_route_action(
+                    rule.action, config.outbounds, health_fn);
+
+                std::string new_tag;
+                if (!decision.is_skip && decision.outbound.has_value() && *decision.outbound) {
+                    new_tag = get_outbound_tag(**decision.outbound);
+                }
+
+                // If outbound changed for this rule, update routes
+                if (i < rule_outbound_tags.size() && new_tag != rule_outbound_tags[i]) {
+                    std::cerr << "  Rule " << i << ": outbound changed from '"
+                              << rule_outbound_tags[i] << "' to '" << new_tag << "'\n";
+
+                    // Remove old routes for this fwmark's table
+                    uint32_t table_id = 100 + (fwmark & 0xFFFF);
+                    if (!rule_outbound_tags[i].empty()) {
+                        keen_pbr3::RouteSpec old_route;
+                        old_route.destination = "default";
+                        old_route.table = table_id;
+                        route_table.remove(old_route);
+                    }
+
+                    // Add new routes if there's a new outbound
+                    if (!new_tag.empty() && *decision.outbound) {
+                        // For route replace: remove old policy rule and route, add new
+                        std::visit([&](const auto& outbound) {
+                            using T = std::decay_t<decltype(outbound)>;
+                            if constexpr (std::is_same_v<T, keen_pbr3::InterfaceOutbound>) {
+                                keen_pbr3::RouteSpec route;
+                                route.destination = "default";
+                                route.table = table_id;
+                                route.interface = outbound.interface;
+                                if (outbound.gateway.has_value()) {
+                                    route.gateway = *outbound.gateway;
+                                }
+                                route_table.add(route);
+                            } else if constexpr (std::is_same_v<T, keen_pbr3::BlackholeOutbound>) {
+                                keen_pbr3::RouteSpec route;
+                                route.destination = "default";
+                                route.table = table_id;
+                                route.blackhole = true;
+                                route_table.add(route);
+                            }
+                            // TableOutbound routing is by table_id from policy rule,
+                            // which doesn't change per failover
+                        }, **decision.outbound);
+                    }
+
+                    if (i < rule_outbound_tags.size()) {
+                        rule_outbound_tags[i] = new_tag;
+                    }
+                }
+
+                ++fwmark;
+            }
+            std::cerr << "SIGUSR1: outbound re-evaluation complete.\n";
+        });
+
+        // SIGHUP: full config re-read and rebuild
+        daemon.on_sighup([&]() {
+            std::cerr << "SIGHUP: full reload starting...\n";
+            try {
+                // Full teardown
+                route_table.clear();
+                policy_rules.clear();
+                firewall->cleanup();
+
+                // Re-read config
+                std::string new_json = read_file(opts.config_path);
+                config = keen_pbr3::parse_config(new_json);
+
+                // Re-initialize firewall backend
+                firewall = keen_pbr3::create_firewall("auto");
+
+                // Download any lists not yet cached
+                for (const auto& [name, list_cfg] : config.lists) {
+                    if (list_cfg.url.has_value() && !cache.has_cache(name)) {
+                        try {
+                            cache.download(name, list_cfg.url.value());
+                        } catch (const std::exception& e) {
+                            std::cerr << "Warning: failed to download list '" << name
+                                      << "': " << e.what() << "\n";
+                        }
+                    }
+                }
+
+                // Re-apply everything
+                apply_all();
+                std::cerr << "SIGHUP: full reload complete.\n";
+            } catch (const std::exception& e) {
+                std::cerr << "SIGHUP: reload failed: " << e.what() << "\n";
+            }
+        });
 
         // Schedule periodic health checks for interface outbounds
         for (const auto& outbound : config.outbounds) {
@@ -381,9 +510,27 @@ int main(int argc, char* argv[]) {
 
             keen_pbr3::ApiContext api_ctx{
                 config.outbounds,
-                list_manager,
+                cache,
+                config.lists,
                 health_checker,
-                reload_fn,
+                [&]() {
+                    // API reload triggers SIGHUP-like behavior
+                    route_table.clear();
+                    policy_rules.clear();
+                    firewall->cleanup();
+                    firewall = keen_pbr3::create_firewall("auto");
+                    for (const auto& [name, list_cfg] : config.lists) {
+                        if (list_cfg.url.has_value() && !cache.has_cache(name)) {
+                            try {
+                                cache.download(name, list_cfg.url.value());
+                            } catch (const std::exception& e) {
+                                std::cerr << "Warning: failed to download list '" << name
+                                          << "': " << e.what() << "\n";
+                            }
+                        }
+                    }
+                    apply_all();
+                },
             };
             keen_pbr3::register_api_handlers(*api_server, api_ctx);
             api_server->start();

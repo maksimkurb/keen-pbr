@@ -62,6 +62,10 @@
 - CacheManager: `src/cache/cache_manager.hpp` manages download + metadata; cache files as `<cache_dir>/<name>.txt`, metadata as `<cache_dir>/<name>.meta.json`; uses nlohmann_json for metadata serialization
 - ListStreamer: `src/lists/list_streamer.hpp` streams list entries from cache files and inline config through ListEntryVisitor without storing in memory; depends on CacheManager (const ref)
 - Batch pipe visitors: IpsetRestoreVisitor (`ipset restore -exist`) and NftBatchVisitor (`nft -f -`) follow identical popen/fwrite/pclose pattern; both ignore Domain entries, only process Ip and Cidr
+- Daemon mode: uses CacheManager + ListStreamer (no ListManager/ParsedList); firewall ipsets populated via create_batch_loader() + stream_list() + finish()
+- Signal semantics: SIGUSR1 = re-evaluate failover outbound selection (no list reload); SIGHUP = full teardown + config re-read + rebuild
+- Failover tracking: `rule_outbound_tags` vector tracks per-rule resolved outbound tag for SIGUSR1 route replacement
+- API handlers: ApiContext holds CacheManager& and const map<string, ListConfig>& instead of ListManager&; GET /api/status reads counts from .meta.json + inline config sizes
 
 ## Iteration Log
 
@@ -648,4 +652,18 @@
   - US-037 implemented both the DnsmasqGenerator rewrite AND the print-dnsmasq-config main.cpp path update in one story, effectively completing US-040's acceptance criteria early
   - The print-dnsmasq-config path in main.cpp (lines 194-210) does not reference ParsedList or ListManager at all - those are only used in the daemon mode path
   - When stories overlap, verify acceptance criteria independently rather than assuming incomplete
+---
+
+## 2026-02-10 - US-041 + US-042
+- What was implemented: Rewrote daemon mode to use streaming firewall population via batch loaders, new SIGUSR1/SIGHUP signal semantics, removed periodic list update scheduler and all ListManager/ParsedList usage. Also updated API handlers to use CacheManager metadata instead of ListManager.
+- Files changed:
+  - `src/main.cpp` - Replaced ListManager with CacheManager + ListStreamer in daemon mode; firewall ipsets populated via create_batch_loader() + stream_list() + finish(); SIGUSR1 re-evaluates failover outbound selection via resolve_route_action(); SIGHUP does full teardown + config re-read + rebuild; periodic list update scheduler removed; health check scheduler retained; API context uses CacheManager
+  - `src/api/handlers.hpp` - ApiContext now holds CacheManager& and const map<string, ListConfig>& instead of ListManager&; removed list_manager.hpp include
+  - `src/api/handlers.cpp` - GET /api/status reads entry counts from CacheManager::load_metadata() per list plus inline config sizes; POST /api/reload triggers SIGHUP-like full reload
+- **Learnings for future iterations:**
+  - When US stories are tightly coupled (US-041 daemon rewrite + US-042 API handler update), they may need to be implemented together to maintain compilation
+  - SIGUSR1 handler uses `rule_outbound_tags` vector to track per-rule resolved outbound tag for detecting changes during failover re-evaluation
+  - SIGHUP handler re-creates the firewall backend via create_firewall("auto") after cleanup() to get a fresh state
+  - The apply_all() lambda captures all subsystem references and encapsulates the full firewall/routing setup, making it reusable for initial setup, SIGHUP reload, and API reload
+  - List TTL determination in streaming mode uses config-level `has_domains` heuristic (checks inline domains, URL presence, file presence) rather than parsed content
 ---

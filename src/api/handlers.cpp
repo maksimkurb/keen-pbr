@@ -68,13 +68,17 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
         }
         j["outbounds"] = outbounds_json;
 
-        // Loaded lists
+        // Loaded lists (from cache metadata + inline config)
         nlohmann::json lists_json = nlohmann::json::object();
-        for (const auto& [name, parsed] : ctx.list_manager.lists()) {
+        for (const auto& [name, list_cfg] : ctx.lists) {
             nlohmann::json list_j;
-            list_j["ips"] = static_cast<int>(parsed.ips.size());
-            list_j["cidrs"] = static_cast<int>(parsed.cidrs.size());
-            list_j["domains"] = static_cast<int>(parsed.domains.size());
+            auto meta = ctx.cache_manager.load_metadata(name);
+            size_t ips = meta.ips.value_or(0) + list_cfg.ip_cidrs.size();
+            size_t cidrs = meta.cidrs.value_or(0);
+            size_t domains = meta.domains.value_or(0) + list_cfg.domains.size();
+            list_j["ips"] = static_cast<int>(ips);
+            list_j["cidrs"] = static_cast<int>(cidrs);
+            list_j["domains"] = static_cast<int>(domains);
             lists_json[name] = list_j;
         }
         j["lists"] = lists_json;

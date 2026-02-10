@@ -2,11 +2,12 @@
 
 #ifdef WITH_API
 
+#include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
 #include "../health/health_checker.hpp"
-#include "../lists/list_manager.hpp"
 #include "server.hpp"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -15,10 +16,11 @@ namespace keen_pbr3 {
 // Context struct holding references to subsystems needed by API handlers.
 struct ApiContext {
     const std::vector<Outbound>& outbounds;
-    const ListManager& list_manager;
+    const CacheManager& cache_manager;
+    const std::map<std::string, ListConfig>& lists;
     const HealthChecker& health_checker;
 
-    // Callback to trigger list reload (non-const, performs side effects)
+    // Callback to trigger full reload (non-const, performs side effects)
     std::function<void()> reload_fn;
 };
 
