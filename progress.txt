@@ -40,11 +40,12 @@
 - DNS: DnsServerType enum classifies addresses as PlainIP, DoH, System, or Blocked
 - DNS: DnsServerConfig enriches config-level DnsServer with parsed type and extracted fields (resolved_ip, doh_url)
 - DNS: New module directory: `src/dns/` for DNS-related code
-- DNS: DnsRouter takes `const ListManager&` (non-owning ref) and `DnsConfig` to resolve domains to DNS servers
-- DNS: DnsRouter validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
+- DNS: DnsServerRegistry takes only `DnsConfig` (no ListManager dependency) for server tag lookup and fallback resolution
+- DNS: DnsServerRegistry validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
 - DNS: Wildcard domain matching: `*.example.com` matches both subdomains and the base domain itself
 - DNS: Dnsmasq ipset directives use plain set name (single `hash:net` set per list)
 - DNS: Dnsmasq `server=` directives only work with PlainIP DNS servers (not DoH/system/blocked)
+- DNS: DnsmasqGenerator uses ListStreamer (not ListManager) and takes std::ostream& for streaming output; domains batched ~50 per ipset=/server= line
 - Daemon: Epoll-based event loop with signalfd for signal handling; external fds registered via add_fd/remove_fd
 - Daemon: signalfd requires signals blocked via sigprocmask first; use SFD_NONBLOCK | SFD_CLOEXEC flags
 - Scheduler: timerfd_create with CLOCK_MONOTONIC + TFD_NONBLOCK | TFD_CLOEXEC; registered with Daemon's epoll via add_fd
@@ -588,4 +589,31 @@
   - Firewall::create_batch_loader() uses forward-declared ListEntryVisitor to avoid circular header dependency (firewall.hpp doesn't include list_entry_visitor.hpp)
   - IptablesFirewall::flush_ipset() uses checked exec ('ipset flush') since the set should exist; nftables uses same approach with 'nft flush set'
   - The batch loader pattern decouples streaming from the firewall backend: callers use the ListEntryVisitor interface and don't need to know which backend is in use
+---
+
+## 2026-02-10 - US-036
+- What was implemented: Simplified DnsRouter to DnsServerRegistry by removing domain matching and ListManager dependency, keeping only server tag lookup and fallback resolution
+- Files changed:
+  - `src/dns/dns_router.hpp` - Renamed DnsRouter to DnsServerRegistry, removed resolve/domain_matches_list/domain_matches_pattern methods, removed list_manager_ and rules_ members, constructor takes only DnsConfig
+  - `src/dns/dns_router.cpp` - Simplified implementation with only constructor, get_server(), and fallback() methods
+  - `src/dns/dnsmasq_gen.hpp` - Updated to use DnsServerRegistry instead of DnsRouter
+  - `src/dns/dnsmasq_gen.cpp` - Updated constructor and get_server() call to use dns_registry_
+  - `src/main.cpp` - Updated print-dnsmasq-config path to construct DnsServerRegistry(config.dns) instead of DnsRouter(config.dns, list_manager)
+- **Learnings for future iterations:**
+  - DnsServerRegistry is a pure lookup class with no domain matching logic - domain matching will be handled differently in the streaming architecture
+  - The ListManager #include was removed from dns_router.hpp, reducing header dependencies
+  - DnsmasqGenerator still uses ListManager for now (will be switched to ListStreamer in US-037)
+---
+
+## 2026-02-10 - US-037
+- What was implemented: Rewrote DnsmasqGenerator to use streaming architecture with ListStreamer and DnsServerRegistry, batched domain output (~50 per directive line)
+- Files changed:
+  - `src/dns/dnsmasq_gen.hpp` - Replaced ListManager dependency with ListStreamer; generate() now takes std::ostream& parameter; added lists_ map member for ListConfig lookup
+  - `src/dns/dnsmasq_gen.cpp` - Rewrote generate() to use FunctionalVisitor for domain collection via ListStreamer::stream_list(); domains collected into std::set for dedup then output in batches of ~50; dedup set cleared between lists
+  - `src/main.cpp` - Updated print-dnsmasq-config path to use CacheManager + ListStreamer + new DnsmasqGenerator API; added cache/cache_manager.hpp and lists/list_streamer.hpp includes
+- **Learnings for future iterations:**
+  - DnsmasqGenerator now takes ListStreamer& (non-const) because stream_list() is not const-qualified
+  - Batching uses BATCH_SIZE constant (50) to split domains into groups per ipset=/server= line
+  - The print-dnsmasq-config path in main.cpp now downloads lists only if not already cached (cache.has_cache check), deferring full streaming download support to US-040
+  - FunctionalVisitor from list_entry_visitor.hpp is convenient for ad-hoc domain collection without needing a custom visitor class
 ---

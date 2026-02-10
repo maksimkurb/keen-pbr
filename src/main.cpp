@@ -11,6 +11,7 @@
 
 #include <keen-pbr3/version.hpp>
 
+#include "cache/cache_manager.hpp"
 #include "config/config.hpp"
 #include "config/list_parser.hpp"
 #include "daemon/daemon.hpp"
@@ -21,6 +22,7 @@
 #include "health/circuit_breaker.hpp"
 #include "health/health_checker.hpp"
 #include "lists/list_manager.hpp"
+#include "lists/list_streamer.hpp"
 #include "routing/netlink.hpp"
 #include "routing/policy_rule.hpp"
 #include "routing/route_table.hpp"
@@ -152,12 +154,20 @@ int main(int argc, char* argv[]) {
 
         // Handle print-dnsmasq-config command: load lists, generate, print, exit
         if (opts.print_dnsmasq_config) {
-            keen_pbr3::ListManager list_manager(config.lists, config.daemon.cache_dir, true);
-            list_manager.load();
-            keen_pbr3::DnsRouter dns_router(config.dns, list_manager);
-            keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_router, list_manager,
-                                                     config.route, config.dns);
-            std::cout << dnsmasq_gen.generate();
+            keen_pbr3::CacheManager cache(config.daemon.cache_dir);
+            cache.ensure_dir();
+            // Download lists that aren't already cached
+            for (const auto& [name, list_cfg] : config.lists) {
+                if (list_cfg.url.has_value() && !cache.has_cache(name)) {
+                    cache.download(name, list_cfg.url.value());
+                }
+            }
+            keen_pbr3::ListStreamer list_streamer(cache);
+            keen_pbr3::DnsServerRegistry dns_registry(config.dns);
+            keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_registry, list_streamer,
+                                                     config.route, config.dns,
+                                                     config.lists);
+            dnsmasq_gen.generate(std::cout);
             return 0;
         }
 
