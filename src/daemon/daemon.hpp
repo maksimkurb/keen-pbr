@@ -34,6 +34,9 @@ public:
     // Set callback for SIGUSR1 signal
     void on_sigusr1(SignalCallback cb);
 
+    // Set callback for SIGHUP signal (full config reload)
+    void on_sighup(SignalCallback cb);
+
     // Register an additional file descriptor for epoll monitoring.
     // The callback will be invoked with the epoll events.
     // Returns the fd for later removal.
@@ -61,6 +64,7 @@ private:
     bool running_{false};
 
     SignalCallback sigusr1_cb_;
+    SignalCallback sighup_cb_;
 
     struct FdEntry {
         int fd;

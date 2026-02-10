@@ -34,16 +34,18 @@ Daemon::~Daemon() {
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGHUP);
     sigprocmask(SIG_UNBLOCK, &mask, nullptr);
 }
 
 void Daemon::setup_signals() {
-    // Block SIGTERM, SIGINT, SIGUSR1 so they can be handled via signalfd
+    // Block SIGTERM, SIGINT, SIGUSR1, SIGHUP so they can be handled via signalfd
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGHUP);
 
     if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0) {
         throw DaemonError("sigprocmask failed: " + std::string(strerror(errno)));
@@ -81,6 +83,11 @@ void Daemon::handle_signal() {
             sigusr1_cb_();
         }
         break;
+    case SIGHUP:
+        if (sighup_cb_) {
+            sighup_cb_();
+        }
+        break;
     default:
         break;
     }
@@ -88,6 +95,10 @@ void Daemon::handle_signal() {
 
 void Daemon::on_sigusr1(SignalCallback cb) {
     sigusr1_cb_ = std::move(cb);
+}
+
+void Daemon::on_sighup(SignalCallback cb) {
+    sighup_cb_ = std::move(cb);
 }
 
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
