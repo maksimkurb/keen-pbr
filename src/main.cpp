@@ -40,6 +40,7 @@ struct CliOptions {
     bool daemonize{false};
     bool no_api{false};
     bool print_dnsmasq_config{false};
+    bool download_lists{false};
     bool show_help{false};
     bool show_version{false};
 };
@@ -55,6 +56,7 @@ void print_usage(const char* argv0) {
               << "  --help           Show this help and exit\n"
               << "\n"
               << "Commands:\n"
+              << "  download              Download all configured lists to cache and exit\n"
               << "  print-dnsmasq-config  Print generated dnsmasq config to stdout and exit\n";
 }
 
@@ -77,6 +79,8 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.show_version = true;
         } else if (std::strcmp(argv[i], "print-dnsmasq-config") == 0) {
             opts.print_dnsmasq_config = true;
+        } else if (std::strcmp(argv[i], "download") == 0) {
+            opts.download_lists = true;
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
@@ -151,6 +155,40 @@ int main(int argc, char* argv[]) {
         std::cerr << "keen-pbr3 " << KEEN_PBR3_VERSION_STRING << " starting...\n";
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
+
+        // Handle download command: download all lists to cache, count entries, exit
+        if (opts.download_lists) {
+            keen_pbr3::CacheManager cache(config.daemon.cache_dir);
+            cache.ensure_dir();
+            for (const auto& [name, list_cfg] : config.lists) {
+                if (!list_cfg.url.has_value()) {
+                    std::cerr << "[" << name << "] Skipped (no URL)\n";
+                    continue;
+                }
+                try {
+                    bool updated = cache.download(name, list_cfg.url.value());
+                    if (updated) {
+                        // Count entries by streaming through EntryCounter
+                        keen_pbr3::ListStreamer streamer(cache);
+                        keen_pbr3::EntryCounter counter;
+                        streamer.stream_list(name, list_cfg, counter);
+                        // Update metadata with counts
+                        auto meta = cache.load_metadata(name);
+                        meta.ips = counter.ips();
+                        meta.cidrs = counter.cidrs();
+                        meta.domains = counter.domains();
+                        cache.save_metadata(name, meta);
+                        std::cerr << "[" << name << "] Updated ("
+                                  << counter.total() << " entries)\n";
+                    } else {
+                        std::cerr << "[" << name << "] Not modified (304)\n";
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[" << name << "] Error: " << e.what() << "\n";
+                }
+            }
+            return 0;
+        }
 
         // Handle print-dnsmasq-config command: load lists, generate, print, exit
         if (opts.print_dnsmasq_config) {
