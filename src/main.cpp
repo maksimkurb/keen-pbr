@@ -13,7 +13,6 @@
 
 #include "cache/cache_manager.hpp"
 #include "config/config.hpp"
-#include "config/list_parser.hpp"
 #include "daemon/daemon.hpp"
 #include "daemon/scheduler.hpp"
 #include "dns/dns_router.hpp"

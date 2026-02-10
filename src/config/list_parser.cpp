@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <charconv>
-#include <sstream>
 
 namespace keen_pbr3 {
 
@@ -136,35 +135,6 @@ void ListParser::stream_parse(std::istream& input, ListEntryVisitor& visitor) {
         if (sv.front() == '#') continue;
         classify_entry(sv, visitor);
     }
-}
-
-ParsedList ListParser::parse(const std::string& text) {
-    ParsedList result;
-    std::istringstream stream(text);
-    std::string line;
-
-    while (std::getline(stream, line)) {
-        auto sv = trim(std::string_view(line));
-        if (sv.empty()) continue;
-        if (sv.front() == '#') continue;
-
-        std::string entry(sv);
-
-        if (is_cidr_v4(sv)) {
-            result.cidrs.push_back(entry);
-        } else if (is_cidr_v6(sv)) {
-            result.cidrs.push_back(entry);
-        } else if (is_ipv4(sv)) {
-            result.ips.push_back(entry);
-        } else if (is_ipv6(sv)) {
-            result.ips.push_back(entry);
-        } else if (is_domain(sv)) {
-            result.domains.push_back(entry);
-        }
-        // Unrecognized lines are silently skipped
-    }
-
-    return result;
 }
 
 } // namespace keen_pbr3
