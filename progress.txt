@@ -639,3 +639,13 @@
   - Download errors per-list are caught individually so one failed list doesn't abort others
   - EntryCounter + ListStreamer::stream_list() counts all entries (cache + inline + file), not just the downloaded URL content
 ---
+
+## 2026-02-10 - US-040
+- What was implemented: Verified that print-dnsmasq-config already uses streaming architecture (CacheManager, ListStreamer, DnsServerRegistry, streaming DnsmasqGenerator with std::ostream&) - this was implemented as part of US-037
+- Files changed: (no code changes needed - only PRD/progress updates)
+  - `prd.json` - Marked US-040 as passes: true
+- **Learnings for future iterations:**
+  - US-037 implemented both the DnsmasqGenerator rewrite AND the print-dnsmasq-config main.cpp path update in one story, effectively completing US-040's acceptance criteria early
+  - The print-dnsmasq-config path in main.cpp (lines 194-210) does not reference ParsedList or ListManager at all - those are only used in the daemon mode path
+  - When stories overlap, verify acceptance criteria independently rather than assuming incomplete
+---
