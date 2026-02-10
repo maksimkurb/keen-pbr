@@ -628,3 +628,14 @@
   - Adding a new signal to the daemon requires 4 changes: sigprocmask block, signalfd mask, handle_signal() case, destructor unblock
   - The destructor must unblock ALL signals that were blocked in setup_signals(), including newly added ones
 ---
+
+## 2026-02-10 - US-039
+- What was implemented: 'keen-pbr3 download' CLI command that downloads all configured lists to cache with ETag/If-Modified-Since support, counts entries, and updates metadata
+- Files changed:
+  - `src/main.cpp` - Added `download_lists` field to CliOptions, `download` command parsing, download command handler: CacheManager creation, per-list download with EntryCounter for counting, metadata update, stderr status output
+- **Learnings for future iterations:**
+  - CLI commands are parsed as positional arguments (not --flags), matching the existing `print-dnsmasq-config` pattern
+  - Lists without a URL are skipped with a status message (they only have inline entries or local files)
+  - Download errors per-list are caught individually so one failed list doesn't abort others
+  - EntryCounter + ListStreamer::stream_list() counts all entries (cache + inline + file), not just the downloaded URL content
+---
