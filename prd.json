@@ -719,6 +719,257 @@
       "priority": 43,
       "passes": true,
       "notes": ""
+    },
+    {
+      "id": "US-044",
+      "title": "Add fwmark and iproute configuration, assign marks to routable outbounds",
+      "description": "As a developer, I need a new 'fwmark' config section that controls how firewall marks are allocated, and an 'iproute' section for routing table allocation. Each routable outbound (interface, table) gets a unique fwmark. Blackhole outbounds do NOT get a mark — they are handled by a direct DROP rule in the firewall. These marks become the universal abstraction for outbound selection.",
+      "acceptanceCriteria": [
+        "FwmarkConfig struct added to config.hpp with fields: start (uint32_t, default 0x00010000), mask (uint32_t, default 0x00FF0000)",
+        "IprouteConfig struct added to config.hpp with field: table_start (uint32_t, default 150)",
+        "Config struct extended with fwmark (FwmarkConfig) and iproute (IprouteConfig) fields",
+        "JSON parsing implemented for 'fwmark' section (fields: 'start', 'mask') and 'iproute' section (field: 'table_start')",
+        "fwmark.mask validation: must have exactly two adjacent hex nibbles set to F (contiguous), e.g. 0x00FF0000 and 0x0000FF00 are valid, 0x0F0F0000 and 0x000F0F00 are not; throw ConfigError with descriptive message if invalid",
+        "Helper function allocate_outbound_marks() assigns sequential fwmarks to interface and table outbounds only (NOT blackhole, ignore, or urltest): first gets fwmark.start, second gets fwmark.start + step where step = (1 shifted by position of lowest set bit of mask), etc.",
+        "allocate_outbound_marks() validates that the number of routable outbounds does not exceed available mark space (256 for two F nibbles); throws ConfigError if exceeded",
+        "OutboundMarkMap type alias: std::map<std::string, uint32_t> mapping outbound tag to assigned fwmark",
+        "Typecheck passes"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045",
+      "title": "Simplify DNS server types — remove DoH, System, Blocked",
+      "description": "As a developer, I need to remove DoH, System, and Blocked DNS server types from the codebase, keeping only PlainIP type since dnsmasq only supports plain UDP DNS servers in server= directives.",
+      "acceptanceCriteria": [
+        "DnsServerType enum removed entirely from dns_server.hpp (no longer needed — all servers are PlainIP)",
+        "DnsServerConfig struct simplified: remove 'type' field, remove 'doh_url' field; keep only tag, address, detour, resolved_ip",
+        "parse_dns_address_type() removed",
+        "parse_dns_server() simplified: only validates that address is a valid IPv4 or IPv6 address, sets resolved_ip, throws DnsError otherwise",
+        "validate_dns_address() simplified: only accepts valid IPv4/IPv6 addresses",
+        "dnsmasq_gen.cpp removes the PlainIP-only check (all servers are now PlainIP, so server= directives are always generated)",
+        "All references to DoH, System, Blocked types removed throughout codebase",
+        "DnsServer struct in config.hpp: address field comment updated to just 'IPv4 or IPv6 address'",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046",
+      "title": "Add IgnoreOutbound and UrltestOutbound types, remove ping settings from InterfaceOutbound",
+      "description": "As a developer, I need to add two new outbound types (ignore and urltest) and remove ping-related settings from InterfaceOutbound. IgnoreOutbound marks traffic as 'not managed by keen-pbr3'. UrltestOutbound contains weighted outbound groups with HTTP URL testing, circuit breaker, and retry configuration.",
+      "acceptanceCriteria": [
+        "IgnoreOutbound struct added to config.hpp with only 'tag' field",
+        "OutboundGroup struct added with: weight (uint32_t), outbounds (vector<string>)",
+        "RetryConfig struct added with: attempts (uint32_t, default 3), interval_ms (uint32_t, default 1000)",
+        "CircuitBreakerConfig struct added with: failure_threshold (uint32_t, default 5), success_threshold (uint32_t, default 2), timeout_ms (uint32_t, default 30000), half_open_max_requests (uint32_t, default 1)",
+        "UrltestOutbound struct added with: tag, outbound_groups (vector<OutboundGroup>), url (string), interval_ms (uint32_t, default 180000), tolerance_ms (uint32_t, default 100), retry (RetryConfig), circuit_breaker (CircuitBreakerConfig)",
+        "InterfaceOutbound: ping_target, ping_interval, ping_timeout fields removed; <chrono> include removed from config.hpp if no longer needed",
+        "Outbound variant updated to: std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound, IgnoreOutbound, UrltestOutbound>",
+        "JSON parsing for 'type': 'ignore' creates IgnoreOutbound",
+        "JSON parsing for 'type': 'urltest' parses all nested structures (outbound_groups, retry, circuit_breaker) with defaults",
+        "JSON parsing for InterfaceOutbound no longer accepts ping_target/ping_interval/ping_timeout",
+        "Config validation: urltest outbound_groups.outbounds references must point to existing interface/table/blackhole outbound tags (not ignore or other urltest); throws ConfigError if invalid",
+        "Typecheck passes"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047",
+      "title": "Simplify route rules to single outbound only",
+      "description": "As a developer, I need to simplify route rules to support only a single outbound tag, removing failover chains and skip action. For ignore semantics, users point the rule to an IgnoreOutbound. For failover, users point the rule to a UrltestOutbound.",
+      "acceptanceCriteria": [
+        "RouteRule::action field changed from variant to plain std::string (single outbound tag)",
+        "SkipAction struct removed from config.hpp",
+        "Route rule JSON parsing only accepts 'outbound' field (single string tag)",
+        "Parsing throws ConfigError if 'outbounds' array or 'action': 'skip' is encountered, with message suggesting to use ignore/urltest outbound instead",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048",
+      "title": "Simplify routing target resolution for single-outbound rules",
+      "description": "As a developer, I need to update resolve_route_action() to work with the new single-outbound route rules and new outbound types (ignore, urltest).",
+      "acceptanceCriteria": [
+        "resolve_route_action() signature changed: takes const std::string& action (single tag) instead of variant",
+        "HealthCheckFn parameter removed from resolve_route_action()",
+        "Implementation: lookup outbound by tag in outbounds vector",
+        "If tag refers to IgnoreOutbound, return RoutingDecision::skip()",
+        "If tag refers to UrltestOutbound, return RoutingDecision::route_to() with the UrltestOutbound — caller resolves to selected child outbound",
+        "HealthCheckFn type alias removed from target.hpp",
+        "SkipAction variant handling removed",
+        "Failover chain (vector<string>) handling removed",
+        "Typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049",
+      "title": "Switch to dynamic linking",
+      "description": "As a developer, I need to remove static linking for cross-compilation targets, using dynamic linking instead to reduce binary size and leverage system libraries on the router.",
+      "acceptanceCriteria": [
+        "meson.build removes the 'if meson.is_cross_build()' block that adds '-static' link argument (lines 79-81)",
+        "Cross-compilation targets now produce dynamically linked binaries",
+        "Typecheck passes"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-050",
+      "title": "Update CircuitBreaker with success_threshold and half_open_max_requests",
+      "description": "As a developer, I need to enhance the CircuitBreaker to support configurable success_threshold (for half_open to closed transitions) and half_open_max_requests (to limit concurrent probe requests in half_open state). Circuit breaker config is now provided via CircuitBreakerConfig struct from config.hpp.",
+      "acceptanceCriteria": [
+        "CircuitBreaker constructor accepts CircuitBreakerConfig struct instead of individual parameters",
+        "CircuitBreakerEntry struct extended with: success_count_in_half_open (uint32_t), half_open_active_requests (uint32_t)",
+        "record_success() in half_open state increments success_count_in_half_open; transitions to closed only when success_count_in_half_open >= config.success_threshold",
+        "is_allowed() in half_open state returns false if half_open_active_requests >= config.half_open_max_requests",
+        "New method begin_request(tag): increments half_open_active_requests when in half_open state (called before making probe request)",
+        "New method end_request(tag): decrements half_open_active_requests (called after probe completes, regardless of success/failure)",
+        "reset() clears success_count_in_half_open and half_open_active_requests",
+        "Old constructor with failure_threshold/cooldown parameters replaced by CircuitBreakerConfig-based constructor",
+        "Typecheck passes"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-051",
+      "title": "Implement HTTP URL tester for urltest outbounds",
+      "description": "As a developer, I need an HTTP-based URL tester that measures response time through specific outbounds using CURLOPT_MARK to route test traffic via the outbound's assigned fwmark.",
+      "acceptanceCriteria": [
+        "src/health/url_tester.hpp declares URLTester class",
+        "URLTestResult struct with fields: success (bool), latency_ms (uint32_t), error (string)",
+        "test() method signature: URLTestResult test(const string& url, uint32_t fwmark, uint32_t timeout_ms, const RetryConfig& retry)",
+        "Uses CURLOPT_MARK to set socket mark = fwmark, so kernel routes test traffic through the correct outbound's routing table via existing ip rules",
+        "Measures response time using std::chrono::steady_clock around the HTTP request",
+        "Implements retry logic: up to retry.attempts times with retry.interval_ms delay between attempts",
+        "Returns URLTestResult with success=true if HTTP status 200-299, latency_ms from fastest successful attempt",
+        "If all retries fail, success=false with error from last attempt",
+        "src/health/url_tester.cpp implements URLTester",
+        "meson.build adds src/health/url_tester.cpp to sources list",
+        "Typecheck passes"
+      ],
+      "priority": 51,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-052",
+      "title": "Implement urltest outbound selection manager",
+      "description": "As a developer, I need a UrltestManager that runs periodic URL tests for all urltest outbounds, tracks per-child-outbound latencies and circuit breaker states, and selects the best outbound using the weighted group algorithm.",
+      "acceptanceCriteria": [
+        "src/routing/urltest_manager.hpp declares UrltestManager class",
+        "UrltestState struct per urltest outbound with: last_results (map<string, URLTestResult>), circuit_breakers (map<string, CircuitBreaker>), selected_outbound (string)",
+        "UrltestManager constructor takes: URLTester ref, OutboundMarkMap ref, Scheduler ref, change callback function",
+        "register_urltest(UrltestOutbound) method: creates UrltestState, schedules repeating test at interval_ms",
+        "run_tests(tag) method: for each child outbound in the urltest, calls URLTester::test() using fwmark from OutboundMarkMap, updates circuit breakers, then calls select_outbound()",
+        "select_outbound(tag) implements: sort groups by weight ascending, for each group filter by circuit_breaker.is_allowed(), find fastest with tolerance (latency <= min_latency + tolerance_ms), return first found; if all exhausted return empty string (blackhole fallback)",
+        "When selected_outbound changes, invokes change callback with (urltest_tag, new_child_tag)",
+        "get_selected(urltest_tag) returns current selected child outbound tag",
+        "get_state(urltest_tag) returns const UrltestState& for API/status reporting",
+        "trigger_immediate_test(urltest_tag) runs tests immediately outside scheduled interval (for SIGUSR1)",
+        "src/routing/urltest_manager.cpp implements all methods",
+        "meson.build adds src/routing/urltest_manager.cpp to sources list",
+        "Typecheck passes"
+      ],
+      "priority": 52,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-053",
+      "title": "Implement in-memory firewall state tracking",
+      "description": "As a developer, I need an in-memory FirewallState that tracks the current mapping of ipset/nfset names to their applied fwmarks or DROP actions and resolved outbound tags. This state is the source of truth for API queries and for determining what to rebuild when urltest selection changes.",
+      "acceptanceCriteria": [
+        "src/routing/firewall_state.hpp declares FirewallState class",
+        "RuleState struct with fields: rule_index (size_t), list_names (vector<string>), set_names (vector<string>), outbound_tag (string), action_type (enum: mark/drop/skip), fwmark (uint32_t, only if action_type==mark)",
+        "FirewallState holds: outbound_marks (OutboundMarkMap), rules (vector<RuleState>), urltest_selections (map<string, string> mapping urltest tag to selected child tag)",
+        "set_rules() replaces current rule state",
+        "set_urltest_selection(urltest_tag, child_tag) updates the urltest selection",
+        "get_rules() returns const vector<RuleState>& for API access",
+        "get_outbound_marks() returns const OutboundMarkMap& for API access",
+        "get_urltest_selections() returns const map& for API access",
+        "resolve_effective_outbound(rule) method: if rule outbound is urltest, returns the currently selected child tag; otherwise returns the outbound tag directly",
+        "src/routing/firewall_state.cpp implements FirewallState",
+        "meson.build adds src/routing/firewall_state.cpp to sources list",
+        "Typecheck passes"
+      ],
+      "priority": 53,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-054",
+      "title": "Add DROP rule support to firewall interface for blackhole outbounds",
+      "description": "As a developer, I need the firewall interface to support creating DROP rules for packets matching an ipset, used for blackhole outbounds that don't need routing tables or fwmarks.",
+      "acceptanceCriteria": [
+        "Firewall abstract class extended with virtual create_drop_rule(set_name) method",
+        "IptablesFirewall implements create_drop_rule() using 'iptables -t mangle -A PREROUTING -m set --match-set <set_name> dst -j DROP'",
+        "NftablesFirewall implements create_drop_rule() using nft rule with 'drop' verdict matching the set",
+        "create_drop_rule() tracked in cleanup lists (same as create_mark_rule) for proper teardown",
+        "Typecheck passes"
+      ],
+      "priority": 54,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-055",
+      "title": "Rewrite daemon mode with mark-based routing, stateful firewall, and transactional rebuilds",
+      "description": "As a developer, I need to rewrite the daemon mode in main.cpp to use the new mark-based architecture: static routing tables/ip-rules set up once at startup, transactional firewall rule rebuilds when urltest selection changes, blackhole handled by firewall DROP rules, in-memory FirewallState tracking, and SIGUSR1 to verify routing tables and trigger immediate URL tests.",
+      "acceptanceCriteria": [
+        "Startup: allocate_outbound_marks() assigns fwmarks to all interface/table outbounds",
+        "Startup: for each InterfaceOutbound, create a dedicated routing table (iproute.table_start + N) with a default route via its interface/gateway, add ip rule (fwmark/mask → table). These are static and never modified during runtime",
+        "Startup: for each TableOutbound, add ip rule (fwmark/mask → table_id). Static, never modified",
+        "BlackholeOutbound: no routing table, no ip rule, no fwmark — handled entirely by firewall DROP rule in apply_firewall()",
+        "apply_firewall() lambda replaces apply_all(): builds complete firewall ruleset transactionally, updates FirewallState",
+        "apply_firewall() for each route rule: if outbound is ignore → skip (no ipset, no rule); if outbound is blackhole → create ipset + DROP rule; if outbound is interface/table → create ipset + mark rule with fwmark; if outbound is urltest → resolve via UrltestManager to selected child, apply child's mark or DROP",
+        "apply_firewall() uses firewall->apply() for atomic application",
+        "apply_firewall() updates FirewallState with current rule-to-outbound mappings",
+        "UrltestManager initialized with change callback that triggers apply_firewall()",
+        "HealthChecker and make_health_fn() removed entirely",
+        "SIGUSR1 handler: (1) verify all static routing tables/ip-rules still exist (re-add if missing), (2) trigger immediate URL tests for all urltest outbounds",
+        "SIGHUP handler: full teardown (routes, rules, firewall), re-read config, re-allocate marks, re-create routing tables, re-initialize UrltestManager, apply_firewall()",
+        "rule_outbound_tags tracking removed — replaced by FirewallState",
+        "Periodic ping health check scheduler removed (replaced by UrltestManager scheduling)",
+        "Typecheck passes"
+      ],
+      "priority": 55,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-056",
+      "title": "Clean up removed code — delete HealthChecker, update API handlers",
+      "description": "As a developer, I need to remove the now-unused ICMP-based HealthChecker and update the API handlers to use FirewallState and UrltestManager for status and health reporting.",
+      "acceptanceCriteria": [
+        "src/health/health_checker.hpp deleted",
+        "src/health/health_checker.cpp deleted",
+        "meson.build removes src/health/health_checker.cpp from sources list",
+        "All #include references to health/health_checker.hpp removed from codebase",
+        "ApiContext struct updated: replaces HealthChecker& with FirewallState& and UrltestManager&",
+        "GET /api/status updated: includes fwmark assignments per outbound (from FirewallState), current rule-to-outbound mappings, urltest selections",
+        "GET /api/health updated: reports urltest state per urltest outbound (per-child latencies, circuit breaker states, selected outbound from UrltestManager); interface/table outbounds report 'always healthy'",
+        "No remaining references to HealthChecker anywhere in codebase (grep confirms)",
+        "Typecheck passes"
+      ],
+      "priority": 56,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
