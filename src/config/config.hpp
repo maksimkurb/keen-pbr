@@ -74,7 +74,7 @@ struct RouteConfig {
 
 struct DnsServer {
     std::string tag;
-    std::string address; // IP, DoH URL, "system", or "rcode://refused"
+    std::string address; // IPv4 or IPv6 address
     std::optional<std::string> detour;
 };
 

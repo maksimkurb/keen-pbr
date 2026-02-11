@@ -83,7 +83,7 @@ void DnsmasqGenerator::generate(std::ostream& out) {
         auto dns_it = dns_list_servers.find(list_name);
         if (dns_it != dns_list_servers.end()) {
             const DnsServerConfig* server = dns_registry_.get_server(dns_it->second);
-            if (server && server->type == DnsServerType::PlainIP) {
+            if (server) {
                 dns_ip = server->resolved_ip;
             }
         }

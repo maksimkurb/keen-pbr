@@ -37,14 +37,14 @@
 - Firewall (nftables): Sets with timeout use `flags interval, timeout` and `timeout Ns` syntax
 - Firewall (nftables): Cleanup simply deletes the entire table (cascades to all chains, rules, sets)
 - Firewall (nftables): Rule deletion by handle: `nft -a list chain` to find handle, then `nft delete rule ... handle N`
-- DNS: DnsServerType enum classifies addresses as PlainIP, DoH, System, or Blocked
-- DNS: DnsServerConfig enriches config-level DnsServer with parsed type and extracted fields (resolved_ip, doh_url)
+- DNS: All DNS servers must be plain IPv4 or IPv6 addresses (no DoH, system, or blocked types)
+- DNS: DnsServerConfig has tag, address, detour, resolved_ip (no type field, no doh_url)
 - DNS: New module directory: `src/dns/` for DNS-related code
 - DNS: DnsServerRegistry takes only `DnsConfig` (no ListManager dependency) for server tag lookup and fallback resolution
 - DNS: DnsServerRegistry validates all server tags in constructor (fallback + rule references) - fail-fast on config errors
 - DNS: Wildcard domain matching: `*.example.com` matches both subdomains and the base domain itself
 - DNS: Dnsmasq ipset directives use plain set name (single `hash:net` set per list)
-- DNS: Dnsmasq `server=` directives only work with PlainIP DNS servers (not DoH/system/blocked)
+- DNS: Dnsmasq `server=` directives always generated for all DNS servers (all are plain IP)
 - DNS: DnsmasqGenerator uses ListStreamer (not ListManager) and takes std::ostream& for streaming output; domains batched ~50 per ipset=/server= line
 - Daemon: Epoll-based event loop with signalfd for signal handling; external fds registered via add_fd/remove_fd
 - Daemon: signalfd requires signals blocked via sigprocmask first; use SFD_NONBLOCK | SFD_CLOEXEC flags
@@ -696,4 +696,19 @@
   - allocate_outbound_marks() step calculation: step = lowest set bit of mask (e.g., 0x10000 for mask 0x00FF0000), giving 256 available marks
   - Only InterfaceOutbound and TableOutbound get fwmarks; BlackholeOutbound (and future IgnoreOutbound/UrltestOutbound) do NOT
   - JSON config uses integer values for start/mask (not hex strings) since nlohmann_json parses integers directly
+---
+
+## 2026-02-11 - US-045
+- What was implemented: Simplified DNS server types — removed DoH, System, Blocked types; all DNS servers must now be plain IPv4 or IPv6 addresses
+- Files changed:
+  - `src/dns/dns_server.hpp` - Removed DnsServerType enum, removed `type` and `doh_url` fields from DnsServerConfig, removed `parse_dns_address_type()` declaration
+  - `src/dns/dns_server.cpp` - Removed `is_doh_url()`, `is_system()`, `is_rcode_refused()`, `parse_dns_address_type()` functions; simplified `parse_dns_server()` to only validate IPv4/IPv6 and set resolved_ip; simplified `validate_dns_address()` to only accept valid IPs
+  - `src/dns/dnsmasq_gen.cpp` - Removed PlainIP-only check when generating server= directives (all servers are now plain IP)
+  - `src/config/config.hpp` - Updated DnsServer.address comment to 'IPv4 or IPv6 address'
+  - `config.example.json` - Removed DoH and rcode://refused server examples
+  - `prd.json` - Marked US-045 as passes: true
+- **Learnings for future iterations:**
+  - DNS simplification was clean since dnsmasq only supports plain UDP DNS servers in server= directives
+  - The is_valid_ipv4/is_valid_ipv6 helpers are reused from the original implementation (same validation logic)
+  - config.example.json had DoH and blocked entries that needed removal alongside the code changes
 ---

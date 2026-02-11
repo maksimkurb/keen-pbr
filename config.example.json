@@ -66,15 +66,6 @@
       {
         "tag": "google-dns",
         "address": "8.8.8.8"
-      },
-      {
-        "tag": "doh",
-        "address": "https://dns.google/dns-query",
-        "detour": "vpn"
-      },
-      {
-        "tag": "blocked",
-        "address": "rcode://refused"
       }
     ],
     "rules": [

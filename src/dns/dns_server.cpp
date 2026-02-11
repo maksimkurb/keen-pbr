@@ -1,6 +1,5 @@
 #include "dns_server.hpp"
 
-#include <algorithm>
 #include <charconv>
 #include <cstdint>
 
@@ -41,9 +40,6 @@ bool is_valid_ipv6(const std::string& addr) {
         }
     }
 
-    // Handle bracketed form (strip brackets)
-    // Not expected here, but be safe
-
     // Basic structure: groups separated by colons, :: allowed once
     int double_colon_count = 0;
     size_t pos = 0;
@@ -60,63 +56,25 @@ bool is_valid_ip(const std::string& addr) {
     return is_valid_ipv4(addr) || is_valid_ipv6(addr);
 }
 
-bool is_doh_url(const std::string& addr) {
-    return addr.size() > 8 && addr.substr(0, 8) == "https://";
-}
-
-bool is_system(const std::string& addr) {
-    return addr == "system";
-}
-
-bool is_rcode_refused(const std::string& addr) {
-    return addr == "rcode://refused";
-}
-
 } // namespace
 
-DnsServerType parse_dns_address_type(const std::string& address) {
-    if (is_system(address)) {
-        return DnsServerType::System;
-    }
-    if (is_rcode_refused(address)) {
-        return DnsServerType::Blocked;
-    }
-    if (is_doh_url(address)) {
-        return DnsServerType::DoH;
-    }
-    if (is_valid_ip(address)) {
-        return DnsServerType::PlainIP;
-    }
-    throw DnsError("Invalid DNS server address: '" + address + "'");
-}
-
 void validate_dns_address(const std::string& address) {
-    // parse_dns_address_type already validates and throws on invalid input
-    parse_dns_address_type(address);
+    if (!is_valid_ip(address)) {
+        throw DnsError("Invalid DNS server address: '" + address +
+                        "' (must be a valid IPv4 or IPv6 address)");
+    }
 }
 
 DnsServerConfig parse_dns_server(const std::string& tag,
                                   const std::string& address,
                                   const std::optional<std::string>& detour) {
-    DnsServerType type = parse_dns_address_type(address);
+    validate_dns_address(address);
 
     DnsServerConfig config;
     config.tag = tag;
-    config.type = type;
     config.address = address;
     config.detour = detour;
-
-    switch (type) {
-        case DnsServerType::PlainIP:
-            config.resolved_ip = address;
-            break;
-        case DnsServerType::DoH:
-            config.doh_url = address;
-            break;
-        case DnsServerType::System:
-        case DnsServerType::Blocked:
-            break;
-    }
+    config.resolved_ip = address;
 
     return config;
 }
