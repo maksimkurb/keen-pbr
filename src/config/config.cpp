@@ -1,5 +1,8 @@
 #include "config.hpp"
 
+#include <iomanip>
+#include <sstream>
+
 #include <nlohmann/json.hpp>
 
 namespace keen_pbr3 {
@@ -246,6 +249,66 @@ static DnsConfig parse_dns(const json& j) {
     return cfg;
 }
 
+static FwmarkConfig parse_fwmark(const json& j) {
+    FwmarkConfig cfg;
+    if (j.contains("start")) {
+        cfg.start = j.at("start").get<uint32_t>();
+    }
+    if (j.contains("mask")) {
+        cfg.mask = j.at("mask").get<uint32_t>();
+    }
+    return cfg;
+}
+
+static IprouteConfig parse_iproute(const json& j) {
+    IprouteConfig cfg;
+    if (j.contains("table_start")) {
+        cfg.table_start = j.at("table_start").get<uint32_t>();
+    }
+    return cfg;
+}
+
+// Validate that the fwmark mask has exactly two adjacent hex nibbles set to F.
+// A valid mask has a contiguous block of exactly 8 set bits aligned to nibble boundaries.
+// Examples: 0x00FF0000 (valid), 0x0000FF00 (valid), 0x0F0F0000 (invalid - not contiguous),
+//           0x000F0000 (invalid - only one nibble)
+static void validate_fwmark_mask(uint32_t mask) {
+    if (mask == 0) {
+        throw ConfigError("fwmark.mask must not be zero");
+    }
+
+    // Find the position of the lowest set bit
+    uint32_t lowest = mask & (~mask + 1); // isolate lowest set bit
+
+    // The mask shifted right to start at bit 0
+    uint32_t shifted = mask / lowest;
+
+    // For exactly two adjacent hex nibbles (8 bits), shifted must be 0xFF
+    if (shifted != 0xFF) {
+        // Provide a descriptive error
+        std::ostringstream oss;
+        oss << "fwmark.mask must have exactly two adjacent hex nibbles set to F "
+            << "(e.g. 0x00FF0000, 0x0000FF00), got 0x"
+            << std::hex << std::setfill('0') << std::setw(8) << mask;
+        throw ConfigError(oss.str());
+    }
+
+    // Additionally verify nibble alignment: lowest bit position must be a multiple of 4
+    int bit_pos = 0;
+    uint32_t tmp = lowest;
+    while (tmp > 1) {
+        tmp >>= 1;
+        ++bit_pos;
+    }
+    if (bit_pos % 4 != 0) {
+        std::ostringstream oss;
+        oss << "fwmark.mask must be aligned to nibble boundaries "
+            << "(e.g. 0x00FF0000, 0x0000FF00), got 0x"
+            << std::hex << std::setfill('0') << std::setw(8) << mask;
+        throw ConfigError(oss.str());
+    }
+}
+
 Config parse_config(const std::string& json_str) {
     json j;
     try {
@@ -284,7 +347,55 @@ Config parse_config(const std::string& json_str) {
         }
     }
 
+    if (j.contains("fwmark")) {
+        config.fwmark = parse_fwmark(j.at("fwmark"));
+    }
+
+    if (j.contains("iproute")) {
+        config.iproute = parse_iproute(j.at("iproute"));
+    }
+
     return config;
+}
+
+OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
+                                         const std::vector<Outbound>& outbounds) {
+    validate_fwmark_mask(fwmark_cfg.mask);
+
+    // Calculate step: 1 shifted by position of lowest set bit of mask
+    uint32_t lowest_bit = fwmark_cfg.mask & (~fwmark_cfg.mask + 1);
+    uint32_t step = lowest_bit;
+
+    // Available mark space: two hex nibbles = 256 values (0x00 to 0xFF)
+    constexpr uint32_t max_marks = 256;
+
+    // Count routable outbounds (interface and table only)
+    OutboundMarkMap mark_map;
+    uint32_t current_mark = fwmark_cfg.start;
+    uint32_t count = 0;
+
+    for (const auto& ob : outbounds) {
+        bool is_routable = std::visit([](const auto& o) -> bool {
+            using T = std::decay_t<decltype(o)>;
+            return std::is_same_v<T, InterfaceOutbound> ||
+                   std::is_same_v<T, TableOutbound>;
+        }, ob);
+
+        if (!is_routable) continue;
+
+        if (count >= max_marks) {
+            throw ConfigError(
+                "Too many routable outbounds: maximum " + std::to_string(max_marks) +
+                " supported with current fwmark.mask");
+        }
+
+        std::string tag = std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+        mark_map[tag] = current_mark;
+        current_mark += step;
+        ++count;
+    }
+
+    return mark_map;
 }
 
 } // namespace keen_pbr3

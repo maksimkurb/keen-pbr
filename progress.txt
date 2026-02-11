@@ -682,3 +682,18 @@
   - main.cpp included list_parser.hpp but didn't use it directly (EntryCounter comes from list_entry_visitor.hpp, streaming from ListStreamer)
   - Grep for all references before deletion ensures nothing is missed; all ParsedList/ListManager usage was confined to the deleted files themselves
 ---
+
+## 2026-02-11 - US-044
+- What was implemented: Added FwmarkConfig and IprouteConfig structs, JSON parsing for fwmark/iproute config sections, fwmark mask validation (contiguous nibble pairs), and allocate_outbound_marks() helper to assign sequential fwmarks to interface/table outbounds
+- Files changed:
+  - `src/config/config.hpp` - Added FwmarkConfig (start, mask), IprouteConfig (table_start), OutboundMarkMap type alias, allocate_outbound_marks() declaration; extended Config struct with fwmark and iproute fields
+  - `src/config/config.cpp` - Added parse_fwmark(), parse_iproute(), validate_fwmark_mask() (checks exactly two adjacent hex nibbles set to F with nibble alignment), allocate_outbound_marks() implementation; added `<iomanip>` and `<sstream>` includes
+  - `config.example.json` - Added fwmark section (start: 65536, mask: 16711680) and iproute section (table_start: 150)
+  - `prd.json` - Marked US-044 as passes: true
+- **Learnings for future iterations:**
+  - Fwmark mask validation: isolate lowest set bit via `mask & (~mask + 1)`, then `mask / lowest` must equal 0xFF for exactly 8 contiguous set bits (two hex nibbles)
+  - Nibble alignment check: bit position of lowest set bit must be a multiple of 4
+  - allocate_outbound_marks() step calculation: step = lowest set bit of mask (e.g., 0x10000 for mask 0x00FF0000), giving 256 available marks
+  - Only InterfaceOutbound and TableOutbound get fwmarks; BlackholeOutbound (and future IgnoreOutbound/UrltestOutbound) do NOT
+  - JSON config uses integer values for start/mask (not hex strings) since nlohmann_json parses integers directly
+---

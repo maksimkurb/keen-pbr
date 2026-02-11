@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <stdexcept>
@@ -95,6 +96,19 @@ struct ApiConfig {
     std::string listen{"127.0.0.1:8080"};
 };
 
+// --- Fwmark section ---
+
+struct FwmarkConfig {
+    uint32_t start{0x00010000};
+    uint32_t mask{0x00FF0000};
+};
+
+// --- Iproute section ---
+
+struct IprouteConfig {
+    uint32_t table_start{150};
+};
+
 // --- Top-level Config ---
 
 struct Config {
@@ -104,10 +118,23 @@ struct Config {
     DnsConfig dns;
     RouteConfig route;
     std::map<std::string, ListConfig> lists;
+    FwmarkConfig fwmark;
+    IprouteConfig iproute;
 };
 
 // --- JSON deserialization ---
 
 Config parse_config(const std::string& json_str);
+
+// --- Fwmark allocation ---
+
+// Maps outbound tag to its assigned fwmark value
+using OutboundMarkMap = std::map<std::string, uint32_t>;
+
+// Validates fwmark.mask and assigns sequential fwmarks to interface and table
+// outbounds. Blackhole, ignore, and urltest outbounds do NOT get marks.
+// Throws ConfigError if mask is invalid or too many outbounds for the mark space.
+OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
+                                         const std::vector<Outbound>& outbounds);
 
 } // namespace keen_pbr3
