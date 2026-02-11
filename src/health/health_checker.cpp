@@ -35,24 +35,23 @@ bool is_ipv6(const std::string& addr) {
 
 } // anonymous namespace
 
-void HealthChecker::register_outbound(const InterfaceOutbound& outbound) {
-    if (!outbound.ping_target) {
-        return;
-    }
-
+void HealthChecker::register_target(const std::string& tag,
+                                     const std::string& interface,
+                                     const std::string& target,
+                                     std::chrono::seconds timeout) {
     PingTarget pt;
-    pt.tag = outbound.tag;
-    pt.interface = outbound.interface;
-    pt.target = *outbound.ping_target;
-    pt.timeout = outbound.ping_timeout;
+    pt.tag = tag;
+    pt.interface = interface;
+    pt.target = target;
+    pt.timeout = timeout;
 
-    targets_[outbound.tag] = std::move(pt);
+    targets_[tag] = std::move(pt);
 
     // Initialize result as unknown
     HealthResult result;
-    result.tag = outbound.tag;
+    result.tag = tag;
     result.status = HealthStatus::unknown;
-    results_[outbound.tag] = result;
+    results_[tag] = result;
 }
 
 bool HealthChecker::check(const std::string& tag) {

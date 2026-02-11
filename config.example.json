@@ -14,10 +14,7 @@
       "type": "interface",
       "tag": "vpn",
       "interface": "tun0",
-      "gateway": "10.8.0.1",
-      "ping_target": "8.8.8.8",
-      "ping_interval": "30s",
-      "ping_timeout": "5s"
+      "gateway": "10.8.0.1"
     },
     {
       "type": "interface",
@@ -33,6 +30,37 @@
     {
       "type": "blackhole",
       "tag": "block"
+    },
+    {
+      "type": "ignore",
+      "tag": "direct"
+    },
+    {
+      "type": "urltest",
+      "tag": "auto-select",
+      "url": "https://www.gstatic.com/generate_204",
+      "interval_ms": 180000,
+      "tolerance_ms": 100,
+      "outbound_groups": [
+        {
+          "weight": 1,
+          "outbounds": ["vpn"]
+        },
+        {
+          "weight": 2,
+          "outbounds": ["wan"]
+        }
+      ],
+      "retry": {
+        "attempts": 3,
+        "interval_ms": 1000
+      },
+      "circuit_breaker": {
+        "failure_threshold": 5,
+        "success_threshold": 2,
+        "timeout_ms": 30000,
+        "half_open_max_requests": 1
+      }
     }
   ],
 

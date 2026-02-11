@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "../config/config.hpp"
-
 namespace keen_pbr3 {
 
 class HealthCheckError : public std::runtime_error {
@@ -33,9 +31,10 @@ class HealthChecker {
 public:
     HealthChecker() = default;
 
-    // Register an interface outbound for health checking.
-    // Only InterfaceOutbounds with a ping_target are registered.
-    void register_outbound(const InterfaceOutbound& outbound);
+    // Register a target for health checking.
+    void register_target(const std::string& tag, const std::string& interface,
+                         const std::string& target,
+                         std::chrono::seconds timeout = std::chrono::seconds{5});
 
     // Check health of a single outbound by tag.
     // Returns true if healthy, false if unhealthy or unknown.

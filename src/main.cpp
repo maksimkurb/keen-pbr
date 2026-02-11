@@ -19,7 +19,6 @@
 #include "dns/dnsmasq_gen.hpp"
 #include "firewall/firewall.hpp"
 #include "health/circuit_breaker.hpp"
-#include "health/health_checker.hpp"
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "routing/netlink.hpp"
@@ -219,19 +218,11 @@ int main(int argc, char* argv[]) {
         // Initialize subsystems
         keen_pbr3::CacheManager cache(config.daemon.cache_dir);
         cache.ensure_dir();
-        keen_pbr3::HealthChecker health_checker;
         keen_pbr3::CircuitBreaker circuit_breaker;
         auto firewall = keen_pbr3::create_firewall("auto");
         keen_pbr3::NetlinkManager netlink;
         keen_pbr3::RouteTable route_table(netlink);
         keen_pbr3::PolicyRuleManager policy_rules(netlink);
-
-        // Register interface outbounds for health checking
-        for (const auto& outbound : config.outbounds) {
-            if (auto* iface = std::get_if<keen_pbr3::InterfaceOutbound>(&outbound)) {
-                health_checker.register_outbound(*iface);
-            }
-        }
 
         // Helper: get tag from any outbound variant
         auto get_outbound_tag = [](const keen_pbr3::Outbound& ob) -> std::string {
@@ -278,21 +269,14 @@ int main(int argc, char* argv[]) {
                     route.blackhole = true;
                     route_table.add(route);
                 }
+                // IgnoreOutbound and UrltestOutbound: no routing setup needed
             }, ob);
         };
 
         // Helper: build health check function using circuit breaker state
         auto make_health_fn = [&]() -> keen_pbr3::HealthCheckFn {
             return [&](const std::string& tag) -> bool {
-                if (!circuit_breaker.is_allowed(tag)) return false;
-                if (!health_checker.has_target(tag)) return true;
-                bool healthy = health_checker.check(tag);
-                if (healthy) {
-                    circuit_breaker.record_success(tag);
-                } else {
-                    circuit_breaker.record_failure(tag);
-                }
-                return healthy;
+                return circuit_breaker.is_allowed(tag);
             };
         };
 
@@ -485,22 +469,6 @@ int main(int argc, char* argv[]) {
             }
         });
 
-        // Schedule periodic health checks for interface outbounds
-        for (const auto& outbound : config.outbounds) {
-            if (auto* iface = std::get_if<keen_pbr3::InterfaceOutbound>(&outbound)) {
-                if (iface->ping_target.has_value()) {
-                    scheduler.schedule_repeating(iface->ping_interval, [&, tag = iface->tag]() {
-                        bool healthy = health_checker.check(tag);
-                        if (healthy) {
-                            circuit_breaker.record_success(tag);
-                        } else {
-                            circuit_breaker.record_failure(tag);
-                        }
-                    });
-                }
-            }
-        }
-
 #ifdef WITH_API
         // Optional REST API server
         std::unique_ptr<keen_pbr3::ApiServer> api_server;
@@ -511,7 +479,6 @@ int main(int argc, char* argv[]) {
                 config.outbounds,
                 cache,
                 config.lists,
-                health_checker,
                 [&]() {
                     // API reload triggers SIGHUP-like behavior
                     route_table.clear();

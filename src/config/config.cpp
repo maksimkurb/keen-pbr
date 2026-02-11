@@ -75,17 +75,6 @@ static Outbound parse_outbound(const json& j) {
         if (j.contains("gateway")) {
             ob.gateway = j.at("gateway").get<std::string>();
         }
-        if (j.contains("ping_target")) {
-            ob.ping_target = j.at("ping_target").get<std::string>();
-        }
-        if (j.contains("ping_interval")) {
-            ob.ping_interval =
-                parse_duration(j.at("ping_interval").get<std::string>());
-        }
-        if (j.contains("ping_timeout")) {
-            ob.ping_timeout =
-                parse_duration(j.at("ping_timeout").get<std::string>());
-        }
         return ob;
     } else if (type == "table") {
         if (!j.contains("table")) {
@@ -99,6 +88,78 @@ static Outbound parse_outbound(const json& j) {
     } else if (type == "blackhole") {
         BlackholeOutbound ob;
         ob.tag = tag;
+        return ob;
+    } else if (type == "ignore") {
+        IgnoreOutbound ob;
+        ob.tag = tag;
+        return ob;
+    } else if (type == "urltest") {
+        UrltestOutbound ob;
+        ob.tag = tag;
+        if (!j.contains("url")) {
+            throw ConfigError("Urltest outbound '" + tag +
+                              "' missing 'url' field");
+        }
+        ob.url = j.at("url").get<std::string>();
+        if (j.contains("interval_ms")) {
+            ob.interval_ms = j.at("interval_ms").get<uint32_t>();
+        }
+        if (j.contains("tolerance_ms")) {
+            ob.tolerance_ms = j.at("tolerance_ms").get<uint32_t>();
+        }
+        // Parse retry config
+        if (j.contains("retry")) {
+            const auto& rj = j.at("retry");
+            if (rj.contains("attempts")) {
+                ob.retry.attempts = rj.at("attempts").get<uint32_t>();
+            }
+            if (rj.contains("interval_ms")) {
+                ob.retry.interval_ms = rj.at("interval_ms").get<uint32_t>();
+            }
+        }
+        // Parse circuit breaker config
+        if (j.contains("circuit_breaker")) {
+            const auto& cbj = j.at("circuit_breaker");
+            if (cbj.contains("failure_threshold")) {
+                ob.circuit_breaker.failure_threshold = cbj.at("failure_threshold").get<uint32_t>();
+            }
+            if (cbj.contains("success_threshold")) {
+                ob.circuit_breaker.success_threshold = cbj.at("success_threshold").get<uint32_t>();
+            }
+            if (cbj.contains("timeout_ms")) {
+                ob.circuit_breaker.timeout_ms = cbj.at("timeout_ms").get<uint32_t>();
+            }
+            if (cbj.contains("half_open_max_requests")) {
+                ob.circuit_breaker.half_open_max_requests = cbj.at("half_open_max_requests").get<uint32_t>();
+            }
+        }
+        // Parse outbound groups
+        if (!j.contains("outbound_groups")) {
+            throw ConfigError("Urltest outbound '" + tag +
+                              "' missing 'outbound_groups' field");
+        }
+        for (const auto& gj : j.at("outbound_groups")) {
+            OutboundGroup group;
+            if (gj.contains("weight")) {
+                group.weight = gj.at("weight").get<uint32_t>();
+            }
+            if (!gj.contains("outbounds")) {
+                throw ConfigError("Urltest outbound '" + tag +
+                                  "' outbound_group missing 'outbounds' field");
+            }
+            for (const auto& o : gj.at("outbounds")) {
+                group.outbounds.push_back(o.get<std::string>());
+            }
+            if (group.outbounds.empty()) {
+                throw ConfigError("Urltest outbound '" + tag +
+                                  "' outbound_group has empty 'outbounds' array");
+            }
+            ob.outbound_groups.push_back(std::move(group));
+        }
+        if (ob.outbound_groups.empty()) {
+            throw ConfigError("Urltest outbound '" + tag +
+                              "' 'outbound_groups' array must not be empty");
+        }
         return ob;
     } else {
         throw ConfigError("Unknown outbound type: " + type);
@@ -353,6 +414,45 @@ Config parse_config(const std::string& json_str) {
 
     if (j.contains("iproute")) {
         config.iproute = parse_iproute(j.at("iproute"));
+    }
+
+    // Validate urltest outbound_groups references: must point to existing
+    // interface/table/blackhole outbound tags (not ignore or other urltest)
+    auto get_tag = [](const Outbound& ob) -> std::string {
+        return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+    };
+    for (const auto& ob : config.outbounds) {
+        if (auto* ut = std::get_if<UrltestOutbound>(&ob)) {
+            for (const auto& group : ut->outbound_groups) {
+                for (const auto& ref_tag : group.outbounds) {
+                    bool found = false;
+                    for (const auto& target_ob : config.outbounds) {
+                        if (get_tag(target_ob) == ref_tag) {
+                            // Must be interface, table, or blackhole — not ignore or urltest
+                            bool valid = std::visit([](const auto& o) -> bool {
+                                using T = std::decay_t<decltype(o)>;
+                                return std::is_same_v<T, InterfaceOutbound> ||
+                                       std::is_same_v<T, TableOutbound> ||
+                                       std::is_same_v<T, BlackholeOutbound>;
+                            }, target_ob);
+                            if (!valid) {
+                                throw ConfigError(
+                                    "Urltest outbound '" + ut->tag +
+                                    "' references outbound '" + ref_tag +
+                                    "' which is not an interface, table, or blackhole outbound");
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        throw ConfigError(
+                            "Urltest outbound '" + ut->tag +
+                            "' references unknown outbound tag '" + ref_tag + "'");
+                    }
+                }
+            }
+        }
     }
 
     return config;

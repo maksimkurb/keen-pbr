@@ -17,7 +17,10 @@
 - JSON config parsing: use nlohmann_json, parse duration strings ("30s", "5m", "24h") with `parse_duration()` helper; `ttl` in ListConfig accepts both duration string and integer (seconds)
 - ListConfig TTL: applies to dnsmasq-resolved ipset entries only; user-supplied IPs/CIDRs are always permanent (timeout 0)
 - Config errors: throw `ConfigError` (inherits `std::runtime_error`) with descriptive messages
-- Outbound discrimination: JSON "type" field determines variant type ("interface", "table", "blackhole")
+- Outbound discrimination: JSON "type" field determines variant type ("interface", "table", "blackhole", "ignore", "urltest")
+- Outbound variant: std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound, IgnoreOutbound, UrltestOutbound> — all std::visit lambdas must handle 5 types
+- UrltestOutbound: has nested outbound_groups (weight + outbounds), retry (attempts, interval_ms), circuit_breaker (failure_threshold, success_threshold, timeout_ms, half_open_max_requests)
+- Urltest validation: outbound_groups references validated in parse_config() after all outbounds parsed — must reference interface/table/blackhole only
 - Local typecheck: `export PKG_CONFIG_PATH=/home/maksimkurb/Dev/keen-pbr3 && g++ -std=c++20 -fsyntax-only -I include $(pkg-config --cflags ...) <file>`
 - IP/subnet matching: IpSet uses binary trie (IpTrie) with separate v4/v6 tries for efficient CIDR lookup
 - Netlink: libnl3 requires `-I /usr/include/libnl3` for local typecheck; use RAII wrappers with custom deleters for nl_addr, rtnl_route, rtnl_nexthop, rtnl_rule
@@ -711,4 +714,24 @@
   - DNS simplification was clean since dnsmasq only supports plain UDP DNS servers in server= directives
   - The is_valid_ipv4/is_valid_ipv6 helpers are reused from the original implementation (same validation logic)
   - config.example.json had DoH and blocked entries that needed removal alongside the code changes
+---
+
+## 2026-02-11 - US-046
+- What was implemented: Added IgnoreOutbound and UrltestOutbound types, removed ping settings from InterfaceOutbound, updated all dependent code
+- Files changed:
+  - `src/config/config.hpp` - Removed `<chrono>` include; removed `ping_target`, `ping_interval`, `ping_timeout` from InterfaceOutbound; added IgnoreOutbound, OutboundGroup, RetryConfig, CircuitBreakerConfig, UrltestOutbound structs; updated Outbound variant to 5-type variant
+  - `src/config/config.cpp` - Removed ping field parsing from InterfaceOutbound; added JSON parsing for `type: "ignore"` and `type: "urltest"` (with outbound_groups, retry, circuit_breaker sub-objects); added urltest outbound_groups reference validation (must point to interface/table/blackhole, not ignore/urltest)
+  - `src/main.cpp` - Removed `#include "health/health_checker.hpp"`; removed HealthChecker initialization, register_outbound calls, and periodic ping health check scheduling; simplified `make_health_fn()` to only use circuit_breaker; removed `health_checker` from ApiContext; added comment for IgnoreOutbound/UrltestOutbound no-op in apply_routing
+  - `src/api/handlers.hpp` - Removed `#include "../health/health_checker.hpp"` and `HealthChecker&` from ApiContext
+  - `src/api/handlers.cpp` - Updated `outbound_type()` to handle 5 outbound types; removed `ping_target` from outbound_to_json; added UrltestOutbound fields to JSON; removed `health_status_string()` and HealthChecker references from /api/health endpoint
+  - `src/health/health_checker.hpp` - Removed `#include "../config/config.hpp"`; replaced `register_outbound(InterfaceOutbound&)` with `register_target(tag, interface, target, timeout)` to decouple from config types
+  - `src/health/health_checker.cpp` - Updated `register_outbound` → `register_target` with explicit parameters
+  - `config.example.json` - Removed ping settings from interface outbound; added ignore and urltest outbound examples
+  - `prd.json` - Marked US-046 as passes: true
+- **Learnings for future iterations:**
+  - Outbound variant now has 5 types: InterfaceOutbound, TableOutbound, BlackholeOutbound, IgnoreOutbound, UrltestOutbound — all std::visit lambdas that match on variant types need updating
+  - UrltestOutbound has nested config objects (outbound_groups, retry, circuit_breaker) — each parsed with optional fields and defaults
+  - urltest outbound_groups validation happens after all outbounds are parsed in parse_config(), since forward references are allowed
+  - HealthChecker is decoupled from InterfaceOutbound — uses register_target() with explicit params now; will be fully removed in US-056
+  - allocate_outbound_marks() already correctly handles new types via is_routable check (only InterfaceOutbound/TableOutbound get marks)
 ---

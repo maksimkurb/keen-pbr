@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chrono>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -29,9 +28,6 @@ struct InterfaceOutbound {
     std::string tag;
     std::string interface;
     std::optional<std::string> gateway;
-    std::optional<std::string> ping_target;
-    std::chrono::seconds ping_interval{30};
-    std::chrono::seconds ping_timeout{5};
 };
 
 struct TableOutbound {
@@ -43,7 +39,39 @@ struct BlackholeOutbound {
     std::string tag;
 };
 
-using Outbound = std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound>;
+struct IgnoreOutbound {
+    std::string tag;
+};
+
+struct OutboundGroup {
+    uint32_t weight{1};
+    std::vector<std::string> outbounds;
+};
+
+struct RetryConfig {
+    uint32_t attempts{3};
+    uint32_t interval_ms{1000};
+};
+
+struct CircuitBreakerConfig {
+    uint32_t failure_threshold{5};
+    uint32_t success_threshold{2};
+    uint32_t timeout_ms{30000};
+    uint32_t half_open_max_requests{1};
+};
+
+struct UrltestOutbound {
+    std::string tag;
+    std::vector<OutboundGroup> outbound_groups;
+    std::string url;
+    uint32_t interval_ms{180000};
+    uint32_t tolerance_ms{100};
+    RetryConfig retry;
+    CircuitBreakerConfig circuit_breaker;
+};
+
+using Outbound = std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound,
+                              IgnoreOutbound, UrltestOutbound>;
 
 // --- List definitions ---
 

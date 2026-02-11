@@ -20,7 +20,10 @@ std::string outbound_type(const Outbound& ob) {
         using T = std::decay_t<decltype(o)>;
         if constexpr (std::is_same_v<T, InterfaceOutbound>) return "interface";
         else if constexpr (std::is_same_v<T, TableOutbound>) return "table";
-        else return "blackhole";
+        else if constexpr (std::is_same_v<T, BlackholeOutbound>) return "blackhole";
+        else if constexpr (std::is_same_v<T, IgnoreOutbound>) return "ignore";
+        else if constexpr (std::is_same_v<T, UrltestOutbound>) return "urltest";
+        else return "unknown";
     }, ob);
 }
 
@@ -35,21 +38,15 @@ nlohmann::json outbound_to_json(const Outbound& ob) {
         if constexpr (std::is_same_v<T, InterfaceOutbound>) {
             j["interface"] = o.interface;
             if (o.gateway) j["gateway"] = *o.gateway;
-            if (o.ping_target) j["ping_target"] = *o.ping_target;
         } else if constexpr (std::is_same_v<T, TableOutbound>) {
             j["table_id"] = o.table_id;
+        } else if constexpr (std::is_same_v<T, UrltestOutbound>) {
+            j["url"] = o.url;
+            j["interval_ms"] = o.interval_ms;
         }
     }, ob);
 
     return j;
-}
-
-std::string health_status_string(HealthStatus s) {
-    switch (s) {
-        case HealthStatus::healthy: return "healthy";
-        case HealthStatus::unhealthy: return "unhealthy";
-        default: return "unknown";
-    }
 }
 
 } // anonymous namespace
@@ -101,19 +98,10 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
         nlohmann::json results = nlohmann::json::array();
 
         for (const auto& ob : ctx.outbounds) {
-            std::string tag = outbound_tag(ob);
             nlohmann::json entry;
-            entry["tag"] = tag;
+            entry["tag"] = outbound_tag(ob);
             entry["type"] = outbound_type(ob);
-
-            if (ctx.health_checker.has_target(tag)) {
-                entry["monitored"] = true;
-                entry["status"] = health_status_string(
-                    ctx.health_checker.last_status(tag));
-            } else {
-                entry["monitored"] = false;
-                entry["status"] = "healthy"; // unmonitored = always healthy
-            }
+            entry["status"] = "healthy";
 
             results.push_back(entry);
         }
