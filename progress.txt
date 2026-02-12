@@ -70,6 +70,7 @@
 - Failover tracking: `rule_outbound_tags` vector tracks per-rule resolved outbound tag for SIGUSR1 route replacement
 - API handlers: ApiContext holds CacheManager& and const map<string, ListConfig>& instead of ListManager&; GET /api/status reads counts from .meta.json + inline config sizes
 - libcurl SO_MARK: CURLOPT_MARK not available in libcurl 8.5.0; use CURLOPT_SOCKOPTFUNCTION + setsockopt(SOL_SOCKET, SO_MARK) instead for socket mark-based policy routing
+- UrltestManager: per-urltest UrltestState holds per-child CircuitBreaker instances (not shared); select_outbound() uses state() const (not is_allowed()) to avoid side effects during selection
 
 ## Iteration Log
 
@@ -788,4 +789,32 @@
   - test() returns on first successful attempt (no need to try all retries if one succeeds)
   - Response body is discarded (discard_callback) since we only care about latency and success status
   - SO_MARK requires CAP_NET_ADMIN or root on Linux; this is expected for a routing daemon
+---
+
+## 2026-02-12 - US-052
+- What was implemented: UrltestManager that runs periodic URL tests for all urltest outbounds, tracks per-child-outbound latencies and circuit breaker states, and selects the best outbound using the weighted group algorithm
+- Files changed:
+  - `src/routing/urltest_manager.hpp` - UrltestManager class declaration, UrltestState struct (config, last_results, circuit_breakers, selected_outbound, scheduler_task_id), UrltestChangeCallback type alias
+  - `src/routing/urltest_manager.cpp` - Implementation: register_urltest() creates per-child CircuitBreakers and schedules repeating tests; run_tests() tests each child via URLTester with circuit breaker gating (begin_request/end_request); select_outbound() sorts groups by weight ascending, filters by circuit breaker state and successful results, selects fastest within tolerance; triggers on_change callback when selection changes
+  - `meson.build` - Added `src/routing/urltest_manager.cpp` to sources list
+- **Learnings for future iterations:**
+  - Scheduler uses std::chrono::seconds; urltest interval_ms is converted by dividing by 1000 (minimum 1 second)
+  - Circuit breaker state check in select_outbound() uses state() const method (not is_allowed() which has side effects) to avoid mutating state during selection
+  - Outbounds without fwmarks (e.g., blackhole) are skipped during URL testing since they can't be routed to
+  - run_tests() immediately runs an initial test on register_urltest() so there's no delay before first selection
+  - select_outbound() returns empty string when all outbounds are exhausted, signaling blackhole fallback to the caller
+  - UrltestState holds per-child CircuitBreaker instances (not shared) since each urltest outbound has its own circuit_breaker config
+---
+
+## 2026-02-12 - US-053
+- What was implemented: In-memory FirewallState class for tracking current firewall rule-to-outbound mappings, fwmark assignments, and urltest selections
+- Files changed:
+  - `src/routing/firewall_state.hpp` - FirewallState class declaration with RuleActionType enum (Mark/Drop/Skip), RuleState struct (rule_index, list_names, set_names, outbound_tag, action_type, fwmark), and FirewallState class with set/get methods for rules, outbound marks, urltest selections, plus resolve_effective_outbound()
+  - `src/routing/firewall_state.cpp` - Implementation of all FirewallState methods
+  - `meson.build` - Added `src/routing/firewall_state.cpp` to sources list
+- **Learnings for future iterations:**
+  - FirewallState is a simple state container with no dependencies on firewall backends or routing subsystems — it only depends on config.hpp for OutboundMarkMap
+  - resolve_effective_outbound() checks urltest_selections_ map to dereference urltest outbound tags to their currently selected child tag
+  - RuleState tracks both list_names (from config) and set_names (firewall set names) since they may differ in future implementations
+  - RuleActionType::Skip is for ignore outbounds that don't produce any firewall rule
 ---
