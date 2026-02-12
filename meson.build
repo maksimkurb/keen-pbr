@@ -75,11 +75,6 @@ if get_option('with_api')
   sources += 'src/api/handlers.cpp'
 endif
 
-# Static linking for embedded targets (cross-compilation)
-if meson.is_cross_build()
-  add_project_link_arguments('-static', language: 'cpp')
-endif
-
 # Executable target
 executable(
   'keen-pbr3',
