@@ -2,15 +2,30 @@
 
 namespace keen_pbr3 {
 
-CircuitBreaker::CircuitBreaker(int failure_threshold, std::chrono::seconds cooldown)
-    : failure_threshold_(failure_threshold), cooldown_(cooldown) {}
+CircuitBreaker::CircuitBreaker(const CircuitBreakerConfig& config)
+    : config_(config) {}
 
 void CircuitBreaker::record_success(const std::string& tag) {
     auto& entry = get_or_create(tag);
-    // Success in half-open means the outbound has recovered
-    // Success in closed is normal operation
-    entry.state = CircuitState::closed;
-    entry.failure_count = 0;
+
+    switch (entry.state) {
+    case CircuitState::half_open:
+        entry.success_count_in_half_open++;
+        if (entry.success_count_in_half_open >= config_.success_threshold) {
+            entry.state = CircuitState::closed;
+            entry.failure_count = 0;
+            entry.success_count_in_half_open = 0;
+            entry.half_open_active_requests = 0;
+        }
+        break;
+    case CircuitState::closed:
+        // Normal operation - reset failure count
+        entry.failure_count = 0;
+        break;
+    case CircuitState::open:
+        // Shouldn't happen, but ignore
+        break;
+    }
 }
 
 void CircuitBreaker::record_failure(const std::string& tag) {
@@ -22,7 +37,7 @@ void CircuitBreaker::record_failure(const std::string& tag) {
 
     switch (entry.state) {
     case CircuitState::closed:
-        if (entry.failure_count >= failure_threshold_) {
+        if (entry.failure_count >= static_cast<int>(config_.failure_threshold)) {
             entry.state = CircuitState::open;
             entry.opened_at = now;
         }
@@ -31,6 +46,8 @@ void CircuitBreaker::record_failure(const std::string& tag) {
         // Probe failed - reopen the circuit
         entry.state = CircuitState::open;
         entry.opened_at = now;
+        entry.success_count_in_half_open = 0;
+        entry.half_open_active_requests = 0;
         break;
     case CircuitState::open:
         // Already open, just update timestamps
@@ -46,18 +63,35 @@ bool CircuitBreaker::is_allowed(const std::string& tag) {
         return true;
     case CircuitState::open: {
         auto now = std::chrono::steady_clock::now();
-        if (now - entry.opened_at >= cooldown_) {
-            // Cooldown expired - transition to half-open, allow one probe
+        auto cooldown = std::chrono::milliseconds(config_.timeout_ms);
+        if (now - entry.opened_at >= cooldown) {
+            // Cooldown expired - transition to half-open
             entry.state = CircuitState::half_open;
+            entry.success_count_in_half_open = 0;
+            entry.half_open_active_requests = 0;
             return true;
         }
         return false;
     }
     case CircuitState::half_open:
-        return true;
+        return entry.half_open_active_requests < config_.half_open_max_requests;
     }
 
     return false; // unreachable, but satisfies compiler
+}
+
+void CircuitBreaker::begin_request(const std::string& tag) {
+    auto& entry = get_or_create(tag);
+    if (entry.state == CircuitState::half_open) {
+        entry.half_open_active_requests++;
+    }
+}
+
+void CircuitBreaker::end_request(const std::string& tag) {
+    auto& entry = get_or_create(tag);
+    if (entry.half_open_active_requests > 0) {
+        entry.half_open_active_requests--;
+    }
 }
 
 CircuitState CircuitBreaker::state(const std::string& tag) const {

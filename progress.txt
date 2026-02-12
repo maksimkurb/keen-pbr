@@ -753,3 +753,24 @@
   - resolve_route_action() was simplified in the same iteration that added IgnoreOutbound/UrltestOutbound types
   - The target.cpp implementation is minimal: lookup by tag, check IgnoreOutbound → skip, everything else → route_to
 ---
+
+## 2026-02-12 - US-049
+- What was implemented: Removed static linking for cross-compilation targets, switching to dynamic linking to reduce binary size and leverage system libraries on routers
+- Files changed:
+  - `meson.build` - Removed the `if meson.is_cross_build()` block that added `-static` link argument (lines 78-81)
+- **Learnings for future iterations:**
+  - Minimal single-file change; the static linking block was 3 lines plus a comment
+  - Dynamic linking is preferred for OpenWRT/Keenetic targets since system libraries (musl libc, libcurl, etc.) are already present on the router
+---
+
+## 2026-02-12 - US-050
+- What was implemented: Updated CircuitBreaker to accept CircuitBreakerConfig struct, added success_threshold-based half_open→closed transitions, half_open_max_requests concurrency limiting, and begin_request/end_request methods
+- Files changed:
+  - `src/health/circuit_breaker.hpp` - Constructor now takes CircuitBreakerConfig instead of individual params; CircuitBreakerEntry extended with success_count_in_half_open and half_open_active_requests; added begin_request() and end_request() methods; includes config.hpp for CircuitBreakerConfig
+  - `src/health/circuit_breaker.cpp` - Constructor stores CircuitBreakerConfig; record_success() in half_open increments success count and transitions to closed only when >= success_threshold; is_allowed() in half_open checks half_open_active_requests < half_open_max_requests; cooldown uses config.timeout_ms (milliseconds); begin_request/end_request manage active request count; failure/state-reset clears new counters
+- **Learnings for future iterations:**
+  - CircuitBreaker now depends on config.hpp for CircuitBreakerConfig struct — this creates a header dependency from health/ to config/
+  - Cooldown changed from std::chrono::seconds to std::chrono::milliseconds (config_.timeout_ms) for finer granularity
+  - success_count_in_half_open and half_open_active_requests are reset on any state transition (to closed, to open, and when entering half_open from open)
+  - begin_request/end_request are designed to be called by the URL tester (US-051) around probe requests
+---
