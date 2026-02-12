@@ -138,6 +138,17 @@ void NftablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
         mark_rules_.end());
 }
 
+void NftablesFirewall::create_drop_rule(const std::string& set_name,
+                                         const std::string& chain) {
+    ensure_chain("inet", chain);
+
+    // nft rule: match destination IP against set, then drop
+    exec_cmd_checked("nft add rule inet " + std::string(TABLE_NAME) + " " + chain +
+                     " ip daddr @" + set_name + " drop");
+
+    drop_rules_.push_back({set_name, chain});
+}
+
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
     const std::string& set_name, int32_t entry_timeout) {
     return std::make_unique<NftBatchVisitor>(set_name, entry_timeout);
@@ -162,6 +173,7 @@ void NftablesFirewall::cleanup() {
     }
 
     mark_rules_.clear();
+    drop_rules_.clear();
     created_sets_.clear();
     created_chains_.clear();
 }

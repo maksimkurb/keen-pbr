@@ -49,6 +49,13 @@ public:
     virtual void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
                                   const std::string& chain = "PREROUTING") = 0;
 
+    // Create a firewall rule that drops packets matching the given IP set.
+    // Used for blackhole outbounds that don't need routing tables or fwmarks.
+    // set_name: IP set to match against
+    // chain: iptables chain / nft chain to insert the rule
+    virtual void create_drop_rule(const std::string& set_name,
+                                  const std::string& chain = "PREROUTING") = 0;
+
     // Create a batch loader visitor for streaming IP/CIDR entries into a set.
     // Returns a ListEntryVisitor that pipes entries to the backend's batch command.
     // entry_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)

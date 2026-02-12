@@ -25,6 +25,8 @@ public:
                           const std::string& chain = "PREROUTING") override;
     void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
                           const std::string& chain = "PREROUTING") override;
+    void create_drop_rule(const std::string& set_name,
+                          const std::string& chain = "PREROUTING") override;
 
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name, int32_t entry_timeout = -1) override;
@@ -50,6 +52,13 @@ private:
         std::string chain;
     };
     std::vector<MarkRule> mark_rules_;
+
+    // Track created iptables DROP rules for cleanup
+    struct DropRule {
+        std::string set_name;
+        std::string chain;
+    };
+    std::vector<DropRule> drop_rules_;
 };
 
 // Factory function called from firewall.cpp

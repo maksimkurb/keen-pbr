@@ -818,3 +818,18 @@
   - RuleState tracks both list_names (from config) and set_names (firewall set names) since they may differ in future implementations
   - RuleActionType::Skip is for ignore outbounds that don't produce any firewall rule
 ---
+
+## 2026-02-12 - US-054
+- What was implemented: Added create_drop_rule() virtual method to Firewall abstract interface, implemented by both iptables and nftables backends, with proper cleanup tracking
+- Files changed:
+  - `src/firewall/firewall.hpp` - Added pure virtual `create_drop_rule(set_name, chain)` method to Firewall abstract class
+  - `src/firewall/iptables.hpp` - Added `create_drop_rule()` override and `DropRule` tracking struct with `drop_rules_` vector
+  - `src/firewall/iptables.cpp` - Implemented `create_drop_rule()` using `iptables -t mangle -A <chain> -m set --match-set <set_name> dst -j DROP`; updated `cleanup()` to remove drop rules in reverse order before mark rules
+  - `src/firewall/nftables.hpp` - Added `create_drop_rule()` override and `DropRule` tracking struct with `drop_rules_` vector
+  - `src/firewall/nftables.cpp` - Implemented `create_drop_rule()` using `nft add rule inet keen_pbr3 <chain> ip daddr @<set_name> drop`; updated `cleanup()` to clear `drop_rules_`
+- **Learnings for future iterations:**
+  - DROP rules follow the same tracking pattern as mark rules: stored in a vector, cleaned up in reverse order during cleanup()
+  - iptables DROP rules use the mangle table (same as mark rules) for consistency: `-t mangle -A PREROUTING -m set --match-set <set> dst -j DROP`
+  - nftables cleanup via `nft delete table` cascades to all rules including drop rules, so only the vector needs clearing
+  - iptables cleanup must remove drop rules AND mark rules before destroying ipsets (both reference ipset names)
+---

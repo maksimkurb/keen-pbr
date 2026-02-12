@@ -114,6 +114,21 @@ void IptablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fw
         mark_rules_.end());
 }
 
+void IptablesFirewall::create_drop_rule(const std::string& set_name,
+                                         const std::string& chain) {
+    auto it = created_sets_.find(set_name);
+    std::string ipt_cmd = "iptables";
+    if (it != created_sets_.end() && it->second == AF_INET6) {
+        ipt_cmd = "ip6tables";
+    }
+
+    exec_cmd_checked(ipt_cmd + " -t mangle -A " + chain +
+                     " -m set --match-set " + set_name + " dst" +
+                     " -j DROP");
+
+    drop_rules_.push_back({set_name, chain});
+}
+
 std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
     const std::string& set_name, int32_t entry_timeout) {
     return std::make_unique<IpsetRestoreVisitor>(set_name, entry_timeout);
@@ -128,6 +143,20 @@ void IptablesFirewall::apply() {
 }
 
 void IptablesFirewall::cleanup() {
+    // Remove drop rules in reverse order
+    for (auto it = drop_rules_.rbegin(); it != drop_rules_.rend(); ++it) {
+        std::string ipt_cmd = "iptables";
+        auto set_it = created_sets_.find(it->set_name);
+        if (set_it != created_sets_.end() && set_it->second == AF_INET6) {
+            ipt_cmd = "ip6tables";
+        }
+
+        exec_cmd(ipt_cmd + " -t mangle -D " + it->chain +
+                 " -m set --match-set " + it->set_name + " dst" +
+                 " -j DROP 2>/dev/null");
+    }
+    drop_rules_.clear();
+
     // Remove mark rules in reverse order
     for (auto it = mark_rules_.rbegin(); it != mark_rules_.rend(); ++it) {
         std::string mark_hex = "0x" + ([&]{
