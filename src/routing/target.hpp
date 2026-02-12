@@ -1,25 +1,16 @@
 #pragma once
 
-#include <functional>
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "../config/config.hpp"
 
 namespace keen_pbr3 {
 
-// Re-export config outbound types for routing use
-// Outbound = std::variant<InterfaceOutbound, TableOutbound, BlackholeOutbound>
-// SkipAction is already defined in config.hpp
-
-// Health status callback: given an outbound tag, return true if healthy
-using HealthCheckFn = std::function<bool(const std::string& tag)>;
-
 // Result of resolving a route rule to a concrete routing action
 struct RoutingDecision {
-    // The resolved outbound, or std::nullopt if the rule says to skip
+    // The resolved outbound, or std::nullopt if no match
     std::optional<const Outbound*> outbound;
     bool is_skip{false};
 
@@ -40,19 +31,16 @@ struct RoutingDecision {
     }
 };
 
-// Resolve a route rule's action to a RoutingDecision.
-// For single outbound: looks up the tag in the outbounds list.
-// For failover chain: selects the first healthy outbound using the health check function.
-// For skip action: returns RoutingDecision::skip().
+// Resolve a route rule's outbound tag to a RoutingDecision.
+// Looks up the tag in the outbounds list.
+// If tag refers to an IgnoreOutbound, returns RoutingDecision::skip().
+// If tag refers to a UrltestOutbound, returns RoutingDecision::route_to() with the UrltestOutbound.
 //
 // Parameters:
-//   action     - the route rule action variant (single tag, failover tags, or SkipAction)
-//   outbounds  - the configured outbounds to look up by tag
-//   health_fn  - callback that returns true if an outbound tag is healthy
-//                (if null, all outbounds are considered healthy)
+//   outbound_tag - the single outbound tag from the route rule
+//   outbounds    - the configured outbounds to look up by tag
 RoutingDecision resolve_route_action(
-    const std::variant<std::string, std::vector<std::string>, SkipAction>& action,
-    const std::vector<Outbound>& outbounds,
-    const HealthCheckFn& health_fn = nullptr);
+    const std::string& outbound_tag,
+    const std::vector<Outbound>& outbounds);
 
 } // namespace keen_pbr3

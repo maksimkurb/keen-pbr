@@ -735,3 +735,21 @@
   - HealthChecker is decoupled from InterfaceOutbound — uses register_target() with explicit params now; will be fully removed in US-056
   - allocate_outbound_marks() already correctly handles new types via is_routable check (only InterfaceOutbound/TableOutbound get marks)
 ---
+
+## 2026-02-12 - US-047
+- What was implemented: Verified all acceptance criteria already satisfied — RouteRule uses plain std::string outbound (not variant), SkipAction struct removed, JSON parsing rejects 'outbounds' array and 'action' field with descriptive errors suggesting ignore/urltest outbound alternatives
+- Files changed: (no code changes needed — already implemented across US-046 and prior stories)
+  - `prd.json` - Marked US-047 as passes: true
+- **Learnings for future iterations:**
+  - Route rule simplification was progressively implemented: US-046 removed SkipAction and failover chain types, config.cpp already throws ConfigError for deprecated fields
+  - When verifying already-complete stories, grep for removed types (SkipAction, HealthCheckFn) to confirm no remaining references
+---
+
+## 2026-02-12 - US-048
+- What was implemented: Verified all acceptance criteria already satisfied — resolve_route_action() takes single string tag (not variant), HealthCheckFn removed, IgnoreOutbound returns skip(), UrltestOutbound returns route_to(), no failover chain handling
+- Files changed: (no code changes needed — already implemented across US-046 and prior stories)
+  - `prd.json` - Marked US-048 as passes: true
+- **Learnings for future iterations:**
+  - resolve_route_action() was simplified in the same iteration that added IgnoreOutbound/UrltestOutbound types
+  - The target.cpp implementation is minimal: lookup by tag, check IgnoreOutbound → skip, everything else → route_to
+---

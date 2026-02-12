@@ -85,12 +85,9 @@ struct ListConfig {
 
 // --- Route section ---
 
-struct SkipAction {};
-
 struct RouteRule {
     std::vector<std::string> lists;
-    // Single outbound tag, failover chain of tags, or skip action
-    std::variant<std::string, std::vector<std::string>, SkipAction> action;
+    std::string outbound; // Single outbound tag
 };
 
 struct RouteConfig {

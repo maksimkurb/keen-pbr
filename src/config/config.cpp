@@ -223,27 +223,19 @@ static RouteRule parse_route_rule(const json& j) {
     }
 
     if (j.contains("action")) {
-        std::string action_str = j.at("action").get<std::string>();
-        if (action_str == "skip") {
-            rule.action = SkipAction{};
-        } else {
-            throw ConfigError("Unknown route action: " + action_str);
-        }
-    } else if (j.contains("outbounds")) {
-        std::vector<std::string> chain;
-        for (const auto& o : j.at("outbounds")) {
-            chain.push_back(o.get<std::string>());
-        }
-        if (chain.empty()) {
-            throw ConfigError("Route rule 'outbounds' array must not be empty");
-        }
-        rule.action = std::move(chain);
-    } else if (j.contains("outbound")) {
-        rule.action = j.at("outbound").get<std::string>();
-    } else {
         throw ConfigError(
-            "Route rule must have 'outbound', 'outbounds', or 'action' field");
+            "Route rule 'action' field is no longer supported. "
+            "Use an 'ignore' outbound instead of 'action': 'skip'");
     }
+    if (j.contains("outbounds")) {
+        throw ConfigError(
+            "Route rule 'outbounds' array (failover chain) is no longer supported. "
+            "Use a 'urltest' outbound for failover instead");
+    }
+    if (!j.contains("outbound")) {
+        throw ConfigError("Route rule missing 'outbound' field");
+    }
+    rule.outbound = j.at("outbound").get<std::string>();
 
     return rule;
 }

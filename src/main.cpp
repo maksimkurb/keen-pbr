@@ -18,7 +18,6 @@
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
 #include "firewall/firewall.hpp"
-#include "health/circuit_breaker.hpp"
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "routing/netlink.hpp"
@@ -218,7 +217,6 @@ int main(int argc, char* argv[]) {
         // Initialize subsystems
         keen_pbr3::CacheManager cache(config.daemon.cache_dir);
         cache.ensure_dir();
-        keen_pbr3::CircuitBreaker circuit_breaker;
         auto firewall = keen_pbr3::create_firewall("auto");
         keen_pbr3::NetlinkManager netlink;
         keen_pbr3::RouteTable route_table(netlink);
@@ -273,13 +271,6 @@ int main(int argc, char* argv[]) {
             }, ob);
         };
 
-        // Helper: build health check function using circuit breaker state
-        auto make_health_fn = [&]() -> keen_pbr3::HealthCheckFn {
-            return [&](const std::string& tag) -> bool {
-                return circuit_breaker.is_allowed(tag);
-            };
-        };
-
         // Track per-rule resolved outbound tag for SIGUSR1 re-selection
         // Index matches config.route.rules index, stores resolved outbound tag or empty
         std::vector<std::string> rule_outbound_tags;
@@ -287,13 +278,12 @@ int main(int argc, char* argv[]) {
         // Helper: apply all firewall and routing rules from config + cache
         auto apply_all = [&]() {
             keen_pbr3::ListStreamer list_streamer(cache);
-            auto health_fn = make_health_fn();
             rule_outbound_tags.clear();
 
             uint32_t fwmark = 0x10000;
             for (const auto& rule : config.route.rules) {
                 auto decision = keen_pbr3::resolve_route_action(
-                    rule.action, config.outbounds, health_fn);
+                    rule.outbound, config.outbounds);
 
                 if (decision.is_skip || !decision.outbound.has_value()) {
                     rule_outbound_tags.emplace_back();
@@ -366,17 +356,16 @@ int main(int argc, char* argv[]) {
         keen_pbr3::Daemon daemon;
         keen_pbr3::Scheduler scheduler(daemon);
 
-        // SIGUSR1: re-evaluate failover route decisions using cached circuit breaker state
+        // SIGUSR1: re-evaluate outbound selection
         daemon.on_sigusr1([&]() {
             std::cerr << "SIGUSR1: re-evaluating outbound selection...\n";
-            auto health_fn = make_health_fn();
 
             uint32_t fwmark = 0x10000;
             for (size_t i = 0; i < config.route.rules.size(); ++i) {
                 const auto& rule = config.route.rules[i];
 
                 auto decision = keen_pbr3::resolve_route_action(
-                    rule.action, config.outbounds, health_fn);
+                    rule.outbound, config.outbounds);
 
                 std::string new_tag;
                 if (!decision.is_skip && decision.outbound.has_value() && *decision.outbound) {

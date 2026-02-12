@@ -23,9 +23,6 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     // Collect all list names referenced in route rules that need ipset population.
     std::set<std::string> ipset_lists;
     for (const auto& rule : route_config_.rules) {
-        if (std::holds_alternative<SkipAction>(rule.action)) {
-            continue;
-        }
         for (const auto& list_name : rule.lists) {
             ipset_lists.insert(list_name);
         }

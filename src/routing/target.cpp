@@ -24,40 +24,20 @@ const Outbound* find_outbound_by_tag(
 } // anonymous namespace
 
 RoutingDecision resolve_route_action(
-    const std::variant<std::string, std::vector<std::string>, SkipAction>& action,
-    const std::vector<Outbound>& outbounds,
-    const HealthCheckFn& health_fn) {
+    const std::string& outbound_tag,
+    const std::vector<Outbound>& outbounds) {
 
-    return std::visit([&](const auto& act) -> RoutingDecision {
-        using T = std::decay_t<decltype(act)>;
+    const Outbound* ob = find_outbound_by_tag(outbounds, outbound_tag);
+    if (!ob) {
+        return RoutingDecision::none();
+    }
 
-        if constexpr (std::is_same_v<T, SkipAction>) {
-            return RoutingDecision::skip();
-        }
-        else if constexpr (std::is_same_v<T, std::string>) {
-            // Single outbound tag
-            const Outbound* ob = find_outbound_by_tag(outbounds, act);
-            if (!ob) {
-                return RoutingDecision::none();
-            }
-            return RoutingDecision::route_to(ob);
-        }
-        else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
-            // Failover chain: select the first healthy outbound
-            for (const auto& tag : act) {
-                const Outbound* ob = find_outbound_by_tag(outbounds, tag);
-                if (!ob) {
-                    continue;
-                }
-                // If no health check function, all outbounds are considered healthy
-                if (!health_fn || health_fn(tag)) {
-                    return RoutingDecision::route_to(ob);
-                }
-            }
-            // No healthy outbound found in chain
-            return RoutingDecision::none();
-        }
-    }, action);
+    // IgnoreOutbound means skip (not managed by keen-pbr3)
+    if (std::holds_alternative<IgnoreOutbound>(*ob)) {
+        return RoutingDecision::skip();
+    }
+
+    return RoutingDecision::route_to(ob);
 }
 
 } // namespace keen_pbr3

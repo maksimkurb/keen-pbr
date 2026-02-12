@@ -122,11 +122,7 @@
       },
       {
         "list": ["local-list"],
-        "outbounds": ["vpn", "wan"]
-      },
-      {
-        "list": ["my-domains"],
-        "action": "skip"
+        "outbound": "auto-select"
       }
     ],
     "fallback": "wan"
