@@ -4,6 +4,8 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../routing/firewall_state.hpp"
+#include "../routing/urltest_manager.hpp"
 #include "server.hpp"
 
 #include <map>
@@ -17,6 +19,8 @@ struct ApiContext {
     const std::vector<Outbound>& outbounds;
     const CacheManager& cache_manager;
     const std::map<std::string, ListConfig>& lists;
+    const FirewallState& firewall_state;
+    const UrltestManager& urltest_manager;
 
     // Callback to trigger full reload (non-const, performs side effects)
     std::function<void()> reload_fn;

@@ -564,6 +564,8 @@ int main(int argc, char* argv[]) {
                 config.outbounds,
                 cache,
                 config.lists,
+                firewall_state,
+                urltest_manager,
                 [&]() {
                     // API reload triggers SIGHUP-like behavior
                     urltest_manager.clear();

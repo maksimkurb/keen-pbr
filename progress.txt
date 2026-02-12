@@ -67,8 +67,11 @@
 - Batch pipe visitors: IpsetRestoreVisitor (`ipset restore -exist`) and NftBatchVisitor (`nft -f -`) follow identical popen/fwrite/pclose pattern; both ignore Domain entries, only process Ip and Cidr
 - Daemon mode: uses CacheManager + ListStreamer (no ListManager/ParsedList); firewall ipsets populated via create_batch_loader() + stream_list() + finish()
 - Signal semantics: SIGUSR1 = re-evaluate failover outbound selection (no list reload); SIGHUP = full teardown + config re-read + rebuild
-- Failover tracking: `rule_outbound_tags` vector tracks per-rule resolved outbound tag for SIGUSR1 route replacement
-- API handlers: ApiContext holds CacheManager& and const map<string, ListConfig>& instead of ListManager&; GET /api/status reads counts from .meta.json + inline config sizes
+- Daemon mode: uses allocate_outbound_marks() for fwmark assignment; static routing tables/ip-rules set up once via setup_static_routing(); apply_firewall() lambda builds complete firewall transactionally (cleanup + create_firewall + rebuild + set_rules)
+- Urltest change handling: UrltestManager change callback sets urltest selection in FirewallState then calls apply_firewall() for transactional firewall rebuild
+- SIGUSR1 semantics: clear+re-add static routing tables/ip-rules (verify they exist) + trigger immediate URL tests for all urltest outbounds
+- SIGHUP semantics: full teardown (urltest_manager.clear + routes + rules + firewall) → re-read config → re-allocate marks → re-create routing → re-register urltests → apply_firewall()
+- API handlers: ApiContext holds CacheManager&, const map<string, ListConfig>&, const FirewallState&, and const UrltestManager&; GET /api/status reports fwmarks, rule mappings, and urltest selections; GET /api/health reports urltest per-child state
 - libcurl SO_MARK: CURLOPT_MARK not available in libcurl 8.5.0; use CURLOPT_SOCKOPTFUNCTION + setsockopt(SOL_SOCKET, SO_MARK) instead for socket mark-based policy routing
 - UrltestManager: per-urltest UrltestState holds per-child CircuitBreaker instances (not shared); select_outbound() uses state() const (not is_allowed()) to avoid side effects during selection
 
@@ -832,4 +835,34 @@
   - iptables DROP rules use the mangle table (same as mark rules) for consistency: `-t mangle -A PREROUTING -m set --match-set <set> dst -j DROP`
   - nftables cleanup via `nft delete table` cascades to all rules including drop rules, so only the vector needs clearing
   - iptables cleanup must remove drop rules AND mark rules before destroying ipsets (both reference ipset names)
+---
+
+## 2026-02-12 - US-055
+- What was implemented: Rewrote daemon mode in main.cpp to use mark-based routing architecture: static routing tables/ip-rules set up once at startup via allocate_outbound_marks(), transactional firewall rule rebuilds via apply_firewall() lambda, blackhole handled by firewall DROP rules (no routing tables), in-memory FirewallState tracking, UrltestManager with change callback that triggers apply_firewall(), and SIGUSR1 to verify routing tables and trigger immediate URL tests
+- Files changed:
+  - `src/main.cpp` - Complete rewrite of daemon mode: replaced sequential fwmark allocation with allocate_outbound_marks(); added setup_static_routing() lambda for one-time routing table/ip-rule creation per InterfaceOutbound/TableOutbound; replaced apply_all() with apply_firewall() that builds complete firewall transactionally and updates FirewallState; added URLTester and UrltestManager initialization with change callback; SIGUSR1 now clears+rebuilds static routing and triggers immediate urltest; SIGHUP clears UrltestManager, re-allocates marks, re-creates routing, re-registers urltests; removed HealthChecker, make_health_fn(), rule_outbound_tags tracking, and periodic ping scheduler
+- **Learnings for future iterations:**
+  - apply_firewall() does cleanup() + create_firewall("auto") at start to get fresh firewall state before rebuilding — this is the transactional rebuild pattern
+  - For urltest outbound resolution, apply_firewall() reads firewall_state.get_urltest_selections() to find the currently selected child, then uses the child's fwmark for the mark rule
+  - setup_static_routing() uses config.iproute.table_start + offset for table IDs and config.fwmark.mask for ip rule fwmask — these are configurable, not hardcoded
+  - UrltestManager's change callback sets the urltest selection in FirewallState BEFORE calling apply_firewall(), so the new selection is visible during rebuild
+  - SIGUSR1 does clear()+setup_static_routing() to re-verify routing tables exist, not just check — simpler and more robust than checking individual routes
+  - API reload lambda duplicates SIGHUP logic since lambdas capture by reference and need the same steps
+  - Shutdown order: urltest_manager.clear() → scheduler.cancel_all() → route_table.clear() → policy_rules.clear() → firewall->cleanup() → PID file
+---
+
+## 2026-02-12 - US-056
+- What was implemented: Removed ICMP-based HealthChecker (deleted files + removed from meson.build), updated API handlers to use FirewallState and UrltestManager for status and health reporting
+- Files changed:
+  - `src/health/health_checker.hpp` - Deleted
+  - `src/health/health_checker.cpp` - Deleted
+  - `meson.build` - Removed `src/health/health_checker.cpp` from sources list
+  - `src/api/handlers.hpp` - Added FirewallState& and UrltestManager& to ApiContext struct; added includes for firewall_state.hpp and urltest_manager.hpp
+  - `src/api/handlers.cpp` - GET /api/status now includes fwmark assignments per outbound, current rule-to-outbound mappings (with action type and effective outbound), and urltest selections; GET /api/health reports urltest state per urltest outbound (per-child latencies, circuit breaker states, selected outbound), interface/table outbounds report 'always healthy'
+  - `src/main.cpp` - Added firewall_state and urltest_manager to ApiContext initialization
+- **Learnings for future iterations:**
+  - ApiContext now holds `const FirewallState&` and `const UrltestManager&` for read-only access to firewall and urltest state
+  - CircuitBreaker::state() is a const method taking tag parameter — safe to call from const UrltestManager reference
+  - format_hex() helper uses `<iomanip>` and `<sstream>` for hex formatting with zero-padding
+  - GET /api/health uses try/catch for UrltestManager::get_state() which throws std::out_of_range for unknown tags
 ---

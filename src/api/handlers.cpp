@@ -2,6 +2,9 @@
 
 #include "handlers.hpp"
 
+#include <iomanip>
+#include <sstream>
+
 #include <keen-pbr3/version.hpp>
 #include <nlohmann/json.hpp>
 
@@ -27,10 +30,18 @@ std::string outbound_type(const Outbound& ob) {
     }, ob);
 }
 
-// Build JSON for a single outbound
-nlohmann::json outbound_to_json(const Outbound& ob) {
+// Format uint32_t as hex string (e.g., "0x00010000")
+std::string format_hex(uint32_t val) {
+    std::ostringstream ss;
+    ss << "0x" << std::hex << std::setfill('0') << std::setw(8) << val;
+    return ss.str();
+}
+
+// Build JSON for a single outbound with fwmark info
+nlohmann::json outbound_to_json(const Outbound& ob, const OutboundMarkMap& marks) {
     nlohmann::json j;
-    j["tag"] = outbound_tag(ob);
+    std::string tag = outbound_tag(ob);
+    j["tag"] = tag;
     j["type"] = outbound_type(ob);
 
     std::visit([&j](const auto& o) {
@@ -46,22 +57,39 @@ nlohmann::json outbound_to_json(const Outbound& ob) {
         }
     }, ob);
 
+    auto mark_it = marks.find(tag);
+    if (mark_it != marks.end()) {
+        j["fwmark"] = format_hex(mark_it->second);
+    }
+
     return j;
+}
+
+// Convert CircuitState to string
+std::string circuit_state_string(CircuitState state) {
+    switch (state) {
+        case CircuitState::closed: return "closed";
+        case CircuitState::open: return "open";
+        case CircuitState::half_open: return "half_open";
+        default: return "unknown";
+    }
 }
 
 } // anonymous namespace
 
 void register_api_handlers(ApiServer& server, ApiContext& ctx) {
-    // GET /api/status - daemon status, loaded lists, active outbounds
+    // GET /api/status - daemon status, loaded lists, active outbounds, fwmarks, urltest selections
     server.get("/api/status", [&ctx]() -> std::string {
         nlohmann::json j;
         j["version"] = KEEN_PBR3_VERSION_STRING;
         j["status"] = "running";
 
-        // Outbounds
+        const auto& marks = ctx.firewall_state.get_outbound_marks();
+
+        // Outbounds with fwmark assignments
         nlohmann::json outbounds_json = nlohmann::json::array();
         for (const auto& ob : ctx.outbounds) {
-            outbounds_json.push_back(outbound_to_json(ob));
+            outbounds_json.push_back(outbound_to_json(ob, marks));
         }
         j["outbounds"] = outbounds_json;
 
@@ -79,6 +107,40 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
             lists_json[name] = list_j;
         }
         j["lists"] = lists_json;
+
+        // Current rule-to-outbound mappings
+        nlohmann::json rules_json = nlohmann::json::array();
+        for (const auto& rule : ctx.firewall_state.get_rules()) {
+            nlohmann::json rule_j;
+            rule_j["rule_index"] = rule.rule_index;
+            rule_j["lists"] = rule.list_names;
+            rule_j["outbound"] = rule.outbound_tag;
+            switch (rule.action_type) {
+                case RuleActionType::Mark:
+                    rule_j["action"] = "mark";
+                    rule_j["fwmark"] = format_hex(rule.fwmark);
+                    break;
+                case RuleActionType::Drop:
+                    rule_j["action"] = "drop";
+                    break;
+                case RuleActionType::Skip:
+                    rule_j["action"] = "skip";
+                    break;
+            }
+            rule_j["effective_outbound"] = ctx.firewall_state.resolve_effective_outbound(rule);
+            rules_json.push_back(rule_j);
+        }
+        j["rules"] = rules_json;
+
+        // Urltest selections
+        const auto& selections = ctx.firewall_state.get_urltest_selections();
+        if (!selections.empty()) {
+            nlohmann::json sel_json = nlohmann::json::object();
+            for (const auto& [ut_tag, child_tag] : selections) {
+                sel_json[ut_tag] = child_tag;
+            }
+            j["urltest_selections"] = sel_json;
+        }
 
         return j.dump();
     });
@@ -99,9 +161,43 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
 
         for (const auto& ob : ctx.outbounds) {
             nlohmann::json entry;
-            entry["tag"] = outbound_tag(ob);
+            std::string tag = outbound_tag(ob);
+            entry["tag"] = tag;
             entry["type"] = outbound_type(ob);
-            entry["status"] = "healthy";
+
+            if (std::holds_alternative<UrltestOutbound>(ob)) {
+                // Report urltest state: per-child latencies, circuit breaker states, selected outbound
+                try {
+                    const auto& state = ctx.urltest_manager.get_state(tag);
+                    entry["selected_outbound"] = state.selected_outbound;
+
+                    nlohmann::json children = nlohmann::json::array();
+                    for (const auto& [child_tag, result] : state.last_results) {
+                        nlohmann::json child_j;
+                        child_j["tag"] = child_tag;
+                        child_j["success"] = result.success;
+                        child_j["latency_ms"] = result.latency_ms;
+                        if (!result.error.empty()) {
+                            child_j["error"] = result.error;
+                        }
+
+                        auto cb_it = state.circuit_breakers.find(child_tag);
+                        if (cb_it != state.circuit_breakers.end()) {
+                            child_j["circuit_breaker"] = circuit_state_string(
+                                cb_it->second.state(child_tag));
+                        }
+
+                        children.push_back(child_j);
+                    }
+                    entry["children"] = children;
+                    entry["status"] = state.selected_outbound.empty() ? "degraded" : "healthy";
+                } catch (const std::out_of_range&) {
+                    entry["status"] = "unknown";
+                }
+            } else {
+                // Interface/table outbounds are always considered healthy
+                entry["status"] = "healthy";
+            }
 
             results.push_back(entry);
         }

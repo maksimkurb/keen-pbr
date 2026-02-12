@@ -54,7 +54,6 @@ sources = [
   'src/routing/netlink.cpp',
   'src/routing/route_table.cpp',
   'src/routing/policy_rule.cpp',
-  'src/health/health_checker.cpp',
   'src/health/circuit_breaker.cpp',
   'src/health/url_tester.cpp',
   'src/routing/urltest_manager.cpp',
