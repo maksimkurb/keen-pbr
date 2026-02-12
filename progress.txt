@@ -69,6 +69,7 @@
 - Signal semantics: SIGUSR1 = re-evaluate failover outbound selection (no list reload); SIGHUP = full teardown + config re-read + rebuild
 - Failover tracking: `rule_outbound_tags` vector tracks per-rule resolved outbound tag for SIGUSR1 route replacement
 - API handlers: ApiContext holds CacheManager& and const map<string, ListConfig>& instead of ListManager&; GET /api/status reads counts from .meta.json + inline config sizes
+- libcurl SO_MARK: CURLOPT_MARK not available in libcurl 8.5.0; use CURLOPT_SOCKOPTFUNCTION + setsockopt(SOL_SOCKET, SO_MARK) instead for socket mark-based policy routing
 
 ## Iteration Log
 
@@ -773,4 +774,18 @@
   - Cooldown changed from std::chrono::seconds to std::chrono::milliseconds (config_.timeout_ms) for finer granularity
   - success_count_in_half_open and half_open_active_requests are reset on any state transition (to closed, to open, and when entering half_open from open)
   - begin_request/end_request are designed to be called by the URL tester (US-051) around probe requests
+---
+
+## 2026-02-12 - US-051
+- What was implemented: HTTP URL tester that measures response time through specific outbounds using SO_MARK to route test traffic via the outbound's assigned fwmark
+- Files changed:
+  - `src/health/url_tester.hpp` - URLTester class declaration with URLTestResult struct (success, latency_ms, error), test() and test_once() methods
+  - `src/health/url_tester.cpp` - Implementation using libcurl with CURLOPT_SOCKOPTFUNCTION + setsockopt(SO_MARK) for fwmark-based routing, retry logic with configurable attempts and interval, latency measurement via steady_clock
+  - `meson.build` - Added `src/health/url_tester.cpp` to sources list
+- **Learnings for future iterations:**
+  - CURLOPT_MARK is not available in libcurl 8.5.0; use CURLOPT_SOCKOPTFUNCTION + setsockopt(SOL_SOCKET, SO_MARK) instead to set socket mark for policy routing
+  - The fwmark is passed to the sockopt callback via CURLOPT_SOCKOPTDATA using reinterpret_cast<void*>(static_cast<uintptr_t>(fwmark)) to safely pass a uint32_t through a void pointer
+  - test() returns on first successful attempt (no need to try all retries if one succeeds)
+  - Response body is discarded (discard_callback) since we only care about latency and success status
+  - SO_MARK requires CAP_NET_ADMIN or root on Linux; this is expected for a routing daemon
 ---
