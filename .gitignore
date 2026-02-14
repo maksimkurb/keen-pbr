@@ -5,9 +5,6 @@ scripts/ralph
 build/
 dist/
 
-# Conan generated files (in case someone runs without --output-folder)
-conan_meson_native.ini
-conanbuild*.sh
-conanrun*.sh
-deactivate_conan*.sh
-*.pc
+# Meson subprojects (downloaded sources and build artifacts)
+subprojects/packagecache/
+subprojects/*-*/

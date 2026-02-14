@@ -9,7 +9,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
-    cmake \
     curl \
     file \
     gawk \
@@ -25,11 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Conan 2.x and Meson
-RUN pip3 install --no-cache-dir "conan>=2.0,<3.0" meson
-
-# Configure Conan default profile
-RUN conan profile detect --force
+# Install Meson
+RUN pip3 install --no-cache-dir meson
 
 # Set working directory
 WORKDIR /src

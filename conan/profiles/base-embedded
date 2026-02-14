@@ -1,9 +1,0 @@
-[settings]
-os=Linux
-compiler=gcc
-compiler.libcxx=libstdc++11
-compiler.cppstd=20
-build_type=MinSizeRel
-
-[options]
-keen-pbr3/*:with_api=True
