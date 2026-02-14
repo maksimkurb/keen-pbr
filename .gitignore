@@ -3,6 +3,7 @@ prd.json
 progress.txt
 scripts/ralph
 build/
+buildDir/
 dist/
 
 # Meson subprojects (downloaded sources and build artifacts)

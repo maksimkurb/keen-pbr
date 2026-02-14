@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -17,48 +18,45 @@ public:
 
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
-    void add_to_ipset(const std::string& set_name, const std::string& entry,
-                      int32_t entry_timeout = -1) override;
-    void delete_ipset(const std::string& set_name) override;
 
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const std::string& chain = "PREROUTING") override;
-    void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const std::string& chain = "PREROUTING") override;
-    void create_drop_rule(const std::string& set_name,
-                          const std::string& chain = "PREROUTING") override;
+    void create_mark_rule(const std::string& set_name, uint32_t fwmark) override;
+    void create_drop_rule(const std::string& set_name) override;
 
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name, int32_t entry_timeout = -1) override;
-    void flush_ipset(const std::string& set_name) override;
 
     void apply() override;
     void cleanup() override;
 
 private:
+    static constexpr const char* CHAIN_NAME = "KeenPbrTable";
+
     // Execute a shell command and return exit code
     static int exec_cmd(const std::string& cmd);
 
-    // Execute a shell command; throw FirewallError on failure
-    static void exec_cmd_checked(const std::string& cmd);
+    struct PendingSet {
+        std::string name;
+        std::string family_str; // "inet" or "inet6"
+        uint32_t timeout;
+    };
+
+    struct PendingRule {
+        std::string set_name;
+        bool ipv6;
+        enum Action { Mark, Drop } action;
+        uint32_t fwmark; // only for Mark
+    };
+
+    std::vector<PendingSet> pending_sets_;
+    std::map<std::string, std::ostringstream> pending_elements_;
+    std::vector<PendingRule> pending_rules_;
 
     // Track created ipsets: set_name -> family (AF_INET/AF_INET6)
     std::map<std::string, int> created_sets_;
 
-    // Track created iptables mark rules for cleanup
-    struct MarkRule {
-        std::string set_name;
-        uint32_t fwmark;
-        std::string chain;
-    };
-    std::vector<MarkRule> mark_rules_;
-
-    // Track created iptables DROP rules for cleanup
-    struct DropRule {
-        std::string set_name;
-        std::string chain;
-    };
-    std::vector<DropRule> drop_rules_;
+    // Track whether chain + jump rule exist for each protocol
+    bool chain_v4_created_ = false;
+    bool chain_v6_created_ = false;
 };
 
 // Factory function called from firewall.cpp

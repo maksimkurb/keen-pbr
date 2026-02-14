@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -17,62 +18,42 @@ public:
 
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
-    void add_to_ipset(const std::string& set_name, const std::string& entry,
-                      int32_t entry_timeout = -1) override;
-    void delete_ipset(const std::string& set_name) override;
 
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const std::string& chain = "PREROUTING") override;
-    void delete_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const std::string& chain = "PREROUTING") override;
-    void create_drop_rule(const std::string& set_name,
-                          const std::string& chain = "PREROUTING") override;
+    void create_mark_rule(const std::string& set_name, uint32_t fwmark) override;
+    void create_drop_rule(const std::string& set_name) override;
 
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name, int32_t entry_timeout = -1) override;
-    void flush_ipset(const std::string& set_name) override;
 
     void apply() override;
     void cleanup() override;
 
 private:
-    static constexpr const char* TABLE_NAME = "keen_pbr3";
+    static constexpr const char* TABLE_NAME = "KeenPbrTable";
+    static constexpr const char* CHAIN_NAME = "prerouting";
 
-    // Execute a shell command and return exit code
-    static int exec_cmd(const std::string& cmd);
+    struct PendingSet {
+        std::string name;
+        std::string type;   // "ipv4_addr" or "ipv6_addr"
+        std::string flags;  // "interval" or "interval, timeout"
+        uint32_t timeout;
+    };
 
-    // Execute a shell command; throw FirewallError on failure
-    static void exec_cmd_checked(const std::string& cmd);
+    struct PendingRule {
+        std::string set_name;
+        int family;  // AF_INET or AF_INET6
+        enum Action { Mark, Drop } action;
+        uint32_t fwmark; // only for Mark
+    };
 
-    // Ensure nft table exists
-    void ensure_table(const std::string& family_str);
+    std::vector<PendingSet> pending_sets_;
+    std::map<std::string, std::ostringstream> pending_elements_;
+    std::vector<PendingRule> pending_rules_;
 
-    // Ensure nft chain exists within the table
-    void ensure_chain(const std::string& family_str, const std::string& chain);
-
-    // Track created nft sets: set_name -> family (AF_INET/AF_INET6)
+    // Track created sets for family lookup: set_name -> family (AF_INET/AF_INET6)
     std::map<std::string, int> created_sets_;
 
-    // Track created mark rules for cleanup
-    struct MarkRule {
-        std::string set_name;
-        uint32_t fwmark;
-        std::string chain;
-    };
-    std::vector<MarkRule> mark_rules_;
-
-    // Track created DROP rules for cleanup
-    struct DropRule {
-        std::string set_name;
-        std::string chain;
-    };
-    std::vector<DropRule> drop_rules_;
-
-    // Track which tables have been created
-    bool table_inet_created_ = false;
-
-    // Track which chains have been created: "family:chain"
-    std::map<std::string, bool> created_chains_;
+    bool table_created_ = false;
 };
 
 // Factory function called from firewall.cpp

@@ -1,7 +1,7 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
 
-#include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <sstream>
 #include <sys/socket.h>
@@ -18,164 +18,133 @@ NftablesFirewall::~NftablesFirewall() {
     }
 }
 
-int NftablesFirewall::exec_cmd(const std::string& cmd) {
-    return std::system(cmd.c_str());
-}
-
-void NftablesFirewall::exec_cmd_checked(const std::string& cmd) {
-    int ret = exec_cmd(cmd);
-    if (ret != 0) {
-        throw FirewallError("Command failed (exit " + std::to_string(ret) + "): " + cmd);
-    }
-}
-
-void NftablesFirewall::ensure_table(const std::string& family_str) {
-    if (table_inet_created_) {
-        return;
-    }
-    // Use "inet" family for dual-stack (handles both IPv4 and IPv6)
-    exec_cmd_checked("nft add table inet " + std::string(TABLE_NAME));
-    table_inet_created_ = true;
-}
-
-void NftablesFirewall::ensure_chain(const std::string& family_str, const std::string& chain) {
-    std::string key = family_str + ":" + chain;
-    if (created_chains_.count(key)) {
-        return;
-    }
-    ensure_table(family_str);
-    // Create chain as a prerouting hook in the mangle-equivalent priority
-    exec_cmd_checked("nft add chain inet " + std::string(TABLE_NAME) + " " + chain +
-                     " '{ type filter hook prerouting priority mangle; policy accept; }'");
-    created_chains_[key] = true;
-}
-
 void NftablesFirewall::create_ipset(const std::string& set_name, int family,
                                      uint32_t timeout) {
-    ensure_table("inet");
-
-    std::string type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
-
-    std::string flags = "interval";
-    std::string extra;
+    PendingSet ps;
+    ps.name = set_name;
+    ps.type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
+    ps.flags = "interval";
+    ps.timeout = timeout;
     if (timeout > 0) {
-        flags += ", timeout";
-        extra = " timeout " + std::to_string(timeout) + "s;";
+        ps.flags += ", timeout";
     }
-
-    exec_cmd_checked("nft add set inet " + std::string(TABLE_NAME) + " " + set_name +
-                     " '{ type " + type + "; flags " + flags + ";" + extra + " }'");
-
+    pending_sets_.push_back(std::move(ps));
     created_sets_[set_name] = family;
 }
 
-void NftablesFirewall::add_to_ipset(const std::string& set_name, const std::string& entry,
-                                     int32_t entry_timeout) {
-    std::string element = entry;
-    if (entry_timeout >= 0) {
-        element += " timeout " + std::to_string(entry_timeout) + "s";
-    }
-    exec_cmd_checked("nft add element inet " + std::string(TABLE_NAME) + " " + set_name +
-                     " '{ " + element + " }'");
+void NftablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fwmark) {
+    auto it = created_sets_.find(set_name);
+    int family = (it != created_sets_.end()) ? it->second : AF_INET;
+
+    PendingRule pr;
+    pr.set_name = set_name;
+    pr.family = family;
+    pr.action = PendingRule::Mark;
+    pr.fwmark = fwmark;
+    pending_rules_.push_back(std::move(pr));
 }
 
-void NftablesFirewall::delete_ipset(const std::string& set_name) {
-    // Flush and delete the set; ignore errors if it doesn't exist
-    exec_cmd("nft flush set inet " + std::string(TABLE_NAME) + " " + set_name + " 2>/dev/null");
-    exec_cmd("nft delete set inet " + std::string(TABLE_NAME) + " " + set_name + " 2>/dev/null");
+void NftablesFirewall::create_drop_rule(const std::string& set_name) {
+    auto it = created_sets_.find(set_name);
+    int family = (it != created_sets_.end()) ? it->second : AF_INET;
 
-    created_sets_.erase(set_name);
-}
-
-void NftablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                                         const std::string& chain) {
-    ensure_chain("inet", chain);
-
-    std::string mark_hex = "0x" + ([&]{
-        std::ostringstream oss;
-        oss << std::hex << fwmark;
-        return oss.str();
-    })();
-
-    // nft rule: match destination IP against set, then set the mark
-    exec_cmd_checked("nft add rule inet " + std::string(TABLE_NAME) + " " + chain +
-                     " ip daddr @" + set_name + " meta mark set " + mark_hex);
-
-    mark_rules_.push_back({set_name, fwmark, chain});
-}
-
-void NftablesFirewall::delete_mark_rule(const std::string& set_name, uint32_t fwmark,
-                                         const std::string& chain) {
-    std::string mark_hex = "0x" + ([&]{
-        std::ostringstream oss;
-        oss << std::hex << fwmark;
-        return oss.str();
-    })();
-
-    // nft doesn't have a direct "delete rule by spec" like iptables -D.
-    // We use nft -a to list rules with handles, find our rule, and delete by handle.
-    // For simplicity, use nft delete rule with the exact rule specification via
-    // a helper that finds the handle.
-    std::string find_cmd = "nft -a list chain inet " + std::string(TABLE_NAME) + " " + chain +
-                           " 2>/dev/null | grep '@" + set_name + "' | grep '" + mark_hex + "'" +
-                           " | sed 's/.*# handle //' | head -1";
-
-    // Read handle from command output
-    std::string full_cmd = "handle=$(" + find_cmd + "); "
-                           "if [ -n \"$handle\" ]; then "
-                           "nft delete rule inet " + std::string(TABLE_NAME) + " " + chain +
-                           " handle $handle; fi";
-    exec_cmd(full_cmd);
-
-    // Remove from tracking
-    mark_rules_.erase(
-        std::remove_if(mark_rules_.begin(), mark_rules_.end(),
-                        [&](const MarkRule& r) {
-                            return r.set_name == set_name &&
-                                   r.fwmark == fwmark &&
-                                   r.chain == chain;
-                        }),
-        mark_rules_.end());
-}
-
-void NftablesFirewall::create_drop_rule(const std::string& set_name,
-                                         const std::string& chain) {
-    ensure_chain("inet", chain);
-
-    // nft rule: match destination IP against set, then drop
-    exec_cmd_checked("nft add rule inet " + std::string(TABLE_NAME) + " " + chain +
-                     " ip daddr @" + set_name + " drop");
-
-    drop_rules_.push_back({set_name, chain});
+    PendingRule pr;
+    pr.set_name = set_name;
+    pr.family = family;
+    pr.action = PendingRule::Drop;
+    pr.fwmark = 0;
+    pending_rules_.push_back(std::move(pr));
 }
 
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
     const std::string& set_name, int32_t entry_timeout) {
-    return std::make_unique<NftBatchVisitor>(set_name, entry_timeout);
-}
-
-void NftablesFirewall::flush_ipset(const std::string& set_name) {
-    exec_cmd_checked("nft flush set inet " + std::string(TABLE_NAME) + " " + set_name);
+    // Ensure an entry exists in pending_elements_ for this set
+    auto& buf = pending_elements_[set_name];
+    return std::make_unique<NftBatchVisitor>(buf, set_name, entry_timeout);
 }
 
 void NftablesFirewall::apply() {
-    // nft commands are applied immediately.
-    // For future optimization, we could batch commands using nft -f with
-    // an atomic ruleset file.
+    std::ostringstream script;
+
+    // Delete existing table (if any) for clean slate
+    script << "delete table inet " << TABLE_NAME << "\n";
+
+    // Begin table definition
+    script << "table inet " << TABLE_NAME << " {\n";
+
+    // Define all sets
+    for (const auto& ps : pending_sets_) {
+        script << "  set " << ps.name << " { type " << ps.type
+               << "; flags " << ps.flags << ";";
+        if (ps.timeout > 0) {
+            script << " timeout " << ps.timeout << "s;";
+        }
+        script << " }\n";
+    }
+
+    // Define chain with all rules
+    script << "  chain " << CHAIN_NAME << " {\n";
+    script << "    type filter hook prerouting priority mangle; policy accept;\n";
+
+    for (const auto& pr : pending_rules_) {
+        std::string addr_family = (pr.family == AF_INET6) ? "ip6" : "ip";
+
+        if (pr.action == PendingRule::Mark) {
+            std::ostringstream hex;
+            hex << "0x" << std::hex << pr.fwmark;
+            script << "    " << addr_family << " daddr @" << pr.set_name
+                   << " meta mark set " << hex.str() << "\n";
+        } else {
+            script << "    " << addr_family << " daddr @" << pr.set_name
+                   << " drop\n";
+        }
+    }
+
+    script << "  }\n";
+    script << "}\n";
+
+    // Append all buffered element additions (outside the table block)
+    for (auto& [set_name, buf] : pending_elements_) {
+        std::string elements = buf.str();
+        if (!elements.empty()) {
+            script << elements;
+        }
+    }
+
+    // Apply atomically via nft -f -
+    std::string script_str = script.str();
+    FILE* pipe = popen("nft -f -", "w");
+    if (!pipe) {
+        throw FirewallError("Failed to open pipe to 'nft -f -'");
+    }
+
+    if (std::fwrite(script_str.data(), 1, script_str.size(), pipe) != script_str.size()) {
+        pclose(pipe);
+        throw FirewallError("Failed to write nft script to pipe");
+    }
+
+    int status = pclose(pipe);
+    if (status != 0) {
+        throw FirewallError("nft -f - exited with status " + std::to_string(status));
+    }
+
+    // Clear pending buffers
+    pending_sets_.clear();
+    pending_elements_.clear();
+    pending_rules_.clear();
+    table_created_ = true;
 }
 
 void NftablesFirewall::cleanup() {
-    // The simplest cleanup: delete the entire table, which removes all
-    // chains, rules, and sets within it.
-    if (table_inet_created_) {
-        exec_cmd("nft delete table inet " + std::string(TABLE_NAME) + " 2>/dev/null");
-        table_inet_created_ = false;
+    if (table_created_) {
+        std::system(("nft delete table inet " + std::string(TABLE_NAME) + " 2>/dev/null").c_str());
+        table_created_ = false;
     }
 
-    mark_rules_.clear();
-    drop_rules_.clear();
     created_sets_.clear();
-    created_chains_.clear();
+    pending_sets_.clear();
+    pending_elements_.clear();
+    pending_rules_.clear();
 }
 
 std::unique_ptr<Firewall> create_nftables_firewall() {
