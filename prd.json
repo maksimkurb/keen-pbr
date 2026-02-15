@@ -970,6 +970,78 @@
       "priority": 56,
       "passes": true,
       "notes": ""
+    },
+    {
+      "id": "US-057",
+      "title": "Move subsystem ownership into Daemon class",
+      "description": "As a developer, I need the Daemon class to own all runtime subsystems (Config, CacheManager, Firewall, NetlinkManager, RouteTable, PolicyRuleManager, FirewallState, URLTester, OutboundMarkMap, Scheduler, UrltestManager) as members, constructed from Config, config_path, and DaemonOptions. This eliminates the need for main.cpp to manage subsystem lifetimes.",
+      "acceptanceCriteria": [
+        "DaemonOptions struct added with bool no_api field",
+        "Daemon constructor: Daemon(Config config, std::string config_path, DaemonOptions opts)",
+        "Daemon members: Config config_, std::string config_path_, DaemonOptions opts_, CacheManager cache_, std::unique_ptr<Firewall> firewall_, NetlinkManager netlink_, RouteTable route_table_, PolicyRuleManager policy_rules_, FirewallState firewall_state_, URLTester url_tester_, OutboundMarkMap outbound_marks_, std::unique_ptr<Scheduler> scheduler_, std::unique_ptr<UrltestManager> urltest_manager_",
+        "Scheduler as unique_ptr (constructed in body, since it takes Daemon&)",
+        "UrltestManager as unique_ptr (constructed later during startup)",
+        "Old no-arg Daemon() constructor removed",
+        "Helpers get_outbound_tag() and find_outbound() moved to keen_pbr3 namespace (in daemon.hpp/daemon.cpp)",
+        "Typecheck passes"
+      ],
+      "priority": 57,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-058",
+      "title": "Move routing/firewall logic and run lifecycle into Daemon",
+      "description": "As a developer, I need routing setup, firewall application, list downloading, urltest registration, and the full run lifecycle (startup, event loop, shutdown) extracted from main.cpp lambdas into Daemon private methods. The full_reload() method eliminates the current 3x duplication of reload logic.",
+      "acceptanceCriteria": [
+        "Daemon::setup_static_routing() private method (from lambda in main.cpp)",
+        "Daemon::apply_firewall() private method (from lambda in main.cpp)",
+        "Daemon::download_uncached_lists() private method (from inline loop in main.cpp)",
+        "Daemon::register_urltest_outbounds() private method (creates UrltestManager with change callback, registers urltest outbounds)",
+        "Daemon::full_reload() private method — single implementation of teardown+rebuild used by both SIGHUP and API reload (eliminates the current 3x duplication)",
+        "Daemon::run() startup sequence: write PID file → download_uncached_lists → setup_static_routing → register_urltest_outbounds → apply_firewall → setup API → log 'running'",
+        "Daemon::run() enters epoll event loop",
+        "Daemon::run() shutdown sequence (after loop exits): stop API → urltest_manager clear → scheduler cancel_all → route_table clear → policy_rules clear → firewall cleanup → remove PID file",
+        "write_pid_file() and remove_pid_file() moved into daemon.cpp (free functions or private methods)",
+        "Typecheck passes"
+      ],
+      "priority": 58,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-059",
+      "title": "Move signal and API handler logic into Daemon",
+      "description": "As a developer, I need SIGUSR1/SIGHUP handling to become internal to Daemon, and API server lifecycle managed by Daemon. The external callback API (on_sigusr1, on_sighup) is removed.",
+      "acceptanceCriteria": [
+        "Daemon::handle_sigusr1() private method: clear/re-add static routing, trigger immediate URL tests",
+        "Daemon::handle_sighup() private method: calls full_reload() (re-reads config from config_path_)",
+        "handle_signal() dispatches directly to handle_sigusr1()/handle_sighup() instead of callbacks",
+        "on_sigusr1(), on_sighup() public methods and sigusr1_cb_/sighup_cb_ members removed",
+        "API server lifecycle: Daemon::setup_api() private method (inside #ifdef WITH_API), creates ApiServer, constructs ApiContext referencing Daemon-owned subsystems, reload_fn calls full_reload()",
+        "std::unique_ptr<ApiServer> api_server_ member (inside #ifdef WITH_API)",
+        "Typecheck passes"
+      ],
+      "priority": 59,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-060",
+      "title": "Simplify main.cpp to thin CLI entry point",
+      "description": "As a developer, I need main.cpp stripped down to CLI parsing, config loading, non-daemon commands (download, print-dnsmasq-config), and Daemon creation+run. All business logic moves into Daemon.",
+      "acceptanceCriteria": [
+        "Daemon mode in main() reduced to: parse args → load config → daemonize if needed → construct Daemon(config, config_path, opts) → daemon.run() → return 0",
+        "Non-daemon commands (download, print-dnsmasq-config) remain in main.cpp unchanged",
+        "Removed from main.cpp: all subsystem construction, lambdas, signal handler registration, API setup, shutdown cleanup, get_outbound_tag(), find_outbound(), write_pid_file(), remove_pid_file()",
+        "daemonize_process() stays in main.cpp (must be called before Daemon constructor creates epoll/signalfd)",
+        "main.cpp includes reduced to: config.hpp, daemon.hpp, and headers for download/print-dnsmasq-config",
+        "No remaining business logic in main.cpp",
+        "Typecheck passes"
+      ],
+      "priority": 60,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

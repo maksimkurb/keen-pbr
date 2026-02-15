@@ -7,15 +7,63 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "../firewall/firewall.hpp"
+#include "scheduler.hpp"
+#include "../routing/urltest_manager.hpp"
+
+#ifdef WITH_API
+#include "../api/server.hpp"
+#endif
+
 namespace keen_pbr3 {
 
-Daemon::Daemon() {
+// Helper to get tag from any outbound variant
+std::string get_outbound_tag(const Outbound& ob) {
+    return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+}
+
+// Find an outbound by tag, returning pointer or nullptr
+const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
+                               const std::string& tag) {
+    for (const auto& ob : outbounds) {
+        if (get_outbound_tag(ob) == tag) {
+            return &ob;
+        }
+    }
+    return nullptr;
+}
+
+Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
+    : config_(std::move(config))
+    , config_path_(std::move(config_path))
+    , opts_(std::move(opts))
+    , cache_(config_.daemon.cache_dir)
+    , firewall_(create_firewall("auto"))
+    , netlink_()
+    , route_table_(netlink_)
+    , policy_rules_(netlink_)
+    , firewall_state_()
+    , url_tester_()
+    , outbound_marks_(allocate_outbound_marks(config_.fwmark, config_.outbounds))
+{
+    // Initialize epoll
     epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd_ < 0) {
         throw DaemonError("epoll_create1 failed: " + std::string(strerror(errno)));
     }
 
     setup_signals();
+
+    // Set outbound marks in firewall state
+    firewall_state_.set_outbound_marks(outbound_marks_);
+
+    // Ensure cache directory exists
+    cache_.ensure_dir();
+
+    // Create scheduler (needs Daemon& for epoll fd registration)
+    scheduler_ = std::make_unique<Scheduler>(*this);
+
+    // UrltestManager created later during startup (register_urltest_outbounds)
 }
 
 Daemon::~Daemon() {
@@ -79,26 +127,22 @@ void Daemon::handle_signal() {
         running_ = false;
         break;
     case SIGUSR1:
-        if (sigusr1_cb_) {
-            sigusr1_cb_();
-        }
+        handle_sigusr1();
         break;
     case SIGHUP:
-        if (sighup_cb_) {
-            sighup_cb_();
-        }
+        handle_sighup();
         break;
     default:
         break;
     }
 }
 
-void Daemon::on_sigusr1(SignalCallback cb) {
-    sigusr1_cb_ = std::move(cb);
+void Daemon::handle_sigusr1() {
+    // Stub — will be implemented in US-059
 }
 
-void Daemon::on_sighup(SignalCallback cb) {
-    sighup_cb_ = std::move(cb);
+void Daemon::handle_sighup() {
+    // Stub — will be implemented in US-059
 }
 
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
@@ -162,5 +206,18 @@ void Daemon::stop() {
 bool Daemon::running() const {
     return running_;
 }
+
+// Stubs for business logic — will be implemented in US-058
+void Daemon::setup_static_routing() {}
+void Daemon::apply_firewall() {}
+void Daemon::download_uncached_lists() {}
+void Daemon::register_urltest_outbounds() {}
+void Daemon::full_reload() {}
+void Daemon::write_pid_file() {}
+void Daemon::remove_pid_file() {}
+
+#ifdef WITH_API
+void Daemon::setup_api() {}
+#endif
 
 } // namespace keen_pbr3

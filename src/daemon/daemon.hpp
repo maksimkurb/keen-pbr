@@ -2,11 +2,28 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "../cache/cache_manager.hpp"
+#include "../config/config.hpp"
+#include "../health/url_tester.hpp"
+#include "../routing/firewall_state.hpp"
+#include "../routing/netlink.hpp"
+#include "../routing/policy_rule.hpp"
+#include "../routing/route_table.hpp"
+
 namespace keen_pbr3 {
+
+class Firewall;
+class Scheduler;
+class UrltestManager;
+
+#ifdef WITH_API
+class ApiServer;
+#endif
 
 class DaemonError : public std::runtime_error {
 public:
@@ -16,14 +33,23 @@ public:
 // Callback for file descriptor events
 using FdCallback = std::function<void(uint32_t events)>;
 
-// Epoll-based daemon event loop with signal handling.
-// Handles SIGUSR1, SIGTERM, SIGINT via signalfd.
+// Options controlling daemon runtime behavior
+struct DaemonOptions {
+    bool no_api{false};
+};
+
+// Helper to get tag from any outbound variant
+std::string get_outbound_tag(const Outbound& ob);
+
+// Find an outbound by tag, returning pointer or nullptr
+const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
+                               const std::string& tag);
+
+// Epoll-based daemon that owns all runtime subsystems.
+// Handles signal dispatch, routing, firewall, urltest, and API lifecycle.
 class Daemon {
 public:
-    // Callback invoked on SIGUSR1 (immediate re-check trigger)
-    using SignalCallback = std::function<void()>;
-
-    Daemon();
+    Daemon(Config config, std::string config_path, DaemonOptions opts);
     ~Daemon();
 
     // Non-copyable, non-movable
@@ -32,22 +58,13 @@ public:
     Daemon(Daemon&&) = delete;
     Daemon& operator=(Daemon&&) = delete;
 
-    // Set callback for SIGUSR1 signal
-    void on_sigusr1(SignalCallback cb);
-
-    // Set callback for SIGHUP signal (full config reload)
-    void on_sighup(SignalCallback cb);
-
     // Register an additional file descriptor for epoll monitoring.
-    // The callback will be invoked with the epoll events.
-    // Returns the fd for later removal.
     void add_fd(int fd, uint32_t events, FdCallback cb);
 
     // Remove a previously registered file descriptor.
     void remove_fd(int fd);
 
-    // Run the event loop. Blocks until stop() is called or
-    // SIGTERM/SIGINT is received.
+    // Run the daemon lifecycle: startup, event loop, shutdown.
     void run();
 
     // Request the event loop to stop.
@@ -57,21 +74,60 @@ public:
     bool running() const;
 
 private:
+    // Epoll/signal setup
     void setup_signals();
     void handle_signal();
 
+    // Signal handlers
+    void handle_sigusr1();
+    void handle_sighup();
+
+    // Business logic methods
+    void setup_static_routing();
+    void apply_firewall();
+    void download_uncached_lists();
+    void register_urltest_outbounds();
+    void full_reload();
+
+    // PID file management
+    void write_pid_file();
+    void remove_pid_file();
+
+#ifdef WITH_API
+    void setup_api();
+#endif
+
+    // Epoll state
     int epoll_fd_{-1};
     int signal_fd_{-1};
     bool running_{false};
-
-    SignalCallback sigusr1_cb_;
-    SignalCallback sighup_cb_;
 
     struct FdEntry {
         int fd;
         FdCallback callback;
     };
     std::vector<FdEntry> fd_entries_;
+
+    // Configuration
+    Config config_;
+    std::string config_path_;
+    DaemonOptions opts_;
+
+    // Subsystems
+    CacheManager cache_;
+    std::unique_ptr<Firewall> firewall_;
+    NetlinkManager netlink_;
+    RouteTable route_table_;
+    PolicyRuleManager policy_rules_;
+    FirewallState firewall_state_;
+    URLTester url_tester_;
+    OutboundMarkMap outbound_marks_;
+    std::unique_ptr<Scheduler> scheduler_;
+    std::unique_ptr<UrltestManager> urltest_manager_;
+
+#ifdef WITH_API
+    std::unique_ptr<ApiServer> api_server_;
+#endif
 };
 
 } // namespace keen_pbr3
