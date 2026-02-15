@@ -67,7 +67,8 @@ std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
 void NftablesFirewall::apply() {
     std::string script;
 
-    // Delete existing table (if any) for clean slate
+    // Ensure table exists (no-op if already present), then delete for clean slate
+    script += std::format("table inet {}\n", TABLE_NAME);
     script += std::format("delete table inet {}\n", TABLE_NAME);
 
     // Begin table definition
