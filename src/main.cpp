@@ -4,7 +4,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <unistd.h>
 
 #include <keen-pbr3/version.hpp>
 
@@ -22,8 +21,8 @@ namespace {
 struct CliOptions {
     std::string config_path{"/etc/keen-pbr3/config.json"};
     std::string log_level{"info"};
-    bool daemonize{false};
     bool no_api{false};
+    bool run_service{false};
     bool print_dnsmasq_config{false};
     bool download_lists{false};
     bool show_help{false};
@@ -31,17 +30,17 @@ struct CliOptions {
 };
 
 void print_usage(const char* argv0) {
-    std::cerr << "Usage: " << argv0 << " [options]\n"
+    std::cerr << "Usage: " << argv0 << " [options] <command>\n"
               << "\n"
               << "Options:\n"
               << "  --config <path>    Path to JSON config file (default: /etc/keen-pbr3/config.json)\n"
               << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
-              << "  -d                 Daemonize (run in background)\n"
               << "  --no-api           Disable REST API at runtime\n"
               << "  --version          Show version and exit\n"
               << "  --help             Show this help and exit\n"
               << "\n"
               << "Commands:\n"
+              << "  service               Start the routing service (foreground)\n"
               << "  download              Download all configured lists to cache and exit\n"
               << "  print-dnsmasq-config  Print generated dnsmasq config to stdout and exit\n";
 }
@@ -61,14 +60,14 @@ CliOptions parse_args(int argc, char* argv[]) {
                 std::exit(1);
             }
             opts.log_level = argv[++i];
-        } else if (std::strcmp(argv[i], "-d") == 0) {
-            opts.daemonize = true;
         } else if (std::strcmp(argv[i], "--no-api") == 0) {
             opts.no_api = true;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             opts.show_help = true;
         } else if (std::strcmp(argv[i], "--version") == 0 || std::strcmp(argv[i], "-v") == 0) {
             opts.show_version = true;
+        } else if (std::strcmp(argv[i], "service") == 0) {
+            opts.run_service = true;
         } else if (std::strcmp(argv[i], "print-dnsmasq-config") == 0) {
             opts.print_dnsmasq_config = true;
         } else if (std::strcmp(argv[i], "download") == 0) {
@@ -92,25 +91,6 @@ std::string read_file(const std::string& path) {
     return ss.str();
 }
 
-void daemonize_process() {
-    pid_t pid = fork();
-    if (pid < 0) {
-        throw std::runtime_error("Failed to fork: " + std::string(std::strerror(errno)));
-    }
-    if (pid > 0) {
-        // Parent exits
-        std::exit(0);
-    }
-    // Child becomes session leader
-    if (setsid() < 0) {
-        throw std::runtime_error("Failed to setsid: " + std::string(std::strerror(errno)));
-    }
-    // Redirect stdin/stdout/stderr to /dev/null
-    freopen("/dev/null", "r", stdin);
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
-}
-
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
@@ -122,6 +102,11 @@ int main(int argc, char* argv[]) {
     }
 
     if (opts.show_help) {
+        print_usage(argv[0]);
+        return 0;
+    }
+
+    if (!opts.download_lists && !opts.print_dnsmasq_config && !opts.run_service) {
         print_usage(argv[0]);
         return 0;
     }
@@ -175,8 +160,15 @@ int main(int argc, char* argv[]) {
             cache.ensure_dir();
             // Download lists that aren't already cached
             for (const auto& [name, list_cfg] : config.lists) {
-                if (list_cfg.url.has_value() && !cache.has_cache(name)) {
+                if (!list_cfg.url.has_value()) {
+                    logger.verbose("[{}] Skipped (no URL)", name);
+                    continue;
+                }
+                if (!cache.has_cache(name)) {
                     cache.download(name, list_cfg.url.value());
+                    logger.info("[{}] Downloaded", name);
+                } else {
+                    logger.verbose("[{}] Using cached", name);
                 }
             }
             keen_pbr3::ListStreamer list_streamer(cache);
@@ -188,19 +180,16 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        // Daemonize if requested (before creating epoll/signalfd)
-        if (opts.daemonize) {
-            daemonize_process();
-        }
-
         // Construct Daemon with all subsystems and run
-        keen_pbr3::DaemonOptions daemon_opts;
-        daemon_opts.no_api = opts.no_api;
+        if (opts.run_service) {
+            keen_pbr3::DaemonOptions daemon_opts;
+            daemon_opts.no_api = opts.no_api;
 
-        keen_pbr3::Daemon daemon(std::move(config), opts.config_path, daemon_opts);
-        daemon.run();
+            keen_pbr3::Daemon daemon(std::move(config), opts.config_path, daemon_opts);
+            daemon.run();
 
-        logger.info("Shutdown complete.");
+            logger.info("Shutdown complete.");
+        }
         return 0;
 
     } catch (const keen_pbr3::ConfigError& e) {
