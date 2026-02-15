@@ -905,3 +905,12 @@
   - US-057 through US-059 were tightly coupled — moving subsystem ownership (US-057), business logic (US-058), and removing external callback API (US-059) all happened together naturally
   - When verifying already-complete stories, grep for removed interfaces (on_sigusr1, on_sighup, sigusr1_cb_, sighup_cb_) to confirm complete removal
 ---
+
+## 2026-02-15 - US-060
+- What was implemented: Verified all acceptance criteria already satisfied — main.cpp is a thin CLI entry point with only arg parsing, config loading, non-daemon commands, and Daemon construction+run; all business logic (subsystem construction, routing, firewall, signal handlers, API setup, shutdown) is in Daemon class
+- Files changed: (no code changes needed — already implemented across US-057 and US-058)
+  - `prd.json` - Marked US-060 as passes: true
+- **Learnings for future iterations:**
+  - US-057 through US-060 formed a natural refactoring arc where each story's implementation implicitly satisfied the next story's criteria
+  - main.cpp includes beyond config.hpp and daemon.hpp are justified by non-daemon commands (download needs CacheManager/ListStreamer/EntryCounter, print-dnsmasq-config needs DnsServerRegistry/DnsmasqGenerator)
+---
