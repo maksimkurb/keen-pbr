@@ -2,12 +2,10 @@ BUILD_DIR := build
 DIST_DIR := dist
 DOCKER_IMAGE := keen-pbr3-builder
 
-ARCHS := mips-be-openwrt mips-le-openwrt arm-openwrt aarch64-openwrt x86_64-openwrt mips-le-keenetic
-
 SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
-        docker-image docker-all $(addprefix docker-,$(ARCHS)) \
+        docker-image docker-extract \
         help
 
 ## Native build ################################################################
@@ -33,16 +31,13 @@ distclean: clean ## Remove build and dist directories
 ## Docker cross-compilation ####################################################
 
 docker-image: ## Build the Docker builder image
-	docker build -f docker/Dockerfile.openwrt -t $(DOCKER_IMAGE) .
+	docker build -f docker/Dockerfile.packages -t $(DOCKER_IMAGE) .
 
-docker-all: docker-image $(addprefix docker-,$(ARCHS)) ## Build for all architectures via Docker
-
-define DOCKER_ARCH_RULE
-docker-$(1): docker-image ## Build for $(1) via Docker
-	docker run --rm -v "$$(pwd)/$(DIST_DIR):/src/$(DIST_DIR)" $(DOCKER_IMAGE) $(1)
-endef
-
-$(foreach arch,$(ARCHS),$(eval $(call DOCKER_ARCH_RULE,$(arch))))
+docker-extract: docker-image ## Extract .ipk packages from Docker image
+	@mkdir -p $(DIST_DIR)
+	docker create --name keen-pbr3-tmp $(DOCKER_IMAGE) 2>/dev/null || true
+	docker cp keen-pbr3-tmp:/home/me/openwrt/bin/packages/. $(DIST_DIR)/
+	docker rm keen-pbr3-tmp
 
 ## Help ########################################################################
 

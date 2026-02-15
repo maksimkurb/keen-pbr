@@ -172,7 +172,7 @@ libnl_route_lib = static_library(
   include_directories: [libnl_inc, libnl_build_inc],
   link_with: libnl_core_lib,
   dependencies: pthread_dep,
-  c_args: ['-D_GNU_SOURCE'],
+  c_args: ['-D_GNU_SOURCE', '-DSYSCONFDIR="/etc"'],
 )
 
 libnl_route_dep = declare_dependency(

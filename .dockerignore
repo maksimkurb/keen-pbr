@@ -1,0 +1,5 @@
+build/
+dist/
+.git/
+subprojects/*/
+!subprojects/packagefiles/

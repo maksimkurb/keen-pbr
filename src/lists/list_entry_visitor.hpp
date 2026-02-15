@@ -54,10 +54,10 @@ public:
         }
     }
 
-    size_t ips() const { return ips_; }
-    size_t cidrs() const { return cidrs_; }
-    size_t domains() const { return domains_; }
-    size_t total() const { return ips_ + cidrs_ + domains_; }
+    [[nodiscard]] size_t ips() const { return ips_; }
+    [[nodiscard]] size_t cidrs() const { return cidrs_; }
+    [[nodiscard]] size_t domains() const { return domains_; }
+    [[nodiscard]] size_t total() const { return ips_ + cidrs_ + domains_; }
 
     void reset() { ips_ = 0; cidrs_ = 0; domains_ = 0; }
 
