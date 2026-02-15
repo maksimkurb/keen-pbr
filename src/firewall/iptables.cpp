@@ -1,5 +1,6 @@
 #include "iptables.hpp"
 #include "ipset_restore_pipe.hpp"
+#include "../log/logger.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -64,6 +65,7 @@ std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
 }
 
 static void pipe_to_cmd(const std::string& cmd, const std::string& input) {
+    Logger::instance().verbose("{} script:\n{}", cmd, input);
     FILE* pipe = popen(cmd.c_str(), "w");
     if (!pipe) {
         throw FirewallError(std::format("Failed to open pipe to '{}'", cmd));
@@ -145,8 +147,11 @@ void IptablesFirewall::apply() {
 }
 
 void IptablesFirewall::cleanup() {
+    auto& log = Logger::instance();
+
     // Remove jump rules, flush and delete custom chain for IPv4
     if (chain_v4_created_) {
+        log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
         exec_cmd(std::format("iptables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
         exec_cmd(std::format("iptables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
         exec_cmd(std::format("iptables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
@@ -155,6 +160,7 @@ void IptablesFirewall::cleanup() {
 
     // Same for IPv6
     if (chain_v6_created_) {
+        log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
         exec_cmd(std::format("ip6tables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
         exec_cmd(std::format("ip6tables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
         exec_cmd(std::format("ip6tables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
@@ -163,6 +169,7 @@ void IptablesFirewall::cleanup() {
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
+        log.verbose("iptables cleanup: destroying ipset {}", name);
         exec_cmd(std::format("ipset flush {} 2>/dev/null", name));
         exec_cmd(std::format("ipset destroy {} 2>/dev/null", name));
     }

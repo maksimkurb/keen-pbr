@@ -15,11 +15,13 @@
 #include "dns/dnsmasq_gen.hpp"
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
+#include "log/logger.hpp"
 
 namespace {
 
 struct CliOptions {
     std::string config_path{"/etc/keen-pbr3/config.json"};
+    std::string log_level{"info"};
     bool daemonize{false};
     bool no_api{false};
     bool print_dnsmasq_config{false};
@@ -32,11 +34,12 @@ void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options]\n"
               << "\n"
               << "Options:\n"
-              << "  --config <path>  Path to JSON config file (default: /etc/keen-pbr3/config.json)\n"
-              << "  -d               Daemonize (run in background)\n"
-              << "  --no-api         Disable REST API at runtime\n"
-              << "  --version        Show version and exit\n"
-              << "  --help           Show this help and exit\n"
+              << "  --config <path>    Path to JSON config file (default: /etc/keen-pbr3/config.json)\n"
+              << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
+              << "  -d                 Daemonize (run in background)\n"
+              << "  --no-api           Disable REST API at runtime\n"
+              << "  --version          Show version and exit\n"
+              << "  --help             Show this help and exit\n"
               << "\n"
               << "Commands:\n"
               << "  download              Download all configured lists to cache and exit\n"
@@ -52,6 +55,12 @@ CliOptions parse_args(int argc, char* argv[]) {
                 std::exit(1);
             }
             opts.config_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--log-level") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --log-level requires an argument\n";
+                std::exit(1);
+            }
+            opts.log_level = argv[++i];
         } else if (std::strcmp(argv[i], "-d") == 0) {
             opts.daemonize = true;
         } else if (std::strcmp(argv[i], "--no-api") == 0) {
@@ -118,8 +127,12 @@ int main(int argc, char* argv[]) {
     }
 
     try {
+        // Initialize logger
+        auto& logger = keen_pbr3::Logger::instance();
+        logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
+
         // Load and parse configuration
-        std::cerr << "keen-pbr3 " << KEEN_PBR3_VERSION_STRING << " starting...\n";
+        logger.info("keen-pbr3 {} starting...", KEEN_PBR3_VERSION_STRING);
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
 
@@ -129,7 +142,7 @@ int main(int argc, char* argv[]) {
             cache.ensure_dir();
             for (const auto& [name, list_cfg] : config.lists) {
                 if (!list_cfg.url.has_value()) {
-                    std::cerr << "[" << name << "] Skipped (no URL)\n";
+                    logger.info("[{}] Skipped (no URL)", name);
                     continue;
                 }
                 try {
@@ -145,13 +158,12 @@ int main(int argc, char* argv[]) {
                         meta.cidrs = counter.cidrs();
                         meta.domains = counter.domains();
                         cache.save_metadata(name, meta);
-                        std::cerr << "[" << name << "] Updated ("
-                                  << counter.total() << " entries)\n";
+                        logger.info("[{}] Updated ({} entries)", name, counter.total());
                     } else {
-                        std::cerr << "[" << name << "] Not modified (304)\n";
+                        logger.info("[{}] Not modified (304)", name);
                     }
                 } catch (const std::exception& e) {
-                    std::cerr << "[" << name << "] Error: " << e.what() << "\n";
+                    logger.error("[{}] Error: {}", name, e.what());
                 }
             }
             return 0;
@@ -188,14 +200,14 @@ int main(int argc, char* argv[]) {
         keen_pbr3::Daemon daemon(std::move(config), opts.config_path, daemon_opts);
         daemon.run();
 
-        std::cerr << "Shutdown complete.\n";
+        logger.info("Shutdown complete.");
         return 0;
 
     } catch (const keen_pbr3::ConfigError& e) {
-        std::cerr << "Configuration error: " << e.what() << "\n";
+        keen_pbr3::Logger::instance().error("Configuration error: {}", e.what());
         return 1;
     } catch (const std::exception& e) {
-        std::cerr << "Fatal error: " << e.what() << "\n";
+        keen_pbr3::Logger::instance().error("Fatal error: {}", e.what());
         return 1;
     }
 }

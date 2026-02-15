@@ -14,6 +14,7 @@
 
 #include "../firewall/firewall.hpp"
 #include "../lists/list_streamer.hpp"
+#include "../log/logger.hpp"
 #include "../routing/target.hpp"
 #include "../routing/urltest_manager.hpp"
 #include "scheduler.hpp"
@@ -146,16 +147,17 @@ void Daemon::handle_signal() {
 }
 
 void Daemon::handle_sigusr1() {
-    std::cerr << "SIGUSR1: verifying routing tables and triggering URL tests...\n";
+    auto& log = Logger::instance();
+    log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
 
     // Re-add static routing tables/ip rules in case they were lost
     try {
         route_table_.clear();
         policy_rules_.clear();
         setup_static_routing();
-        std::cerr << "SIGUSR1: static routing tables verified.\n";
+        log.info("SIGUSR1: static routing tables verified.");
     } catch (const std::exception& e) {
-        std::cerr << "SIGUSR1: error verifying routing: " << e.what() << "\n";
+        log.error("SIGUSR1: error verifying routing: {}", e.what());
     }
 
     // Trigger immediate URL tests for all urltest outbounds
@@ -168,16 +170,17 @@ void Daemon::handle_sigusr1() {
         }
     }
 
-    std::cerr << "SIGUSR1: complete.\n";
+    log.info("SIGUSR1: complete.");
 }
 
 void Daemon::handle_sighup() {
-    std::cerr << "SIGHUP: full reload starting...\n";
+    auto& log = Logger::instance();
+    log.info("SIGHUP: full reload starting...");
     try {
         full_reload();
-        std::cerr << "SIGHUP: full reload complete.\n";
+        log.info("SIGHUP: full reload complete.");
     } catch (const std::exception& e) {
-        std::cerr << "SIGHUP: reload failed: " << e.what() << "\n";
+        log.error("SIGHUP: reload failed: {}", e.what());
     }
 }
 
@@ -203,24 +206,26 @@ void Daemon::remove_fd(int fd) {
 
 void Daemon::run() {
     // --- Startup sequence ---
+    auto& log = Logger::instance();
+
     write_pid_file();
 
-    std::cerr << "Loading lists...\n";
+    log.info("Loading lists...");
     download_uncached_lists();
 
     setup_static_routing();
-    std::cerr << "Static routing tables and ip rules installed.\n";
+    log.info("Static routing tables and ip rules installed.");
 
     register_urltest_outbounds();
 
     apply_firewall();
-    std::cerr << "Firewall rules and routing applied.\n";
+    log.info("Firewall rules and routing applied.");
 
 #ifdef WITH_API
     setup_api();
 #endif
 
-    std::cerr << "Daemon running. PID: " << getpid() << "\n";
+    log.info("Daemon running. PID: {}", getpid());
 
     // --- Event loop ---
     running_ = true;
@@ -256,7 +261,7 @@ void Daemon::run() {
     }
 
     // --- Shutdown sequence ---
-    std::cerr << "Shutting down...\n";
+    log.info("Shutting down...");
 
 #ifdef WITH_API
     if (api_server_) {
@@ -477,8 +482,7 @@ void Daemon::download_uncached_lists() {
             try {
                 cache_.download(name, list_cfg.url.value());
             } catch (const std::exception& e) {
-                std::cerr << "Warning: failed to download list '" << name
-                          << "': " << e.what() << "\n";
+                Logger::instance().warn("Failed to download list '{}': {}", name, e.what());
             }
         }
     }
@@ -488,15 +492,14 @@ void Daemon::register_urltest_outbounds() {
     urltest_manager_ = std::make_unique<UrltestManager>(
         url_tester_, outbound_marks_, *scheduler_,
         [this](const std::string& urltest_tag, const std::string& new_child_tag) {
-            std::cerr << "Urltest '" << urltest_tag << "' selected outbound: '"
-                      << new_child_tag << "'\n";
+            auto& log = Logger::instance();
+            log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
             firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
             try {
                 apply_firewall();
-                std::cerr << "Firewall rules rebuilt after urltest change.\n";
+                log.info("Firewall rules rebuilt after urltest change.");
             } catch (const std::exception& e) {
-                std::cerr << "Error rebuilding firewall after urltest change: "
-                          << e.what() << "\n";
+                log.error("Error rebuilding firewall after urltest change: {}", e.what());
             }
         });
 
@@ -564,7 +567,7 @@ void Daemon::setup_api() {
     });
     register_api_handlers(*api_server_, *api_ctx_);
     api_server_->start();
-    std::cerr << "REST API listening on " << config_.api.listen << "\n";
+    Logger::instance().info("REST API listening on {}", config_.api.listen);
 }
 #endif
 

@@ -37,6 +37,7 @@ endif()
 
 # Sources
 set(SOURCES
+  src/log/logger.cpp
   src/http/http_client.cpp
   src/config/config.cpp
   src/config/list_parser.cpp

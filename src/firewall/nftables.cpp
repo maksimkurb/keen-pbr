@@ -1,5 +1,6 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
+#include "../log/logger.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -112,6 +113,8 @@ void NftablesFirewall::apply() {
         }
     }
 
+    Logger::instance().verbose("nft script:\n{}", script);
+
     // Apply atomically via nft -f -
     FILE* pipe = popen("nft -f -", "w");
     if (!pipe) {
@@ -137,6 +140,7 @@ void NftablesFirewall::apply() {
 
 void NftablesFirewall::cleanup() {
     if (table_created_) {
+        Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
         std::system(std::format("nft delete table inet {} 2>/dev/null", TABLE_NAME).c_str());
         table_created_ = false;
     }
