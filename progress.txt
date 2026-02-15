@@ -896,3 +896,12 @@
   - Daemon::run() is now the complete lifecycle: startup → event loop → shutdown, not just the event loop
   - handle_sigusr1() and handle_sighup() call business logic directly (no callback indirection) — callbacks removed
 ---
+
+## 2026-02-15 - US-059
+- What was implemented: Verified all acceptance criteria already satisfied — signal handlers are internal to Daemon (handle_sigusr1/handle_sighup private methods), no external callback API (on_sigusr1/on_sighup removed), API server lifecycle managed by Daemon via setup_api() private method
+- Files changed: (no code changes needed — already implemented across US-057 and US-058)
+  - `prd.json` - Marked US-059 as passes: true
+- **Learnings for future iterations:**
+  - US-057 through US-059 were tightly coupled — moving subsystem ownership (US-057), business logic (US-058), and removing external callback API (US-059) all happened together naturally
+  - When verifying already-complete stories, grep for removed interfaces (on_sigusr1, on_sighup, sigusr1_cb_, sighup_cb_) to confirm complete removal
+---
