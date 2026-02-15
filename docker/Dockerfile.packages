@@ -14,4 +14,8 @@ COPY --chown=me:me . /home/me/keen-pbr3-src
 COPY --chown=me:me packages/configs /home/me/openwrt/owrt-configs
 COPY --chown=me:me packages /home/me/openwrt/owrt-packages
 
+ARG ROUTER_CONFIG=${ROUTER_CONFIG}
+
+RUN ./owrt-packages/feeds.sh
+
 RUN ./owrt-packages/compile.sh

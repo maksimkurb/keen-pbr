@@ -5,7 +5,3 @@ scripts/ralph
 build/
 buildDir/
 dist/
-
-# Meson subprojects (downloaded sources and build artifacts)
-subprojects/packagecache/
-subprojects/*-*/
