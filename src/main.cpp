@@ -1,12 +1,9 @@
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <sstream>
 #include <string>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include <keen-pbr3/version.hpp>
@@ -14,24 +11,10 @@
 #include "cache/cache_manager.hpp"
 #include "config/config.hpp"
 #include "daemon/daemon.hpp"
-#include "daemon/scheduler.hpp"
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
-#include "firewall/firewall.hpp"
-#include "health/url_tester.hpp"
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
-#include "routing/firewall_state.hpp"
-#include "routing/netlink.hpp"
-#include "routing/policy_rule.hpp"
-#include "routing/route_table.hpp"
-#include "routing/target.hpp"
-#include "routing/urltest_manager.hpp"
-
-#ifdef WITH_API
-#include "api/handlers.hpp"
-#include "api/server.hpp"
-#endif
 
 namespace {
 

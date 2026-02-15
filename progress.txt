@@ -74,6 +74,9 @@
 - API handlers: ApiContext holds CacheManager&, const map<string, ListConfig>&, const FirewallState&, and const UrltestManager&; GET /api/status reports fwmarks, rule mappings, and urltest selections; GET /api/health reports urltest per-child state
 - libcurl SO_MARK: CURLOPT_MARK not available in libcurl 8.5.0; use CURLOPT_SOCKOPTFUNCTION + setsockopt(SOL_SOCKET, SO_MARK) instead for socket mark-based policy routing
 - UrltestManager: per-urltest UrltestState holds per-child CircuitBreaker instances (not shared); select_outbound() uses state() const (not is_allowed()) to avoid side effects during selection
+- Daemon lifecycle: run() does startup → event loop → shutdown; all business logic (routing, firewall, urltest, API) owned by Daemon as private methods
+- Daemon::full_reload(): single implementation of teardown+rebuild used by SIGHUP and API reload — avoids duplication
+- ApiContext: stored as unique_ptr<ApiContext> member under #ifdef WITH_API; holds references to Daemon-owned members (stable addresses across reload)
 
 ## Iteration Log
 
@@ -865,4 +868,31 @@
   - CircuitBreaker::state() is a const method taking tag parameter — safe to call from const UrltestManager reference
   - format_hex() helper uses `<iomanip>` and `<sstream>` for hex formatting with zero-padding
   - GET /api/health uses try/catch for UrltestManager::get_state() which throws std::out_of_range for unknown tags
+---
+
+## 2026-02-15 - US-057
+- What was implemented: Moved all runtime subsystem ownership into Daemon class with parameterized constructor, moved helper functions to keen_pbr3 namespace, simplified main.cpp daemon path
+- Files changed:
+  - `src/daemon/daemon.hpp` - Already had new structure (Config, config_path, DaemonOptions constructor, all subsystem members, private business logic method declarations)
+  - `src/daemon/daemon.cpp` - Replaced no-arg constructor with `Daemon(Config, string, DaemonOptions)` that initializes all subsystems in member initializer list; removed `on_sigusr1()`/`on_sighup()` callback methods and `sigusr1_cb_`/`sighup_cb_` members; added `get_outbound_tag()` and `find_outbound()` as keen_pbr3 namespace free functions; signal dispatch calls `handle_sigusr1()`/`handle_sighup()` directly; added stub implementations for business logic methods (US-058 will implement them); included api/server.hpp under `#ifdef WITH_API` for unique_ptr<ApiServer> destructor
+  - `src/main.cpp` - Daemon mode reduced to: parse args → load config → daemonize if needed → construct `Daemon(config, config_path, opts)` → `daemon.run()`; removed all subsystem construction, lambdas, signal handler registration, API setup, and shutdown cleanup from main.cpp; removed local `get_outbound_tag()`/`find_outbound()`/`write_pid_file()`/`remove_pid_file()` from anonymous namespace; non-daemon commands (download, print-dnsmasq-config) unchanged
+- **Learnings for future iterations:**
+  - unique_ptr<T> destructor needs T to be a complete type — forward declaration is not enough in the .cpp where the destructor runs; must include the full header
+  - Member initializer list order must match declaration order in the class: config_ before cache_ (since cache_ depends on config_.daemon.cache_dir)
+  - Scheduler is constructed as unique_ptr in constructor body (not initializer list) because it takes Daemon& which isn't ready until after construction begins
+  - UrltestManager created later during startup (register_urltest_outbounds) since it needs the change callback wired up
+---
+
+## 2026-02-15 - US-058
+- What was implemented: Moved all routing/firewall logic and run lifecycle into Daemon class private methods, replacing stub implementations with full business logic
+- Files changed:
+  - `src/daemon/daemon.hpp` - Added ApiContext forward declaration and api_ctx_ unique_ptr member under #ifdef WITH_API
+  - `src/daemon/daemon.cpp` - Implemented all stub methods: setup_static_routing() (creates routing tables/ip-rules per outbound), apply_firewall() (transactional firewall rebuild with RuleState tracking), download_uncached_lists() (downloads lists not yet cached), register_urltest_outbounds() (creates UrltestManager with change callback), full_reload() (single implementation of teardown+rebuild for SIGHUP and API), write_pid_file()/remove_pid_file() (PID file management), setup_api() (API server lifecycle). Updated run() with full startup sequence (PID → download → routing → urltest → firewall → API → event loop → shutdown). Implemented handle_sigusr1() and handle_sighup() to call business logic directly.
+  - `src/main.cpp` - Removed unnecessary includes (filesystem, memory, sys/socket.h, firewall, netlink, route_table, policy_rule, target, urltest_manager, scheduler, health/url_tester, firewall_state, and WITH_API includes) since all business logic is now in Daemon
+- **Learnings for future iterations:**
+  - ApiContext holds references to Daemon members (config_.outbounds, cache_, config_.lists, firewall_state_, *urltest_manager_). After config_ = parse_config() in full_reload(), the member addresses are stable since Config is a member, so references remain valid.
+  - ApiContext stored as unique_ptr<ApiContext> to outlive setup_api() — cannot be a local variable since handlers capture references to it
+  - full_reload() is the single implementation for both SIGHUP and API reload — eliminates the 3x duplication from old main.cpp
+  - Daemon::run() is now the complete lifecycle: startup → event loop → shutdown, not just the event loop
+  - handle_sigusr1() and handle_sighup() call business logic directly (no callback indirection) — callbacks removed
 ---

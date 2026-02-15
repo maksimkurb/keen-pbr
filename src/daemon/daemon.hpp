@@ -23,6 +23,7 @@ class UrltestManager;
 
 #ifdef WITH_API
 class ApiServer;
+struct ApiContext;
 #endif
 
 class DaemonError : public std::runtime_error {
@@ -127,6 +128,7 @@ private:
 
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;
+    std::unique_ptr<ApiContext> api_ctx_;
 #endif
 };
 
