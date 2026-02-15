@@ -3,7 +3,8 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <sstream>
+#include <format>
+#include <string>
 #include <sys/socket.h>
 
 namespace keen_pbr3 {
@@ -65,39 +66,39 @@ std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
 static void pipe_to_cmd(const std::string& cmd, const std::string& input) {
     FILE* pipe = popen(cmd.c_str(), "w");
     if (!pipe) {
-        throw FirewallError("Failed to open pipe to '" + cmd + "'");
+        throw FirewallError(std::format("Failed to open pipe to '{}'", cmd));
     }
     if (std::fwrite(input.data(), 1, input.size(), pipe) != input.size()) {
         pclose(pipe);
-        throw FirewallError("Failed to write to pipe for '" + cmd + "'");
+        throw FirewallError(std::format("Failed to write to pipe for '{}'", cmd));
     }
     int status = pclose(pipe);
     if (status != 0) {
-        throw FirewallError(cmd + " exited with status " + std::to_string(status));
+        throw FirewallError(std::format("{} exited with status {}", cmd, status));
     }
 }
 
 void IptablesFirewall::apply() {
     // Phase 1: ipsets via 'ipset restore -exist'
     {
-        std::ostringstream ipset_script;
+        std::string ipset_script;
         for (const auto& ps : pending_sets_) {
-            ipset_script << "create " << ps.name << " hash:net family "
-                         << ps.family_str;
             if (ps.timeout > 0) {
-                ipset_script << " timeout " << ps.timeout;
+                ipset_script += std::format("create {} hash:net family {} timeout {} -exist\n",
+                                            ps.name, ps.family_str, ps.timeout);
+            } else {
+                ipset_script += std::format("create {} hash:net family {} -exist\n",
+                                            ps.name, ps.family_str);
             }
-            ipset_script << " -exist\n";
         }
         for (auto& [set_name, buf] : pending_elements_) {
             std::string elements = buf.str();
             if (!elements.empty()) {
-                ipset_script << elements;
+                ipset_script += elements;
             }
         }
-        std::string ipset_str = ipset_script.str();
-        if (!ipset_str.empty()) {
-            pipe_to_cmd("ipset restore -exist", ipset_str);
+        if (!ipset_script.empty()) {
+            pipe_to_cmd("ipset restore -exist", ipset_script);
         }
     }
 
@@ -111,25 +112,21 @@ void IptablesFirewall::apply() {
     }
 
     auto build_ipt_script = [&](bool ipv6) -> std::string {
-        std::ostringstream s;
-        s << "*mangle\n";
-        s << ":" << CHAIN_NAME << " - [0:0]\n";
-        s << "-A PREROUTING -j " << CHAIN_NAME << "\n";
+        std::string s;
+        s += std::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
+                         CHAIN_NAME, CHAIN_NAME);
         for (const auto& pr : pending_rules_) {
             if (pr.ipv6 != ipv6) continue;
-            s << "-A " << CHAIN_NAME
-              << " -m set --match-set " << pr.set_name << " dst";
             if (pr.action == PendingRule::Mark) {
-                std::ostringstream hex;
-                hex << "0x" << std::hex << pr.fwmark;
-                s << " -j MARK --set-mark " << hex.str();
+                s += std::format("-A {} -m set --match-set {} dst -j MARK --set-mark {:#x}\n",
+                                 CHAIN_NAME, pr.set_name, pr.fwmark);
             } else {
-                s << " -j DROP";
+                s += std::format("-A {} -m set --match-set {} dst -j DROP\n",
+                                 CHAIN_NAME, pr.set_name);
             }
-            s << "\n";
         }
-        s << "COMMIT\n";
-        return s.str();
+        s += "COMMIT\n";
+        return s;
     };
 
     if (has_v4) {
@@ -150,24 +147,24 @@ void IptablesFirewall::apply() {
 void IptablesFirewall::cleanup() {
     // Remove jump rules, flush and delete custom chain for IPv4
     if (chain_v4_created_) {
-        exec_cmd("iptables -t mangle -D PREROUTING -j " + std::string(CHAIN_NAME) + " 2>/dev/null");
-        exec_cmd("iptables -t mangle -F " + std::string(CHAIN_NAME) + " 2>/dev/null");
-        exec_cmd("iptables -t mangle -X " + std::string(CHAIN_NAME) + " 2>/dev/null");
+        exec_cmd(std::format("iptables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(std::format("iptables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(std::format("iptables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
         chain_v4_created_ = false;
     }
 
     // Same for IPv6
     if (chain_v6_created_) {
-        exec_cmd("ip6tables -t mangle -D PREROUTING -j " + std::string(CHAIN_NAME) + " 2>/dev/null");
-        exec_cmd("ip6tables -t mangle -F " + std::string(CHAIN_NAME) + " 2>/dev/null");
-        exec_cmd("ip6tables -t mangle -X " + std::string(CHAIN_NAME) + " 2>/dev/null");
+        exec_cmd(std::format("ip6tables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(std::format("ip6tables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(std::format("ip6tables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
         chain_v6_created_ = false;
     }
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
-        exec_cmd("ipset flush " + name + " 2>/dev/null");
-        exec_cmd("ipset destroy " + name + " 2>/dev/null");
+        exec_cmd(std::format("ipset flush {} 2>/dev/null", name));
+        exec_cmd(std::format("ipset destroy {} 2>/dev/null", name));
     }
     created_sets_.clear();
 

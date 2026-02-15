@@ -4,15 +4,17 @@ project(
   version: '3.0.0',
   default_options: [
     'cpp_std=c++20',
-    'buildtype=minsize',
+    'optimization=s',
     'b_lto=true',
     'warning_level=2',
   ],
 )
 
+cpp = meson.get_compiler('cpp')
+assert(cpp.has_header('format'), 'C++20 <format> header not found. GCC 13+ or Clang 17+ required.')
+
 # Size optimization flags
 add_project_arguments(
-  '-Os',
   '-ffunction-sections',
   '-fdata-sections',
   language: 'cpp',

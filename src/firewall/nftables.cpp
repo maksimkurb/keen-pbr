@@ -3,7 +3,8 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <sstream>
+#include <format>
+#include <string>
 #include <sys/socket.h>
 
 namespace keen_pbr3 {
@@ -64,68 +65,66 @@ std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
 }
 
 void NftablesFirewall::apply() {
-    std::ostringstream script;
+    std::string script;
 
     // Delete existing table (if any) for clean slate
-    script << "delete table inet " << TABLE_NAME << "\n";
+    script += std::format("delete table inet {}\n", TABLE_NAME);
 
     // Begin table definition
-    script << "table inet " << TABLE_NAME << " {\n";
+    script += std::format("table inet {} {{\n", TABLE_NAME);
 
     // Define all sets
     for (const auto& ps : pending_sets_) {
-        script << "  set " << ps.name << " { type " << ps.type
-               << "; flags " << ps.flags << ";";
         if (ps.timeout > 0) {
-            script << " timeout " << ps.timeout << "s;";
+            script += std::format("  set {} {{ type {}; flags {}; timeout {}s; }}\n",
+                                  ps.name, ps.type, ps.flags, ps.timeout);
+        } else {
+            script += std::format("  set {} {{ type {}; flags {}; }}\n",
+                                  ps.name, ps.type, ps.flags);
         }
-        script << " }\n";
     }
 
     // Define chain with all rules
-    script << "  chain " << CHAIN_NAME << " {\n";
-    script << "    type filter hook prerouting priority mangle; policy accept;\n";
+    script += std::format("  chain {} {{\n", CHAIN_NAME);
+    script += "    type filter hook prerouting priority mangle; policy accept;\n";
 
     for (const auto& pr : pending_rules_) {
         std::string addr_family = (pr.family == AF_INET6) ? "ip6" : "ip";
 
         if (pr.action == PendingRule::Mark) {
-            std::ostringstream hex;
-            hex << "0x" << std::hex << pr.fwmark;
-            script << "    " << addr_family << " daddr @" << pr.set_name
-                   << " meta mark set " << hex.str() << "\n";
+            script += std::format("    {} daddr @{} meta mark set {:#x}\n",
+                                  addr_family, pr.set_name, pr.fwmark);
         } else {
-            script << "    " << addr_family << " daddr @" << pr.set_name
-                   << " drop\n";
+            script += std::format("    {} daddr @{} drop\n",
+                                  addr_family, pr.set_name);
         }
     }
 
-    script << "  }\n";
-    script << "}\n";
+    script += "  }\n";
+    script += "}\n";
 
     // Append all buffered element additions (outside the table block)
     for (auto& [set_name, buf] : pending_elements_) {
         std::string elements = buf.str();
         if (!elements.empty()) {
-            script << elements;
+            script += elements;
         }
     }
 
     // Apply atomically via nft -f -
-    std::string script_str = script.str();
     FILE* pipe = popen("nft -f -", "w");
     if (!pipe) {
         throw FirewallError("Failed to open pipe to 'nft -f -'");
     }
 
-    if (std::fwrite(script_str.data(), 1, script_str.size(), pipe) != script_str.size()) {
+    if (std::fwrite(script.data(), 1, script.size(), pipe) != script.size()) {
         pclose(pipe);
         throw FirewallError("Failed to write nft script to pipe");
     }
 
     int status = pclose(pipe);
     if (status != 0) {
-        throw FirewallError("nft -f - exited with status " + std::to_string(status));
+        throw FirewallError(std::format("nft -f - exited with status {}", status));
     }
 
     // Clear pending buffers
@@ -137,7 +136,7 @@ void NftablesFirewall::apply() {
 
 void NftablesFirewall::cleanup() {
     if (table_created_) {
-        std::system(("nft delete table inet " + std::string(TABLE_NAME) + " 2>/dev/null").c_str());
+        std::system(std::format("nft delete table inet {} 2>/dev/null", TABLE_NAME).c_str());
         table_created_ = false;
     }
 
