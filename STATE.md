@@ -45,330 +45,364 @@ Key capabilities:
 - Optional REST API for status, health, and reload
 - Multiple outbound types: interface, table, blackhole, ignore, urltest (auto-select)
 
-```plantuml
-@startuml overview
-!theme plain
-skinparam backgroundColor white
+```mermaid
+graph TB
+    subgraph "keen-pbr3 Daemon"
+        config["Config Parser"]
+        cache["Cache Manager"]
+        lists["List Streamer"]
+        fw["Firewall<br/>(iptables/nftables)"]
+        routing["Routing<br/>(netlink)"]
+        health["URL Tester"]
+        dns["DNS Router"]
+        dnsmasq["Dnsmasq Generator"]
+        daemon["Event Loop<br/>(epoll)"]
+        scheduler["Scheduler<br/>(timerfd)"]
+        api["REST API<br/>(optional)"]
+    end
 
-package "keen-pbr3 Daemon" {
-  [Config Parser] as config
-  [Cache Manager] as cache
-  [List Streamer] as lists
-  [Firewall\n(iptables/nftables)] as fw
-  [Routing\n(netlink)] as routing
-  [URL Tester] as health
-  [DNS Router] as dns
-  [Dnsmasq Generator] as dnsmasq
-  [Event Loop\n(epoll)] as daemon
-  [Scheduler\n(timerfd)] as scheduler
-  [REST API\n(optional)] as api
-}
+    subgraph "External"
+        remote["Remote Lists"]
+        local["Local Files"]
+        configfile["config.json"]
+        dnsmasqfile["dnsmasq.conf"]
+    end
 
-cloud "Remote Lists" as remote
-file "Local Files" as local
-file "config.json" as configfile
-file "dnsmasq.conf" as dnsmasqfile
+    subgraph "Linux Kernel"
+        ipsets["ipset / nft sets"]
+        rules["iptables / nft rules"]
+        iprules["ip rules<br/>(policy routing)"]
+        routes["routes<br/>(per-table)"]
+    end
 
-database "Linux Kernel" {
-  [ipset / nft sets] as ipsets
-  [iptables / nft rules] as rules
-  [ip rules\n(policy routing)] as iprules
-  [routes\n(per-table)] as routes
-}
+    dnsmasq_proc["dnsmasq"]
 
-component "dnsmasq" as dnsmasq_proc
+    configfile -->|config| config
+    config --> cache
+    config --> fw
+    config --> routing
+    config --> dns
 
-configfile --> config
-config --> cache
-config --> fw
-config --> routing
-config --> dns
+    remote -->|HTTP/HTTPS<br/>cond. requests| cache
+    local -->|file I/O| lists
+    cache -->|cached files| lists
 
-remote --> cache : HTTP(S)\n(cond. requests)
-local --> lists : file I/O
-cache --> lists : cached files
+    lists -->|IPs/CIDRs<br/>visitor pattern| fw
+    fw -->|create/populate<br/>batch pipes| ipsets
+    fw --> rules
 
-lists --> fw : IPs/CIDRs\n(visitor pattern)
-fw --> ipsets : create/populate\n(batch pipes)
-fw --> rules : mark rules
+    routing -->|fwmark→table| iprules
+    routing --> routes
 
-routing --> iprules : fwmark→table
-routing --> routes : default routes
+    dns --> dnsmasq
+    dnsmasq -->|write config| dnsmasqfile
+    dnsmasq_proc -.->|populates via<br/>ipset= directives| ipsets
 
-dns --> dnsmasq : domains→servers
-dnsmasq --> dnsmasqfile : write config
-dnsmasq_proc ..> ipsets : populates via\nipset= directives
-
-health --> daemon : test results
-scheduler --> daemon : timer fds
-api ..> daemon : status/reload
-@enduml
+    health --> daemon
+    scheduler --> daemon
+    api -.-> daemon
 ```
 
 ---
 
 ## High-Level Architecture
 
-```plantuml
-@startuml architecture
-!theme plain
-skinparam backgroundColor white
-skinparam componentStyle rectangle
+```mermaid
+graph TD
+    subgraph Config["src/config/"]
+        ConfigParser["config.hpp/cpp<br/>JSON parser"]
+        ListParser["list_parser.hpp/cpp<br/>IP/domain parser"]
+    end
 
-package "src/config/" {
-  [config.hpp/cpp\nJSON parser] as ConfigParser
-  [list_parser.hpp/cpp\nIP/domain parser] as ListParser
-}
+    subgraph Http["src/http/"]
+        HttpClient["http_client.hpp/cpp<br/>libcurl wrapper"]
+    end
 
-package "src/http/" {
-  [http_client.hpp/cpp\nlibcurl wrapper] as HttpClient
-}
+    subgraph Cache["src/cache/"]
+        CacheManager["cache_manager.hpp/cpp<br/>ETag/304 caching"]
+    end
 
-package "src/cache/" {
-  [cache_manager.hpp/cpp\nETag/304 caching] as CacheManager
-}
+    subgraph Lists["src/lists/"]
+        ListStreamer["list_streamer.hpp/cpp<br/>visitor-based streaming"]
+        ListEntryVisitor["list_entry_visitor.hpp<br/>visitor interface"]
+        IpSet["ipset.hpp/cpp<br/>binary trie"]
+    end
 
-package "src/lists/" {
-  [list_streamer.hpp/cpp\nvisitor-based streaming] as ListStreamer
-  [list_entry_visitor.hpp\nvisitor interface] as ListEntryVisitor
-  [ipset.hpp/cpp\nbinary trie] as IpSet
-}
+    subgraph Routing["src/routing/"]
+        Target["target.hpp/cpp<br/>route resolution"]
+        Netlink["netlink.hpp/cpp<br/>libnl3 wrapper"]
+        RouteTable["route_table.hpp/cpp<br/>route tracking"]
+        PolicyRule["policy_rule.hpp/cpp<br/>rule tracking"]
+        FirewallState["firewall_state.hpp/cpp<br/>rule state tracker"]
+        UrltestManager["urltest_manager.hpp/cpp<br/>auto-select logic"]
+    end
 
-package "src/routing/" {
-  [target.hpp/cpp\nroute resolution] as Target
-  [netlink.hpp/cpp\nlibnl3 wrapper] as Netlink
-  [route_table.hpp/cpp\nroute tracking] as RouteTable
-  [policy_rule.hpp/cpp\nrule tracking] as PolicyRule
-  [firewall_state.hpp/cpp\nrule state tracker] as FirewallState
-  [urltest_manager.hpp/cpp\nauto-select logic] as UrltestManager
-}
+    subgraph Firewall["src/firewall/"]
+        FirewallBase["firewall.hpp/cpp<br/>abstract + factory"]
+        Iptables["iptables.hpp/cpp<br/>ipset + iptables"]
+        Nftables["nftables.hpp/cpp<br/>nft CLI"]
+        IpsetPipe["ipset_restore_pipe.hpp<br/>batch loading"]
+        NftPipe["nft_batch_pipe.hpp<br/>batch loading"]
+    end
 
-package "src/firewall/" {
-  [firewall.hpp/cpp\nabstract + factory] as FirewallBase
-  [iptables.hpp/cpp\nipset + iptables] as Iptables
-  [nftables.hpp/cpp\nnft CLI] as Nftables
-  [ipset_restore_pipe.hpp\nbatch loading] as IpsetPipe
-  [nft_batch_pipe.hpp\nbatch loading] as NftPipe
-}
+    subgraph Health["src/health/"]
+        URLTester["url_tester.hpp/cpp<br/>HTTP URL testing"]
+        CircuitBreaker["circuit_breaker.hpp/cpp<br/>state machine"]
+    end
 
-package "src/health/" {
-  [url_tester.hpp/cpp\nHTTP URL testing] as URLTester
-  [circuit_breaker.hpp/cpp\nstate machine] as CircuitBreaker
-}
+    subgraph DNS["src/dns/"]
+        DnsServer["dns_server.hpp/cpp<br/>type parser"]
+        DnsRouter["dns_router.hpp/cpp<br/>rule matching"]
+        DnsmasqGen["dnsmasq_gen.hpp/cpp<br/>config writer"]
+    end
 
-package "src/dns/" {
-  [dns_server.hpp/cpp\ntype parser] as DnsServer
-  [dns_router.hpp/cpp\nrule matching] as DnsRouter
-  [dnsmasq_gen.hpp/cpp\nconfig writer] as DnsmasqGen
-}
+    subgraph Daemon["src/daemon/"]
+        DaemonLoop["daemon.hpp/cpp<br/>epoll + signalfd"]
+        Scheduler["scheduler.hpp/cpp<br/>timerfd"]
+    end
 
-package "src/daemon/" {
-  [daemon.hpp/cpp\nepoll + signalfd] as Daemon
-  [scheduler.hpp/cpp\ntimerfd] as Scheduler
-}
+    subgraph Log["src/log/"]
+        Logger["logger.hpp/cpp<br/>singleton logger"]
+    end
 
-package "src/log/" {
-  [logger.hpp/cpp\nsingleton logger] as Logger
-}
+    subgraph Api["src/api/ (optional)"]
+        ApiServer["server.hpp/cpp<br/>cpp-httplib"]
+        ApiHandlers["handlers.hpp/cpp<br/>GET/POST handlers"]
+    end
 
-package "src/api/" <<optional>> {
-  [server.hpp/cpp\ncpp-httplib] as ApiServer
-  [handlers.hpp/cpp\nGET/POST handlers] as ApiHandlers
-}
+    Main["src/main.cpp<br/>entry point"]
 
-[src/main.cpp\nentry point] as Main
+    Main --> ConfigParser
+    Main --> CacheManager
+    Main --> ListStreamer
+    Main --> FirewallBase
+    Main --> Netlink
+    Main --> RouteTable
+    Main --> PolicyRule
+    Main --> Target
+    Main --> URLTester
+    Main --> CircuitBreaker
+    Main --> DnsRouter
+    Main --> DnsmasqGen
+    Main --> DaemonLoop
+    Main --> Scheduler
+    Main --> ApiServer
+    Main --> Logger
 
-Main --> ConfigParser
-Main --> CacheManager
-Main --> ListStreamer
-Main --> FirewallBase
-Main --> Netlink
-Main --> RouteTable
-Main --> PolicyRule
-Main --> Target
-Main --> URLTester
-Main --> CircuitBreaker
-Main --> DnsRouter
-Main --> DnsmasqGen
-Main --> Daemon
-Main --> Scheduler
-Main --> ApiServer
-Main --> Logger
-
-CacheManager --> HttpClient
-ListStreamer --> CacheManager
-ListStreamer --> ListParser
-ListStreamer --> ListEntryVisitor
-Iptables --> IpsetPipe
-Nftables --> NftPipe
-IpsetPipe --> ListEntryVisitor
-NftPipe --> ListEntryVisitor
-DnsRouter --> DnsServer
-DnsmasqGen --> DnsRouter
-DnsmasqGen --> ListStreamer
-RouteTable --> Netlink
-PolicyRule --> Netlink
-Iptables --|> FirewallBase
-Nftables --|> FirewallBase
-UrltestManager --> URLTester
-UrltestManager --> CircuitBreaker
-Scheduler --> Daemon
-ApiHandlers --> ApiServer
-@enduml
+    CacheManager --> HttpClient
+    ListStreamer --> CacheManager
+    ListStreamer --> ListParser
+    ListStreamer --> ListEntryVisitor
+    Iptables --> IpsetPipe
+    Nftables --> NftPipe
+    IpsetPipe --> ListEntryVisitor
+    NftPipe --> ListEntryVisitor
+    DnsRouter --> DnsServer
+    DnsmasqGen --> DnsRouter
+    DnsmasqGen --> ListStreamer
+    RouteTable --> Netlink
+    PolicyRule --> Netlink
+    Iptables -->|implements| FirewallBase
+    Nftables -->|implements| FirewallBase
+    UrltestManager --> URLTester
+    UrltestManager --> CircuitBreaker
+    Scheduler --> DaemonLoop
+    ApiHandlers --> ApiServer
 ```
 
 ---
 
 ## Module Dependency Graph
 
-```plantuml
-@startuml dependencies
-!theme plain
-skinparam backgroundColor white
-left to right direction
+```mermaid
+graph LR
+    main["main.cpp"]
 
-rectangle "main.cpp" as main
-rectangle "config" as config #LightBlue
-rectangle "list_parser" as lp #LightBlue
-rectangle "http_client" as http #LightGreen
-rectangle "cache_manager" as cache #LightGreen
-rectangle "list_streamer" as ls #LightGreen
-rectangle "list_entry_visitor" as lev #LightGreen
-rectangle "ipset (trie)" as ipset #LightGreen
-rectangle "target" as target #Orange
-rectangle "netlink" as netlink #Orange
-rectangle "route_table" as rt #Orange
-rectangle "policy_rule" as pr #Orange
-rectangle "firewall_state" as fs #Orange
-rectangle "urltest_manager" as um #Orange
-rectangle "firewall" as fw #Pink
-rectangle "iptables" as ipt #Pink
-rectangle "nftables" as nft #Pink
-rectangle "ipset_restore_pipe" as irp #Pink
-rectangle "nft_batch_pipe" as nbp #Pink
-rectangle "url_tester" as ut #Yellow
-rectangle "circuit_breaker" as cb #Yellow
-rectangle "dns_server" as ds #Cyan
-rectangle "dns_router" as dr #Cyan
-rectangle "dnsmasq_gen" as dg #Cyan
-rectangle "logger" as log #Gray
-rectangle "daemon" as daemon #Gray
-rectangle "scheduler" as sched #Gray
-rectangle "api/server" as api #Violet
-rectangle "api/handlers" as ah #Violet
+    config["config"]:::Config
+    lp["list_parser"]:::Config
+    http["http_client"]:::Lists
+    cache["cache_manager"]:::Lists
+    ls["list_streamer"]:::Lists
+    lev["list_entry_visitor"]:::Lists
+    ipset["ipset<br/>trie"]:::Lists
 
-main --> config
-main --> cache
-main --> ls
-main --> target
-main --> fw
-main --> netlink
-main --> rt
-main --> pr
-main --> fs
-main --> um
-main --> ut
-main --> cb
-main --> dr
-main --> dg
-main --> log
-main --> daemon
-main --> sched
-main --> api
+    target["target"]:::Routing
+    netlink["netlink"]:::Routing
+    rt["route_table"]:::Routing
+    pr["policy_rule"]:::Routing
+    fs["firewall_state"]:::Routing
+    um["urltest_manager"]:::Routing
 
-cache --> http
-ls --> cache
-ls --> lp
-ls --> lev
-dr --> ds
-dr --> ls
-dg --> dr
-dg --> ls
-dg --> config
-rt --> netlink
-pr --> netlink
-ipt --> fw
-ipt --> irp
-nft --> fw
-nft --> nbp
-irp --> lev
-nbp --> lev
-um --> ut
-um --> cb
-um --> sched
-sched --> daemon
-ah --> api
-@enduml
+    fw["firewall"]:::Firewall
+    ipt["iptables"]:::Firewall
+    nft["nftables"]:::Firewall
+    irp["ipset_restore_pipe"]:::Firewall
+    nbp["nft_batch_pipe"]:::Firewall
+
+    ut["url_tester"]:::Health
+    cb["circuit_breaker"]:::Health
+
+    ds["dns_server"]:::DNS
+    dr["dns_router"]:::DNS
+    dg["dnsmasq_gen"]:::DNS
+
+    log["logger"]:::Daemon
+    daemon["daemon"]:::Daemon
+    sched["scheduler"]:::Daemon
+
+    api["api/server"]:::API
+    ah["api/handlers"]:::API
+
+    main --> config
+    main --> cache
+    main --> ls
+    main --> target
+    main --> fw
+    main --> netlink
+    main --> rt
+    main --> pr
+    main --> fs
+    main --> um
+    main --> ut
+    main --> cb
+    main --> dr
+    main --> dg
+    main --> log
+    main --> daemon
+    main --> sched
+    main --> api
+
+    cache --> http
+    ls --> cache
+    ls --> lp
+    ls --> lev
+    dr --> ds
+    dr --> ls
+    dg --> dr
+    dg --> ls
+    dg --> config
+    rt --> netlink
+    pr --> netlink
+    ipt --> fw
+    ipt --> irp
+    nft --> fw
+    nft --> nbp
+    irp --> lev
+    nbp --> lev
+    um --> ut
+    um --> cb
+    um --> sched
+    sched --> daemon
+    ah --> api
+
+    classDef Config fill:#ADD8E6
+    classDef Lists fill:#90EE90
+    classDef Routing fill:#FFA500
+    classDef Firewall fill:#FFB6C1
+    classDef Health fill:#FFFF99
+    classDef DNS fill:#87CEEB
+    classDef Daemon fill:#D3D3D3
+    classDef API fill:#EE82EE
 ```
 
 ---
 
 ## Data Flow
 
-```plantuml
-@startuml dataflow
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Start(["Start"])
 
-|Config|
-start
-:Read JSON config file;
-:Parse config sections\n(daemon, api, outbounds,\nlists, dns, route);
+    subgraph Config["Config Stage"]
+        ReadConfig["Read JSON config file"]
+        ParseConfig["Parse config sections<br/>(daemon, api, outbounds,<br/>lists, dns, route)"]
+    end
 
-|Lists|
-:For each list definition:
- - Download URL (HTTP/HTTPS)
- - Read local file
- - Parse inline entries;
-:Parse each source into\nParsedList (ips, cidrs, domains);
-:Cache downloaded lists\nto /var/cache/keen-pbr3/;
+    subgraph Lists["Lists Stage"]
+        DownloadLists["For each list definition:<br/>- Download URL HTTP/HTTPS<br/>- Read local file<br/>- Parse inline entries"]
+        ParseLists["Parse each source into<br/>ParsedList ips, cidrs, domains"]
+        CacheLists["Cache downloaded lists<br/>to /var/cache/keen-pbr3/"]
+    end
 
-|Firewall|
-:For each route rule:;
-:Resolve outbound via\nfailover chain + health check;
-if (skip or no outbound?) then (yes)
-  :Continue to next rule;
-else (no)
-  :For each list in rule:;
-  :Create ipset/nft set\n(with optional TTL);
-  :Add IPs and CIDRs\nto the set;
-  :Create mark rule\n(fwmark 0x10000+);
-endif
+    subgraph Firewall["Firewall Stage"]
+        ForRule["For each route rule"]
+        ResolveOutbound["Resolve outbound via<br/>failover chain + health check"]
+        CheckSkip{skip or<br/>no outbound?}
+        ContinueRule["Continue to next rule"]
+        ForList["For each list in rule"]
+        CreateSet["Create ipset/nft set<br/>with optional TTL"]
+        AddIPs["Add IPs and CIDRs<br/>to the set"]
+        MarkRule["Create mark rule<br/>fwmark 0x10000+"]
+    end
 
-|Routing|
-:For each resolved outbound:;
-if (InterfaceOutbound?) then (yes)
-  :Add ip rule:\nfwmark → table N;
-  :Add default route\nin table N via interface;
-elseif (TableOutbound?) then (yes)
-  :Add ip rule:\nfwmark → existing table;
-elseif (BlackholeOutbound?) then (yes)
-  :Add ip rule:\nfwmark → table N;
-  :Add blackhole route\nin table N;
-endif
+    subgraph Routing["Routing Stage"]
+        ForOutbound["For each resolved outbound"]
+        CheckInterface{InterfaceOutbound?}
+        AddInterfaceRule["Add ip rule: fwmark → table N<br/>Add default route in table N via interface"]
+        CheckTable{TableOutbound?}
+        AddTableRule["Add ip rule: fwmark → existing table"]
+        CheckBlackhole{BlackholeOutbound?}
+        AddBlackholeRule["Add ip rule: fwmark → table N<br/>Add blackhole route in table N"]
+    end
 
-|DNS|
-:Generate dnsmasq config:;
-:For each list with domains:
- - ipset=/domain/setname
- - server=/domain/dns-ip;
+    subgraph DNS["DNS Stage"]
+        GenDNS["Generate dnsmasq config"]
+        ForDomains["For each list with domains<br/>- ipset=/domain/setname<br/>- server=/domain/dns-ip"]
+    end
 
-|Runtime|
-:Start epoll event loop;
-:Schedule periodic tasks:
- - List refresh (24h default)
- - Health checks (per-outbound);
-:Wait for events;
-if (SIGUSR1?) then (yes)
-  :Reload all lists;
-elseif (SIGTERM/SIGINT?) then (yes)
-  :Graceful shutdown;
-elseif (Timer expired?) then (yes)
-  :Execute scheduled callback;
-endif
+    subgraph Runtime["Runtime Stage"]
+        StartLoop["Start epoll event loop"]
+        Schedule["Schedule periodic tasks<br/>- List refresh 24h default<br/>- Health checks per-outbound"]
+        Wait["Wait for events"]
+        CheckSIGUSR1{SIGUSR1?}
+        ReloadLists["Reload all lists"]
+        CheckSIGTERM{SIGTERM/SIGINT?}
+        Shutdown["Graceful shutdown"]
+        CheckTimer{Timer expired?}
+        ExecuteCallback["Execute scheduled callback"]
+    end
 
-stop
-@enduml
+    End(["Stop"])
+
+    Start --> ReadConfig
+    ReadConfig --> ParseConfig
+    ParseConfig --> DownloadLists
+    DownloadLists --> ParseLists
+    ParseLists --> CacheLists
+    CacheLists --> ForRule
+    ForRule --> ResolveOutbound
+    ResolveOutbound --> CheckSkip
+    CheckSkip -->|yes| ContinueRule
+    CheckSkip -->|no| ForList
+    ForList --> CreateSet
+    CreateSet --> AddIPs
+    AddIPs --> MarkRule
+    MarkRule --> ForOutbound
+    ContinueRule --> ForOutbound
+    ForOutbound --> CheckInterface
+    CheckInterface -->|yes| AddInterfaceRule
+    CheckInterface -->|no| CheckTable
+    CheckTable -->|yes| AddTableRule
+    CheckTable -->|no| CheckBlackhole
+    CheckBlackhole -->|yes| AddBlackholeRule
+    CheckBlackhole -->|no| GenDNS
+    AddInterfaceRule --> GenDNS
+    AddTableRule --> GenDNS
+    AddBlackholeRule --> GenDNS
+    GenDNS --> ForDomains
+    ForDomains --> StartLoop
+    StartLoop --> Schedule
+    Schedule --> Wait
+    Wait --> CheckSIGUSR1
+    CheckSIGUSR1 -->|yes| ReloadLists
+    ReloadLists --> Wait
+    CheckSIGUSR1 -->|no| CheckSIGTERM
+    CheckSIGTERM -->|yes| Shutdown
+    CheckSIGTERM -->|no| CheckTimer
+    CheckTimer -->|yes| ExecuteCallback
+    ExecuteCallback --> Wait
+    CheckTimer -->|no| Wait
+    Shutdown --> End
 ```
 
 ---
@@ -578,134 +612,136 @@ Special non-daemon mode: loads config, reads lists from cache (downloads if not 
 
 ## Startup Sequence
 
-```plantuml
-@startuml startup
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Start(["Start"])
+    ParseArgs["Parse CLI arguments"]
+    CheckVersion{--version?}
+    PrintVersion["Print version"]
+    CheckHelp{--help?}
+    PrintUsage["Print usage"]
+    ReadConfig["Read config file"]
+    ParseJSON["Parse JSON → Config struct"]
+    CheckDownload{download<br/>command?}
+    CreateCacheDownload["Create CacheManager"]
+    DownloadListsDownload["For each list with URL:<br/>- Download with conditional request<br/>- Count entries via visitor<br/>- Save metadata"]
+    StopDownload1["Stop"]
+    CheckPrintDNS{print-dnsmasq-config?}
+    CreateCachePrint["Create CacheManager"]
+    DownloadListsPrint["Download uncached lists"]
+    CreateListStreamer["Create ListStreamer"]
+    CreateDnsRouter["Create DnsRouter"]
+    CreateDnsmasqGen["Create DnsmasqGenerator"]
+    PrintConfig["Print generated config to stdout"]
+    StopPrint["Stop"]
+    CheckService{service<br/>command?}
+    InitLogger["Initialize Logger"]
 
-start
+    subgraph InitSubsystems["Initialize Subsystems"]
+        CreateCache["Create CacheManager<br/>cache_dir from config"]
+        CreateFW["Create Firewall<br/>auto-detect backend"]
+        CreateNetlink["Create NetlinkManager<br/>connect NETLINK_ROUTE"]
+        CreateRouteTable["Create RouteTable"]
+        CreatePolicyRule["Create PolicyRuleManager"]
+        CreateFWState["Create FirewallState"]
+        CreateURLTester["Create URLTester"]
+        AllocateFwmarks["Allocate outbound fwmarks"]
+    end
 
-:Parse CLI arguments;
+    subgraph StartupTasks["Startup Tasks"]
+        WritePID["Write PID file"]
+        DownloadUncached["Download uncached lists"]
+        SetupRouting["Setup static routing tables<br/>and ip rules for each outbound"]
+        RegisterURLTest["Register URLTest outbounds<br/>schedule periodic tests"]
+        ApplyFW["Apply firewall rules<br/>create ipsets, stream entries"]
+        CheckAPI{API enabled<br/>and not --no-api?}
+        CreateAPI["Create ApiServer"]
+        RegisterAPI["Register API handlers"]
+        StartAPI["Start API in background thread"]
+    end
 
-if (--version?) then (yes)
-  :Print version;
-  stop
-endif
+    RunDaemon["daemon.run<br/>epoll_wait loop"]
+    StopMain(["Stop"])
 
-if (--help?) then (yes)
-  :Print usage;
-  stop
-endif
-
-:Read config file;
-:Parse JSON → Config struct;
-
-if (download command?) then (yes)
-  :Create CacheManager;
-  :For each list with URL:
-    - Download with conditional request
-    - Count entries via visitor
-    - Save metadata;
-  stop
-endif
-
-if (print-dnsmasq-config?) then (yes)
-  :Create CacheManager;
-  :Download uncached lists;
-  :Create ListStreamer;
-  :Create DnsRouter;
-  :Create DnsmasqGenerator;
-  :Print generated config to stdout;
-  stop
-endif
-
-if (service command?) then (yes)
-  :Initialize Logger;
-endif
-
-partition "Initialize Subsystems" {
-  :Create CacheManager\n(cache_dir from config);
-  :Create Firewall\n(auto-detect backend);
-  :Create NetlinkManager\n(connect NETLINK_ROUTE);
-  :Create RouteTable;
-  :Create PolicyRuleManager;
-  :Create FirewallState;
-  :Create URLTester;
-  :Allocate outbound fwmarks;
-}
-
-partition "Startup Tasks" {
-  :Write PID file;
-  :Download uncached lists;
-  :Setup static routing tables\nand ip rules for each outbound;
-  :Register URLTest outbounds\n(schedule periodic tests);
-  :Apply firewall rules\n(create ipsets, stream entries);
-  if (API enabled and not --no-api?) then (yes)
-    :Create ApiServer;
-    :Register API handlers;
-    :Start API in background thread;
-  endif
-}
-
-:daemon.run()\n(epoll_wait loop);
-
-stop
-@enduml
+    Start --> ParseArgs
+    ParseArgs --> CheckVersion
+    CheckVersion -->|yes| PrintVersion
+    PrintVersion --> Start -.->|end| StopMain
+    CheckVersion -->|no| CheckHelp
+    CheckHelp -->|yes| PrintUsage
+    PrintUsage --> Start -.->|end| StopMain
+    CheckHelp -->|no| ReadConfig
+    ReadConfig --> ParseJSON
+    ParseJSON --> CheckDownload
+    CheckDownload -->|yes| CreateCacheDownload
+    CreateCacheDownload --> DownloadListsDownload
+    DownloadListsDownload --> StopDownload1
+    StopDownload1 --> StopMain
+    CheckDownload -->|no| CheckPrintDNS
+    CheckPrintDNS -->|yes| CreateCachePrint
+    CreateCachePrint --> DownloadListsPrint
+    DownloadListsPrint --> CreateListStreamer
+    CreateListStreamer --> CreateDnsRouter
+    CreateDnsRouter --> CreateDnsmasqGen
+    CreateDnsmasqGen --> PrintConfig
+    PrintConfig --> StopPrint
+    StopPrint --> StopMain
+    CheckPrintDNS -->|no| CheckService
+    CheckService -->|yes| InitLogger
+    CheckService -->|no| InitLogger
+    InitLogger --> CreateCache
+    CreateCache --> CreateFW
+    CreateFW --> CreateNetlink
+    CreateNetlink --> CreateRouteTable
+    CreateRouteTable --> CreatePolicyRule
+    CreatePolicyRule --> CreateFWState
+    CreateFWState --> CreateURLTester
+    CreateURLTester --> AllocateFwmarks
+    AllocateFwmarks --> WritePID
+    WritePID --> DownloadUncached
+    DownloadUncached --> SetupRouting
+    SetupRouting --> RegisterURLTest
+    RegisterURLTest --> ApplyFW
+    ApplyFW --> CheckAPI
+    CheckAPI -->|yes| CreateAPI
+    CreateAPI --> RegisterAPI
+    RegisterAPI --> StartAPI
+    CheckAPI -->|no| RunDaemon
+    StartAPI --> RunDaemon
+    RunDaemon --> StopMain
 ```
 
 ---
 
 ## Event Loop & Scheduling
 
-```plantuml
-@startuml eventloop
-!theme plain
-skinparam backgroundColor white
+```mermaid
+stateDiagram-v2
+    state "Daemon Event Loop" as loop {
+        [*] --> epoll_wait
+        epoll_wait --> "Handle Signal" : signalfd readable
+        epoll_wait --> "Dispatch FD Callback" : timerfd/other fd readable
+        "Handle Signal" --> epoll_wait : continue loop
+        "Dispatch FD Callback" --> epoll_wait : continue loop
+    }
 
-state "Daemon Event Loop" as loop {
-  state "epoll_wait()" as wait
-  state "Handle Signal" as signal
-  state "Dispatch FD Callback" as dispatch
+    state "Signal Handling" as sighandling {
+        [*] --> signals
+        signals: SIGTERM/SIGINT<br/>- Set running_ = false<br/>- epoll_wait returns<br/>- daemon.run() exits<br/>---<br/>SIGUSR1<br/>- Verify routing tables<br/>- Trigger immediate URL tests<br/>---<br/>SIGHUP<br/>- Full reload<br/>- Re-read config<br/>- Rebuild all
+    }
 
-  wait --> signal : signalfd readable
-  wait --> dispatch : timerfd / other fd readable
-  signal --> wait : continue loop
-  dispatch --> wait : continue loop
-}
+    state "Timer Handling" as timerhandling {
+        [*] --> readtimer
+        readtimer --> findentry : read timerfd
+        findentry --> execcb : find entry by fd
+        execcb --> [*]
+        note right of execcb
+            One-shot timers auto-remove<br/>after callback fires.<br/>Repeating timers stay registered.
+        end note
+    }
 
-state "Signal Handling" as sighandling {
-  state "SIGTERM / SIGINT" as sigterm
-  state "SIGUSR1" as sigusr1
-  state "SIGHUP" as sighup
-
-  sigterm : Set running_ = false
-  sigterm : → epoll_wait returns
-  sigterm : → daemon.run() exits
-
-  sigusr1 : Verify routing tables
-  sigusr1 : Trigger immediate URL tests
-
-  sighup : Full reload
-  sighup : Re-read config, rebuild all
-}
-
-state "Timer Handling" as timerhandling {
-  state "Read timerfd" as readtimer
-  state "Find entry by fd" as findentry
-  state "Execute callback" as execcb
-
-  readtimer --> findentry
-  findentry --> execcb
-  note right of execcb
-    One-shot timers auto-remove
-    after callback fires.
-    Repeating timers stay registered.
-  end note
-}
-
-loop --> sighandling
-loop --> timerhandling
-@enduml
+    loop --> sighandling
+    loop --> timerhandling
 ```
 
 ### Implementation Details
@@ -730,45 +766,47 @@ loop --> timerhandling
 
 ## List Management
 
-```plantuml
-@startuml lists
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Start(["Start"])
+    StreamCall["ListStreamer::stream_list<br/>name, config, visitor"]
 
-start
-:ListStreamer::stream_list(name, config, visitor);
+    subgraph StreamSources["Stream all sources"]
+        CheckCache{cache file<br/>exists?}
+        OpenCache["Open cache file"]
+        ParseCache["For each non-empty, non-comment line:<br/>- Parse IP/CIDR/domain<br/>- Call visitor.on_entry type, entry"]
 
-partition "Stream all sources" {
-  if (cache file exists?) then (yes)
-    :Open cache file;
-    :For each non-empty, non-comment line:
-      - Parse IP/CIDR/domain
-      - Call visitor.on_entry(type, entry);
-  endif
+        CheckLocal{local file<br/>configured?}
+        OpenLocal["Open local file"]
+        ParseLocal["For each non-empty, non-comment line:<br/>- Parse IP/CIDR/domain<br/>- Call visitor.on_entry type, entry"]
 
-  if (local file configured?) then (yes)
-    :Open local file;
-    :For each non-empty, non-comment line:
-      - Parse IP/CIDR/domain
-      - Call visitor.on_entry(type, entry);
-  endif
+        CheckIPCIDR{inline<br/>ip_cidrs?}
+        ParseIPCIDR["For each entry:<br/>- Parse IP/CIDR<br/>- Call visitor.on_entry Ip|Cidr, entry"]
 
-  if (inline ip_cidrs?) then (yes)
-    :For each entry:
-      - Parse IP/CIDR
-      - Call visitor.on_entry(Ip|Cidr, entry);
-  endif
+        CheckDomains{inline<br/>domains?}
+        ParseDomains["For each domain:<br/>- Call visitor.on_entry Domain, domain"]
+    end
 
-  if (inline domains?) then (yes)
-    :For each domain:
-      - Call visitor.on_entry(Domain, domain);
-  endif
-}
+    Complete["visitor.on_list_complete name"]
+    End(["Stop"])
 
-:visitor.on_list_complete(name);
-
-stop
-@enduml
+    Start --> StreamCall
+    StreamCall --> CheckCache
+    CheckCache -->|yes| OpenCache
+    OpenCache --> ParseCache
+    CheckCache -->|no| CheckLocal
+    ParseCache --> CheckLocal
+    CheckLocal -->|yes| OpenLocal
+    OpenLocal --> ParseLocal
+    CheckLocal -->|no| CheckIPCIDR
+    ParseLocal --> CheckIPCIDR
+    CheckIPCIDR -->|yes| ParseIPCIDR
+    CheckIPCIDR -->|no| CheckDomains
+    ParseIPCIDR --> CheckDomains
+    CheckDomains -->|yes| ParseDomains
+    CheckDomains -->|no| Complete
+    ParseDomains --> Complete
+    Complete --> End
 ```
 
 ### Visitor Pattern
@@ -815,56 +853,64 @@ The `IpSet` class provides O(W) lookup (W = address width: 32 for IPv4, 128 for 
 
 ## Routing Pipeline
 
-```plantuml
-@startuml routing
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Start(["Start"])
 
-start
+    subgraph RouteRules["For each route rule config order"]
+        GetTag["Get route rule outbound tag"]
+        ResolveAction["resolve_route_action tag, outbounds"]
+        CheckIgnore{outbound type<br/>IgnoreOutbound?}
+        SkipRoute["RoutingDecision::skip<br/>Record RuleState action_type=Skip<br/>No firewall rules created"]
+        CheckUrltest{outbound type<br/>UrltestOutbound?}
+        GetSelected["Get currently selected child<br/>from FirewallState<br/>Use child's fwmark/routing"]
+        RouteDecision["RoutingDecision::route_to outbound"]
 
-partition "For each route rule (config order)" {
-  :Get route rule outbound tag;
-  :resolve_route_action(tag, outbounds);
+        CheckBlackhole{outbound type<br/>BlackholeOutbound?}
+        DropType["action_type = Drop<br/>Firewall DROP rule, no routing table"]
+        MarkType["action_type = Mark<br/>Lookup fwmark from OutboundMarkMap"]
+    end
 
-  if (outbound type == IgnoreOutbound?) then (yes)
-    :RoutingDecision::skip();
-    :Record RuleState with action_type=Skip;
-    note right: No firewall rules created
-  elseif (outbound type == UrltestOutbound?) then (yes)
-    :Get currently selected child from FirewallState;
-    :Use child's fwmark/routing;
-  else (no)
-    :RoutingDecision::route_to(outbound);
-  endif
+    subgraph IpsetCreate["Create ipsets and stream entries"]
+        ForList["For each list in rule"]
+        CreateSet["firewall→create_ipset name, family, timeout"]
+        CreateVisitor["Create batch loader visitor"]
+        StreamList["list_streamer→stream_list name, config, visitor"]
+        FinishVisitor["visitor→finish"]
+        CheckDrop{action_type<br/>Drop?}
+        DropRule["firewall→create_drop_rule set_name"]
+        MarkRule["firewall→create_mark_rule set_name, fwmark"]
+    end
 
-  if (outbound type == BlackholeOutbound?) then (yes)
-    :action_type = Drop;
-    note right: Firewall DROP rule, no routing table
-  else (no)
-    :action_type = Mark;
-    :Lookup fwmark from OutboundMarkMap;
-  endif
-}
+    ApplyFW["firewall→apply"]
+    RecordState["Record RuleState"]
+    End(["Stop"])
 
-partition "Create ipsets and stream entries" {
-  :For each list in rule:;
-  :firewall→create_ipset(name, family, timeout);
-  :Create batch loader visitor;
-  :list_streamer→stream_list(name, config, visitor);
-  :visitor→finish();
-  
-  if (action_type == Drop?) then (yes)
-    :firewall→create_drop_rule(set_name);
-  else (no)
-    :firewall→create_mark_rule(set_name, fwmark);
-  endif
-}
-
-:firewall→apply();
-:Record RuleState;
-
-stop
-@enduml
+    Start --> GetTag
+    GetTag --> ResolveAction
+    ResolveAction --> CheckIgnore
+    CheckIgnore -->|yes| SkipRoute
+    CheckIgnore -->|no| CheckUrltest
+    CheckUrltest -->|yes| GetSelected
+    CheckUrltest -->|no| RouteDecision
+    SkipRoute --> CheckBlackhole
+    GetSelected --> CheckBlackhole
+    RouteDecision --> CheckBlackhole
+    CheckBlackhole -->|yes| DropType
+    CheckBlackhole -->|no| MarkType
+    DropType --> ForList
+    MarkType --> ForList
+    ForList --> CreateSet
+    CreateSet --> CreateVisitor
+    CreateVisitor --> StreamList
+    StreamList --> FinishVisitor
+    FinishVisitor --> CheckDrop
+    CheckDrop -->|yes| DropRule
+    CheckDrop -->|no| MarkRule
+    DropRule --> ApplyFW
+    MarkRule --> ApplyFW
+    ApplyFW --> RecordState
+    RecordState --> End
 ```
 
 ### Static Routing Setup
@@ -927,68 +973,36 @@ Both classes track installed specs in a vector:
 
 ## Firewall Backends
 
-```plantuml
-@startuml firewall
-!theme plain
-skinparam backgroundColor white
+```mermaid
+graph TD
+    Firewall["<<interface>><br/>Firewall<br/>---<br/>+create_ipset name, family, timeout<br/>+create_mark_rule set, fwmark<br/>+create_drop_rule set<br/>+create_batch_loader set, timeout: ListEntryVisitor<br/>+apply<br/>+cleanup"]
 
-interface "Firewall" as fw {
-  +create_ipset(name, family, timeout)
-  +create_mark_rule(set, fwmark)
-  +create_drop_rule(set)
-  +create_batch_loader(set, timeout): ListEntryVisitor
-  +apply()
-  +cleanup()
-}
+    Iptables["IptablesFirewall<br/>---<br/>-created_sets_: map name, family<br/>-mark_rules_: vector MarkRule<br/>-drop_rules_: vector string<br/>-ipset_buffer_: ostringstream<br/>+exec_cmd cmd: int"]
 
-class "IptablesFirewall" as ipt {
-  -created_sets_: map<name, family>
-  -mark_rules_: vector<MarkRule>
-  -drop_rules_: vector<string>
-  -ipset_buffer_: ostringstream
-  +exec_cmd(cmd): int
-}
+    Nftables["NftablesFirewall<br/>---<br/>-TABLE_NAME: keen_pbr3<br/>-table_created_: bool<br/>-created_sets_: map name, family<br/>-nft_buffer_: ostringstream<br/>+ensure_table"]
 
-class "NftablesFirewall" as nft {
-  -TABLE_NAME: "keen_pbr3"
-  -table_created_: bool
-  -created_sets_: map<name, family>
-  -nft_buffer_: ostringstream
-  +ensure_table()
-}
+    IpsetVisitor["IpsetRestoreVisitor<br/>---<br/>-buffer_: ostringstream<br/>-set_name_: string<br/>-static_timeout_: int32<br/>+on_entry type, entry"]
 
-class "IpsetRestoreVisitor" as irv {
-  -buffer_: ostringstream&
-  -set_name_: string
-  -static_timeout_: int32
-  +on_entry(type, entry)
-}
+    NftVisitor["NftBatchVisitor<br/>---<br/>-buffer_: ostringstream<br/>-set_name_: string<br/>-static_timeout_: int32<br/>+on_entry type, entry"]
 
-class "NftBatchVisitor" as nbv {
-  -buffer_: ostringstream&
-  -set_name_: string
-  -static_timeout_: int32
-  +on_entry(type, entry)
-}
+    IptNote["<b>Uses ipset + iptables CLI commands.<br/>Batch loading via ipset restore -exist.<br/>Cleanup: delete rules first, then ipsets.<b/>"]
 
-fw <|-- ipt
-fw <|-- nft
-ipt --> irv : creates
-nft --> nbv : creates
+    NftNote["<b>Uses nft CLI commands.<br/>Single inet table for dual-stack.<br/>Batch loading via nft -f -.<br/>Cleanup: delete entire table cascades.<b/>"]
 
-note bottom of ipt
-  Uses ipset + iptables CLI commands.
-  Batch loading via 'ipset restore -exist'.
-  Cleanup: delete rules first, then ipsets.
-end note
+    Firewall <|-- Iptables
+    Firewall <|-- Nftables
+    Iptables -->|creates| IpsetVisitor
+    Nftables -->|creates| NftVisitor
+    Iptables --- IptNote
+    Nftables --- NftNote
 
-note bottom of nft
-  Uses nft CLI commands.
-  Single "inet" table for dual-stack.
-  Batch loading via 'nft -f -'.
-  Cleanup: delete entire table (cascades).
-end note
-@enduml
+    classDef interface fill:#e1f5ff
+    classDef impl fill:#f3e5f5
+    classDef visitor fill:#fff3e0
+
+    class Firewall interface
+    class Iptables,Nftables impl
+    class IpsetVisitor,NftVisitor visitor
 ```
 
 ### Backend Detection
@@ -1056,60 +1070,57 @@ This avoids spawning a process per entry and provides atomic application.
 
 ## Health Checking & Circuit Breaker
 
-```plantuml
-@startuml health
-!theme plain
-skinparam backgroundColor white
+```mermaid
+stateDiagram-v2
+    state "URL Test Flow" as flow {
+        [*] --> check
+        check: URLTester::test<br/>url, fwmark, timeout, retry
+        check --> curl
+        curl: Create CURL request<br/>with CURLOPT_MARK
+        curl --> send
+        send: Send HTTP request<br/>through routing table
+        send --> measure : success
+        send --> retry : failure
+        retry: Retry on failure
+        retry --> send : attempts < max
+        measure: Measure latency
+        measure --> [*] : return latency_ms
+        retry --> [*] : return error
+    }
 
-state "URL Test Flow" as flow {
-  state "URLTester::test(url, fwmark, timeout, retry)" as check
-  state "Create CURL request\nwith CURLOPT_MARK" as curl
-  state "Send HTTP request\nthrough routing table" as send
-  state "Measure latency" as measure
-  state "Retry on failure" as retry
+    state "Circuit Breaker States" as cb {
+        [*] --> closed
+        closed: Closed<br/>healthy
+        open: Open<br/>blocked
+        halfopen: Half-Open<br/>probing
+        closed --> open : failure_count >= threshold
+        open --> halfopen : cooldown expired<br/>checked in is_allowed
+        halfopen --> closed : probe success
+        halfopen --> open : probe failure
+        closed --> closed : success
+    }
 
-  check --> curl
-  curl --> send
-  send --> measure : success
-  send --> retry : failure
-  retry --> send : attempts < max
-  measure --> [*] : return latency_ms
-  retry --> [*] : return error
-}
+    state "UrltestManager" as um {
+        [*] --> register
+        register: Register urltest outbound
+        register --> schedule
+        schedule: Schedule periodic tests
+        schedule --> runtests : timer fired
+        runtests: Run tests for all children
+        runtests --> select
+        select: Select best outbound<br/>weighted + tolerance
+        select --> callback : selection changed
+        callback: Fire callback on change
+        callback --> [*]
+    }
 
-state "Circuit Breaker States" as cb {
-  state "Closed\n(healthy)" as closed
-  state "Open\n(blocked)" as open
-  state "Half-Open\n(probing)" as halfopen
-
-  closed --> open : failure_count >= threshold
-  open --> halfopen : cooldown expired\n(checked in is_allowed)
-  halfopen --> closed : probe success
-  halfopen --> open : probe failure
-  closed --> closed : success
-}
-
-state "UrltestManager" as um {
-  state "Register urltest outbound" as register
-  state "Schedule periodic tests" as schedule
-  state "Run tests for all children" as runtests
-  state "Select best outbound\n(weighted + tolerance)" as select
-  state "Fire callback on change" as callback
-
-  register --> schedule
-  schedule --> runtests : timer fired
-  runtests --> select
-  select --> callback : selection changed
-}
-
-note bottom of cb
-  Configurable per-urltest:
-  - failure_threshold
-  - success_threshold
-  - timeout_ms (cooldown)
-  - half_open_max_requests
-end note
-@enduml
+    note right of cb
+        Configurable per-urltest:<br/>
+        - failure_threshold<br/>
+        - success_threshold<br/>
+        - timeout_ms cooldown<br/>
+        - half_open_max_requests
+    end note
 ```
 
 ### URL Testing Details
@@ -1149,53 +1160,42 @@ When the selected outbound changes:
 
 ## DNS Routing & Dnsmasq Integration
 
-```plantuml
-@startuml dns
-!theme plain
-skinparam backgroundColor white
+```mermaid
+graph TD
+    subgraph Config["DNS Configuration"]
+        servers["DNS Servers<br/>PlainIP, DoH, System, Blocked"]
+        rules["DNS Rules<br/>list → server"]
+        fallback["Fallback Server"]
+    end
 
-package "DNS Configuration" {
-  [DNS Servers\n(PlainIP, DoH, System, Blocked)] as servers
-  [DNS Rules\n(list → server)] as rules
-  [Fallback Server] as fallback
-}
+    subgraph Router["DnsRouter"]
+        validate["Parse & validate<br/>server configs"]
+        match["Match domain<br/>against list rules"]
+    end
 
-package "DnsRouter" {
-  [Parse & validate\nserver configs] as validate
-  [Match domain\nagainst list rules] as match
-}
+    subgraph Generator["DnsmasqGenerator"]
+        collectipset["Collect lists from<br/>route rules ipset"]
+        collectdns["Collect lists from<br/>DNS rules server"]
+        genipset["Generate ipset=<br/>directives"]
+        genserver["Generate server=<br/>directives"]
+    end
 
-package "DnsmasqGenerator" {
-  [Collect lists from\nroute rules (ipset)] as collectipset
-  [Collect lists from\nDNS rules (server)] as collectdns
-  [Generate ipset=\ndirectives] as genipset
-  [Generate server=\ndirectives] as genserver
-}
+    servers --> validate
+    rules --> match
+    validate --> match
 
-servers --> validate
-rules --> match
-validate --> match
+    collectipset --> genipset
+    collectdns --> genserver
 
-collectipset --> genipset
-collectdns --> genserver
+    genipset_note["ipset=/domain1/domain2/.../setname<br/><br/>Only non-skip route rules<br/>generate ipset directives.<br/>Wildcard domains *.x.com<br/>stripped to base domain."]
 
-note right of genipset
-  ipset=/domain1/domain2/.../setname
+    genserver_note["server=/domain1/domain2/.../dns-ip<br/><br/>Only PlainIP servers can<br/>be used in dnsmasq server=<br/>directives not DoH/system/blocked."]
 
-  Only non-skip route rules
-  generate ipset directives.
-  Wildcard domains (*.x.com)
-  stripped to base domain.
-end note
+    genipset -.-> genipset_note
+    genserver -.-> genserver_note
 
-note right of genserver
-  server=/domain1/domain2/.../dns-ip
-
-  Only PlainIP servers can
-  be used in dnsmasq server=
-  directives (not DoH/system/blocked).
-end note
-@enduml
+    style genipset_note fill:#fff3e0,stroke:#ff9800
+    style genserver_note fill:#fff3e0,stroke:#ff9800
 ```
 
 ### DNS Server Types
@@ -1342,34 +1342,30 @@ stop
 
 ## Build System
 
-```plantuml
-@startuml build
-!theme plain
-skinparam backgroundColor white
+```mermaid
+graph TD
+    subgraph Pipeline["Build Pipeline"]
+        cmake["CMakeLists.txt<br/>Build definition"]
+        makefile["Makefile<br/>Convenience wrapper"]
+    end
 
-package "Build Pipeline" {
-  [CMakeLists.txt\nBuild definition] as cmake
-  [Makefile\nConvenience wrapper] as makefile
-}
+    subgraph Bundled["Dependencies Bundled"]
+        json["nlohmann_json<br/>git submodule"]
+        httplib["cpp-httplib<br/>git submodule, optional"]
+    end
 
-package "Dependencies (Bundled)" {
-  [nlohmann_json\n(git submodule)] as json
-  [cpp-httplib\n(git submodule, optional)] as httplib
-}
+    subgraph System["Dependencies System"]
+        curl["libcurl"]
+        libnl["libnl-3.0"]
+        libnlroute["libnl-route-3.0"]
+    end
 
-package "Dependencies (System)" {
-  [libcurl] as curl
-  [libnl-3.0] as libnl
-  [libnl-route-3.0] as libnlroute
-}
-
-cmake --> json
-cmake --> httplib
-cmake --> curl : find_package
-cmake --> libnl : pkg_check_modules
-cmake --> libnlroute : pkg_check_modules
-makefile --> cmake
-@enduml
+    makefile --> cmake
+    cmake --> json
+    cmake --> httplib
+    cmake -->|find_package| curl
+    cmake -->|pkg_check_modules| libnl
+    cmake -->|pkg_check_modules| libnlroute
 ```
 
 ### CMake Build Options
@@ -1487,39 +1483,44 @@ Use `docker/Dockerfile.packages` for full package build with OpenWRT SDK integra
 
 ## CI/CD Pipeline
 
-```plantuml
-@startuml cicd
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Trigger["Push to main / PR"]
 
-|GitHub Actions|
+    Build1["Build mips-be-openwrt"]
+    Build2["Build mips-le-openwrt"]
+    Build3["Build arm-openwrt"]
+    Build4["Build aarch64-openwrt"]
+    Build5["Build x86_64-openwrt"]
+    Build6["Build mips-le-keenetic"]
 
-start
-:Push to main / PR;
+    subgraph Jobs["Each Architecture Job"]
+        Checkout["Checkout code"]
+        Docker1["docker build -f docker/Dockerfile.openwrt<br/>-t keen-pbr3-builder ."]
+        Docker2["docker run --rm<br/>-v dist:/src/dist<br/>keen-pbr3-builder arch"]
+        Upload["Upload artifact<br/>keen-pbr3-arch"]
+    end
 
-fork
-  :Build mips-be-openwrt;
-fork again
-  :Build mips-le-openwrt;
-fork again
-  :Build arm-openwrt;
-fork again
-  :Build aarch64-openwrt;
-fork again
-  :Build x86_64-openwrt;
-fork again
-  :Build mips-le-keenetic;
-end fork
+    Complete(["Complete"])
 
-partition "Each Architecture Job" {
-  :Checkout code;
-  :docker build -f docker/Dockerfile.openwrt\n-t keen-pbr3-builder .;
-  :docker run --rm\n-v dist:/src/dist\nkeen-pbr3-builder <arch>;
-  :Upload artifact\nkeen-pbr3-<arch>;
-}
+    Trigger --> Build1
+    Trigger --> Build2
+    Trigger --> Build3
+    Trigger --> Build4
+    Trigger --> Build5
+    Trigger --> Build6
 
-stop
-@enduml
+    Build1 --> Checkout
+    Build2 --> Checkout
+    Build3 --> Checkout
+    Build4 --> Checkout
+    Build5 --> Checkout
+    Build6 --> Checkout
+
+    Checkout --> Docker1
+    Docker1 --> Docker2
+    Docker2 --> Upload
+    Upload --> Complete
 ```
 
 - **Trigger**: Push to `main` or pull request to `main`
@@ -1676,74 +1677,77 @@ These operations use the **libnl3** C library directly (not shell commands):
 
 ## Packet Flow (End-to-End)
 
-```plantuml
-@startuml packetflow
-!theme plain
-skinparam backgroundColor white
+```mermaid
+flowchart TD
+    Start(["Start:<br/>Incoming packet<br/>PREROUTING"])
 
-start
-:Incoming packet\n(PREROUTING);
+    subgraph Firewall["Firewall mangle table"]
+        CheckIP["Check packet dst IP<br/>against ipsets/nft sets"]
+        Matches{matches set?}
+        DropCheck{DROP rule?}
+        Dropped["Packet dropped"]
+        ApplyMark["Apply fwmark<br/>0x10000, 0x10001, ..."]
+        NoMatch["No mark applied<br/>default routing"]
+    end
 
-partition "Firewall (mangle table)" {
-  :Check packet dst IP\nagainst ipsets/nft sets;
-  if (matches set?) then (yes)
-    if (DROP rule?) then (yes)
-      :Packet dropped;
-      stop
-    else (no)
-      :Apply fwmark\n(0x10000, 0x10001, ...);
-    endif
-  else (no)
-    :No mark applied\n(default routing);
-    stop
-  endif
-}
+    subgraph PolicyRoute["Policy Routing"]
+        CheckRules["Kernel checks ip rules<br/>by priority"]
+        MatchRule["Rule matches fwmark<br/>→ lookup table N"]
+    end
 
-partition "Policy Routing" {
-  :Kernel checks ip rules\n(by priority);
-  :Rule matches fwmark\n→ lookup table N;
-}
+    subgraph RouteLookup["Route Lookup table N"]
+        CheckInterface{InterfaceOutbound?}
+        RouteInterface["Route via interface<br/>e.g., tun0 via 10.8.0.1"]
+        CheckTable{TableOutbound?}
+        RouteTable["Route via existing<br/>table e.g., table 200"]
+    end
 
-partition "Route Lookup (table N)" {
-  if (InterfaceOutbound?) then (yes)
-    :Route via interface\n(e.g., tun0 via 10.8.0.1);
-  elseif (TableOutbound?) then (yes)
-    :Route via existing\ntable (e.g., table 200);
-  endif
-}
+    Forward["Packet forwarded<br/>via selected interface"]
+    End(["Stop"])
 
-:Packet forwarded\nvia selected interface;
-stop
-@enduml
+    Start --> CheckIP
+    CheckIP --> Matches
+    Matches -->|yes| DropCheck
+    DropCheck -->|yes| Dropped
+    Dropped --> End
+    DropCheck -->|no| ApplyMark
+    Matches -->|no| NoMatch
+    NoMatch --> End
+    ApplyMark --> CheckRules
+    CheckRules --> MatchRule
+    MatchRule --> CheckInterface
+    CheckInterface -->|yes| RouteInterface
+    CheckInterface -->|no| CheckTable
+    CheckTable -->|yes| RouteTable
+    CheckTable -->|no| Forward
+    RouteInterface --> Forward
+    RouteTable --> Forward
+    Forward --> End
 ```
 
 ### Domain-Based Flow (via dnsmasq)
 
-```plantuml
-@startuml dnsflow
-!theme plain
-skinparam backgroundColor white
+```mermaid
+sequenceDiagram
+    actor Client
+    participant dnsmasq
+    participant DNS as DNS Server
+    database ipset as Kernel ipset/nft set
+    participant fw as keen-pbr3<br/>firewall rules
 
-actor Client
-participant "dnsmasq" as dnsmasq
-participant "DNS Server" as dns
-database "Kernel ipset/nft set" as ipset
-participant "keen-pbr3\nfirewall rules" as fw
+    Client ->> dnsmasq: DNS query<br/>example.com
+    dnsmasq ->> DNS: Forward query<br/>server=/example.com/10.8.0.1
+    DNS ->> dnsmasq: Response<br/>93.184.216.34
+    dnsmasq ->> ipset: Add resolved IP<br/>ipset=/example.com/my-list
+    dnsmasq ->> Client: DNS response
 
-Client -> dnsmasq : DNS query\n(example.com)
-dnsmasq -> dns : Forward query\n(server=/example.com/10.8.0.1)
-dns -> dnsmasq : Response\n(93.184.216.34)
-dnsmasq -> ipset : Add resolved IP\n(ipset=/example.com/my-list)
-dnsmasq -> Client : DNS response
+    Note over Client,fw: later
 
-... later ...
-
-Client -> fw : Traffic to 93.184.216.34
-fw -> ipset : Check dst IP
-ipset -> fw : Match found in my-list
-fw -> fw : Apply fwmark 0x10000
-fw -> Client : Route via configured outbound
-@enduml
+    Client ->> fw: Traffic to 93.184.216.34
+    fw ->> ipset: Check dst IP
+    ipset ->> fw: Match found in my-list
+    fw ->> fw: Apply fwmark 0x10000
+    fw ->> Client: Route via configured outbound
 ```
 
 ---
