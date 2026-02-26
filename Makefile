@@ -31,11 +31,13 @@ distclean: clean ## Remove build and dist directories
 ## Docker cross-compilation ####################################################
 
 docker-image: ## Build the Docker builder image
-	docker build -f docker/Dockerfile.packages -t $(DOCKER_IMAGE) .
+	 docker build -f docker/Dockerfile.packages -t $(DOCKER_IMAGE) --build-arg ROUTER_CONFIG=$(ROUTER_CONFIG) .
 
 docker-extract: docker-image ## Extract .ipk packages from Docker image
+	@rm -rf $(DIST_DIR)
 	@mkdir -p $(DIST_DIR)
-	docker create --name keen-pbr3-tmp $(DOCKER_IMAGE) 2>/dev/null || true
+	docker rm keen-pbr3-tmp 2>/dev/null || true
+	docker create --name keen-pbr3-tmp $(DOCKER_IMAGE)
 	docker cp keen-pbr3-tmp:/home/me/openwrt/bin/packages/. $(DIST_DIR)/
 	docker rm keen-pbr3-tmp
 

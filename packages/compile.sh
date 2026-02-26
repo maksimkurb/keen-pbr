@@ -2,6 +2,9 @@
 
 set -e -x
 
+# Install custom feed (must run after source is copied)
+./scripts/feeds install -a -p custom -d m
+
 cp /home/me/openwrt/owrt-configs/${ROUTER_CONFIG}.config /home/me/openwrt/.config
 echo "" >> /home/me/openwrt/.config
 cat /home/me/openwrt/owrt-packages/packages.config >> /home/me/openwrt/.config

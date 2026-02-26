@@ -3,6 +3,7 @@
 **Version:** 3.0.0
 **Language:** C++20
 **Target platforms:** OpenWRT (MIPS, ARM, AArch64, x86_64), Keenetic (MIPS LE)
+**Build system:** CMake 3.14+
 
 ## Table of Contents
 
@@ -35,12 +36,14 @@ keen-pbr3 is a policy-based routing daemon for Linux routers. It enables selecti
 
 Key capabilities:
 - Download and parse IP/domain lists from URLs, local files, or inline config
-- Create kernel ipsets/nft sets and populate them with IPs/CIDRs
+- Disk-based caching with ETag/Last-Modified support for offline startup
+- Create kernel ipsets/nft sets and populate them with IPs/CIDRs via batch pipes
 - Generate dnsmasq config for domain-based ipset population
-- Install fwmark-based ip rules and routes via netlink
-- ICMP health checking with circuit breaker for interface failover
-- Periodic list refresh and on-demand reload via SIGUSR1
+- Install fwmark-based ip rules and routes via netlink (libnl3)
+- URL-based health testing with circuit breaker for interface failover
+- Periodic list refresh and on-demand reload via SIGUSR1/SIGHUP
 - Optional REST API for status, health, and reload
+- Multiple outbound types: interface, table, blackhole, ignore, urltest (auto-select)
 
 ```plantuml
 @startuml overview
@@ -49,10 +52,11 @@ skinparam backgroundColor white
 
 package "keen-pbr3 Daemon" {
   [Config Parser] as config
-  [List Manager] as lists
+  [Cache Manager] as cache
+  [List Streamer] as lists
   [Firewall\n(iptables/nftables)] as fw
   [Routing\n(netlink)] as routing
-  [Health Checker] as health
+  [URL Tester] as health
   [DNS Router] as dns
   [Dnsmasq Generator] as dnsmasq
   [Event Loop\n(epoll)] as daemon
@@ -75,16 +79,17 @@ database "Linux Kernel" {
 component "dnsmasq" as dnsmasq_proc
 
 configfile --> config
-config --> lists
+config --> cache
 config --> fw
 config --> routing
 config --> dns
 
-remote --> lists : HTTP(S)
+remote --> cache : HTTP(S)\n(cond. requests)
 local --> lists : file I/O
+cache --> lists : cached files
 
-lists --> fw : IPs/CIDRs
-fw --> ipsets : create/populate
+lists --> fw : IPs/CIDRs\n(visitor pattern)
+fw --> ipsets : create/populate\n(batch pipes)
 fw --> rules : mark rules
 
 routing --> iprules : fwmark→table
@@ -94,7 +99,7 @@ dns --> dnsmasq : domains→servers
 dnsmasq --> dnsmasqfile : write config
 dnsmasq_proc ..> ipsets : populates via\nipset= directives
 
-health --> daemon : check results
+health --> daemon : test results
 scheduler --> daemon : timer fds
 api ..> daemon : status/reload
 @enduml
@@ -119,8 +124,13 @@ package "src/http/" {
   [http_client.hpp/cpp\nlibcurl wrapper] as HttpClient
 }
 
+package "src/cache/" {
+  [cache_manager.hpp/cpp\nETag/304 caching] as CacheManager
+}
+
 package "src/lists/" {
-  [list_manager.hpp/cpp\ndownload + cache] as ListManager
+  [list_streamer.hpp/cpp\nvisitor-based streaming] as ListStreamer
+  [list_entry_visitor.hpp\nvisitor interface] as ListEntryVisitor
   [ipset.hpp/cpp\nbinary trie] as IpSet
 }
 
@@ -129,16 +139,20 @@ package "src/routing/" {
   [netlink.hpp/cpp\nlibnl3 wrapper] as Netlink
   [route_table.hpp/cpp\nroute tracking] as RouteTable
   [policy_rule.hpp/cpp\nrule tracking] as PolicyRule
+  [firewall_state.hpp/cpp\nrule state tracker] as FirewallState
+  [urltest_manager.hpp/cpp\nauto-select logic] as UrltestManager
 }
 
 package "src/firewall/" {
   [firewall.hpp/cpp\nabstract + factory] as FirewallBase
   [iptables.hpp/cpp\nipset + iptables] as Iptables
   [nftables.hpp/cpp\nnft CLI] as Nftables
+  [ipset_restore_pipe.hpp\nbatch loading] as IpsetPipe
+  [nft_batch_pipe.hpp\nbatch loading] as NftPipe
 }
 
 package "src/health/" {
-  [health_checker.hpp/cpp\nICMP ping] as HealthChecker
+  [url_tester.hpp/cpp\nHTTP URL testing] as URLTester
   [circuit_breaker.hpp/cpp\nstate machine] as CircuitBreaker
 }
 
@@ -153,6 +167,10 @@ package "src/daemon/" {
   [scheduler.hpp/cpp\ntimerfd] as Scheduler
 }
 
+package "src/log/" {
+  [logger.hpp/cpp\nsingleton logger] as Logger
+}
+
 package "src/api/" <<optional>> {
   [server.hpp/cpp\ncpp-httplib] as ApiServer
   [handlers.hpp/cpp\nGET/POST handlers] as ApiHandlers
@@ -161,29 +179,39 @@ package "src/api/" <<optional>> {
 [src/main.cpp\nentry point] as Main
 
 Main --> ConfigParser
-Main --> ListManager
+Main --> CacheManager
+Main --> ListStreamer
 Main --> FirewallBase
 Main --> Netlink
 Main --> RouteTable
 Main --> PolicyRule
 Main --> Target
-Main --> HealthChecker
+Main --> URLTester
 Main --> CircuitBreaker
 Main --> DnsRouter
 Main --> DnsmasqGen
 Main --> Daemon
 Main --> Scheduler
 Main --> ApiServer
+Main --> Logger
 
-ListManager --> HttpClient
-ListManager --> ListParser
+CacheManager --> HttpClient
+ListStreamer --> CacheManager
+ListStreamer --> ListParser
+ListStreamer --> ListEntryVisitor
+Iptables --> IpsetPipe
+Nftables --> NftPipe
+IpsetPipe --> ListEntryVisitor
+NftPipe --> ListEntryVisitor
 DnsRouter --> DnsServer
 DnsmasqGen --> DnsRouter
-DnsmasqGen --> ListManager
+DnsmasqGen --> ListStreamer
 RouteTable --> Netlink
 PolicyRule --> Netlink
 Iptables --|> FirewallBase
 Nftables --|> FirewallBase
+UrltestManager --> URLTester
+UrltestManager --> CircuitBreaker
 Scheduler --> Daemon
 ApiHandlers --> ApiServer
 @enduml
@@ -203,57 +231,71 @@ rectangle "main.cpp" as main
 rectangle "config" as config #LightBlue
 rectangle "list_parser" as lp #LightBlue
 rectangle "http_client" as http #LightGreen
-rectangle "list_manager" as lm #LightGreen
+rectangle "cache_manager" as cache #LightGreen
+rectangle "list_streamer" as ls #LightGreen
+rectangle "list_entry_visitor" as lev #LightGreen
 rectangle "ipset (trie)" as ipset #LightGreen
 rectangle "target" as target #Orange
 rectangle "netlink" as netlink #Orange
 rectangle "route_table" as rt #Orange
 rectangle "policy_rule" as pr #Orange
+rectangle "firewall_state" as fs #Orange
+rectangle "urltest_manager" as um #Orange
 rectangle "firewall" as fw #Pink
 rectangle "iptables" as ipt #Pink
 rectangle "nftables" as nft #Pink
-rectangle "health_checker" as hc #Yellow
+rectangle "ipset_restore_pipe" as irp #Pink
+rectangle "nft_batch_pipe" as nbp #Pink
+rectangle "url_tester" as ut #Yellow
 rectangle "circuit_breaker" as cb #Yellow
 rectangle "dns_server" as ds #Cyan
 rectangle "dns_router" as dr #Cyan
 rectangle "dnsmasq_gen" as dg #Cyan
+rectangle "logger" as log #Gray
 rectangle "daemon" as daemon #Gray
 rectangle "scheduler" as sched #Gray
 rectangle "api/server" as api #Violet
 rectangle "api/handlers" as ah #Violet
 
 main --> config
-main --> lm
+main --> cache
+main --> ls
 main --> target
 main --> fw
 main --> netlink
 main --> rt
 main --> pr
-main --> hc
+main --> fs
+main --> um
+main --> ut
 main --> cb
 main --> dr
 main --> dg
+main --> log
 main --> daemon
 main --> sched
 main --> api
 
-lm --> http
-lm --> lp
-lm --> config
-
+cache --> http
+ls --> cache
+ls --> lp
+ls --> lev
 dr --> ds
-dr --> lm
-
+dr --> ls
 dg --> dr
-dg --> lm
+dg --> ls
 dg --> config
-
 rt --> netlink
 pr --> netlink
-
 ipt --> fw
+ipt --> irp
 nft --> fw
-
+nft --> nbp
+irp --> lev
+nbp --> lev
+um --> ut
+um --> cb
+um --> sched
 sched --> daemon
 ah --> api
 @enduml
@@ -353,7 +395,7 @@ The daemon reads a JSON configuration file (default: `/etc/keen-pbr3/config.json
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `pid_file` | string | `""` | Path to PID file |
-| `list_update_interval` | duration string | `"24h"` | How often to re-download lists |
+| `cache_dir` | string | `"/var/cache/keen-pbr3"` | Directory for list cache storage |
 
 Duration strings: `"30s"`, `"5m"`, `"24h"` (seconds/minutes/hours).
 
@@ -375,9 +417,6 @@ Each outbound has a `type` field that determines its variant:
 | `tag` | string | required | Unique identifier |
 | `interface` | string | required | Network interface name (e.g., `tun0`) |
 | `gateway` | string | optional | Gateway IP for the interface |
-| `ping_target` | string | optional | IP to ping for health checks |
-| `ping_interval` | duration | `"30s"` | Health check interval |
-| `ping_timeout` | duration | `"5s"` | Ping timeout |
 
 **Table Outbound** (`type: "table"`):
 
@@ -392,15 +431,43 @@ Each outbound has a `type` field that determines its variant:
 |-------|------|-------------|
 | `tag` | string | Unique identifier |
 
+Drops matching traffic (no routing table needed).
+
+**Ignore Outbound** (`type: "ignore"`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tag` | string | Unique identifier |
+
+Skips routing for matching traffic (use system default routing).
+
+**URLTest Outbound** (`type: "urltest"`):
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `tag` | string | required | Unique identifier |
+| `url` | string | required | URL to test (e.g., `https://www.gstatic.com/generate_204`) |
+| `interval_ms` | uint32 | `180000` | Test interval in milliseconds |
+| `tolerance_ms` | uint32 | `100` | Latency tolerance for selection |
+| `outbound_groups` | array | required | Groups of child outbounds with weights |
+| `retry.attempts` | uint32 | `3` | Number of retry attempts |
+| `retry.interval_ms` | uint32 | `1000` | Delay between retries |
+| `circuit_breaker.failure_threshold` | uint32 | `5` | Failures before circuit opens |
+| `circuit_breaker.success_threshold` | uint32 | `2` | Successes to close circuit |
+| `circuit_breaker.timeout_ms` | uint32 | `30000` | Circuit breaker cooldown |
+| `circuit_breaker.half_open_max_requests` | uint32 | `1` | Max probes in half-open state |
+
+The URLTest outbound automatically selects the best child outbound based on HTTP latency tests. Supports weighted groups for preference-based selection.
+
 ### `lists` Section (object, keyed by list name)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `url` | string | Remote list URL to download |
+| `url` | string | Remote list URL to download (supports ETag/304 caching) |
 | `file` | string | Local file path |
 | `domains` | string[] | Inline domain entries |
 | `ip_cidrs` | string[] | Inline IP/CIDR entries |
-| `ttl` | uint32/duration | TTL for dnsmasq-resolved ipset entries (seconds) |
+| `ttl` | uint32 | TTL in seconds for dnsmasq-resolved ipset entries (0 = no timeout) |
 
 All fields are optional. Sources are merged: URL content + file content + inline entries.
 
@@ -430,39 +497,82 @@ DNS server address types:
 {
   "rules": [
     { "list": ["list-a", "list-b"], "outbound": "vpn" },
-    { "list": ["list-c"], "outbounds": ["vpn", "wan"] },
-    { "list": ["list-d"], "action": "skip" }
+    { "list": ["list-c"], "outbound": "auto-select" }
   ],
   "fallback": "wan"
 }
 ```
 
-Route rule actions (mutually exclusive):
-- `"outbound": "tag"` — Route to single outbound
-- `"outbounds": ["tag1", "tag2"]` — Failover chain (first healthy wins)
-- `"action": "skip"` — Skip this rule (no routing applied)
+Route rules:
+- `"outbound": "tag"` — Route to single outbound (can be interface, table, blackhole, ignore, or urltest)
+- If outbound is `ignore`, traffic uses system default routing
+- If outbound is `blackhole`, traffic is dropped
+- If outbound is `urltest`, traffic routes to the currently selected child
+
+### `fwmark` Section
+
+```json
+{
+  "start": 65536,
+  "mask": 16711680
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `start` | uint32 | `65536` (0x10000) | Starting fwmark value |
+| `mask` | uint32 | `16711680` (0x00FF0000) | Fwmark mask for policy routing |
+
+Fwmarks are allocated sequentially to interface and table outbounds. Blackhole, ignore, and urltest outbounds do NOT receive fwmarks.
+
+### `iproute` Section
+
+```json
+{
+  "table_start": 150
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `table_start` | uint32 | `150` | Starting routing table ID for policy routing |
+
+Each interface outbound gets a dedicated routing table starting from this ID.
 
 ---
 
 ## CLI Interface
 
 ```
-Usage: keen-pbr3 [options]
+Usage: keen-pbr3 [options] <command>
 
 Options:
-  --config <path>  Path to JSON config file (default: /etc/keen-pbr3/config.json)
-  -d               Daemonize (run in background)
-  --no-api         Disable REST API at runtime
-  --version, -v    Show version and exit
-  --help, -h       Show help and exit
+  --config <path>    Path to JSON config file (default: /etc/keen-pbr3/config.json)
+  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)
+  --no-api           Disable REST API at runtime
+  --version          Show version and exit
+  --help             Show this help and exit
 
 Commands:
+  service               Start the routing service (foreground)
+  download              Download all configured lists to cache and exit
   print-dnsmasq-config  Print generated dnsmasq config to stdout and exit
 ```
 
+### `service` Command
+
+Starts the daemon in foreground mode. Handles signals:
+- `SIGTERM`/`SIGINT` — Graceful shutdown
+- `SIGUSR1` — Verify routing tables and trigger immediate URL tests
+- `SIGHUP` — Full reload (re-read config, re-download lists, rebuild firewall)
+
+### `download` Command
+
+Downloads all configured lists with URLs to cache, counts entries, updates metadata, then exits. Uses conditional requests (ETag/If-Modified-Since) to avoid re-downloading unchanged lists.
+
 ### `print-dnsmasq-config` Command
 
-Special non-daemon mode: loads config, downloads/caches lists (readonly mode), generates dnsmasq config, prints to stdout, then exits. Useful for integration with dnsmasq's `conf-dir` or piping to a file.
+Special non-daemon mode: loads config, reads lists from cache (downloads if not cached), generates dnsmasq config, prints to stdout, then exits. Useful for integration with dnsmasq's `conf-dir` or piping to a file.
 
 ---
 
@@ -490,61 +600,46 @@ endif
 :Read config file;
 :Parse JSON → Config struct;
 
+if (download command?) then (yes)
+  :Create CacheManager;
+  :For each list with URL:
+    - Download with conditional request
+    - Count entries via visitor
+    - Save metadata;
+  stop
+endif
+
 if (print-dnsmasq-config?) then (yes)
-  :Create ListManager (readonly);
-  :Load lists from cache;
+  :Create CacheManager;
+  :Download uncached lists;
+  :Create ListStreamer;
   :Create DnsRouter;
   :Create DnsmasqGenerator;
   :Print generated config to stdout;
   stop
 endif
 
-if (-d daemonize?) then (yes)
-  :fork() → parent exits;
-  :setsid() → new session;
-  :Redirect stdio → /dev/null;
+if (service command?) then (yes)
+  :Initialize Logger;
 endif
 
-:Write PID file;
-
 partition "Initialize Subsystems" {
-  :Create ListManager\n(/var/cache/keen-pbr3);
-  :Create HealthChecker;
-  :Create CircuitBreaker;
+  :Create CacheManager\n(cache_dir from config);
   :Create Firewall\n(auto-detect backend);
   :Create NetlinkManager\n(connect NETLINK_ROUTE);
   :Create RouteTable;
   :Create PolicyRuleManager;
+  :Create FirewallState;
+  :Create URLTester;
+  :Allocate outbound fwmarks;
 }
 
-:Register interface outbounds\nfor health checking;
-:Download and load all lists;
-
-partition "Apply Firewall & Routing" {
-  :fwmark = 0x10000;
-  repeat
-    :Process next route rule;
-    :Resolve outbound\n(health check + failover);
-    if (skip or no outbound?) then (yes)
-      :Skip;
-    else (no)
-      :Create ipsets for each list;
-      :Add IPs/CIDRs to ipsets;
-      :Create mark rule (fwmark);
-      :Add ip rule (fwmark → table);
-      :Add route (default via outbound);
-      :fwmark++;
-    endif
-  repeat while (more rules?)
-  :firewall→apply();
-}
-
-partition "Setup Event Loop" {
-  :Create Daemon\n(epoll + signalfd);
-  :Create Scheduler;
-  :Register SIGUSR1 → reload;
-  :Schedule periodic list update;
-  :Schedule health checks;
+partition "Startup Tasks" {
+  :Write PID file;
+  :Download uncached lists;
+  :Setup static routing tables\nand ip rules for each outbound;
+  :Register URLTest outbounds\n(schedule periodic tests);
+  :Apply firewall rules\n(create ipsets, stream entries);
   if (API enabled and not --no-api?) then (yes)
     :Create ApiServer;
     :Register API handlers;
@@ -581,13 +676,17 @@ state "Daemon Event Loop" as loop {
 state "Signal Handling" as sighandling {
   state "SIGTERM / SIGINT" as sigterm
   state "SIGUSR1" as sigusr1
+  state "SIGHUP" as sighup
 
   sigterm : Set running_ = false
   sigterm : → epoll_wait returns
   sigterm : → daemon.run() exits
 
-  sigusr1 : Call sigusr1_cb_()
-  sigusr1 : → reload lists
+  sigusr1 : Verify routing tables
+  sigusr1 : Trigger immediate URL tests
+
+  sighup : Full reload
+  sighup : Re-read config, rebuild all
 }
 
 state "Timer Handling" as timerhandling {
@@ -612,7 +711,7 @@ loop --> timerhandling
 ### Implementation Details
 
 - **Daemon** creates an `epoll` instance (`epoll_create1(EPOLL_CLOEXEC)`)
-- Signals (SIGTERM, SIGINT, SIGUSR1) are blocked via `sigprocmask`, then handled through `signalfd`
+- Signals (SIGTERM, SIGINT, SIGUSR1, SIGHUP) are blocked via `sigprocmask`, then handled through `signalfd`
 - The signalfd is registered with epoll for edge notification
 - External components (Scheduler timerfds) register via `add_fd(fd, events, callback)`
 - `epoll_wait` blocks indefinitely (`timeout = -1`), EINTR is retried
@@ -625,8 +724,7 @@ loop --> timerhandling
 - One-shot: sets only `it_value` (interval = {0,0})
 - Must `read(fd, &uint64_t, 8)` to acknowledge timer, otherwise fd stays readable
 - Registered timers:
-  - **List refresh**: repeating, interval from `daemon.list_update_interval`
-  - **Health checks**: one repeating timer per outbound with `ping_target`, interval from `ping_interval`
+  - **URL tests**: repeating, interval from `UrltestOutbound.interval_ms`
 
 ---
 
@@ -638,62 +736,76 @@ loop --> timerhandling
 skinparam backgroundColor white
 
 start
-:ListManager::load();
+:ListStreamer::stream_list(name, config, visitor);
 
-partition "For each list definition" {
-  if (URL configured?) then (yes)
-    :HttpClient::download(url);
-    if (download success?) then (yes)
-      :Cache response to\n/var/cache/keen-pbr3/<name>.txt;
-    else (no)
-      if (cache file exists?) then (yes)
-        :Read cached file;
-      else (no)
-        :throw exception;
-      endif
-    endif
+partition "Stream all sources" {
+  if (cache file exists?) then (yes)
+    :Open cache file;
+    :For each non-empty, non-comment line:
+      - Parse IP/CIDR/domain
+      - Call visitor.on_entry(type, entry);
   endif
 
-  if (file configured?) then (yes)
-    :Read local file contents;
+  if (local file configured?) then (yes)
+    :Open local file;
+    :For each non-empty, non-comment line:
+      - Parse IP/CIDR/domain
+      - Call visitor.on_entry(type, entry);
   endif
-
-  :Merge URL/file content;
-  :ListParser::parse(content);
-  note right
-    For each non-empty, non-comment line:
-    - Try IPv4 address → ips[]
-    - Try IPv4 CIDR → cidrs[]
-    - Try IPv6 address → ips[]
-    - Try IPv6 CIDR → cidrs[]
-    - Try domain name → domains[]
-    - Unrecognized → skip
-  end note
 
   if (inline ip_cidrs?) then (yes)
-    :Parse and append\nto ips[] / cidrs[];
+    :For each entry:
+      - Parse IP/CIDR
+      - Call visitor.on_entry(Ip|Cidr, entry);
   endif
 
   if (inline domains?) then (yes)
-    :Append to domains[];
+    :For each domain:
+      - Call visitor.on_entry(Domain, domain);
   endif
-
-  :Store as ParsedList;
 }
+
+:visitor.on_list_complete(name);
 
 stop
 @enduml
 ```
 
-### ParsedList Structure
+### Visitor Pattern
 
+List entries are streamed one-by-one through a `ListEntryVisitor` interface, avoiding in-memory storage:
+
+```cpp
+class ListEntryVisitor {
+public:
+  virtual void on_entry(EntryType type, std::string_view entry) = 0;
+  virtual void on_list_complete(const std::string& list_name);
+  virtual void finish();
+};
 ```
-ParsedList {
-  ips: vector<string>      // Individual IP addresses (e.g., "1.2.3.4")
-  cidrs: vector<string>    // CIDR subnets (e.g., "10.0.0.0/8")
-  domains: vector<string>  // Domain names (e.g., "example.com", "*.example.org")
-}
-```
+
+Entry types:
+- `EntryType::Ip` — Individual IP address (e.g., `"192.168.1.1"`)
+- `EntryType::Cidr` — CIDR subnet (e.g., `"10.0.0.0/8"`)
+- `EntryType::Domain` — Domain name (e.g., `"example.com"`, `"*.example.org"`)
+
+### Cache Management
+
+`CacheManager` handles list caching with conditional requests:
+
+- Downloads to `<cache_dir>/<name>.txt`
+- Stores metadata in `<cache_dir>/<name>.meta.json` (ETag, Last-Modified, entry counts)
+- Uses `If-None-Match`/`If-Modified-Since` headers for conditional requests
+- Returns `false` from `download()` on 304 Not Modified
+
+### Built-in Visitors
+
+| Visitor | Purpose |
+|---------|---------|
+| `EntryCounter` | Counts entries by type without storing |
+| `FunctionalVisitor` | Wraps a callback function |
+| `IpsetRestoreVisitor` | Buffers `ipset add` commands for batch loading |
+| `NftBatchVisitor` | Buffers `nft add element` commands for batch loading |
 
 ### IpSet (Binary Trie)
 
@@ -711,70 +823,85 @@ skinparam backgroundColor white
 start
 
 partition "For each route rule (config order)" {
-  :Get route rule action;
+  :Get route rule outbound tag;
+  :resolve_route_action(tag, outbounds);
 
-  if (action == skip?) then (yes)
+  if (outbound type == IgnoreOutbound?) then (yes)
     :RoutingDecision::skip();
-    :Continue to next rule;
-    stop
-  endif
-
-  if (action == single outbound tag?) then (yes)
-    :Find outbound by tag;
+    :Record RuleState with action_type=Skip;
+    note right: No firewall rules created
+  elseif (outbound type == UrltestOutbound?) then (yes)
+    :Get currently selected child from FirewallState;
+    :Use child's fwmark/routing;
+  else (no)
     :RoutingDecision::route_to(outbound);
   endif
 
-  if (action == failover chain?) then (yes)
-    :For each tag in chain:;
-    repeat
-      :Find outbound by tag;
-      if (health_fn provided?) then (yes)
-        :Check circuit breaker;
-        :Check health (ICMP ping);
-        :Record success/failure;
-      endif
-      if (outbound healthy?) then (yes)
-        :RoutingDecision::route_to(outbound);
-        stop
-      endif
-    repeat while (more tags in chain?)
-    :RoutingDecision::none();
+  if (outbound type == BlackholeOutbound?) then (yes)
+    :action_type = Drop;
+    note right: Firewall DROP rule, no routing table
+  else (no)
+    :action_type = Mark;
+    :Lookup fwmark from OutboundMarkMap;
   endif
 }
 
-partition "Apply to kernel" {
-  :fwmark = 0x10000 + rule_index;
-  :table_id = 100 + (fwmark & 0xFFFF);
-
-  partition "Firewall" {
-    :Create ipset/nft set\nfor each list;
-    :Add IPs + CIDRs\nto the set;
-    :Create mangle mark rule:\nmatch set → set fwmark;
-  }
-
-  partition "Routing (netlink)" {
-    if (InterfaceOutbound) then
-      :ip rule: fwmark → table_id;
-      :ip route: default via gateway\ndev interface table table_id;
-    elseif (TableOutbound) then
-      :ip rule: fwmark → table.table_id;
-    elseif (BlackholeOutbound) then
-      :ip rule: fwmark → table_id;
-      :ip route: blackhole default\ntable table_id;
-    endif
-  }
+partition "Create ipsets and stream entries" {
+  :For each list in rule:;
+  :firewall→create_ipset(name, family, timeout);
+  :Create batch loader visitor;
+  :list_streamer→stream_list(name, config, visitor);
+  :visitor→finish();
+  
+  if (action_type == Drop?) then (yes)
+    :firewall→create_drop_rule(set_name);
+  else (no)
+    :firewall→create_mark_rule(set_name, fwmark);
+  endif
 }
+
+:firewall→apply();
+:Record RuleState;
 
 stop
 @enduml
 ```
 
+### Static Routing Setup
+
+On startup, `setup_static_routing()` creates routing tables and ip rules for each interface/table outbound:
+
+1. For each `InterfaceOutbound`:
+   - Create routing table with ID = `table_start + offset`
+   - Add default route via interface/gateway in that table
+   - Add ip rule: `fwmark/mask → table_id`
+
+2. For each `TableOutbound`:
+   - Add ip rule: `fwmark/mask → table_id` (user-specified table)
+
+3. Blackhole, Ignore, Urltest outbounds: no static routing needed
+   - Blackhole: handled by firewall DROP rule
+   - Ignore: uses system default routing
+   - Urltest: resolved to child at firewall application time
+
 ### Fwmark Allocation
 
-- Starting mark: `0x10000`
-- Each route rule gets the next sequential mark: `0x10000`, `0x10001`, `0x10002`, ...
-- Table ID derived from mark: `100 + (fwmark & 0xFFFF)` → 100, 101, 102, ...
-- Policy rule priority matches table ID
+Fwmarks are allocated by `allocate_outbound_marks()`:
+- Starting mark: `fwmark.start` (default 0x10000 = 65536)
+- Each interface/table outbound gets the next sequential mark
+- Mask: `fwmark.mask` (default 0x00FF0000)
+- Table ID: `iproute.table_start + offset`
+
+Blackhole, ignore, and urltest outbounds do NOT receive fwmarks.
+
+### FirewallState Tracking
+
+`FirewallState` tracks applied firewall configuration:
+- `RuleState` per route rule (list names, outbound tag, action type, fwmark)
+- `urltest_selections`: current child selection for each urltest outbound
+- `outbound_marks`: fwmark assignments
+
+When a urltest selection changes, the firewall is rebuilt with the new child's fwmark.
 
 ### Netlink Operations
 
@@ -807,10 +934,9 @@ skinparam backgroundColor white
 
 interface "Firewall" as fw {
   +create_ipset(name, family, timeout)
-  +add_to_ipset(name, entry, timeout)
-  +delete_ipset(name)
-  +create_mark_rule(set, fwmark, chain)
-  +delete_mark_rule(set, fwmark, chain)
+  +create_mark_rule(set, fwmark)
+  +create_drop_rule(set)
+  +create_batch_loader(set, timeout): ListEntryVisitor
   +apply()
   +cleanup()
 }
@@ -818,32 +944,48 @@ interface "Firewall" as fw {
 class "IptablesFirewall" as ipt {
   -created_sets_: map<name, family>
   -mark_rules_: vector<MarkRule>
+  -drop_rules_: vector<string>
+  -ipset_buffer_: ostringstream
   +exec_cmd(cmd): int
-  +exec_cmd_checked(cmd)
 }
 
 class "NftablesFirewall" as nft {
   -TABLE_NAME: "keen_pbr3"
-  -table_inet_created_: bool
+  -table_created_: bool
   -created_sets_: map<name, family>
-  -created_chains_: map<key, bool>
-  -mark_rules_: vector<MarkRule>
-  +ensure_table(family)
-  +ensure_chain(family, chain)
+  -nft_buffer_: ostringstream
+  +ensure_table()
+}
+
+class "IpsetRestoreVisitor" as irv {
+  -buffer_: ostringstream&
+  -set_name_: string
+  -static_timeout_: int32
+  +on_entry(type, entry)
+}
+
+class "NftBatchVisitor" as nbv {
+  -buffer_: ostringstream&
+  -set_name_: string
+  -static_timeout_: int32
+  +on_entry(type, entry)
 }
 
 fw <|-- ipt
 fw <|-- nft
+ipt --> irv : creates
+nft --> nbv : creates
 
 note bottom of ipt
   Uses ipset + iptables CLI commands.
-  Commands execute immediately (no staging).
+  Batch loading via 'ipset restore -exist'.
   Cleanup: delete rules first, then ipsets.
 end note
 
 note bottom of nft
   Uses nft CLI commands.
   Single "inet" table for dual-stack.
+  Batch loading via 'nft -f -'.
   Cleanup: delete entire table (cascades).
 end note
 @enduml
@@ -858,38 +1000,57 @@ create_firewall("auto"):
   3. Neither found → throw FirewallError
 ```
 
+### Batch Loading
+
+Both backends use batch loading for efficient ipset population:
+
+**iptables (ipset restore)**:
+1. `create_batch_loader()` returns an `IpsetRestoreVisitor`
+2. Visitor buffers `add <setname> <entry> [timeout N]\n` lines
+3. `apply()` pipes the buffer to `ipset restore -exist`
+
+**nftables**:
+1. `create_batch_loader()` returns an `NftBatchVisitor`
+2. Visitor buffers `add element inet keen_pbr3 <setname> { <entry> [timeout Ns] }\n` lines
+3. `apply()` pipes the buffer to `nft -f -`
+
+This avoids spawning a process per entry and provides atomic application.
+
 ### iptables Backend — Shell Commands Executed
 
 | Operation | Shell Command |
 |-----------|--------------|
 | Create ipset | `ipset create <name> hash:net family <inet\|inet6> [timeout <N>] -exist` |
-| Add to ipset | `ipset add <name> <entry> [timeout <N>] -exist` |
+| Batch add | `ipset restore -exist` (piped input) |
 | Flush ipset | `ipset flush <name> 2>/dev/null` |
 | Destroy ipset | `ipset destroy <name> 2>/dev/null` |
-| Create mark rule | `iptables -t mangle -A <chain> -m set --match-set <name> dst -j MARK --set-mark <0xHEX>` |
-| Delete mark rule | `iptables -t mangle -D <chain> -m set --match-set <name> dst -j MARK --set-mark <0xHEX> 2>/dev/null` |
+| Create mark rule | `iptables -t mangle -A PREROUTING -m set --match-set <name> dst -j MARK --set-mark <0xHEX>` |
+| Create drop rule | `iptables -t mangle -A PREROUTING -m set --match-set <name> dst -j DROP` |
+| Delete mark rule | `iptables -t mangle -D PREROUTING -m set --match-set <name> dst -j MARK --set-mark <0xHEX> 2>/dev/null` |
+| Delete drop rule | `iptables -t mangle -D PREROUTING -m set --match-set <name> dst -j DROP 2>/dev/null` |
 | (IPv6 variant) | Replace `iptables` with `ip6tables` |
 
-**Cleanup order**: Delete all mark rules (reverse order) → destroy all ipsets.
+**Cleanup order**: Delete all mark/drop rules (reverse order) → destroy all ipsets.
 
 ### nftables Backend — Shell Commands Executed
 
 | Operation | Shell Command |
 |-----------|--------------|
 | Create table | `nft add table inet keen_pbr3` |
-| Create chain | `nft add chain inet keen_pbr3 <chain> '{ type filter hook prerouting priority mangle; policy accept; }'` |
+| Create chain | `nft add chain inet keen_pbr3 PREROUTING '{ type filter hook prerouting priority mangle; policy accept; }'` |
 | Create set | `nft add set inet keen_pbr3 <name> '{ type <ipv4_addr\|ipv6_addr>; flags <interval[, timeout]>; [timeout Ns;] }'` |
-| Add element | `nft add element inet keen_pbr3 <name> '{ <entry> [timeout Ns] }'` |
-| Create mark rule | `nft add rule inet keen_pbr3 <chain> ip daddr @<name> meta mark set <0xHEX>` |
+| Batch add element | `nft -f -` (piped input) |
+| Create mark rule | `nft add rule inet keen_pbr3 PREROUTING ip daddr @<name> meta mark set <0xHEX>` |
+| Create drop rule | `nft add rule inet keen_pbr3 PREROUTING ip daddr @<name> drop` |
 | Flush set | `nft flush set inet keen_pbr3 <name> 2>/dev/null` |
 | Delete set | `nft delete set inet keen_pbr3 <name> 2>/dev/null` |
-| Delete rule (by handle) | `handle=$(nft -a list chain inet keen_pbr3 <chain> \| grep '@<name>' \| grep '<0xHEX>' \| sed 's/.*# handle //' \| head -1); if [ -n "$handle" ]; then nft delete rule inet keen_pbr3 <chain> handle $handle; fi` |
 | Cleanup (all) | `nft delete table inet keen_pbr3 2>/dev/null` |
 
 **Key differences from iptables**:
 - Single `inet` family table handles both IPv4 and IPv6
 - Sets use `flags interval` to support both IPs and CIDRs
 - Cleanup is a single table delete (cascades to everything)
+- Batch loading via `nft -f -` instead of individual `nft add element` commands
 
 ---
 
@@ -900,23 +1061,20 @@ create_firewall("auto"):
 !theme plain
 skinparam backgroundColor white
 
-state "Health Check Flow" as flow {
-  state "HealthChecker::check(tag)" as check
-  state "Create SOCK_DGRAM\nICMP socket" as socket
-  state "SO_BINDTODEVICE\nto interface" as bind
-  state "Send ICMP Echo Request" as send
-  state "poll() with timeout" as poll
-  state "Receive & verify\nICMP Echo Reply" as recv
+state "URL Test Flow" as flow {
+  state "URLTester::test(url, fwmark, timeout, retry)" as check
+  state "Create CURL request\nwith CURLOPT_MARK" as curl
+  state "Send HTTP request\nthrough routing table" as send
+  state "Measure latency" as measure
+  state "Retry on failure" as retry
 
-  check --> socket
-  socket --> bind
-  bind --> send
-  send --> poll
-  poll --> recv : data ready
-  poll --> [*] : timeout → unhealthy
-
-  recv --> [*] : ECHO_REPLY → healthy
-  recv --> [*] : other → unhealthy
+  check --> curl
+  curl --> send
+  send --> measure : success
+  send --> retry : failure
+  retry --> send : attempts < max
+  measure --> [*] : return latency_ms
+  retry --> [*] : return error
 }
 
 state "Circuit Breaker States" as cb {
@@ -931,35 +1089,61 @@ state "Circuit Breaker States" as cb {
   closed --> closed : success
 }
 
+state "UrltestManager" as um {
+  state "Register urltest outbound" as register
+  state "Schedule periodic tests" as schedule
+  state "Run tests for all children" as runtests
+  state "Select best outbound\n(weighted + tolerance)" as select
+  state "Fire callback on change" as callback
+
+  register --> schedule
+  schedule --> runtests : timer fired
+  runtests --> select
+  select --> callback : selection changed
+}
+
 note bottom of cb
-  Default: threshold=3, cooldown=30s
-  Uses steady_clock (monotonic)
+  Configurable per-urltest:
+  - failure_threshold
+  - success_threshold
+  - timeout_ms (cooldown)
+  - half_open_max_requests
 end note
 @enduml
 ```
 
-### ICMP Ping Details
+### URL Testing Details
 
-- Socket type: `SOCK_DGRAM` (not `SOCK_RAW`) — avoids `CAP_NET_RAW` requirement
-- Protocol: `IPPROTO_ICMP` (v4) or `IPPROTO_ICMPV6` (v6)
-- Interface binding: `SO_BINDTODEVICE` with interface name + null terminator
-- IPv4 ICMP: manual checksum via RFC 1071 algorithm
-- IPv6 ICMP: kernel computes checksum
-- For `SOCK_DGRAM`, kernel strips IP header — first byte of recv'd data is ICMP header
-- `poll()` used for timeout waiting (single fd)
+`URLTester` uses libcurl with `CURLOPT_MARK` to route test traffic through the correct routing table:
 
-### Health + Circuit Breaker Integration
+1. Set `CURLOPT_MARK` to the child outbound's fwmark
+2. Send HTTP request to the test URL (e.g., `https://www.gstatic.com/generate_204`)
+3. Measure latency from fastest successful attempt
+4. Retry up to `retry.attempts` times with `retry.interval_ms` delay
 
-In `main.cpp`, the health check function used during route resolution combines both:
+### Weighted Group Selection
 
-```
-health_fn(tag):
-  if circuit_breaker.is_allowed(tag) == false → return false (circuit open)
-  if health_checker.has_target(tag) == false → return true (no target = healthy)
-  result = health_checker.check(tag) // actual ICMP ping
-  record success or failure to circuit_breaker
-  return result
-```
+`UrltestManager` selects the best child outbound using weighted groups:
+
+1. For each outbound group:
+   - Test all outbounds in the group
+   - Skip outbounds with open circuit breakers
+   - Record latency for successful tests
+2. Select the group with the lowest average latency (respecting tolerance)
+3. Within the selected group, choose the outbound with lowest latency
+4. If all outbounds are circuit-broken, selection remains unchanged (or empty if first run)
+
+### Circuit Breaker Integration
+
+Each child outbound has its own circuit breaker:
+- **Closed**: Outbound is healthy, tests pass through
+- **Open**: Too many failures, outbound is skipped
+- **Half-Open**: Cooldown expired, allowing probe requests
+
+When the selected outbound changes:
+1. `UrltestManager` calls the registered callback
+2. `FirewallState` is updated with the new selection
+3. Firewall rules are rebuilt with the new child's fwmark
 
 ---
 
@@ -1118,6 +1302,11 @@ if (API server running?) then (yes)
   :Join listen thread;
 endif
 
+if (UrltestManager running?) then (yes)
+  :urltest_manager→clear();
+  :Cancel scheduled tasks;
+endif
+
 :scheduler.cancel_all()\n(close all timerfds);
 
 :route_table.clear()\n(remove routes in reverse order\nvia netlink);
@@ -1126,7 +1315,7 @@ endif
 
 :firewall→cleanup();
 note right
-  iptables: delete mark rules
+  iptables: delete mark/drop rules
   (reverse order), then
   flush + destroy ipsets
 
@@ -1141,12 +1330,13 @@ stop
 ```
 
 **Shutdown order** (dependencies require this sequence):
-1. **API server** — stop accepting requests
-2. **Scheduler** — cancel all timers, close timerfds
-3. **RouteTable** — remove routes (reverse order via netlink)
-4. **PolicyRuleManager** — remove ip rules (reverse order via netlink)
-5. **Firewall** — remove mark rules, then ipsets
-6. **PID file** — filesystem cleanup
+1. **API server** — stop accepting requests, join thread
+2. **UrltestManager** — cancel scheduled tests
+3. **Scheduler** — cancel all timers, close timerfds
+4. **RouteTable** — remove routes (reverse order via netlink)
+5. **PolicyRuleManager** — remove ip rules (reverse order via netlink)
+6. **Firewall** — remove mark/drop rules, then ipsets
+7. **PID file** — filesystem cleanup
 
 ---
 
@@ -1158,73 +1348,94 @@ stop
 skinparam backgroundColor white
 
 package "Build Pipeline" {
-  [conanfile.py\nDependency recipe] as conan
-  [meson.build\nBuild definition] as meson
-  [meson_options.txt\nBuild options] as opts
+  [CMakeLists.txt\nBuild definition] as cmake
+  [Makefile\nConvenience wrapper] as makefile
 }
 
-package "Dependencies (Conan)" {
-  [libcurl/8.5.0] as curl
-  [nlohmann_json/3.11.3] as json
-  [libnl/3.8.0] as libnl
-  [mbedtls/3.5.0] as mbedtls
-  [cpp-httplib/0.14.0\n(optional)] as httplib
+package "Dependencies (Bundled)" {
+  [nlohmann_json\n(git submodule)] as json
+  [cpp-httplib\n(git submodule, optional)] as httplib
 }
 
-package "Generators" {
-  [PkgConfigDeps\n→ *.pc files] as pkgconfig
-  [MesonToolchain\n→ conan_meson_native.ini] as toolchain
+package "Dependencies (System)" {
+  [libcurl] as curl
+  [libnl-3.0] as libnl
+  [libnl-route-3.0] as libnlroute
 }
 
-conan --> pkgconfig
-conan --> toolchain
-conan --> curl
-conan --> json
-conan --> libnl
-conan --> mbedtls
-conan --> httplib
-
-meson --> pkgconfig : reads .pc files
-meson --> toolchain : reads native file
-opts --> meson
+cmake --> json
+cmake --> httplib
+cmake --> curl : find_package
+cmake --> libnl : pkg_check_modules
+cmake --> libnlroute : pkg_check_modules
+makefile --> cmake
 @enduml
 ```
 
-### Meson Build Options
+### CMake Build Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `with_api` | boolean | `true` | Include REST API (cpp-httplib) |
-| `firewall_backend` | combo | `auto` | `auto`, `iptables`, or `nftables` |
+| `WITH_API` | boolean | `ON` | Include REST API (cpp-httplib) |
 
 ### Compiler Flags
 
-- Standard: C++20
+- Standard: C++20 (requires GCC 13+ or Clang 17+ for `<format>`)
 - Optimization: `-Os` (size), `-ffunction-sections`, `-fdata-sections`
 - Linker: `-Wl,--gc-sections` (dead code elimination)
-- LTO: enabled (`b_lto=true`)
-- Cross-builds: `-static` (static linking for embedded deployment)
-- API flag: `-DWITH_API` (when `with_api` is true)
+- API flag: `-DWITH_API` (when `WITH_API` is ON)
 
-### Source Files (22 total)
+### Build Commands
 
-**Core (20 files):**
+```bash
+# Native build
+make setup    # meson setup (or cmake -B build)
+make build    # compile
+
+# Or directly with CMake:
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# Build without API
+cmake -B build -DWITH_API=OFF
+cmake --build build
+```
+
+### Dependencies
+
+**Bundled (git submodules)**:
+- `third_party/nlohmann_json` — JSON parsing
+- `third_party/cpp-httplib` — REST API server (optional)
+
+**System packages**:
+- `libcurl` — HTTP client for list downloads
+- `libnl-3.0`, `libnl-route-3.0` — Netlink route/rule management
+
+### Source Files (28 total)
+
+**Core (26 files):**
 ```
 src/main.cpp
+src/log/logger.cpp
 src/config/config.cpp
 src/config/list_parser.cpp
 src/http/http_client.cpp
+src/cache/cache_manager.cpp
 src/lists/ipset.cpp
-src/lists/list_manager.cpp
+src/lists/list_streamer.cpp
 src/routing/target.cpp
 src/routing/netlink.cpp
 src/routing/route_table.cpp
 src/routing/policy_rule.cpp
-src/health/health_checker.cpp
+src/routing/firewall_state.cpp
+src/routing/urltest_manager.cpp
 src/health/circuit_breaker.cpp
+src/health/url_tester.cpp
 src/firewall/firewall.cpp
 src/firewall/iptables.cpp
 src/firewall/nftables.cpp
+src/firewall/ipset_restore_pipe.cpp
+src/firewall/nft_batch_pipe.cpp
 src/dns/dns_server.cpp
 src/dns/dns_router.cpp
 src/dns/dnsmasq_gen.cpp
@@ -1232,7 +1443,7 @@ src/daemon/daemon.cpp
 src/daemon/scheduler.cpp
 ```
 
-**Conditional API (2 files, when `with_api` is true):**
+**Conditional API (2 files, when `WITH_API` is ON):**
 ```
 src/api/server.cpp
 src/api/handlers.cpp
@@ -1244,37 +1455,33 @@ src/api/handlers.cpp
 
 ### Supported Architectures
 
-| Architecture | Conan Profile | Meson Cross-File | Toolchain Prefix |
-|-------------|--------------|-------------------|-----------------|
-| MIPS big-endian (OpenWRT) | `mips-be-openwrt` | `mips-be-openwrt.ini` | `mips-openwrt-linux-musl-` |
-| MIPS little-endian (OpenWRT) | `mips-le-openwrt` | `mips-le-openwrt.ini` | `mipsel-openwrt-linux-musl-` |
-| ARM (OpenWRT) | `arm-openwrt` | `arm-openwrt.ini` | `arm-openwrt-linux-muslgnueabihf-` |
-| AArch64 (OpenWRT) | `aarch64-openwrt` | `aarch64-openwrt.ini` | `aarch64-openwrt-linux-musl-` |
-| x86_64 (OpenWRT) | `x86_64-openwrt` | `x86_64-openwrt.ini` | `x86_64-openwrt-linux-musl-` |
-| MIPS LE (Keenetic) | `mips-le-keenetic` | `mips-le-keenetic.ini` | `mipsel-linux-musl-` |
-
-All profiles use musl libc and include `base-embedded` common settings.
+| Architecture | Docker Build | Target |
+|-------------|--------------|--------|
+| `mips-be-openwrt` | Dockerfile.openwrt | MIPS big-endian OpenWRT |
+| `mips-le-openwrt` | Dockerfile.openwrt | MIPS little-endian OpenWRT |
+| `arm-openwrt` | Dockerfile.openwrt | ARMv7hf OpenWRT |
+| `aarch64-openwrt` | Dockerfile.openwrt | AArch64 (ARMv8) OpenWRT |
+| `x86_64-openwrt` | Dockerfile.openwrt | x86_64 OpenWRT |
+| `mips-le-keenetic` | Dockerfile.openwrt | MIPS little-endian Keenetic |
 
 ### Build Commands
 
 ```bash
-# Local build (native)
-conan install . --build=missing
-meson setup build
-meson compile -C build
-
 # Cross-build via Docker
 docker build -f docker/Dockerfile.openwrt -t keen-pbr3-builder .
 docker run --rm -v "$PWD/dist:/src/dist" keen-pbr3-builder mips-le-openwrt
 
-# Manual cross-build
-conan install . --profile:host=conan/profiles/mips-le-openwrt \
-                --profile:build=default --output-folder=build/mips-le-openwrt --build=missing
-meson setup build/mips-le-openwrt . \
-    --cross-file=meson/cross/mips-le-openwrt.ini \
-    --native-file=build/mips-le-openwrt/conan_meson_native.ini
-meson compile -C build/mips-le-openwrt
+# Output binaries go to dist/<arch>/keen-pbr3
 ```
+
+### Docker Build Details
+
+The Dockerfile builds:
+1. OpenWRT SDK for the target architecture
+2. Compiles keen-pbr3 with static linking
+3. Optionally builds .ipk packages for OpenWRT
+
+Use `docker/Dockerfile.packages` for full package build with OpenWRT SDK integration.
 
 ---
 
@@ -1330,7 +1537,7 @@ keen-pbr3/
 │   └── keen-pbr3/
 │       └── version.hpp              # Version macros (3.0.0)
 ├── src/
-│   ├── main.cpp                     # Entry point, CLI, subsystem init
+│   ├── main.cpp                     # Entry point, CLI, command dispatch
 │   ├── config/
 │   │   ├── config.hpp               # Config structs + parse_config()
 │   │   ├── config.cpp               # JSON deserialization (nlohmann_json)
@@ -1339,30 +1546,42 @@ keen-pbr3/
 │   ├── http/
 │   │   ├── http_client.hpp          # HttpClient, HttpError
 │   │   └── http_client.cpp          # libcurl wrapper
+│   ├── cache/
+│   │   ├── cache_manager.hpp        # CacheManager, CacheMetadata
+│   │   └── cache_manager.cpp        # ETag/304 caching, metadata storage
 │   ├── lists/
 │   │   ├── ipset.hpp                # IpSet, IpTrie (binary trie)
 │   │   ├── ipset.cpp                # Trie insert/contains
-│   │   ├── list_manager.hpp         # ListManager
-│   │   └── list_manager.cpp         # Download, cache, merge
+│   │   ├── list_streamer.hpp        # ListStreamer
+│   │   ├── list_streamer.cpp        # Visitor-based list streaming
+│   │   └── list_entry_visitor.hpp   # ListEntryVisitor interface, EntryCounter
 │   ├── routing/
 │   │   ├── target.hpp               # RoutingDecision, resolve_route_action()
-│   │   ├── target.cpp               # Failover chain resolution
+│   │   ├── target.cpp               # Outbound type resolution
 │   │   ├── netlink.hpp              # NetlinkManager, RouteSpec, RuleSpec
 │   │   ├── netlink.cpp              # libnl3 route/rule operations
 │   │   ├── route_table.hpp          # RouteTable (tracking)
 │   │   ├── route_table.cpp          # Add/remove/clear routes
 │   │   ├── policy_rule.hpp          # PolicyRuleManager (tracking)
-│   │   └── policy_rule.cpp          # Add/remove/clear ip rules
+│   │   ├── policy_rule.cpp          # Add/remove/clear ip rules
+│   │   ├── firewall_state.hpp       # FirewallState, RuleState
+│   │   ├── firewall_state.cpp       # Rule state tracking
+│   │   ├── urltest_manager.hpp      # UrltestManager, UrltestState
+│   │   └── urltest_manager.cpp      # Periodic URL test management
 │   ├── firewall/
 │   │   ├── firewall.hpp             # Abstract Firewall, factory
 │   │   ├── firewall.cpp             # Backend detection, create_firewall()
 │   │   ├── iptables.hpp             # IptablesFirewall
 │   │   ├── iptables.cpp             # ipset + iptables CLI
 │   │   ├── nftables.hpp             # NftablesFirewall
-│   │   └── nftables.cpp             # nft CLI
+│   │   ├── nftables.cpp             # nft CLI
+│   │   ├── ipset_restore_pipe.hpp   # IpsetRestoreVisitor
+│   │   ├── ipset_restore_pipe.cpp   # Batch ipset loading
+│   │   ├── nft_batch_pipe.hpp       # NftBatchVisitor
+│   │   └── nft_batch_pipe.cpp       # Batch nft element loading
 │   ├── health/
-│   │   ├── health_checker.hpp       # HealthChecker, HealthResult
-│   │   ├── health_checker.cpp       # ICMP ping (SOCK_DGRAM)
+│   │   ├── url_tester.hpp           # URLTester, URLTestResult
+│   │   ├── url_tester.cpp           # HTTP URL testing via libcurl
 │   │   ├── circuit_breaker.hpp      # CircuitBreaker, CircuitState
 │   │   └── circuit_breaker.cpp      # State machine
 │   ├── dns/
@@ -1374,40 +1593,28 @@ keen-pbr3/
 │   │   └── dnsmasq_gen.cpp          # ipset=/server= generation
 │   ├── daemon/
 │   │   ├── daemon.hpp               # Daemon (epoll + signalfd)
-│   │   ├── daemon.cpp               # Event loop
+│   │   ├── daemon.cpp               # Event loop, signal handling
 │   │   ├── scheduler.hpp            # Scheduler (timerfd)
 │   │   └── scheduler.cpp            # Repeating/oneshot timers
+│   ├── log/
+│   │   ├── logger.hpp               # Logger (singleton)
+│   │   └── logger.cpp               # Templated log functions
 │   └── api/                         # (conditional: WITH_API)
 │       ├── server.hpp               # ApiServer (pimpl)
 │       ├── server.cpp               # cpp-httplib background thread
 │       ├── handlers.hpp             # ApiContext, register_api_handlers()
 │       └── handlers.cpp             # GET/POST endpoint handlers
-├── conan/
-│   └── profiles/
-│       ├── base-embedded            # Shared embedded settings
-│       ├── mips-be-openwrt          # MIPS big-endian
-│       ├── mips-le-openwrt          # MIPS little-endian
-│       ├── arm-openwrt              # ARM (armv7hf)
-│       ├── aarch64-openwrt          # AArch64
-│       ├── x86_64-openwrt           # x86_64
-│       └── mips-le-keenetic         # Keenetic MIPS LE
-├── meson/
-│   └── cross/
-│       ├── mips-be-openwrt.ini
-│       ├── mips-le-openwrt.ini
-│       ├── arm-openwrt.ini
-│       ├── aarch64-openwrt.ini
-│       ├── x86_64-openwrt.ini
-│       └── mips-le-keenetic.ini
+├── third_party/
+│   ├── nlohmann_json/               # JSON library (git submodule)
+│   └── cpp-httplib/                 # HTTP server (git submodule, optional)
 ├── docker/
-│   ├── Dockerfile.openwrt           # Build container (Ubuntu 22.04)
-│   └── build.sh                     # Cross-build script
+│   ├── Dockerfile.openwrt           # Cross-compilation container
+│   └── Dockerfile.packages          # OpenWRT package builder
 ├── .github/
 │   └── workflows/
 │       └── build.yml                # CI matrix build
-├── conanfile.py                     # Conan 2.x recipe
-├── meson.build                      # Meson build definition
-├── meson_options.txt                # Build options
+├── CMakeLists.txt                   # CMake build definition
+├── Makefile                         # Convenience wrapper
 ├── config.example.json              # Example configuration
 └── .gitignore
 ```
@@ -1430,13 +1637,15 @@ Complete list of all shell commands the daemon may execute at runtime:
 | Command | Purpose |
 |---------|---------|
 | `ipset create <name> hash:net family <inet\|inet6> [timeout <N>] -exist` | Create IP set |
-| `ipset add <name> <entry> [timeout <N>] -exist` | Add entry to set |
+| `ipset restore -exist` | Batch add entries (piped input) |
 | `ipset flush <name> 2>/dev/null` | Clear all entries |
 | `ipset destroy <name> 2>/dev/null` | Delete set |
 | `iptables -t mangle -A PREROUTING -m set --match-set <name> dst -j MARK --set-mark 0x<HEX>` | Create packet mark rule |
+| `iptables -t mangle -A PREROUTING -m set --match-set <name> dst -j DROP` | Create drop rule |
 | `iptables -t mangle -D PREROUTING -m set --match-set <name> dst -j MARK --set-mark 0x<HEX> 2>/dev/null` | Delete mark rule |
-| `ip6tables -t mangle -A PREROUTING -m set --match-set <name> dst -j MARK --set-mark 0x<HEX>` | IPv6 mark rule |
-| `ip6tables -t mangle -D PREROUTING -m set --match-set <name> dst -j MARK --set-mark 0x<HEX> 2>/dev/null` | Delete IPv6 mark rule |
+| `iptables -t mangle -D PREROUTING -m set --match-set <name> dst -j DROP 2>/dev/null` | Delete drop rule |
+| `ip6tables -t mangle -A PREROUTING ...` | IPv6 variants |
+| `ip6tables -t mangle -D PREROUTING ...` | IPv6 variants |
 
 ### nftables Backend
 
@@ -1445,12 +1654,11 @@ Complete list of all shell commands the daemon may execute at runtime:
 | `nft add table inet keen_pbr3` | Create dual-stack table |
 | `nft add chain inet keen_pbr3 PREROUTING '{ type filter hook prerouting priority mangle; policy accept; }'` | Create prerouting chain |
 | `nft add set inet keen_pbr3 <name> '{ type <ipv4_addr\|ipv6_addr>; flags <interval[, timeout]>; [timeout Ns;] }'` | Create set |
-| `nft add element inet keen_pbr3 <name> '{ <entry> [timeout Ns] }'` | Add element to set |
+| `nft -f -` | Batch add elements (piped input) |
 | `nft add rule inet keen_pbr3 PREROUTING ip daddr @<name> meta mark set 0x<HEX>` | Create mark rule |
+| `nft add rule inet keen_pbr3 PREROUTING ip daddr @<name> drop` | Create drop rule |
 | `nft flush set inet keen_pbr3 <name> 2>/dev/null` | Clear set |
 | `nft delete set inet keen_pbr3 <name> 2>/dev/null` | Delete set |
-| `nft -a list chain inet keen_pbr3 PREROUTING \| grep ... \| sed ...` | Find rule handle |
-| `nft delete rule inet keen_pbr3 PREROUTING handle <N>` | Delete rule by handle |
 | `nft delete table inet keen_pbr3 2>/dev/null` | Delete entire table (cleanup) |
 
 ### Netlink (kernel API, not shell)
@@ -1461,9 +1669,8 @@ These operations use the **libnl3** C library directly (not shell commands):
 |-----------|--------------|
 | `rtnl_route_add(NLM_F_CREATE\|NLM_F_REPLACE)` | `ip route add/replace default via <gw> dev <iface> table <N>` |
 | `rtnl_route_delete()` | `ip route del default table <N>` |
-| `rtnl_route_add(RTN_BLACKHOLE)` | `ip route add blackhole default table <N>` |
-| `rtnl_rule_add(NLM_F_CREATE\|NLM_F_EXCL)` | `ip rule add fwmark 0x<HEX> table <N> priority <P>` |
-| `rtnl_rule_delete()` | `ip rule del fwmark 0x<HEX> table <N>` |
+| `rtnl_rule_add(NLM_F_CREATE\|NLM_F_EXCL)` | `ip rule add fwmark 0x<HEX>/<mask> table <N> priority <P>` |
+| `rtnl_rule_delete()` | `ip rule del fwmark 0x<HEX>/<mask> table <N>` |
 
 ---
 
@@ -1480,7 +1687,12 @@ start
 partition "Firewall (mangle table)" {
   :Check packet dst IP\nagainst ipsets/nft sets;
   if (matches set?) then (yes)
-    :Apply fwmark\n(0x10000, 0x10001, ...);
+    if (DROP rule?) then (yes)
+      :Packet dropped;
+      stop
+    else (no)
+      :Apply fwmark\n(0x10000, 0x10001, ...);
+    endif
   else (no)
     :No mark applied\n(default routing);
     stop
@@ -1497,9 +1709,6 @@ partition "Route Lookup (table N)" {
     :Route via interface\n(e.g., tun0 via 10.8.0.1);
   elseif (TableOutbound?) then (yes)
     :Route via existing\ntable (e.g., table 200);
-  elseif (BlackholeOutbound?) then (yes)
-    :Packet dropped\n(blackhole route);
-    stop
   endif
 }
 
@@ -1536,3 +1745,56 @@ fw -> fw : Apply fwmark 0x10000
 fw -> Client : Route via configured outbound
 @enduml
 ```
+
+---
+
+## Key Implementation Details
+
+### Visitor Pattern for List Processing
+
+Lists are processed through a visitor interface, avoiding in-memory storage of all entries:
+
+```cpp
+class ListEntryVisitor {
+  virtual void on_entry(EntryType type, std::string_view entry) = 0;
+  virtual void on_list_complete(const std::string& list_name);
+  virtual void finish();
+};
+```
+
+This enables:
+- Streaming entries directly to batch loaders
+- Counting entries without storing them
+- Processing lists from multiple sources (cache, local file, inline)
+
+### Batch Loading for Firewall Sets
+
+Both iptables and nftables backends use batch loading:
+
+1. `Firewall::create_batch_loader()` returns a visitor
+2. `ListStreamer` streams entries through the visitor
+3. Visitor buffers commands to an ostringstream
+4. `Firewall::apply()` pipes the buffer to the CLI tool
+
+This is significantly faster than spawning a process per entry.
+
+### URLTest Auto-Selection
+
+UrltestManager runs periodic HTTP tests through each child outbound:
+
+1. Uses `CURLOPT_MARK` to route test traffic via correct table
+2. Measures latency, applies circuit breaker logic
+3. Selects best outbound using weighted group algorithm
+4. Triggers firewall rebuild on selection change
+
+### FirewallState as Source of Truth
+
+`FirewallState` tracks:
+- Applied `RuleState` per route rule
+- Current urltest selections
+- Outbound fwmark assignments
+
+This enables:
+- API endpoints to report current state
+- Efficient firewall rebuilds on urltest changes
+- Proper cleanup on shutdown
