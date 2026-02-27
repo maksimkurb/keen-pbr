@@ -73,6 +73,11 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     scheduler_ = std::make_unique<Scheduler>(*this);
 
     // UrltestManager created later during startup (register_urltest_outbounds)
+
+    // RoutingHealthChecker depends on firewall_, firewall_state_, route_table_, policy_rules_, netlink_
+    // All are initialized by this point in the member initializer list
+    routing_health_checker_ = std::make_unique<RoutingHealthChecker>(
+        *firewall_, firewall_state_, route_table_, policy_rules_, netlink_);
 }
 
 Daemon::~Daemon() {
@@ -563,6 +568,7 @@ void Daemon::setup_api() {
         config_.lists,
         firewall_state_,
         *urltest_manager_,
+        *routing_health_checker_,
         [this]() { full_reload(); },
     });
     register_api_handlers(*api_server_, *api_ctx_);

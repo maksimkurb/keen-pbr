@@ -9,6 +9,7 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../health/url_tester.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
@@ -125,6 +126,7 @@ private:
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<UrltestManager> urltest_manager_;
+    std::unique_ptr<RoutingHealthChecker> routing_health_checker_;
 
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;
