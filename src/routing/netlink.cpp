@@ -1,10 +1,12 @@
 #include "netlink.hpp"
 
+#include <arpa/inet.h>
 #include <cstring>
 #include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
 
+#include <netlink/cache.h>
 #include <netlink/netlink.h>
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
@@ -13,6 +15,27 @@
 namespace keen_pbr3 {
 
 namespace {
+
+// Convert an nl_addr to a plain IP string (no prefix length suffix).
+std::string nl_addr_to_ip_str(struct nl_addr* addr) {
+    if (!addr) return "";
+    char buf[128];
+    nl_addr2str(addr, buf, sizeof(buf));
+    std::string s(buf);
+    auto pos = s.find('/');
+    if (pos != std::string::npos) {
+        s = s.substr(0, pos);
+    }
+    return s;
+}
+
+// RAII wrapper for nl_cache
+struct CacheDeleter {
+    void operator()(struct nl_cache* c) const {
+        if (c) nl_cache_free(c);
+    }
+};
+using CachePtr = std::unique_ptr<struct nl_cache, CacheDeleter>;
 
 // Parse an IP address string to nl_addr, auto-detecting family.
 // For CIDR notation (e.g., "10.0.0.0/8"), the prefix length is preserved.
@@ -281,6 +304,108 @@ void NetlinkManager::delete_rule(const RuleSpec& spec) {
     } else {
         del_for_family(spec.family);
     }
+}
+
+std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
+                                                              int family) {
+    struct nl_cache* raw_cache = nullptr;
+    int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to alloc route cache: ") +
+                           nl_geterror(err));
+    }
+    CachePtr cache(raw_cache);
+
+    std::vector<DumpedRoute> result;
+    struct DumpRoutesCtx {
+        std::vector<DumpedRoute>* result;
+        uint32_t table_id;
+    } ctx{&result, table_id};
+
+    nl_cache_foreach(cache.get(), [](struct nl_object* obj, void* arg) {
+        auto* ctx = static_cast<DumpRoutesCtx*>(arg);
+        auto* route = reinterpret_cast<struct rtnl_route*>(obj);
+
+        // Filter by table
+        if (rtnl_route_get_table(route) != ctx->table_id) {
+            return;
+        }
+
+        DumpedRoute dr;
+        dr.table = ctx->table_id;
+        dr.family = rtnl_route_get_family(route);
+
+        // Determine if blackhole
+        int rt_type = rtnl_route_get_type(route);
+        dr.blackhole = (rt_type == RTN_BLACKHOLE);
+
+        // Destination
+        struct nl_addr* dst = rtnl_route_get_dst(route);
+        if (dst) {
+            int prefixlen = nl_addr_get_prefixlen(dst);
+            if (prefixlen == 0) {
+                dr.destination = "default";
+            } else {
+                char buf[128];
+                nl_addr2str(dst, buf, sizeof(buf));
+                dr.destination = buf;
+            }
+        }
+
+        // Nexthop info (interface and gateway)
+        if (!dr.blackhole) {
+            int nh_count = rtnl_route_get_nnexthops(route);
+            if (nh_count > 0) {
+                struct rtnl_nexthop* nh = rtnl_route_nexthop_n(route, 0);
+                if (nh) {
+                    int ifindex = rtnl_route_nh_get_ifindex(nh);
+                    if (ifindex > 0) {
+                        char ifname[IF_NAMESIZE];
+                        if (if_indextoname(static_cast<unsigned>(ifindex),
+                                           ifname)) {
+                            dr.interface = ifname;
+                        }
+                    }
+                    struct nl_addr* gw = rtnl_route_nh_get_gateway(nh);
+                    if (gw && nl_addr_get_len(gw) > 0) {
+                        dr.gateway = nl_addr_to_ip_str(gw);
+                    }
+                }
+            }
+        }
+
+        ctx->result->push_back(std::move(dr));
+    }, &ctx);
+
+    return result;
+}
+
+std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
+    struct nl_cache* raw_cache = nullptr;
+    int err = rtnl_rule_alloc_cache(impl_->sock, family, &raw_cache);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to alloc rule cache: ") +
+                           nl_geterror(err));
+    }
+    CachePtr cache(raw_cache);
+
+    std::vector<DumpedRule> result;
+
+    nl_cache_foreach(cache.get(), [](struct nl_object* obj, void* arg) {
+        auto* out = static_cast<std::vector<DumpedRule>*>(arg);
+        auto* rule = reinterpret_cast<struct rtnl_rule*>(obj);
+
+        DumpedRule dr;
+        dr.priority = rtnl_rule_get_prio(rule);
+        dr.fwmark   = rtnl_rule_get_mark(rule);
+        dr.fwmask   = rtnl_rule_get_mask(rule);
+        dr.table    = rtnl_rule_get_table(rule);
+        dr.family   = rtnl_rule_get_family(rule);
+
+        out->push_back(dr);
+    }, &result);
+
+    return result;
 }
 
 } // namespace keen_pbr3

@@ -48,6 +48,7 @@ set(SOURCES
   src/routing/netlink.cpp
   src/routing/route_table.cpp
   src/routing/policy_rule.cpp
+  src/routing/routing_verifier.cpp
   src/health/circuit_breaker.cpp
   src/health/url_tester.cpp
   src/routing/urltest_manager.cpp
