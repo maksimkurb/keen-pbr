@@ -998,3 +998,17 @@
   - overall_ok only when ALL sub-checks have CheckStatus::ok; only when no exception; error field populated on catch
   - JSON output: "overall" is "ok"/"degraded"/"error"; fwmark/fwmask as hex strings; firewall chain in "firewall" object
 ---
+
+## 2026-02-27 - US-066
+- What was implemented: Wired GET /api/health/routing into API handlers and Daemon; RoutingHealthChecker owned by Daemon and passed to ApiContext
+- Files changed:
+  - `src/api/handlers.hpp` - added RoutingHealthChecker& field to ApiContext struct
+  - `src/api/handlers.cpp` - added GET /api/health/routing handler calling routing_health_checker.check() + routing_health_report_to_json()
+  - `src/daemon/daemon.hpp` - added routing_health_checker_ member (unique_ptr<RoutingHealthChecker>) and #include routing_health_checker.hpp
+  - `src/daemon/daemon.cpp` - constructed routing_health_checker_ at end of Daemon constructor; passed to ApiContext in setup_api()
+- **Learnings for future iterations:**
+  - RoutingHealthChecker must be constructed AFTER firewall_, firewall_state_, route_table_, policy_rules_, and netlink_ are initialized (all are in member initializer list, so end of constructor body is safe)
+  - ApiContext struct initialization order must match field declaration order in handlers.hpp
+  - server.get() RouteHandler only returns std::string (HTTP 200); exceptions propagate to server wrapper (HTTP 500 with {"error":"..."})
+  - For /api/health/routing: check() catches all exceptions internally; handler's try/catch re-throws with proper JSON format for 500 responses
+---
