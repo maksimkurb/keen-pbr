@@ -1,8 +1,8 @@
 #include "firewall_verifier.hpp"
 #include "iptables_verifier.hpp"
+#include "nftables_verifier.hpp"
 
 #include <cstdio>
-#include <stdexcept>
 #include <string>
 
 namespace keen_pbr3 {
@@ -28,8 +28,7 @@ std::unique_ptr<FirewallVerifier> create_firewall_verifier(
         case FirewallBackend::iptables:
             return create_iptables_verifier(std::move(runner));
         case FirewallBackend::nftables:
-            // NftablesFirewallVerifier is implemented in US-063
-            throw FirewallError("nftables verifier not yet implemented");
+            return create_nftables_verifier(std::move(runner));
     }
     throw FirewallError("unknown firewall backend");
 }
