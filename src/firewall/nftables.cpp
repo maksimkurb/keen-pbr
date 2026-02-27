@@ -151,6 +151,10 @@ void NftablesFirewall::cleanup() {
     pending_rules_.clear();
 }
 
+FirewallBackend NftablesFirewall::backend() const {
+    return FirewallBackend::nftables;
+}
+
 std::unique_ptr<Firewall> create_nftables_firewall() {
     return std::make_unique<NftablesFirewall>();
 }

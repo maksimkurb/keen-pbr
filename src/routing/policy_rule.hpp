@@ -29,6 +29,9 @@ public:
     // Number of currently tracked rules.
     size_t size() const { return rules_.size(); }
 
+    // Read-only access to the tracked rules.
+    const std::vector<RuleSpec>& get_rules() const { return rules_; }
+
 private:
     NetlinkManager& netlink_;
     std::vector<RuleSpec> rules_;

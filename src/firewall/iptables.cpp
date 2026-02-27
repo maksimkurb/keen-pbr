@@ -180,6 +180,10 @@ void IptablesFirewall::cleanup() {
     pending_rules_.clear();
 }
 
+FirewallBackend IptablesFirewall::backend() const {
+    return FirewallBackend::iptables;
+}
+
 std::unique_ptr<Firewall> create_iptables_firewall() {
     return std::make_unique<IptablesFirewall>();
 }

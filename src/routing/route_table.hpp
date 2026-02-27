@@ -29,6 +29,9 @@ public:
     // Number of currently tracked routes.
     size_t size() const { return routes_.size(); }
 
+    // Read-only access to the tracked routes.
+    const std::vector<RouteSpec>& get_routes() const { return routes_; }
+
 private:
     NetlinkManager& netlink_;
     std::vector<RouteSpec> routes_;

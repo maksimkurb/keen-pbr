@@ -27,6 +27,7 @@ public:
 
     void apply() override;
     void cleanup() override;
+    FirewallBackend backend() const override;
 
 private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";

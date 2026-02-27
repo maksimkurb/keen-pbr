@@ -15,6 +15,12 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+// Firewall backend type
+enum class FirewallBackend {
+    iptables,
+    nftables
+};
+
 // Abstract firewall interface for managing IP sets and packet marking rules.
 // Both iptables and nftables backends implement this interface.
 //
@@ -59,18 +65,15 @@ public:
     // Should be called on daemon shutdown.
     virtual void cleanup() = 0;
 
+    // Return the backend type for this firewall instance.
+    virtual FirewallBackend backend() const = 0;
+
     // Non-copyable
     Firewall(const Firewall&) = delete;
     Firewall& operator=(const Firewall&) = delete;
 
 protected:
     Firewall() = default;
-};
-
-// Firewall backend type
-enum class FirewallBackend {
-    iptables,
-    nftables
 };
 
 // Detect which firewall backend is available on the system.
