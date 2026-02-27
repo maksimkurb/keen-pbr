@@ -966,3 +966,22 @@
   - IPv6 detection: match.left.payload.protocol == "ip6"
   - nlohmann_json parse failures caught with catch(...) -> return empty state (defensive parsing)
 ---
+## 2026-02-27 - US-064
+- What was implemented: NetlinkManager dump methods + RoutingVerifier
+- Files changed:
+  - `src/routing/netlink.hpp` - added DumpedRoute and DumpedRule structs; added dump_routes_in_table() and dump_policy_rules() method declarations
+  - `src/routing/netlink.cpp` - implemented both dump methods using rtnl_route_alloc_cache/rtnl_rule_alloc_cache + nl_cache_foreach; added nl_addr_to_ip_str() helper and CachePtr RAII wrapper
+  - `src/routing/routing_verifier.hpp` - new RoutingVerifier class with verify_route_table() and verify_policy_rule() methods
+  - `src/routing/routing_verifier.cpp` - implementations using netlink dump methods
+  - `CMakeLists.txt` - added src/routing/routing_verifier.cpp to SOURCES
+- **Learnings for future iterations:**
+  - libnl3 dump pattern: alloc cache via rtnl_route_alloc_cache(sock, family, 0, &cache) then nl_cache_foreach() with void* context struct (no captures needed)
+  - rtnl_route_get_nnexthops() + rtnl_route_nexthop_n(route, 0) to get first nexthop; rtnl_route_nh_get_ifindex() + if_indextoname() for interface name
+  - nl_addr2str() includes prefix length ("/N"), strip with find('/') for plain IP representation
+  - rtnl_route_get_type() == RTN_BLACKHOLE to detect blackhole routes; RTN_BLACKHOLE from <netlink/route/route.h>
+  - nl_addr_get_prefixlen(dst) == 0 identifies default route (0.0.0.0/0 or ::/0)
+  - CachePtr RAII: unique_ptr<nl_cache, CacheDeleter> where CacheDeleter calls nl_cache_free()
+  - Local structs used as C callback context (void*) work fine in C++20 captureless lambdas
+  - include <netlink/cache.h> for nl_cache_foreach (even if often included transitively)
+  - include <arpa/inet.h> for inet functions alongside <net/if.h>
+---
