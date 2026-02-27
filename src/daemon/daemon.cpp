@@ -364,7 +364,6 @@ void Daemon::apply_firewall() {
 
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
-    firewall_ = create_firewall("auto");
 
     for (size_t rule_idx = 0; rule_idx < config_.route.rules.size(); ++rule_idx) {
         const auto& rule = config_.route.rules[rule_idx];
@@ -537,9 +536,6 @@ void Daemon::full_reload() {
     // Re-allocate fwmarks
     outbound_marks_ = allocate_outbound_marks(config_.fwmark, config_.outbounds);
     firewall_state_.set_outbound_marks(outbound_marks_);
-
-    // Re-initialize firewall backend
-    firewall_ = create_firewall("auto");
 
     // Download any lists not yet cached
     download_uncached_lists();
