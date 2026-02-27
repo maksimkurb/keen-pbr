@@ -51,6 +51,7 @@ set(SOURCES
   src/routing/routing_verifier.cpp
   src/health/circuit_breaker.cpp
   src/health/url_tester.cpp
+  src/health/routing_health_checker.cpp
   src/routing/urltest_manager.cpp
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
