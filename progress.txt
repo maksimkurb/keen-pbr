@@ -1012,3 +1012,20 @@
   - server.get() RouteHandler only returns std::string (HTTP 200); exceptions propagate to server wrapper (HTTP 500 with {"error":"..."})
   - For /api/health/routing: check() catches all exceptions internally; handler's try/catch re-throws with proper JSON format for 500 responses
 ---
+
+## 2026-02-27 - US-067
+- What was implemented: doctest-based unit tests for parse_iptables_save(), parse_nft_json(), IptablesFirewallVerifier, and NftablesFirewallVerifier with injectable CommandRunner; 26 tests, 90 assertions
+- Files changed:
+  - `third_party/doctest` - git submodule added (doctest/doctest.h single header)
+  - `.gitmodules` - new entry for doctest submodule
+  - `tests/test_firewall_verifier.cpp` - 26 test cases covering all required scenarios
+  - `tests/CMakeLists.txt` - builds keen-pbr3-tests from iptables_verifier, nftables_verifier, firewall_verifier object files + doctest header
+  - `CMakeLists.txt` - added `option(BUILD_TESTS ...)` and `add_subdirectory(tests)` when ON
+- **Learnings for future iterations:**
+  - doctest is single-header at `third_party/doctest/doctest/doctest.h`; include path is `third_party/doctest` → `#include <doctest/doctest.h>`
+  - Tests built with `cmake -DBUILD_TESTS=ON && cmake --build build --target keen-pbr3-tests`
+  - Tests include only iptables_verifier, nftables_verifier, firewall_verifier.cpp (NOT routing_verifier — requires real kernel)
+  - RoutingVerifier tests are NOT included (requires real kernel via libnl3; covered by manual testing)
+  - CommandRunner injection: `IptablesFirewallVerifier verifier([&canned](const std::string&) { return canned; });`
+  - DROP rule in nft JSON: `{"drop": null}` (null value for drop key)
+---
