@@ -5,6 +5,8 @@ scripts/ralph
 build/
 buildDir/
 cmake-build/
+cmake-build-aarch64/
+cross-toolchain/
 dist/
 
 # CMake
