@@ -4,7 +4,7 @@ DOCKER_IMAGE := keen-pbr3-builder
 
 # Prefer GCC 13+ for C++20 <format> support; fall back to default g++
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
-CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX)
+CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
