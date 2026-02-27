@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <format>
 #include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -179,7 +180,15 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
 
     int err = rtnl_route_add(impl_->sock, route.get(), NLM_F_CREATE | NLM_F_REPLACE);
     if (err < 0) {
-        throw NetlinkError(std::string("Failed to add route: ") + nl_geterror(err));
+        throw NetlinkError(std::format(
+            "Failed to add route: {} (dst={}, table={}, iface={}, gw={}, family={}, blackhole={})",
+            nl_geterror(err),
+            spec.destination,
+            spec.table,
+            spec.interface.value_or("(none)"),
+            spec.gateway.value_or("(none)"),
+            family,
+            spec.blackhole));
     }
 }
 

@@ -1,4 +1,6 @@
 build/
+CMakeCache.txt
+cmake-build/
 dist/
 .git/
 subprojects/*/
