@@ -77,6 +77,18 @@
 - Daemon lifecycle: run() does startup → event loop → shutdown; all business logic (routing, firewall, urltest, API) owned by Daemon as private methods
 - Daemon::full_reload(): single implementation of teardown+rebuild used by SIGHUP and API reload — avoids duplication
 - ApiContext: stored as unique_ptr<ApiContext> member under #ifdef WITH_API; holds references to Daemon-owned members (stable addresses across reload)
+- Routing health: RoutingHealthChecker ties together FirewallVerifier + RoutingVerifier; must be constructed after firewall_, firewall_state_, route_table_, policy_rules_, netlink_; stored as unique_ptr in Daemon
+- Testing: doctest at ; -- The CXX compiler identification is GNU 11.4.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Looking for C++ include format
+-- Looking for C++ include format - not found
+-- Configuring incomplete, errors occurred!
+See also "/home/maksimkurb/Dev/keen-pbr3/CMakeFiles/CMakeOutput.log".
+See also "/home/maksimkurb/Dev/keen-pbr3/CMakeFiles/CMakeError.log". builds keen-pbr3-tests; tests include only pure-function verifiers (NOT RoutingVerifier requiring real kernel)
 
 ## Iteration Log
 
