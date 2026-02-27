@@ -1,10 +1,15 @@
-BUILD_DIR := build
+BUILD_DIR := cmake-build
 DIST_DIR := dist
 DOCKER_IMAGE := keen-pbr3-builder
+
+# Prefer GCC 13+ for C++20 <format> support; fall back to default g++
+CXX := $(shell command -v g++-13 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
+CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX)
 
 SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
+        test \
         docker-image docker-extract \
         help
 
@@ -12,15 +17,19 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 all: build ## Build for host (native)
 
-$(SETUP_STAMP): meson.build
-	meson setup $(BUILD_DIR) --wipe 2>/dev/null \
-		|| meson setup $(BUILD_DIR)
+$(SETUP_STAMP): CMakeLists.txt
+	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS)
 	@touch $@
 
-setup: $(SETUP_STAMP) ## Configure Meson
+setup: $(SETUP_STAMP) ## Configure CMake
 
 build: $(SETUP_STAMP) ## Compile the project
-	meson compile -C $(BUILD_DIR)
+	cmake --build $(BUILD_DIR)
+
+test: ## Build and run unit tests (doctest)
+	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS) -DBUILD_TESTS=ON
+	cmake --build $(BUILD_DIR) --target keen-pbr3-tests
+	$(BUILD_DIR)/tests/keen-pbr3-tests
 
 clean: ## Remove build artifacts
 	rm -rf $(BUILD_DIR)
