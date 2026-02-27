@@ -985,3 +985,16 @@
   - include <netlink/cache.h> for nl_cache_foreach (even if often included transitively)
   - include <arpa/inet.h> for inet functions alongside <net/if.h>
 ---
+
+## 2026-02-27 - US-065
+- What was implemented: RoutingHealthChecker orchestrator that ties together FirewallVerifier and RoutingVerifier, plus routing_health_report_to_json() for JSON serialization
+- Files changed:
+  - `src/health/routing_health_checker.hpp` - new header declaring RoutingHealthChecker class and routing_health_report_to_json() free function
+  - `src/health/routing_health_checker.cpp` - implementation; check() builds table_id->outbound_tag map from policy_rules + outbound_marks, then calls verifiers
+  - `CMakeLists.txt` - added src/health/routing_health_checker.cpp to SOURCES list
+- **Learnings for future iterations:**
+  - routing_health_checker.cpp outbound_tag lookup for route tables: use policy_rules (fwmark->table) + outbound_marks (tag->fwmark) to build table_id->outbound_tag map
+  - hex_str() uses std::format("0x{:08x}", v) — requires GCC 13+ (CMakeLists.txt already checks for <format>)
+  - overall_ok only when ALL sub-checks have CheckStatus::ok; only when no exception; error field populated on catch
+  - JSON output: "overall" is "ok"/"degraded"/"error"; fwmark/fwmask as hex strings; firewall chain in "firewall" object
+---
