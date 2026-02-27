@@ -948,3 +948,21 @@
   - verify_rules() builds combined set_name→rule map from v4 then v6 (v6 only inserted if not already present), then matches against RuleState.set_names
   - CommandRunner injection pattern allows testing without system() calls
 ---
+## 2026-02-27 - US-063
+- What was implemented: NftablesFirewallVerifier with parse_nft_json() for verifying live nftables state against expected configuration
+- Files changed:
+  - `src/firewall/nftables_verifier.hpp` - ParsedNftRule, ParsedNftablesState structs; parse_nft_json() declaration; NftablesFirewallVerifier class; create_nftables_verifier() factory
+  - `src/firewall/nftables_verifier.cpp` - Implementation of parse_nft_json() using nlohmann_json; NftablesFirewallVerifier::verify_chain() and verify_rules() methods
+  - `src/firewall/firewall_verifier.cpp` - Updated factory to use create_nftables_verifier() instead of throwing; added nftables_verifier.hpp include
+  - `CMakeLists.txt` - Added src/firewall/nftables_verifier.cpp to SOURCES list
+- **Learnings for future iterations:**
+  - nft -j list ruleset JSON structure: top-level {"nftables": [...]} array with objects keyed by "table", "chain", "rule", "metainfo"
+  - Table lookup: elem["table"] where family=="inet" and name=="KeenPbrTable"
+  - Chain lookup: elem["chain"] where table=="KeenPbrTable" and name=="prerouting"; hook=="prerouting" indicates active hook
+  - Rule lookup: elem["rule"] where table=="KeenPbrTable" and chain=="prerouting"; expr array contains match/mangle/drop objects
+  - Named set reference in match.right: string "@setname" (strip '@' to get set_name); some versions may use {"set": "@setname"}
+  - Mark value from mangle expr: mangle.key.meta.key == "mark" and mangle.value is the uint32_t fwmark
+  - Drop verdict: expr object has key "drop" (value is null/void)
+  - IPv6 detection: match.left.payload.protocol == "ip6"
+  - nlohmann_json parse failures caught with catch(...) -> return empty state (defensive parsing)
+---
