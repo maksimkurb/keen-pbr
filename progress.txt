@@ -914,3 +914,21 @@
   - US-057 through US-060 formed a natural refactoring arc where each story's implementation implicitly satisfied the next story's criteria
   - main.cpp includes beyond config.hpp and daemon.hpp are justified by non-daemon commands (download needs CacheManager/ListStreamer/EntryCounter, print-dnsmasq-config needs DnsServerRegistry/DnsmasqGenerator)
 ---
+
+## 2026-02-27 - US-061
+- What was implemented: Routing health data structures, Firewall::backend(), and accessor methods
+- Files changed:
+  - `src/health/routing_health.hpp` - New file with CheckStatus enum and five structs (FirewallChainCheck, FirewallRuleCheck, RouteTableCheck, PolicyRuleCheck, RoutingHealthReport)
+  - `src/firewall/firewall.hpp` - Moved FirewallBackend enum before Firewall class; added pure virtual backend() const = 0
+  - `src/firewall/iptables.hpp` - Added backend() const override declaration
+  - `src/firewall/nftables.hpp` - Added backend() const override declaration
+  - `src/firewall/iptables.cpp` - Implemented backend() returning FirewallBackend::iptables
+  - `src/firewall/nftables.cpp` - Implemented backend() returning FirewallBackend::nftables
+  - `src/routing/route_table.hpp` - Added get_routes() const returning const std::vector<RouteSpec>&
+  - `src/routing/policy_rule.hpp` - Added get_rules() const returning const std::vector<RuleSpec>&
+  - `prd.json` - Marked US-061 as passes: true
+- **Learnings for future iterations:**
+  - FirewallBackend enum was already declared in firewall.hpp but needed to be moved before the Firewall class so backend() could use it in the class definition
+  - routing_health.hpp is a pure header (no .cpp needed) — all types are data structs with no non-trivial logic
+  - CheckStatus has only 3 values: ok, missing, mismatch (no "error" variant despite US-065 mentioning error field in RoutingHealthReport — errors go in the report's string error field)
+---

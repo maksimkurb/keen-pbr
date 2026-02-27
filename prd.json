@@ -1042,6 +1042,134 @@
       "priority": 60,
       "passes": true,
       "notes": ""
+    },
+    {
+      "id": "US-061",
+      "title": "Routing health data structures, Firewall::backend(), and accessor methods",
+      "description": "As a developer, I need the shared data types and accessor plumbing that all subsequent routing-health stories depend on.\n\nArchitecture:\n- New header `src/health/routing_health.hpp` defines all result types in namespace `keen_pbr3`:\n  - `enum class CheckStatus { ok, missing, mismatch }`\n  - `struct FirewallChainCheck { bool chain_present; bool prerouting_hook_present; std::string detail; }`\n  - `struct FirewallRuleCheck { std::string set_name; std::string action; std::optional<uint32_t> expected_fwmark; std::optional<uint32_t> actual_fwmark; CheckStatus status; std::string detail; }`\n  - `struct RouteTableCheck { uint32_t table_id; std::string outbound_tag; std::optional<std::string> expected_interface; std::optional<std::string> expected_gateway; bool table_exists; bool default_route_present; bool interface_matches; bool gateway_matches; CheckStatus status; std::string detail; }`\n  - `struct PolicyRuleCheck { uint32_t fwmark; uint32_t fwmask; uint32_t expected_table; uint32_t priority; bool rule_present_v4; bool rule_present_v6; CheckStatus status; std::string detail; }`\n  - `struct RoutingHealthReport { bool overall_ok; std::string firewall_backend; FirewallChainCheck firewall_chain; std::vector<FirewallRuleCheck> firewall_rules; std::vector<RouteTableCheck> route_tables; std::vector<PolicyRuleCheck> policy_rules; std::string error; }`\n- `enum class FirewallBackend { iptables, nftables }` added to `src/firewall/firewall.hpp`\n- Pure virtual `virtual FirewallBackend backend() const = 0` added to `Firewall` abstract class in `firewall.hpp`\n- `IptablesFirewall::backend()` returns `FirewallBackend::iptables`\n- `NftablesFirewall::backend()` returns `FirewallBackend::nftables`\n- `const std::vector<RouteSpec>& get_routes() const` added to `RouteTable` in `src/routing/route_table.hpp`\n- `const std::vector<RuleSpec>& get_rules() const` added to `PolicyRuleManager` in `src/routing/policy_rule.hpp`",
+      "acceptanceCriteria": [
+        "src/health/routing_health.hpp exists with CheckStatus enum and all five structs as described",
+        "FirewallBackend enum (iptables, nftables) declared in src/firewall/firewall.hpp",
+        "Firewall abstract class declares pure virtual backend() const returning FirewallBackend",
+        "IptablesFirewall::backend() returns FirewallBackend::iptables",
+        "NftablesFirewall::backend() returns FirewallBackend::nftables",
+        "RouteTable::get_routes() const returns const reference to internal routes vector",
+        "PolicyRuleManager::get_rules() const returns const reference to internal rules vector",
+        "Typecheck passes"
+      ],
+      "priority": 61,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-062",
+      "title": "FirewallVerifier abstract interface + IptablesFirewallVerifier with parse_iptables_save()",
+      "description": "As a developer, I need an injectable verification layer for the iptables backend that compares expected rules (from FirewallState) with actual kernel state (from iptables-save).\n\nArchitecture:\n- New header `src/firewall/firewall_verifier.hpp`:\n  - `using CommandRunner = std::function<std::string(const std::string& cmd)>` — injectable function that runs a shell command and returns its stdout as a string\n  - `std::string run_command_capture(const std::string& cmd)` — default implementation using popen, declared in header, defined in `firewall_verifier.cpp`\n  - Abstract class `FirewallVerifier` with pure virtual methods:\n    - `virtual FirewallChainCheck verify_chain() = 0`\n    - `virtual std::vector<FirewallRuleCheck> verify_rules(const std::vector<RuleState>& expected) = 0`\n  - Factory: `std::unique_ptr<FirewallVerifier> create_firewall_verifier(FirewallBackend backend, CommandRunner runner = run_command_capture)`\n- New header/source `src/firewall/iptables_verifier.hpp/.cpp`:\n  - Parse structs (exposed in header for direct testing):\n    - `struct ParsedIptablesRule { std::string set_name; bool is_mark; bool is_drop; uint32_t fwmark; }`\n    - `struct ParsedIptablesState { bool has_keen_pbr_chain; bool has_prerouting_jump; std::vector<ParsedIptablesRule> rules; }`\n  - Pure function: `ParsedIptablesState parse_iptables_save(const std::string& output, bool ipv6 = false)` — scans lines looking for `:KeenPbrTable`, `-A PREROUTING -j KeenPbrTable`, and `-A KeenPbrTable` rules with `--match-set` + `MARK`/`DROP`\n  - `class IptablesFirewallVerifier : public FirewallVerifier` with private `CommandRunner runner_`\n  - `verify_chain()`: calls `runner_(\"iptables-save -t mangle\")` and `runner_(\"ip6tables-save -t mangle\")`, passes both to `parse_iptables_save()`, returns `FirewallChainCheck`\n  - `verify_rules()`: parses both v4/v6 state, for each expected `RuleState` checks if a matching rule exists in parsed output (matching set_name, action, fwmark), returns vector of `FirewallRuleCheck` with status ok/missing/mismatch",
+      "acceptanceCriteria": [
+        "src/firewall/firewall_verifier.hpp defines CommandRunner type alias, run_command_capture() declaration, FirewallVerifier abstract class, and create_firewall_verifier() factory",
+        "src/firewall/firewall_verifier.cpp implements run_command_capture() using popen; factory returns IptablesFirewallVerifier or NftablesFirewallVerifier based on backend arg",
+        "src/firewall/iptables_verifier.hpp exposes ParsedIptablesRule, ParsedIptablesState, and parse_iptables_save() as public symbols",
+        "parse_iptables_save() correctly identifies chain presence, prerouting jump, mark rules (with fwmark value), and drop rules from iptables-save -t mangle output",
+        "IptablesFirewallVerifier::verify_chain() invokes CommandRunner for both iptables-save and ip6tables-save and aggregates results",
+        "IptablesFirewallVerifier::verify_rules() returns FirewallRuleCheck per expected rule with correct status (ok/missing/mismatch) and actual_fwmark populated when found",
+        "Typecheck passes"
+      ],
+      "priority": 62,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-063",
+      "title": "NftablesFirewallVerifier with parse_nft_json()",
+      "description": "As a developer, I need the nftables backend verifier that reads `nft -j list ruleset` JSON output and compares the KeenPbrTable inet table/chain/rules against expected state.\n\nArchitecture:\n- New header/source `src/firewall/nftables_verifier.hpp/.cpp`:\n  - Parse structs (exposed in header for direct testing):\n    - `struct ParsedNftRule { std::string set_name; bool is_mark; bool is_drop; uint32_t fwmark; bool ipv6; }`\n    - `struct ParsedNftablesState { bool has_table; bool has_prerouting_chain; bool has_prerouting_hook; std::vector<ParsedNftRule> rules; }`\n  - Pure function: `ParsedNftablesState parse_nft_json(const std::string& json_output)` using nlohmann_json:\n    - Walks `nftables` array from `nft -j list ruleset` output\n    - Finds element with key `\"table\"` where `family == \"inet\"` and `name == \"KeenPbrTable\"`\n    - Finds element with key `\"chain\"` in that table named `\"prerouting\"`; checks `hook == \"prerouting\"` and `type == \"filter\"`\n    - Finds elements with key `\"rule\"` in that chain; for each rule walks `expr` array:\n      - Mark rule: contains `match` with `right` referencing `@setname` + `mangle` expr with mark value\n      - Drop rule: contains `match` with `right` referencing `@setname` + `\"drop\"` expr\n    - Determines ipv6 from set name suffix or set type if available\n  - `class NftablesFirewallVerifier : public FirewallVerifier` with private `CommandRunner runner_`\n  - `verify_chain()`: calls `runner_(\"nft -j list ruleset\")`, passes to `parse_nft_json()`, returns `FirewallChainCheck`\n  - `verify_rules()`: for each expected `RuleState` checks if matching rule exists in parsed state, returns vector of `FirewallRuleCheck`\n- `create_firewall_verifier()` in `firewall_verifier.cpp` returns `NftablesFirewallVerifier` when backend is `FirewallBackend::nftables`",
+      "acceptanceCriteria": [
+        "src/firewall/nftables_verifier.hpp exposes ParsedNftRule, ParsedNftablesState, and parse_nft_json() as public symbols",
+        "parse_nft_json() correctly identifies table presence, chain presence, prerouting hook presence, mark rules (with fwmark), and drop rules from nft -j list ruleset JSON",
+        "parse_nft_json() returns has_table=false and empty rules when table KeenPbrTable is not found",
+        "parse_nft_json() returns has_prerouting_hook=false when chain exists but hook is not configured",
+        "NftablesFirewallVerifier::verify_chain() invokes CommandRunner for nft -j list ruleset",
+        "NftablesFirewallVerifier::verify_rules() returns correct status (ok/missing/mismatch) per expected rule",
+        "nlohmann_json used for JSON parsing (already available as submodule)",
+        "Typecheck passes"
+      ],
+      "priority": 63,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-064",
+      "title": "NetlinkManager dump methods + RoutingVerifier",
+      "description": "As a developer, I need to verify actual routing tables and policy rules from the kernel using netlink (libnl3), not CLI tools.\n\nArchitecture:\n- Add to `src/routing/netlink.hpp` two new structs and two new dump methods on `NetlinkManager`:\n  - `struct DumpedRoute { std::string destination; uint32_t table; std::optional<std::string> interface; std::optional<std::string> gateway; bool blackhole; int family; }`\n  - `struct DumpedRule { uint32_t priority; uint32_t fwmark; uint32_t fwmask; uint32_t table; int family; }`\n  - `std::vector<DumpedRoute> dump_routes_in_table(uint32_t table_id, int family = AF_UNSPEC)` — uses `rtnl_route_alloc_cache(sock_, family, 0, &cache)` + `nl_cache_foreach()` to iterate, filters by `rtnl_route_get_table() == table_id`; extracts destination via `rtnl_route_get_dst()`, interface index via `rtnl_route_get_oif()` → `rtnl_link_i2name()`, gateway via next-hop `rtnl_route_nh_get_gateway()`\n  - `std::vector<DumpedRule> dump_policy_rules(int family = AF_UNSPEC)` — uses `rtnl_rule_alloc_cache(sock_, family, &cache)` + `nl_cache_foreach()`; extracts priority/fwmark/fwmask/table via `rtnl_rule_get_*()` functions\n- Implement both in `src/routing/netlink.cpp`\n- New header/source `src/routing/routing_verifier.hpp/.cpp`:\n  - `class RoutingVerifier` with `explicit RoutingVerifier(NetlinkManager& netlink)`\n  - `RouteTableCheck verify_route_table(const RouteSpec& expected, const std::string& outbound_tag)`: calls `netlink_.dump_routes_in_table(spec.table)`, looks for a default route (`destination == \"default\"` or prefix length 0), compares interface and gateway to expected values, fills `RouteTableCheck`\n  - `PolicyRuleCheck verify_policy_rule(const RuleSpec& expected, const std::string& outbound_tag)`: calls `netlink_.dump_policy_rules()`, checks that a rule with matching fwmark+fwmask+table exists for AF_INET and AF_INET6, fills `PolicyRuleCheck`",
+      "acceptanceCriteria": [
+        "DumpedRoute and DumpedRule structs declared in src/routing/netlink.hpp",
+        "NetlinkManager::dump_routes_in_table() implemented using rtnl_route_alloc_cache + nl_cache_foreach, returns routes filtered by table_id",
+        "NetlinkManager::dump_policy_rules() implemented using rtnl_rule_alloc_cache + nl_cache_foreach",
+        "dump_routes_in_table() correctly populates interface name (resolved from ifindex) and gateway string",
+        "src/routing/routing_verifier.hpp/.cpp exist with RoutingVerifier class taking NetlinkManager& in constructor",
+        "verify_route_table() returns RouteTableCheck with correct table_exists, default_route_present, interface_matches, gateway_matches, and status fields",
+        "verify_policy_rule() returns PolicyRuleCheck with correct rule_present_v4, rule_present_v6, and status fields",
+        "No popen/system/CLI calls in RoutingVerifier or NetlinkManager dump methods — only libnl3 APIs",
+        "Typecheck passes"
+      ],
+      "priority": 64,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-065",
+      "title": "RoutingHealthChecker orchestrator + JSON serialization",
+      "description": "As a developer, I need the RoutingHealthChecker to tie together the firewall and routing verifiers and produce a serializable RoutingHealthReport.\n\nArchitecture:\n- New header/source `src/health/routing_health_checker.hpp/.cpp`:\n  - `class RoutingHealthChecker` constructor: `RoutingHealthChecker(const Firewall& firewall, const FirewallState& firewall_state, const RouteTable& route_table, const PolicyRuleManager& policy_rules, NetlinkManager& netlink)`\n  - `RoutingHealthReport check()` method:\n    1. Calls `create_firewall_verifier(firewall_.backend())` to get the right verifier\n    2. Calls `verifier->verify_chain()` → populates `report.firewall_chain`\n    3. Gets expected rules from `firewall_state_.get_rules()` (vector of RuleState); calls `verifier->verify_rules(expected_rules)` → populates `report.firewall_rules`\n    4. Creates `RoutingVerifier rv(netlink_)`\n    5. Iterates `route_table_.get_routes()` → calls `rv.verify_route_table(spec, tag)` per entry → populates `report.route_tables`\n    6. Iterates `policy_rules_.get_rules()` → calls `rv.verify_policy_rule(spec, tag)` per entry → populates `report.policy_rules`\n    7. Sets `report.overall_ok = true` only if all checks have `CheckStatus::ok`\n    8. Sets `report.firewall_backend` to `\"iptables\"` or `\"nftables\"`\n    9. Wraps entire body in try/catch; on exception sets `report.error` and `report.overall_ok = false`\n  - Free function `nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r)` — serializes to JSON matching the response schema:\n    - `\"overall\"`: `\"ok\"` / `\"degraded\"` / `\"error\"`\n    - `\"firewall_backend\"`, `\"firewall\"` object, `\"firewall_rules\"` array, `\"route_tables\"` array, `\"policy_rules\"` array\n    - fwmark/fwmask values formatted as hex strings (e.g. `\"0x00010000\"`)\n    - CheckStatus serialized as `\"ok\"` / `\"missing\"` / `\"mismatch\"` strings",
+      "acceptanceCriteria": [
+        "src/health/routing_health_checker.hpp/.cpp exist with RoutingHealthChecker class",
+        "RoutingHealthChecker constructor accepts Firewall const ref, FirewallState const ref, RouteTable const ref, PolicyRuleManager const ref, NetlinkManager ref",
+        "check() calls create_firewall_verifier() with backend from firewall_.backend()",
+        "check() aggregates results from FirewallVerifier and RoutingVerifier into RoutingHealthReport",
+        "overall_ok is true only when all sub-checks have status CheckStatus::ok",
+        "check() catches exceptions and populates report.error; overall_ok is false on error",
+        "routing_health_report_to_json() produces JSON matching the documented response schema",
+        "fwmark values appear as hex strings in JSON output",
+        "Typecheck passes"
+      ],
+      "priority": 65,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-066",
+      "title": "Wire GET /api/health/routing endpoint into API and Daemon",
+      "description": "As a developer, I need the new routing health endpoint exposed via the REST API so clients can query it.\n\nArchitecture:\n- `src/api/handlers.hpp` — add `RoutingHealthChecker& routing_health_checker` field to `ApiContext` struct\n- `src/api/handlers.cpp` — register handler:\n  ```\n  GET /api/health/routing → ctx.routing_health_checker.check() → routing_health_report_to_json() → 200 response\n  ```\n  On any exception caught at handler boundary: respond with `{\"overall\":\"error\",\"error\":\"<message>\"}` and HTTP 500\n- `src/daemon/daemon.hpp` — add `std::unique_ptr<RoutingHealthChecker> routing_health_checker_` member (inside `#ifdef WITH_API` or unconditionally, as it's lightweight)\n- `src/daemon/daemon.cpp`:\n  - After firewall, firewall_state, route_table, policy_rules, and netlink are constructed, construct: `routing_health_checker_ = std::make_unique<RoutingHealthChecker>(*firewall_, firewall_state_, route_table_, policy_rules_, *netlink_manager_)`\n  - In `setup_api()`: pass `*routing_health_checker_` to `ApiContext`\n- `CMakeLists.txt` — add all new source files to the SOURCES list:\n  - `src/health/routing_health_checker.cpp`\n  - `src/firewall/firewall_verifier.cpp`\n  - `src/firewall/iptables_verifier.cpp`\n  - `src/firewall/nftables_verifier.cpp`\n  - `src/routing/routing_verifier.cpp`",
+      "acceptanceCriteria": [
+        "ApiContext in handlers.hpp has routing_health_checker field of type RoutingHealthChecker&",
+        "GET /api/health/routing is registered in handlers.cpp and calls routing_health_checker.check()",
+        "Handler returns 200 with JSON body on success",
+        "Handler returns 500 with error JSON on exception",
+        "Daemon constructs RoutingHealthChecker after all its dependencies are initialized",
+        "RoutingHealthChecker passed to ApiContext in setup_api()",
+        "All new .cpp files added to CMakeLists.txt SOURCES",
+        "curl http://127.0.0.1:PORT/api/health/routing returns valid JSON with overall, firewall_backend, firewall, firewall_rules, route_tables, policy_rules fields",
+        "Typecheck passes"
+      ],
+      "priority": 66,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-067",
+      "title": "Unit tests for firewall parsing functions using doctest",
+      "description": "As a developer, I need unit tests for the pure parse functions (parse_iptables_save, parse_nft_json) and the CommandRunner-injectable verifier classes so correctness can be verified without a running kernel.\n\nArchitecture:\n- Add `doctest` as a git submodule at `third_party/doctest/` (single header: `third_party/doctest/doctest/doctest.h`), following the same pattern as nlohmann_json and cpp-httplib submodules\n- `.gitmodules` gets a new entry pointing to `https://github.com/doctest/doctest.git`\n- New test file `tests/test_firewall_verifier.cpp`:\n  - `#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN` + `#include <doctest/doctest.h>`\n  - Tests for `parse_iptables_save()`:\n    - Empty string → has_keen_pbr_chain=false, has_prerouting_jump=false, empty rules\n    - Chain declaration present but no jump → has_keen_pbr_chain=true, has_prerouting_jump=false\n    - PREROUTING jump present → has_prerouting_jump=true\n    - Mark rule with fwmark → rule parsed with is_mark=true, correct fwmark value\n    - Drop rule → rule parsed with is_drop=true\n    - Multiple rules → all parsed in order\n    - IPv6 variant (ip6tables-save output) → same results\n  - Tests for `parse_nft_json()`:\n    - Invalid JSON → has_table=false, no exception\n    - Valid JSON with no KeenPbrTable table → has_table=false\n    - Table present, no chain → has_table=true, has_prerouting_chain=false\n    - Chain present, no hook → has_prerouting_chain=true, has_prerouting_hook=false\n    - Mark rule → parsed with correct fwmark\n    - Drop rule → parsed with is_drop=true\n    - Wrong table name → has_table=false\n  - Tests for `IptablesFirewallVerifier::verify_rules()` with injected CommandRunner:\n    - Inject lambda returning canned iptables-save string; pass expected RuleState; assert returned FirewallRuleCheck statuses\n  - Tests for `NftablesFirewallVerifier::verify_rules()` with injected CommandRunner:\n    - Same pattern with canned nft JSON string\n- `CMakeLists.txt` additions:\n  - `option(BUILD_TESTS \"Build unit tests\" OFF)`\n  - When `BUILD_TESTS=ON`: add `tests/` subdirectory with `CMakeLists.txt` that creates `keen-pbr3-tests` executable linking `iptables_verifier`, `nftables_verifier`, `firewall_verifier` object files and doctest header\n  - Routing verifier is NOT unit-tested (requires real kernel via libnl3); covered by integration/manual testing",
+      "acceptanceCriteria": [
+        "third_party/doctest/ git submodule added with doctest/doctest.h header present",
+        ".gitmodules contains entry for doctest submodule",
+        "tests/test_firewall_verifier.cpp exists with doctest-based tests",
+        "parse_iptables_save() tests cover: empty input, chain only, prerouting jump, mark rule, drop rule, multiple rules, ipv6=true",
+        "parse_nft_json() tests cover: invalid JSON, missing table, missing chain, missing hook, mark rule with fwmark, drop rule",
+        "IptablesFirewallVerifier and NftablesFirewallVerifier tested with injected CommandRunner lambdas returning canned strings",
+        "cmake -DBUILD_TESTS=ON && cmake --build build && ./build/keen-pbr3-tests succeeds without root",
+        "Typecheck passes"
+      ],
+      "priority": 67,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
