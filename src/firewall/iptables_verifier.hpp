@@ -1,0 +1,52 @@
+#pragma once
+
+#include "firewall_verifier.hpp"
+
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace keen_pbr3 {
+
+// A single parsed rule from iptables-save -t mangle output (within KeenPbrTable chain).
+struct ParsedIptablesRule {
+    std::string set_name;  // IP set name from --match-set
+    bool is_mark{false};   // true if -j MARK --set-mark
+    bool is_drop{false};   // true if -j DROP
+    uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
+};
+
+// Parsed state of the KeenPbrTable chain from iptables-save -t mangle output.
+struct ParsedIptablesState {
+    bool has_keen_pbr_chain{false};        // :KeenPbrTable line was found
+    bool has_prerouting_jump{false};       // -A PREROUTING -j KeenPbrTable was found
+    std::vector<ParsedIptablesRule> rules; // rules found in KeenPbrTable chain
+};
+
+// Parse the stdout of `iptables-save -t mangle` (or ip6tables-save -t mangle).
+// Returns the parsed state of the KeenPbrTable chain.
+ParsedIptablesState parse_iptables_save(const std::string& output, bool ipv6 = false);
+
+// FirewallVerifier implementation for the iptables/ip6tables backend.
+class IptablesFirewallVerifier : public FirewallVerifier {
+public:
+    explicit IptablesFirewallVerifier(CommandRunner runner);
+
+    // Verify KeenPbrTable chain existence and PREROUTING hook for both v4 and v6.
+    FirewallChainCheck verify_chain() override;
+
+    // Verify mark/drop rules for all expected RuleState entries (action_type != Skip).
+    std::vector<FirewallRuleCheck> verify_rules(
+        const std::vector<RuleState>& expected) override;
+
+private:
+    static constexpr const char* CHAIN_NAME = "KeenPbrTable";
+
+    CommandRunner runner_;
+};
+
+// Factory function called from firewall_verifier.cpp
+std::unique_ptr<FirewallVerifier> create_iptables_verifier(CommandRunner runner);
+
+} // namespace keen_pbr3

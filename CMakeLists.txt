@@ -57,6 +57,8 @@ set(SOURCES
   src/firewall/nftables.cpp
   src/firewall/ipset_restore_pipe.cpp
   src/firewall/nft_batch_pipe.cpp
+  src/firewall/firewall_verifier.cpp
+  src/firewall/iptables_verifier.cpp
   src/dns/dns_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
