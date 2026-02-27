@@ -932,3 +932,19 @@
   - routing_health.hpp is a pure header (no .cpp needed) — all types are data structs with no non-trivial logic
   - CheckStatus has only 3 values: ok, missing, mismatch (no "error" variant despite US-065 mentioning error field in RoutingHealthReport — errors go in the report's string error field)
 ---
+
+## 2026-02-27 - US-062
+- What was implemented: FirewallVerifier abstract interface + IptablesFirewallVerifier with parse_iptables_save()
+- Files changed:
+  - src/firewall/firewall_verifier.hpp (new): CommandRunner type alias, run_command_capture() declaration, FirewallVerifier abstract class, create_firewall_verifier() factory
+  - src/firewall/firewall_verifier.cpp (new): run_command_capture() using popen, factory returning IptablesFirewallVerifier (nftables throws "not yet implemented" for US-063)
+  - src/firewall/iptables_verifier.hpp (new): ParsedIptablesRule, ParsedIptablesState structs, parse_iptables_save() declaration, IptablesFirewallVerifier class
+  - src/firewall/iptables_verifier.cpp (new): parse_iptables_save() parsing chain declaration/prerouting jump/mark+drop rules; verify_chain() aggregates v4+v6 results; verify_rules() returns FirewallRuleCheck per (RuleState, set_name) pair
+  - CMakeLists.txt: added firewall_verifier.cpp and iptables_verifier.cpp to SOURCES
+- **Learnings for future iterations:**
+  - FirewallVerifier factory in firewall_verifier.cpp uses iptables_verifier.hpp; nftables case throws until US-063 implements it
+  - parse_iptables_save() detects chain via `:KeenPbrTable` prefix; prerouting jump via exact string match `-A PREROUTING -j KeenPbrTable`; mark/drop rules by scanning `-A KeenPbrTable -m set --match-set <set> dst -j ...`
+  - Mark values written as hex (`0x100`) by iptables.cpp, parsed with std::stoul(..., nullptr, 0) to handle both hex and decimal
+  - verify_rules() builds combined set_name→rule map from v4 then v6 (v6 only inserted if not already present), then matches against RuleState.set_names
+  - CommandRunner injection pattern allows testing without system() calls
+---
