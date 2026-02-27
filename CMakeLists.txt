@@ -90,3 +90,9 @@ if(WITH_API)
 endif()
 
 install(TARGETS keen-pbr3 DESTINATION bin)
+
+# Unit tests (optional, requires doctest submodule)
+option(BUILD_TESTS "Build unit tests" OFF)
+if(BUILD_TESTS)
+  add_subdirectory(tests)
+endif()
