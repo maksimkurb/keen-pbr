@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 
 #include <netlink/cache.h>
+#include <netlink/errno.h>
 #include <netlink/netlink.h>
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
@@ -268,6 +269,11 @@ void NetlinkManager::add_rule(const RuleSpec& spec) {
 
         int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
         if (err < 0) {
+            if (err == -NLE_EXIST) {
+                // Rule already exists (e.g., leftover from a crashed previous instance).
+                // Desired state is already achieved — not an error.
+                return;
+            }
             throw NetlinkError(std::string("Failed to add rule (family ") +
                                std::to_string(fam) + "): " + nl_geterror(err));
         }
