@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <format>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <sys/socket.h>
 
@@ -25,11 +26,7 @@ void NftablesFirewall::create_ipset(const std::string& set_name, int family,
     PendingSet ps;
     ps.name = set_name;
     ps.type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
-    ps.flags = "interval";
     ps.timeout = timeout;
-    if (timeout > 0) {
-        ps.flags += ", timeout";
-    }
     pending_sets_.push_back(std::move(ps));
     created_sets_[set_name] = family;
 }
@@ -60,75 +57,144 @@ void NftablesFirewall::create_drop_rule(const std::string& set_name) {
 
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
     const std::string& set_name, int32_t entry_timeout) {
-    // Ensure an entry exists in pending_elements_ for this set
+    // Ensure an entry exists in pending_elements_ for this set (as an empty array)
     auto& buf = pending_elements_[set_name];
+    if (!buf.is_array()) {
+        buf = nlohmann::json::array();
+    }
     return std::make_unique<NftBatchVisitor>(buf, set_name, entry_timeout);
 }
 
+// --- Private static helpers ---
+
+nlohmann::json NftablesFirewall::build_table_json() {
+    return {{"add", {{"table", {{"family", "inet"}, {"name", TABLE_NAME}}}}}};
+}
+
+nlohmann::json NftablesFirewall::build_set_json(const PendingSet& ps) {
+    nlohmann::json flags = nlohmann::json::array({"interval"});
+    if (ps.timeout > 0) {
+        flags.push_back("timeout");
+    }
+    nlohmann::json set = {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"name", ps.name},
+        {"type", ps.type},
+        {"flags", flags}
+    };
+    if (ps.timeout > 0) {
+        set["timeout"] = ps.timeout;
+    }
+    return {{"add", {{"set", set}}}};
+}
+
+nlohmann::json NftablesFirewall::build_chain_json() {
+    return {{"add", {{"chain", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"name", CHAIN_NAME},
+        {"type", "filter"},
+        {"hook", "prerouting"},
+        {"prio", -150},
+        {"policy", "accept"}
+    }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
+    std::string proto = (pr.family == AF_INET6) ? "ip6" : "ip";
+    return {{"add", {{"rule", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"chain", CHAIN_NAME},
+        {"expr", nlohmann::json::array({
+            {{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}},
+            {{"counter", nullptr}},
+            {{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}}, {"value", pr.fwmark}}}}
+        })}
+    }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
+    std::string proto = (pr.family == AF_INET6) ? "ip6" : "ip";
+    return {{"add", {{"rule", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"chain", CHAIN_NAME},
+        {"expr", nlohmann::json::array({
+            {{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}},
+            {{"counter", nullptr}},
+            {{"drop", nullptr}}
+        })}
+    }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name,
+                                                      const nlohmann::json& elems) {
+    return {{"add", {{"element", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"name", set_name},
+        {"elem", elems}
+    }}}}};
+}
+
+// --- apply / cleanup ---
+
 void NftablesFirewall::apply() {
-    std::string script;
+    nlohmann::json doc;
+    auto& arr = doc["nftables"];
+    arr = nlohmann::json::array();
+
+    // metainfo
+    arr.push_back({{"metainfo", {{"json_schema_version", 1}}}});
 
     // Ensure table exists (no-op if already present), then delete for clean slate
-    script += std::format("table inet {}\n", TABLE_NAME);
-    script += std::format("delete table inet {}\n", TABLE_NAME);
+    arr.push_back(build_table_json());
+    arr.push_back({{"delete", {{"table", {{"family", "inet"}, {"name", TABLE_NAME}}}}}});
+    arr.push_back(build_table_json());
 
-    // Begin table definition
-    script += std::format("table inet {} {{\n", TABLE_NAME);
-
-    // Define all sets
+    // Sets
     for (const auto& ps : pending_sets_) {
-        if (ps.timeout > 0) {
-            script += std::format("  set {} {{ type {}; flags {}; timeout {}s; }}\n",
-                                  ps.name, ps.type, ps.flags, ps.timeout);
-        } else {
-            script += std::format("  set {} {{ type {}; flags {}; }}\n",
-                                  ps.name, ps.type, ps.flags);
-        }
+        arr.push_back(build_set_json(ps));
     }
 
-    // Define chain with all rules
-    script += std::format("  chain {} {{\n", CHAIN_NAME);
-    script += "    type filter hook prerouting priority mangle; policy accept;\n";
+    // Chain with prerouting hook
+    arr.push_back(build_chain_json());
 
+    // Rules
     for (const auto& pr : pending_rules_) {
-        std::string addr_family = (pr.family == AF_INET6) ? "ip6" : "ip";
-
         if (pr.action == PendingRule::Mark) {
-            script += std::format("    {} daddr @{} counter meta mark set {:#x}\n",
-                                  addr_family, pr.set_name, pr.fwmark);
+            arr.push_back(build_mark_rule_json(pr));
         } else {
-            script += std::format("    {} daddr @{} counter drop\n",
-                                  addr_family, pr.set_name);
+            arr.push_back(build_drop_rule_json(pr));
         }
     }
 
-    script += "  }\n";
-    script += "}\n";
-
-    // Append all buffered element additions (outside the table block)
-    for (auto& [set_name, buf] : pending_elements_) {
-        std::string elements = buf.str();
-        if (!elements.empty()) {
-            script += elements;
+    // Elements
+    for (const auto& [set_name, elems] : pending_elements_) {
+        if (!elems.empty()) {
+            arr.push_back(build_elements_json(set_name, elems));
         }
     }
 
-    Logger::instance().verbose("nft script:\n{}", script);
+    std::string json_str = doc.dump();
+    Logger::instance().verbose("nft json:\n{}", json_str);
 
-    // Apply atomically via nft -f -
-    FILE* pipe = popen("nft -f -", "w");
+    // Apply atomically via nft -j -f -
+    FILE* pipe = popen("nft -j -f -", "w");
     if (!pipe) {
-        throw FirewallError("Failed to open pipe to 'nft -f -'");
+        throw FirewallError("Failed to open pipe to 'nft -j -f -'");
     }
 
-    if (std::fwrite(script.data(), 1, script.size(), pipe) != script.size()) {
+    if (std::fwrite(json_str.data(), 1, json_str.size(), pipe) != json_str.size()) {
         pclose(pipe);
-        throw FirewallError("Failed to write nft script to pipe");
+        throw FirewallError("Failed to write nft JSON to pipe");
     }
 
     int status = pclose(pipe);
     if (status != 0) {
-        throw FirewallError(std::format("nft -f - exited with status {}", status));
+        throw FirewallError(std::format("nft -j -f - exited with status {}", status));
     }
 
     // Clear pending buffers

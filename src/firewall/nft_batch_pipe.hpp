@@ -4,22 +4,22 @@
 #include "firewall.hpp"
 
 #include <cstddef>
-#include <sstream>
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace keen_pbr3 {
 
-// Visitor that buffers nftables element additions into an ostringstream
-// for later atomic application via 'nft -f -'.
+// Visitor that buffers nftables element additions into a JSON array
+// for later atomic application via 'nft -j -f -'.
 class NftBatchVisitor : public ListEntryVisitor {
 public:
-    // buffer: reference to the ostringstream to append element lines to
+    // buffer: reference to the JSON array to append elements to
     // set_name: target nft set name (within table inet KeenPbrTable)
     // static_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
-    explicit NftBatchVisitor(std::ostringstream& buffer, const std::string& set_name,
+    explicit NftBatchVisitor(nlohmann::json& buffer, const std::string& set_name,
                              int32_t static_timeout = -1);
 
-    // Appends 'add element inet KeenPbrTable <setname> { <entry> [timeout Ns] }\n'
+    // Appends an element JSON object (bare string or {elem:{val,timeout}})
     // for Ip and Cidr types. Domain entries are ignored.
     void on_entry(EntryType type, std::string_view entry) override;
 
@@ -34,7 +34,7 @@ public:
     NftBatchVisitor& operator=(const NftBatchVisitor&) = delete;
 
 private:
-    std::ostringstream& buffer_;
+    nlohmann::json& buffer_;
     std::string set_name_;
     int32_t static_timeout_;
     size_t count_ = 0;

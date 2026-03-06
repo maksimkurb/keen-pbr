@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <sstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
@@ -36,7 +36,6 @@ private:
     struct PendingSet {
         std::string name;
         std::string type;   // "ipv4_addr" or "ipv6_addr"
-        std::string flags;  // "interval" or "interval, timeout"
         uint32_t timeout;
     };
 
@@ -47,14 +46,26 @@ private:
         uint32_t fwmark; // only for Mark
     };
 
+    static nlohmann::json build_table_json();
+    static nlohmann::json build_set_json(const PendingSet& ps);
+    static nlohmann::json build_chain_json();
+    static nlohmann::json build_mark_rule_json(const PendingRule& pr);
+    static nlohmann::json build_drop_rule_json(const PendingRule& pr);
+    static nlohmann::json build_elements_json(const std::string& set_name,
+                                              const nlohmann::json& elems);
+
     std::vector<PendingSet> pending_sets_;
-    std::map<std::string, std::ostringstream> pending_elements_;
+    std::map<std::string, nlohmann::json> pending_elements_;
     std::vector<PendingRule> pending_rules_;
 
     // Track created sets for family lookup: set_name -> family (AF_INET/AF_INET6)
     std::map<std::string, int> created_sets_;
 
     bool table_created_ = false;
+
+#ifdef KEEN_PBR3_TESTING
+    friend class NftablesBuilderTest;
+#endif
 };
 
 // Factory function called from firewall.cpp

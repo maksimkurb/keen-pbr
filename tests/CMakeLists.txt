@@ -1,9 +1,15 @@
 add_executable(keen-pbr3-tests
   test_firewall_verifier.cpp
+  test_nftables_builder.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/nftables.cpp
+  ../src/firewall/nft_batch_pipe.cpp
+  ../src/log/logger.cpp
 )
+
+target_compile_definitions(keen-pbr3-tests PRIVATE KEEN_PBR3_TESTING)
 
 target_include_directories(keen-pbr3-tests PRIVATE
   ${CMAKE_SOURCE_DIR}/include
