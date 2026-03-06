@@ -1,11 +1,14 @@
 add_executable(keen-pbr3-tests
   test_firewall_verifier.cpp
   test_nftables_builder.cpp
+  test_iptables_builder.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp
+  ../src/firewall/iptables.cpp
+  ../src/firewall/ipset_restore_pipe.cpp
   ../src/log/logger.cpp
 )
 

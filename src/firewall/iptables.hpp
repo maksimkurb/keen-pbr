@@ -48,6 +48,9 @@ private:
         uint32_t fwmark; // only for Mark
     };
 
+    static std::string build_ipset_create_line(const PendingSet& ps);
+    static std::string build_ipt_script(bool ipv6, const std::vector<PendingRule>& rules);
+
     std::vector<PendingSet> pending_sets_;
     std::map<std::string, std::ostringstream> pending_elements_;
     std::vector<PendingRule> pending_rules_;
@@ -58,6 +61,10 @@ private:
     // Track whether chain + jump rule exist for each protocol
     bool chain_v4_created_ = false;
     bool chain_v6_created_ = false;
+
+#ifdef KEEN_PBR3_TESTING
+    friend class IptablesBuilderTest;
+#endif
 };
 
 // Factory function called from firewall.cpp

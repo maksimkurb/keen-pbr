@@ -80,18 +80,41 @@ static void pipe_to_cmd(const std::string& cmd, const std::string& input) {
     }
 }
 
+std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
+    if (ps.timeout > 0) {
+        return std::format("create {} hash:net family {} timeout {} -exist\n",
+                           ps.name, ps.family_str, ps.timeout);
+    } else {
+        return std::format("create {} hash:net family {} -exist\n",
+                           ps.name, ps.family_str);
+    }
+}
+
+std::string IptablesFirewall::build_ipt_script(bool ipv6,
+                                                const std::vector<PendingRule>& rules) {
+    std::string s;
+    s += std::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
+                     CHAIN_NAME, CHAIN_NAME);
+    for (const auto& pr : rules) {
+        if (pr.ipv6 != ipv6) continue;
+        if (pr.action == PendingRule::Mark) {
+            s += std::format("-A {} -m set --match-set {} dst -j MARK --set-mark {:#x}\n",
+                             CHAIN_NAME, pr.set_name, pr.fwmark);
+        } else {
+            s += std::format("-A {} -m set --match-set {} dst -j DROP\n",
+                             CHAIN_NAME, pr.set_name);
+        }
+    }
+    s += "COMMIT\n";
+    return s;
+}
+
 void IptablesFirewall::apply() {
     // Phase 1: ipsets via 'ipset restore -exist'
     {
         std::string ipset_script;
         for (const auto& ps : pending_sets_) {
-            if (ps.timeout > 0) {
-                ipset_script += std::format("create {} hash:net family {} timeout {} -exist\n",
-                                            ps.name, ps.family_str, ps.timeout);
-            } else {
-                ipset_script += std::format("create {} hash:net family {} -exist\n",
-                                            ps.name, ps.family_str);
-            }
+            ipset_script += build_ipset_create_line(ps);
         }
         for (auto& [set_name, buf] : pending_elements_) {
             std::string elements = buf.str();
@@ -113,30 +136,12 @@ void IptablesFirewall::apply() {
         else has_v4 = true;
     }
 
-    auto build_ipt_script = [&](bool ipv6) -> std::string {
-        std::string s;
-        s += std::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
-                         CHAIN_NAME, CHAIN_NAME);
-        for (const auto& pr : pending_rules_) {
-            if (pr.ipv6 != ipv6) continue;
-            if (pr.action == PendingRule::Mark) {
-                s += std::format("-A {} -m set --match-set {} dst -j MARK --set-mark {:#x}\n",
-                                 CHAIN_NAME, pr.set_name, pr.fwmark);
-            } else {
-                s += std::format("-A {} -m set --match-set {} dst -j DROP\n",
-                                 CHAIN_NAME, pr.set_name);
-            }
-        }
-        s += "COMMIT\n";
-        return s;
-    };
-
     if (has_v4) {
-        pipe_to_cmd("iptables-restore --noflush", build_ipt_script(false));
+        pipe_to_cmd("iptables-restore --noflush", build_ipt_script(false, pending_rules_));
         chain_v4_created_ = true;
     }
     if (has_v6) {
-        pipe_to_cmd("ip6tables-restore --noflush", build_ipt_script(true));
+        pipe_to_cmd("ip6tables-restore --noflush", build_ipt_script(true, pending_rules_));
         chain_v6_created_ = true;
     }
 
