@@ -94,10 +94,10 @@ void NftablesFirewall::apply() {
         std::string addr_family = (pr.family == AF_INET6) ? "ip6" : "ip";
 
         if (pr.action == PendingRule::Mark) {
-            script += std::format("    {} daddr @{} meta mark set {:#x}\n",
+            script += std::format("    {} daddr @{} counter meta mark set {:#x}\n",
                                   addr_family, pr.set_name, pr.fwmark);
         } else {
-            script += std::format("    {} daddr @{} drop\n",
+            script += std::format("    {} daddr @{} counter drop\n",
                                   addr_family, pr.set_name);
         }
     }
