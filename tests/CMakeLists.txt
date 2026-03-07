@@ -2,6 +2,8 @@ add_executable(keen-pbr3-tests
   test_firewall_verifier.cpp
   test_nftables_builder.cpp
   test_iptables_builder.cpp
+  test_cron.cpp
+  ../src/config/config.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp

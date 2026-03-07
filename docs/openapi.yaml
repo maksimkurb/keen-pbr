@@ -53,8 +53,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: Raw configuration JSON object.
+                $ref: "#/components/schemas/ConfigObject"
         "500":
           description: Error reading config file
           content:
@@ -72,8 +71,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              description: New configuration JSON object.
+              $ref: "#/components/schemas/ConfigObject"
       responses:
         "200":
           description: Config updated and reload triggered
@@ -112,6 +110,408 @@ paths:
 
 components:
   schemas:
+
+    # -------------------------------------------------------------------------
+    # /api/config — configuration object schema
+    # -------------------------------------------------------------------------
+
+    DaemonConfig:
+      type: object
+      properties:
+        pid_file:
+          type: string
+          description: Path to the PID file.
+          example: "/var/run/keen-pbr3.pid"
+        cache_dir:
+          type: string
+          description: Directory for cached list data.
+          default: "/var/cache/keen-pbr3"
+          example: "/var/cache/keen-pbr3"
+
+    ApiConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: false
+          example: true
+        listen:
+          type: string
+          description: Address and port for the HTTP API.
+          default: "127.0.0.1:8080"
+          example: "127.0.0.1:8080"
+
+    RetryConfig:
+      type: object
+      properties:
+        attempts:
+          type: integer
+          default: 3
+          example: 3
+        interval_ms:
+          type: integer
+          description: Delay between retry attempts in milliseconds.
+          default: 1000
+          example: 1000
+
+    CircuitBreakerConfig:
+      type: object
+      properties:
+        failure_threshold:
+          type: integer
+          description: Number of consecutive failures before opening the circuit.
+          default: 5
+          example: 5
+        success_threshold:
+          type: integer
+          description: Number of consecutive successes in half-open state to close the circuit.
+          default: 2
+          example: 2
+        timeout_ms:
+          type: integer
+          description: Time in milliseconds before the circuit transitions from open to half-open.
+          default: 30000
+          example: 30000
+        half_open_max_requests:
+          type: integer
+          description: Maximum number of probe requests allowed in half-open state.
+          default: 1
+          example: 1
+
+    OutboundGroup:
+      type: object
+      required: [outbounds]
+      properties:
+        weight:
+          type: integer
+          description: Relative weight for selecting this group when multiple groups are healthy.
+          default: 1
+          example: 1
+        outbounds:
+          type: array
+          description: Ordered list of outbound tags to try within this group.
+          items:
+            type: string
+          example: ["vpn"]
+
+    Outbound:
+      type: object
+      required: [type, tag]
+      discriminator:
+        propertyName: type
+      properties:
+        type:
+          type: string
+          enum: [interface, table, blackhole, ignore, urltest]
+          description: Outbound type.
+          example: "interface"
+        tag:
+          type: string
+          description: Unique identifier for this outbound.
+          example: "vpn"
+        interface:
+          type: string
+          description: >
+            Egress network interface name. Required for `interface` outbound type.
+          example: "tun0"
+        gateway:
+          type: string
+          description: >
+            Optional gateway IP address. Used with `interface` outbound type.
+          example: "10.8.0.1"
+        table:
+          type: integer
+          description: >
+            Kernel routing table ID. Required for `table` outbound type.
+          example: 200
+        url:
+          type: string
+          description: >
+            Probe URL for latency measurements. Required for `urltest` outbound type.
+          example: "https://www.gstatic.com/generate_204"
+        interval_ms:
+          type: integer
+          description: >
+            Interval between probes in milliseconds. Used with `urltest` outbound type.
+          default: 180000
+          example: 180000
+        tolerance_ms:
+          type: integer
+          description: >
+            Latency tolerance in milliseconds; outbounds within this range of the
+            best are considered equivalent. Used with `urltest` outbound type.
+          default: 100
+          example: 100
+        outbound_groups:
+          type: array
+          description: >
+            Ordered list of outbound groups. Required for `urltest` outbound type.
+            Groups are tried in order; within a group the outbound is selected by weight.
+          items:
+            $ref: "#/components/schemas/OutboundGroup"
+        retry:
+          $ref: "#/components/schemas/RetryConfig"
+        circuit_breaker:
+          $ref: "#/components/schemas/CircuitBreakerConfig"
+
+    ListConfig:
+      type: object
+      description: >
+        Defines a named list of domains and/or IP CIDRs used in routing and DNS rules.
+        At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided.
+      properties:
+        url:
+          type: string
+          description: URL to a remote list file to download and cache.
+          example: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/instagram"
+        domains:
+          type: array
+          description: Inline list of domain patterns (supports `*.` wildcards).
+          items:
+            type: string
+          example: ["example.com", "*.example.org"]
+        ip_cidrs:
+          type: array
+          description: Inline list of IP addresses or CIDR ranges.
+          items:
+            type: string
+          example: ["93.184.216.34", "10.0.0.0/8"]
+        file:
+          type: string
+          description: Path to a local list file.
+          example: "./my-list.txt"
+        ttl:
+          description: >
+            TTL for dnsmasq-resolved ipset entries. Accepts an integer (seconds)
+            or a duration string (`30s`, `5m`, `24h`). `0` means no timeout.
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: string
+              pattern: "^[0-9]+(s|m|h)$"
+          default: 0
+          example: "24h"
+
+    DnsServer:
+      type: object
+      required: [tag, address]
+      properties:
+        tag:
+          type: string
+          description: Unique identifier for this DNS server.
+          example: "vpn-dns"
+        address:
+          type: string
+          description: IPv4 or IPv6 address of the DNS server.
+          example: "10.8.0.1"
+        detour:
+          type: string
+          description: Outbound tag to use when querying this DNS server.
+          example: "vpn"
+
+    DnsRule:
+      type: object
+      required: [list, server]
+      properties:
+        list:
+          type: array
+          description: List names whose domains should be resolved by this server.
+          items:
+            type: string
+          example: ["my-domains", "remote-list"]
+        server:
+          type: string
+          description: DNS server tag to use for matched domains.
+          example: "vpn-dns"
+
+    DnsConfig:
+      type: object
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/DnsServer"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DnsRule"
+        fallback:
+          type: string
+          description: DNS server tag to use when no rule matches.
+          example: "google-dns"
+
+    RouteRule:
+      type: object
+      required: [list, outbound]
+      properties:
+        list:
+          type: array
+          description: List names whose traffic this rule matches.
+          items:
+            type: string
+          example: ["my-domains", "my-ips"]
+        outbound:
+          type: string
+          description: Outbound tag to route matched traffic through.
+          example: "vpn"
+
+    RouteConfig:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteRule"
+        fallback:
+          type: string
+          description: Outbound tag for traffic that matches no rule.
+          example: "wan"
+
+    FwmarkConfig:
+      type: object
+      properties:
+        start:
+          type: integer
+          description: First fwmark value to assign to outbounds.
+          default: 65536
+          example: 65536
+        mask:
+          type: integer
+          description: >
+            Fwmark bitmask. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
+          default: 16711680
+          example: 16711680
+
+    IprouteConfig:
+      type: object
+      properties:
+        table_start:
+          type: integer
+          description: First routing table ID to allocate for outbounds.
+          default: 150
+          example: 150
+
+    ListsAutoupdateConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether automatic list refresh is enabled.
+          default: false
+          example: true
+        cron:
+          type: string
+          description: >
+            Standard 5-field cron expression controlling when lists are refreshed.
+            Required when `enabled` is `true`. Validated even when `enabled` is `false`.
+          example: "0 4 * * *"
+
+    ConfigObject:
+      type: object
+      description: keen-pbr3 configuration file.
+      properties:
+        daemon:
+          $ref: "#/components/schemas/DaemonConfig"
+        api:
+          $ref: "#/components/schemas/ApiConfig"
+        outbounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/Outbound"
+        lists:
+          type: object
+          description: Named list definitions keyed by list name.
+          additionalProperties:
+            $ref: "#/components/schemas/ListConfig"
+        dns:
+          $ref: "#/components/schemas/DnsConfig"
+        route:
+          $ref: "#/components/schemas/RouteConfig"
+        fwmark:
+          $ref: "#/components/schemas/FwmarkConfig"
+        iproute:
+          $ref: "#/components/schemas/IprouteConfig"
+        lists_autoupdate:
+          $ref: "#/components/schemas/ListsAutoupdateConfig"
+      example:
+        daemon:
+          pid_file: "/var/run/keen-pbr3.pid"
+          cache_dir: "/var/cache/keen-pbr3"
+        api:
+          enabled: true
+          listen: "127.0.0.1:8080"
+        outbounds:
+          - type: "interface"
+            tag: "vpn"
+            interface: "tun0"
+            gateway: "10.8.0.1"
+          - type: "interface"
+            tag: "wan"
+            interface: "eth0"
+            gateway: "192.168.1.1"
+          - type: "table"
+            tag: "custom-table"
+            table: 200
+          - type: "blackhole"
+            tag: "block"
+          - type: "ignore"
+            tag: "direct"
+          - type: "urltest"
+            tag: "auto-select"
+            url: "https://www.gstatic.com/generate_204"
+            interval_ms: 180000
+            tolerance_ms: 100
+            outbound_groups:
+              - weight: 1
+                outbounds: ["vpn"]
+              - weight: 2
+                outbounds: ["wan"]
+            retry:
+              attempts: 3
+              interval_ms: 1000
+            circuit_breaker:
+              failure_threshold: 5
+              success_threshold: 2
+              timeout_ms: 30000
+              half_open_max_requests: 1
+        lists:
+          my-domains:
+            domains:
+              - "example.com"
+              - "*.example.org"
+          my-ips:
+            ip_cidrs:
+              - "93.184.216.34"
+              - "10.0.0.0/8"
+          remote-list:
+            url: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/instagram"
+          local-list:
+            file: "./my-list.txt"
+        dns:
+          servers:
+            - tag: "vpn-dns"
+              address: "10.8.0.1"
+            - tag: "google-dns"
+              address: "8.8.8.8"
+          rules:
+            - list: ["my-domains", "remote-list"]
+              server: "vpn-dns"
+          fallback: "google-dns"
+        fwmark:
+          start: 65536
+          mask: 16711680
+        iproute:
+          table_start: 150
+        lists_autoupdate:
+          enabled: true
+          cron: "0 4 * * *"
+        route:
+          rules:
+            - list: ["my-domains", "my-ips", "remote-list"]
+              outbound: "vpn"
+            - list: ["local-list"]
+              outbound: "auto-select"
+          fallback: "wan"
 
     # -------------------------------------------------------------------------
     # /api/health/service
