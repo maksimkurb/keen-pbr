@@ -17,6 +17,7 @@ namespace keen_pbr3 {
 
 // Context struct holding references to subsystems needed by API handlers.
 struct ApiContext {
+    const std::string& config_path;
     const std::vector<Outbound>& outbounds;
     const CacheManager& cache_manager;
     const std::map<std::string, ListConfig>& lists;
@@ -29,9 +30,10 @@ struct ApiContext {
 };
 
 // Register all API endpoint handlers on the given ApiServer.
-//   GET  /api/status          - daemon status, loaded lists, active outbounds
+//   GET  /api/health/service  - daemon version/status + health for all outbounds
 //   POST /api/reload          - trigger list re-download and re-apply
-//   GET  /api/health          - health check results for all outbounds
+//   GET  /api/config          - return raw config file content
+//   POST /api/config          - validate + write config file + reload
 //   GET  /api/health/routing  - routing and firewall health verification
 void register_api_handlers(ApiServer& server, ApiContext& ctx);
 

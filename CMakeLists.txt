@@ -71,7 +71,14 @@ set(SOURCES
 )
 
 if(WITH_API)
-  list(APPEND SOURCES src/api/server.cpp src/api/handlers.cpp)
+  list(APPEND SOURCES
+    src/api/server.cpp
+    src/api/handlers.cpp
+    src/api/handler_health_service.cpp
+    src/api/handler_reload.cpp
+    src/api/handler_config.cpp
+    src/api/handler_health_routing.cpp
+  )
 endif()
 
 # Executable

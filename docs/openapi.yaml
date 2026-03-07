@@ -1,0 +1,416 @@
+openapi: "3.1.0"
+info:
+  title: keen-pbr3 API
+  description: REST API for the keen-pbr3 policy-based routing daemon.
+  version: "3.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Default listen address (configurable)
+
+paths:
+  /api/health/service:
+    get:
+      summary: Service health and outbound status
+      description: >
+        Returns the running daemon version, service status, and health status
+        for every configured outbound. For urltest outbounds, includes per-child
+        probe results, latencies, circuit breaker states, and the currently
+        selected outbound. Other outbound types are always reported as healthy.
+      operationId: getHealthService
+      responses:
+        "200":
+          description: Service health and outbound status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/reload:
+    post:
+      summary: Trigger reload
+      description: >
+        Triggers an asynchronous full reload: re-downloads all configured lists
+        and re-applies firewall and routing rules.
+      operationId: postReload
+      responses:
+        "200":
+          description: Reload triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
+  /api/config:
+    get:
+      summary: Get config file
+      description: >
+        Returns the raw contents of the current configuration file as JSON.
+      operationId: getConfig
+      responses:
+        "200":
+          description: Current configuration file contents
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Raw configuration JSON object.
+        "500":
+          description: Error reading config file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Update config file
+      description: >
+        Validates the provided JSON body as a config file, writes it atomically,
+        then triggers a full reload.
+      operationId: postConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: New configuration JSON object.
+      responses:
+        "200":
+          description: Config updated and reload triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigUpdateResponse"
+        "500":
+          description: Validation or write error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/health/routing:
+    get:
+      summary: Routing and firewall health
+      description: >
+        Verifies the live kernel routing and firewall state against the expected
+        configuration. Checks that the firewall chain exists, all rules are
+        present, route tables are populated, and policy rules are in place.
+      operationId: getHealthRouting
+      responses:
+        "200":
+          description: Routing health report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingHealthResponse"
+        "500":
+          description: Unexpected error during health check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingHealthErrorResponse"
+
+components:
+  schemas:
+
+    # -------------------------------------------------------------------------
+    # /api/health/service
+    # -------------------------------------------------------------------------
+
+    HealthChild:
+      type: object
+      required: [tag, success, latency_ms]
+      properties:
+        tag:
+          type: string
+          description: Child outbound tag.
+          example: "vpn0"
+        success:
+          type: boolean
+          description: Whether the last probe succeeded.
+          example: true
+        latency_ms:
+          type: integer
+          description: Round-trip latency of the last probe in milliseconds.
+          example: 42
+        error:
+          type: string
+          description: Error message from the last failed probe. Omitted on success.
+          example: "connection refused"
+        circuit_breaker:
+          type: string
+          enum: [closed, open, half_open]
+          description: >
+            Current circuit breaker state for this child.
+            - closed: healthy, traffic passes through
+            - open: failed, traffic blocked during cooldown
+            - half_open: testing recovery with limited probes
+          example: "closed"
+
+    HealthEntry:
+      type: object
+      required: [tag, type, status]
+      properties:
+        tag:
+          type: string
+          description: Outbound tag.
+          example: "auto-select"
+        type:
+          type: string
+          enum: [interface, table, blackhole, ignore, urltest]
+          example: "urltest"
+        status:
+          type: string
+          enum: [healthy, degraded, unknown]
+          description: >
+            - healthy: outbound is functioning (for urltest: a child is selected)
+            - degraded: urltest has no selected outbound
+            - unknown: urltest state not yet initialized
+          example: "healthy"
+        selected_outbound:
+          type: string
+          description: >
+            Currently selected child outbound tag. Present only for urltest
+            outbounds.
+          example: "vpn0"
+        children:
+          type: array
+          description: >
+            Per-child probe results. Present only for urltest outbounds.
+          items:
+            $ref: "#/components/schemas/HealthChild"
+
+    HealthResponse:
+      type: object
+      required: [version, status, outbounds]
+      properties:
+        version:
+          type: string
+          description: Daemon version string.
+          example: "3.0.0"
+        status:
+          type: string
+          enum: [running]
+          example: "running"
+        outbounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthEntry"
+
+    # -------------------------------------------------------------------------
+    # /api/reload
+    # -------------------------------------------------------------------------
+
+    ReloadResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: "ok"
+        message:
+          type: string
+          example: "Reload triggered"
+
+    # -------------------------------------------------------------------------
+    # /api/config
+    # -------------------------------------------------------------------------
+
+    ConfigUpdateResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: "ok"
+        message:
+          type: string
+          example: "Config updated and reload triggered"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Error message.
+          example: "Cannot open config file"
+
+    # -------------------------------------------------------------------------
+    # /api/health/routing
+    # -------------------------------------------------------------------------
+
+    CheckStatus:
+      type: string
+      enum: [ok, missing, mismatch]
+      description: >
+        Result of an individual routing/firewall check.
+        - ok: check passed
+        - missing: expected element not found
+        - mismatch: element found but configuration differs
+
+    FirewallChain:
+      type: object
+      required: [chain_present, prerouting_hook_present]
+      properties:
+        chain_present:
+          type: boolean
+          description: Whether the keen-pbr3 firewall chain exists.
+          example: true
+        prerouting_hook_present:
+          type: boolean
+          description: Whether the chain is hooked into PREROUTING.
+          example: true
+        detail:
+          type: string
+          description: Human-readable detail. Omitted when empty.
+          example: "chain keen-pbr3 found in table mangle"
+
+    FirewallRuleCheck:
+      type: object
+      required: [set_name, action, status]
+      properties:
+        set_name:
+          type: string
+          description: IP set or nftables set name for this rule.
+          example: "keen-pbr3-russia"
+        action:
+          type: string
+          description: Expected firewall action (e.g. "MARK", "DROP").
+          example: "MARK"
+        expected_fwmark:
+          type: string
+          description: Expected fwmark value as hex string. Present when applicable.
+          example: "0x00010000"
+        actual_fwmark:
+          type: string
+          description: Actual fwmark found in the kernel rule. Present when rule exists.
+          example: "0x00010000"
+        status:
+          $ref: "#/components/schemas/CheckStatus"
+        detail:
+          type: string
+          description: Human-readable detail. Omitted when empty.
+
+    RouteTableCheck:
+      type: object
+      required: [table_id, outbound_tag, table_exists, default_route_present, interface_matches, gateway_matches, status]
+      properties:
+        table_id:
+          type: integer
+          description: Routing table ID.
+          example: 100
+        outbound_tag:
+          type: string
+          description: Outbound tag associated with this table.
+          example: "vpn0"
+        expected_interface:
+          type: string
+          description: Expected egress interface. Present when configured.
+          example: "tun0"
+        expected_gateway:
+          type: string
+          description: Expected gateway IP. Present when configured.
+          example: "10.8.0.1"
+        table_exists:
+          type: boolean
+          description: Whether the routing table exists in the kernel.
+          example: true
+        default_route_present:
+          type: boolean
+          description: Whether a default route (0.0.0.0/0 or ::/0) is present in the table.
+          example: true
+        interface_matches:
+          type: boolean
+          description: Whether the actual egress interface matches the expected one.
+          example: true
+        gateway_matches:
+          type: boolean
+          description: Whether the actual gateway matches the expected one.
+          example: true
+        status:
+          $ref: "#/components/schemas/CheckStatus"
+        detail:
+          type: string
+          description: Human-readable detail. Omitted when empty.
+
+    PolicyRuleCheck:
+      type: object
+      required: [fwmark, fwmask, expected_table, priority, rule_present_v4, rule_present_v6, status]
+      properties:
+        fwmark:
+          type: string
+          description: Firewall mark as hex string.
+          example: "0x00010000"
+        fwmask:
+          type: string
+          description: Firewall mask as hex string.
+          example: "0x00ff0000"
+        expected_table:
+          type: integer
+          description: Expected routing table ID for this policy rule.
+          example: 100
+        priority:
+          type: integer
+          description: Policy rule priority.
+          example: 1000
+        rule_present_v4:
+          type: boolean
+          description: Whether the IPv4 policy rule is present.
+          example: true
+        rule_present_v6:
+          type: boolean
+          description: Whether the IPv6 policy rule is present.
+          example: true
+        status:
+          $ref: "#/components/schemas/CheckStatus"
+        detail:
+          type: string
+          description: Human-readable detail. Omitted when empty.
+
+    RoutingHealthResponse:
+      type: object
+      required: [overall, firewall_backend, firewall, firewall_rules, route_tables, policy_rules]
+      properties:
+        overall:
+          type: string
+          enum: [ok, degraded, error]
+          description: >
+            - ok: all checks passed
+            - degraded: one or more checks failed
+            - error: an exception prevented checks from completing
+          example: "ok"
+        firewall_backend:
+          type: string
+          enum: [iptables, nftables]
+          description: Active firewall backend.
+          example: "nftables"
+        firewall:
+          $ref: "#/components/schemas/FirewallChain"
+        firewall_rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/FirewallRuleCheck"
+        route_tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteTableCheck"
+        policy_rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRuleCheck"
+
+    RoutingHealthErrorResponse:
+      type: object
+      required: [overall, error]
+      properties:
+        overall:
+          type: string
+          enum: [error]
+          example: "error"
+        error:
+          type: string
+          description: Exception message.
+          example: "failed to connect to netlink socket"

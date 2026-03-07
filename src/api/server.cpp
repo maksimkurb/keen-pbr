@@ -70,6 +70,21 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
     });
 }
 
+void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
+    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
+                                                       httplib::Response& res) {
+        try {
+            std::string result = h(req.body);
+            res.set_content(result, "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(
+                R"({"error":")" + std::string(e.what()) + R"("})",
+                "application/json");
+        }
+    });
+}
+
 void ApiServer::start() {
     if (impl_->is_listening) {
         return;

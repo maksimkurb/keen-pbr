@@ -559,6 +559,7 @@ void Daemon::setup_api() {
     // ApiContext holds references to Daemon-owned members (stable addresses).
     // Allocated on heap so it outlives the setup_api() call.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
+        config_path_,
         config_.outbounds,
         cache_,
         config_.lists,
