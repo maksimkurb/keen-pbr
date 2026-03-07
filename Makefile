@@ -10,6 +10,7 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
         test \
+        generate \
         docker-image docker-extract \
         cross-setup cross-build cross-deploy \
         help
@@ -26,6 +27,9 @@ setup: $(SETUP_STAMP) ## Configure CMake
 
 build: $(SETUP_STAMP) ## Compile the project
 	cmake --build $(BUILD_DIR)
+
+generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (requires Node.js)
+	bash scripts/generate_api_types.sh
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS) -DBUILD_TESTS=ON

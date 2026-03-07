@@ -1,6 +1,7 @@
 #ifdef WITH_API
 
 #include "handler_health_routing.hpp"
+#include "generated/api_types.hpp"
 
 #include <nlohmann/json.hpp>
 #include <stdexcept>
@@ -18,11 +19,9 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
             auto report = ctx.routing_health_checker.check();
             return routing_health_report_to_json(report).dump();
         } catch (const std::exception& e) {
-            nlohmann::json err;
-            err["overall"] = "error";
-            err["error"] = e.what();
+            api::RoutingHealthErrorResponse err{"error", e.what()};
             // Re-throw so the server wrapper sets HTTP 500
-            throw std::runtime_error(err.dump());
+            throw std::runtime_error(nlohmann::json(err).dump());
         }
     });
 }

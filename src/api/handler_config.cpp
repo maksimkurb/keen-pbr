@@ -1,6 +1,7 @@
 #ifdef WITH_API
 
 #include "handler_config.hpp"
+#include "generated/api_types.hpp"
 
 #include "../config/config.hpp"
 
@@ -36,10 +37,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw std::runtime_error("Cannot replace config file");
         // Trigger reload
         ctx.reload_fn();
-        nlohmann::json j;
-        j["status"] = "ok";
-        j["message"] = "Config updated and reload triggered";
-        return j.dump();
+        api::ConfigUpdateResponse resp{"ok", "Config updated and reload triggered"};
+        return nlohmann::json(resp).dump();
     });
 }
 
