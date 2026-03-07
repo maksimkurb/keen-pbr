@@ -134,6 +134,13 @@ struct IprouteConfig {
     uint32_t table_start{150};
 };
 
+// --- Lists autoupdate section ---
+
+struct ListsAutoupdateConfig {
+    bool enabled{false};
+    std::string cron;  // 5-field standard cron expression
+};
+
 // --- Top-level Config ---
 
 struct Config {
@@ -145,6 +152,7 @@ struct Config {
     std::map<std::string, ListConfig> lists;
     FwmarkConfig fwmark;
     IprouteConfig iproute;
+    ListsAutoupdateConfig lists_autoupdate;
 };
 
 // --- JSON deserialization ---

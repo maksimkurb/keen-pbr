@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <signal.h>
 #include <sstream>
 #include <sys/epoll.h>
@@ -17,6 +18,7 @@
 #include "../log/logger.hpp"
 #include "../routing/target.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../util/cron.hpp"
 #include "scheduler.hpp"
 
 #ifdef WITH_API
@@ -225,6 +227,8 @@ void Daemon::run() {
 
     apply_firewall();
     log.info("Firewall rules and routing applied.");
+
+    schedule_lists_autoupdate();
 
 #ifdef WITH_API
     setup_api();
@@ -515,7 +519,65 @@ void Daemon::register_urltest_outbounds() {
     }
 }
 
+void Daemon::schedule_lists_autoupdate() {
+    if (!config_.lists_autoupdate.enabled) return;
+    const auto& expr = config_.lists_autoupdate.cron;
+    auto next = cron_next(expr);
+    auto delay = std::chrono::duration_cast<std::chrono::seconds>(
+        next - std::chrono::system_clock::now());
+    if (delay.count() < 1) delay = std::chrono::seconds{1};
+    lists_autoupdate_task_id_ = scheduler_->schedule_oneshot(delay, [this]() {
+        refresh_lists_and_maybe_reload();
+    });
+    Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
+}
+
+void Daemon::refresh_lists_and_maybe_reload() {
+    auto& log = Logger::instance();
+    log.info("Lists autoupdate: checking for updated lists");
+
+    // Build set of lists referenced by any route rule
+    std::set<std::string> route_lists;
+    for (const auto& rule : config_.route.rules)
+        for (const auto& ln : rule.lists)
+            route_lists.insert(ln);
+
+    bool any_relevant_changed = false;
+    for (const auto& [name, list_cfg] : config_.lists) {
+        if (!list_cfg.url.has_value()) continue;
+        try {
+            bool changed = cache_.download(name, *list_cfg.url);
+            if (changed) {
+                log.info("Lists autoupdate: list '{}' updated", name);
+                if (route_lists.count(name))
+                    any_relevant_changed = true;
+            }
+        } catch (const std::exception& e) {
+            log.warn("Lists autoupdate: failed to refresh list '{}': {}", name, e.what());
+        }
+    }
+
+    if (any_relevant_changed) {
+        log.info("Lists autoupdate: relevant list(s) changed, triggering reload");
+        try { full_reload(); }
+        catch (const std::exception& e) {
+            log.error("Lists autoupdate: reload failed: {}", e.what());
+        }
+        // full_reload() calls schedule_lists_autoupdate() at its end
+        return;
+    }
+
+    log.info("Lists autoupdate: no relevant changes");
+    schedule_lists_autoupdate();
+}
+
 void Daemon::full_reload() {
+    // Cancel any pending autoupdate task before teardown
+    if (lists_autoupdate_task_id_ >= 0) {
+        scheduler_->cancel(lists_autoupdate_task_id_);
+        lists_autoupdate_task_id_ = -1;
+    }
+
     // Full teardown
     if (urltest_manager_) {
         urltest_manager_->clear();
@@ -548,6 +610,9 @@ void Daemon::full_reload() {
 
     // Rebuild firewall rules
     apply_firewall();
+
+    // Reschedule periodic list autoupdate
+    schedule_lists_autoupdate();
 }
 
 #ifdef WITH_API

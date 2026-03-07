@@ -5,6 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "../util/cron.hpp"
+
 namespace keen_pbr3 {
 
 using json = nlohmann::json;
@@ -406,6 +408,21 @@ Config parse_config(const std::string& json_str) {
 
     if (j.contains("iproute")) {
         config.iproute = parse_iproute(j.at("iproute"));
+    }
+
+    if (j.contains("lists_autoupdate")) {
+        const auto& lu = j.at("lists_autoupdate");
+        config.lists_autoupdate.enabled = lu.value("enabled", false);
+        config.lists_autoupdate.cron    = lu.value("cron", "");
+        if (config.lists_autoupdate.enabled && config.lists_autoupdate.cron.empty())
+            throw ConfigError("lists_autoupdate.cron is required when enabled");
+        if (!config.lists_autoupdate.cron.empty()) {
+            try {
+                cron_validate(config.lists_autoupdate.cron);
+            } catch (const std::invalid_argument& e) {
+                throw ConfigError(std::string("lists_autoupdate.cron: ") + e.what());
+            }
+        }
     }
 
     // Validate urltest outbound_groups references: must point to existing

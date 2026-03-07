@@ -90,6 +90,8 @@ private:
     void download_uncached_lists();
     void register_urltest_outbounds();
     void full_reload();
+    void schedule_lists_autoupdate();
+    void refresh_lists_and_maybe_reload();
 
     // PID file management
     void write_pid_file();
@@ -98,6 +100,9 @@ private:
 #ifdef WITH_API
     void setup_api();
 #endif
+
+    // Lists autoupdate state
+    int lists_autoupdate_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};
