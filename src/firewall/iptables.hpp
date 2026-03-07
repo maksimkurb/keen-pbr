@@ -13,20 +13,33 @@ namespace keen_pbr3 {
 
 class IptablesFirewall : public Firewall {
 public:
+    // Initialize the iptables backend; does not modify firewall state yet.
     IptablesFirewall();
+    // Destructor; does not call cleanup() — caller must do so explicitly.
     ~IptablesFirewall() override;
 
+    // Buffer an ipset create command (hash:net family, optional timeout).
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
 
+    // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
     void create_mark_rule(const std::string& set_name, uint32_t fwmark) override;
+    // Buffer an iptables/ip6tables -j DROP rule for the given ipset.
     void create_drop_rule(const std::string& set_name) override;
 
+    // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
+    // element buffer for set_name; entries are flushed during apply().
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name, int32_t entry_timeout = -1) override;
 
+    // Atomically apply all pending ipsets (via ipset restore) and rules
+    // (via iptables-restore / ip6tables-restore), then create the PREROUTING
+    // jump if not already present.
     void apply() override;
+    // Destroy all buffered ipsets (ipset destroy) and flush/delete the
+    // KeenPbrTable chain from both iptables and ip6tables mangle tables.
     void cleanup() override;
+    // Returns FirewallBackend::iptables.
     FirewallBackend backend() const override;
 
 private:
@@ -35,24 +48,31 @@ private:
     // Execute a shell command and return exit code
     static int exec_cmd(const std::string& cmd);
 
+    // Describes a set to be created via 'ipset restore'.
     struct PendingSet {
         std::string name;
         std::string family_str; // "inet" or "inet6"
-        uint32_t timeout;
+        uint32_t timeout;       // entry TTL in seconds (0 = no timeout)
     };
 
+    // Describes an iptables/ip6tables rule to be added to KeenPbrTable.
     struct PendingRule {
-        std::string set_name;
-        bool ipv6;
-        enum Action { Mark, Drop } action;
+        std::string set_name; // ipset name to match with --match-set
+        bool ipv6;            // true → ip6tables, false → iptables
+        enum Action { Mark, Drop } action; // MARK or DROP target
         uint32_t fwmark; // only for Mark
     };
 
+    // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
     static std::string build_ipset_create_line(const PendingSet& ps);
+    // Build a complete iptables-restore script for the given protocol and rules.
     static std::string build_ipt_script(bool ipv6, const std::vector<PendingRule>& rules);
 
+    // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;
+    // Per-set element buffers for ipset restore lines, keyed by set name.
     std::map<std::string, std::ostringstream> pending_elements_;
+    // Rules queued for insertion into KeenPbrTable, flushed by apply().
     std::vector<PendingRule> pending_rules_;
 
     // Track created ipsets: set_name -> family (AF_INET/AF_INET6)
