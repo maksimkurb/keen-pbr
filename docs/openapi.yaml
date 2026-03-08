@@ -280,17 +280,13 @@ components:
           type: string
           description: Path to a local list file.
           example: "./my-list.txt"
-        ttl:
+        ttl_ms:
+          type: integer
           description: >
-            TTL for dnsmasq-resolved ipset entries. Accepts an integer (seconds)
-            or a duration string (`30s`, `5m`, `24h`). `0` means no timeout.
-          oneOf:
-            - type: integer
-              minimum: 0
-            - type: string
-              pattern: "^[0-9]+(s|m|h)$"
+            TTL for dnsmasq-resolved ipset entries in milliseconds.
+            `0` means no timeout.
           default: 0
-          example: "24h"
+          example: 86400000
 
     DnsServer:
       type: object
@@ -512,6 +508,28 @@ components:
             - list: ["local-list"]
               outbound: "auto-select"
           fallback: "wan"
+
+    # -------------------------------------------------------------------------
+    # Internal: cache metadata (not exposed via API paths)
+    # -------------------------------------------------------------------------
+
+    CacheMetadata:
+      type: object
+      properties:
+        etag:
+          type: string
+        last_modified:
+          type: string
+        url:
+          type: string
+        download_time:
+          type: string
+        ips:
+          type: integer
+        cidrs:
+          type: integer
+        domains:
+          type: integer
 
     # -------------------------------------------------------------------------
     # /api/health/service

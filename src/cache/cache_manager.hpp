@@ -1,23 +1,15 @@
 #pragma once
 
+#include "../api/generated/api_types.hpp"
 #include "../http/http_client.hpp"
 
-#include <cstddef>
 #include <filesystem>
-#include <optional>
 #include <string>
 
 namespace keen_pbr3 {
 
-struct CacheMetadata {
-    std::string etag;
-    std::string last_modified;
-    std::string url;
-    std::string download_time;
-    std::optional<size_t> ips;
-    std::optional<size_t> cidrs;
-    std::optional<size_t> domains;
-};
+// Use generated CacheMetadata from the API schema
+using CacheMetadata = api::CacheMetadata;
 
 class CacheManager {
 public:

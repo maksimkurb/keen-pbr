@@ -153,20 +153,20 @@ TEST_CASE("cron_next: deterministic calendar tests") {
 TEST_CASE("parse_config: lists_autoupdate") {
     SUBCASE("absent key → defaults") {
         auto cfg = parse_config("{}");
-        CHECK(cfg.lists_autoupdate.enabled == false);
-        CHECK(cfg.lists_autoupdate.cron    == "");
+        CHECK(cfg.lists_autoupdate.value_or(ListsAutoupdateConfig{}).enabled.value_or(false) == false);
+        CHECK(cfg.lists_autoupdate.value_or(ListsAutoupdateConfig{}).cron.value_or("")    == "");
     }
 
     SUBCASE("enabled false, no cron") {
         auto cfg = parse_config(R"({"lists_autoupdate":{"enabled":false}})");
-        CHECK(cfg.lists_autoupdate.enabled == false);
-        CHECK(cfg.lists_autoupdate.cron    == "");
+        CHECK(cfg.lists_autoupdate->enabled.value_or(false) == false);
+        CHECK(cfg.lists_autoupdate->cron.value_or("")    == "");
     }
 
     SUBCASE("enabled true, valid cron") {
         auto cfg = parse_config(R"({"lists_autoupdate":{"enabled":true,"cron":"0 4 * * *"}})");
-        CHECK(cfg.lists_autoupdate.enabled == true);
-        CHECK(cfg.lists_autoupdate.cron    == "0 4 * * *");
+        CHECK(cfg.lists_autoupdate->enabled.value_or(false) == true);
+        CHECK(cfg.lists_autoupdate->cron.value_or("") == "0 4 * * *");
     }
 
     SUBCASE("enabled true, missing cron key") {

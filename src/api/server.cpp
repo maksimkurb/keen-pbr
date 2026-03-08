@@ -16,14 +16,15 @@ struct ApiServer::Impl {
 
 ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
     // Parse "host:port" from config.listen
-    auto colon = config.listen.rfind(':');
+    const std::string listen = config.listen.value_or("0.0.0.0:8080");
+    auto colon = listen.rfind(':');
     if (colon == std::string::npos) {
-        throw ApiError("Invalid listen address: " + config.listen +
+        throw ApiError("Invalid listen address: " + listen +
                        " (expected host:port)");
     }
 
-    impl_->host = config.listen.substr(0, colon);
-    std::string port_str = config.listen.substr(colon + 1);
+    impl_->host = listen.substr(0, colon);
+    std::string port_str = listen.substr(colon + 1);
 
     try {
         impl_->port = std::stoi(port_str);

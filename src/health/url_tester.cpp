@@ -85,10 +85,10 @@ URLTestResult URLTester::test(const std::string& url, uint32_t fwmark,
     URLTestResult best;
     best.error = "No attempts made";
 
-    for (uint32_t attempt = 0; attempt < retry.attempts; ++attempt) {
+    for (uint32_t attempt = 0; attempt < static_cast<uint32_t>(retry.attempts.value_or(1)); ++attempt) {
         if (attempt > 0) {
             std::this_thread::sleep_for(
-                std::chrono::milliseconds(retry.interval_ms));
+                std::chrono::milliseconds(retry.interval_ms.value_or(1000)));
         }
 
         auto result = test_once(url, fwmark, timeout_ms);

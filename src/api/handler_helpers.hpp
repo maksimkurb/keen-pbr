@@ -13,22 +13,15 @@
 
 namespace keen_pbr3 {
 
-// Helper to extract the tag from any Outbound variant
+// Helper to extract the tag from an Outbound
 inline std::string outbound_tag(const Outbound& ob) {
-    return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+    return ob.tag;
 }
 
-// Helper to get the type name from an Outbound variant
+// Helper to get the type name string from an Outbound
 inline std::string outbound_type(const Outbound& ob) {
-    return std::visit([](const auto& o) -> std::string {
-        using T = std::decay_t<decltype(o)>;
-        if constexpr (std::is_same_v<T, InterfaceOutbound>) return "interface";
-        else if constexpr (std::is_same_v<T, TableOutbound>) return "table";
-        else if constexpr (std::is_same_v<T, BlackholeOutbound>) return "blackhole";
-        else if constexpr (std::is_same_v<T, IgnoreOutbound>) return "ignore";
-        else if constexpr (std::is_same_v<T, UrltestOutbound>) return "urltest";
-        else return "unknown";
-    }, ob);
+    nlohmann::json j = ob.type;
+    return j.get<std::string>();
 }
 
 // Format uint32_t as hex string (e.g., "0x00010000")
@@ -41,24 +34,20 @@ inline std::string format_hex(uint32_t val) {
 // Build JSON for a single outbound with fwmark info
 inline nlohmann::json outbound_to_json(const Outbound& ob, const OutboundMarkMap& marks) {
     nlohmann::json j;
-    std::string tag = outbound_tag(ob);
-    j["tag"] = tag;
+    j["tag"] = ob.tag;
     j["type"] = outbound_type(ob);
 
-    std::visit([&j](const auto& o) {
-        using T = std::decay_t<decltype(o)>;
-        if constexpr (std::is_same_v<T, InterfaceOutbound>) {
-            j["interface"] = o.interface;
-            if (o.gateway) j["gateway"] = *o.gateway;
-        } else if constexpr (std::is_same_v<T, TableOutbound>) {
-            j["table_id"] = o.table_id;
-        } else if constexpr (std::is_same_v<T, UrltestOutbound>) {
-            j["url"] = o.url;
-            j["interval_ms"] = o.interval_ms;
-        }
-    }, ob);
+    if (ob.type == OutboundType::INTERFACE) {
+        if (ob.interface) j["interface"] = *ob.interface;
+        if (ob.gateway)   j["gateway"]   = *ob.gateway;
+    } else if (ob.type == OutboundType::TABLE) {
+        if (ob.table) j["table"] = *ob.table;
+    } else if (ob.type == OutboundType::URLTEST) {
+        if (ob.url)         j["url"]         = *ob.url;
+        if (ob.interval_ms) j["interval_ms"] = *ob.interval_ms;
+    }
 
-    auto mark_it = marks.find(tag);
+    auto mark_it = marks.find(ob.tag);
     if (mark_it != marks.end()) {
         j["fwmark"] = format_hex(mark_it->second);
     }

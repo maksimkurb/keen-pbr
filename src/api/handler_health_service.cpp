@@ -1,7 +1,6 @@
 #ifdef WITH_API
 
 #include "handler_health_service.hpp"
-#include "handler_helpers.hpp"
 #include "generated/api_types.hpp"
 
 #include <keen-pbr3/version.hpp>
@@ -14,14 +13,14 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     server.get("/api/health/service", [&ctx]() -> std::string {
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
-        resp.status = "running";
+        resp.status = api::HealthResponseStatus::RUNNING;
 
-        for (const auto& ob : ctx.outbounds) {
+        for (const auto& ob : ctx.outbounds()) {
             api::HealthEntry entry;
-            entry.tag = outbound_tag(ob);
-            entry.type = outbound_type(ob);
+            entry.tag = ob.tag;
+            entry.type = ob.type;
 
-            if (std::holds_alternative<UrltestOutbound>(ob)) {
+            if (ob.type == OutboundType::URLTEST) {
                 // Report urltest state: per-child latencies, circuit breaker states, selected outbound
                 try {
                     const auto& state = ctx.urltest_manager.get_state(entry.tag);
@@ -38,8 +37,14 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
 
                         auto cb_it = state.circuit_breakers.find(child_tag);
                         if (cb_it != state.circuit_breakers.end()) {
-                            child.circuit_breaker = circuit_state_string(
-                                cb_it->second.state(child_tag));
+                            switch (cb_it->second.state(child_tag)) {
+                                case CircuitState::closed:
+                                    child.circuit_breaker = api::CircuitBreaker::CLOSED; break;
+                                case CircuitState::open:
+                                    child.circuit_breaker = api::CircuitBreaker::OPEN; break;
+                                case CircuitState::half_open:
+                                    child.circuit_breaker = api::CircuitBreaker::HALF_OPEN; break;
+                            }
                         }
 
                         children.push_back(std::move(child));
@@ -47,13 +52,15 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
 
                     entry.children = std::move(children);
                     entry.selected_outbound = state.selected_outbound;
-                    entry.status = state.selected_outbound.empty() ? "degraded" : "healthy";
+                    entry.status = state.selected_outbound.empty()
+                        ? api::HealthEntryStatus::DEGRADED
+                        : api::HealthEntryStatus::HEALTHY;
                 } catch (const std::out_of_range&) {
-                    entry.status = "unknown";
+                    entry.status = api::HealthEntryStatus::UNKNOWN;
                 }
             } else {
                 // Interface/table outbounds are always considered healthy
-                entry.status = "healthy";
+                entry.status = api::HealthEntryStatus::HEALTHY;
             }
 
             resp.outbounds.push_back(std::move(entry));

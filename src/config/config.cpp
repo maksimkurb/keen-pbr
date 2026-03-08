@@ -11,336 +11,16 @@ namespace keen_pbr3 {
 
 using json = nlohmann::json;
 
-// Parse duration strings like "30s", "5m", "24h"
-static std::chrono::seconds parse_duration(const std::string& str) {
-    if (str.empty()) {
-        throw ConfigError("Empty duration string");
-    }
-
-    char suffix = str.back();
-    std::string num_str = str.substr(0, str.size() - 1);
-
-    long long value;
-    try {
-        value = std::stoll(num_str);
-    } catch (const std::exception&) {
-        throw ConfigError("Invalid duration: " + str);
-    }
-
-    if (value < 0) {
-        throw ConfigError("Negative duration: " + str);
-    }
-
-    switch (suffix) {
-    case 's':
-        return std::chrono::seconds(value);
-    case 'm':
-        return std::chrono::seconds(value * 60);
-    case 'h':
-        return std::chrono::seconds(value * 3600);
-    default:
-        throw ConfigError("Unknown duration suffix '" + std::string(1, suffix) +
-                          "' in: " + str);
-    }
-}
-
-static DaemonConfig parse_daemon(const json& j) {
-    DaemonConfig cfg;
-    if (j.contains("pid_file")) {
-        cfg.pid_file = j.at("pid_file").get<std::string>();
-    }
-    if (j.contains("cache_dir")) {
-        cfg.cache_dir = j.at("cache_dir").get<std::string>();
-    }
-    return cfg;
-}
-
-static Outbound parse_outbound(const json& j) {
-    if (!j.contains("type")) {
-        throw ConfigError("Outbound missing 'type' field");
-    }
-    if (!j.contains("tag")) {
-        throw ConfigError("Outbound missing 'tag' field");
-    }
-
-    std::string type = j.at("type").get<std::string>();
-    std::string tag = j.at("tag").get<std::string>();
-
-    if (type == "interface") {
-        if (!j.contains("interface")) {
-            throw ConfigError("Interface outbound '" + tag +
-                              "' missing 'interface' field");
-        }
-        InterfaceOutbound ob;
-        ob.tag = tag;
-        ob.interface = j.at("interface").get<std::string>();
-        if (j.contains("gateway")) {
-            ob.gateway = j.at("gateway").get<std::string>();
-        }
-        return ob;
-    } else if (type == "table") {
-        if (!j.contains("table")) {
-            throw ConfigError("Table outbound '" + tag +
-                              "' missing 'table' field");
-        }
-        TableOutbound ob;
-        ob.tag = tag;
-        ob.table_id = j.at("table").get<uint32_t>();
-        return ob;
-    } else if (type == "blackhole") {
-        BlackholeOutbound ob;
-        ob.tag = tag;
-        return ob;
-    } else if (type == "ignore") {
-        IgnoreOutbound ob;
-        ob.tag = tag;
-        return ob;
-    } else if (type == "urltest") {
-        UrltestOutbound ob;
-        ob.tag = tag;
-        if (!j.contains("url")) {
-            throw ConfigError("Urltest outbound '" + tag +
-                              "' missing 'url' field");
-        }
-        ob.url = j.at("url").get<std::string>();
-        if (j.contains("interval_ms")) {
-            ob.interval_ms = j.at("interval_ms").get<uint32_t>();
-        }
-        if (j.contains("tolerance_ms")) {
-            ob.tolerance_ms = j.at("tolerance_ms").get<uint32_t>();
-        }
-        // Parse retry config
-        if (j.contains("retry")) {
-            const auto& rj = j.at("retry");
-            if (rj.contains("attempts")) {
-                ob.retry.attempts = rj.at("attempts").get<uint32_t>();
-            }
-            if (rj.contains("interval_ms")) {
-                ob.retry.interval_ms = rj.at("interval_ms").get<uint32_t>();
-            }
-        }
-        // Parse circuit breaker config
-        if (j.contains("circuit_breaker")) {
-            const auto& cbj = j.at("circuit_breaker");
-            if (cbj.contains("failure_threshold")) {
-                ob.circuit_breaker.failure_threshold = cbj.at("failure_threshold").get<uint32_t>();
-            }
-            if (cbj.contains("success_threshold")) {
-                ob.circuit_breaker.success_threshold = cbj.at("success_threshold").get<uint32_t>();
-            }
-            if (cbj.contains("timeout_ms")) {
-                ob.circuit_breaker.timeout_ms = cbj.at("timeout_ms").get<uint32_t>();
-            }
-            if (cbj.contains("half_open_max_requests")) {
-                ob.circuit_breaker.half_open_max_requests = cbj.at("half_open_max_requests").get<uint32_t>();
-            }
-        }
-        // Parse outbound groups
-        if (!j.contains("outbound_groups")) {
-            throw ConfigError("Urltest outbound '" + tag +
-                              "' missing 'outbound_groups' field");
-        }
-        for (const auto& gj : j.at("outbound_groups")) {
-            OutboundGroup group;
-            if (gj.contains("weight")) {
-                group.weight = gj.at("weight").get<uint32_t>();
-            }
-            if (!gj.contains("outbounds")) {
-                throw ConfigError("Urltest outbound '" + tag +
-                                  "' outbound_group missing 'outbounds' field");
-            }
-            for (const auto& o : gj.at("outbounds")) {
-                group.outbounds.push_back(o.get<std::string>());
-            }
-            if (group.outbounds.empty()) {
-                throw ConfigError("Urltest outbound '" + tag +
-                                  "' outbound_group has empty 'outbounds' array");
-            }
-            ob.outbound_groups.push_back(std::move(group));
-        }
-        if (ob.outbound_groups.empty()) {
-            throw ConfigError("Urltest outbound '" + tag +
-                              "' 'outbound_groups' array must not be empty");
-        }
-        return ob;
-    } else {
-        throw ConfigError("Unknown outbound type: " + type);
-    }
-}
-
-static ApiConfig parse_api(const json& j) {
-    ApiConfig cfg;
-    if (j.contains("enabled")) {
-        cfg.enabled = j.at("enabled").get<bool>();
-    }
-    if (j.contains("listen")) {
-        cfg.listen = j.at("listen").get<std::string>();
-    }
-    return cfg;
-}
-
-static ListConfig parse_list(const std::string& name, const json& j) {
-    ListConfig cfg;
-    if (j.contains("url")) {
-        cfg.url = j.at("url").get<std::string>();
-    }
-    if (j.contains("domains")) {
-        for (const auto& d : j.at("domains")) {
-            cfg.domains.push_back(d.get<std::string>());
-        }
-    }
-    if (j.contains("ip_cidrs")) {
-        for (const auto& c : j.at("ip_cidrs")) {
-            cfg.ip_cidrs.push_back(c.get<std::string>());
-        }
-    }
-    if (j.contains("file")) {
-        cfg.file = j.at("file").get<std::string>();
-    }
-    if (j.contains("ttl")) {
-        auto ttl_val = j.at("ttl");
-        if (ttl_val.is_string()) {
-            auto dur = parse_duration(ttl_val.get<std::string>());
-            cfg.ttl = static_cast<uint32_t>(dur.count());
-        } else {
-            cfg.ttl = ttl_val.get<uint32_t>();
-        }
-    }
-    // At least one source must be specified
-    if (!cfg.url && cfg.domains.empty() && cfg.ip_cidrs.empty() && !cfg.file) {
-        throw ConfigError("List '" + name +
-                          "' must have at least one of: url, domains, ip_cidrs, file");
-    }
-    return cfg;
-}
-
-static RouteRule parse_route_rule(const json& j) {
-    RouteRule rule;
-
-    if (!j.contains("list")) {
-        throw ConfigError("Route rule missing 'list' field");
-    }
-    for (const auto& l : j.at("list")) {
-        rule.lists.push_back(l.get<std::string>());
-    }
-
-    if (j.contains("action")) {
-        throw ConfigError(
-            "Route rule 'action' field is no longer supported. "
-            "Use an 'ignore' outbound instead of 'action': 'skip'");
-    }
-    if (j.contains("outbounds")) {
-        throw ConfigError(
-            "Route rule 'outbounds' array (failover chain) is no longer supported. "
-            "Use a 'urltest' outbound for failover instead");
-    }
-    if (!j.contains("outbound")) {
-        throw ConfigError("Route rule missing 'outbound' field");
-    }
-    rule.outbound = j.at("outbound").get<std::string>();
-
-    return rule;
-}
-
-static RouteConfig parse_route(const json& j) {
-    RouteConfig cfg;
-    if (j.contains("rules")) {
-        for (const auto& r : j.at("rules")) {
-            cfg.rules.push_back(parse_route_rule(r));
-        }
-    }
-    if (j.contains("fallback")) {
-        cfg.fallback = j.at("fallback").get<std::string>();
-    }
-    return cfg;
-}
-
-static DnsServer parse_dns_server(const json& j) {
-    DnsServer srv;
-    if (!j.contains("tag")) {
-        throw ConfigError("DNS server missing 'tag' field");
-    }
-    if (!j.contains("address")) {
-        throw ConfigError("DNS server missing 'address' field");
-    }
-    srv.tag = j.at("tag").get<std::string>();
-    srv.address = j.at("address").get<std::string>();
-    if (j.contains("detour")) {
-        srv.detour = j.at("detour").get<std::string>();
-    }
-    return srv;
-}
-
-static DnsRule parse_dns_rule(const json& j) {
-    DnsRule rule;
-    if (!j.contains("list")) {
-        throw ConfigError("DNS rule missing 'list' field");
-    }
-    if (!j.contains("server")) {
-        throw ConfigError("DNS rule missing 'server' field");
-    }
-    for (const auto& l : j.at("list")) {
-        rule.lists.push_back(l.get<std::string>());
-    }
-    rule.server = j.at("server").get<std::string>();
-    return rule;
-}
-
-static DnsConfig parse_dns(const json& j) {
-    DnsConfig cfg;
-    if (j.contains("servers")) {
-        for (const auto& s : j.at("servers")) {
-            cfg.servers.push_back(parse_dns_server(s));
-        }
-    }
-    if (j.contains("rules")) {
-        for (const auto& r : j.at("rules")) {
-            cfg.rules.push_back(parse_dns_rule(r));
-        }
-    }
-    if (j.contains("fallback")) {
-        cfg.fallback = j.at("fallback").get<std::string>();
-    }
-    return cfg;
-}
-
-static FwmarkConfig parse_fwmark(const json& j) {
-    FwmarkConfig cfg;
-    if (j.contains("start")) {
-        cfg.start = j.at("start").get<uint32_t>();
-    }
-    if (j.contains("mask")) {
-        cfg.mask = j.at("mask").get<uint32_t>();
-    }
-    return cfg;
-}
-
-static IprouteConfig parse_iproute(const json& j) {
-    IprouteConfig cfg;
-    if (j.contains("table_start")) {
-        cfg.table_start = j.at("table_start").get<uint32_t>();
-    }
-    return cfg;
-}
-
 // Validate that the fwmark mask has exactly two adjacent hex nibbles set to F.
-// A valid mask has a contiguous block of exactly 8 set bits aligned to nibble boundaries.
-// Examples: 0x00FF0000 (valid), 0x0000FF00 (valid), 0x0F0F0000 (invalid - not contiguous),
-//           0x000F0000 (invalid - only one nibble)
 static void validate_fwmark_mask(uint32_t mask) {
     if (mask == 0) {
         throw ConfigError("fwmark.mask must not be zero");
     }
 
-    // Find the position of the lowest set bit
-    uint32_t lowest = mask & (~mask + 1); // isolate lowest set bit
-
-    // The mask shifted right to start at bit 0
+    uint32_t lowest = mask & (~mask + 1);
     uint32_t shifted = mask / lowest;
 
-    // For exactly two adjacent hex nibbles (8 bits), shifted must be 0xFF
     if (shifted != 0xFF) {
-        // Provide a descriptive error
         std::ostringstream oss;
         oss << "fwmark.mask must have exactly two adjacent hex nibbles set to F "
             << "(e.g. 0x00FF0000, 0x0000FF00), got 0x"
@@ -348,7 +28,6 @@ static void validate_fwmark_mask(uint32_t mask) {
         throw ConfigError(oss.str());
     }
 
-    // Additionally verify nibble alignment: lowest bit position must be a multiple of 4
     int bit_pos = 0;
     uint32_t tmp = lowest;
     while (tmp > 1) {
@@ -365,132 +44,107 @@ static void validate_fwmark_mask(uint32_t mask) {
 }
 
 Config parse_config(const std::string& json_str) {
-    json j;
+    Config cfg;
     try {
-        j = json::parse(json_str);
+        cfg = json::parse(json_str).get<Config>();
     } catch (const json::parse_error& e) {
         throw ConfigError(std::string("Invalid JSON: ") + e.what());
+    } catch (const json::exception& e) {
+        throw ConfigError(e.what());
     }
 
-    Config config;
-
-    if (j.contains("daemon")) {
-        config.daemon = parse_daemon(j.at("daemon"));
-    }
-
-    if (j.contains("api")) {
-        config.api = parse_api(j.at("api"));
-    }
-
-    if (j.contains("outbounds")) {
-        for (const auto& ob_json : j.at("outbounds")) {
-            config.outbounds.push_back(parse_outbound(ob_json));
-        }
-    }
-
-    if (j.contains("dns")) {
-        config.dns = parse_dns(j.at("dns"));
-    }
-
-    if (j.contains("route")) {
-        config.route = parse_route(j.at("route"));
-    }
-
-    if (j.contains("lists")) {
-        for (const auto& [name, list_json] : j.at("lists").items()) {
-            config.lists[name] = parse_list(name, list_json);
-        }
-    }
-
-    if (j.contains("fwmark")) {
-        config.fwmark = parse_fwmark(j.at("fwmark"));
-    }
-
-    if (j.contains("iproute")) {
-        config.iproute = parse_iproute(j.at("iproute"));
-    }
-
-    if (j.contains("lists_autoupdate")) {
-        const auto& lu = j.at("lists_autoupdate");
-        config.lists_autoupdate.enabled = lu.value("enabled", false);
-        config.lists_autoupdate.cron    = lu.value("cron", "");
-        if (config.lists_autoupdate.enabled && config.lists_autoupdate.cron.empty())
+    // Validate: lists_autoupdate.cron
+    if (cfg.lists_autoupdate) {
+        bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
+        const std::string cron = cfg.lists_autoupdate->cron.value_or("");
+        if (enabled && cron.empty()) {
             throw ConfigError("lists_autoupdate.cron is required when enabled");
-        if (!config.lists_autoupdate.cron.empty()) {
+        }
+        if (!cron.empty()) {
             try {
-                cron_validate(config.lists_autoupdate.cron);
+                cron_validate(cron);
             } catch (const std::invalid_argument& e) {
                 throw ConfigError(std::string("lists_autoupdate.cron: ") + e.what());
             }
         }
     }
 
-    // Validate urltest outbound_groups references: must point to existing
-    // interface/table/blackhole outbound tags (not ignore or other urltest)
-    auto get_tag = [](const Outbound& ob) -> std::string {
-        return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
-    };
-    for (const auto& ob : config.outbounds) {
-        if (auto* ut = std::get_if<UrltestOutbound>(&ob)) {
-            for (const auto& group : ut->outbound_groups) {
-                for (const auto& ref_tag : group.outbounds) {
-                    bool found = false;
-                    for (const auto& target_ob : config.outbounds) {
-                        if (get_tag(target_ob) == ref_tag) {
-                            // Must be interface, table, or blackhole — not ignore or urltest
-                            bool valid = std::visit([](const auto& o) -> bool {
-                                using T = std::decay_t<decltype(o)>;
-                                return std::is_same_v<T, InterfaceOutbound> ||
-                                       std::is_same_v<T, TableOutbound> ||
-                                       std::is_same_v<T, BlackholeOutbound>;
-                            }, target_ob);
-                            if (!valid) {
-                                throw ConfigError(
-                                    "Urltest outbound '" + ut->tag +
-                                    "' references outbound '" + ref_tag +
-                                    "' which is not an interface, table, or blackhole outbound");
-                            }
-                            found = true;
-                            break;
+    // Validate: each list must have at least one source
+    for (const auto& [name, list_cfg] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        bool has_url    = list_cfg.url.has_value();
+        bool has_file   = list_cfg.file.has_value();
+        bool has_cidrs  = list_cfg.ip_cidrs.has_value() && !list_cfg.ip_cidrs->empty();
+        bool has_domains = list_cfg.domains.has_value() && !list_cfg.domains->empty();
+        if (!has_url && !has_file && !has_cidrs && !has_domains) {
+            throw ConfigError("List '" + name +
+                              "' must have at least one of: url, domains, ip_cidrs, file");
+        }
+    }
+
+    // Validate: route rules reject legacy fields
+    for (const auto& rule : cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{})) {
+        (void)rule; // field checks are now at JSON parse time via required fields
+    }
+
+    // Validate: urltest outbound_groups must reference interface/table/blackhole outbounds
+    const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
+    for (const auto& ob : outbounds) {
+        if (ob.type != OutboundType::URLTEST) continue;
+        if (!ob.outbound_groups.has_value() || ob.outbound_groups->empty()) {
+            throw ConfigError("Urltest outbound '" + ob.tag +
+                              "' 'outbound_groups' array must not be empty");
+        }
+        for (const auto& group : *ob.outbound_groups) {
+            if (group.outbounds.empty()) {
+                throw ConfigError("Urltest outbound '" + ob.tag +
+                                  "' outbound_group has empty 'outbounds' array");
+            }
+            for (const auto& ref_tag : group.outbounds) {
+                bool found = false;
+                for (const auto& target : outbounds) {
+                    if (target.tag == ref_tag) {
+                        found = true;
+                        if (target.type != OutboundType::INTERFACE &&
+                            target.type != OutboundType::TABLE &&
+                            target.type != OutboundType::BLACKHOLE) {
+                            throw ConfigError(
+                                "Urltest outbound '" + ob.tag +
+                                "' references outbound '" + ref_tag +
+                                "' which is not an interface, table, or blackhole outbound");
                         }
+                        break;
                     }
-                    if (!found) {
-                        throw ConfigError(
-                            "Urltest outbound '" + ut->tag +
-                            "' references unknown outbound tag '" + ref_tag + "'");
-                    }
+                }
+                if (!found) {
+                    throw ConfigError(
+                        "Urltest outbound '" + ob.tag +
+                        "' references unknown outbound tag '" + ref_tag + "'");
                 }
             }
         }
     }
 
-    return config;
+    return cfg;
 }
 
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                                          const std::vector<Outbound>& outbounds) {
-    validate_fwmark_mask(fwmark_cfg.mask);
+    uint32_t mask  = static_cast<uint32_t>(fwmark_cfg.mask.value_or(0x00FF0000));
+    uint32_t start = static_cast<uint32_t>(fwmark_cfg.start.value_or(0x00010000));
 
-    // Calculate step: 1 shifted by position of lowest set bit of mask
-    uint32_t lowest_bit = fwmark_cfg.mask & (~fwmark_cfg.mask + 1);
+    validate_fwmark_mask(mask);
+
+    uint32_t lowest_bit = mask & (~mask + 1);
     uint32_t step = lowest_bit;
 
-    // Available mark space: two hex nibbles = 256 values (0x00 to 0xFF)
     constexpr uint32_t max_marks = 256;
 
-    // Count routable outbounds (interface and table only)
     OutboundMarkMap mark_map;
-    uint32_t current_mark = fwmark_cfg.start;
+    uint32_t current_mark = start;
     uint32_t count = 0;
 
     for (const auto& ob : outbounds) {
-        bool is_routable = std::visit([](const auto& o) -> bool {
-            using T = std::decay_t<decltype(o)>;
-            return std::is_same_v<T, InterfaceOutbound> ||
-                   std::is_same_v<T, TableOutbound>;
-        }, ob);
-
-        if (!is_routable) continue;
+        if (ob.type != OutboundType::INTERFACE && ob.type != OutboundType::TABLE) continue;
 
         if (count >= max_marks) {
             throw ConfigError(
@@ -498,8 +152,7 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                 " supported with current fwmark.mask");
         }
 
-        std::string tag = std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
-        mark_map[tag] = current_mark;
+        mark_map[ob.tag] = current_mark;
         current_mark += step;
         ++count;
     }

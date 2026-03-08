@@ -19,19 +19,19 @@ UrltestManager::~UrltestManager() {
     }
 }
 
-void UrltestManager::register_urltest(const UrltestOutbound& ut) {
+void UrltestManager::register_urltest(const Outbound& ut) {
     UrltestState state;
     state.config = ut;
 
     // Create a circuit breaker per child outbound
-    for (const auto& group : ut.outbound_groups) {
+    for (const auto& group : ut.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
         for (const auto& child_tag : group.outbounds) {
-            state.circuit_breakers.emplace(child_tag, CircuitBreaker(ut.circuit_breaker));
+            state.circuit_breakers.emplace(child_tag, CircuitBreaker(ut.circuit_breaker.value_or(CircuitBreakerConfig{})));
         }
     }
 
     // Schedule periodic tests. Scheduler uses seconds, urltest uses milliseconds.
-    auto interval_sec = std::chrono::seconds(ut.interval_ms / 1000);
+    auto interval_sec = std::chrono::seconds(ut.interval_ms.value_or(180000) / 1000);
     if (interval_sec.count() < 1) interval_sec = std::chrono::seconds(1);
 
     std::string tag = ut.tag;
@@ -81,7 +81,7 @@ void UrltestManager::run_tests(const std::string& tag) {
     const auto& ut = state.config;
 
     // Test each child outbound
-    for (const auto& group : ut.outbound_groups) {
+    for (const auto& group : ut.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
         for (const auto& child_tag : group.outbounds) {
             auto mark_it = marks_.find(child_tag);
             if (mark_it == marks_.end()) {
@@ -97,8 +97,9 @@ void UrltestManager::run_tests(const std::string& tag) {
             }
 
             cb.begin_request(child_tag);
-            auto result = tester_.test(ut.url, mark_it->second,
-                                       ut.circuit_breaker.timeout_ms, ut.retry);
+            const auto& cb_cfg = ut.circuit_breaker.value_or(CircuitBreakerConfig{});
+            auto result = tester_.test(ut.url.value_or(""), mark_it->second,
+                                       cb_cfg.timeout_ms.value_or(5000), ut.retry.value_or(RetryConfig{}));
             cb.end_request(child_tag);
 
             if (result.success) {
@@ -129,15 +130,18 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
     const auto& state = it->second;
     const auto& ut = state.config;
 
+    if (!ut.outbound_groups.has_value()) return "";
+    const auto& groups = *ut.outbound_groups;
+
     // Sort groups by weight ascending. We need indices to reference them.
     struct GroupRef {
         size_t index;
         uint32_t weight;
     };
     std::vector<GroupRef> sorted_groups;
-    sorted_groups.reserve(ut.outbound_groups.size());
-    for (size_t i = 0; i < ut.outbound_groups.size(); ++i) {
-        sorted_groups.push_back({i, ut.outbound_groups[i].weight});
+    sorted_groups.reserve(groups.size());
+    for (size_t i = 0; i < groups.size(); ++i) {
+        sorted_groups.push_back({i, static_cast<uint32_t>(groups[i].weight.value_or(1))});
     }
     std::sort(sorted_groups.begin(), sorted_groups.end(),
               [](const GroupRef& a, const GroupRef& b) { return a.weight < b.weight; });
@@ -145,7 +149,7 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
     // For each group (ascending weight), filter by circuit breaker allowed,
     // find fastest within tolerance
     for (const auto& gref : sorted_groups) {
-        const auto& group = ut.outbound_groups[gref.index];
+        const auto& group = groups[gref.index];
 
         // Find min latency among allowed outbounds in this group
         uint32_t min_latency = std::numeric_limits<uint32_t>::max();
@@ -181,7 +185,7 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
             auto res_it = state.last_results.find(child_tag);
             if (res_it == state.last_results.end() || !res_it->second.success) continue;
 
-            if (res_it->second.latency_ms <= min_latency + ut.tolerance_ms) {
+            if (res_it->second.latency_ms <= min_latency + static_cast<uint32_t>(ut.tolerance_ms.value_or(100))) {
                 return child_tag;
             }
         }

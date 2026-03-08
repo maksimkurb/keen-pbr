@@ -3,9 +3,9 @@
 namespace keen_pbr3 {
 
 DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
-    : fallback_tag_(dns_config.fallback) {
+    : fallback_tag_(dns_config.fallback.value_or("")) {
     // Parse all DNS server definitions into DnsServerConfig
-    for (const auto& server : dns_config.servers) {
+    for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
         servers_.emplace(
             server.tag,
             parse_dns_server(server.tag, server.address, server.detour));
@@ -17,7 +17,7 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
     }
 
     // Validate that all rule server tags exist
-    for (const auto& rule : dns_config.rules) {
+    for (const auto& rule : dns_config.rules.value_or(std::vector<DnsRule>{})) {
         if (servers_.find(rule.server) == servers_.end()) {
             throw DnsError("DNS rule references unknown server tag: '" + rule.server + "'");
         }

@@ -37,7 +37,9 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw std::runtime_error("Cannot replace config file");
         // Trigger reload
         ctx.reload_fn();
-        api::ConfigUpdateResponse resp{"ok", "Config updated and reload triggered"};
+        api::ConfigUpdateResponse resp;
+        resp.status = api::ConfigUpdateResponseStatus::OK;
+        resp.message = "Config updated and reload triggered";
         return nlohmann::json(resp).dump();
     });
 }

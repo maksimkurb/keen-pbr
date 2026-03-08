@@ -28,16 +28,16 @@
 
 namespace keen_pbr3 {
 
-// Helper to get tag from any outbound variant
+// Helper to get tag from an outbound
 std::string get_outbound_tag(const Outbound& ob) {
-    return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
+    return ob.tag;
 }
 
 // Find an outbound by tag, returning pointer or nullptr
 const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
                                const std::string& tag) {
     for (const auto& ob : outbounds) {
-        if (get_outbound_tag(ob) == tag) {
+        if (ob.tag == tag) {
             return &ob;
         }
     }
@@ -48,14 +48,15 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     : config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
-    , cache_(config_.daemon.cache_dir)
+    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr3"))
     , firewall_(create_firewall("auto"))
     , netlink_()
     , route_table_(netlink_)
     , policy_rules_(netlink_)
     , firewall_state_()
     , url_tester_()
-    , outbound_marks_(allocate_outbound_marks(config_.fwmark, config_.outbounds))
+    , outbound_marks_(allocate_outbound_marks(config_.fwmark.value_or(FwmarkConfig{}),
+                                             config_.outbounds.value_or(std::vector<Outbound>{})))
 {
     // Initialize epoll
     epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
@@ -169,10 +170,9 @@ void Daemon::handle_sigusr1() {
 
     // Trigger immediate URL tests for all urltest outbounds
     if (urltest_manager_) {
-        for (const auto& ob : config_.outbounds) {
-            if (std::holds_alternative<UrltestOutbound>(ob)) {
-                const auto& ut = std::get<UrltestOutbound>(ob);
-                urltest_manager_->trigger_immediate_test(ut.tag);
+        for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
+            if (ob.type == OutboundType::URLTEST) {
+                urltest_manager_->trigger_immediate_test(ob.tag);
             }
         }
     }
@@ -297,68 +297,69 @@ bool Daemon::running() const {
 }
 
 void Daemon::write_pid_file() {
-    const auto& path = config_.daemon.pid_file;
-    if (path.empty()) return;
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-    std::ofstream ofs(path);
+    const auto pid_file = config_.daemon.value_or(DaemonConfig{}).pid_file.value_or("");
+    if (pid_file.empty()) return;
+    std::filesystem::create_directories(std::filesystem::path(pid_file).parent_path());
+    std::ofstream ofs(pid_file);
     if (!ofs.is_open()) {
-        throw DaemonError("Cannot write PID file: " + path);
+        throw DaemonError("Cannot write PID file: " + pid_file);
     }
     ofs << getpid() << "\n";
 }
 
 void Daemon::remove_pid_file() {
-    if (!config_.daemon.pid_file.empty()) {
-        std::filesystem::remove(config_.daemon.pid_file);
+    const auto pid_file = config_.daemon.value_or(DaemonConfig{}).pid_file.value_or("");
+    if (!pid_file.empty()) {
+        std::filesystem::remove(pid_file);
     }
 }
 
 void Daemon::setup_static_routing() {
+    const uint32_t table_start = static_cast<uint32_t>(
+        config_.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+    const uint32_t fwmark_mask = static_cast<uint32_t>(
+        config_.fwmark.value_or(FwmarkConfig{}).mask.value_or(0x00FF0000));
+
     uint32_t table_offset = 0;
-    for (const auto& ob : config_.outbounds) {
-        std::visit([&](const auto& outbound) {
-            using T = std::decay_t<decltype(outbound)>;
-            if constexpr (std::is_same_v<T, InterfaceOutbound>) {
-                auto mark_it = outbound_marks_.find(outbound.tag);
-                if (mark_it == outbound_marks_.end()) return;
+    for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
+        if (ob.type == OutboundType::INTERFACE) {
+            auto mark_it = outbound_marks_.find(ob.tag);
+            if (mark_it == outbound_marks_.end()) continue;
 
-                uint32_t table_id = config_.iproute.table_start + table_offset;
-                ++table_offset;
+            uint32_t table_id = table_start + table_offset;
+            ++table_offset;
 
-                // Create dedicated routing table with default route via interface
-                RouteSpec route;
-                route.destination = "default";
-                route.table = table_id;
-                route.interface = outbound.interface;
-                if (outbound.gateway.has_value()) {
-                    route.gateway = *outbound.gateway;
-                }
-                route_table_.add(route);
+            // Create dedicated routing table with default route via interface
+            RouteSpec route;
+            route.destination = "default";
+            route.table = table_id;
+            route.interface = ob.interface.value_or("");
+            if (ob.gateway) route.gateway = *ob.gateway;
+            route_table_.add(route);
 
-                // Add ip rule: fwmark/mask -> table
-                RuleSpec ip_rule;
-                ip_rule.fwmark = mark_it->second;
-                ip_rule.fwmask = config_.fwmark.mask;
-                ip_rule.table = table_id;
-                ip_rule.priority = table_id;
-                policy_rules_.add(ip_rule);
-            } else if constexpr (std::is_same_v<T, TableOutbound>) {
-                auto mark_it = outbound_marks_.find(outbound.tag);
-                if (mark_it == outbound_marks_.end()) return;
+            // Add ip rule: fwmark/mask -> table
+            RuleSpec ip_rule;
+            ip_rule.fwmark = mark_it->second;
+            ip_rule.fwmask = fwmark_mask;
+            ip_rule.table = table_id;
+            ip_rule.priority = table_id;
+            policy_rules_.add(ip_rule);
+        } else if (ob.type == OutboundType::TABLE) {
+            auto mark_it = outbound_marks_.find(ob.tag);
+            if (mark_it == outbound_marks_.end()) continue;
 
-                // Add ip rule: fwmark/mask -> table_id (user-specified table)
-                RuleSpec ip_rule;
-                ip_rule.fwmark = mark_it->second;
-                ip_rule.fwmask = config_.fwmark.mask;
-                ip_rule.table = outbound.table_id;
-                ip_rule.priority = config_.iproute.table_start + table_offset;
-                ++table_offset;
-                policy_rules_.add(ip_rule);
-            }
-            // BlackholeOutbound: no routing table, no ip rule — handled by firewall DROP
-            // IgnoreOutbound: no routing needed
-            // UrltestOutbound: resolved to child at firewall time
-        }, ob);
+            // Add ip rule: fwmark/mask -> table (user-specified table)
+            RuleSpec ip_rule;
+            ip_rule.fwmark = mark_it->second;
+            ip_rule.fwmask = fwmark_mask;
+            ip_rule.table = static_cast<uint32_t>(ob.table.value_or(0));
+            ip_rule.priority = table_start + table_offset;
+            ++table_offset;
+            policy_rules_.add(ip_rule);
+        }
+        // BLACKHOLE: no routing table, no ip rule — handled by firewall DROP
+        // IGNORE: no routing needed
+        // URLTEST: resolved to child at firewall time
     }
 }
 
@@ -369,16 +370,21 @@ void Daemon::apply_firewall() {
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
 
-    for (size_t rule_idx = 0; rule_idx < config_.route.rules.size(); ++rule_idx) {
-        const auto& rule = config_.route.rules[rule_idx];
+    const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+    static const std::map<std::string, ListConfig> empty_lists;
+    const auto& lists_map = config_.lists ? *config_.lists : empty_lists;
+    const auto& route_rules = config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+
+    for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
+        const auto& rule = route_rules[rule_idx];
 
         // Resolve the outbound for this rule
-        auto decision = resolve_route_action(rule.outbound, config_.outbounds);
+        auto decision = resolve_route_action(rule.outbound, all_outbounds);
 
         if (decision.is_skip) {
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.lists;
+            rs.list_names = rule.list;
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Skip;
             rule_states.push_back(std::move(rs));
@@ -389,7 +395,7 @@ void Daemon::apply_firewall() {
             // Unknown outbound tag — skip
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.lists;
+            rs.list_names = rule.list;
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Skip;
             rule_states.push_back(std::move(rs));
@@ -399,15 +405,14 @@ void Daemon::apply_firewall() {
         const Outbound* ob = *decision.outbound;
 
         // For urltest outbounds, resolve to the currently selected child
-        std::string effective_tag = get_outbound_tag(*ob);
+        std::string effective_tag = ob->tag;
         const Outbound* effective_ob = ob;
 
-        if (std::holds_alternative<UrltestOutbound>(*ob)) {
+        if (ob->type == OutboundType::URLTEST) {
             auto selections = firewall_state_.get_urltest_selections();
             auto sel_it = selections.find(effective_tag);
             if (sel_it != selections.end() && !sel_it->second.empty()) {
-                const Outbound* child =
-                    find_outbound(config_.outbounds, sel_it->second);
+                const Outbound* child = find_outbound(all_outbounds, sel_it->second);
                 if (child) {
                     effective_ob = child;
                     effective_tag = sel_it->second;
@@ -416,13 +421,13 @@ void Daemon::apply_firewall() {
         }
 
         // Determine action based on effective outbound type
-        bool is_blackhole = std::holds_alternative<BlackholeOutbound>(*effective_ob);
-        bool is_ignore = std::holds_alternative<IgnoreOutbound>(*effective_ob);
+        const bool is_blackhole = (effective_ob->type == OutboundType::BLACKHOLE);
+        const bool is_ignore    = (effective_ob->type == OutboundType::IGNORE);
 
         if (is_ignore) {
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.lists;
+            rs.list_names = rule.list;
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Skip;
             rule_states.push_back(std::move(rs));
@@ -431,7 +436,7 @@ void Daemon::apply_firewall() {
 
         RuleState rs;
         rs.rule_index = rule_idx;
-        rs.list_names = rule.lists;
+        rs.list_names = rule.list;
         rs.outbound_tag = rule.outbound;
 
         if (is_blackhole) {
@@ -445,19 +450,22 @@ void Daemon::apply_firewall() {
         }
 
         // Create ipsets and stream entries for each list in the rule
-        for (const auto& list_name : rule.lists) {
-            auto list_cfg_it = config_.lists.find(list_name);
-            if (list_cfg_it == config_.lists.end()) continue;
+        for (const auto& list_name : rule.list) {
+            auto list_cfg_it = lists_map.find(list_name);
+            if (list_cfg_it == lists_map.end()) continue;
 
             const auto& list_cfg = list_cfg_it->second;
 
-            // Determine TTL for ipset
-            bool has_domains = !list_cfg.domains.empty() ||
+            // Determine TTL for ipset (ttl_ms / 1000 → seconds)
+            bool has_domains = !list_cfg.domains.value_or(std::vector<std::string>{}).empty() ||
                                !list_cfg.url.value_or("").empty() ||
                                list_cfg.file.has_value();
             uint32_t set_timeout = 0;
-            if (has_domains && list_cfg.ttl > 0) {
-                set_timeout = list_cfg.ttl;
+            if (has_domains) {
+                int64_t ttl_ms = list_cfg.ttl_ms.value_or(0);
+                if (ttl_ms >= 1000) {
+                    set_timeout = static_cast<uint32_t>(ttl_ms / 1000);
+                }
             }
 
             firewall_->create_ipset(list_name, AF_INET, set_timeout);
@@ -485,7 +493,7 @@ void Daemon::apply_firewall() {
 }
 
 void Daemon::download_uncached_lists() {
-    for (const auto& [name, list_cfg] : config_.lists) {
+    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
         if (list_cfg.url.has_value() && !cache_.has_cache(name)) {
             try {
                 cache_.download(name, list_cfg.url.value());
@@ -511,17 +519,17 @@ void Daemon::register_urltest_outbounds() {
             }
         });
 
-    for (const auto& ob : config_.outbounds) {
-        if (std::holds_alternative<UrltestOutbound>(ob)) {
-            const auto& ut = std::get<UrltestOutbound>(ob);
-            urltest_manager_->register_urltest(ut);
+    for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
+        if (ob.type == OutboundType::URLTEST) {
+            urltest_manager_->register_urltest(ob);
         }
     }
 }
 
 void Daemon::schedule_lists_autoupdate() {
-    if (!config_.lists_autoupdate.enabled) return;
-    const auto& expr = config_.lists_autoupdate.cron;
+    if (!config_.lists_autoupdate) return;
+    if (!config_.lists_autoupdate->enabled.value_or(false)) return;
+    const auto& expr = config_.lists_autoupdate->cron.value_or("");
     auto next = cron_next(expr);
     auto delay = std::chrono::duration_cast<std::chrono::seconds>(
         next - std::chrono::system_clock::now());
@@ -538,12 +546,12 @@ void Daemon::refresh_lists_and_maybe_reload() {
 
     // Build set of lists referenced by any route rule
     std::set<std::string> route_lists;
-    for (const auto& rule : config_.route.rules)
-        for (const auto& ln : rule.lists)
+    for (const auto& rule : config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
+        for (const auto& ln : rule.list)
             route_lists.insert(ln);
 
     bool any_relevant_changed = false;
-    for (const auto& [name, list_cfg] : config_.lists) {
+    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
         if (!list_cfg.url.has_value()) continue;
         try {
             bool changed = cache_.download(name, *list_cfg.url);
@@ -596,7 +604,8 @@ void Daemon::full_reload() {
     config_ = parse_config(ss.str());
 
     // Re-allocate fwmarks
-    outbound_marks_ = allocate_outbound_marks(config_.fwmark, config_.outbounds);
+    outbound_marks_ = allocate_outbound_marks(config_.fwmark.value_or(FwmarkConfig{}),
+                                             config_.outbounds.value_or(std::vector<Outbound>{}));
     firewall_state_.set_outbound_marks(outbound_marks_);
 
     // Download any lists not yet cached
@@ -617,17 +626,16 @@ void Daemon::full_reload() {
 
 #ifdef WITH_API
 void Daemon::setup_api() {
-    if (!config_.api.enabled || opts_.no_api) return;
+    if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
-    api_server_ = std::make_unique<ApiServer>(config_.api);
+    api_server_ = std::make_unique<ApiServer>(*config_.api);
 
     // ApiContext holds references to Daemon-owned members (stable addresses).
     // Allocated on heap so it outlives the setup_api() call.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
-        config_.outbounds,
+        config_,
         cache_,
-        config_.lists,
         firewall_state_,
         *urltest_manager_,
         *routing_health_checker_,
@@ -635,7 +643,8 @@ void Daemon::setup_api() {
     });
     register_api_handlers(*api_server_, *api_ctx_);
     api_server_->start();
-    Logger::instance().info("REST API listening on {}", config_.api.listen);
+    Logger::instance().info("REST API listening on {}",
+                            config_.api->listen.value_or(""));
 }
 #endif
 

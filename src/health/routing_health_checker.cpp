@@ -1,5 +1,6 @@
 #include "routing_health_checker.hpp"
 
+#include "../api/generated/api_types.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../routing/routing_verifier.hpp"
 
@@ -132,111 +133,80 @@ RoutingHealthReport RoutingHealthChecker::check() const {
     return report;
 }
 
-static std::string check_status_to_str(CheckStatus s) {
-    switch (s) {
-        case CheckStatus::ok:       return "ok";
-        case CheckStatus::missing:  return "missing";
-        case CheckStatus::mismatch: return "mismatch";
-    }
-    return "unknown";
-}
-
 static std::string hex_str(uint32_t v) {
     return std::format("0x{:08x}", v);
 }
 
+static api::CheckStatus to_api_check_status(CheckStatus s) {
+    switch (s) {
+        case CheckStatus::ok:       return api::CheckStatus::OK;
+        case CheckStatus::missing:  return api::CheckStatus::MISSING;
+        case CheckStatus::mismatch: return api::CheckStatus::MISMATCH;
+    }
+    return api::CheckStatus::MISSING;
+}
+
 nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
-    nlohmann::json j;
-
     if (!r.error.empty()) {
-        j["overall"] = "error";
-        j["error"] = r.error;
-        return j;
+        api::RoutingHealthErrorResponse err;
+        err.error = r.error;
+        err.overall = api::RoutingHealthErrorResponseOverall::ERROR;
+        return nlohmann::json(err);
     }
 
-    j["overall"] = r.overall_ok ? "ok" : "degraded";
-    j["firewall_backend"] = r.firewall_backend;
+    api::RoutingHealthResponse resp;
+    resp.overall = r.overall_ok
+        ? api::RoutingHealthResponseOverall::OK
+        : api::RoutingHealthResponseOverall::DEGRADED;
 
-    // Firewall chain check
-    {
-        nlohmann::json fw;
-        fw["chain_present"] = r.firewall_chain.chain_present;
-        fw["prerouting_hook_present"] = r.firewall_chain.prerouting_hook_present;
-        if (!r.firewall_chain.detail.empty()) {
-            fw["detail"] = r.firewall_chain.detail;
-        }
-        j["firewall"] = fw;
+    resp.firewall_backend = (r.firewall_backend == "iptables")
+        ? api::FirewallBackend::IPTABLES
+        : api::FirewallBackend::NFTABLES;
+
+    resp.firewall.chain_present = r.firewall_chain.chain_present;
+    resp.firewall.prerouting_hook_present = r.firewall_chain.prerouting_hook_present;
+    if (!r.firewall_chain.detail.empty()) resp.firewall.detail = r.firewall_chain.detail;
+
+    for (const auto& fc : r.firewall_rules) {
+        api::FirewallRuleCheck arc;
+        arc.set_name = fc.set_name;
+        arc.action   = fc.action;
+        arc.status   = to_api_check_status(fc.status);
+        if (fc.expected_fwmark) arc.expected_fwmark = hex_str(*fc.expected_fwmark);
+        if (fc.actual_fwmark)   arc.actual_fwmark   = hex_str(*fc.actual_fwmark);
+        if (!fc.detail.empty()) arc.detail           = fc.detail;
+        resp.firewall_rules.push_back(std::move(arc));
     }
 
-    // Firewall rules
-    {
-        nlohmann::json rules = nlohmann::json::array();
-        for (const auto& fc : r.firewall_rules) {
-            nlohmann::json rule;
-            rule["set_name"] = fc.set_name;
-            rule["action"] = fc.action;
-            if (fc.expected_fwmark.has_value()) {
-                rule["expected_fwmark"] = hex_str(*fc.expected_fwmark);
-            }
-            if (fc.actual_fwmark.has_value()) {
-                rule["actual_fwmark"] = hex_str(*fc.actual_fwmark);
-            }
-            rule["status"] = check_status_to_str(fc.status);
-            if (!fc.detail.empty()) {
-                rule["detail"] = fc.detail;
-            }
-            rules.push_back(std::move(rule));
-        }
-        j["firewall_rules"] = std::move(rules);
+    for (const auto& rt : r.route_tables) {
+        api::RouteTableCheck arc;
+        arc.table_id             = rt.table_id;
+        arc.outbound_tag         = rt.outbound_tag;
+        arc.table_exists         = rt.table_exists;
+        arc.default_route_present = rt.default_route_present;
+        arc.interface_matches    = rt.interface_matches;
+        arc.gateway_matches      = rt.gateway_matches;
+        arc.status               = to_api_check_status(rt.status);
+        if (rt.expected_interface) arc.expected_interface = *rt.expected_interface;
+        if (rt.expected_gateway)   arc.expected_gateway   = *rt.expected_gateway;
+        if (!rt.detail.empty())    arc.detail             = rt.detail;
+        resp.route_tables.push_back(std::move(arc));
     }
 
-    // Route tables
-    {
-        nlohmann::json tables = nlohmann::json::array();
-        for (const auto& rt : r.route_tables) {
-            nlohmann::json table;
-            table["table_id"] = rt.table_id;
-            table["outbound_tag"] = rt.outbound_tag;
-            if (rt.expected_interface.has_value()) {
-                table["expected_interface"] = *rt.expected_interface;
-            }
-            if (rt.expected_gateway.has_value()) {
-                table["expected_gateway"] = *rt.expected_gateway;
-            }
-            table["table_exists"] = rt.table_exists;
-            table["default_route_present"] = rt.default_route_present;
-            table["interface_matches"] = rt.interface_matches;
-            table["gateway_matches"] = rt.gateway_matches;
-            table["status"] = check_status_to_str(rt.status);
-            if (!rt.detail.empty()) {
-                table["detail"] = rt.detail;
-            }
-            tables.push_back(std::move(table));
-        }
-        j["route_tables"] = std::move(tables);
+    for (const auto& pr : r.policy_rules) {
+        api::PolicyRuleCheck arc;
+        arc.fwmark          = hex_str(pr.fwmark);
+        arc.fwmask          = hex_str(pr.fwmask);
+        arc.expected_table  = pr.expected_table;
+        arc.priority        = pr.priority;
+        arc.rule_present_v4 = pr.rule_present_v4;
+        arc.rule_present_v6 = pr.rule_present_v6;
+        arc.status          = to_api_check_status(pr.status);
+        if (!pr.detail.empty()) arc.detail = pr.detail;
+        resp.policy_rules.push_back(std::move(arc));
     }
 
-    // Policy rules
-    {
-        nlohmann::json rules = nlohmann::json::array();
-        for (const auto& pr : r.policy_rules) {
-            nlohmann::json rule;
-            rule["fwmark"] = hex_str(pr.fwmark);
-            rule["fwmask"] = hex_str(pr.fwmask);
-            rule["expected_table"] = pr.expected_table;
-            rule["priority"] = pr.priority;
-            rule["rule_present_v4"] = pr.rule_present_v4;
-            rule["rule_present_v6"] = pr.rule_present_v6;
-            rule["status"] = check_status_to_str(pr.status);
-            if (!pr.detail.empty()) {
-                rule["detail"] = pr.detail;
-            }
-            rules.push_back(std::move(rule));
-        }
-        j["policy_rules"] = std::move(rules);
-    }
-
-    return j;
+    return nlohmann::json(resp);
 }
 
 } // namespace keen_pbr3

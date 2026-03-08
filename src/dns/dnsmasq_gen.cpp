@@ -22,8 +22,8 @@ void DnsmasqGenerator::generate(std::ostream& out) {
 
     // Collect all list names referenced in route rules that need ipset population.
     std::set<std::string> ipset_lists;
-    for (const auto& rule : route_config_.rules) {
-        for (const auto& list_name : rule.lists) {
+    for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {
+        for (const auto& list_name : rule.list) {
             ipset_lists.insert(list_name);
         }
     }
@@ -31,8 +31,8 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     // Collect all list names referenced in DNS rules for server directives.
     // Map: list_name -> dns server tag
     std::map<std::string, std::string> dns_list_servers;
-    for (const auto& rule : dns_config_.rules) {
-        for (const auto& list_name : rule.lists) {
+    for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
+        for (const auto& list_name : rule.list) {
             if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
                 dns_list_servers[list_name] = rule.server;
             }

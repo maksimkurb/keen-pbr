@@ -20,12 +20,12 @@ void ListStreamer::stream_list(const std::string& name, const ListConfig& config
     }
 
     // 3. Stream inline ip_cidrs via classify_entry()
-    for (const auto& entry : config.ip_cidrs) {
+    for (const auto& entry : config.ip_cidrs.value_or(std::vector<std::string>{})) {
         ListParser::classify_entry(entry, visitor);
     }
 
     // 4. Stream inline domains as Domain entries
-    for (const auto& domain : config.domains) {
+    for (const auto& domain : config.domains.value_or(std::vector<std::string>{})) {
         visitor.on_entry(EntryType::Domain, domain);
     }
 

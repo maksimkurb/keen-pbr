@@ -19,7 +19,9 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
             auto report = ctx.routing_health_checker.check();
             return routing_health_report_to_json(report).dump();
         } catch (const std::exception& e) {
-            api::RoutingHealthErrorResponse err{"error", e.what()};
+            api::RoutingHealthErrorResponse err;
+            err.error = e.what();
+            err.overall = api::RoutingHealthErrorResponseOverall::ERROR;
             // Re-throw so the server wrapper sets HTTP 500
             throw std::runtime_error(nlohmann::json(err).dump());
         }

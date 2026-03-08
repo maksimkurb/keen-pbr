@@ -4,17 +4,12 @@ namespace keen_pbr3 {
 
 namespace {
 
-// Helper to get the tag from any outbound variant
-std::string get_outbound_tag(const Outbound& ob) {
-    return std::visit([](const auto& o) -> std::string { return o.tag; }, ob);
-}
-
 // Find an outbound by its tag, returning a pointer or nullptr
 const Outbound* find_outbound_by_tag(
     const std::vector<Outbound>& outbounds,
     const std::string& tag) {
     for (const auto& ob : outbounds) {
-        if (get_outbound_tag(ob) == tag) {
+        if (ob.tag == tag) {
             return &ob;
         }
     }
@@ -32,8 +27,8 @@ RoutingDecision resolve_route_action(
         return RoutingDecision::none();
     }
 
-    // IgnoreOutbound means skip (not managed by keen-pbr3)
-    if (std::holds_alternative<IgnoreOutbound>(*ob)) {
+    // IGNORE type means skip (not managed by keen-pbr3)
+    if (ob->type == OutboundType::IGNORE) {
         return RoutingDecision::skip();
     }
 

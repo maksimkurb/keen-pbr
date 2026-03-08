@@ -11,7 +11,7 @@ void CircuitBreaker::record_success(const std::string& tag) {
     switch (entry.state) {
     case CircuitState::half_open:
         entry.success_count_in_half_open++;
-        if (entry.success_count_in_half_open >= config_.success_threshold) {
+        if (entry.success_count_in_half_open >= static_cast<uint32_t>(config_.success_threshold.value_or(2))) {
             entry.state = CircuitState::closed;
             entry.failure_count = 0;
             entry.success_count_in_half_open = 0;
@@ -37,7 +37,7 @@ void CircuitBreaker::record_failure(const std::string& tag) {
 
     switch (entry.state) {
     case CircuitState::closed:
-        if (entry.failure_count >= static_cast<int>(config_.failure_threshold)) {
+        if (entry.failure_count >= static_cast<int>(config_.failure_threshold.value_or(5))) {
             entry.state = CircuitState::open;
             entry.opened_at = now;
         }
@@ -63,7 +63,7 @@ bool CircuitBreaker::is_allowed(const std::string& tag) {
         return true;
     case CircuitState::open: {
         auto now = std::chrono::steady_clock::now();
-        auto cooldown = std::chrono::milliseconds(config_.timeout_ms);
+        auto cooldown = std::chrono::milliseconds(config_.timeout_ms.value_or(30000));
         if (now - entry.opened_at >= cooldown) {
             // Cooldown expired - transition to half-open
             entry.state = CircuitState::half_open;
@@ -74,7 +74,7 @@ bool CircuitBreaker::is_allowed(const std::string& tag) {
         return false;
     }
     case CircuitState::half_open:
-        return entry.half_open_active_requests < config_.half_open_max_requests;
+        return entry.half_open_active_requests < static_cast<uint32_t>(config_.half_open_max_requests.value_or(1));
     }
 
     return false; // unreachable, but satisfies compiler

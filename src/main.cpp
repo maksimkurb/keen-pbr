@@ -123,9 +123,11 @@ int main(int argc, char* argv[]) {
 
         // Handle download command: download all lists to cache, count entries, exit
         if (opts.download_lists) {
-            keen_pbr3::CacheManager cache(config.daemon.cache_dir);
+            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+            keen_pbr3::CacheManager cache(cache_dir);
             cache.ensure_dir();
-            for (const auto& [name, list_cfg] : config.lists) {
+            for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{})) {
                 if (!list_cfg.url.has_value()) {
                     logger.info("[{}] Skipped (no URL)", name);
                     continue;
@@ -156,10 +158,13 @@ int main(int argc, char* argv[]) {
 
         // Handle print-dnsmasq-config command: load lists, generate, print, exit
         if (opts.print_dnsmasq_config) {
-            keen_pbr3::CacheManager cache(config.daemon.cache_dir);
+            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+            keen_pbr3::CacheManager cache(cache_dir);
             cache.ensure_dir();
             // Download lists that aren't already cached
-            for (const auto& [name, list_cfg] : config.lists) {
+            const auto lists_map = config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});
+            for (const auto& [name, list_cfg] : lists_map) {
                 if (!list_cfg.url.has_value()) {
                     logger.verbose("[{}] Skipped (no URL)", name);
                     continue;
@@ -171,11 +176,13 @@ int main(int argc, char* argv[]) {
                     logger.verbose("[{}] Using cached", name);
                 }
             }
+            const auto route_cfg = config.route.value_or(keen_pbr3::RouteConfig{});
+            const auto dns_cfg   = config.dns.value_or(keen_pbr3::DnsConfig{});
             keen_pbr3::ListStreamer list_streamer(cache);
-            keen_pbr3::DnsServerRegistry dns_registry(config.dns);
+            keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
             keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_registry, list_streamer,
-                                                     config.route, config.dns,
-                                                     config.lists);
+                                                     route_cfg, dns_cfg,
+                                                     lists_map);
             dnsmasq_gen.generate(std::cout);
             return 0;
         }

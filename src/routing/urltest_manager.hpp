@@ -14,7 +14,7 @@ class Scheduler;
 
 // Per-urltest outbound state: test results, circuit breakers, selected child
 struct UrltestState {
-    UrltestOutbound config;
+    Outbound config;
     std::map<std::string, URLTestResult> last_results;
     std::map<std::string, CircuitBreaker> circuit_breakers;
     std::string selected_outbound;
@@ -38,7 +38,7 @@ public:
     UrltestManager& operator=(const UrltestManager&) = delete;
 
     // Register a urltest outbound. Schedules periodic testing at interval_ms.
-    void register_urltest(const UrltestOutbound& ut);
+    void register_urltest(const Outbound& ut);
 
     // Run tests immediately for a specific urltest outbound (e.g., on SIGUSR1).
     void trigger_immediate_test(const std::string& urltest_tag);

@@ -18,15 +18,20 @@ namespace keen_pbr3 {
 // Context struct holding references to subsystems needed by API handlers.
 struct ApiContext {
     const std::string& config_path;
-    const std::vector<Outbound>& outbounds;
+    const Config& config;
     const CacheManager& cache_manager;
-    const std::map<std::string, ListConfig>& lists;
     const FirewallState& firewall_state;
     const UrltestManager& urltest_manager;
     RoutingHealthChecker& routing_health_checker;
 
     // Callback to trigger full reload (non-const, performs side effects)
     std::function<void()> reload_fn;
+
+    // Convenience accessors
+    const std::vector<Outbound>& outbounds() const {
+        static const std::vector<Outbound> empty{};
+        return config.outbounds ? *config.outbounds : empty;
+    }
 };
 
 // Register all API endpoint handlers on the given ApiServer.
