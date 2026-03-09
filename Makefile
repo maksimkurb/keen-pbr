@@ -61,6 +61,8 @@ CROSS_TOOLCHAIN_DIR   := cross-toolchain
 CROSS_TOOLCHAIN_STAMP := $(CROSS_TOOLCHAIN_DIR)/.stamp-extracted
 CROSS_BUILD_DIR       := cmake-build-aarch64
 CROSS_BIN             := $(DIST_DIR)/keen-pbr3-aarch64
+CROSS_DEBUG_BIN       := $(DIST_DIR)/keen-pbr3-aarch64.debug
+CROSS_OBJCOPY         := $(shell ls $(CROSS_TOOLCHAIN_DIR)/toolchain-*/bin/aarch64-openwrt-linux-musl-objcopy 2>/dev/null | head -1)
 # runas.so (LD_PRELOAD'd by the compiler wrapper) uses STAGING_DIR to redirect
 # the compiler's baked-in absolute sysroot paths to the actual extracted location.
 # Without this, the compiler falls through to the host /usr/include (glibc).
@@ -90,11 +92,18 @@ cross-build: $(CROSS_TOOLCHAIN_STAMP) ## Cross-compile for aarch64_cortex-a53 di
 	STAGING_DIR=$(CROSS_STAGING_DIR) cmake -S . -B $(CROSS_BUILD_DIR) \
 		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-aarch64-openwrt.cmake \
 		-DCMAKE_BUILD_TYPE=MinSizeRel \
+		-DCMAKE_CXX_FLAGS_MINSIZEREL="-Os -DNDEBUG -g1" \
 		-DWITH_API=ON
 	STAGING_DIR=$(CROSS_STAGING_DIR) cmake --build $(CROSS_BUILD_DIR) -j$(shell nproc)
 	@mkdir -p $(DIST_DIR)
-	cp $(CROSS_BUILD_DIR)/keen-pbr3 $(CROSS_BIN)
-	@echo "Binary: $(CROSS_BIN)"
+	# Extract full debug symbols into a separate .debug file (stays on the host)
+	$(CROSS_OBJCOPY) --only-keep-debug $(CROSS_BUILD_DIR)/keen-pbr3 $(CROSS_DEBUG_BIN)
+	# Strip DWARF from the deployed binary (symbol table kept — backtrace() still resolves names)
+	$(CROSS_OBJCOPY) --strip-debug --add-gnu-debuglink=$(CROSS_DEBUG_BIN) \
+		$(CROSS_BUILD_DIR)/keen-pbr3 $(CROSS_BIN)
+	@echo "Binary:        $(CROSS_BIN)"
+	@echo "Debug symbols: $(CROSS_DEBUG_BIN)"
+	@echo "Resolve crash addresses: addr2line -e $(CROSS_DEBUG_BIN) <address>"
 
 cross-deploy: cross-build ## Cross-compile and upload binary to router via SFTP (requires ROUTER_HOST)
 	@test -n "$(ROUTER_HOST)" || { echo "Error: ROUTER_HOST is not set"; exit 1; }

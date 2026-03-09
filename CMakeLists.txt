@@ -15,6 +15,9 @@ endif()
 add_compile_options(-ffunction-sections -fdata-sections)
 add_link_options(-Wl,--gc-sections)
 
+# Export symbols for backtrace() stack traces on crash
+add_link_options(-rdynamic)
+
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 

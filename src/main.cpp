@@ -5,6 +5,18 @@
 #include <sstream>
 #include <string>
 
+#include <csignal>
+#include <cstdint>
+#include <unistd.h>
+
+#if __has_include(<execinfo.h>)
+#  include <execinfo.h>
+#  define KEEN_HAS_EXECINFO 1
+#else
+#  include <unwind.h>  // _Unwind_Backtrace — part of libgcc, available on musl
+#  define KEEN_HAS_EXECINFO 0
+#endif
+
 #include <keen-pbr3/version.hpp>
 
 #include "cache/cache_manager.hpp"
@@ -17,6 +29,77 @@
 #include "log/logger.hpp"
 
 namespace {
+
+#if !KEEN_HAS_EXECINFO
+// musl / no-execinfo fallback: collect frames via libgcc's unwinder,
+// print raw addresses (resolve later with: addr2line -e keen-pbr3.debug <addr>)
+struct UnwindState { void** frames; int count; int max; };
+
+_Unwind_Reason_Code unwind_cb(struct _Unwind_Context* ctx, void* arg) {
+    auto* s = static_cast<UnwindState*>(arg);
+    if (s->count >= s->max) return _URC_END_OF_STACK;
+    s->frames[s->count++] = reinterpret_cast<void*>(_Unwind_GetIP(ctx));
+    return _URC_NO_REASON;
+}
+
+void write_hex_addr(uintptr_t val) {
+    char buf[20] = {'0', 'x'};
+    char hex[16]; int hlen = 0;
+    do { hex[hlen++] = "0123456789abcdef"[val & 0xf]; val >>= 4; } while (val);
+    int len = 2;
+    for (int i = hlen - 1; i >= 0; --i) buf[len++] = hex[i];
+    buf[len++] = '\n';
+    write(STDERR_FILENO, buf, len);
+}
+#endif // !KEEN_HAS_EXECINFO
+
+void crash_handler(int signum, siginfo_t* /*info*/, void* /*context*/) {
+    const char* name = "UNKNOWN";
+    switch (signum) {
+        case SIGSEGV: name = "SIGSEGV"; break;
+        case SIGABRT: name = "SIGABRT"; break;
+        case SIGBUS:  name = "SIGBUS";  break;
+        case SIGFPE:  name = "SIGFPE";  break;
+        case SIGILL:  name = "SIGILL";  break;
+    }
+
+    // write() is async-signal-safe
+    const char prefix[] = "\n=== CRASH (signal ";
+    write(STDERR_FILENO, prefix, sizeof(prefix) - 1);
+    write(STDERR_FILENO, name, strlen(name));
+    const char suffix[] = ") — stack trace ===\n";
+    write(STDERR_FILENO, suffix, sizeof(suffix) - 1);
+
+#if KEEN_HAS_EXECINFO
+    void* frames[64];
+    int n = backtrace(frames, 64);
+    backtrace_symbols_fd(frames, n, STDERR_FILENO);
+#else
+    void* frames[64];
+    UnwindState state{frames, 0, 64};
+    _Unwind_Backtrace(unwind_cb, &state);
+    const char hint[] = "(raw addresses — resolve with: addr2line -e keen-pbr3.debug <addr>)\n";
+    write(STDERR_FILENO, hint, sizeof(hint) - 1);
+    for (int i = 0; i < state.count; ++i)
+        write_hex_addr(reinterpret_cast<uintptr_t>(frames[i]));
+#endif
+
+    // Reset to default and re-raise to produce core dump
+    signal(signum, SIG_DFL);
+    raise(signum);
+}
+
+void install_crash_handler() {
+    struct sigaction sa{};
+    sa.sa_sigaction = crash_handler;
+    sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGBUS,  &sa, nullptr);
+    sigaction(SIGFPE,  &sa, nullptr);
+    sigaction(SIGILL,  &sa, nullptr);
+}
 
 struct CliOptions {
     std::string config_path{"/etc/keen-pbr3/config.json"};
@@ -94,6 +177,7 @@ std::string read_file(const std::string& path) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
+    install_crash_handler();
     CliOptions opts = parse_args(argc, argv);
 
     if (opts.show_version) {
