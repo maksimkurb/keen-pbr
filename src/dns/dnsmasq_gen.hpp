@@ -4,6 +4,7 @@
 #include "../lists/list_streamer.hpp"
 #include "dns_router.hpp"
 
+#include <functional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -35,7 +36,23 @@ public:
     // Produces ipset=/nftset= and server= directives for all matched domains.
     void generate(std::ostream& out);
 
+    // Compute MD5 hash over the canonical domain/ipset mapping without generating config.
+    // Returns 32-char lowercase hex string.
+    std::string compute_config_hash();
+
+    // Static overload: compute hash without a full DnsServerRegistry / DnsConfig.
+    static std::string compute_config_hash(
+        ListStreamer& list_streamer,
+        const RouteConfig& route_config,
+        const std::map<std::string, ListConfig>& lists);
+
 private:
+    // Iterate every (domain, list_name) pair for all ipset-backed lists in output order,
+    // calling callback once per domain per list.
+    void for_each_ipset_domain(
+        std::function<void(const std::string& domain,
+                           const std::string& list_name)> callback);
+
     // Build the IPv4/IPv6 set names for a given list name.
     static std::string ipset_name_v4(const std::string& list_name);
     static std::string ipset_name_v6(const std::string& list_name);

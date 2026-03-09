@@ -610,6 +610,13 @@ components:
           type: string
           enum: [running]
           example: "running"
+        resolver_config_hash:
+          type: string
+          description: >
+            MD5 hex digest of the current domain-to-ipset mapping.
+            Matches the txt-record written by generate-resolver-config; use to
+            verify the dnsmasq config is up to date.
+          example: "a3f7c1d9e2b84560abcdef1234567890"
         outbounds:
           type: array
           items:

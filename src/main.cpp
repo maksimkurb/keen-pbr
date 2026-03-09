@@ -109,6 +109,7 @@ struct CliOptions {
     bool generate_resolver_config{false};
     std::string resolver_type;
     bool download_lists{false};
+    bool resolver_config_hash{false};
     bool show_help{false};
     bool show_version{false};
 };
@@ -127,7 +128,8 @@ void print_usage(const char* argv0) {
               << "  service                            Start the routing service (foreground)\n"
               << "  download                           Download all configured lists to cache and exit\n"
               << "  generate-resolver-config <res>     Print generated resolver config to stdout and exit\n"
-              << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n";
+              << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n"
+              << "  resolver-config-hash               Print MD5 hash of domain-to-ipset mapping and exit\n";
 }
 
 CliOptions parse_args(int argc, char* argv[]) {
@@ -163,6 +165,8 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.generate_resolver_config = true;
         } else if (std::strcmp(argv[i], "download") == 0) {
             opts.download_lists = true;
+        } else if (std::strcmp(argv[i], "resolver-config-hash") == 0) {
+            opts.resolver_config_hash = true;
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
@@ -198,7 +202,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (!opts.download_lists && !opts.generate_resolver_config && !opts.run_service) {
+    if (!opts.download_lists && !opts.generate_resolver_config && !opts.resolver_config_hash && !opts.run_service) {
         print_usage(argv[0]);
         return 0;
     }
@@ -209,7 +213,6 @@ int main(int argc, char* argv[]) {
         logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
 
         // Load and parse configuration
-        logger.info("keen-pbr3 {} starting...", KEEN_PBR3_VERSION_STRING);
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
 
@@ -248,6 +251,20 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // Handle resolver-config-hash command: print MD5 of domain-to-ipset mapping, exit
+        if (opts.resolver_config_hash) {
+            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+            keen_pbr3::CacheManager cache(cache_dir);
+            keen_pbr3::ListStreamer streamer(cache);
+            const std::string hash = keen_pbr3::DnsmasqGenerator::compute_config_hash(
+                streamer,
+                config.route.value_or(keen_pbr3::RouteConfig{}),
+                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}));
+            std::cout << hash << "\n";
+            return 0;
+        }
+
         // Handle generate-resolver-config command: load lists, generate, print, exit
         if (opts.generate_resolver_config) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
@@ -282,6 +299,7 @@ int main(int argc, char* argv[]) {
 
         // Construct Daemon with all subsystems and run
         if (opts.run_service) {
+            logger.info("keen-pbr3 {} starting...", KEEN_PBR3_VERSION_STRING);
             keen_pbr3::DaemonOptions daemon_opts;
             daemon_opts.no_api = opts.no_api;
 

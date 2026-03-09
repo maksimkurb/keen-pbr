@@ -101,6 +101,12 @@ private:
     void setup_api();
 #endif
 
+    // Hash of the current domain-to-ipset mapping (matches dnsmasq txt-record)
+    std::string resolver_config_hash_;
+
+    // Recompute resolver_config_hash_ from current config/cache state
+    void update_resolver_config_hash();
+
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
 

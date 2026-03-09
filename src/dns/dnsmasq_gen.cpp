@@ -1,4 +1,5 @@
 #include "dnsmasq_gen.hpp"
+#include "../crypto/md5.hpp"
 
 #include <set>
 
@@ -18,6 +19,82 @@ DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
       dns_config_(dns_config),
       lists_(lists),
       resolver_type_(resolver_type) {}
+
+void DnsmasqGenerator::for_each_ipset_domain(
+    std::function<void(const std::string& domain,
+                       const std::string& list_name)> callback)
+{
+    // Collect all list names referenced in route rules that need ipset population.
+    std::set<std::string> ipset_lists;
+    for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {
+        for (const auto& list_name : rule.list) {
+            ipset_lists.insert(list_name);
+        }
+    }
+
+    std::set<std::string> domains;
+
+    for (const auto& list_name : ipset_lists) {
+        auto list_cfg_it = lists_.find(list_name);
+        if (list_cfg_it == lists_.end()) continue;
+
+        domains.clear();
+        FunctionalVisitor collector([&](EntryType type, std::string_view entry) {
+            if (type == EntryType::Domain) {
+                std::string bare = strip_wildcard(std::string(entry));
+                if (!bare.empty()) {
+                    domains.insert(std::move(bare));
+                }
+            }
+        });
+        list_streamer_.stream_list(list_name, list_cfg_it->second, collector);
+
+        for (const auto& domain : domains) {
+            callback(domain, list_name);
+        }
+    }
+}
+
+std::string DnsmasqGenerator::compute_config_hash() {
+    return compute_config_hash(list_streamer_, route_config_, lists_);
+}
+
+std::string DnsmasqGenerator::compute_config_hash(
+    ListStreamer& list_streamer,
+    const RouteConfig& route_config,
+    const std::map<std::string, ListConfig>& lists)
+{
+    // Collect all list names referenced in route rules that need ipset population.
+    std::set<std::string> ipset_lists;
+    for (const auto& rule : route_config.rules.value_or(std::vector<RouteRule>{})) {
+        for (const auto& list_name : rule.list) {
+            ipset_lists.insert(list_name);
+        }
+    }
+
+    std::string hash_input;
+    for (const auto& list_name : ipset_lists) {
+        auto list_cfg_it = lists.find(list_name);
+        if (list_cfg_it == lists.end()) continue;
+
+        std::set<std::string> domains;
+        FunctionalVisitor collector([&](EntryType type, std::string_view entry) {
+            if (type == EntryType::Domain) {
+                std::string bare = strip_wildcard(std::string(entry));
+                if (!bare.empty()) {
+                    domains.insert(std::move(bare));
+                }
+            }
+        });
+        list_streamer.stream_list(list_name, list_cfg_it->second, collector);
+
+        for (const auto& domain : domains) {
+            hash_input += domain + "/" + ipset_name_v4(list_name) + "/" + ipset_name_v6(list_name) + "\n";
+        }
+    }
+
+    return crypto::md5_hex(hash_input);
+}
 
 void DnsmasqGenerator::generate(std::ostream& out) {
     const char* resolver_name = (resolver_type_ == ResolverType::DNSMASQ_IPSET)
@@ -49,6 +126,10 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     for (const auto& [list_name, _] : dns_list_servers) {
         all_lists.insert(list_name);
     }
+
+    // Compute config hash from canonical ipset domain mapping
+    const std::string config_hash = compute_config_hash();
+    out << "txt-record=config-hash.keen.pbr," << config_hash << "\n\n";
 
     // Domain-collecting visitor with dedup set, reused across lists
     std::set<std::string> domains;

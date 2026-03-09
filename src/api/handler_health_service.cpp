@@ -14,6 +14,7 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
         resp.status = api::HealthResponseStatus::RUNNING;
+        resp.resolver_config_hash = ctx.resolver_config_hash;
 
         for (const auto& ob : ctx.outbounds()) {
             api::HealthEntry entry;

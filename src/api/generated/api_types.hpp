@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbr3TypesXLs8I0 data = nlohmann::json::parse(jsonString);
+//     KeenPbr3TypesM38TrO data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -256,6 +256,7 @@ namespace api {
 
     struct HealthResponse {
         std::vector<HealthEntry> outbounds;
+        std::optional<std::string> resolver_config_hash;
         HealthResponseStatus status;
         std::string version;
     };
@@ -309,7 +310,7 @@ namespace api {
         std::vector<RouteTableCheck> route_tables;
     };
 
-    struct KeenPbr3TypesXLs8I0 {
+    struct KeenPbr3TypesM38TrO {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -433,8 +434,8 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponse & x);
     void to_json(json & j, const RoutingHealthResponse & x);
 
-    void from_json(const json & j, KeenPbr3TypesXLs8I0 & x);
-    void to_json(json & j, const KeenPbr3TypesXLs8I0 & x);
+    void from_json(const json & j, KeenPbr3TypesM38TrO & x);
+    void to_json(json & j, const KeenPbr3TypesM38TrO & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -792,6 +793,7 @@ namespace api {
 
     inline void from_json(const json & j, HealthResponse& x) {
         x.outbounds = j.at("outbounds").get<std::vector<HealthEntry>>();
+        x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
         x.status = j.at("status").get<HealthResponseStatus>();
         x.version = j.at("version").get<std::string>();
     }
@@ -799,6 +801,7 @@ namespace api {
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
         j["outbounds"] = x.outbounds;
+        j["resolver_config_hash"] = x.resolver_config_hash;
         j["status"] = x.status;
         j["version"] = x.version;
     }
@@ -894,7 +897,7 @@ namespace api {
         j["route_tables"] = x.route_tables;
     }
 
-    inline void from_json(const json & j, KeenPbr3TypesXLs8I0& x) {
+    inline void from_json(const json & j, KeenPbr3TypesM38TrO& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -927,7 +930,7 @@ namespace api {
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
     }
 
-    inline void to_json(json & j, const KeenPbr3TypesXLs8I0 & x) {
+    inline void to_json(json & j, const KeenPbr3TypesM38TrO & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

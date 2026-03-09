@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../dns/dnsmasq_gen.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
@@ -230,6 +231,8 @@ void Daemon::run() {
     log.info("Firewall rules and routing applied.");
 
     schedule_lists_autoupdate();
+
+    update_resolver_config_hash();
 
 #ifdef WITH_API
     setup_api();
@@ -595,6 +598,15 @@ void Daemon::refresh_lists_and_maybe_reload() {
     schedule_lists_autoupdate();
 }
 
+void Daemon::update_resolver_config_hash() {
+    ListStreamer streamer(cache_);
+    resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
+        streamer,
+        config_.route.value_or(RouteConfig{}),
+        config_.lists.value_or(std::map<std::string, ListConfig>{}));
+    Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
+}
+
 void Daemon::full_reload() {
     // Cancel any pending autoupdate task before teardown
     if (lists_autoupdate_task_id_ >= 0) {
@@ -638,6 +650,9 @@ void Daemon::full_reload() {
 
     // Reschedule periodic list autoupdate
     schedule_lists_autoupdate();
+
+    // Recompute resolver config hash after reload
+    update_resolver_config_hash();
 }
 
 #ifdef WITH_API
@@ -655,6 +670,7 @@ void Daemon::setup_api() {
         firewall_state_,
         urltest_manager_,
         *routing_health_checker_,
+        resolver_config_hash_,
         [this]() { full_reload(); },
     });
     register_api_handlers(*api_server_, *api_ctx_);
