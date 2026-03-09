@@ -130,7 +130,9 @@ static bool is_port_list(const std::string& port_spec) {
 
 std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto,
                                                          const std::string& src_port,
-                                                         const std::string& dst_port) {
+                                                         const std::string& dst_port,
+                                                         bool negate_src_port,
+                                                         bool negate_dst_port) {
     if (proto.empty() && src_port.empty() && dst_port.empty()) {
         return "";
     }
@@ -150,13 +152,20 @@ std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto
     // Use -m multiport when: both ports present, or either is a comma list
     if (has_src || has_dst) {
         if (src_list || dst_list || (has_src && has_dst)) {
-            frag += " -m multiport";
-            if (has_src) frag += " --sports " + src_port;
-            if (has_dst) frag += " --dports " + dst_port;
+            // When negation differs between src and dst, emit separate -m multiport clauses
+            // (iptables cannot mix negated and non-negated flags in one multiport call).
+            if (has_src && has_dst && negate_src_port != negate_dst_port) {
+                frag += " -m multiport" + std::string(negate_src_port ? " !" : "") + " --sports " + src_port;
+                frag += " -m multiport" + std::string(negate_dst_port ? " !" : "") + " --dports " + dst_port;
+            } else {
+                frag += " -m multiport";
+                if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sports " + src_port;
+                if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dports " + dst_port;
+            }
         } else {
             // Single port or range, single direction — use --sport/--dport
-            if (has_src) frag += " --sport " + port_token_to_ipt(src_port);
-            if (has_dst) frag += " --dport " + port_token_to_ipt(dst_port);
+            if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sport " + port_token_to_ipt(src_port);
+            if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dport " + port_token_to_ipt(dst_port);
         }
     }
 
@@ -173,11 +182,15 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
         // Optional src/dst address constraints (-s/-d flags).
         // After expand_and_push each filter has at most one entry per list.
         std::string addr_frag;
-        if (!pr.filter.src_addr.empty()) addr_frag += " -s " + pr.filter.src_addr[0];
-        if (!pr.filter.dst_addr.empty()) addr_frag += " -d " + pr.filter.dst_addr[0];
+        if (!pr.filter.src_addr.empty())
+            addr_frag += std::string(pr.filter.negate_src_addr ? " !" : "") + " -s " + pr.filter.src_addr[0];
+        if (!pr.filter.dst_addr.empty())
+            addr_frag += std::string(pr.filter.negate_dst_addr ? " !" : "") + " -d " + pr.filter.dst_addr[0];
         std::string pp = build_proto_port_fragment(pr.filter.proto,
                                                    pr.filter.src_port,
-                                                   pr.filter.dst_port);
+                                                   pr.filter.dst_port,
+                                                   pr.filter.negate_src_port,
+                                                   pr.filter.negate_dst_port);
         if (pr.action == PendingRule::Mark) {
             s += std::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
                              CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);

@@ -18,6 +18,10 @@ struct ProtoPortFilter {
     std::string dst_port;              // port spec or "" (any)
     std::vector<std::string> src_addr; // CIDR list, empty = any source address
     std::vector<std::string> dst_addr; // CIDR list, empty = any destination address
+    bool negate_src_port = false;      // if true, match packets NOT from src_port
+    bool negate_dst_port = false;      // if true, match packets NOT to dst_port
+    bool negate_src_addr = false;      // if true, match packets NOT from src_addr
+    bool negate_dst_addr = false;      // if true, match packets NOT to dst_addr
     bool empty() const {
         return proto.empty() && src_port.empty() && dst_port.empty()
             && src_addr.empty() && dst_addr.empty();

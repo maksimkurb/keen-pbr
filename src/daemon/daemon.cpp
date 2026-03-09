@@ -494,13 +494,42 @@ void Daemon::apply_firewall() {
             loader4->finish();
             loader6->finish();
 
-            // Build proto/port/addr filter from route rule
+            // Build proto/port/addr filter from route rule.
+            // Strip leading '!' to extract negation flags.
+            auto strip_neg = [](const std::string& s) -> std::pair<std::string, bool> {
+                if (!s.empty() && s[0] == '!') return {s.substr(1), true};
+                return {s, false};
+            };
+
             ProtoPortFilter filter;
-            filter.proto    = rule.proto.value_or("");
-            filter.src_port = rule.src_port.value_or("");
-            filter.dst_port = rule.dest_port.value_or("");
-            filter.src_addr = rule.src_addr.value_or(std::vector<std::string>{});
-            filter.dst_addr = rule.dest_addr.value_or(std::vector<std::string>{});
+            filter.proto = rule.proto.value_or("");
+
+            {
+                auto [port, neg]   = strip_neg(rule.src_port.value_or(""));
+                filter.src_port        = port;
+                filter.negate_src_port = neg;
+            }
+            {
+                auto [port, neg]   = strip_neg(rule.dest_port.value_or(""));
+                filter.dst_port        = port;
+                filter.negate_dst_port = neg;
+            }
+            {
+                auto addrs = rule.src_addr.value_or(std::vector<std::string>{});
+                if (!addrs.empty() && !addrs[0].empty() && addrs[0][0] == '!') {
+                    filter.negate_src_addr = true;
+                    for (auto& a : addrs) if (!a.empty() && a[0] == '!') a = a.substr(1);
+                }
+                filter.src_addr = std::move(addrs);
+            }
+            {
+                auto addrs = rule.dest_addr.value_or(std::vector<std::string>{});
+                if (!addrs.empty() && !addrs[0].empty() && addrs[0][0] == '!') {
+                    filter.negate_dst_addr = true;
+                    for (auto& a : addrs) if (!a.empty() && a[0] == '!') a = a.substr(1);
+                }
+                filter.dst_addr = std::move(addrs);
+            }
 
             // Create mark or drop rules for both sets
             if (is_blackhole) {

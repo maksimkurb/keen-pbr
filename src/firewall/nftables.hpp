@@ -76,12 +76,16 @@ private:
     // Returns a (possibly empty) array of JSON match expressions.
     static nlohmann::json build_port_match_exprs(const std::string& proto,
                                                   const std::string& src_port,
-                                                  const std::string& dst_port);
+                                                  const std::string& dst_port,
+                                                  bool negate_src_port = false,
+                                                  bool negate_dst_port = false);
     // Build nftables match expression(s) for source/destination CIDR constraints.
     // ip_proto is "ip" or "ip6". Returns a (possibly empty) array of JSON match expressions.
     static nlohmann::json build_addr_match_exprs(const std::string& ip_proto,
                                                   const std::vector<std::string>& src_addr,
-                                                  const std::vector<std::string>& dst_addr);
+                                                  const std::vector<std::string>& dst_addr,
+                                                  bool negate_src_addr = false,
+                                                  bool negate_dst_addr = false);
     // Build the JSON element-add object for bulk-loading elems into a named set.
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems);

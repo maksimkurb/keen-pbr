@@ -154,6 +154,26 @@
         "src_port": "1024-65535",
         "dest_port": "53",
         "outbound": "vpn"
+      },
+
+      {
+        "_comment": "Negate src_addr: route VPN traffic from ALL sources except the local LAN",
+        "list": ["my-ips"],
+        "src_addr": ["!192.168.1.0/24"],
+        "outbound": "vpn"
+      },
+      {
+        "_comment": "Negate dest_port: route all TCP traffic to this list EXCEPT port 443 (let HTTPS go direct)",
+        "list": ["my-domains"],
+        "proto": "tcp",
+        "dest_port": "!443",
+        "outbound": "vpn"
+      },
+      {
+        "_comment": "Negate dest_addr: block all traffic in list NOT going to the trusted subnet",
+        "list": ["my-ips"],
+        "dest_addr": ["!10.0.0.0/8", "!172.16.0.0/12"],
+        "outbound": "block"
       }
     ],
     "fallback": "wan"

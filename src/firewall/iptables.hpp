@@ -73,7 +73,9 @@ private:
     // Build the proto/port fragment for a single rule (single proto, not tcp/udp).
     static std::string build_proto_port_fragment(const std::string& proto,
                                                  const std::string& src_port,
-                                                 const std::string& dst_port);
+                                                 const std::string& dst_port,
+                                                 bool negate_src_port = false,
+                                                 bool negate_dst_port = false);
     // Expand filter (proto, src_addr, dst_addr) into cross-product of PendingRules
     // and append them to out.  tcp/udp is split into two entries.  Multiple CIDRs
     // in src_addr / dst_addr each become separate rules (OR semantics when combined).

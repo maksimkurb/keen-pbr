@@ -164,22 +164,26 @@ nlohmann::json NftablesFirewall::build_chain_json() {
 
 nlohmann::json NftablesFirewall::build_port_match_exprs(const std::string& proto,
                                                           const std::string& src_port,
-                                                          const std::string& dst_port) {
+                                                          const std::string& dst_port,
+                                                          bool negate_src_port,
+                                                          bool negate_dst_port) {
     nlohmann::json exprs = nlohmann::json::array();
     if (proto.empty() && src_port.empty() && dst_port.empty()) {
         return exprs;
     }
-    // proto match (next-header)
+    // proto match (next-header) — never negated
     if (!proto.empty()) {
         exprs.push_back({{"match", {{"op", "=="}, {"left", {{"meta", {{"key", "l4proto"}}}}}, {"right", proto}}}});
     }
     // src_port match
     if (!src_port.empty()) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", proto}, {"field", "sport"}}}}}, {"right", port_spec_to_nft_rhs(src_port)}}}});
+        std::string op = negate_src_port ? "!=" : "==";
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", proto}, {"field", "sport"}}}}}, {"right", port_spec_to_nft_rhs(src_port)}}}});
     }
     // dst_port match
     if (!dst_port.empty()) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", proto}, {"field", "dport"}}}}}, {"right", port_spec_to_nft_rhs(dst_port)}}}});
+        std::string op = negate_dst_port ? "!=" : "==";
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", proto}, {"field", "dport"}}}}}, {"right", port_spec_to_nft_rhs(dst_port)}}}});
     }
     return exprs;
 }
@@ -195,13 +199,17 @@ static nlohmann::json cidr_list_to_nft_rhs(const std::vector<std::string>& addrs
 
 nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_proto,
                                                          const std::vector<std::string>& src_addr,
-                                                         const std::vector<std::string>& dst_addr) {
+                                                         const std::vector<std::string>& dst_addr,
+                                                         bool negate_src_addr,
+                                                         bool negate_dst_addr) {
     nlohmann::json exprs = nlohmann::json::array();
     if (!src_addr.empty()) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "saddr"}}}}}, {"right", cidr_list_to_nft_rhs(src_addr)}}}});
+        std::string op = negate_src_addr ? "!=" : "==";
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "saddr"}}}}}, {"right", cidr_list_to_nft_rhs(src_addr)}}}});
     }
     if (!dst_addr.empty()) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", cidr_list_to_nft_rhs(dst_addr)}}}});
+        std::string op = negate_dst_addr ? "!=" : "==";
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", cidr_list_to_nft_rhs(dst_addr)}}}});
     }
     return exprs;
 }
@@ -211,11 +219,13 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     nlohmann::json expr = nlohmann::json::array();
     expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
     // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr)) {
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
+                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
         expr.push_back(e);
     }
     // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port)) {
+    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
+                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});
@@ -233,11 +243,13 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     nlohmann::json expr = nlohmann::json::array();
     expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
     // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr)) {
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
+                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
         expr.push_back(e);
     }
     // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port)) {
+    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
+                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});
