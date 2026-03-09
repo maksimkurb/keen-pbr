@@ -9,13 +9,13 @@ The `lists` key is an object where each key is the list name and the value is th
 
 ## Fields
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `url` | string | — | URL to a remote list file to download and cache |
-| `domains` | array of string | — | Inline domain patterns (supports `*.` prefix wildcards) |
-| `ip_cidrs` | array of string | — | Inline IP addresses or CIDR ranges |
-| `file` | string | — | Path to a local list file |
-| `ttl_ms` | integer | `0` | TTL for dnsmasq-resolved ipset entries in milliseconds; `0` means no timeout |
+| `url` | string | no | URL to a remote list file to download and cache |
+| `domains` | array of string | no | Inline domain patterns (supports `*.` prefix wildcards) |
+| `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
+| `file` | string | no | Path to a local list file |
+| `ttl_ms` | integer | no (default: `0`) | TTL for dnsmasq-resolved ipset entries in milliseconds; `0` means no timeout |
 
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. Multiple sources can be combined in a single list entry — all entries are merged.
 
@@ -24,10 +24,11 @@ At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. Multip
 Whether loaded from `url` or `file`, keen-pbr3 expects one entry per line:
 
 - IPv4 address: `93.184.216.34`
+- IPv4 CIDR: `10.0.0.0/8`
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
-- CIDR: `10.0.0.0/8`
-- Domain: `example.com`
-- Wildcard domain: `*.example.org` (matches all subdomains)
+- IPv6 CIDR: `2001:db8::/32`
+- Domain: `example.com` — matches the domain and all its subdomains (dnsmasq `server=/example.com/` semantics)
+- Wildcard domain: `*.example.org` — equivalent to `example.org`; the `*.` prefix is stripped automatically
 - Comments: lines starting with `#` are ignored
 - Empty lines are ignored
 
@@ -39,7 +40,7 @@ Whether loaded from `url` or `file`, keen-pbr3 expects one entry per line:
 {
   "lists": {
     "remote-list": {
-      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/instagram"
+      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
     }
   }
 }
@@ -53,13 +54,13 @@ Downloaded files are cached in `daemon.cache_dir`. If the URL is unreachable at 
 {
   "lists": {
     "my-domains": {
-      "domains": ["example.com", "*.example.org"]
+      "domains": ["example.com", "other.org"]
     }
   }
 }
 ```
 
-The `*.example.org` entry matches `www.example.org`, `api.example.org`, etc.
+Both entries match the domain and all its subdomains. Writing `*.example.com` is equivalent to `example.com` — the `*.` prefix is stripped automatically.
 
 ### Inline IP list
 
@@ -67,7 +68,12 @@ The `*.example.org` entry matches `www.example.org`, `api.example.org`, etc.
 {
   "lists": {
     "my-ips": {
-      "ip_cidrs": ["93.184.216.34", "10.0.0.0/8"]
+      "ip_cidrs": [
+        "93.184.216.34",
+        "10.0.0.0/8",
+        "2606:2800:220:1:248:1893:25c8:1946",
+        "2001:db8::/32"
+      ]
     }
   }
 }
@@ -79,7 +85,7 @@ The `*.example.org` entry matches `www.example.org`, `api.example.org`, etc.
 {
   "lists": {
     "local-list": {
-      "file": "./my-list.txt"
+      "file": "/etc/keen-pbr3/my-list.txt"
     }
   }
 }
@@ -94,7 +100,7 @@ The `*.example.org` entry matches `www.example.org`, `api.example.org`, etc.
       "url": "https://example.com/remote-list.txt",
       "domains": ["extra.example.com"],
       "ip_cidrs": ["192.168.100.0/24"],
-      "file": "./local-additions.txt",
+      "file": "/etc/keen-pbr3/local-additions.txt",
       "ttl_ms": 86400000
     }
   }

@@ -11,15 +11,15 @@ Route rules define which traffic is routed where. Rules are evaluated in order �
 {
   "route": {
     "rules": [...],
-    "fallback": "wan"
+    "fallback": "ignore"
   }
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `rules` | array | Ordered list of route rules |
-| `fallback` | string | Outbound tag for unmatched traffic |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `rules` | array | yes | Ordered list of route rules |
+| `fallback` | string | no | Outbound tag for unmatched traffic |
 
 ## Route Rule Fields
 
@@ -28,32 +28,28 @@ Route rules define which traffic is routed where. Rules are evaluated in order �
 | `list` | array of string | yes | List names whose traffic this rule matches |
 | `outbound` | string | yes | Outbound tag to route matched traffic through |
 | `proto` | string | no | Protocol: `"tcp"`, `"udp"`, or `"tcp/udp"`. Omit for any. |
-| `src_port` | string | no | Source port spec (see Port Syntax below) |
-| `dest_port` | string | no | Destination port spec (see Port Syntax below) |
-| `src_addr` | array of string | no | Source CIDR(s) to match (see Address Negation below) |
-| `dest_addr` | array of string | no | Destination CIDR(s) to match (additional to the list) |
+| `src_port` | string | no | Source port spec (see Address & Port Syntax below) |
+| `dest_port` | string | no | Destination port spec (see Address & Port Syntax below) |
+| `src_addr` | string | no | Source CIDR(s) to match (see Address & Port Syntax below) |
+| `dest_addr` | string | no | Destination CIDR(s) to match (additional to the list) |
 
-## Port Syntax
+## Address & Port Syntax
 
-Port specs are a string with the following formats:
+`src_addr`, `dest_addr`, `src_port`, and `dest_port` all use the same string syntax:
 
 | Format | Example | Matches |
 |---|---|---|
+| Single value | `"192.168.1.0/24"` | this subnet |
+| List | `"192.168.1.0/24,10.0.0.0/8"` | either subnet |
+| Negation | `"!192.168.1.0/24"` | any source except this subnet |
+| Negated list | `"!192.168.1.0/24,10.0.0.0/8"` | any source except either subnet |
 | Single port | `"443"` | port 443 |
-| List | `"80,443"` | port 80 or 443 |
-| Range | `"8000-9000"` | ports 8000 through 9000 |
-| Negation | `"!443"` | all ports except 443 |
-| Negated list | `"!80,443"` | all ports except 80 and 443 |
+| Port list | `"80,443"` | port 80 or 443 |
+| Port range | `"8000-9000"` | ports 8000 through 9000 |
+| Negated port | `"!443"` | all ports except 443 |
+| Negated port list | `"!80,443"` | all ports except 80 and 443 |
 
-## Address Negation
-
-`src_addr` and `dest_addr` accept an array of CIDR strings. All entries must either all be negated (prefixed with `!`) or none — mixing negated and non-negated entries in the same array is not supported.
-
-| Format | Example | Matches |
-|---|---|---|
-| Normal | `["192.168.10.0/24"]` | traffic from this subnet |
-| Negated | `["!192.168.1.0/24"]` | traffic from any source except this subnet |
-| Multi-negated | `["!10.0.0.0/8", "!172.16.0.0/12"]` | traffic not from either subnet |
+A single `!` at the start negates the entire value. Negation applies to all comma-separated entries — mixing negated and non-negated entries is not possible by design.
 
 ## Examples
 
@@ -71,7 +67,7 @@ Port specs are a string with the following formats:
 ```json
 {
   "list": ["my-domains"],
-  "src_addr": ["192.168.20.0/24", "192.168.30.0/24"],
+  "src_addr": "192.168.20.0/24,192.168.30.0/24",
   "proto": "tcp",
   "dest_port": "443",
   "outbound": "vpn"
@@ -83,7 +79,7 @@ Port specs are a string with the following formats:
 ```json
 {
   "list": ["my-ips"],
-  "src_addr": ["192.168.10.0/24"],
+  "src_addr": "192.168.10.0/24",
   "outbound": "vpn"
 }
 ```
@@ -93,8 +89,8 @@ Port specs are a string with the following formats:
 ```json
 {
   "list": ["my-domains"],
-  "src_addr": ["192.168.10.0/24"],
-  "dest_addr": ["8.8.8.0/24"],
+  "src_addr": "192.168.10.0/24",
+  "dest_addr": "8.8.8.0/24",
   "proto": "udp",
   "src_port": "1024-65535",
   "dest_port": "53",
@@ -107,7 +103,7 @@ Port specs are a string with the following formats:
 ```json
 {
   "list": ["my-ips"],
-  "src_addr": ["!192.168.1.0/24"],
+  "src_addr": "!192.168.1.0/24",
   "outbound": "vpn"
 }
 ```
@@ -123,16 +119,23 @@ Port specs are a string with the following formats:
 }
 ```
 
+### Negation — all UDP except DNS and NTP goes through VPN
+
+```json
+{
+  "list": ["my-domains"],
+  "proto": "udp",
+  "dest_port": "!53,123",
+  "outbound": "vpn"
+}
+```
+
 ### Negation — block traffic NOT going to a trusted subnet
 
 ```json
 {
   "list": ["my-ips"],
-  "dest_addr": ["!10.0.0.0/8", "!172.16.0.0/12"],
+  "dest_addr": "!10.0.0.0/8,172.16.0.0/12",
   "outbound": "block"
 }
 ```
-
-{{< callout type="warning" >}}
-Mixed negation in `src_addr` / `dest_addr` is not supported. All entries in the array must either all start with `!` or none of them should. For example, `["192.168.1.0/24", "!10.0.0.0/8"]` is invalid.
-{{< /callout >}}

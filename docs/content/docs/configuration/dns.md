@@ -91,7 +91,18 @@ conf-script=/usr/sbin/keen-pbr3 generate-resolver-config dnsmasq-nftset
 Restart dnsmasq after adding this line. dnsmasq will re-run the script on each reload.
 
 {{< callout type="info" >}}
-The `resolver_config_hash` field in `GET /api/health/service` is an MD5 digest of the current domain-to-resolver mapping. You can compare it against the output of `keen-pbr3 resolver-config-hash` to verify dnsmasq is using up-to-date configuration.
+To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr3 against the TXT record dnsmasq exposes (written by `generate-resolver-config`):
+
+```bash
+# Hash known to keen-pbr3
+curl -s http://127.0.0.1:8080/api/health/service | grep resolver_config_hash
+
+# Hash dnsmasq is currently using
+dig +short TXT config-hash.keen.pbr @127.0.0.1
+# or: nslookup -type=TXT config-hash.keen.pbr 127.0.0.1
+```
+
+If the two values differ, dnsmasq has not picked up the latest configuration — restart dnsmasq to reload.
 {{< /callout >}}
 
 ## Complete Example

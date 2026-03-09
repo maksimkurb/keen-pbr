@@ -91,7 +91,7 @@ The following is the full annotated example configuration:
       "ip_cidrs": ["93.184.216.34", "10.0.0.0/8"]
     },
     "remote-list": {
-      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/instagram"
+      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
     },
     "local-list": {
       "file": "./my-list.txt"

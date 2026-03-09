@@ -79,41 +79,41 @@ Passes traffic through without any routing modification. Use this to explicitly 
 
 Probes multiple child outbounds via HTTP and automatically selects the best one based on latency. Includes retry logic and a circuit breaker to prevent flapping.
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `tag` | string | — | Unique identifier |
-| `type` | string | — | `"urltest"` |
-| `url` | string | — | HTTP URL used for latency probes |
-| `interval_ms` | integer | `180000` | Interval between probes in milliseconds |
-| `tolerance_ms` | integer | `100` | Latency tolerance in ms; outbounds within this range of the best are considered equivalent |
-| `outbound_groups` | array | — | Ordered list of outbound groups (see below) |
-| `retry` | object | — | Retry configuration (see below) |
-| `circuit_breaker` | object | — | Circuit breaker configuration (see below) |
+| `tag` | string | yes | Unique identifier |
+| `type` | string | yes | `"urltest"` |
+| `url` | string | yes | HTTP URL used for latency probes |
+| `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
+| `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; outbounds within this range of the best are considered equivalent |
+| `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
+| `retry` | object | no | Retry configuration (see below) |
+| `circuit_breaker` | object | no | Circuit breaker configuration (see below) |
 
 ### Outbound Groups
 
 Groups are evaluated in order. Within a healthy group, outbounds are selected by `weight`.
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `outbounds` | array of string | — | Ordered list of outbound tags to try |
-| `weight` | integer | `1` | Relative selection weight when multiple groups are healthy |
+| `outbounds` | array of string | yes | Ordered list of outbound tags to try |
+| `weight` | integer | no (default: `1`) | Relative selection weight when multiple groups are healthy |
 
 ### Retry Configuration
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `attempts` | integer | `3` | Number of probe attempts before marking as failed |
-| `interval_ms` | integer | `1000` | Delay between retry attempts in milliseconds |
+| `attempts` | integer | no (default: `3`) | Number of probe attempts before marking as failed |
+| `interval_ms` | integer | no (default: `1000`) | Delay between retry attempts in milliseconds |
 
 ### Circuit Breaker Configuration
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `failure_threshold` | integer | `5` | Consecutive failures before opening the circuit |
-| `success_threshold` | integer | `2` | Consecutive successes in half-open state to close the circuit |
-| `timeout_ms` | integer | `30000` | Time before transitioning from open to half-open state |
-| `half_open_max_requests` | integer | `1` | Max probe requests allowed in half-open state |
+| `failure_threshold` | integer | no (default: `5`) | Consecutive failures before opening the circuit |
+| `success_threshold` | integer | no (default: `2`) | Consecutive successes in half-open state to close the circuit |
+| `timeout_ms` | integer | no (default: `30000`) | Time before transitioning from open to half-open state |
+| `half_open_max_requests` | integer | no (default: `1`) | Max probe requests allowed in half-open state |
 
 **Circuit breaker states:**
 - `closed` — healthy, traffic passes through normally
