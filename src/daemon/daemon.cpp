@@ -494,13 +494,19 @@ void Daemon::apply_firewall() {
             loader4->finish();
             loader6->finish();
 
+            // Build proto/port filter from route rule
+            ProtoPortFilter filter;
+            filter.proto    = rule.proto.value_or("");
+            filter.src_port = rule.src_port.value_or("");
+            filter.dst_port = rule.dest_port.value_or("");
+
             // Create mark or drop rules for both sets
             if (is_blackhole) {
-                firewall_->create_drop_rule(set4);
-                firewall_->create_drop_rule(set6);
+                firewall_->create_drop_rule(set4, filter);
+                firewall_->create_drop_rule(set6, filter);
             } else if (rs.fwmark != 0) {
-                firewall_->create_mark_rule(set4, rs.fwmark);
-                firewall_->create_mark_rule(set6, rs.fwmark);
+                firewall_->create_mark_rule(set4, rs.fwmark, filter);
+                firewall_->create_mark_rule(set6, rs.fwmark, filter);
             }
         }
 

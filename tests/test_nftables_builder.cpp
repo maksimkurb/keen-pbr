@@ -34,22 +34,32 @@ public:
     }
 
     static nlohmann::json build_mark_rule_json(const std::string& set_name, int family,
-                                               uint32_t fwmark) {
+                                               uint32_t fwmark,
+                                               ProtoPortFilter filter = {}) {
         NftablesFirewall::PendingRule pr;
         pr.set_name = set_name;
         pr.family   = family;
         pr.action   = NftablesFirewall::PendingRule::Mark;
         pr.fwmark   = fwmark;
+        pr.filter   = filter;
         return NftablesFirewall::build_mark_rule_json(pr);
     }
 
-    static nlohmann::json build_drop_rule_json(const std::string& set_name, int family) {
+    static nlohmann::json build_drop_rule_json(const std::string& set_name, int family,
+                                               ProtoPortFilter filter = {}) {
         NftablesFirewall::PendingRule pr;
         pr.set_name = set_name;
         pr.family   = family;
         pr.action   = NftablesFirewall::PendingRule::Drop;
         pr.fwmark   = 0;
+        pr.filter   = filter;
         return NftablesFirewall::build_drop_rule_json(pr);
+    }
+
+    static nlohmann::json build_port_match_exprs(const std::string& proto,
+                                                  const std::string& src_port,
+                                                  const std::string& dst_port) {
+        return NftablesFirewall::build_port_match_exprs(proto, src_port, dst_port);
     }
 
     static nlohmann::json build_elements_json(const std::string& set_name,
@@ -225,4 +235,87 @@ TEST_CASE("each command object has expected top-level key") {
     auto elem_j = T::build_elements_json("s", nlohmann::json::array({"1.2.3.4"}));
     CHECK(elem_j.contains("add"));
     CHECK(elem_j["add"].contains("element"));
+}
+
+// =============================================================================
+// build_port_match_exprs tests
+// =============================================================================
+
+TEST_CASE("build_port_match_exprs: empty filter → empty array") {
+    auto exprs = T::build_port_match_exprs("", "", "");
+    CHECK(exprs.is_array());
+    CHECK(exprs.empty());
+}
+
+TEST_CASE("build_port_match_exprs: proto only → l4proto match") {
+    auto exprs = T::build_port_match_exprs("tcp", "", "");
+    REQUIRE(exprs.size() == 1);
+    CHECK(exprs[0]["match"]["left"]["meta"]["key"] == "l4proto");
+    CHECK(exprs[0]["match"]["right"] == "tcp");
+}
+
+TEST_CASE("build_port_match_exprs: tcp + single dest_port → port integer") {
+    auto exprs = T::build_port_match_exprs("tcp", "", "443");
+    REQUIRE(exprs.size() == 2);
+    CHECK(exprs[0]["match"]["left"]["meta"]["key"] == "l4proto");
+    CHECK(exprs[1]["match"]["left"]["payload"]["field"] == "dport");
+    CHECK(exprs[1]["match"]["right"] == 443);
+}
+
+TEST_CASE("build_port_match_exprs: udp + port range → range JSON") {
+    auto exprs = T::build_port_match_exprs("udp", "", "8000-9000");
+    REQUIRE(exprs.size() == 2);
+    const auto& rhs = exprs[1]["match"]["right"];
+    CHECK(rhs.contains("range"));
+    CHECK(rhs["range"][0] == 8000);
+    CHECK(rhs["range"][1] == 9000);
+}
+
+TEST_CASE("build_port_match_exprs: port list → set JSON") {
+    auto exprs = T::build_port_match_exprs("tcp", "", "80,443");
+    REQUIRE(exprs.size() == 2);
+    const auto& rhs = exprs[1]["match"]["right"];
+    CHECK(rhs.contains("set"));
+    CHECK(rhs["set"][0] == 80);
+    CHECK(rhs["set"][1] == 443);
+}
+
+TEST_CASE("build_port_match_exprs: src_port + dest_port → two port exprs") {
+    auto exprs = T::build_port_match_exprs("tcp", "1024", "443");
+    // l4proto + sport + dport
+    REQUIRE(exprs.size() == 3);
+    CHECK(exprs[1]["match"]["left"]["payload"]["field"] == "sport");
+    CHECK(exprs[2]["match"]["left"]["payload"]["field"] == "dport");
+}
+
+// =============================================================================
+// build_mark_rule_json with proto/port filter tests
+// =============================================================================
+
+TEST_CASE("build_mark_rule_json: tcp + dest_port=443 → port match expr present") {
+    ProtoPortFilter f; f.proto = "tcp"; f.dst_port = "443";
+    auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
+    const auto& expr = j["add"]["rule"]["expr"];
+    // expr[0]=daddr match, expr[1]=l4proto, expr[2]=dport, expr[3]=counter, expr[4]=mangle
+    bool has_dport = false;
+    for (const auto& e : expr) {
+        if (e.contains("match") && e["match"]["left"].contains("payload") &&
+            e["match"]["left"]["payload"]["field"] == "dport") {
+            has_dport = true;
+        }
+    }
+    CHECK(has_dport);
+}
+
+TEST_CASE("build_mark_rule_json: no filter → no port exprs (regression)") {
+    auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
+    const auto& expr = j["add"]["rule"]["expr"];
+    // Should be exactly 3: daddr match, counter, mangle
+    CHECK(expr.size() == 3);
+}
+
+TEST_CASE("build_drop_rule_json: no filter → no port exprs (regression)") {
+    auto j = T::build_drop_rule_json("bl", AF_INET);
+    const auto& expr = j["add"]["rule"]["expr"];
+    CHECK(expr.size() == 3);
 }

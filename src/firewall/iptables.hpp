@@ -23,9 +23,11 @@ public:
                       uint32_t timeout = 0) override;
 
     // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark) override;
+    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
+                          const ProtoPortFilter& filter = {}) override;
     // Buffer an iptables/ip6tables -j DROP rule for the given ipset.
-    void create_drop_rule(const std::string& set_name) override;
+    void create_drop_rule(const std::string& set_name,
+                          const ProtoPortFilter& filter = {}) override;
 
     // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
     // element buffer for set_name; entries are flushed during apply().
@@ -61,12 +63,17 @@ private:
         bool ipv6;            // true → ip6tables, false → iptables
         enum Action { Mark, Drop } action; // MARK or DROP target
         uint32_t fwmark; // only for Mark
+        ProtoPortFilter filter; // optional proto/port filter
     };
 
     // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
     static std::string build_ipset_create_line(const PendingSet& ps);
     // Build a complete iptables-restore script for the given protocol and rules.
     static std::string build_ipt_script(bool ipv6, const std::vector<PendingRule>& rules);
+    // Build the proto/port fragment for a single rule (single proto, not tcp/udp).
+    static std::string build_proto_port_fragment(const std::string& proto,
+                                                 const std::string& src_port,
+                                                 const std::string& dst_port);
 
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;
@@ -84,6 +91,8 @@ private:
 
 #ifdef KEEN_PBR3_TESTING
     friend class IptablesBuilderTest;
+    // Allow test access to build_proto_port_fragment
+    friend struct IptablesBuilderTestHelper;
 #endif
 };
 

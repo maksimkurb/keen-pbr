@@ -10,6 +10,15 @@ namespace keen_pbr3 {
 
 class ListEntryVisitor;
 
+// Protocol + port filter for firewall mark/drop rules.
+// All fields default to empty string meaning "any".
+struct ProtoPortFilter {
+    std::string proto;     // "tcp", "udp", "tcp/udp", or "" (any)
+    std::string src_port;  // port spec or "" (any)
+    std::string dst_port;  // port spec or "" (any)
+    bool empty() const { return proto.empty() && src_port.empty() && dst_port.empty(); }
+};
+
 class FirewallError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
@@ -44,12 +53,16 @@ public:
     // with the specified firewall mark (fwmark).
     // set_name: IP set to match against
     // fwmark: mark value to apply to matching packets
-    virtual void create_mark_rule(const std::string& set_name, uint32_t fwmark) = 0;
+    // filter: optional proto/port filter (default = any proto, any port)
+    virtual void create_mark_rule(const std::string& set_name, uint32_t fwmark,
+                                  const ProtoPortFilter& filter = {}) = 0;
 
     // Create a firewall rule that drops packets matching the given IP set.
     // Used for blackhole outbounds that don't need routing tables or fwmarks.
     // set_name: IP set to match against
-    virtual void create_drop_rule(const std::string& set_name) = 0;
+    // filter: optional proto/port filter (default = any proto, any port)
+    virtual void create_drop_rule(const std::string& set_name,
+                                  const ProtoPortFilter& filter = {}) = 0;
 
     // Create a batch loader visitor for streaming IP/CIDR entries into a set.
     // Returns a ListEntryVisitor that buffers entries for atomic application.

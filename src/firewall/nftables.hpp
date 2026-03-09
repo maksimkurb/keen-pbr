@@ -23,9 +23,11 @@ public:
                       uint32_t timeout = 0) override;
 
     // Buffer a meta mark set rule that matches the given named set.
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark) override;
+    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
+                          const ProtoPortFilter& filter = {}) override;
     // Buffer a drop verdict rule that matches the given named set.
-    void create_drop_rule(const std::string& set_name) override;
+    void create_drop_rule(const std::string& set_name,
+                          const ProtoPortFilter& filter = {}) override;
 
     // Return an NftBatchVisitor that appends element JSON objects to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -57,6 +59,7 @@ private:
         int family;  // AF_INET or AF_INET6
         enum Action { Mark, Drop } action; // meta mark or drop verdict
         uint32_t fwmark; // only for Mark
+        ProtoPortFilter filter; // optional proto/port filter
     };
 
     // Build the nftables JSON object for creating the inet KeenPbrTable table.
@@ -69,6 +72,11 @@ private:
     static nlohmann::json build_mark_rule_json(const PendingRule& pr);
     // Build the JSON rule object for a drop verdict matching a named set.
     static nlohmann::json build_drop_rule_json(const PendingRule& pr);
+    // Build nftables match expression(s) for proto/port filter.
+    // Returns a (possibly empty) array of JSON match expressions.
+    static nlohmann::json build_port_match_exprs(const std::string& proto,
+                                                  const std::string& src_port,
+                                                  const std::string& dst_port);
     // Build the JSON element-add object for bulk-loading elems into a named set.
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems);

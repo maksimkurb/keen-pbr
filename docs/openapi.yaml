@@ -350,6 +350,18 @@ components:
           type: string
           description: Outbound tag to route matched traffic through.
           example: "vpn"
+        proto:
+          type: string
+          description: Protocol to match ("tcp", "udp", or "tcp/udp"). Omit for any.
+          example: "tcp"
+        src_port:
+          type: string
+          description: Source port spec ("443", "80,443", "8000-9000"). Omit for any.
+          example: "1024-65535"
+        dest_port:
+          type: string
+          description: Destination port spec ("443", "80,443", "8000-9000"). Omit for any.
+          example: "443"
 
     RouteConfig:
       type: object

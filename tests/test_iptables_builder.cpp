@@ -19,6 +19,7 @@ public:
         bool ipv6;
         enum Action { Mark, Drop } action;
         uint32_t fwmark;
+        ProtoPortFilter filter;
     };
 
     static std::string build_ipset_create_line(const std::string& name,
@@ -41,9 +42,16 @@ public:
             pr.action   = (d.action == RuleDesc::Mark) ? IptablesFirewall::PendingRule::Mark
                                                        : IptablesFirewall::PendingRule::Drop;
             pr.fwmark   = d.fwmark;
+            pr.filter   = d.filter;
             rules.push_back(std::move(pr));
         }
         return IptablesFirewall::build_ipt_script(ipv6, rules);
+    }
+
+    static std::string build_proto_port_fragment(const std::string& proto,
+                                                  const std::string& src_port,
+                                                  const std::string& dst_port) {
+        return IptablesFirewall::build_proto_port_fragment(proto, src_port, dst_port);
     }
 };
 
@@ -53,12 +61,14 @@ using namespace keen_pbr3;
 using T    = IptablesBuilderTest;
 using Rule = IptablesBuilderTest::RuleDesc;
 
-static Rule mark_rule(const std::string& set_name, bool ipv6, uint32_t fwmark) {
-    return {set_name, ipv6, Rule::Mark, fwmark};
+static Rule mark_rule(const std::string& set_name, bool ipv6, uint32_t fwmark,
+                      ProtoPortFilter filter = {}) {
+    return {set_name, ipv6, Rule::Mark, fwmark, filter};
 }
 
-static Rule drop_rule(const std::string& set_name, bool ipv6) {
-    return {set_name, ipv6, Rule::Drop, 0};
+static Rule drop_rule(const std::string& set_name, bool ipv6,
+                      ProtoPortFilter filter = {}) {
+    return {set_name, ipv6, Rule::Drop, 0, filter};
 }
 
 // =============================================================================
@@ -177,4 +187,71 @@ TEST_CASE("build_ipt_script: multiple rules appear in order") {
     CHECK(pos_first  != std::string::npos);
     CHECK(pos_second != std::string::npos);
     CHECK(pos_first < pos_second);
+}
+
+// =============================================================================
+// build_proto_port_fragment tests
+// =============================================================================
+
+TEST_CASE("build_proto_port_fragment: empty filter → empty string") {
+    CHECK(T::build_proto_port_fragment("", "", "") == "");
+}
+
+TEST_CASE("build_proto_port_fragment: tcp + single dest_port") {
+    auto frag = T::build_proto_port_fragment("tcp", "", "443");
+    CHECK(frag == " -p tcp --dport 443");
+}
+
+TEST_CASE("build_proto_port_fragment: udp + port range") {
+    auto frag = T::build_proto_port_fragment("udp", "", "8000-9000");
+    CHECK(frag == " -p udp --dport 8000:9000");
+}
+
+TEST_CASE("build_proto_port_fragment: tcp + port list → multiport") {
+    auto frag = T::build_proto_port_fragment("tcp", "", "80,443");
+    CHECK(frag == " -p tcp -m multiport --dports 80,443");
+}
+
+TEST_CASE("build_proto_port_fragment: src_port + dest_port → multiport") {
+    auto frag = T::build_proto_port_fragment("tcp", "1024-65535", "80");
+    CHECK(frag == " -p tcp -m multiport --sports 1024-65535 --dports 80");
+}
+
+TEST_CASE("build_proto_port_fragment: proto only, no ports") {
+    auto frag = T::build_proto_port_fragment("udp", "", "");
+    CHECK(frag == " -p udp");
+}
+
+// =============================================================================
+// build_ipt_script with proto/port filter tests
+// =============================================================================
+
+TEST_CASE("build_ipt_script: tcp + single dest_port in rule") {
+    ProtoPortFilter f; f.proto = "tcp"; f.dst_port = "443";
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --dport 443 -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: udp + port range in rule") {
+    ProtoPortFilter f; f.proto = "udp"; f.dst_port = "8000-9000";
+    auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -p udp --dport 8000:9000 -j DROP") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
+    ProtoPortFilter f; f.proto = "tcp/udp"; f.dst_port = "80,443";
+    // create_mark_rule expands tcp/udp, so we simulate by passing two rules already expanded
+    ProtoPortFilter ftcp; ftcp.proto = "tcp"; ftcp.dst_port = "80,443";
+    ProtoPortFilter fudp; fudp.proto = "udp"; fudp.dst_port = "80,443";
+    auto s = T::build_ipt_script(false, {mark_rule("s", false, 0x10, ftcp),
+                                         mark_rule("s", false, 0x10, fudp)});
+    CHECK(s.find("-p tcp -m multiport --dports 80,443") != std::string::npos);
+    CHECK(s.find("-p udp -m multiport --dports 80,443") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: no proto, no ports → no extra flags (regression)") {
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x100") != std::string::npos);
+    CHECK(s.find("-p ") == std::string::npos);
+    CHECK(s.find("--dport") == std::string::npos);
 }
