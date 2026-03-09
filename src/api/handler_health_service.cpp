@@ -23,7 +23,7 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
             if (ob.type == OutboundType::URLTEST) {
                 // Report urltest state: per-child latencies, circuit breaker states, selected outbound
                 try {
-                    const auto& state = ctx.urltest_manager.get_state(entry.tag);
+                    const auto& state = ctx.urltest_manager->get_state(entry.tag);
 
                     std::vector<api::HealthChild> children;
                     for (const auto& [child_tag, result] : state.last_results) {

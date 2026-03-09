@@ -637,7 +637,7 @@ void Daemon::setup_api() {
         config_,
         cache_,
         firewall_state_,
-        *urltest_manager_,
+        urltest_manager_,
         *routing_health_checker_,
         [this]() { full_reload(); },
     });

@@ -21,7 +21,7 @@ struct ApiContext {
     const Config& config;
     const CacheManager& cache_manager;
     const FirewallState& firewall_state;
-    const UrltestManager& urltest_manager;
+    const std::unique_ptr<UrltestManager>& urltest_manager;
     RoutingHealthChecker& routing_health_checker;
 
     // Callback to trigger full reload (non-const, performs side effects)
