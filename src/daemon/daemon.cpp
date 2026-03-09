@@ -341,6 +341,15 @@ void Daemon::setup_static_routing() {
             if (ob.gateway) route.gateway = *ob.gateway;
             route_table_.add(route);
 
+            // Blackhole fallback: fires when interface is removed from kernel,
+            // preventing traffic from leaking to the default routing table.
+            RouteSpec blackhole_route;
+            blackhole_route.destination = "default";
+            blackhole_route.table = table_id;
+            blackhole_route.blackhole = true;
+            blackhole_route.metric = 500;
+            route_table_.add(blackhole_route);
+
             // Add ip rule: fwmark/mask -> table
             RuleSpec ip_rule;
             ip_rule.fwmark = mark_it->second;
@@ -360,10 +369,32 @@ void Daemon::setup_static_routing() {
             ip_rule.priority = table_start + table_offset;
             ++table_offset;
             policy_rules_.add(ip_rule);
+        } else if (ob.type == OutboundType::URLTEST) {
+            auto mark_it = outbound_marks_.find(ob.tag);
+            if (mark_it == outbound_marks_.end()) continue;
+
+            uint32_t table_id = table_start + table_offset;
+            ++table_offset;
+
+            // Blackhole default: traffic is dropped here when no child is selected,
+            // preventing leaks to the default routing table.
+            RouteSpec blackhole_route;
+            blackhole_route.destination = "default";
+            blackhole_route.table = table_id;
+            blackhole_route.blackhole = true;
+            blackhole_route.metric = 500;
+            route_table_.add(blackhole_route);
+
+            // Policy rule: fwmark -> this table
+            RuleSpec ip_rule;
+            ip_rule.fwmark = mark_it->second;
+            ip_rule.fwmask = fwmark_mask;
+            ip_rule.table = table_id;
+            ip_rule.priority = table_id;
+            policy_rules_.add(ip_rule);
         }
         // BLACKHOLE: no routing table, no ip rule — handled by firewall DROP
         // IGNORE: no routing needed
-        // URLTEST: resolved to child at firewall time
     }
 }
 

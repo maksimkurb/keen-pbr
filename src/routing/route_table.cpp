@@ -12,7 +12,8 @@ bool routes_equal(const RouteSpec& a, const RouteSpec& b) {
            a.interface == b.interface &&
            a.gateway == b.gateway &&
            a.blackhole == b.blackhole &&
-           a.family == b.family;
+           a.family == b.family &&
+           a.metric == b.metric;
 }
 
 } // anonymous namespace

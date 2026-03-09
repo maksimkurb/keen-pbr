@@ -143,6 +143,10 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
         rtnl_route_set_table(route.get(), spec.table);
     }
 
+    if (spec.metric != 0) {
+        rtnl_route_set_priority(route.get(), spec.metric);
+    }
+
     // Set destination
     if (spec.destination == "default") {
         // Default route: destination is 0.0.0.0/0 or ::/0
@@ -212,6 +216,10 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
 
     if (spec.table != 0) {
         rtnl_route_set_table(route.get(), spec.table);
+    }
+
+    if (spec.metric != 0) {
+        rtnl_route_set_priority(route.get(), spec.metric);
     }
 
     if (spec.destination == "default") {
@@ -349,6 +357,7 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
         DumpedRoute dr;
         dr.table = ctx->table_id;
         dr.family = rtnl_route_get_family(route);
+        dr.metric = static_cast<uint32_t>(rtnl_route_get_priority(route));
 
         // Determine if blackhole
         int rt_type = rtnl_route_get_type(route);

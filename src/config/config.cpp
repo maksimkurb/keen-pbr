@@ -144,7 +144,9 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     uint32_t count = 0;
 
     for (const auto& ob : outbounds) {
-        if (ob.type != OutboundType::INTERFACE && ob.type != OutboundType::TABLE) continue;
+        if (ob.type != OutboundType::INTERFACE &&
+            ob.type != OutboundType::TABLE &&
+            ob.type != OutboundType::URLTEST) continue;
 
         if (count >= max_marks) {
             throw ConfigError(

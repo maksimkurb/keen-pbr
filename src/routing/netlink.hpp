@@ -21,6 +21,7 @@ struct RouteSpec {
     std::optional<std::string> gateway;     // Next-hop gateway IP
     bool blackhole{false};      // If true, create a blackhole route
     int family{0};              // AF_INET or AF_INET6 (0 = auto-detect)
+    uint32_t metric{0};         // Route metric/priority (0 = kernel default)
 };
 
 // Represents a policy routing rule (ip rule)
@@ -40,6 +41,7 @@ struct DumpedRoute {
     std::optional<std::string> gateway;    // Next-hop gateway IP (if any)
     bool blackhole{false};              // True if route type is RTN_BLACKHOLE
     int family{0};                      // AF_INET or AF_INET6
+    uint32_t metric{0};                 // Route metric/priority
 };
 
 // A policy rule dumped from the kernel (read-only snapshot)
