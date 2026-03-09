@@ -1,0 +1,8 @@
+{{- $copyright := T "copyright" -}}
+{{- $madeBy := T "madeBy" -}}
+{{- if or $copyright $madeBy -}}
+<div class="hx:py-12 hx:flex hx:flex-col hx:gap-4 hx:text-xs hx:text-gray-400 hx:dark:text-gray-600">
+  {{- with $copyright }}<div>{{ . | markdownify }}</div>{{- end -}}
+  {{- with $madeBy }}<div>{{ . | markdownify }}</div>{{- end -}}
+</div>
+{{- end -}}

@@ -1,6 +1,6 @@
 ---
 title: Configuration
-weight: 2
+weight: 3
 ---
 
 keen-pbr3 is configured via a JSON file. The default path is `/etc/keen-pbr3/config.json`, overridable with `--config`.

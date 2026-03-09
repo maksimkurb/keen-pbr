@@ -1,6 +1,6 @@
 ---
 title: API
-weight: 3
+weight: 4
 ---
 
 keen-pbr3 includes an embedded HTTP REST API for monitoring, health checking, and configuration management.

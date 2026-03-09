@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-weight: 4
+weight: 5
 ---
 
 - [FAQ](faq/) — frequently asked questions

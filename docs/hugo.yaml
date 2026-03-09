@@ -6,13 +6,39 @@ module:
   imports:
     - path: github.com/imfing/hextra
 
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+
+params:
+  search:
+    enable: true
+    type: flexsearch
+  footer:
+    displayCopyright: false
+    displayPoweredBy: false
+  navbar:
+    logo:
+      path: logo.svg
+      link: /
+      width: 32
+      height: 32
+    width: wide
+  page:
+    width: normal
+
 menu:
   main:
     - name: Docs
       pageRef: /docs
       weight: 1
-    - name: GitHub
-      url: https://github.com/maksimkurb/keen-pbr3
+    - name: Search
       weight: 2
       params:
-        type: github
+        type: search
+    - name: GitHub
+      url: https://github.com/maksimkurb/keen-pbr
+      weight: 3
+      params:
+        icon: github
