@@ -128,6 +128,32 @@
       {
         "list": ["local-list"],
         "outbound": "auto-select"
+      },
+      {
+        "list": ["my-ips"],
+        "src_addr": ["192.168.10.0/24"],
+        "outbound": "vpn"
+      },
+      {
+        "list": ["my-domains"],
+        "src_addr": ["192.168.20.0/24", "192.168.30.0/24"],
+        "proto": "tcp",
+        "dest_port": "443",
+        "outbound": "vpn"
+      },
+      {
+        "list": ["my-ips"],
+        "dest_addr": ["10.0.0.0/8"],
+        "outbound": "vpn"
+      },
+      {
+        "list": ["my-domains"],
+        "src_addr": ["192.168.10.0/24"],
+        "dest_addr": ["8.8.8.0/24"],
+        "proto": "udp",
+        "src_port": "1024-65535",
+        "dest_port": "53",
+        "outbound": "vpn"
       }
     ],
     "fallback": "wan"

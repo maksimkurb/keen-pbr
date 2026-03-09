@@ -10,13 +10,18 @@ namespace keen_pbr3 {
 
 class ListEntryVisitor;
 
-// Protocol + port filter for firewall mark/drop rules.
-// All fields default to empty string meaning "any".
+// Protocol + port + address filter for firewall mark/drop rules.
+// All fields default to empty meaning "any".
 struct ProtoPortFilter {
-    std::string proto;     // "tcp", "udp", "tcp/udp", or "" (any)
-    std::string src_port;  // port spec or "" (any)
-    std::string dst_port;  // port spec or "" (any)
-    bool empty() const { return proto.empty() && src_port.empty() && dst_port.empty(); }
+    std::string proto;                  // "tcp", "udp", "tcp/udp", or "" (any)
+    std::string src_port;              // port spec or "" (any)
+    std::string dst_port;              // port spec or "" (any)
+    std::vector<std::string> src_addr; // CIDR list, empty = any source address
+    std::vector<std::string> dst_addr; // CIDR list, empty = any destination address
+    bool empty() const {
+        return proto.empty() && src_port.empty() && dst_port.empty()
+            && src_addr.empty() && dst_addr.empty();
+    }
 };
 
 class FirewallError : public std::runtime_error {

@@ -362,6 +362,18 @@ components:
           type: string
           description: Destination port spec ("443", "80,443", "8000-9000"). Omit for any.
           example: "443"
+        src_addr:
+          type: array
+          description: Source CIDR(s) to match. Omit for any source address.
+          items:
+            type: string
+          example: ["192.168.10.0/24"]
+        dest_addr:
+          type: array
+          description: Destination CIDR(s) to match (additional to list). Omit for any.
+          items:
+            type: string
+          example: ["10.0.0.0/8"]
 
     RouteConfig:
       type: object

@@ -74,6 +74,13 @@ private:
     static std::string build_proto_port_fragment(const std::string& proto,
                                                  const std::string& src_port,
                                                  const std::string& dst_port);
+    // Expand filter (proto, src_addr, dst_addr) into cross-product of PendingRules
+    // and append them to out.  tcp/udp is split into two entries.  Multiple CIDRs
+    // in src_addr / dst_addr each become separate rules (OR semantics when combined).
+    static void expand_and_push(std::vector<PendingRule>& out,
+                                const std::string& set_name, bool ipv6,
+                                PendingRule::Action action, uint32_t fwmark,
+                                const ProtoPortFilter& filter);
 
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;

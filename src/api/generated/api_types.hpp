@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbr3TypesTmuInT data = nlohmann::json::parse(jsonString);
+//     KeenPbr3Types3GRuBn data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -185,10 +185,12 @@ namespace api {
     };
 
     struct RouteRuleElement {
+        std::optional<std::vector<std::string>> dest_addr;
         std::optional<std::string> dest_port;
         std::vector<std::string> list;
         std::string outbound;
         std::optional<std::string> proto;
+        std::optional<std::vector<std::string>> src_addr;
         std::optional<std::string> src_port;
     };
 
@@ -313,7 +315,7 @@ namespace api {
         std::vector<RouteTableCheck> route_tables;
     };
 
-    struct KeenPbr3TypesTmuInT {
+    struct KeenPbr3Types3GRuBn {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -437,8 +439,8 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponse & x);
     void to_json(json & j, const RoutingHealthResponse & x);
 
-    void from_json(const json & j, KeenPbr3TypesTmuInT & x);
-    void to_json(json & j, const KeenPbr3TypesTmuInT & x);
+    void from_json(const json & j, KeenPbr3Types3GRuBn & x);
+    void to_json(json & j, const KeenPbr3Types3GRuBn & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -662,19 +664,23 @@ namespace api {
     }
 
     inline void from_json(const json & j, RouteRuleElement& x) {
+        x.dest_addr = get_stack_optional<std::vector<std::string>>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
         x.list = j.at("list").get<std::vector<std::string>>();
         x.outbound = j.at("outbound").get<std::string>();
         x.proto = get_stack_optional<std::string>(j, "proto");
+        x.src_addr = get_stack_optional<std::vector<std::string>>(j, "src_addr");
         x.src_port = get_stack_optional<std::string>(j, "src_port");
     }
 
     inline void to_json(json & j, const RouteRuleElement & x) {
         j = json::object();
+        j["dest_addr"] = x.dest_addr;
         j["dest_port"] = x.dest_port;
         j["list"] = x.list;
         j["outbound"] = x.outbound;
         j["proto"] = x.proto;
+        j["src_addr"] = x.src_addr;
         j["src_port"] = x.src_port;
     }
 
@@ -906,7 +912,7 @@ namespace api {
         j["route_tables"] = x.route_tables;
     }
 
-    inline void from_json(const json & j, KeenPbr3TypesTmuInT& x) {
+    inline void from_json(const json & j, KeenPbr3Types3GRuBn& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -939,7 +945,7 @@ namespace api {
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
     }
 
-    inline void to_json(json & j, const KeenPbr3TypesTmuInT & x) {
+    inline void to_json(json & j, const KeenPbr3Types3GRuBn & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

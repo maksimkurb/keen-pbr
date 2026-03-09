@@ -62,6 +62,12 @@ public:
         return NftablesFirewall::build_port_match_exprs(proto, src_port, dst_port);
     }
 
+    static nlohmann::json build_addr_match_exprs(const std::string& ip_proto,
+                                                  const std::vector<std::string>& src_addr,
+                                                  const std::vector<std::string>& dst_addr) {
+        return NftablesFirewall::build_addr_match_exprs(ip_proto, src_addr, dst_addr);
+    }
+
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems) {
         return NftablesFirewall::build_elements_json(set_name, elems);
@@ -316,6 +322,95 @@ TEST_CASE("build_mark_rule_json: no filter → no port exprs (regression)") {
 
 TEST_CASE("build_drop_rule_json: no filter → no port exprs (regression)") {
     auto j = T::build_drop_rule_json("bl", AF_INET);
+    const auto& expr = j["add"]["rule"]["expr"];
+    CHECK(expr.size() == 3);
+}
+
+// =============================================================================
+// build_addr_match_exprs tests
+// =============================================================================
+
+TEST_CASE("build_addr_match_exprs: both empty → empty array") {
+    auto exprs = T::build_addr_match_exprs("ip", {}, {});
+    CHECK(exprs.is_array());
+    CHECK(exprs.empty());
+}
+
+TEST_CASE("build_addr_match_exprs: single src_addr → saddr match with string") {
+    auto exprs = T::build_addr_match_exprs("ip", {"192.168.10.0/24"}, {});
+    REQUIRE(exprs.size() == 1);
+    CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
+    CHECK(exprs[0]["match"]["right"] == "192.168.10.0/24");
+}
+
+TEST_CASE("build_addr_match_exprs: multiple src_addr → saddr match with set") {
+    auto exprs = T::build_addr_match_exprs("ip", {"192.168.1.0/24", "10.0.0.0/8"}, {});
+    REQUIRE(exprs.size() == 1);
+    CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
+    CHECK(exprs[0]["match"]["right"].contains("set"));
+    CHECK(exprs[0]["match"]["right"]["set"][0] == "192.168.1.0/24");
+    CHECK(exprs[0]["match"]["right"]["set"][1] == "10.0.0.0/8");
+}
+
+TEST_CASE("build_addr_match_exprs: single dst_addr → daddr match with string") {
+    auto exprs = T::build_addr_match_exprs("ip", {}, {"10.0.0.0/8"});
+    REQUIRE(exprs.size() == 1);
+    CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "daddr");
+    CHECK(exprs[0]["match"]["right"] == "10.0.0.0/8");
+}
+
+TEST_CASE("build_addr_match_exprs: src_addr + dst_addr → two match exprs") {
+    auto exprs = T::build_addr_match_exprs("ip", {"192.168.1.0/24"}, {"8.8.8.0/24"});
+    REQUIRE(exprs.size() == 2);
+    CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
+    CHECK(exprs[1]["match"]["left"]["payload"]["field"] == "daddr");
+}
+
+TEST_CASE("build_addr_match_exprs: ip6 family → ip6 protocol in payload") {
+    auto exprs = T::build_addr_match_exprs("ip6", {"fd00::/8"}, {});
+    REQUIRE(exprs.size() == 1);
+    CHECK(exprs[0]["match"]["left"]["payload"]["protocol"] == "ip6");
+}
+
+// =============================================================================
+// build_mark_rule_json with src_addr / dest_addr filter tests
+// =============================================================================
+
+TEST_CASE("build_mark_rule_json: src_addr → saddr expr present") {
+    ProtoPortFilter f;
+    f.src_addr = {"192.168.10.0/24"};
+    auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
+    const auto& expr = j["add"]["rule"]["expr"];
+    // daddr @set, saddr match, counter, mangle = 4
+    CHECK(expr.size() == 4);
+    bool has_saddr = false;
+    for (const auto& e : expr) {
+        if (e.contains("match") && e["match"]["left"].contains("payload") &&
+            e["match"]["left"]["payload"]["field"] == "saddr") {
+            has_saddr = true;
+            CHECK(e["match"]["right"] == "192.168.10.0/24");
+        }
+    }
+    CHECK(has_saddr);
+}
+
+TEST_CASE("build_mark_rule_json: multiple src_addr → set literal in saddr expr") {
+    ProtoPortFilter f;
+    f.src_addr = {"192.168.1.0/24", "10.0.0.0/8"};
+    auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
+    const auto& expr = j["add"]["rule"]["expr"];
+    bool has_set_saddr = false;
+    for (const auto& e : expr) {
+        if (e.contains("match") && e["match"]["left"].contains("payload") &&
+            e["match"]["left"]["payload"]["field"] == "saddr") {
+            has_set_saddr = e["match"]["right"].contains("set");
+        }
+    }
+    CHECK(has_set_saddr);
+}
+
+TEST_CASE("build_mark_rule_json: no filter → still exactly 3 exprs (regression)") {
+    auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
     const auto& expr = j["add"]["rule"]["expr"];
     CHECK(expr.size() == 3);
 }

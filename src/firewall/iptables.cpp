@@ -36,59 +36,49 @@ void IptablesFirewall::create_ipset(const std::string& set_name, int family,
     created_sets_[set_name] = family;
 }
 
+void IptablesFirewall::expand_and_push(std::vector<PendingRule>& out,
+                                        const std::string& set_name, bool ipv6,
+                                        PendingRule::Action action, uint32_t fwmark,
+                                        const ProtoPortFilter& filter) {
+    std::vector<std::string> protos = (filter.proto == "tcp/udp")
+        ? std::vector<std::string>{"tcp", "udp"}
+        : std::vector<std::string>{filter.proto};
+    const std::vector<std::string> any_addr{""};
+    const std::vector<std::string>& src_addrs =
+        filter.src_addr.empty() ? any_addr : filter.src_addr;
+    const std::vector<std::string>& dst_addrs =
+        filter.dst_addr.empty() ? any_addr : filter.dst_addr;
+
+    for (const auto& proto : protos) {
+        for (const auto& src : src_addrs) {
+            for (const auto& dst : dst_addrs) {
+                PendingRule pr;
+                pr.set_name = set_name;
+                pr.ipv6     = ipv6;
+                pr.action   = action;
+                pr.fwmark   = fwmark;
+                pr.filter   = filter;
+                pr.filter.proto = proto;
+                pr.filter.src_addr = src.empty() ? std::vector<std::string>{} : std::vector<std::string>{src};
+                pr.filter.dst_addr = dst.empty() ? std::vector<std::string>{} : std::vector<std::string>{dst};
+                out.push_back(std::move(pr));
+            }
+        }
+    }
+}
+
 void IptablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fwmark,
                                          const ProtoPortFilter& filter) {
     auto it = created_sets_.find(set_name);
     bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-
-    if (filter.proto == "tcp/udp") {
-        // Expand into two rules: one for tcp, one for udp
-        for (const char* p : {"tcp", "udp"}) {
-            PendingRule pr;
-            pr.set_name = set_name;
-            pr.ipv6 = ipv6;
-            pr.action = PendingRule::Mark;
-            pr.fwmark = fwmark;
-            pr.filter = filter;
-            pr.filter.proto = p;
-            pending_rules_.push_back(std::move(pr));
-        }
-    } else {
-        PendingRule pr;
-        pr.set_name = set_name;
-        pr.ipv6 = ipv6;
-        pr.action = PendingRule::Mark;
-        pr.fwmark = fwmark;
-        pr.filter = filter;
-        pending_rules_.push_back(std::move(pr));
-    }
+    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Mark, fwmark, filter);
 }
 
 void IptablesFirewall::create_drop_rule(const std::string& set_name,
                                          const ProtoPortFilter& filter) {
     auto it = created_sets_.find(set_name);
     bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-
-    if (filter.proto == "tcp/udp") {
-        for (const char* p : {"tcp", "udp"}) {
-            PendingRule pr;
-            pr.set_name = set_name;
-            pr.ipv6 = ipv6;
-            pr.action = PendingRule::Drop;
-            pr.fwmark = 0;
-            pr.filter = filter;
-            pr.filter.proto = p;
-            pending_rules_.push_back(std::move(pr));
-        }
-    } else {
-        PendingRule pr;
-        pr.set_name = set_name;
-        pr.ipv6 = ipv6;
-        pr.action = PendingRule::Drop;
-        pr.fwmark = 0;
-        pr.filter = filter;
-        pending_rules_.push_back(std::move(pr));
-    }
+    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Drop, 0, filter);
 }
 
 std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
@@ -180,15 +170,20 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
                      CHAIN_NAME, CHAIN_NAME);
     for (const auto& pr : rules) {
         if (pr.ipv6 != ipv6) continue;
+        // Optional src/dst address constraints (-s/-d flags).
+        // After expand_and_push each filter has at most one entry per list.
+        std::string addr_frag;
+        if (!pr.filter.src_addr.empty()) addr_frag += " -s " + pr.filter.src_addr[0];
+        if (!pr.filter.dst_addr.empty()) addr_frag += " -d " + pr.filter.dst_addr[0];
         std::string pp = build_proto_port_fragment(pr.filter.proto,
                                                    pr.filter.src_port,
                                                    pr.filter.dst_port);
         if (pr.action == PendingRule::Mark) {
-            s += std::format("-A {} -m set --match-set {} dst{} -j MARK --set-mark {:#x}\n",
-                             CHAIN_NAME, pr.set_name, pp, pr.fwmark);
+            s += std::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
+                             CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
         } else {
-            s += std::format("-A {} -m set --match-set {} dst{} -j DROP\n",
-                             CHAIN_NAME, pr.set_name, pp);
+            s += std::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
+                             CHAIN_NAME, pr.set_name, addr_frag, pp);
         }
     }
     s += "COMMIT\n";

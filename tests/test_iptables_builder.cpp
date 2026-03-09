@@ -255,3 +255,45 @@ TEST_CASE("build_ipt_script: no proto, no ports → no extra flags (regression)"
     CHECK(s.find("-p ") == std::string::npos);
     CHECK(s.find("--dport") == std::string::npos);
 }
+
+// =============================================================================
+// build_ipt_script with src_addr / dest_addr tests
+// =============================================================================
+
+TEST_CASE("build_ipt_script: single src_addr → -s flag") {
+    ProtoPortFilter f;
+    f.src_addr = {"192.168.10.0/24"};
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.10.0/24 -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: single dest_addr → -d flag") {
+    ProtoPortFilter f;
+    f.dst_addr = {"10.0.0.0/8"};
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -d 10.0.0.0/8 -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: src_addr + dest_addr → both flags") {
+    ProtoPortFilter f;
+    f.src_addr = {"192.168.1.0/24"};
+    f.dst_addr = {"8.8.8.0/24"};
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 -d 8.8.8.0/24 -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: src_addr + tcp/udp + dest_port → addr and proto present") {
+    ProtoPortFilter f;
+    f.src_addr = {"192.168.1.0/24"};
+    f.proto    = "tcp";
+    f.dst_port = "443";
+    auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -s 192.168.1.0/24 -p tcp --dport 443 -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: drop rule with src_addr → -s flag on DROP") {
+    ProtoPortFilter f;
+    f.src_addr = {"10.10.0.0/16"};
+    auto s = T::build_ipt_script(false, {drop_rule("bl", false, f)});
+    CHECK(s.find("-A KeenPbrTable -m set --match-set bl dst -s 10.10.0.0/16 -j DROP") != std::string::npos);
+}

@@ -494,11 +494,13 @@ void Daemon::apply_firewall() {
             loader4->finish();
             loader6->finish();
 
-            // Build proto/port filter from route rule
+            // Build proto/port/addr filter from route rule
             ProtoPortFilter filter;
             filter.proto    = rule.proto.value_or("");
             filter.src_port = rule.src_port.value_or("");
             filter.dst_port = rule.dest_port.value_or("");
+            filter.src_addr = rule.src_addr.value_or(std::vector<std::string>{});
+            filter.dst_addr = rule.dest_addr.value_or(std::vector<std::string>{});
 
             // Create mark or drop rules for both sets
             if (is_blackhole) {

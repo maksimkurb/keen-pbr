@@ -184,10 +184,36 @@ nlohmann::json NftablesFirewall::build_port_match_exprs(const std::string& proto
     return exprs;
 }
 
+// Convert a CIDR list to an nftables JSON right-hand side value.
+// Single CIDR → plain string.  Multiple CIDRs → {"set": ["cidr1", "cidr2"]}.
+static nlohmann::json cidr_list_to_nft_rhs(const std::vector<std::string>& addrs) {
+    if (addrs.size() == 1) return addrs[0];
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& a : addrs) arr.push_back(a);
+    return {{"set", arr}};
+}
+
+nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_proto,
+                                                         const std::vector<std::string>& src_addr,
+                                                         const std::vector<std::string>& dst_addr) {
+    nlohmann::json exprs = nlohmann::json::array();
+    if (!src_addr.empty()) {
+        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "saddr"}}}}}, {"right", cidr_list_to_nft_rhs(src_addr)}}}});
+    }
+    if (!dst_addr.empty()) {
+        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", cidr_list_to_nft_rhs(dst_addr)}}}});
+    }
+    return exprs;
+}
+
 nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
     expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    // Append src/dst address constraints
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr)) {
+        expr.push_back(e);
+    }
     // Append proto/port match expressions
     for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port)) {
         expr.push_back(e);
@@ -206,6 +232,10 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
     expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    // Append src/dst address constraints
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr)) {
+        expr.push_back(e);
+    }
     // Append proto/port match expressions
     for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port)) {
         expr.push_back(e);
