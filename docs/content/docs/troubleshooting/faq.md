@@ -1,0 +1,89 @@
+---
+title: FAQ
+weight: 1
+---
+
+## What firewall backend will be used?
+
+keen-pbr3 auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels. You can override this at build time with the `firewall_backend` Meson option.
+
+## How do I reload lists without restarting the daemon?
+
+Two options:
+
+```bash
+# Via signal
+kill -HUP $(cat /var/run/keen-pbr3.pid)
+
+# Via API
+curl -X POST http://127.0.0.1:8080/api/reload
+```
+
+Both trigger a full reload: re-downloads all remote lists and re-applies firewall and routing rules.
+
+{{< callout type="info" >}}
+`SIGUSR1` is different — it re-verifies routing tables and triggers immediate URL tests, but does **not** re-download lists.
+{{< /callout >}}
+
+## What happens if a remote list URL is unreachable at startup?
+
+keen-pbr3 uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, that list is skipped for this run.
+
+## How does the urltest outbound select the best child?
+
+On each probe interval, keen-pbr3 sends an HTTP request to the configured `url` from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within `tolerance_ms` of the best are considered equivalent and selected by weight.
+
+The circuit breaker prevents flapping: after `failure_threshold` consecutive failures, the circuit opens and that child is bypassed during the `timeout_ms` cooldown. After cooldown, it enters half-open state and gets limited probe attempts to recover.
+
+## Can I route DNS queries through a VPN?
+
+Yes. Use the `detour` field in `dns.servers` to bind DNS queries for that server to a specific outbound:
+
+```json
+{
+  "servers": [
+    {
+      "tag": "vpn-dns",
+      "address": "10.8.0.1",
+      "detour": "vpn"
+    }
+  ]
+}
+```
+
+## What's the list file format?
+
+One entry per line. Supported formats:
+- IPv4 address: `93.184.216.34`
+- IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
+- CIDR: `10.0.0.0/8`
+- Domain: `example.com`
+- Wildcard domain: `*.example.org`
+- Lines starting with `#` are comments and are ignored
+
+## How do I verify routing is correctly applied?
+
+Use the routing health endpoint:
+
+```bash
+curl http://127.0.0.1:8080/api/health/routing
+```
+
+This checks the live kernel state (firewall chain, firewall rules, routing tables, policy rules) against the expected configuration and reports `ok`, `missing`, or `mismatch` for each element.
+
+## Can I combine multiple sources in one list?
+
+Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list entry and are merged:
+
+```json
+{
+  "lists": {
+    "combined": {
+      "url": "https://example.com/remote.txt",
+      "domains": ["extra.example.com"],
+      "ip_cidrs": ["192.168.100.0/24"],
+      "file": "./local.txt"
+    }
+  }
+}
+```

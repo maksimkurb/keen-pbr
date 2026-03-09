@@ -1,7 +1,18 @@
 baseURL: https://example.org/
 languageCode: en-us
-title: My New Hugo Site
+title: keen-pbr3
 
 module:
   imports:
     - path: github.com/imfing/hextra
+
+menu:
+  main:
+    - name: Docs
+      pageRef: /docs
+      weight: 1
+    - name: GitHub
+      url: https://github.com/maksimkurb/keen-pbr3
+      weight: 2
+      params:
+        type: github
