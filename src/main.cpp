@@ -106,7 +106,8 @@ struct CliOptions {
     std::string log_level{"info"};
     bool no_api{false};
     bool run_service{false};
-    bool print_dnsmasq_config{false};
+    bool generate_resolver_config{false};
+    std::string resolver_type;
     bool download_lists{false};
     bool show_help{false};
     bool show_version{false};
@@ -123,9 +124,10 @@ void print_usage(const char* argv0) {
               << "  --help             Show this help and exit\n"
               << "\n"
               << "Commands:\n"
-              << "  service               Start the routing service (foreground)\n"
-              << "  download              Download all configured lists to cache and exit\n"
-              << "  print-dnsmasq-config  Print generated dnsmasq config to stdout and exit\n";
+              << "  service                            Start the routing service (foreground)\n"
+              << "  download                           Download all configured lists to cache and exit\n"
+              << "  generate-resolver-config <res>     Print generated resolver config to stdout and exit\n"
+              << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n";
 }
 
 CliOptions parse_args(int argc, char* argv[]) {
@@ -151,8 +153,14 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.show_version = true;
         } else if (std::strcmp(argv[i], "service") == 0) {
             opts.run_service = true;
-        } else if (std::strcmp(argv[i], "print-dnsmasq-config") == 0) {
-            opts.print_dnsmasq_config = true;
+        } else if (std::strcmp(argv[i], "generate-resolver-config") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: generate-resolver-config requires a resolver argument\n";
+                print_usage(argv[0]);
+                std::exit(1);
+            }
+            opts.resolver_type = argv[++i];
+            opts.generate_resolver_config = true;
         } else if (std::strcmp(argv[i], "download") == 0) {
             opts.download_lists = true;
         } else {
@@ -190,7 +198,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (!opts.download_lists && !opts.print_dnsmasq_config && !opts.run_service) {
+    if (!opts.download_lists && !opts.generate_resolver_config && !opts.run_service) {
         print_usage(argv[0]);
         return 0;
     }
@@ -240,8 +248,8 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        // Handle print-dnsmasq-config command: load lists, generate, print, exit
-        if (opts.print_dnsmasq_config) {
+        // Handle generate-resolver-config command: load lists, generate, print, exit
+        if (opts.generate_resolver_config) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr3");
             keen_pbr3::CacheManager cache(cache_dir);
@@ -264,9 +272,10 @@ int main(int argc, char* argv[]) {
             const auto dns_cfg   = config.dns.value_or(keen_pbr3::DnsConfig{});
             keen_pbr3::ListStreamer list_streamer(cache);
             keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
+            auto resolver_type = keen_pbr3::DnsmasqGenerator::parse_resolver_type(opts.resolver_type);
             keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_registry, list_streamer,
                                                      route_cfg, dns_cfg,
-                                                     lists_map);
+                                                     lists_map, resolver_type);
             dnsmasq_gen.generate(std::cout);
             return 0;
         }

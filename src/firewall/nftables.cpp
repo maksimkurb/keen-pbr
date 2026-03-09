@@ -81,7 +81,8 @@ nlohmann::json NftablesFirewall::build_set_json(const PendingSet& ps) {
         {"table", TABLE_NAME},
         {"name", ps.name},
         {"type", ps.type},
-        {"flags", flags}
+        {"flags", flags},
+        {"auto-merge", true}
     };
     if (ps.timeout > 0) {
         set["timeout"] = ps.timeout;

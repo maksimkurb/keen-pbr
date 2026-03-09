@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "../firewall/firewall.hpp"
+#include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #include "../routing/target.hpp"
@@ -468,20 +469,35 @@ void Daemon::apply_firewall() {
                 }
             }
 
-            firewall_->create_ipset(list_name, AF_INET, set_timeout);
-            rs.set_names.push_back(list_name);
+            const std::string set4 = "kpbr4_" + list_name;
+            const std::string set6 = "kpbr6_" + list_name;
 
-            // Stream IP/CIDR entries via batch loader
+            firewall_->create_ipset(set4, AF_INET,  set_timeout);
+            firewall_->create_ipset(set6, AF_INET6, set_timeout);
+            rs.set_names.push_back(set4);
+            rs.set_names.push_back(set6);
+
+            // Stream IP/CIDR entries, splitting by address family
             int32_t static_timeout = (set_timeout > 0) ? 0 : -1;
-            auto loader = firewall_->create_batch_loader(list_name, static_timeout);
-            list_streamer.stream_list(list_name, list_cfg, *loader);
-            loader->finish();
+            auto loader4 = firewall_->create_batch_loader(set4, static_timeout);
+            auto loader6 = firewall_->create_batch_loader(set6, static_timeout);
+            FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
+                if (type == EntryType::Domain) return;
+                bool is_v6 = entry.find(':') != std::string_view::npos;
+                if (is_v6) loader6->on_entry(type, entry);
+                else       loader4->on_entry(type, entry);
+            });
+            list_streamer.stream_list(list_name, list_cfg, splitter);
+            loader4->finish();
+            loader6->finish();
 
-            // Create mark or drop rule for the ipset
+            // Create mark or drop rules for both sets
             if (is_blackhole) {
-                firewall_->create_drop_rule(list_name);
+                firewall_->create_drop_rule(set4);
+                firewall_->create_drop_rule(set6);
             } else if (rs.fwmark != 0) {
-                firewall_->create_mark_rule(list_name, rs.fwmark);
+                firewall_->create_mark_rule(set4, rs.fwmark);
+                firewall_->create_mark_rule(set6, rs.fwmark);
             }
         }
 

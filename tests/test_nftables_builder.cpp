@@ -74,6 +74,7 @@ TEST_CASE("build_set_json: IPv4 without timeout") {
     CHECK(set["flags"].is_array());
     CHECK(set["flags"].size() == 1);
     CHECK(set["flags"][0] == "interval");
+    CHECK(set["auto-merge"] == true);
     CHECK_FALSE(set.contains("timeout"));
 }
 
@@ -84,6 +85,7 @@ TEST_CASE("build_set_json: IPv4 with timeout") {
     CHECK(set["flags"].size() == 2);
     CHECK(set["flags"][0] == "interval");
     CHECK(set["flags"][1] == "timeout");
+    CHECK(set["auto-merge"] == true);
     CHECK(set.contains("timeout"));
     CHECK(set["timeout"] == 60);
 }
