@@ -20,6 +20,7 @@
 #include "../log/logger.hpp"
 #include "../routing/target.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../config/addr_spec.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 
@@ -546,20 +547,14 @@ void Daemon::apply_firewall() {
                 filter.negate_dst_port = neg;
             }
             {
-                auto addrs = rule.src_addr.value_or(std::vector<std::string>{});
-                if (!addrs.empty() && !addrs[0].empty() && addrs[0][0] == '!') {
-                    filter.negate_src_addr = true;
-                    for (auto& a : addrs) if (!a.empty() && a[0] == '!') a = a.substr(1);
-                }
-                filter.src_addr = std::move(addrs);
+                AddrSpec s = parse_addr_spec(rule.src_addr.value_or(""));
+                filter.negate_src_addr = s.negate;
+                filter.src_addr        = std::move(s.addrs);
             }
             {
-                auto addrs = rule.dest_addr.value_or(std::vector<std::string>{});
-                if (!addrs.empty() && !addrs[0].empty() && addrs[0][0] == '!') {
-                    filter.negate_dst_addr = true;
-                    for (auto& a : addrs) if (!a.empty() && a[0] == '!') a = a.substr(1);
-                }
-                filter.dst_addr = std::move(addrs);
+                AddrSpec s = parse_addr_spec(rule.dest_addr.value_or(""));
+                filter.negate_dst_addr = s.negate;
+                filter.dst_addr        = std::move(s.addrs);
             }
 
             // Create mark or drop rules for both sets

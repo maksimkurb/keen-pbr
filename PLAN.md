@@ -22,54 +22,6 @@ the brief window when the firewall has been cleared but not yet rebuilt.
 
 ---
 
-## 2. Port and protocol matching in route rules
-
-**How it works:**
-Extend `RouteRule` to support optional `proto`, `src_port`, and `dest_port` fields.
-When present, the firewall rule matches only packets with the specified protocol (tcp/udp/tcp/udp)
-and port(s). Ports can be single values, comma-separated lists, or ranges (`80`, `80,443`,
-`8000-9000`). Works in combination with existing list-based IP/domain matching.
-
-Example config:
-```json
-"route": {
-  "rules": [
-    { "list": ["my-domains"], "outbound": "vpn", "proto": "tcp", "dest_port": "443" }
-  ]
-}
-```
-
-**Acceptance criteria:**
-- `proto` accepts `"tcp"`, `"udp"`, `"tcp/udp"` (or omit for any protocol).
-- `dest_port` and `src_port` accept single port, comma-separated list, or `start-end` range.
-- iptables backend: uses `-p tcp --dport` / `--sport` / `-m multiport`.
-- nftables backend: uses `tcp dport` / `udp dport` in rule expression.
-- Omitting port/proto fields produces the same behavior as today (match all).
-- `make test` covers port+proto parsing and rule generation.
-
----
-
-## 3. Source and destination address fields in route rules
-
-**How it works:**
-Extend `RouteRule` to support optional `src_addr` and `dest_addr` fields (IPv4/IPv6
-CIDR). When present, the firewall rule additionally matches on source or destination
-address. This allows routing all traffic from a specific subnet through VPN without
-needing an explicit IP list.
-
-Example:
-```json
-{ "src_addr": "192.168.10.0/24", "outbound": "vpn" }
-```
-
-**Acceptance criteria:**
-- `src_addr` / `dest_addr` accept a single CIDR string or an array of CIDR strings.
-- Combined with `list`: both conditions must match (AND semantics).
-- Both firewall backends handle the extra match correctly.
-- `make test` covers src/dest addr rule generation.
-
----
-
 ## 4. Source MAC address matching in route rules
 
 **How it works:**
@@ -93,21 +45,6 @@ Example config:
 - A rule with only `src_mac` (no `list`) routes all traffic from that device.
 - `src_mac` can be combined with `list` (both conditions must match).
 - `make test` covers MAC-based rule generation for both backends.
-
----
-
-## 5. Negation in route rule match fields
-
-**How it works:**
-Allow `!` prefix on `src_addr`, `dest_addr`, `src_port`, and `dest_port` fields to mean
-"all traffic NOT matching this value". Example: `"src_addr": "!192.168.1.0/24"`.
-In iptables this maps to `! -s 192.168.1.0/24`; in nftables to `ip saddr != 192.168.1.0/24`.
-
-**Acceptance criteria:**
-- `src_addr`, `dest_addr`, `src_port`, and `dest_port` fields accept `!`-prefixed strings.
-- Both iptables and nftables backends emit correct negated match syntax.
-- Negation can be combined with `list`, `proto`, other match fields.
-- `make test` covers negated rule generation for both backends.
 
 ---
 

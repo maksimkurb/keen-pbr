@@ -369,27 +369,23 @@ components:
             Prefix with "!" to negate (e.g. "!80,443" matches all ports except 80 and 443).
           example: "443"
         src_addr:
-          type: array
+          type: string
           description: >
             Source CIDR(s) to match. Omit for any source address.
-            Prefix every entry with "!" to negate the entire list
-            (e.g. ["!192.168.0.0/16"] matches traffic NOT from 192.168.0.0/16).
-            All entries must either all have "!" or none — mixed per-element
-            negation is not supported.
-          items:
-            type: string
-          example: ["192.168.10.0/24"]
+            Use a comma-separated list for multiple CIDRs
+            (e.g. "192.168.1.0/24,10.0.0.0/8").
+            Prefix with "!" to negate the entire spec
+            (e.g. "!192.168.1.0/24" matches traffic NOT from 192.168.1.0/24).
+          example: "192.168.10.0/24"
         dest_addr:
-          type: array
+          type: string
           description: >
-            Destination CIDR(s) to match (additional to the list). Omit for any.
-            Prefix every entry with "!" to negate the entire list
-            (e.g. ["!10.0.0.0/8"] matches traffic NOT destined for 10.0.0.0/8).
-            All entries must either all have "!" or none — mixed per-element
-            negation is not supported.
-          items:
-            type: string
-          example: ["10.0.0.0/8"]
+            Destination CIDR(s) to match. Omit for any destination address.
+            Use a comma-separated list for multiple CIDRs
+            (e.g. "10.0.0.0/8,172.16.0.0/12").
+            Prefix with "!" to negate the entire spec
+            (e.g. "!10.0.0.0/8" matches traffic NOT destined for 10.0.0.0/8).
+          example: "10.0.0.0/8"
 
     RouteConfig:
       type: object
