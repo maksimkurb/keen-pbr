@@ -1,5 +1,6 @@
 #include "config.hpp"
 
+#include <cctype>
 #include <iomanip>
 #include <sstream>
 
@@ -69,8 +70,42 @@ Config parse_config(const std::string& json_str) {
         }
     }
 
-    // Validate: each list must have at least one source
+    // Validate: each list name and each list's sources
+    //
+    // Set name budget: ipset limits names to 31 characters.
+    // The longest prefix we generate is "kpbr4d_" / "kpbr6d_" (7 chars), so
+    // list names must be at most 31 - 7 = 24 characters.
+    // Character set: first char must be [a-z], remaining chars [a-z0-9_].
+    static constexpr size_t IPSET_MAX_NAME     = 31;
+    static constexpr size_t IPSET_PREFIX_LEN   = 7; // len("kpbr4d_")
+    static constexpr size_t LIST_NAME_MAX_LEN  = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
+
     for (const auto& [name, list_cfg] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        // Name length check
+        if (name.empty()) {
+            throw ConfigError("List name must not be empty");
+        }
+        if (name.size() > LIST_NAME_MAX_LEN) {
+            throw ConfigError("List name '" + name + "' is too long: " +
+                              std::to_string(name.size()) + " chars, maximum is " +
+                              std::to_string(LIST_NAME_MAX_LEN));
+        }
+        // Character set check: first char [a-zA-Z], rest [a-zA-Z0-9_]
+        if (!std::isalpha(static_cast<unsigned char>(name[0]))) {
+            throw ConfigError("List name '" + name +
+                              "': first character must be a letter [a-zA-Z]");
+        }
+        for (size_t i = 1; i < name.size(); ++i) {
+            unsigned char c = static_cast<unsigned char>(name[i]);
+            if (!std::isalpha(c) && !std::isdigit(c) && c != '_') {
+                throw ConfigError("List name '" + name +
+                                  "': invalid character '" + name[i] +
+                                  "' at position " + std::to_string(i) +
+                                  " (allowed: a-zA-Z, 0-9, _)");
+            }
+        }
+
+        // Source check
         bool has_url    = list_cfg.url.has_value();
         bool has_file   = list_cfg.file.has_value();
         bool has_cidrs  = list_cfg.ip_cidrs.has_value() && !list_cfg.ip_cidrs->empty();

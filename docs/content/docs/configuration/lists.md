@@ -15,9 +15,24 @@ The `lists` key is an object where each key is the list name and the value is th
 | `domains` | array of string | no | Inline domain patterns (supports `*.` prefix wildcards) |
 | `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
 | `file` | string | no | Path to a local list file |
-| `ttl_ms` | integer | no (default: `0`) | TTL for dnsmasq-resolved ipset entries in milliseconds; `0` means no timeout |
+| `ttl_ms` | integer | no (default: `0`) | TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; `0` means no timeout |
 
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. Multiple sources can be combined in a single list entry — all entries are merged.
+
+## Static and dynamic IP sets
+
+Each list is backed by **two pairs** of kernel IP sets:
+
+| Set name | Contents | TTL |
+|---|---|---|
+| `kpbr4_<list>` / `kpbr6_<list>` | Static IPs from `ip_cidrs`, `file`, `url` | none (permanent) |
+| `kpbr4d_<list>` / `kpbr6d_<list>` | IPs resolved by dnsmasq at DNS query time | `ttl_ms` (if set) |
+
+Firewall MARK rules match packets whose destination address appears in **either** the static or dynamic set (OR semantics), so traffic is correctly routed regardless of whether the IP was loaded at startup or resolved later by dnsmasq.
+
+The `dnsmasq` resolver config (`ipset=` / `nftset=` directives) references the **dynamic** sets (`kpbr4d_*` / `kpbr6d_*`). When a listed domain is resolved, dnsmasq writes the resulting IP directly into the dynamic set. If `ttl_ms` is set, that entry automatically expires after the specified duration so stale IPs from changed DNS records are removed without a daemon reload.
+
+Static entries (from `ip_cidrs`, `file`, `url`) are always permanent — they persist until the next reload regardless of `ttl_ms`.
 
 ## List File Format
 
@@ -107,4 +122,4 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq ipset entries.
+All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the permanent static set (`kpbr4_combined` / `kpbr6_combined`) and are never expired automatically.

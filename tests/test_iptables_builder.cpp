@@ -494,3 +494,48 @@ TEST_CASE(
   CHECK(s.find(" -s 172.16.0.0/12") != std::string::npos);
   CHECK(s.find("! -s 10.0.0.0/8") != std::string::npos);
 }
+
+// =============================================================================
+// Static / dynamic set split tests
+// =============================================================================
+
+TEST_CASE("static set naming: kpbr4_ prefix, no timeout") {
+  auto line = T::build_ipset_create_line("kpbr4_mylist", "inet", 0);
+  CHECK(line == "create kpbr4_mylist hash:net family inet -exist\n");
+}
+
+TEST_CASE("dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
+  auto line = T::build_ipset_create_line("kpbr4d_mylist", "inet", 0);
+  CHECK(line == "create kpbr4d_mylist hash:net family inet -exist\n");
+}
+
+TEST_CASE("dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set") {
+  auto line = T::build_ipset_create_line("kpbr4d_mylist", "inet", 3600);
+  CHECK(line == "create kpbr4d_mylist hash:net family inet timeout 3600 -exist\n");
+}
+
+TEST_CASE("dynamic set naming: kpbr6d_ IPv6 with timeout") {
+  auto line = T::build_ipset_create_line("kpbr6d_mylist", "inet6", 86400);
+  CHECK(line == "create kpbr6d_mylist hash:net family inet6 timeout 86400 -exist\n");
+}
+
+TEST_CASE("dual-set mark rules: both static and dynamic sets get mark rules") {
+  auto s = T::build_ipt_script(false, {mark_rule("kpbr4_mylist", false, 0x100),
+                                       mark_rule("kpbr4d_mylist", false, 0x100)});
+  CHECK(s.find("--match-set kpbr4_mylist dst -j MARK --set-mark 0x100") != std::string::npos);
+  CHECK(s.find("--match-set kpbr4d_mylist dst -j MARK --set-mark 0x100") != std::string::npos);
+}
+
+TEST_CASE("dual-set drop rules: both static and dynamic sets get drop rules") {
+  auto s = T::build_ipt_script(false, {drop_rule("kpbr4_mylist", false),
+                                       drop_rule("kpbr4d_mylist", false)});
+  CHECK(s.find("--match-set kpbr4_mylist dst -j DROP") != std::string::npos);
+  CHECK(s.find("--match-set kpbr4d_mylist dst -j DROP") != std::string::npos);
+}
+
+TEST_CASE("dual-set IPv6 mark rules: kpbr6_ and kpbr6d_ both matched") {
+  auto s = T::build_ipt_script(true, {mark_rule("kpbr6_mylist", true, 0x200),
+                                      mark_rule("kpbr6d_mylist", true, 0x200)});
+  CHECK(s.find("--match-set kpbr6_mylist dst -j MARK --set-mark 0x200") != std::string::npos);
+  CHECK(s.find("--match-set kpbr6d_mylist dst -j MARK --set-mark 0x200") != std::string::npos);
+}

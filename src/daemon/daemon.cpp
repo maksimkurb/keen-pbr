@@ -492,30 +492,34 @@ void Daemon::apply_firewall() {
 
             const auto& list_cfg = list_cfg_it->second;
 
-            // Determine TTL for ipset (ttl_ms / 1000 → seconds)
-            bool has_domains = !list_cfg.domains.value_or(std::vector<std::string>{}).empty() ||
-                               !list_cfg.url.value_or("").empty() ||
-                               list_cfg.file.has_value();
-            uint32_t set_timeout = 0;
-            if (has_domains) {
+            // Static sets: permanent IP/CIDR entries (no timeout)
+            const std::string set4 = "kpbr4_"  + list_name;
+            const std::string set6 = "kpbr6_"  + list_name;
+            // Dynamic sets: dnsmasq-resolved entries (TTL from ttl_ms)
+            const std::string set4d = "kpbr4d_" + list_name;
+            const std::string set6d = "kpbr6d_" + list_name;
+
+            // Compute TTL for the dynamic set (ttl_ms / 1000 → seconds)
+            uint32_t dynamic_timeout = 0;
+            {
                 int64_t ttl_ms = list_cfg.ttl_ms.value_or(0);
                 if (ttl_ms >= 1000) {
-                    set_timeout = static_cast<uint32_t>(ttl_ms / 1000);
+                    dynamic_timeout = static_cast<uint32_t>(ttl_ms / 1000);
                 }
             }
 
-            const std::string set4 = "kpbr4_" + list_name;
-            const std::string set6 = "kpbr6_" + list_name;
-
-            firewall_->create_ipset(set4, AF_INET,  set_timeout);
-            firewall_->create_ipset(set6, AF_INET6, set_timeout);
+            firewall_->create_ipset(set4,  AF_INET,  0);               // static, permanent
+            firewall_->create_ipset(set6,  AF_INET6, 0);               // static, permanent
+            firewall_->create_ipset(set4d, AF_INET,  dynamic_timeout); // dynamic, TTL
+            firewall_->create_ipset(set6d, AF_INET6, dynamic_timeout); // dynamic, TTL
             rs.set_names.push_back(set4);
             rs.set_names.push_back(set6);
+            rs.set_names.push_back(set4d);
+            rs.set_names.push_back(set6d);
 
-            // Stream IP/CIDR entries, splitting by address family
-            int32_t static_timeout = (set_timeout > 0) ? 0 : -1;
-            auto loader4 = firewall_->create_batch_loader(set4, static_timeout);
-            auto loader6 = firewall_->create_batch_loader(set6, static_timeout);
+            // Stream IP/CIDR entries into the static sets (permanent, entry_timeout=-1)
+            auto loader4 = firewall_->create_batch_loader(set4, -1);
+            auto loader6 = firewall_->create_batch_loader(set6, -1);
             FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
                 if (type == EntryType::Domain) return;
                 bool is_v6 = entry.find(':') != std::string_view::npos;
@@ -557,13 +561,17 @@ void Daemon::apply_firewall() {
                 filter.dst_addr        = std::move(s.addrs);
             }
 
-            // Create mark or drop rules for both sets
+            // Create mark or drop rules for both static and dynamic sets (OR semantics)
             if (is_blackhole) {
-                firewall_->create_drop_rule(set4, filter);
-                firewall_->create_drop_rule(set6, filter);
+                firewall_->create_drop_rule(set4,  filter);
+                firewall_->create_drop_rule(set6,  filter);
+                firewall_->create_drop_rule(set4d, filter);
+                firewall_->create_drop_rule(set6d, filter);
             } else if (rs.fwmark != 0) {
-                firewall_->create_mark_rule(set4, rs.fwmark, filter);
-                firewall_->create_mark_rule(set6, rs.fwmark, filter);
+                firewall_->create_mark_rule(set4,  rs.fwmark, filter);
+                firewall_->create_mark_rule(set6,  rs.fwmark, filter);
+                firewall_->create_mark_rule(set4d, rs.fwmark, filter);
+                firewall_->create_mark_rule(set6d, rs.fwmark, filter);
             }
         }
 

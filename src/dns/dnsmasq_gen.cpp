@@ -200,13 +200,6 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     }
 }
 
-std::string DnsmasqGenerator::ipset_name_v4(const std::string& list_name) {
-    return "kpbr4_" + list_name;
-}
-
-std::string DnsmasqGenerator::ipset_name_v6(const std::string& list_name) {
-    return "kpbr6_" + list_name;
-}
 
 ResolverType DnsmasqGenerator::parse_resolver_type(const std::string& s) {
     if (s == "dnsmasq-ipset")  return ResolverType::DNSMASQ_IPSET;

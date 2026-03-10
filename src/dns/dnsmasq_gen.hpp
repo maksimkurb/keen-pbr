@@ -46,16 +46,22 @@ public:
         const RouteConfig& route_config,
         const std::map<std::string, ListConfig>& lists);
 
+    // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
+    // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
+    // Static IP/CIDR sets use the "kpbr4_" / "kpbr6_" prefix (without "d").
+    static std::string ipset_name_v4(const std::string& list_name) {
+        return "kpbr4d_" + list_name;
+    }
+    static std::string ipset_name_v6(const std::string& list_name) {
+        return "kpbr6d_" + list_name;
+    }
+
 private:
     // Iterate every (domain, list_name) pair for all ipset-backed lists in output order,
     // calling callback once per domain per list.
     void for_each_ipset_domain(
         std::function<void(const std::string& domain,
                            const std::string& list_name)> callback);
-
-    // Build the IPv4/IPv6 set names for a given list name.
-    static std::string ipset_name_v4(const std::string& list_name);
-    static std::string ipset_name_v6(const std::string& list_name);
 
     // Strip wildcard prefix from domain (*.example.com -> example.com).
     static std::string strip_wildcard(const std::string& domain);

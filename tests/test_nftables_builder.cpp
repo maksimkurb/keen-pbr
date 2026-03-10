@@ -674,3 +674,59 @@ TEST_CASE(
   }
   CHECK(found);
 }
+
+// =============================================================================
+// Static / dynamic set split tests
+// =============================================================================
+
+TEST_CASE("nft static set naming: kpbr4_ prefix, no timeout") {
+  auto j = T::build_set_json("kpbr4_mylist", "ipv4_addr", 0);
+  const auto &set = j["add"]["set"];
+  CHECK(set["name"] == "kpbr4_mylist");
+  CHECK_FALSE(set.contains("timeout"));
+}
+
+TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
+  auto j = T::build_set_json("kpbr4d_mylist", "ipv4_addr", 0);
+  const auto &set = j["add"]["set"];
+  CHECK(set["name"] == "kpbr4d_mylist");
+  CHECK_FALSE(set.contains("timeout"));
+}
+
+TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set") {
+  auto j = T::build_set_json("kpbr4d_mylist", "ipv4_addr", 3600);
+  const auto &set = j["add"]["set"];
+  CHECK(set["name"] == "kpbr4d_mylist");
+  CHECK(set.contains("timeout"));
+  CHECK(set["timeout"] == 3600);
+}
+
+TEST_CASE("nft dynamic set naming: kpbr6d_ IPv6 with timeout") {
+  auto j = T::build_set_json("kpbr6d_mylist", "ipv6_addr", 86400);
+  const auto &set = j["add"]["set"];
+  CHECK(set["name"] == "kpbr6d_mylist");
+  CHECK(set["timeout"] == 86400);
+}
+
+TEST_CASE("nft dual-set mark rules: both static and dynamic sets get mark rules") {
+  auto j_static = T::build_mark_rule_json("kpbr4_mylist", AF_INET, 0x100);
+  auto j_dynamic = T::build_mark_rule_json("kpbr4d_mylist", AF_INET, 0x100);
+  CHECK(j_static["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr4_mylist");
+  CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr4d_mylist");
+}
+
+TEST_CASE("nft dual-set drop rules: both static and dynamic sets get drop rules") {
+  auto j_static = T::build_drop_rule_json("kpbr4_mylist", AF_INET);
+  auto j_dynamic = T::build_drop_rule_json("kpbr4d_mylist", AF_INET);
+  CHECK(j_static["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr4_mylist");
+  CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr4d_mylist");
+}
+
+TEST_CASE("nft dual-set IPv6: kpbr6_ and kpbr6d_ both produce ip6 rules") {
+  auto j_static = T::build_mark_rule_json("kpbr6_mylist", AF_INET6, 0x200);
+  auto j_dynamic = T::build_mark_rule_json("kpbr6d_mylist", AF_INET6, 0x200);
+  CHECK(j_static["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");
+  CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");
+  CHECK(j_static["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr6_mylist");
+  CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr6d_mylist");
+}
