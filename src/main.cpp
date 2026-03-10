@@ -251,15 +251,19 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        // Handle resolver-config-hash command: print MD5 of domain-to-ipset mapping, exit
+        // Handle resolver-config-hash command: print MD5 of full generated directives, exit
         if (opts.resolver_config_hash) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr3");
             keen_pbr3::CacheManager cache(cache_dir);
             keen_pbr3::ListStreamer streamer(cache);
+            const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
+            keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
             const std::string hash = keen_pbr3::DnsmasqGenerator::compute_config_hash(
+                dns_registry,
                 streamer,
                 config.route.value_or(keen_pbr3::RouteConfig{}),
+                dns_cfg,
                 config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}));
             std::cout << hash << "\n";
             return 0;

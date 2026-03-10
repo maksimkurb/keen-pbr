@@ -119,10 +119,7 @@ struct MD5State {
 
 } // namespace detail
 
-inline std::string md5_hex(std::string_view data) {
-    detail::MD5State state;
-    state.update(reinterpret_cast<const uint8_t*>(data.data()), data.size());
-    auto digest = state.digest();
+inline std::string digest_to_hex(const std::array<uint8_t, 16>& digest) {
     static constexpr char hex[] = "0123456789abcdef";
     std::string out(32, '\0');
     for (int i = 0; i < 16; ++i) {
@@ -130,6 +127,12 @@ inline std::string md5_hex(std::string_view data) {
         out[i*2+1] = hex[digest[i] & 0xf];
     }
     return out;
+}
+
+inline std::string md5_hex(std::string_view data) {
+    detail::MD5State state;
+    state.update(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+    return digest_to_hex(state.digest());
 }
 
 } // namespace keen_pbr3::crypto

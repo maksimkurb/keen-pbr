@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "../dns/dnsmasq_gen.hpp"
+#include "../dns/dns_router.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
@@ -671,9 +672,13 @@ void Daemon::refresh_lists_and_maybe_reload() {
 
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(cache_);
+    const DnsConfig dns_cfg = config_.dns.value_or(DnsConfig{});
+    DnsServerRegistry dns_registry(dns_cfg);
     resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
+        dns_registry,
         streamer,
         config_.route.value_or(RouteConfig{}),
+        dns_cfg,
         config_.lists.value_or(std::map<std::string, ListConfig>{}));
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }

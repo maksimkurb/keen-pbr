@@ -16,6 +16,13 @@ add_executable(keen-pbr3-tests
   ../src/firewall/iptables.cpp
   ../src/firewall/ipset_restore_pipe.cpp
   ../src/log/logger.cpp
+  ../src/dns/dnsmasq_gen.cpp
+  ../src/dns/dns_router.cpp
+  ../src/dns/dns_server.cpp
+  ../src/cache/cache_manager.cpp
+  ../src/lists/list_streamer.cpp
+  ../src/config/list_parser.cpp
+  ../src/http/http_client.cpp
 )
 
 target_compile_definitions(keen-pbr3-tests PRIVATE KEEN_PBR3_TESTING)
@@ -31,6 +38,7 @@ target_include_directories(keen-pbr3-tests PRIVATE
 
 target_link_libraries(keen-pbr3-tests PRIVATE
   nlohmann_json::nlohmann_json
+  CURL::libcurl
 )
 
 target_compile_features(keen-pbr3-tests PRIVATE cxx_std_20)

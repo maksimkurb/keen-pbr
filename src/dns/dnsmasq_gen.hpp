@@ -36,15 +36,18 @@ public:
     // Produces ipset=/nftset= and server= directives for all matched domains.
     void generate(std::ostream& out);
 
-    // Compute MD5 hash over the canonical domain/ipset mapping without generating config.
+    // Compute MD5 hash over the full generated directives (excluding TXT record line).
     // Returns 32-char lowercase hex string.
     std::string compute_config_hash();
 
-    // Static overload: compute hash without a full DnsServerRegistry / DnsConfig.
+    // Static overload: construct a temporary DnsmasqGenerator and compute hash.
     static std::string compute_config_hash(
+        const DnsServerRegistry& dns_registry,
         ListStreamer& list_streamer,
         const RouteConfig& route_config,
-        const std::map<std::string, ListConfig>& lists);
+        const DnsConfig& dns_config,
+        const std::map<std::string, ListConfig>& lists,
+        ResolverType resolver_type = ResolverType::DNSMASQ_IPSET);
 
     // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
     // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
@@ -57,6 +60,10 @@ public:
     }
 
 private:
+    // Emit all dnsmasq directives (header comment, ipset=/nftset=, server= lines)
+    // without the TXT record line. Used by generate() and compute_config_hash().
+    void generate_directives(std::ostream& out);
+
     // Iterate every (domain, list_name) pair for all ipset-backed lists in output order,
     // calling callback once per domain per list.
     void for_each_ipset_domain(
