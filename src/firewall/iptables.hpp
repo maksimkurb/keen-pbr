@@ -46,6 +46,10 @@ public:
     // Returns FirewallBackend::iptables.
     FirewallBackend backend() const override;
 
+    // Tests membership via `ipset test <set_name> <ip>`.
+    std::optional<bool> test_ip_in_set(const std::string& set_name,
+                                        const std::string& ip) const override;
+
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
 

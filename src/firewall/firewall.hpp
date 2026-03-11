@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -96,6 +97,13 @@ public:
 
     // Return the backend type for this firewall instance.
     virtual FirewallBackend backend() const = 0;
+
+    // Test whether an IP address is present in a named set on the live system.
+    // Returns true  if the IP is in the set.
+    // Returns false if the IP is not in the set or the set does not exist.
+    // Returns nullopt if the underlying tool is unavailable (result is unknown).
+    virtual std::optional<bool> test_ip_in_set(const std::string& set_name,
+                                                const std::string& ip) const = 0;
 
     // Non-copyable
     Firewall(const Firewall&) = delete;

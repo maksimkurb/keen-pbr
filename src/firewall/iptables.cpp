@@ -5,10 +5,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <format>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
+#include <sys/wait.h>
 
 namespace keen_pbr3 {
 
@@ -307,6 +309,14 @@ void IptablesFirewall::cleanup() {
 
 FirewallBackend IptablesFirewall::backend() const {
     return FirewallBackend::iptables;
+}
+
+std::optional<bool> IptablesFirewall::test_ip_in_set(const std::string& set_name,
+                                                       const std::string& ip) const {
+    std::string cmd = "ipset test " + set_name + " " + ip + " >/dev/null 2>&1";
+    int exit_code = WEXITSTATUS(std::system(cmd.c_str()));
+    if (exit_code == 127) return std::nullopt; // ipset not installed
+    return exit_code == 0;
 }
 
 std::unique_ptr<Firewall> create_iptables_firewall() {

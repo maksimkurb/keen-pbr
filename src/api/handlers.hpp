@@ -41,6 +41,7 @@ struct ApiContext {
 //   GET  /api/config          - return raw config file content
 //   POST /api/config          - validate + write config file + reload
 //   GET  /api/health/routing  - routing and firewall health verification
+//   POST /api/routing/test    - test expected/actual routing for an IP or domain
 void register_api_handlers(ApiServer& server, ApiContext& ctx);
 
 } // namespace keen_pbr3

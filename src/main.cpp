@@ -22,6 +22,7 @@
 #include "cache/cache_manager.hpp"
 #include "config/config.hpp"
 #include "cmd/status.hpp"
+#include "cmd/test_routing.hpp"
 #include "daemon/daemon.hpp"
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
@@ -112,6 +113,8 @@ struct CliOptions {
     bool download_lists{false};
     bool resolver_config_hash{false};
     bool run_status{false};
+    bool run_test_routing{false};
+    std::string test_routing_target;
     bool show_help{false};
     bool show_version{false};
 };
@@ -132,7 +135,8 @@ void print_usage(const char* argv0) {
               << "  download                           Download all configured lists to cache and exit\n"
               << "  generate-resolver-config <res>     Print generated resolver config to stdout and exit\n"
               << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n"
-              << "  resolver-config-hash               Print MD5 hash of domain-to-ipset mapping and exit\n";
+              << "  resolver-config-hash               Print MD5 hash of domain-to-ipset mapping and exit\n"
+              << "  test-routing <ip-or-domain>        Test expected vs actual routing for an IP or domain\n";
 }
 
 CliOptions parse_args(int argc, char* argv[]) {
@@ -172,6 +176,14 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.download_lists = true;
         } else if (std::strcmp(argv[i], "resolver-config-hash") == 0) {
             opts.resolver_config_hash = true;
+        } else if (std::strcmp(argv[i], "test-routing") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: test-routing requires an IP address or domain argument\n";
+                print_usage(argv[0]);
+                std::exit(1);
+            }
+            opts.test_routing_target = argv[++i];
+            opts.run_test_routing = true;
         } else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             print_usage(argv[0]);
@@ -208,7 +220,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (!opts.download_lists && !opts.generate_resolver_config &&
-        !opts.resolver_config_hash && !opts.run_service && !opts.run_status) {
+        !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
+        !opts.run_test_routing) {
         print_usage(argv[0]);
         return 0;
     }
@@ -224,6 +237,13 @@ int main(int argc, char* argv[]) {
 
         if (opts.run_status) {
             return keen_pbr3::run_status_command(config, opts.config_path);
+        }
+
+        if (opts.run_test_routing) {
+            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
+                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+            keen_pbr3::CacheManager cache(cache_dir);
+            return keen_pbr3::run_test_routing_command(config, cache, opts.test_routing_target);
         }
 
         // Handle download command: download all lists to cache, count entries, exit

@@ -49,6 +49,7 @@ set(SOURCES
   src/lists/list_streamer.cpp
   src/cache/cache_manager.cpp
   src/cmd/status.cpp
+  src/cmd/test_routing.cpp
   src/routing/target.cpp
   src/routing/netlink.cpp
   src/routing/route_table.cpp
@@ -83,6 +84,7 @@ if(WITH_API)
     src/api/handler_reload.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
+    src/api/handler_test_routing.cpp
   )
 endif()
 

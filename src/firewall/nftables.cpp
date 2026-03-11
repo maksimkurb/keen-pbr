@@ -6,8 +6,10 @@
 #include <cstdlib>
 #include <format>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <sys/socket.h>
+#include <sys/wait.h>
 
 namespace keen_pbr3 {
 
@@ -375,6 +377,15 @@ void NftablesFirewall::cleanup() {
 
 FirewallBackend NftablesFirewall::backend() const {
     return FirewallBackend::nftables;
+}
+
+std::optional<bool> NftablesFirewall::test_ip_in_set(const std::string& set_name,
+                                                       const std::string& ip) const {
+    std::string cmd = "nft get element inet " + std::string(TABLE_NAME) +
+                      " " + set_name + " { " + ip + " } >/dev/null 2>&1";
+    int exit_code = WEXITSTATUS(std::system(cmd.c_str()));
+    if (exit_code == 127) return std::nullopt; // nft not installed
+    return exit_code == 0;
 }
 
 std::unique_ptr<Firewall> create_nftables_firewall() {
