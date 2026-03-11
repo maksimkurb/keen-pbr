@@ -13,6 +13,12 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+enum class RouteType {
+    unicast,
+    blackhole,
+    unreachable
+};
+
 // Represents a route to install in the kernel
 struct RouteSpec {
     std::string destination;    // IP/CIDR (e.g., "10.0.0.0/8") or "default"
@@ -20,6 +26,7 @@ struct RouteSpec {
     std::optional<std::string> interface;   // Output interface name
     std::optional<std::string> gateway;     // Next-hop gateway IP
     bool blackhole{false};      // If true, create a blackhole route
+    bool unreachable{false};    // If true, create an unreachable route
     int family{0};              // AF_INET or AF_INET6 (0 = auto-detect)
     uint32_t metric{0};         // Route metric/priority (0 = kernel default)
 };
@@ -40,6 +47,7 @@ struct DumpedRoute {
     std::optional<std::string> interface;  // Output interface name (if any)
     std::optional<std::string> gateway;    // Next-hop gateway IP (if any)
     bool blackhole{false};              // True if route type is RTN_BLACKHOLE
+    bool unreachable{false};           // True if route type is RTN_UNREACHABLE
     int family{0};                      // AF_INET or AF_INET6
     uint32_t metric{0};                 // Route metric/priority
 };

@@ -322,7 +322,15 @@ void Daemon::remove_pid_file() {
 }
 
 void Daemon::setup_static_routing() {
-    populate_routing_state(config_, outbound_marks_, route_table_, policy_rules_);
+    populate_routing_state(
+        config_,
+        outbound_marks_,
+        route_table_,
+        policy_rules_,
+        [this](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, netlink_);
+        },
+        &firewall_state_.get_urltest_selections());
 }
 
 void Daemon::apply_firewall() {
@@ -491,10 +499,13 @@ void Daemon::register_urltest_outbounds() {
             log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
             firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
             try {
+                route_table_.clear();
+                policy_rules_.clear();
+                setup_static_routing();
                 apply_firewall();
-                log.info("Firewall rules rebuilt after urltest change.");
+                log.info("Routing and firewall rebuilt after urltest change.");
             } catch (const std::exception& e) {
-                log.error("Error rebuilding firewall after urltest change: {}", e.what());
+                log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
             }
         });
 

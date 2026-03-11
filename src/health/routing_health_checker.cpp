@@ -4,10 +4,22 @@
 #include "../firewall/firewall_verifier.hpp"
 #include "../routing/routing_verifier.hpp"
 
+#include <algorithm>
 #include <format>
+#include <set>
 #include <stdexcept>
 
 namespace keen_pbr3 {
+
+namespace {
+
+std::string expected_route_type(const RouteSpec& spec) {
+    if (spec.unreachable) return "unreachable";
+    if (spec.blackhole) return "blackhole";
+    return "unicast";
+}
+
+} // anonymous namespace
 
 RoutingHealthChecker::RoutingHealthChecker(const Firewall& firewall,
                                            const FirewallState& firewall_state,
@@ -64,13 +76,48 @@ RoutingHealthReport RoutingHealthChecker::check() const {
         }
 
         // 5. Verify route tables
+        std::map<uint32_t, bool> expected_unreachable_by_table;
         for (const auto& spec : route_table_.get_routes()) {
             std::string outbound_tag;
             auto it = table_to_outbound.find(spec.table);
             if (it != table_to_outbound.end()) {
                 outbound_tag = it->second;
             }
+            if (spec.unreachable) {
+                expected_unreachable_by_table[spec.table] = true;
+            } else if (!expected_unreachable_by_table.contains(spec.table)) {
+                expected_unreachable_by_table[spec.table] = false;
+            }
             report.route_tables.push_back(rv.verify_route_table(spec, outbound_tag));
+        }
+
+        for (const auto& [table_id, expects_unreachable] : expected_unreachable_by_table) {
+            if (expects_unreachable) {
+                continue;
+            }
+            auto routes = netlink_.dump_routes_in_table(table_id);
+            auto unexpected = std::find_if(routes.begin(), routes.end(),
+                                           [](const DumpedRoute& route) {
+                                               return route.destination == "default" &&
+                                                      route.unreachable;
+                                           });
+            if (unexpected == routes.end()) {
+                continue;
+            }
+
+            RouteTableCheck extra_check;
+            extra_check.table_id = table_id;
+            extra_check.outbound_tag = table_to_outbound.contains(table_id)
+                ? table_to_outbound.at(table_id)
+                : "";
+            extra_check.table_exists = true;
+            extra_check.default_route_present = true;
+            extra_check.interface_matches = true;
+            extra_check.gateway_matches = true;
+            extra_check.expected_route_type = "unreachable";
+            extra_check.status = CheckStatus::mismatch;
+            extra_check.detail = "unexpected unreachable default route present in table";
+            report.route_tables.push_back(std::move(extra_check));
         }
 
         // 6. Verify policy rules
@@ -189,6 +236,8 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
         arc.status               = to_api_check_status(rt.status);
         if (rt.expected_interface) arc.expected_interface = *rt.expected_interface;
         if (rt.expected_gateway)   arc.expected_gateway   = *rt.expected_gateway;
+        if (rt.expected_metric)    arc.expected_metric    = static_cast<int64_t>(*rt.expected_metric);
+        if (rt.expected_route_type) arc.expected_route_type = *rt.expected_route_type;
         if (!rt.detail.empty())    arc.detail             = rt.detail;
         resp.route_tables.push_back(std::move(arc));
     }

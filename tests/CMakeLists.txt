@@ -8,7 +8,9 @@ add_executable(keen-pbr3-tests
   test_dnsmasq_gen.cpp
   test_dns_server.cpp
   test_config_validation.cpp
+  test_routing_state.cpp
   ../src/config/config.cpp
+  ../src/config/routing_state.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
@@ -24,6 +26,10 @@ add_executable(keen-pbr3-tests
   ../src/lists/list_streamer.cpp
   ../src/config/list_parser.cpp
   ../src/http/http_client.cpp
+  ../src/routing/netlink.cpp
+  ../src/routing/policy_rule.cpp
+  ../src/routing/route_table.cpp
+  ../src/routing/target.cpp
 )
 
 target_compile_definitions(keen-pbr3-tests PRIVATE KEEN_PBR3_TESTING)
@@ -40,6 +46,8 @@ target_include_directories(keen-pbr3-tests PRIVATE
 target_link_libraries(keen-pbr3-tests PRIVATE
   nlohmann_json::nlohmann_json
   CURL::libcurl
+  PkgConfig::LIBNL
+  PkgConfig::LIBNL_ROUTE
 )
 
 target_compile_features(keen-pbr3-tests PRIVATE cxx_std_20)

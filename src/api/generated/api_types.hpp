@@ -117,6 +117,7 @@ namespace api {
     struct Daemon {
         std::optional<std::string> cache_dir;
         std::optional<std::string> pid_file;
+        std::optional<bool> strict_enforcement;
     };
 
     struct DnsRuleElement {
@@ -177,6 +178,7 @@ namespace api {
         std::optional<int64_t> interval_ms;
         std::optional<std::vector<OutboundGroupElement>> outbound_groups;
         std::optional<Retry> retry;
+        std::optional<bool> strict_enforcement;
         std::optional<int64_t> table;
         std::string tag;
         std::optional<int64_t> tolerance_ms;
@@ -287,6 +289,8 @@ namespace api {
         std::optional<std::string> detail;
         std::optional<std::string> expected_gateway;
         std::optional<std::string> expected_interface;
+        std::optional<int64_t> expected_metric;
+        std::optional<std::string> expected_route_type;
         bool gateway_matches;
         bool interface_matches;
         std::string outbound_tag;
@@ -519,12 +523,14 @@ namespace api {
     inline void from_json(const json & j, Daemon& x) {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
+        x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
     }
 
     inline void to_json(json & j, const Daemon & x) {
         j = json::object();
         j["cache_dir"] = x.cache_dir;
         j["pid_file"] = x.pid_file;
+        j["strict_enforcement"] = x.strict_enforcement;
     }
 
     inline void from_json(const json & j, DnsRuleElement& x) {
@@ -641,6 +647,7 @@ namespace api {
         x.interval_ms = get_stack_optional<int64_t>(j, "interval_ms");
         x.outbound_groups = get_stack_optional<std::vector<OutboundGroupElement>>(j, "outbound_groups");
         x.retry = get_stack_optional<Retry>(j, "retry");
+        x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
         x.table = get_stack_optional<int64_t>(j, "table");
         x.tag = j.at("tag").get<std::string>();
         x.tolerance_ms = get_stack_optional<int64_t>(j, "tolerance_ms");
@@ -656,6 +663,7 @@ namespace api {
         j["interval_ms"] = x.interval_ms;
         j["outbound_groups"] = x.outbound_groups;
         j["retry"] = x.retry;
+        j["strict_enforcement"] = x.strict_enforcement;
         j["table"] = x.table;
         j["tag"] = x.tag;
         j["tolerance_ms"] = x.tolerance_ms;
@@ -860,6 +868,8 @@ namespace api {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.expected_gateway = get_stack_optional<std::string>(j, "expected_gateway");
         x.expected_interface = get_stack_optional<std::string>(j, "expected_interface");
+        x.expected_metric = get_stack_optional<int64_t>(j, "expected_metric");
+        x.expected_route_type = get_stack_optional<std::string>(j, "expected_route_type");
         x.gateway_matches = j.at("gateway_matches").get<bool>();
         x.interface_matches = j.at("interface_matches").get<bool>();
         x.outbound_tag = j.at("outbound_tag").get<std::string>();
@@ -874,6 +884,8 @@ namespace api {
         j["detail"] = x.detail;
         j["expected_gateway"] = x.expected_gateway;
         j["expected_interface"] = x.expected_interface;
+        j["expected_metric"] = x.expected_metric;
+        j["expected_route_type"] = x.expected_route_type;
         j["gateway_matches"] = x.gateway_matches;
         j["interface_matches"] = x.interface_matches;
         j["outbound_tag"] = x.outbound_tag;

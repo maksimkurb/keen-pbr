@@ -127,6 +127,14 @@ components:
           description: Directory for cached list data.
           default: "/var/cache/keen-pbr3"
           example: "/var/cache/keen-pbr3"
+        strict_enforcement:
+          type: boolean
+          description: >
+            Default strict routing enforcement for interface outbounds. When enabled,
+            an unreachable default route is installed if the outbound gateway/interface
+            cannot be confirmed reachable.
+          default: false
+          example: true
 
     ApiConfig:
       type: object
@@ -219,6 +227,14 @@ components:
           description: >
             Optional gateway IP address. Used with `interface` outbound type.
           example: "10.8.0.1"
+        strict_enforcement:
+          type: boolean
+          description: >
+            Per-outbound override for strict routing enforcement. When enabled for
+            an `interface` outbound, install an unreachable default route if the
+            configured gateway/interface cannot be confirmed reachable. Overrides
+            `daemon.strict_enforcement` when present.
+          example: true
         table:
           type: integer
           description: >
@@ -472,6 +488,7 @@ components:
         daemon:
           pid_file: "/var/run/keen-pbr3.pid"
           cache_dir: "/var/cache/keen-pbr3"
+          strict_enforcement: true
         api:
           enabled: true
           listen: "127.0.0.1:8080"
@@ -480,6 +497,7 @@ components:
             tag: "vpn"
             interface: "tun0"
             gateway: "10.8.0.1"
+            strict_enforcement: true
           - type: "interface"
             tag: "wan"
             interface: "eth0"
@@ -778,6 +796,14 @@ components:
           type: string
           description: Expected gateway IP. Present when configured.
           example: "10.8.0.1"
+        expected_metric:
+          type: integer
+          description: Expected route metric/priority. Present when non-zero.
+          example: 1000
+        expected_route_type:
+          type: string
+          description: Expected route type.
+          example: "unreachable"
         table_exists:
           type: boolean
           description: Whether the routing table exists in the kernel.

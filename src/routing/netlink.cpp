@@ -102,9 +102,15 @@ struct NetlinkManager::Impl {
         }
         int err = nl_connect(sock, NETLINK_ROUTE);
         if (err < 0) {
+#ifdef KEEN_PBR3_TESTING
+            nl_socket_free(sock);
+            sock = nullptr;
+            return;
+#else
             nl_socket_free(sock);
             throw NetlinkError(std::string("Failed to connect netlink socket: ") +
                                nl_geterror(err));
+#endif
         }
     }
 
@@ -159,6 +165,8 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
 
     if (spec.blackhole) {
         rtnl_route_set_type(route.get(), RTN_BLACKHOLE);
+    } else if (spec.unreachable) {
+        rtnl_route_set_type(route.get(), RTN_UNREACHABLE);
     } else {
         // Create nexthop with interface and optional gateway
         NexthopPtr nh(rtnl_route_nh_alloc());
@@ -232,6 +240,8 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
 
     if (spec.blackhole) {
         rtnl_route_set_type(route.get(), RTN_BLACKHOLE);
+    } else if (spec.unreachable) {
+        rtnl_route_set_type(route.get(), RTN_UNREACHABLE);
     } else if (spec.interface) {
         NexthopPtr nh(rtnl_route_nh_alloc());
         if (!nh) {
@@ -359,9 +369,10 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
         dr.family = rtnl_route_get_family(route);
         dr.metric = static_cast<uint32_t>(rtnl_route_get_priority(route));
 
-        // Determine if blackhole
+        // Determine route type
         int rt_type = rtnl_route_get_type(route);
         dr.blackhole = (rt_type == RTN_BLACKHOLE);
+        dr.unreachable = (rt_type == RTN_UNREACHABLE);
 
         // Destination
         struct nl_addr* dst = rtnl_route_get_dst(route);
@@ -377,7 +388,7 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
         }
 
         // Nexthop info (interface and gateway)
-        if (!dr.blackhole) {
+        if (!dr.blackhole && !dr.unreachable) {
             int nh_count = rtnl_route_get_nnexthops(route);
             if (nh_count > 0) {
                 struct rtnl_nexthop* nh = rtnl_route_nexthop_n(route, 0);

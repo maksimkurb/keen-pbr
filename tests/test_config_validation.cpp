@@ -137,3 +137,22 @@ TEST_CASE("dns detour: no detour field is accepted") {
     std::string json = R"({"dns":{"servers":[{"tag":"plain-dns","address":"8.8.8.8"}]}})";
     CHECK_NOTHROW(parse_config(json));
 }
+
+TEST_CASE("strict enforcement: daemon default parses") {
+    std::string json = R"({"daemon":{"strict_enforcement":true}})";
+    auto cfg = parse_config(json);
+    REQUIRE(cfg.daemon.has_value());
+    CHECK(cfg.daemon->strict_enforcement.value_or(false));
+}
+
+TEST_CASE("strict enforcement: outbound override parses") {
+    std::string json = R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","strict_enforcement":true}
+        ]
+    })";
+    auto cfg = parse_config(json);
+    REQUIRE(cfg.outbounds.has_value());
+    REQUIRE(cfg.outbounds->size() == 1);
+    CHECK(cfg.outbounds->front().strict_enforcement.value_or(false));
+}

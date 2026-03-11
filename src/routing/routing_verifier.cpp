@@ -6,6 +6,57 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+std::string route_type_label(const DumpedRoute& route) {
+    if (route.blackhole) return "blackhole";
+    if (route.unreachable) return "unreachable";
+    return "unicast";
+}
+
+std::string route_type_label(const RouteSpec& route) {
+    if (route.blackhole) return "blackhole";
+    if (route.unreachable) return "unreachable";
+    return "unicast";
+}
+
+bool route_type_matches(const RouteSpec& expected, const DumpedRoute& actual) {
+    return expected.blackhole == actual.blackhole &&
+           expected.unreachable == actual.unreachable;
+}
+
+bool route_metric_matches(const RouteSpec& expected, const DumpedRoute& actual) {
+    return expected.metric == actual.metric;
+}
+
+bool route_matches_expected(const RouteSpec& expected, const DumpedRoute& actual) {
+    if (actual.destination != "default") {
+        return false;
+    }
+    if (!route_type_matches(expected, actual)) {
+        return false;
+    }
+    if (!route_metric_matches(expected, actual)) {
+        return false;
+    }
+    if (expected.blackhole || expected.unreachable) {
+        return true;
+    }
+    if (expected.interface) {
+        if (!actual.interface || *actual.interface != *expected.interface) {
+            return false;
+        }
+    }
+    if (expected.gateway) {
+        if (!actual.gateway || *actual.gateway != *expected.gateway) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // anonymous namespace
+
 RoutingVerifier::RoutingVerifier(NetlinkManager& netlink)
     : netlink_(netlink) {}
 
@@ -16,6 +67,10 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
     result.outbound_tag   = outbound_tag;
     result.expected_interface = expected.interface;
     result.expected_gateway   = expected.gateway;
+    if (expected.metric != 0) {
+        result.expected_metric = expected.metric;
+    }
+    result.expected_route_type = route_type_label(expected);
 
     try {
         auto routes = netlink_.dump_routes_in_table(expected.table);
@@ -24,49 +79,55 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
         // default route, the table itself is accessible).
         result.table_exists = !routes.empty();
 
+        const DumpedRoute* first_default = nullptr;
         for (const auto& r : routes) {
-            // We are looking for the default route (destination "default")
             if (r.destination != "default") {
                 continue;
             }
 
             result.default_route_present = true;
-
-            // Check interface match
-            if (expected.interface) {
-                result.interface_matches =
-                    (r.interface && *r.interface == *expected.interface);
-            } else {
-                // No interface expected — consider it matched unless one is set
-                result.interface_matches = true;
+            if (!first_default) {
+                first_default = &r;
             }
 
-            // Check gateway match
-            if (expected.gateway) {
-                result.gateway_matches =
-                    (r.gateway && *r.gateway == *expected.gateway);
-            } else {
-                result.gateway_matches = true;
+            if (!route_matches_expected(expected, r)) {
+                continue;
             }
 
-            // Determine overall status
-            if (result.interface_matches && result.gateway_matches) {
-                result.status = CheckStatus::ok;
+            result.interface_matches = true;
+            result.gateway_matches = true;
+            result.status = CheckStatus::ok;
+            return result;
+        }
+
+        if (first_default) {
+            result.status = CheckStatus::mismatch;
+            result.interface_matches = !expected.interface ||
+                (first_default->interface && *first_default->interface == *expected.interface);
+            result.gateway_matches = !expected.gateway ||
+                (first_default->gateway && *first_default->gateway == *expected.gateway);
+
+            std::ostringstream detail;
+            if (!route_type_matches(expected, *first_default)) {
+                detail << "route type mismatch: expected '" << route_type_label(expected)
+                       << "', got '" << route_type_label(*first_default) << "'.";
+            } else if (!route_metric_matches(expected, *first_default)) {
+                detail << "metric mismatch: expected '" << expected.metric
+                       << "', got '" << first_default->metric << "'.";
             } else {
-                result.status = CheckStatus::mismatch;
-                std::ostringstream detail;
                 if (!result.interface_matches) {
                     detail << "interface mismatch: expected '"
                            << expected.interface.value_or("(none)") << "', got '"
-                           << r.interface.value_or("(none)") << "'. ";
+                           << first_default->interface.value_or("(none)") << "'.";
                 }
                 if (!result.gateway_matches) {
+                    if (!detail.str().empty()) detail << " ";
                     detail << "gateway mismatch: expected '"
                            << expected.gateway.value_or("(none)") << "', got '"
-                           << r.gateway.value_or("(none)") << "'.";
+                           << first_default->gateway.value_or("(none)") << "'.";
                 }
-                result.detail = detail.str();
             }
+            result.detail = detail.str();
             return result;
         }
 

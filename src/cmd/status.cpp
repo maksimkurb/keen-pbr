@@ -54,16 +54,6 @@ std::string outbound_type_label(OutboundType t) {
     return "unknown";
 }
 
-struct RouteKey {
-    uint32_t table;
-    std::optional<std::string> iface;
-    std::optional<std::string> gw;
-
-    bool operator<(const RouteKey& other) const {
-        return std::tie(table, iface, gw) < std::tie(other.table, other.iface, other.gw);
-    }
-};
-
 struct UrltestRuleInfo {
     std::string urltest_tag;
     std::map<uint32_t, std::string> child_tags_by_mark;
@@ -80,24 +70,24 @@ struct DisplayFirewallRule {
     std::optional<std::string> selected_outbound;
 };
 
-std::string format_route_brief(const RouteTableCheck& rt,
-                               const std::map<RouteKey, bool>& route_is_blackhole) {
-    RouteKey key{rt.table_id, rt.expected_interface, rt.expected_gateway};
-    auto it = route_is_blackhole.find(key);
-    const bool is_blackhole = (it != route_is_blackhole.end()) && it->second;
-
+std::string format_route_brief(const RouteTableCheck& rt) {
     std::string desc = std::format("table={} ", rt.table_id);
-    if (is_blackhole) {
+    const std::string route_type = rt.expected_route_type.value_or("unicast");
+    if (route_type == "blackhole") {
         desc += "blackhole default";
-        return desc;
+    } else if (route_type == "unreachable") {
+        desc += "unreachable default";
+    } else {
+        desc += "default";
+        if (rt.expected_interface) {
+            desc += std::format(" dev {}", *rt.expected_interface);
+        }
+        if (rt.expected_gateway) {
+            desc += std::format(" via {}", *rt.expected_gateway);
+        }
     }
-
-    desc += "default";
-    if (rt.expected_interface) {
-        desc += std::format(" dev {}", *rt.expected_interface);
-    }
-    if (rt.expected_gateway) {
-        desc += std::format(" via {}", *rt.expected_gateway);
+    if (rt.expected_metric && *rt.expected_metric != 0) {
+        desc += std::format(" metric {}", *rt.expected_metric);
     }
     return desc;
 }
@@ -267,12 +257,6 @@ void print_outbound_section(const Config& config,
         rules_by_mark_table[{pr.fwmark, pr.expected_table}] = &pr;
     }
 
-    std::map<RouteKey, bool> route_is_blackhole;
-    for (const auto& spec : routes.get_routes()) {
-        RouteKey key{spec.table, spec.interface, spec.gateway};
-        route_is_blackhole[key] = spec.blackhole;
-    }
-
     std::cout << "\nOutbounds:\n";
 
     uint32_t table_start = static_cast<uint32_t>(
@@ -323,7 +307,7 @@ void print_outbound_section(const Config& config,
         auto rt_it = routes_by_outbound.find(ob.tag);
         if (rt_it != routes_by_outbound.end()) {
             for (const auto* rt : rt_it->second) {
-                const std::string route_desc = "route   " + format_route_brief(*rt, route_is_blackhole);
+                const std::string route_desc = "route   " + format_route_brief(*rt);
                 std::cout << "    " << pad_dots(route_desc, check_status_label(rt->status)) << "\n";
                 if (rt->status != CheckStatus::ok) {
                     print_detail_if_needed(rt->detail, "      ");
@@ -416,7 +400,15 @@ int run_status_command(const Config& config, const std::string& config_path) {
     NetlinkManager netlink;
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
-    populate_routing_state(config, marks, routes, rules);
+    populate_routing_state(
+        config,
+        marks,
+        routes,
+        rules,
+        [&netlink](const Outbound& outbound) {
+            return is_interface_outbound_reachable(outbound, netlink);
+        },
+        nullptr);
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);

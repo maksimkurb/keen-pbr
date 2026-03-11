@@ -33,6 +33,8 @@ struct RouteTableCheck {
     std::string outbound_tag;
     std::optional<std::string> expected_interface;
     std::optional<std::string> expected_gateway;
+    std::optional<uint32_t> expected_metric;
+    std::optional<std::string> expected_route_type;
     bool table_exists{false};
     bool default_route_present{false};
     bool interface_matches{false};
