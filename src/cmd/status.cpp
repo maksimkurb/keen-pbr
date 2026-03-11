@@ -27,11 +27,20 @@ std::string check_status_label(CheckStatus s) {
         case CheckStatus::missing: return "MISSING";
         case CheckStatus::mismatch: return "MISMATCH";
     }
-    return "MISSING";
+    return "ERROR";
 }
 
 std::string fwmark_hex(uint32_t v) {
     return std::format("0x{:08x}", v);
+}
+
+std::string pad_dots(const std::string& prefix,
+                     const std::string& suffix,
+                     size_t width = 72) {
+    if (prefix.size() + suffix.size() + 1 >= width) {
+        return prefix + " " + suffix;
+    }
+    return prefix + " " + std::string(width - prefix.size() - suffix.size() - 1, '.') + " " + suffix;
 }
 
 std::string outbound_type_label(OutboundType t) {
@@ -83,34 +92,45 @@ std::string format_rule_presence(const PolicyRuleCheck& pr) {
     if (v4 && v6) return "[v4+v6]";
     if (v4) return "[v4]";
     if (v6) return "[v6]";
-    return "[v4+v6]";
+    return {};
 }
 
-void print_detail_if_needed(const std::string& detail) {
+void print_detail_if_needed(const std::string& detail, const std::string& indent = "      ") {
     if (!detail.empty()) {
-        std::cout << "            detail: " << detail << "\n";
+        std::cout << indent << detail << "\n";
     }
 }
 
-} // namespace
+int count_failed_checks(const RoutingHealthReport& report) {
+    int failed = 0;
 
-int run_status_command(const Config& config, const std::string& config_path) {
-    auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
-                                         config.outbounds.value_or(std::vector<Outbound>{}));
+    if (!report.firewall_chain.chain_present || !report.firewall_chain.prerouting_hook_present) {
+        ++failed;
+    }
 
-    NetlinkManager netlink;
-    RouteTable routes(netlink, true);
-    PolicyRuleManager rules(netlink, true);
-    populate_routing_state(config, marks, routes, rules);
+    for (const auto& fr : report.firewall_rules) {
+        if (fr.status != CheckStatus::ok) {
+            ++failed;
+        }
+    }
+    for (const auto& rt : report.route_tables) {
+        if (rt.status != CheckStatus::ok) {
+            ++failed;
+        }
+    }
+    for (const auto& pr : report.policy_rules) {
+        if (pr.status != CheckStatus::ok) {
+            ++failed;
+        }
+    }
+    if (!report.error.empty()) {
+        ++failed;
+    }
 
-    FirewallState fw_state;
-    fw_state.set_outbound_marks(marks);
-    fw_state.set_rules(build_fw_rule_states(config, marks));
+    return failed;
+}
 
-    auto firewall = create_firewall("auto");
-    RoutingHealthChecker checker(*firewall, fw_state, routes, rules, netlink);
-    RoutingHealthReport report = checker.check();
-
+void print_header(const RoutingHealthReport& report, const std::string& config_path) {
     std::cout << "keen-pbr3 status - config: " << config_path << "\n";
     if (!report.firewall_backend.empty()) {
         std::cout << "Firewall backend: " << report.firewall_backend << "\n";
@@ -119,9 +139,14 @@ int run_status_command(const Config& config, const std::string& config_path) {
     }
 
     if (!report.error.empty()) {
-        std::cout << "Error: " << report.error << "\n";
+        std::cout << "Health check error: " << report.error << "\n";
     }
+}
 
+void print_outbound_section(const Config& config,
+                            const OutboundMarkMap& marks,
+                            const RouteTable& routes,
+                            const RoutingHealthReport& report) {
     std::map<std::string, std::vector<const RouteTableCheck*>> routes_by_outbound;
     for (const auto& rt : report.route_tables) {
         routes_by_outbound[rt.outbound_tag].push_back(&rt);
@@ -188,10 +213,10 @@ int run_status_command(const Config& config, const std::string& config_path) {
         auto rt_it = routes_by_outbound.find(ob.tag);
         if (rt_it != routes_by_outbound.end()) {
             for (const auto* rt : rt_it->second) {
-                std::cout << "            route   " << format_route_brief(*rt, route_is_blackhole)
-                          << "  " << check_status_label(rt->status) << "\n";
+                const std::string route_desc = "route   " + format_route_brief(*rt, route_is_blackhole);
+                std::cout << "    " << pad_dots(route_desc, check_status_label(rt->status)) << "\n";
                 if (rt->status != CheckStatus::ok) {
-                    print_detail_if_needed(rt->detail);
+                    print_detail_if_needed(rt->detail, "      ");
                 }
             }
         }
@@ -200,58 +225,59 @@ int run_status_command(const Config& config, const std::string& config_path) {
             auto pr_it = rules_by_mark_table.find({fwmark, table_id});
             if (pr_it != rules_by_mark_table.end()) {
                 const auto& pr = *pr_it->second;
-                std::cout << "            rule    " << fwmark_hex(pr.fwmark)
-                          << "/" << fwmark_hex(pr.fwmask)
-                          << " -> table=" << pr.expected_table
-                          << " pri=" << pr.priority
-                          << "  " << check_status_label(pr.status) << " "
-                          << format_rule_presence(pr) << "\n";
+                std::string suffix = check_status_label(pr.status);
+                const auto families = format_rule_presence(pr);
+                if (!families.empty()) {
+                    suffix += " " + families;
+                }
+                const std::string rule_desc = std::format("rule    {}/{} -> table={} pri={}",
+                                                          fwmark_hex(pr.fwmark),
+                                                          fwmark_hex(pr.fwmask),
+                                                          pr.expected_table,
+                                                          pr.priority);
+                std::cout << "    " << pad_dots(rule_desc, suffix) << "\n";
                 if (pr.status != CheckStatus::ok) {
-                    print_detail_if_needed(pr.detail);
+                    print_detail_if_needed(pr.detail, "      ");
                 }
             } else if (routable) {
-                std::cout << "            rule    " << fwmark_hex(fwmark)
-                          << " -> table=" << table_id
-                          << " pri=" << priority
-                          << "  MISSING\n";
+                const std::string rule_desc = std::format("rule    {} -> table={} pri={}",
+                                                          fwmark_hex(fwmark),
+                                                          table_id,
+                                                          priority);
+                std::cout << "    " << pad_dots(rule_desc, "MISSING") << "\n";
             }
         }
     }
+}
 
+void print_firewall_section(const RoutingHealthReport& report) {
     std::cout << "\nFirewall:\n";
     const bool chain_ok = report.firewall_chain.chain_present &&
                           report.firewall_chain.prerouting_hook_present;
-    std::cout << "  chain   KeenPbrTable / prerouting hook  "
-              << (chain_ok ? "OK" : "MISSING") << "\n";
+    std::cout << "  "
+              << pad_dots("chain   KeenPbrTable / prerouting hook",
+                          chain_ok ? "OK" : "MISSING")
+              << "\n";
     if (!chain_ok) {
-        print_detail_if_needed(report.firewall_chain.detail);
+        print_detail_if_needed(report.firewall_chain.detail, "    ");
     }
 
     for (const auto& fr : report.firewall_rules) {
-        std::cout << "  rule    " << fr.set_name << " -> ";
+        std::string rule_desc = "rule    " + fr.set_name + " -> ";
         if (fr.action == "mark") {
-            std::cout << "MARK " << fwmark_hex(fr.expected_fwmark.value_or(0));
+            rule_desc += "MARK " + fwmark_hex(fr.expected_fwmark.value_or(0));
         } else {
-            std::cout << "DROP";
+            rule_desc += "DROP";
         }
-        std::cout << "  " << check_status_label(fr.status) << "\n";
+        std::cout << "  " << pad_dots(rule_desc, check_status_label(fr.status)) << "\n";
         if (fr.status != CheckStatus::ok) {
-            print_detail_if_needed(fr.detail);
+            print_detail_if_needed(fr.detail, "    ");
         }
     }
+}
 
-    int failed = 0;
-    if (!chain_ok) failed++;
-    for (const auto& fr : report.firewall_rules) {
-        if (fr.status != CheckStatus::ok) failed++;
-    }
-    for (const auto& rt : report.route_tables) {
-        if (rt.status != CheckStatus::ok) failed++;
-    }
-    for (const auto& pr : report.policy_rules) {
-        if (pr.status != CheckStatus::ok) failed++;
-    }
-
+void print_overall_summary(const RoutingHealthReport& report) {
+    const int failed = count_failed_checks(report);
     std::cout << "\nOverall: ";
     if (!report.error.empty()) {
         std::cout << "ERROR\n";
@@ -262,6 +288,31 @@ int run_status_command(const Config& config, const std::string& config_path) {
     }
 
     std::cout << "Status values: OK / MISSING / MISMATCH / ERROR\n";
+}
+
+} // namespace
+
+int run_status_command(const Config& config, const std::string& config_path) {
+    auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
+                                         config.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    populate_routing_state(config, marks, routes, rules);
+
+    FirewallState fw_state;
+    fw_state.set_outbound_marks(marks);
+    fw_state.set_rules(build_fw_rule_states(config, marks));
+
+    auto firewall = create_firewall("auto");
+    RoutingHealthChecker checker(*firewall, fw_state, routes, rules, netlink);
+    RoutingHealthReport report = checker.check();
+
+    print_header(report, config_path);
+    print_outbound_section(config, marks, routes, report);
+    print_firewall_section(report);
+    print_overall_summary(report);
 
     return report.overall_ok ? 0 : 1;
 }
