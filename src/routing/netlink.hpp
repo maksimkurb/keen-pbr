@@ -76,6 +76,7 @@ public:
     // Route operations
     void add_route(const RouteSpec& spec);
     void delete_route(const RouteSpec& spec);
+    void flush_routes_in_table(uint32_t table_id, int family = 0);
 
     // Policy rule operations
     void add_rule(const RuleSpec& spec);

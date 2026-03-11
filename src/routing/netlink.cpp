@@ -267,6 +267,42 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
     }
 }
 
+void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
+    struct nl_cache* raw_cache = nullptr;
+    int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to alloc route cache: ") +
+                           nl_geterror(err));
+    }
+    CachePtr cache(raw_cache);
+
+    std::vector<RoutePtr> routes_to_delete;
+    nl_cache_foreach(cache.get(), [](struct nl_object* obj, void* arg) {
+        auto* routes = static_cast<std::vector<RoutePtr>*>(arg);
+        auto* route = reinterpret_cast<struct rtnl_route*>(obj);
+        if (rtnl_route_get_table(route) == 0) {
+            return;
+        }
+        rtnl_route_get(route);
+        routes->emplace_back(route);
+    }, &routes_to_delete);
+
+    for (auto& route : routes_to_delete) {
+        if (rtnl_route_get_table(route.get()) != table_id) {
+            continue;
+        }
+        try {
+            int delete_err = rtnl_route_delete(impl_->sock, route.get(), 0);
+            if (delete_err < 0) {
+                throw NetlinkError(std::string("Failed to delete route during flush: ") +
+                                   nl_geterror(delete_err));
+            }
+        } catch (...) {
+            // Best effort: continue flushing remaining routes in this table.
+        }
+    }
+}
+
 void NetlinkManager::add_rule(const RuleSpec& spec) {
     auto add_for_family = [&](int fam) {
         RulePtr rule(rtnl_rule_alloc());

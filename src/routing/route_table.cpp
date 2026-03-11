@@ -1,6 +1,7 @@
 #include "route_table.hpp"
 
 #include <algorithm>
+#include <set>
 
 namespace keen_pbr3 {
 
@@ -60,14 +61,18 @@ void RouteTable::remove(const RouteSpec& spec) {
 }
 
 void RouteTable::clear() {
-    // Remove in reverse order (last added first)
-    for (auto it = routes_.rbegin(); it != routes_.rend(); ++it) {
-        try {
-            if (!dry_run_) {
-                netlink_.delete_route(*it);
+    if (!dry_run_) {
+        std::set<uint32_t> managed_tables;
+        for (const auto& route : routes_) {
+            managed_tables.insert(route.table);
+        }
+
+        for (uint32_t table_id : managed_tables) {
+            try {
+                netlink_.flush_routes_in_table(table_id);
+            } catch (...) {
+                // Best effort: continue flushing remaining managed tables.
             }
-        } catch (...) {
-            // Best effort: continue removing remaining routes
         }
     }
     routes_.clear();

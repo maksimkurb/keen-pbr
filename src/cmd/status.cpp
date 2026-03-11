@@ -117,6 +117,91 @@ const Outbound* find_outbound(const std::vector<Outbound>& outbounds, const std:
     return nullptr;
 }
 
+bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) {
+    if (route.destination != "default" || route.blackhole || route.unreachable) {
+        return false;
+    }
+    if (outbound.type != OutboundType::INTERFACE) {
+        return false;
+    }
+    if (route.interface != outbound.interface) {
+        return false;
+    }
+    if (outbound.gateway.has_value()) {
+        return route.gateway == outbound.gateway;
+    }
+    return !route.gateway.has_value();
+}
+
+std::map<std::string, std::string> infer_urltest_selections(const Config& config,
+                                                            NetlinkManager& netlink) {
+    std::map<std::string, std::string> selections;
+    const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    const uint32_t table_start = static_cast<uint32_t>(
+        config.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+
+    uint32_t table_offset = 0;
+    for (const auto& ob : outbounds) {
+        const bool routable =
+            (ob.type == OutboundType::INTERFACE ||
+             ob.type == OutboundType::TABLE ||
+             ob.type == OutboundType::URLTEST);
+        if (!routable) {
+            continue;
+        }
+
+        uint32_t table_id = 0;
+        if (ob.type == OutboundType::TABLE) {
+            table_id = static_cast<uint32_t>(ob.table.value_or(0));
+        } else {
+            table_id = table_start + table_offset;
+        }
+        ++table_offset;
+
+        if (ob.type != OutboundType::URLTEST) {
+            continue;
+        }
+
+        auto routes = netlink.dump_routes_in_table(table_id);
+        const DumpedRoute* selected_route = nullptr;
+        for (const auto& route : routes) {
+            if (route.destination != "default" ||
+                route.blackhole ||
+                route.unreachable ||
+                route.metric != 0) {
+                continue;
+            }
+            if (selected_route != nullptr) {
+                selected_route = nullptr;
+                break;
+            }
+            selected_route = &route;
+        }
+
+        if (!selected_route || !ob.outbound_groups.has_value()) {
+            continue;
+        }
+
+        for (const auto& group : *ob.outbound_groups) {
+            for (const auto& child_tag : group.outbounds) {
+                const Outbound* child = find_outbound(outbounds, child_tag);
+                if (!child) {
+                    continue;
+                }
+                if (route_matches_outbound(*selected_route, *child)) {
+                    selections[ob.tag] = child->tag;
+                    break;
+                }
+            }
+            if (selections.contains(ob.tag)) {
+                break;
+            }
+        }
+    }
+
+    return selections;
+}
+
 std::map<std::string, UrltestRuleInfo> build_urltest_rule_info_by_set(
     const Config& config,
     const OutboundMarkMap& marks) {
@@ -399,6 +484,7 @@ int run_status_command(const Config& config, const std::string& config_path) {
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 
     NetlinkManager netlink;
+    const auto urltest_selections = infer_urltest_selections(config, netlink);
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
     populate_routing_state(
@@ -409,7 +495,7 @@ int run_status_command(const Config& config, const std::string& config_path) {
         [&netlink](const Outbound& outbound) {
             return is_interface_outbound_reachable(outbound, netlink);
         },
-        nullptr);
+        &urltest_selections);
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
