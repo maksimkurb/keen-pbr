@@ -43,10 +43,12 @@ set(SOURCES
   src/log/logger.cpp
   src/http/http_client.cpp
   src/config/config.cpp
+  src/config/routing_state.cpp
   src/config/list_parser.cpp
   src/lists/ipset.cpp
   src/lists/list_streamer.cpp
   src/cache/cache_manager.cpp
+  src/cmd/status.cpp
   src/routing/target.cpp
   src/routing/netlink.cpp
   src/routing/route_table.cpp

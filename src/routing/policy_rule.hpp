@@ -10,7 +10,8 @@ namespace keen_pbr3 {
 // Uses NetlinkManager for actual kernel operations.
 class PolicyRuleManager {
 public:
-    explicit PolicyRuleManager(NetlinkManager& netlink);
+    // If dry_run is true, add()/clear() only track specs and skip netlink ops.
+    explicit PolicyRuleManager(NetlinkManager& netlink, bool dry_run = false);
     ~PolicyRuleManager();
 
     // Non-copyable
@@ -34,6 +35,7 @@ public:
 
 private:
     NetlinkManager& netlink_;
+    bool dry_run_{false};
     std::vector<RuleSpec> rules_;
 
     // Check if an identical rule is already tracked.

@@ -20,8 +20,8 @@
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
-#include "../routing/target.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
@@ -322,88 +322,13 @@ void Daemon::remove_pid_file() {
 }
 
 void Daemon::setup_static_routing() {
-    const uint32_t table_start = static_cast<uint32_t>(
-        config_.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
-    const uint32_t fwmark_mask = static_cast<uint32_t>(
-        config_.fwmark.value_or(FwmarkConfig{}).mask.value_or(0x00FF0000));
-
-    uint32_t table_offset = 0;
-    for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
-        if (ob.type == OutboundType::INTERFACE) {
-            auto mark_it = outbound_marks_.find(ob.tag);
-            if (mark_it == outbound_marks_.end()) continue;
-
-            uint32_t table_id = table_start + table_offset;
-            ++table_offset;
-
-            // Create dedicated routing table with default route via interface
-            RouteSpec route;
-            route.destination = "default";
-            route.table = table_id;
-            route.interface = ob.interface.value_or("");
-            if (ob.gateway) route.gateway = *ob.gateway;
-            route_table_.add(route);
-
-            // Blackhole fallback: fires when interface is removed from kernel,
-            // preventing traffic from leaking to the default routing table.
-            RouteSpec blackhole_route;
-            blackhole_route.destination = "default";
-            blackhole_route.table = table_id;
-            blackhole_route.blackhole = true;
-            blackhole_route.metric = 500;
-            route_table_.add(blackhole_route);
-
-            // Add ip rule: fwmark/mask -> table
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = table_id;
-            ip_rule.priority = table_id;
-            policy_rules_.add(ip_rule);
-        } else if (ob.type == OutboundType::TABLE) {
-            auto mark_it = outbound_marks_.find(ob.tag);
-            if (mark_it == outbound_marks_.end()) continue;
-
-            // Add ip rule: fwmark/mask -> table (user-specified table)
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = static_cast<uint32_t>(ob.table.value_or(0));
-            ip_rule.priority = table_start + table_offset;
-            ++table_offset;
-            policy_rules_.add(ip_rule);
-        } else if (ob.type == OutboundType::URLTEST) {
-            auto mark_it = outbound_marks_.find(ob.tag);
-            if (mark_it == outbound_marks_.end()) continue;
-
-            uint32_t table_id = table_start + table_offset;
-            ++table_offset;
-
-            // Blackhole default: traffic is dropped here when no child is selected,
-            // preventing leaks to the default routing table.
-            RouteSpec blackhole_route;
-            blackhole_route.destination = "default";
-            blackhole_route.table = table_id;
-            blackhole_route.blackhole = true;
-            blackhole_route.metric = 500;
-            route_table_.add(blackhole_route);
-
-            // Policy rule: fwmark -> this table
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = table_id;
-            ip_rule.priority = table_id;
-            policy_rules_.add(ip_rule);
-        }
-        // BLACKHOLE: no routing table, no ip rule — handled by firewall DROP
-        // IGNORE: no routing needed
-    }
+    populate_routing_state(config_, outbound_marks_, route_table_, policy_rules_);
 }
 
 void Daemon::apply_firewall() {
     ListStreamer list_streamer(cache_);
-    std::vector<RuleState> rule_states;
+    auto rule_states =
+        build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
 
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
@@ -415,77 +340,13 @@ void Daemon::apply_firewall() {
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
+        const RuleState& rs = rule_states[rule_idx];
 
-        // Resolve the outbound for this rule
-        auto decision = resolve_route_action(rule.outbound, all_outbounds);
-
-        if (decision.is_skip) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
+        if (rs.action_type == RuleActionType::Skip) {
             continue;
         }
 
-        if (!decision.outbound.has_value() || !*decision.outbound) {
-            // Unknown outbound tag — skip
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        const Outbound* ob = *decision.outbound;
-
-        // For urltest outbounds, resolve to the currently selected child
-        std::string effective_tag = ob->tag;
-        const Outbound* effective_ob = ob;
-
-        if (ob->type == OutboundType::URLTEST) {
-            auto selections = firewall_state_.get_urltest_selections();
-            auto sel_it = selections.find(effective_tag);
-            if (sel_it != selections.end() && !sel_it->second.empty()) {
-                const Outbound* child = find_outbound(all_outbounds, sel_it->second);
-                if (child) {
-                    effective_ob = child;
-                    effective_tag = sel_it->second;
-                }
-            }
-        }
-
-        // Determine action based on effective outbound type
-        const bool is_blackhole = (effective_ob->type == OutboundType::BLACKHOLE);
-        const bool is_ignore    = (effective_ob->type == OutboundType::IGNORE);
-
-        if (is_ignore) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
-
-        RuleState rs;
-        rs.rule_index = rule_idx;
-        rs.list_names = rule.list;
-        rs.outbound_tag = rule.outbound;
-
-        if (is_blackhole) {
-            rs.action_type = RuleActionType::Drop;
-        } else {
-            rs.action_type = RuleActionType::Mark;
-            auto mark_it = outbound_marks_.find(effective_tag);
-            if (mark_it != outbound_marks_.end()) {
-                rs.fwmark = mark_it->second;
-            }
-        }
+        const bool is_blackhole = (rs.action_type == RuleActionType::Drop);
 
         // Create ipsets and stream entries for each list in the rule
         for (const auto& list_name : rule.list) {
@@ -514,11 +375,6 @@ void Daemon::apply_firewall() {
             firewall_->create_ipset(set6,  AF_INET6, 0);               // static, permanent
             firewall_->create_ipset(set4d, AF_INET,  dynamic_timeout); // dynamic, TTL
             firewall_->create_ipset(set6d, AF_INET6, dynamic_timeout); // dynamic, TTL
-            rs.set_names.push_back(set4);
-            rs.set_names.push_back(set6);
-            rs.set_names.push_back(set4d);
-            rs.set_names.push_back(set6d);
-
             // Stream IP/CIDR entries into the static sets (permanent, entry_timeout=-1)
             auto loader4 = firewall_->create_batch_loader(set4, -1);
             auto loader6 = firewall_->create_batch_loader(set6, -1);
@@ -576,8 +432,6 @@ void Daemon::apply_firewall() {
                 firewall_->create_mark_rule(set6d, rs.fwmark, filter);
             }
         }
-
-        rule_states.push_back(std::move(rs));
     }
 
     // DNS server detour: mark port-53 traffic for servers with a detour outbound

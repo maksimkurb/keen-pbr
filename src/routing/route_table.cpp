@@ -18,8 +18,9 @@ bool routes_equal(const RouteSpec& a, const RouteSpec& b) {
 
 } // anonymous namespace
 
-RouteTable::RouteTable(NetlinkManager& netlink)
-    : netlink_(netlink) {}
+RouteTable::RouteTable(NetlinkManager& netlink, bool dry_run)
+    : netlink_(netlink),
+      dry_run_(dry_run) {}
 
 RouteTable::~RouteTable() {
     // Best-effort cleanup on destruction
@@ -39,7 +40,9 @@ void RouteTable::add(const RouteSpec& spec) {
     if (is_tracked(spec)) {
         return;
     }
-    netlink_.add_route(spec);
+    if (!dry_run_) {
+        netlink_.add_route(spec);
+    }
     routes_.push_back(spec);
 }
 
@@ -49,7 +52,9 @@ void RouteTable::remove(const RouteSpec& spec) {
     if (it == routes_.end()) {
         return;
     }
-    netlink_.delete_route(spec);
+    if (!dry_run_) {
+        netlink_.delete_route(spec);
+    }
     routes_.erase(it);
 }
 
@@ -57,7 +62,9 @@ void RouteTable::clear() {
     // Remove in reverse order (last added first)
     for (auto it = routes_.rbegin(); it != routes_.rend(); ++it) {
         try {
-            netlink_.delete_route(*it);
+            if (!dry_run_) {
+                netlink_.delete_route(*it);
+            }
         } catch (...) {
             // Best effort: continue removing remaining routes
         }

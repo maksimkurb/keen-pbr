@@ -10,7 +10,8 @@ namespace keen_pbr3 {
 // Uses NetlinkManager for actual kernel operations.
 class RouteTable {
 public:
-    explicit RouteTable(NetlinkManager& netlink);
+    // If dry_run is true, add()/clear() only track specs and skip netlink ops.
+    explicit RouteTable(NetlinkManager& netlink, bool dry_run = false);
     ~RouteTable();
 
     // Non-copyable
@@ -34,6 +35,7 @@ public:
 
 private:
     NetlinkManager& netlink_;
+    bool dry_run_{false};
     std::vector<RouteSpec> routes_;
 
     // Check if an identical route is already tracked.

@@ -21,6 +21,7 @@
 
 #include "cache/cache_manager.hpp"
 #include "config/config.hpp"
+#include "cmd/status.hpp"
 #include "daemon/daemon.hpp"
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
@@ -110,6 +111,7 @@ struct CliOptions {
     std::string resolver_type;
     bool download_lists{false};
     bool resolver_config_hash{false};
+    bool run_status{false};
     bool show_help{false};
     bool show_version{false};
 };
@@ -126,6 +128,7 @@ void print_usage(const char* argv0) {
               << "\n"
               << "Commands:\n"
               << "  service                            Start the routing service (foreground)\n"
+              << "  status                             Show routing/firewall status and exit\n"
               << "  download                           Download all configured lists to cache and exit\n"
               << "  generate-resolver-config <res>     Print generated resolver config to stdout and exit\n"
               << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n"
@@ -155,6 +158,8 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.show_version = true;
         } else if (std::strcmp(argv[i], "service") == 0) {
             opts.run_service = true;
+        } else if (std::strcmp(argv[i], "status") == 0) {
+            opts.run_status = true;
         } else if (std::strcmp(argv[i], "generate-resolver-config") == 0) {
             if (i + 1 >= argc) {
                 std::cerr << "Error: generate-resolver-config requires a resolver argument\n";
@@ -202,7 +207,8 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (!opts.download_lists && !opts.generate_resolver_config && !opts.resolver_config_hash && !opts.run_service) {
+    if (!opts.download_lists && !opts.generate_resolver_config &&
+        !opts.resolver_config_hash && !opts.run_service && !opts.run_status) {
         print_usage(argv[0]);
         return 0;
     }
@@ -215,6 +221,10 @@ int main(int argc, char* argv[]) {
         // Load and parse configuration
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
+
+        if (opts.run_status) {
+            return keen_pbr3::run_status_command(config, opts.config_path);
+        }
 
         // Handle download command: download all lists to cache, count entries, exit
         if (opts.download_lists) {

@@ -16,8 +16,9 @@ bool rules_equal(const RuleSpec& a, const RuleSpec& b) {
 
 } // anonymous namespace
 
-PolicyRuleManager::PolicyRuleManager(NetlinkManager& netlink)
-    : netlink_(netlink) {}
+PolicyRuleManager::PolicyRuleManager(NetlinkManager& netlink, bool dry_run)
+    : netlink_(netlink),
+      dry_run_(dry_run) {}
 
 PolicyRuleManager::~PolicyRuleManager() {
     // Best-effort cleanup on destruction
@@ -37,7 +38,9 @@ void PolicyRuleManager::add(const RuleSpec& spec) {
     if (is_tracked(spec)) {
         return;
     }
-    netlink_.add_rule(spec);
+    if (!dry_run_) {
+        netlink_.add_rule(spec);
+    }
     rules_.push_back(spec);
 }
 
@@ -47,7 +50,9 @@ void PolicyRuleManager::remove(const RuleSpec& spec) {
     if (it == rules_.end()) {
         return;
     }
-    netlink_.delete_rule(spec);
+    if (!dry_run_) {
+        netlink_.delete_rule(spec);
+    }
     rules_.erase(it);
 }
 
@@ -55,7 +60,9 @@ void PolicyRuleManager::clear() {
     // Remove in reverse order (last added first)
     for (auto it = rules_.rbegin(); it != rules_.rend(); ++it) {
         try {
-            netlink_.delete_rule(*it);
+            if (!dry_run_) {
+                netlink_.delete_rule(*it);
+            }
         } catch (...) {
             // Best effort: continue removing remaining rules
         }
