@@ -159,6 +159,34 @@ Config parse_config(const std::string& json_str) {
         }
     }
 
+    // Validate: dns.servers[*].detour must reference an existing routable outbound
+    if (cfg.dns.has_value()) {
+        const auto& dns_servers =
+            cfg.dns->servers.value_or(std::vector<DnsServer>{});
+        for (const auto& srv : dns_servers) {
+            if (!srv.detour.has_value()) continue;
+            const std::string& dtag = srv.detour.value();
+            bool found = false;
+            for (const auto& ob : outbounds) {
+                if (ob.tag == dtag) {
+                    found = true;
+                    if (ob.type == OutboundType::BLACKHOLE ||
+                        ob.type == OutboundType::IGNORE) {
+                        throw ConfigError(
+                            "dns.servers[\"" + srv.tag + "\"].detour: outbound \""
+                            + dtag + "\" has no routing table");
+                    }
+                    break;
+                }
+            }
+            if (!found) {
+                throw ConfigError(
+                    "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
+                    + dtag + "\"");
+            }
+        }
+    }
+
     return cfg;
 }
 

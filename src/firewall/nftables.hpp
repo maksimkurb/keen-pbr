@@ -28,6 +28,8 @@ public:
     // Buffer a drop verdict rule that matches the given named set.
     void create_drop_rule(const std::string& set_name,
                           const ProtoPortFilter& filter = {}) override;
+    // Buffer a direct meta mark set rule matching dst IP/port (no named set).
+    void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
 
     // Return an NftBatchVisitor that appends element JSON objects to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -57,6 +59,7 @@ private:
     struct PendingRule {
         std::string set_name; // nftables set name to match (without '@' prefix)
         int family;  // AF_INET or AF_INET6
+        bool direct = false;  // if true, no @set match; dst comes from filter.dst_addr
         enum Action { Mark, Drop } action; // meta mark or drop verdict
         uint32_t fwmark; // only for Mark
         ProtoPortFilter filter; // optional proto/port filter

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -12,20 +13,30 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+struct ParsedDnsAddress {
+    std::string ip;       // bare IP, without brackets or port
+    uint16_t    port = 53;
+};
+
+// Parse "ip", "ip:port", "[ipv6]:port" → ParsedDnsAddress.
+// Throws DnsError on invalid format, invalid IP, or port out of range 1-65535.
+ParsedDnsAddress parse_dns_address_str(const std::string& address);
+
 struct DnsServerConfig {
     std::string tag;
-    std::string address;      // Original address string (IPv4 or IPv6)
+    std::string address;                   // original string
     std::optional<std::string> detour;
-    std::string resolved_ip;  // The validated IP address
+    std::string resolved_ip;               // bare IP (no port, no brackets)
+    uint16_t    port = 53;                 // parsed port, default 53
 };
 
 // Build a DnsServerConfig from a config-level DnsServer definition.
-// Only accepts valid IPv4 or IPv6 addresses; throws DnsError otherwise.
+// Accepts "ip", "ip:port", "[ipv6]:port"; throws DnsError otherwise.
 DnsServerConfig parse_dns_server(const std::string& tag,
                                   const std::string& address,
                                   const std::optional<std::string>& detour);
 
-// Validate a DNS server address (must be valid IPv4 or IPv6).
+// Validate a DNS server address (must be valid IPv4 or IPv6, with optional port).
 // Throws DnsError if invalid.
 void validate_dns_address(const std::string& address);
 

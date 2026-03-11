@@ -17,6 +17,7 @@ public:
   struct RuleDesc {
     std::string set_name;
     bool ipv6;
+    bool direct = false;
     enum Action { Mark, Drop } action;
     uint32_t fwmark;
     ProtoPortFilter filter;
@@ -40,6 +41,7 @@ public:
       IptablesFirewall::PendingRule pr;
       pr.set_name = d.set_name;
       pr.ipv6 = d.ipv6;
+      pr.direct = d.direct;
       pr.action = (d.action == RuleDesc::Mark)
                       ? IptablesFirewall::PendingRule::Mark
                       : IptablesFirewall::PendingRule::Drop;
@@ -68,12 +70,26 @@ using Rule = IptablesBuilderTest::RuleDesc;
 
 static Rule mark_rule(const std::string &set_name, bool ipv6, uint32_t fwmark,
                       ProtoPortFilter filter = {}) {
-  return {set_name, ipv6, Rule::Mark, fwmark, filter};
+  Rule r;
+  r.set_name = set_name;
+  r.ipv6 = ipv6;
+  r.direct = false;
+  r.action = Rule::Mark;
+  r.fwmark = fwmark;
+  r.filter = filter;
+  return r;
 }
 
 static Rule drop_rule(const std::string &set_name, bool ipv6,
                       ProtoPortFilter filter = {}) {
-  return {set_name, ipv6, Rule::Drop, 0, filter};
+  Rule r;
+  r.set_name = set_name;
+  r.ipv6 = ipv6;
+  r.direct = false;
+  r.action = Rule::Drop;
+  r.fwmark = 0;
+  r.filter = filter;
+  return r;
 }
 
 // =============================================================================
@@ -538,4 +554,55 @@ TEST_CASE("dual-set IPv6 mark rules: kpbr6_ and kpbr6d_ both matched") {
                                       mark_rule("kpbr6d_mylist", true, 0x200)});
   CHECK(s.find("--match-set kpbr6_mylist dst -j MARK --set-mark 0x200") != std::string::npos);
   CHECK(s.find("--match-set kpbr6d_mylist dst -j MARK --set-mark 0x200") != std::string::npos);
+}
+
+// Helper for direct (no-set) mark rules
+static Rule direct_mark_rule(bool ipv6, uint32_t fwmark, ProtoPortFilter filter = {}) {
+  Rule r;
+  r.set_name = "";
+  r.ipv6 = ipv6;
+  r.direct = true;
+  r.action = Rule::Mark;
+  r.fwmark = fwmark;
+  r.filter = filter;
+  return r;
+}
+
+// =============================================================================
+// create_direct_mark_rule / build_ipt_script with direct=true tests
+// =============================================================================
+
+TEST_CASE("build_ipt_script: direct mark rule IPv4 UDP dst port 53") {
+  ProtoPortFilter f;
+  f.proto = "udp";
+  f.dst_port = "53";
+  f.dst_addr = {"10.8.0.1"};
+  auto s = T::build_ipt_script(false, {direct_mark_rule(false, 0x10000, f)});
+  // Must NOT contain --match-set
+  CHECK(s.find("--match-set") == std::string::npos);
+  // Must contain dst addr and port
+  CHECK(s.find("-d 10.8.0.1") != std::string::npos);
+  CHECK(s.find("--dport 53") != std::string::npos);
+  CHECK(s.find("-j MARK --set-mark 0x10000") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: direct mark rule IPv4 TCP dst port 53") {
+  ProtoPortFilter f;
+  f.proto = "tcp";
+  f.dst_port = "53";
+  f.dst_addr = {"10.8.0.1"};
+  auto s = T::build_ipt_script(false, {direct_mark_rule(false, 0x10000, f)});
+  CHECK(s.find("--match-set") == std::string::npos);
+  CHECK(s.find("-d 10.8.0.1") != std::string::npos);
+  CHECK(s.find("-p tcp --dport 53") != std::string::npos);
+  CHECK(s.find("-j MARK --set-mark 0x10000") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: direct mark rule has no set_name reference") {
+  ProtoPortFilter f;
+  f.proto = "udp";
+  f.dst_addr = {"192.0.2.1"};
+  auto s = T::build_ipt_script(false, {direct_mark_rule(false, 0x20000, f)});
+  CHECK(s.find("--match-set") == std::string::npos);
+  CHECK(s.find("-d 192.0.2.1") != std::string::npos);
 }

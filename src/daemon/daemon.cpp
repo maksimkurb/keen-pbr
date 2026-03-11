@@ -15,6 +15,7 @@
 
 #include "../dns/dnsmasq_gen.hpp"
 #include "../dns/dns_router.hpp"
+#include "../dns/dns_server.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
@@ -577,6 +578,39 @@ void Daemon::apply_firewall() {
         }
 
         rule_states.push_back(std::move(rs));
+    }
+
+    // DNS server detour: mark port-53 traffic for servers with a detour outbound
+    if (config_.dns.has_value()) {
+        const auto& dns_servers =
+            config_.dns->servers.value_or(std::vector<DnsServer>{});
+        for (const auto& srv : dns_servers) {
+            if (!srv.detour.has_value()) continue;
+
+            const Outbound* detour_ob = find_outbound(all_outbounds, srv.detour.value());
+            if (!detour_ob) continue;
+
+            // Resolve URLTEST → selected child
+            std::string effective_tag = detour_ob->tag;
+            if (detour_ob->type == OutboundType::URLTEST) {
+                auto selections = firewall_state_.get_urltest_selections();
+                auto sel_it = selections.find(effective_tag);
+                if (sel_it != selections.end() && !sel_it->second.empty()) {
+                    const Outbound* child = find_outbound(all_outbounds, sel_it->second);
+                    if (child) effective_tag = child->tag;
+                }
+            }
+
+            auto mark_it = outbound_marks_.find(effective_tag);
+            if (mark_it == outbound_marks_.end()) continue;
+
+            auto parsed = parse_dns_address_str(srv.address);
+            ProtoPortFilter filter;
+            filter.proto    = "tcp/udp";
+            filter.dst_port = std::to_string(parsed.port);
+            filter.dst_addr = {parsed.ip};
+            firewall_->create_direct_mark_rule(mark_it->second, filter);
+        }
     }
 
     firewall_->apply();

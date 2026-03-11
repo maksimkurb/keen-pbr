@@ -28,6 +28,8 @@ public:
     // Buffer an iptables/ip6tables -j DROP rule for the given ipset.
     void create_drop_rule(const std::string& set_name,
                           const ProtoPortFilter& filter = {}) override;
+    // Buffer a direct iptables/ip6tables -j MARK rule matching dst IP/port (no ipset).
+    void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
 
     // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
     // element buffer for set_name; entries are flushed during apply().
@@ -61,6 +63,7 @@ private:
     struct PendingRule {
         std::string set_name; // ipset name to match with --match-set
         bool ipv6;            // true → ip6tables, false → iptables
+        bool direct = false;  // if true, no --match-set; dst comes from filter.dst_addr
         enum Action { Mark, Drop } action; // MARK or DROP target
         uint32_t fwmark; // only for Mark
         ProtoPortFilter filter; // optional proto/port filter

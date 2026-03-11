@@ -168,12 +168,14 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
         bool needs_ipset = ipset_lists.count(list_name) > 0;
 
         // Determine DNS server IP for this list (if a DNS rule maps it)
-        std::string dns_ip;
+        std::string  dns_ip;
+        uint16_t     dns_port = 53;
         auto dns_it = dns_list_servers.find(list_name);
         if (dns_it != dns_list_servers.end()) {
             const DnsServerConfig* server = dns_registry_.get_server(dns_it->second);
             if (server) {
-                dns_ip = server->resolved_ip;
+                dns_ip   = server->resolved_ip;
+                dns_port = server->port;
             }
         }
 
@@ -200,7 +202,10 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
                 }
             }
             if (!dns_ip.empty()) {
-                out << "server=" << domain_path << "/" << dns_ip << "\n";
+                std::string server_addr = dns_ip;
+                if (dns_port != 53)
+                    server_addr += "#" + std::to_string(dns_port);
+                out << "server=" << domain_path << "/" << server_addr << "\n";
             }
         }
 

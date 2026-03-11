@@ -30,7 +30,7 @@ Each server has a tag, an address, and an optional `detour`.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier for this DNS server |
-| `address` | string | yes | IPv4 or IPv6 address of the DNS server |
+| `address` | string | yes | IPv4 or IPv6 address of the DNS server, with optional port: `"8.8.8.8"`, `"8.8.8.8:5353"`, `"[::1]:5353"`. Default port: 53. |
 | `detour` | string | no | Outbound tag to use when querying this server |
 
 The `detour` field binds DNS queries for this server to a specific outbound. This ensures that DNS resolution goes through the same path as the routed traffic.
@@ -50,6 +50,24 @@ The `detour` field binds DNS queries for this server to a specific outbound. Thi
   ]
 }
 ```
+
+### How `detour` works
+
+When `detour` is set, keen-pbr3 installs a firewall mark rule for UDP **and**
+TCP traffic whose destination is `<server.address>:<server.port>` (default port
+53). The rule marks those packets with the fwmark of the referenced outbound,
+so the kernel routes DNS queries through that outbound's routing table — the
+same path as the tunnelled traffic.
+
+Rules are installed on both the **iptables** and **nftables** backends and are
+rebuilt on every `full_reload()` (SIGHUP, config API reload, or urltest
+selection change).
+
+`urltest` outbounds are supported: the rule always uses the fwmark of the
+currently selected child, so DNS detour follows interface failover automatically.
+
+`blackhole` and `ignore` outbounds cannot be used as `detour` targets and are
+rejected at config validation time.
 
 ## DNS Rules
 

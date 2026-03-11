@@ -73,6 +73,13 @@ public:
     virtual void create_drop_rule(const std::string& set_name,
                                   const ProtoPortFilter& filter = {}) = 0;
 
+    // Create a firewall rule that marks packets matching the filter's dst_addr
+    // with the specified fwmark, WITHOUT requiring an IP set.
+    // Used for DNS server detour (single IP + port 53).
+    // filter.dst_addr must be non-empty; filter.proto should be "tcp", "udp", or "tcp/udp".
+    virtual void create_direct_mark_rule(uint32_t fwmark,
+                                         const ProtoPortFilter& filter) = 0;
+
     // Create a batch loader visitor for streaming IP/CIDR entries into a set.
     // Returns a ListEntryVisitor that buffers entries for atomic application.
     // entry_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)

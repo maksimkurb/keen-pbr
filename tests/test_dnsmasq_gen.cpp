@@ -191,6 +191,39 @@ TEST_CASE("hash changes when server IP changes") {
     CHECK(hash1 != hash2);
 }
 
+TEST_CASE("server= directive includes #port when port != 53") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8:5353");
+    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/example.com/8.8.8.8#5353\n") != std::string::npos);
+}
+
+TEST_CASE("server= directive has no #port suffix for default port 53") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8");
+    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/example.com/8.8.8.8\n") != std::string::npos);
+    CHECK(output.find("#53") == std::string::npos);
+}
+
 TEST_CASE("hash changes when domain list content changes") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);

@@ -37,10 +37,12 @@ public:
 
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
                                              int family, uint32_t fwmark,
-                                             ProtoPortFilter filter = {}) {
+                                             ProtoPortFilter filter = {},
+                                             bool direct = false) {
     NftablesFirewall::PendingRule pr;
     pr.set_name = set_name;
     pr.family = family;
+    pr.direct = direct;
     pr.action = NftablesFirewall::PendingRule::Mark;
     pr.fwmark = fwmark;
     pr.filter = filter;
@@ -729,4 +731,75 @@ TEST_CASE("nft dual-set IPv6: kpbr6_ and kpbr6d_ both produce ip6 rules") {
   CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");
   CHECK(j_static["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr6_mylist");
   CHECK(j_dynamic["add"]["rule"]["expr"][0]["match"]["right"] == "@kpbr6d_mylist");
+}
+
+// =============================================================================
+// build_mark_rule_json with direct=true (no named set match)
+// =============================================================================
+
+TEST_CASE("build_mark_rule_json: direct=true → no @set match in expr") {
+  ProtoPortFilter f;
+  f.proto = "udp";
+  f.dst_port = "53";
+  f.dst_addr = {"10.8.0.1"};
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  const auto &expr = j["add"]["rule"]["expr"];
+  // No expression should reference "@..."
+  for (const auto &e : expr) {
+    if (e.contains("match") && e["match"]["right"].is_string()) {
+      CHECK(e["match"]["right"].get<std::string>().rfind('@', 0) != 0);
+    }
+  }
+}
+
+TEST_CASE("build_mark_rule_json: direct=true IPv4 UDP port 53 → daddr, l4proto, dport, counter, mangle") {
+  ProtoPortFilter f;
+  f.proto = "udp";
+  f.dst_port = "53";
+  f.dst_addr = {"10.8.0.1"};
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  const auto &expr = j["add"]["rule"]["expr"];
+  bool has_daddr = false, has_l4proto = false, has_dport = false, has_mangle = false;
+  for (const auto &e : expr) {
+    if (e.contains("match")) {
+      const auto &left = e["match"]["left"];
+      if (left.contains("payload") && left["payload"]["field"] == "daddr")
+        has_daddr = true;
+      if (left.contains("meta") && left["meta"]["key"] == "l4proto")
+        has_l4proto = true;
+      if (left.contains("payload") && left["payload"]["field"] == "dport")
+        has_dport = true;
+    }
+    if (e.contains("mangle"))
+      has_mangle = true;
+  }
+  CHECK(has_daddr);
+  CHECK(has_l4proto);
+  CHECK(has_dport);
+  CHECK(has_mangle);
+}
+
+TEST_CASE("build_mark_rule_json: direct=true → daddr matches server IP") {
+  ProtoPortFilter f;
+  f.proto = "tcp";
+  f.dst_port = "53";
+  f.dst_addr = {"10.8.0.1"};
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  const auto &expr = j["add"]["rule"]["expr"];
+  bool found_ip = false;
+  for (const auto &e : expr) {
+    if (e.contains("match") && e["match"]["left"].contains("payload") &&
+        e["match"]["left"]["payload"]["field"] == "daddr") {
+      CHECK(e["match"]["right"] == "10.8.0.1");
+      found_ip = true;
+    }
+  }
+  CHECK(found_ip);
+}
+
+TEST_CASE("build_mark_rule_json: direct=false → first expr is @set match (regression)") {
+  auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
+  const auto &expr = j["add"]["rule"]["expr"];
+  REQUIRE(!expr.empty());
+  CHECK(expr[0]["match"]["right"] == "@myset");
 }

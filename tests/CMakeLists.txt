@@ -6,6 +6,7 @@ add_executable(keen-pbr3-tests
   test_cron.cpp
   test_addr_spec.cpp
   test_dnsmasq_gen.cpp
+  test_dns_server.cpp
   test_config_validation.cpp
   ../src/config/config.cpp
   ../src/firewall/iptables_verifier.cpp

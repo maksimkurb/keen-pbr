@@ -298,7 +298,10 @@ components:
           example: "vpn-dns"
         address:
           type: string
-          description: IPv4 or IPv6 address of the DNS server.
+          description: >
+            IPv4 or IPv6 address of the DNS server, with optional port.
+            Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353".
+            Default port is 53.
           example: "10.8.0.1"
         detour:
           type: string

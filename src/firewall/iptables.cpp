@@ -81,6 +81,25 @@ void IptablesFirewall::create_drop_rule(const std::string& set_name,
     expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Drop, 0, filter);
 }
 
+void IptablesFirewall::create_direct_mark_rule(uint32_t fwmark,
+                                                const ProtoPortFilter& filter) {
+    bool is_v6 = !filter.dst_addr.empty() &&
+                 filter.dst_addr[0].find(':') != std::string::npos;
+    std::vector<std::string> protos = (filter.proto == "tcp/udp")
+        ? std::vector<std::string>{"tcp", "udp"}
+        : std::vector<std::string>{filter.proto};
+    for (const auto& proto : protos) {
+        PendingRule pr;
+        pr.direct  = true;
+        pr.ipv6    = is_v6;
+        pr.action  = PendingRule::Mark;
+        pr.fwmark  = fwmark;
+        pr.filter  = filter;
+        pr.filter.proto = proto;
+        pending_rules_.push_back(std::move(pr));
+    }
+}
+
 std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
     const std::string& set_name, int32_t entry_timeout) {
     auto& buf = pending_elements_[set_name];
@@ -191,12 +210,19 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
                                                    pr.filter.dst_port,
                                                    pr.filter.negate_src_port,
                                                    pr.filter.negate_dst_port);
-        if (pr.action == PendingRule::Mark) {
-            s += std::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
-                             CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
+        if (pr.direct) {
+            if (pr.action == PendingRule::Mark)
+                s += std::format("-A {}{}{} -j MARK --set-mark {:#x}\n",
+                                 CHAIN_NAME, addr_frag, pp, pr.fwmark);
+            else
+                s += std::format("-A {}{}{} -j DROP\n", CHAIN_NAME, addr_frag, pp);
         } else {
-            s += std::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
-                             CHAIN_NAME, pr.set_name, addr_frag, pp);
+            if (pr.action == PendingRule::Mark)
+                s += std::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
+                                 CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
+            else
+                s += std::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
+                                 CHAIN_NAME, pr.set_name, addr_frag, pp);
         }
     }
     s += "COMMIT\n";

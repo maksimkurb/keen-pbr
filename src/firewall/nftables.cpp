@@ -58,6 +58,26 @@ void NftablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fw
     }
 }
 
+void NftablesFirewall::create_direct_mark_rule(uint32_t fwmark,
+                                                const ProtoPortFilter& filter) {
+    bool is_v6 = !filter.dst_addr.empty() &&
+                 filter.dst_addr[0].find(':') != std::string::npos;
+    int family = is_v6 ? AF_INET6 : AF_INET;
+    std::vector<std::string> protos = (filter.proto == "tcp/udp")
+        ? std::vector<std::string>{"tcp", "udp"}
+        : std::vector<std::string>{filter.proto};
+    for (const auto& proto : protos) {
+        PendingRule pr;
+        pr.direct  = true;
+        pr.family  = family;
+        pr.action  = PendingRule::Mark;
+        pr.fwmark  = fwmark;
+        pr.filter  = filter;
+        pr.filter.proto = proto;
+        pending_rules_.push_back(std::move(pr));
+    }
+}
+
 void NftablesFirewall::create_drop_rule(const std::string& set_name,
                                          const ProtoPortFilter& filter) {
     auto it = created_sets_.find(set_name);
@@ -217,7 +237,10 @@ nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_pr
 nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
-    expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    if (!pr.direct) {
+        // set-membership match
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    }
     // Append src/dst address constraints
     for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
                                                  pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
