@@ -73,12 +73,13 @@ struct DisplayFirewallRule {
 std::string format_route_brief(const RouteTableCheck& rt) {
     std::string desc = std::format("table={} ", rt.table_id);
     const std::string route_type = rt.expected_route_type.value_or("unicast");
+    const std::string destination = rt.expected_destination.value_or("default");
     if (route_type == "blackhole") {
-        desc += "blackhole default";
+        desc += "blackhole " + destination;
     } else if (route_type == "unreachable") {
-        desc += "unreachable default";
+        desc += "unreachable " + destination;
     } else {
-        desc += "default";
+        desc += destination;
         if (rt.expected_interface) {
             desc += std::format(" dev {}", *rt.expected_interface);
         }

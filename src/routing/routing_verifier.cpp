@@ -65,6 +65,7 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
     RouteTableCheck result;
     result.table_id       = expected.table;
     result.outbound_tag   = outbound_tag;
+    result.expected_destination = expected.destination;
     result.expected_interface = expected.interface;
     result.expected_gateway   = expected.gateway;
     if (expected.metric != 0) {

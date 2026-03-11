@@ -788,6 +788,10 @@ components:
           type: string
           description: Outbound tag associated with this table.
           example: "vpn0"
+        expected_destination:
+          type: string
+          description: Expected route destination. Present when known.
+          example: "default"
         expected_interface:
           type: string
           description: Expected egress interface. Present when configured.

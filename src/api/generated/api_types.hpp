@@ -287,6 +287,7 @@ namespace api {
     struct RouteTableCheck {
         bool default_route_present;
         std::optional<std::string> detail;
+        std::optional<std::string> expected_destination;
         std::optional<std::string> expected_gateway;
         std::optional<std::string> expected_interface;
         std::optional<int64_t> expected_metric;
@@ -866,6 +867,7 @@ namespace api {
     inline void from_json(const json & j, RouteTableCheck& x) {
         x.default_route_present = j.at("default_route_present").get<bool>();
         x.detail = get_stack_optional<std::string>(j, "detail");
+        x.expected_destination = get_stack_optional<std::string>(j, "expected_destination");
         x.expected_gateway = get_stack_optional<std::string>(j, "expected_gateway");
         x.expected_interface = get_stack_optional<std::string>(j, "expected_interface");
         x.expected_metric = get_stack_optional<int64_t>(j, "expected_metric");
@@ -882,6 +884,7 @@ namespace api {
         j = json::object();
         j["default_route_present"] = x.default_route_present;
         j["detail"] = x.detail;
+        j["expected_destination"] = x.expected_destination;
         j["expected_gateway"] = x.expected_gateway;
         j["expected_interface"] = x.expected_interface;
         j["expected_metric"] = x.expected_metric;

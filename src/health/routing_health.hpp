@@ -31,6 +31,7 @@ struct FirewallRuleCheck {
 struct RouteTableCheck {
     uint32_t table_id{0};
     std::string outbound_tag;
+    std::optional<std::string> expected_destination;
     std::optional<std::string> expected_interface;
     std::optional<std::string> expected_gateway;
     std::optional<uint32_t> expected_metric;

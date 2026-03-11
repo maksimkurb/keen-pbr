@@ -13,10 +13,26 @@ namespace keen_pbr3 {
 
 namespace {
 
-std::string expected_route_type(const RouteSpec& spec) {
+std::string route_type_label(const RouteSpec& spec) {
     if (spec.unreachable) return "unreachable";
     if (spec.blackhole) return "blackhole";
     return "unicast";
+}
+
+std::string route_type_label(const DumpedRoute& route) {
+    if (route.unreachable) return "unreachable";
+    if (route.blackhole) return "blackhole";
+    return "unicast";
+}
+
+bool route_matches(const RouteSpec& expected, const DumpedRoute& actual) {
+    return expected.destination == actual.destination &&
+           expected.interface == actual.interface &&
+           expected.gateway == actual.gateway &&
+           expected.blackhole == actual.blackhole &&
+           expected.unreachable == actual.unreachable &&
+           expected.metric == actual.metric &&
+           (expected.family == 0 || expected.family == actual.family);
 }
 
 } // anonymous namespace
@@ -75,49 +91,55 @@ RoutingHealthReport RoutingHealthChecker::check() const {
             }
         }
 
-        // 5. Verify route tables
-        std::map<uint32_t, bool> expected_unreachable_by_table;
+        // 5. Verify route tables and detect unexpected live routes.
+        std::map<uint32_t, std::vector<RouteSpec>> expected_routes_by_table;
         for (const auto& spec : route_table_.get_routes()) {
             std::string outbound_tag;
             auto it = table_to_outbound.find(spec.table);
             if (it != table_to_outbound.end()) {
                 outbound_tag = it->second;
             }
-            if (spec.unreachable) {
-                expected_unreachable_by_table[spec.table] = true;
-            } else if (!expected_unreachable_by_table.contains(spec.table)) {
-                expected_unreachable_by_table[spec.table] = false;
-            }
+            expected_routes_by_table[spec.table].push_back(spec);
             report.route_tables.push_back(rv.verify_route_table(spec, outbound_tag));
         }
 
-        for (const auto& [table_id, expects_unreachable] : expected_unreachable_by_table) {
-            if (expects_unreachable) {
-                continue;
-            }
+        for (const auto& [table_id, expected_routes] : expected_routes_by_table) {
             auto routes = netlink_.dump_routes_in_table(table_id);
-            auto unexpected = std::find_if(routes.begin(), routes.end(),
-                                           [](const DumpedRoute& route) {
-                                               return route.destination == "default" &&
-                                                      route.unreachable;
-                                           });
-            if (unexpected == routes.end()) {
-                continue;
+            std::vector<bool> matched(routes.size(), false);
+
+            for (const auto& expected : expected_routes) {
+                for (size_t i = 0; i < routes.size(); ++i) {
+                    if (matched[i]) continue;
+                    if (route_matches(expected, routes[i])) {
+                        matched[i] = true;
+                        break;
+                    }
+                }
             }
 
-            RouteTableCheck extra_check;
-            extra_check.table_id = table_id;
-            extra_check.outbound_tag = table_to_outbound.contains(table_id)
-                ? table_to_outbound.at(table_id)
-                : "";
-            extra_check.table_exists = true;
-            extra_check.default_route_present = true;
-            extra_check.interface_matches = true;
-            extra_check.gateway_matches = true;
-            extra_check.expected_route_type = "unreachable";
-            extra_check.status = CheckStatus::mismatch;
-            extra_check.detail = "unexpected unreachable default route present in table";
-            report.route_tables.push_back(std::move(extra_check));
+            for (size_t i = 0; i < routes.size(); ++i) {
+                if (matched[i]) continue;
+
+                RouteTableCheck extra_check;
+                extra_check.table_id = table_id;
+                extra_check.outbound_tag = table_to_outbound.contains(table_id)
+                    ? table_to_outbound.at(table_id)
+                    : "";
+                extra_check.expected_destination = routes[i].destination;
+                extra_check.expected_interface = routes[i].interface;
+                extra_check.expected_gateway = routes[i].gateway;
+                if (routes[i].metric != 0) {
+                    extra_check.expected_metric = routes[i].metric;
+                }
+                extra_check.expected_route_type = route_type_label(routes[i]);
+                extra_check.table_exists = true;
+                extra_check.default_route_present = (routes[i].destination == "default");
+                extra_check.interface_matches = true;
+                extra_check.gateway_matches = true;
+                extra_check.status = CheckStatus::mismatch;
+                extra_check.detail = "unexpected route present in table";
+                report.route_tables.push_back(std::move(extra_check));
+            }
         }
 
         // 6. Verify policy rules
@@ -234,6 +256,7 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
         arc.interface_matches    = rt.interface_matches;
         arc.gateway_matches      = rt.gateway_matches;
         arc.status               = to_api_check_status(rt.status);
+        if (rt.expected_destination) arc.expected_destination = *rt.expected_destination;
         if (rt.expected_interface) arc.expected_interface = *rt.expected_interface;
         if (rt.expected_gateway)   arc.expected_gateway   = *rt.expected_gateway;
         if (rt.expected_metric)    arc.expected_metric    = static_cast<int64_t>(*rt.expected_metric);
