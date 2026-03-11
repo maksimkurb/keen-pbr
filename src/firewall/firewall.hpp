@@ -77,7 +77,7 @@ public:
     // Create a firewall rule that marks packets matching the filter's dst_addr
     // with the specified fwmark, WITHOUT requiring an IP set.
     // Used for DNS server detour (single IP + port 53).
-    // filter.dst_addr must be non-empty; filter.proto should be "tcp", "udp", or "tcp/udp".
+    // When filter is empty (all fields default), acts as a catch-all mark rule.
     virtual void create_direct_mark_rule(uint32_t fwmark,
                                          const ProtoPortFilter& filter) = 0;
 

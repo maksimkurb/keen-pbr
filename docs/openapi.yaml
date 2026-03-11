@@ -86,6 +86,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/routing/test:
+    post:
+      summary: Test routing for an IP or domain
+      description: >
+        Resolves the target (if a domain name), scans configured route rules
+        against cached list data to determine the expected outbound, and
+        queries the live kernel firewall sets to determine the actual outbound.
+        Useful for diagnosing routing mismatches without restarting the daemon.
+      operationId: postRoutingTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutingTestRequest"
+      responses:
+        "200":
+          description: Routing test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingTestResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/health/routing:
     get:
       summary: Routing and firewall health
@@ -413,10 +442,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RouteRule"
-        fallback:
-          type: string
-          description: Outbound tag for traffic that matches no rule.
-          example: "wan"
 
     FwmarkConfig:
       type: object
@@ -564,7 +589,98 @@ components:
               outbound: "vpn"
             - list: ["local-list"]
               outbound: "auto-select"
-          fallback: "wan"
+
+    # -------------------------------------------------------------------------
+    # /api/routing/test
+    # -------------------------------------------------------------------------
+
+    RoutingTestRequest:
+      type: object
+      required: [target]
+      properties:
+        target:
+          type: string
+          description: IP address or domain name to test routing for.
+          example: "www.google.com"
+
+    RoutingTestListMatch:
+      type: object
+      required: [list, via]
+      properties:
+        list:
+          type: string
+          description: Name of the list that matched.
+          example: "my-domains"
+        via:
+          type: string
+          description: >
+            The specific entry that triggered the match: an IP address, CIDR,
+            or domain name. For domain queries the most-specific matching
+            parent domain is shown (e.g. "google.com" when querying
+            "www.google.com").
+          example: "google.com"
+
+    RoutingTestEntry:
+      type: object
+      required: [ip, expected_outbound, actual_outbound, ok]
+      properties:
+        ip:
+          type: string
+          description: IP address being tested.
+          example: "142.250.74.4"
+        list_match:
+          $ref: "#/components/schemas/RoutingTestListMatch"
+          description: >
+            Details of the list entry that matched. Absent when no rule matched.
+        expected_outbound:
+          type: string
+          description: >
+            Outbound tag determined by scanning route rules against cached list
+            data. "(default)" when no rule matches.
+          example: "vpn"
+        actual_outbound:
+          type: string
+          description: >
+            Outbound tag found in the live kernel firewall sets.
+            "(default)" when the IP is not present in any set.
+            "(unknown)" when the firewall tool is unavailable.
+          example: "vpn"
+        ok:
+          type: boolean
+          description: true when expected_outbound equals actual_outbound.
+          example: true
+
+    RoutingTestResponse:
+      type: object
+      required: [target, is_domain, resolved_ips, warnings, results]
+      properties:
+        target:
+          type: string
+          description: The original input value passed to the test.
+          example: "www.google.com"
+        is_domain:
+          type: boolean
+          description: true when the target was interpreted as a domain name.
+          example: true
+        resolved_ips:
+          type: array
+          description: >
+            IP addresses resolved from the domain via DNS. Empty array for
+            IP targets.
+          items:
+            type: string
+          example: ["142.250.74.4", "2a00:1450:4001:82e::2004"]
+        warnings:
+          type: array
+          description: Non-fatal warnings such as DNS resolution failures.
+          items:
+            type: string
+          example: []
+        results:
+          type: array
+          description: Per-IP routing test results.
+          items:
+            $ref: "#/components/schemas/RoutingTestEntry"
 
     # -------------------------------------------------------------------------
     # Internal: cache metadata (not exposed via API paths)

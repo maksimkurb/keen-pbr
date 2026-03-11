@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbr3Types0YudOu data = nlohmann::json::parse(jsonString);
+//     KeenPbr3Types1IMb9D data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -197,7 +197,6 @@ namespace api {
     };
 
     struct Route {
-        std::optional<std::string> fallback;
         std::optional<std::vector<RouteRuleElement>> rules;
     };
 
@@ -320,7 +319,32 @@ namespace api {
         std::vector<RouteTableCheck> route_tables;
     };
 
-    struct KeenPbr3Types0YudOu {
+    struct ListMatch {
+        std::string list;
+        std::string via;
+    };
+
+    struct RoutingTestEntry {
+        std::string actual_outbound;
+        std::string expected_outbound;
+        std::string ip;
+        std::optional<ListMatch> list_match;
+        bool ok;
+    };
+
+    struct RoutingTestRequest {
+        std::string target;
+    };
+
+    struct RoutingTestResponse {
+        bool is_domain;
+        std::vector<std::string> resolved_ips;
+        std::vector<RoutingTestEntry> results;
+        std::string target;
+        std::vector<std::string> warnings;
+    };
+
+    struct KeenPbr3Types1IMb9D {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -351,6 +375,10 @@ namespace api {
         std::optional<RouteTableCheck> route_table_check;
         std::optional<RoutingHealthErrorResponse> routing_health_error_response;
         std::optional<RoutingHealthResponse> routing_health_response;
+        std::optional<RoutingTestEntry> routing_test_entry;
+        std::optional<ListMatch> routing_test_list_match;
+        std::optional<RoutingTestRequest> routing_test_request;
+        std::optional<RoutingTestResponse> routing_test_response;
     };
 }
 }
@@ -444,8 +472,20 @@ namespace api {
     void from_json(const json & j, RoutingHealthResponse & x);
     void to_json(json & j, const RoutingHealthResponse & x);
 
-    void from_json(const json & j, KeenPbr3Types0YudOu & x);
-    void to_json(json & j, const KeenPbr3Types0YudOu & x);
+    void from_json(const json & j, ListMatch & x);
+    void to_json(json & j, const ListMatch & x);
+
+    void from_json(const json & j, RoutingTestEntry & x);
+    void to_json(json & j, const RoutingTestEntry & x);
+
+    void from_json(const json & j, RoutingTestRequest & x);
+    void to_json(json & j, const RoutingTestRequest & x);
+
+    void from_json(const json & j, RoutingTestResponse & x);
+    void to_json(json & j, const RoutingTestResponse & x);
+
+    void from_json(const json & j, KeenPbr3Types1IMb9D & x);
+    void to_json(json & j, const KeenPbr3Types1IMb9D & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -694,13 +734,11 @@ namespace api {
     }
 
     inline void from_json(const json & j, Route& x) {
-        x.fallback = get_stack_optional<std::string>(j, "fallback");
         x.rules = get_stack_optional<std::vector<RouteRuleElement>>(j, "rules");
     }
 
     inline void to_json(json & j, const Route & x) {
         j = json::object();
-        j["fallback"] = x.fallback;
         j["rules"] = x.rules;
     }
 
@@ -927,7 +965,61 @@ namespace api {
         j["route_tables"] = x.route_tables;
     }
 
-    inline void from_json(const json & j, KeenPbr3Types0YudOu& x) {
+    inline void from_json(const json & j, ListMatch& x) {
+        x.list = j.at("list").get<std::string>();
+        x.via = j.at("via").get<std::string>();
+    }
+
+    inline void to_json(json & j, const ListMatch & x) {
+        j = json::object();
+        j["list"] = x.list;
+        j["via"] = x.via;
+    }
+
+    inline void from_json(const json & j, RoutingTestEntry& x) {
+        x.actual_outbound = j.at("actual_outbound").get<std::string>();
+        x.expected_outbound = j.at("expected_outbound").get<std::string>();
+        x.ip = j.at("ip").get<std::string>();
+        x.list_match = get_stack_optional<ListMatch>(j, "list_match");
+        x.ok = j.at("ok").get<bool>();
+    }
+
+    inline void to_json(json & j, const RoutingTestEntry & x) {
+        j = json::object();
+        j["actual_outbound"] = x.actual_outbound;
+        j["expected_outbound"] = x.expected_outbound;
+        j["ip"] = x.ip;
+        j["list_match"] = x.list_match;
+        j["ok"] = x.ok;
+    }
+
+    inline void from_json(const json & j, RoutingTestRequest& x) {
+        x.target = j.at("target").get<std::string>();
+    }
+
+    inline void to_json(json & j, const RoutingTestRequest & x) {
+        j = json::object();
+        j["target"] = x.target;
+    }
+
+    inline void from_json(const json & j, RoutingTestResponse& x) {
+        x.is_domain = j.at("is_domain").get<bool>();
+        x.resolved_ips = j.at("resolved_ips").get<std::vector<std::string>>();
+        x.results = j.at("results").get<std::vector<RoutingTestEntry>>();
+        x.target = j.at("target").get<std::string>();
+        x.warnings = j.at("warnings").get<std::vector<std::string>>();
+    }
+
+    inline void to_json(json & j, const RoutingTestResponse & x) {
+        j = json::object();
+        j["is_domain"] = x.is_domain;
+        j["resolved_ips"] = x.resolved_ips;
+        j["results"] = x.results;
+        j["target"] = x.target;
+        j["warnings"] = x.warnings;
+    }
+
+    inline void from_json(const json & j, KeenPbr3Types1IMb9D& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -958,9 +1050,13 @@ namespace api {
         x.route_table_check = get_stack_optional<RouteTableCheck>(j, "RouteTableCheck");
         x.routing_health_error_response = get_stack_optional<RoutingHealthErrorResponse>(j, "RoutingHealthErrorResponse");
         x.routing_health_response = get_stack_optional<RoutingHealthResponse>(j, "RoutingHealthResponse");
+        x.routing_test_entry = get_stack_optional<RoutingTestEntry>(j, "RoutingTestEntry");
+        x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
+        x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
+        x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
     }
 
-    inline void to_json(json & j, const KeenPbr3Types0YudOu & x) {
+    inline void to_json(json & j, const KeenPbr3Types1IMb9D & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -992,6 +1088,10 @@ namespace api {
         j["RouteTableCheck"] = x.route_table_check;
         j["RoutingHealthErrorResponse"] = x.routing_health_error_response;
         j["RoutingHealthResponse"] = x.routing_health_response;
+        j["RoutingTestEntry"] = x.routing_test_entry;
+        j["RoutingTestListMatch"] = x.routing_test_list_match;
+        j["RoutingTestRequest"] = x.routing_test_request;
+        j["RoutingTestResponse"] = x.routing_test_response;
     }
 
     inline void from_json(const json & j, CheckStatus & x) {

@@ -266,7 +266,9 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
 nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
-    expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    if (!pr.direct) {
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    }
     // Append src/dst address constraints
     for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
                                                  pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {

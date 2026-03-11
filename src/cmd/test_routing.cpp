@@ -169,10 +169,6 @@ find_expected_outbound(const Config& config,
         }
     }
 
-    const auto& route = config.route.value_or(RouteConfig{});
-    if (route.fallback.has_value()) {
-        return {*route.fallback, std::nullopt};
-    }
     return {"(default)", std::nullopt};
 }
 
