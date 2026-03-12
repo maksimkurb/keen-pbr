@@ -1,0 +1,170 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  line-height: 1.4;
+  color: #111;
+  background: #fff;
+}
+
+a {
+  color: #0645ad;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid #ccc;
+  padding: 16px;
+}
+
+.sidebar h1 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+.sidebar nav a {
+  display: block;
+  margin: 8px 0;
+}
+
+.main {
+  padding: 16px 24px 48px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ccc;
+}
+
+.topbar-actions,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.grid-2,
+.grid-3 {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.panel {
+  border: 1px solid #bbb;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.panel h2,
+.panel h3 {
+  margin-top: 0;
+}
+
+.status-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.status {
+  border: 1px solid #999;
+  padding: 2px 8px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  padding: 6px 8px;
+}
+
+textarea {
+  min-height: 80px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+th,
+td {
+  border: 1px solid #ccc;
+  text-align: left;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.subnav {
+  margin-bottom: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.subnav a {
+  margin-right: 12px;
+}
+
+.muted {
+  color: #555;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.list-box {
+  border: 1px dashed #aaa;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .app-shell,
+  .split,
+  .grid-2,
+  .grid-3,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

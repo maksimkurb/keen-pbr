@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>keen-pbr3 Wireframe - General Config</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>keen-pbr3</h1>
+        <nav>
+          <a href="./overview.html">Overview</a>
+          <a href="./configuration.html">Configuration</a>
+          <a href="./config-general.html">General config</a>
+          <a href="./config-lists.html">Lists</a>
+          <a href="./config-outbounds.html">Outbounds</a>
+          <a href="./config-dns.html">DNS</a>
+          <a href="./config-routing-rules.html">Routing rules</a>
+          <a href="./index.html">Wireframe index</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h2>General Config</h2>
+            <p class="muted">Daemon, advanced routing defaults, and global list refresh settings.</p>
+          </div>
+          <div class="topbar-actions">
+            <a href="./configuration.html">Back to config hub</a>
+            <button>Save and reload</button>
+          </div>
+        </div>
+
+        <section class="panel">
+          <h2>Daemon</h2>
+          <div class="form-grid">
+            <div class="field">
+              <label>Global strict enforcement</label>
+              <select>
+                <option>Enabled</option>
+                <option selected>Disabled</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Lists autoupdate</h2>
+          <div class="form-grid">
+            <div class="field">
+              <label>Enabled</label>
+              <select>
+                <option selected>Enabled</option>
+                <option>Disabled</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Cron</label>
+              <input type="text" value="0 4 * * *" />
+              <div class="muted">Global schedule for refreshing remote lists.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Advanced settings</h2>
+          <div class="form-grid">
+            <div class="field">
+              <label>fwmark start</label>
+              <input type="text" value="0x00010000" />
+              <div class="muted">First fwmark assigned to outbounds. Enter as hexadecimal value.</div>
+            </div>
+            <div class="field">
+              <label>fwmark mask</label>
+              <input type="text" value="0x00ff0000" />
+              <div class="muted">Hex only. Value must contain one consecutive run of `f` digits, for example `0x00ff0000`.</div>
+            </div>
+            <div class="field">
+              <label>iproute table start</label>
+              <input type="number" value="150" />
+              <div class="muted">Base routing table number used when assigning per-outbound policy tables.</div>
+            </div>
+            <div class="field full">
+              <label>fwmark mask input component</label>
+              <input type="text" value="React field: invalid characters are blocked during typing" readonly />
+              <div class="muted">
+                This is a specialized input component, not a free text helper. It should forbid
+                non-hex characters and reject masks that do not contain one continuous `f` range.
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

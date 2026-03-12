@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>keen-pbr3 Wireframe - Lists</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>keen-pbr3</h1>
+        <nav>
+          <a href="./overview.html">Overview</a>
+          <a href="./configuration.html">Configuration</a>
+          <a href="./config-general.html">General config</a>
+          <a href="./config-lists.html">Lists</a>
+          <a href="./config-outbounds.html">Outbounds</a>
+          <a href="./config-dns.html">DNS</a>
+          <a href="./config-routing-rules.html">Routing rules</a>
+          <a href="./index.html">Wireframe index</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h2>Lists</h2>
+            <p class="muted">List inventory and single-list create/edit flow.</p>
+          </div>
+          <div class="topbar-actions">
+            <a href="./configuration.html">Back to config hub</a>
+            <button>Add list</button>
+          </div>
+        </div>
+
+        <section class="panel">
+          <h2>Lists table</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Source</th>
+                <th>TTL</th>
+                <th>Last updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>my-domains</td>
+                <td>inline domains</td>
+                <td>86400000</td>
+                <td>2026-03-12 13:21</td>
+                <td><button>Edit</button> <button>Delete</button></td>
+              </tr>
+              <tr>
+                <td>remote-list</td>
+                <td>remote URL</td>
+                <td>0</td>
+                <td>2026-03-12 04:00</td>
+                <td><button>Edit</button> <button>Delete</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="split">
+          <section class="panel">
+            <h3>Create list modal</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>Name</label>
+                <input type="text" placeholder="my-list" />
+              </div>
+              <div class="field">
+                <label>TTL (ms)</label>
+                <input type="number" value="0" />
+                <div class="muted">How long dynamically resolved IPs should stay in cache-backed sets before expiring. `0` means no timeout.</div>
+              </div>
+            </div>
+            <div class="button-row">
+              <button>Continue</button>
+              <button>Cancel</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Edit list modal: my-domains</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>Name</label>
+                <input type="text" value="my-domains" />
+              </div>
+              <div class="field">
+                <label>TTL (ms)</label>
+                <input type="number" value="86400000" />
+                <div class="muted">How long dynamically resolved IPs should stay in cache-backed sets before expiring. `0` means no timeout.</div>
+              </div>
+              <div class="field full">
+                <label>Remote URL</label>
+                <input type="text" placeholder="Optional URL source" />
+              </div>
+              <div class="field full">
+                <label>Local file path</label>
+                <input type="text" placeholder="Optional file source" />
+              </div>
+              <div class="field full">
+                <label>Domains</label>
+                <textarea placeholder="example.com&#10;*.example.org"></textarea>
+                <div class="muted">If you write `example.com`, all subdomains are automatically included.</div>
+              </div>
+              <div class="field full">
+                <label>IP CIDRs</label>
+                <textarea placeholder="93.184.216.34&#10;10.0.0.0/8&#10;2001:db8::/32"></textarea>
+              </div>
+            </div>
+            <div class="button-row">
+              <button>Save list</button>
+              <button>Cancel</button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

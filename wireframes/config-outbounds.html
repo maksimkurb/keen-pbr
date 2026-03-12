@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>keen-pbr3 Wireframe - Outbounds</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <h1>keen-pbr3</h1>
+        <nav>
+          <a href="./overview.html">Overview</a>
+          <a href="./configuration.html">Configuration</a>
+          <a href="./config-general.html">General config</a>
+          <a href="./config-lists.html">Lists</a>
+          <a href="./config-outbounds.html">Outbounds</a>
+          <a href="./config-dns.html">DNS</a>
+          <a href="./config-routing-rules.html">Routing rules</a>
+          <a href="./index.html">Wireframe index</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h2>Outbounds</h2>
+            <p class="muted">Outbound inventory and single-outbound create/edit flow.</p>
+          </div>
+          <div class="topbar-actions">
+            <a href="./configuration.html">Back to config hub</a>
+            <button>Add outbound</button>
+          </div>
+        </div>
+
+        <section class="panel">
+          <h2>Outbounds table</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Tag</th>
+                <th>Type</th>
+                <th>Main details</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>vpn</td>
+                <td>interface</td>
+                <td>tun0, gateway 10.8.0.1</td>
+                <td><button>Edit</button> <button>Delete</button></td>
+              </tr>
+              <tr>
+                <td>wan</td>
+                <td>interface</td>
+                <td>eth0, gateway 192.168.1.1</td>
+                <td><button>Edit</button> <button>Delete</button></td>
+              </tr>
+              <tr>
+                <td>auto-select</td>
+                <td>urltest</td>
+                <td>2 groups, probe URL configured</td>
+                <td><button>Edit</button> <button>Delete</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="split">
+          <section class="panel">
+            <h3>Create outbound modal</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>Tag</label>
+                <input type="text" placeholder="vpn" />
+              </div>
+              <div class="field">
+                <label>Type</label>
+                <select>
+                  <option selected>Select type</option>
+                  <option>interface</option>
+                  <option>table</option>
+                  <option>blackhole</option>
+                  <option>ignore</option>
+                  <option>urltest</option>
+                </select>
+              </div>
+            </div>
+            <div class="button-row">
+              <button>Continue</button>
+              <button>Cancel</button>
+            </div>
+            <p class="muted">After Continue, show the type-specific fields. Tag becomes read-only after creation.</p>
+          </section>
+
+          <section class="panel">
+            <h3>Edit outbound modal: auto-select</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>Tag</label>
+                <input type="text" value="auto-select" readonly />
+              </div>
+              <div class="field">
+                <label>Type</label>
+                <select>
+                  <option>interface</option>
+                  <option>table</option>
+                  <option>blackhole</option>
+                  <option>ignore</option>
+                  <option selected>urltest</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Strict enforcement</label>
+                <select>
+                  <option selected>Default (as in global config)</option>
+                  <option>Enabled</option>
+                  <option>Disabled</option>
+                </select>
+              </div>
+            </div>
+
+            <h4>Outbound groups</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Weight</th>
+                  <th>Outbounds</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input type="number" value="1" /></td>
+                  <td>
+                    <div class="button-row">
+                      <input type="text" value="Search outbound..." />
+                      <button>Open combobox</button>
+                    </div>
+                    <div class="muted">Selected: vpn, wan</div>
+                  </td>
+                  <td><button>Delete group</button></td>
+                </tr>
+                <tr>
+                  <td><input type="number" value="2" /></td>
+                  <td>
+                    <div class="button-row">
+                      <input type="text" value="Search outbound..." />
+                      <button>Open combobox</button>
+                    </div>
+                    <div class="muted">Selected: wan</div>
+                  </td>
+                  <td><button>Delete group</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="button-row">
+              <button>Add outbound group</button>
+            </div>
+
+            <h4>Probing</h4>
+            <div class="form-grid">
+              <div class="field full">
+                <label>Probe URL</label>
+                <input type="text" value="https://www.gstatic.com/generate_204" />
+              </div>
+              <div class="field">
+                <label>Interval (ms)</label>
+                <input type="number" value="180000" />
+                <div class="muted">Interval between probes.</div>
+              </div>
+              <div class="field">
+                <label>Tolerance (ms)</label>
+                <input type="number" value="100" />
+                <div class="muted">
+                  If latency difference between two outbounds is not larger than this value,
+                  destination would not change. Avoid setting low values to prevent frequent
+                  outbound interface change.
+                </div>
+              </div>
+            </div>
+
+            <h4>Retry on fail</h4>
+            <div class="form-grid">
+              <div class="field">
+                <label>Attempts</label>
+                <input type="number" value="3" />
+                <div class="muted">
+                  How much times we should retry request to provided URL before considering
+                  outbound as degraded.
+                </div>
+              </div>
+              <div class="field">
+                <label>Interval (ms)</label>
+                <input type="number" value="1000" />
+                <div class="muted">Interval between retries (only if last request was failed).</div>
+              </div>
+            </div>
+
+            <h4>Circuit breaker</h4>
+            <div class="form-grid">
+              <div class="field">
+                <label>Failure threshold</label>
+                <input type="number" value="5" />
+                <div class="muted">How many failed probes in a row will mark this outbound as unavailable.</div>
+              </div>
+              <div class="field">
+                <label>Success threshold</label>
+                <input type="number" value="2" />
+                <div class="muted">How many successful probes are required before returning an unavailable outbound back to service.</div>
+              </div>
+              <div class="field">
+                <label>Timeout (ms)</label>
+                <input type="number" value="30000" />
+                <div class="muted">How long to wait before trying a degraded outbound again.</div>
+              </div>
+              <div class="field">
+                <label>Half-open max requests</label>
+                <input type="number" value="1" />
+                <div class="muted">How many test requests are allowed while checking whether the outbound has recovered.</div>
+              </div>
+            </div>
+            <div class="button-row">
+              <button>Save outbound</button>
+              <button>Cancel</button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
