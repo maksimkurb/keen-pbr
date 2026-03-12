@@ -7,6 +7,14 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+std::string make_error_json(const std::string& message) {
+    return nlohmann::json{{"error", message}}.dump();
+}
+
+} // namespace
+
 struct ApiServer::Impl {
     httplib::Server server;
     std::string host;
@@ -50,9 +58,7 @@ void ApiServer::get(const std::string& path, RouteHandler handler) {
             res.set_content(body, "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
-            res.set_content(
-                R"({"error":")" + std::string(e.what()) + R"("})",
-                "application/json");
+            res.set_content(make_error_json(e.what()), "application/json");
         }
     });
 }
@@ -65,9 +71,7 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
             res.set_content(body, "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
-            res.set_content(
-                R"({"error":")" + std::string(e.what()) + R"("})",
-                "application/json");
+            res.set_content(make_error_json(e.what()), "application/json");
         }
     });
 }
@@ -80,9 +84,7 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
             res.set_content(result, "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
-            res.set_content(
-                R"({"error":")" + std::string(e.what()) + R"("})",
-                "application/json");
+            res.set_content(make_error_json(e.what()), "application/json");
         }
     });
 }
@@ -97,10 +99,7 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
                 res.status = 500;
             }
             if (res.body.empty()) {
-                nlohmann::json error_body = {
-                    {"error", e.what()}
-                };
-                res.set_content(error_body.dump(), "application/json");
+                res.set_content(make_error_json(e.what()), "application/json");
             }
         }
     });

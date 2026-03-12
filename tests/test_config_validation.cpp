@@ -2,6 +2,7 @@
 
 #include "../src/config/config.hpp"
 
+#include <nlohmann/json.hpp>
 #include <string>
 
 using namespace keen_pbr3;
@@ -9,7 +10,10 @@ using namespace keen_pbr3;
 // Helper: build a minimal valid config JSON with a single list entry.
 static std::string list_config_json(const std::string& list_name,
                                     const std::string& list_body = R"({"ip_cidrs":["10.0.0.1"]})") {
-    return R"({"lists":{")" + list_name + R"(":)" + list_body + R"(}})";
+    nlohmann::json config;
+    config["lists"] = nlohmann::json::object();
+    config["lists"][list_name] = nlohmann::json::parse(list_body);
+    return config.dump();
 }
 
 // =============================================================================
