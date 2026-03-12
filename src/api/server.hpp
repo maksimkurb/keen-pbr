@@ -10,6 +10,11 @@
 #include <string>
 #include <thread>
 
+namespace httplib {
+class Request;
+class Response;
+}
+
 namespace keen_pbr3 {
 
 class Daemon;
@@ -38,6 +43,8 @@ public:
     // Register route handlers before calling start().
     using RouteHandler = std::function<std::string()>;
     using BodyRouteHandler = std::function<std::string(const std::string& body)>;
+    using StreamRouteHandler = std::function<void(const httplib::Request&,
+                                                  httplib::Response&)>;
 
     // Register a GET handler that returns a JSON string.
     void get(const std::string& path, RouteHandler handler);
@@ -47,6 +54,9 @@ public:
 
     // Register a POST handler that receives the request body and returns a JSON string.
     void post(const std::string& path, BodyRouteHandler handler);
+
+    // Register a GET handler that streams a non-JSON response.
+    void get_stream(const std::string& path, StreamRouteHandler handler);
 
     // Start listening in a background thread.
     void start();

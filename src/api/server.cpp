@@ -3,6 +3,7 @@
 #include "server.hpp"
 
 #include <httplib.h>
+#include <nlohmann/json.hpp>
 
 namespace keen_pbr3 {
 
@@ -82,6 +83,25 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
             res.set_content(
                 R"({"error":")" + std::string(e.what()) + R"("})",
                 "application/json");
+        }
+    });
+}
+
+void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) {
+    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
+                                                      httplib::Response& res) {
+        try {
+            h(req, res);
+        } catch (const std::exception& e) {
+            if (!res.status) {
+                res.status = 500;
+            }
+            if (res.body.empty()) {
+                nlohmann::json error_body = {
+                    {"error", e.what()}
+                };
+                res.set_content(error_body.dump(), "application/json");
+            }
         }
     });
 }

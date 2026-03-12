@@ -7,6 +7,7 @@ add_executable(keen-pbr3-tests
   test_addr_spec.cpp
   test_dnsmasq_gen.cpp
   test_dns_server.cpp
+  test_dns_probe_server.cpp
   test_config_validation.cpp
   test_routing_state.cpp
   ../src/config/config.cpp
@@ -22,6 +23,7 @@ add_executable(keen-pbr3-tests
   ../src/dns/dnsmasq_gen.cpp
   ../src/dns/dns_router.cpp
   ../src/dns/dns_server.cpp
+  ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
   ../src/lists/list_streamer.cpp
   ../src/config/list_parser.cpp

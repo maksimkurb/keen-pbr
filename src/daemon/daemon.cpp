@@ -13,7 +13,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <nlohmann/json.hpp>
+
 #include "../dns/dnsmasq_gen.hpp"
+#include "../dns/dns_probe_server.hpp"
 #include "../dns/dns_router.hpp"
 #include "../dns/dns_server.hpp"
 #include "../firewall/firewall.hpp"
@@ -29,6 +32,7 @@
 #ifdef WITH_API
 #include "../api/handlers.hpp"
 #include "../api/server.hpp"
+#include "../api/sse_broadcaster.hpp"
 #endif
 
 namespace keen_pbr3 {
@@ -86,6 +90,10 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     // All are initialized by this point in the member initializer list
     routing_health_checker_ = std::make_unique<RoutingHealthChecker>(
         *firewall_, firewall_state_, route_table_, policy_rules_, netlink_);
+
+#ifdef WITH_API
+    dns_test_broadcaster_ = std::make_unique<SseBroadcaster>();
+#endif
 }
 
 Daemon::~Daemon() {
@@ -237,6 +245,8 @@ void Daemon::run() {
 
     update_resolver_config_hash();
 
+    setup_dns_probe();
+
 #ifdef WITH_API
     setup_api();
 #endif
@@ -280,10 +290,15 @@ void Daemon::run() {
     log.info("Shutting down...");
 
 #ifdef WITH_API
+    if (dns_test_broadcaster_) {
+        dns_test_broadcaster_->close_all();
+    }
     if (api_server_) {
         api_server_->stop();
     }
 #endif
+
+    teardown_dns_probe();
 
     if (urltest_manager_) {
         urltest_manager_->clear();
@@ -590,6 +605,8 @@ void Daemon::full_reload() {
     }
 
     // Full teardown
+    teardown_dns_probe();
+
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
@@ -628,6 +645,9 @@ void Daemon::full_reload() {
 
     // Recompute resolver config hash after reload
     update_resolver_config_hash();
+
+    // Recreate DNS test listener with the new config
+    setup_dns_probe();
 }
 
 #ifdef WITH_API
@@ -646,6 +666,7 @@ void Daemon::setup_api() {
         urltest_manager_,
         *routing_health_checker_,
         resolver_config_hash_,
+        *dns_test_broadcaster_,
         [this]() { full_reload(); },
     });
     register_api_handlers(*api_server_, *api_ctx_);
@@ -654,5 +675,85 @@ void Daemon::setup_api() {
                             config_.api->listen.value_or(""));
 }
 #endif
+
+void Daemon::setup_dns_probe() {
+    teardown_dns_probe();
+
+    if (!config_.dns || !config_.dns->test_server.has_value()) {
+        return;
+    }
+
+    const auto& test_cfg = *config_.dns->test_server;
+    const std::string* answer_ip = test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
+    auto settings = parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
+
+    auto on_query = [this](const DnsProbeEvent& event) {
+#ifdef WITH_API
+        if (dns_test_broadcaster_) {
+            nlohmann::json payload = {
+                {"type", "DNS"},
+                {"domain", event.domain},
+                {"source_ip", event.source_ip},
+                {"ecs", event.ecs.has_value() ? nlohmann::json(*event.ecs) : nlohmann::json(nullptr)},
+            };
+            dns_test_broadcaster_->publish(payload.dump());
+        }
+#else
+        (void)event;
+#endif
+    };
+
+    dns_probe_server_ = std::make_unique<DnsProbeServer>(settings, std::move(on_query));
+
+    add_fd(dns_probe_server_->udp_fd(), EPOLLIN, [this](uint32_t events) {
+        if ((events & EPOLLIN) && dns_probe_server_) {
+            dns_probe_server_->handle_udp_readable();
+        }
+    });
+
+    add_fd(dns_probe_server_->tcp_fd(), EPOLLIN, [this](uint32_t events) {
+        if (!(events & EPOLLIN) || !dns_probe_server_) {
+            return;
+        }
+
+        for (int client_fd : dns_probe_server_->accept_tcp_clients()) {
+            add_fd(client_fd, EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR,
+                   [this, client_fd](uint32_t client_events) {
+                if (!dns_probe_server_) {
+                    remove_fd(client_fd);
+                    close(client_fd);
+                    return;
+                }
+
+                bool keep_alive = false;
+                if (client_events & EPOLLIN) {
+                    keep_alive = dns_probe_server_->handle_tcp_client_readable(client_fd);
+                }
+                if (client_events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+                    keep_alive = false;
+                }
+
+                if (!keep_alive) {
+                    dns_probe_server_->remove_tcp_client(client_fd);
+                    remove_fd(client_fd);
+                    close(client_fd);
+                }
+            });
+        }
+    });
+
+    Logger::instance().info("DNS test server listening on {}", settings.listen);
+}
+
+void Daemon::teardown_dns_probe() {
+    if (!dns_probe_server_) {
+        return;
+    }
+
+    for (int fd : dns_probe_server_->all_fds()) {
+        remove_fd(fd);
+    }
+    dns_probe_server_.reset();
+}
 
 } // namespace keen_pbr3

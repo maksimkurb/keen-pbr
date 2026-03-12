@@ -88,6 +88,9 @@
   },
 
   "dns": {
+    "test_server": {
+      "listen": "127.0.0.88:53"
+    },
     "servers": [
       {
         "tag": "vpn-dns",

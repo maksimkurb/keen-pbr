@@ -131,10 +131,16 @@ namespace api {
         std::string tag;
     };
 
+    struct DnsTestServer {
+        std::optional<std::string> answer_ipv4;
+        std::string listen;
+    };
+
     struct Dns {
         std::optional<std::string> fallback;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
+        std::optional<DnsTestServer> test_server;
     };
 
     struct Fwmark {
@@ -403,6 +409,9 @@ namespace api {
     void from_json(const json & j, DnsServerElement & x);
     void to_json(json & j, const DnsServerElement & x);
 
+    void from_json(const json & j, DnsTestServer & x);
+    void to_json(json & j, const DnsTestServer & x);
+
     void from_json(const json & j, Dns & x);
     void to_json(json & j, const Dns & x);
 
@@ -598,10 +607,22 @@ namespace api {
         j["tag"] = x.tag;
     }
 
+    inline void from_json(const json & j, DnsTestServer& x) {
+        x.answer_ipv4 = get_stack_optional<std::string>(j, "answer_ipv4");
+        x.listen = j.at("listen").get<std::string>();
+    }
+
+    inline void to_json(json & j, const DnsTestServer & x) {
+        j = json::object();
+        j["answer_ipv4"] = x.answer_ipv4;
+        j["listen"] = x.listen;
+    }
+
     inline void from_json(const json & j, Dns& x) {
         x.fallback = get_stack_optional<std::string>(j, "fallback");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
+        x.test_server = get_stack_optional<DnsTestServer>(j, "test_server");
     }
 
     inline void to_json(json & j, const Dns & x) {
@@ -609,6 +630,7 @@ namespace api {
         j["fallback"] = x.fallback;
         j["rules"] = x.rules;
         j["servers"] = x.servers;
+        j["test_server"] = x.test_server;
     }
 
     inline void from_json(const json & j, Fwmark& x) {

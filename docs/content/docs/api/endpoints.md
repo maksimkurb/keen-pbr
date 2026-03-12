@@ -217,3 +217,26 @@ curl http://127.0.0.1:8080/api/health/routing
   "error": "failed to connect to netlink socket"
 }
 ```
+
+---
+
+## GET /api/dns/test
+
+Streams DNS probe query names as Server-Sent Events. The connection receives
+`HELLO` immediately, then one event for each DNS name queried against
+`dns.test_server` while the SSE connection is open.
+
+```bash
+curl -N http://127.0.0.1:8080/api/dns/test
+```
+
+### Stream Example
+
+```text
+data: HELLO
+
+data: example.com
+
+data: connectivity-check.local
+
+```

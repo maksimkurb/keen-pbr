@@ -7,6 +7,7 @@
 #include "../health/routing_health_checker.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "sse_broadcaster.hpp"
 #include "server.hpp"
 
 #include <map>
@@ -24,6 +25,7 @@ struct ApiContext {
     const std::unique_ptr<UrltestManager>& urltest_manager;
     RoutingHealthChecker& routing_health_checker;
     const std::string& resolver_config_hash;
+    SseBroadcaster& dns_test_broadcaster;
 
     // Callback to trigger full reload (non-const, performs side effects)
     std::function<void()> reload_fn;

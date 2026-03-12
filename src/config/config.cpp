@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "../dns/dns_probe_server.hpp"
 #include "../util/cron.hpp"
 
 namespace keen_pbr3 {
@@ -183,6 +184,17 @@ Config parse_config(const std::string& json_str) {
                 throw ConfigError(
                     "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
                     + dtag + "\"");
+            }
+        }
+
+        if (cfg.dns->test_server.has_value()) {
+            try {
+                const auto& test_cfg = *cfg.dns->test_server;
+                const std::string* answer_ip =
+                    test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
+                (void)parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
+            } catch (const std::exception& e) {
+                throw ConfigError(std::string("dns.test_server: ") + e.what());
             }
         }
     }

@@ -10,6 +10,9 @@ keen-pbr3 integrates with dnsmasq to route DNS queries for specific domain lists
 ```json
 {
   "dns": {
+    "test_server": {
+      "listen": "127.0.0.88:53"
+    },
     "servers": [...],
     "rules": [...],
     "fallback": "google-dns"
@@ -22,6 +25,32 @@ keen-pbr3 integrates with dnsmasq to route DNS queries for specific domain lists
 | `servers` | array | DNS server definitions |
 | `rules` | array | Rules mapping lists to DNS servers |
 | `fallback` | string | DNS server tag for queries that match no rule |
+| `test_server` | object | Optional built-in DNS probe listener for connectivity checks |
+
+## DNS Test Server
+
+`dns.test_server` enables a minimal DNS server inside keen-pbr3. It listens on
+the configured IPv4 `host:port`, accepts both UDP and TCP DNS requests, logs
+the queried name, and always replies with one synthetic `A` record.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `listen` | string | yes | IPv4 listen address in `host:port` form, for example `"127.0.0.88:53"` |
+| `answer_ipv4` | string | no | IPv4 address returned in the `A` answer. Defaults to the host part of `listen`. |
+
+```json
+{
+  "dns": {
+    "test_server": {
+      "listen": "127.0.0.88:53"
+    }
+  }
+}
+```
+
+When the HTTP API is enabled, `GET /api/dns/test` exposes these DNS query names
+as Server-Sent Events. Each new SSE connection receives `HELLO` first, then one
+event per queried DNS name observed while that connection stays open.
 
 ## DNS Servers
 

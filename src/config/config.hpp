@@ -27,6 +27,7 @@ using RetryConfig          = api::Retry;
 using CircuitBreakerConfig = api::CircuitBreakerConfig;
 using ListConfig           = api::ListConfigValue;
 using DnsServer            = api::DnsServerElement;
+using DnsTestServer        = api::DnsTestServer;
 using DnsRule              = api::DnsRuleElement;
 using DnsConfig            = api::Dns;
 using RouteRule            = api::RouteRuleElement;

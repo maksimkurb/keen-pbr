@@ -137,6 +137,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoutingHealthErrorResponse"
 
+  /api/dns/test:
+    get:
+      summary: Stream DNS test queries
+      description: >
+        Streams DNS query names observed by the built-in `dns.test_server`
+        listener as Server-Sent Events. Each connection receives `HELLO`
+        first, then one event per queried DNS name.
+      operationId: getDnsTest
+      responses:
+        "200":
+          description: Live DNS query stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |-
+                data: {"type":"HELLO"}
+
+                data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
+
+                data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
+
 components:
   schemas:
 
@@ -368,6 +390,19 @@ components:
           description: DNS server tag to use for matched domains.
           example: "vpn-dns"
 
+    DnsTestServer:
+      type: object
+      required: [listen]
+      properties:
+        listen:
+          type: string
+          description: IPv4 listen address for the built-in DNS test server.
+          example: "127.0.0.88:53"
+        answer_ipv4:
+          type: string
+          description: IPv4 address returned in synthetic `A` answers. Defaults to the host part of `listen`.
+          example: "127.0.0.88"
+
     DnsConfig:
       type: object
       properties:
@@ -383,6 +418,8 @@ components:
           type: string
           description: DNS server tag to use when no rule matches.
           example: "google-dns"
+        test_server:
+          $ref: "#/components/schemas/DnsTestServer"
 
     RouteRule:
       type: object

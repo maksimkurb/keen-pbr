@@ -21,10 +21,12 @@ namespace keen_pbr3 {
 class Firewall;
 class Scheduler;
 class UrltestManager;
+class DnsProbeServer;
 
 #ifdef WITH_API
 class ApiServer;
 struct ApiContext;
+class SseBroadcaster;
 #endif
 
 class DaemonError : public std::runtime_error {
@@ -100,6 +102,8 @@ private:
 #ifdef WITH_API
     void setup_api();
 #endif
+    void setup_dns_probe();
+    void teardown_dns_probe();
 
     // Hash of the current domain-to-ipset mapping (matches dnsmasq txt-record)
     std::string resolver_config_hash_;
@@ -142,7 +146,10 @@ private:
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;
     std::unique_ptr<ApiContext> api_ctx_;
+    std::unique_ptr<SseBroadcaster> dns_test_broadcaster_;
 #endif
+
+    std::unique_ptr<class DnsProbeServer> dns_probe_server_;
 };
 
 } // namespace keen_pbr3

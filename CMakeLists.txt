@@ -69,6 +69,7 @@ set(SOURCES
   src/firewall/iptables_verifier.cpp
   src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
+  src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
   src/daemon/daemon.cpp
@@ -80,11 +81,13 @@ if(WITH_API)
   list(APPEND SOURCES
     src/api/server.cpp
     src/api/handlers.cpp
+    src/api/sse_broadcaster.cpp
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_test_routing.cpp
+    src/api/handler_dns_test.cpp
   )
 endif()
 
