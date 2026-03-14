@@ -2,7 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function WarningBanner() {
   return (
-    <Alert className="mb-5 border-amber-300 bg-amber-50 text-amber-800">
+    <Alert className="mb-6 border-warning/50 bg-warning/5 text-warning-foreground">
       <AlertTitle>Pending restart</AlertTitle>
       <AlertDescription>
         Configuration has changed. Restart keen-pbr service to apply changes.

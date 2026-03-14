@@ -2,25 +2,34 @@ import type { ReactNode } from "react"
 
 import {
   Card,
+  CardDescription,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 export function SectionCard({
   title,
   children,
   action,
+  description,
+  className,
 }: {
   title: string
   children: ReactNode
   action?: ReactNode
+  description?: ReactNode
+  className?: string
 }) {
   return (
-    <Card className="border border-slate-200 bg-white shadow-sm">
-      <CardHeader className="mb-1">
+    <Card className={cn("border shadow-sm", className)}>
+      <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-2xl font-semibold">{title}</CardTitle>
+          <div className="space-y-1">
+            <CardTitle>{title}</CardTitle>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </div>
           {action}
         </div>
       </CardHeader>

@@ -1,11 +1,18 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { FormField } from "@/components/shared/form-field"
 import { PageHeader } from "@/components/shared/page-header"
-import { SectionCard } from "@/components/shared/section-card"
+import {
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldHint,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/shared/field"
 
 export function GeneralConfigPage() {
   const [cron, setCron] = useState("0 */6 * * *")
@@ -19,97 +26,130 @@ export function GeneralConfigPage() {
   const tableStartError = getTableStartError(tableStart)
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         description="Daemon defaults, global list refresh, and advanced routing values."
         title="Settings"
       />
-      <div className="space-y-4">
-        <SectionCard title="General">
-          <div className="flex items-center gap-3">
-            <Checkbox checked />
-            <span className="text-base">Global strict enforcement</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Checkbox checked />
-            <span className="text-base">Enable global lists autoupdate</span>
-          </div>
-          <FormField
-            description={
-              cronError ?? "Global schedule for refreshing remote lists."
-            }
-            htmlFor="general-cron"
-            label="Cron"
-          >
-            <Input
-              aria-invalid={Boolean(cronError)}
-              id="general-cron"
-              onChange={(event) => setCron(event.target.value)}
-              value={cron}
-            />
-          </FormField>
-        </SectionCard>
 
-        <SectionCard title="Advanced routing settings">
-          <div className="grid gap-3 md:grid-cols-3">
-            <FormField
-              description={
-                fwmarkStartError ??
-                "First fwmark assigned to outbounds. Enter as hexadecimal value."
-              }
-              htmlFor="fwmark-start"
-              label="fwmark.start"
-            >
-              <Input
-                aria-invalid={Boolean(fwmarkStartError)}
-                id="fwmark-start"
-                onChange={(event) => setFwmarkStart(event.target.value)}
-                value={fwmarkStart}
-              />
-            </FormField>
-            <FormField
-              description={
-                fwmarkMaskError ?? (
-                  <>
-                    Hex only. Must contain one consecutive run of <code>f</code>{" "}
-                    digits, e.g. <code>0x00ff0000</code>.
-                  </>
-                )
-              }
-              htmlFor="fwmark-mask"
-              label="fwmark.mask"
-            >
-              <Input
-                aria-invalid={Boolean(fwmarkMaskError)}
-                id="fwmark-mask"
-                onChange={(event) => setFwmarkMask(event.target.value)}
-                value={fwmarkMask}
-              />
-            </FormField>
-            <FormField
-              description={
-                tableStartError ??
-                "Base routing table number used for per-outbound policy tables."
-              }
-              htmlFor="table-start"
-              label="iproute.table_start"
-            >
-              <Input
-                aria-invalid={Boolean(tableStartError)}
-                id="table-start"
-                onChange={(event) => setTableStart(event.target.value)}
-                value={tableStart}
-              />
-            </FormField>
-          </div>
-        </SectionCard>
+      <Card>
+        <CardHeader>
+          <CardTitle>General</CardTitle>
+          <CardDescription>Daemon defaults and global refresh schedule.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox checked id="strict-enforcement" />
+                <FieldLabel className="cursor-pointer flex-col items-start gap-0" htmlFor="strict-enforcement">
+                  Global strict enforcement
+                </FieldLabel>
+              </div>
+            </Field>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
-          <Button>Save</Button>
-        </div>
+            <FieldSeparator />
+
+            <Field orientation="horizontal">
+              <div className="flex items-center space-x-3">
+                <Checkbox checked id="autoupdate-lists" />
+                <FieldLabel className="cursor-pointer flex-col items-start gap-0" htmlFor="autoupdate-lists">
+                  Enable global lists autoupdate
+                </FieldLabel>
+              </div>
+            </Field>
+
+            <Field invalid={Boolean(cronError)}>
+              <FieldLabel htmlFor="general-cron">Cron</FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(cronError)}
+                  id="general-cron"
+                  onChange={(event) => setCron(event.target.value)}
+                  value={cron}
+                />
+                <FieldHint
+                  description="Global schedule for refreshing remote lists."
+                  error={cronError}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Advanced routing settings</CardTitle>
+          <CardDescription>Core fwmark and routing table defaults.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <Field invalid={Boolean(fwmarkStartError)}>
+              <FieldLabel htmlFor="fwmark-start">fwmark.start</FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(fwmarkStartError)}
+                  id="fwmark-start"
+                  onChange={(event) => setFwmarkStart(event.target.value)}
+                  value={fwmarkStart}
+                />
+                <FieldHint
+                  description="First fwmark assigned to outbounds. Enter as hexadecimal value."
+                  error={fwmarkStartError}
+                />
+              </FieldContent>
+            </Field>
+
+            <FieldSeparator />
+
+            <Field invalid={Boolean(fwmarkMaskError)}>
+              <FieldLabel htmlFor="fwmark-mask">fwmark.mask</FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(fwmarkMaskError)}
+                  id="fwmark-mask"
+                  onChange={(event) => setFwmarkMask(event.target.value)}
+                  value={fwmarkMask}
+                />
+                <FieldHint
+                  description={
+                    <>
+                      Hex only. Must contain one consecutive run of <code>f</code> digits,
+                      e.g. <code>0x00ff0000</code>.
+                    </>
+                  }
+                  error={fwmarkMaskError}
+                />
+              </FieldContent>
+            </Field>
+
+            <FieldSeparator />
+
+            <Field invalid={Boolean(tableStartError)}>
+              <FieldLabel htmlFor="table-start">iproute.table_start</FieldLabel>
+              <FieldContent>
+                <Input
+                  aria-invalid={Boolean(tableStartError)}
+                  id="table-start"
+                  onChange={(event) => setTableStart(event.target.value)}
+                  value={tableStart}
+                />
+                <FieldHint
+                  description="Base routing table number used for per-outbound policy tables."
+                  error={tableStartError}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline">Cancel</Button>
+        <Button>Save</Button>
       </div>
-    </>
+    </div>
   )
 }
 

@@ -17,9 +17,9 @@ export function DataTable({
   rows: ReactNode[][]
 }) {
   return (
-    <div className="overflow-hidden rounded-md border border-slate-200">
+    <div className="overflow-hidden rounded-md border">
       <Table className="min-w-[760px]">
-        <TableHeader className="bg-slate-50">
+        <TableHeader className="bg-muted/50">
           <TableRow>
             {headers.map((header) => (
               <TableHead className="font-semibold" key={header}>
@@ -32,7 +32,7 @@ export function DataTable({
           {rows.map((row, index) => (
             <TableRow key={`${row[0]}-${index}`}>
               {row.map((cell, cellIndex) => (
-                <TableCell className="align-top whitespace-normal" key={cellIndex}>
+                <TableCell className="whitespace-normal p-3 align-top" key={cellIndex}>
                   {cell}
                 </TableCell>
               ))}

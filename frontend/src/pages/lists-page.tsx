@@ -1,5 +1,7 @@
+import { ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react"
 import { useId, useState } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,9 +15,15 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
-import { FormField } from "@/components/shared/form-field"
+import {
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldHint,
+  FieldLabel,
+} from "@/components/shared/field"
 import { PageHeader } from "@/components/shared/page-header"
-import { SectionCard } from "@/components/shared/section-card"
+import { StatsDisplay } from "@/components/shared/stats-display"
 
 type ListDraft = {
   name: string
@@ -35,15 +43,6 @@ const sampleNewList: ListDraft = {
   url: "",
 }
 
-const sampleEditList: ListDraft = {
-  name: "vpn-local",
-  source: "file",
-  ttlMs: "86400000",
-  domains: "example.com",
-  ipCidrs: "10.0.0.0/8",
-  url: "https://example.com/vpn-local.txt",
-}
-
 export function ListsPage() {
   const [editingList, setEditingList] = useState<ListDraft | null>(null)
 
@@ -51,29 +50,81 @@ export function ListsPage() {
     <>
       <PageHeader
         actions={
-          <div className="flex gap-2">
-            <Button onClick={() => setEditingList(sampleNewList)} variant="outline">
-              New list
-            </Button>
-            <Button onClick={() => setEditingList(sampleEditList)} variant="outline">
-              Edit sample list
-            </Button>
-          </div>
+          <Button onClick={() => setEditingList(sampleNewList)} variant="outline">
+            New list
+          </Button>
         }
-        description="Manage domain/IP lists used by routing rules."
+        description="Manage domain and IP lists used by routing rules."
         title="Lists"
       />
 
-      <SectionCard title="List inventory">
-        <DataTable
-          headers={["List", "Type", "Domains / IPv4 / IPv6", "Rules", "Actions"]}
-          rows={[
-            ["direct", "file", "1 / 0 / 0", "kdirect", <ActionButtons labels={["Edit", "Delete"]} />],
-            ["vpn-local", "builtin", "104 / 10 / 5", "kvpn", <ActionButtons labels={["Edit", "Delete"]} />],
-            ["signal", "url", "8 / 0 / 0", "kvpn", <ActionButtons labels={["Update", "Edit", "Delete"]} />],
-          ]}
-        />
-      </SectionCard>
+      <DataTable
+        headers={["Name", "Type", "Stats", "Rules", "Actions"]}
+        rows={[
+          [
+            <div className="space-y-1" key="direct-name">
+              <div className="flex items-center gap-2 font-medium">
+                direct
+                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <div className="text-xs text-muted-foreground">/opt/etc/direct.txt</div>
+            </div>,
+            <Badge key="direct-type" variant="secondary">
+              file
+            </Badge>,
+            <StatsDisplay ipv4Subnets={0} ipv6Subnets={0} key="direct-stats" totalHosts={1} />,
+            <Badge key="direct-rule" variant="outline">
+              kdirect
+            </Badge>,
+            <ActionButtons
+              actions={[
+                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
+                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+              ]}
+              key="direct-actions"
+            />,
+          ],
+          [
+            <div className="space-y-1" key="vpn-local-name">
+              <div className="font-medium">vpn-local</div>
+              <div className="text-xs text-muted-foreground">builtin</div>
+            </div>,
+            <Badge key="vpn-local-type" variant="outline">
+              builtin
+            </Badge>,
+            <StatsDisplay ipv4Subnets={10} ipv6Subnets={5} key="vpn-local-stats" totalHosts={104} />,
+            <Badge key="vpn-local-rule" variant="outline">
+              kvpn
+            </Badge>,
+            <ActionButtons
+              actions={[
+                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
+                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+              ]}
+              key="vpn-local-actions"
+            />,
+          ],
+          [
+            <div className="space-y-1" key="signal-name">
+              <div className="font-medium">signal</div>
+              <div className="text-xs text-muted-foreground">Updated 5 minutes ago</div>
+            </div>,
+            <Badge key="signal-type">url</Badge>,
+            <StatsDisplay ipv4Subnets={0} ipv6Subnets={0} key="signal-stats" totalHosts={8} />,
+            <Badge key="signal-rule" variant="outline">
+              kvpn
+            </Badge>,
+            <ActionButtons
+              actions={[
+                { icon: <RefreshCw className="h-4 w-4" />, label: "Update" },
+                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
+                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+              ]}
+              key="signal-actions"
+            />,
+          ],
+        ]}
+      />
 
       <Dialog onOpenChange={(open) => !open && setEditingList(null)} open={Boolean(editingList)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
@@ -120,84 +171,80 @@ function EditListForm({
 
   return (
     <form
-      className="space-y-3"
+      className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit()
       }}
     >
-      <FormField htmlFor={nameId} label="Name">
-        <Input
-          id={nameId}
-          onChange={(event) => onChange({ ...draft, name: event.target.value })}
-          readOnly={mode === "edit"}
-          value={draft.name}
-        />
-      </FormField>
-      <FormField htmlFor={sourceId} label="Source (url/file/domains/ip_cidrs)">
-        <Input
-          id={sourceId}
-          onChange={(event) => onChange({ ...draft, source: event.target.value })}
-          value={draft.source}
-        />
-      </FormField>
-      <FormField htmlFor={urlId} label="Remote URL">
-        <Input
-          id={urlId}
-          onChange={(event) => onChange({ ...draft, url: event.target.value })}
-          value={draft.url}
-        />
-      </FormField>
-      <FormField
-        description={
-          <>
-            How long dynamically resolved IPs stay in cache-backed sets;{" "}
-            <code>0</code> means no timeout.
-          </>
-        }
-        htmlFor={ttlId}
-        label="TTL ms"
-      >
-        <Input
-          id={ttlId}
-          onChange={(event) => onChange({ ...draft, ttlMs: event.target.value })}
-          value={draft.ttlMs}
-        />
-      </FormField>
-      <FormField
-        description={
-          <>
-            If you write <code>example.com</code>, all subdomains are automatically
-            included.
-          </>
-        }
-        htmlFor={domainsId}
-        label="Domains"
-      >
-        <Textarea
-          className="min-h-24"
-          id={domainsId}
-          onChange={(event) => onChange({ ...draft, domains: event.target.value })}
-          value={draft.domains}
-        />
-      </FormField>
-      <FormField
-        description={
-          <>
-            Examples: <code>93.184.216.34</code>, <code>10.0.0.0/8</code>,{" "}
-            <code>2001:db8::/32</code>.
-          </>
-        }
-        htmlFor={ipCidrsId}
-        label="IP CIDRs"
-      >
-        <Textarea
-          className="min-h-24"
-          id={ipCidrsId}
-          onChange={(event) => onChange({ ...draft, ipCidrs: event.target.value })}
-          value={draft.ipCidrs}
-        />
-      </FormField>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+          <FieldContent>
+            <Input
+              id={nameId}
+              onChange={(event) => onChange({ ...draft, name: event.target.value })}
+              readOnly={mode === "edit"}
+              value={draft.name}
+            />
+          </FieldContent>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={sourceId}>Source</FieldLabel>
+          <FieldContent>
+            <Input
+              id={sourceId}
+              onChange={(event) => onChange({ ...draft, source: event.target.value })}
+              value={draft.source}
+            />
+          </FieldContent>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={urlId}>Remote URL</FieldLabel>
+          <FieldContent>
+            <Input
+              id={urlId}
+              onChange={(event) => onChange({ ...draft, url: event.target.value })}
+              value={draft.url}
+            />
+          </FieldContent>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={ttlId}>TTL ms</FieldLabel>
+          <FieldContent>
+            <Input
+              id={ttlId}
+              onChange={(event) => onChange({ ...draft, ttlMs: event.target.value })}
+              value={draft.ttlMs}
+            />
+            <FieldHint description="How long dynamically resolved IPs stay in cache-backed sets; 0 means no timeout." />
+          </FieldContent>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={domainsId}>Domains</FieldLabel>
+          <FieldContent>
+            <Textarea
+              className="min-h-24"
+              id={domainsId}
+              onChange={(event) => onChange({ ...draft, domains: event.target.value })}
+              value={draft.domains}
+            />
+            <FieldHint description="If you write example.com, all subdomains are automatically included." />
+          </FieldContent>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={ipCidrsId}>IP CIDRs</FieldLabel>
+          <FieldContent>
+            <Textarea
+              className="min-h-24"
+              id={ipCidrsId}
+              onChange={(event) => onChange({ ...draft, ipCidrs: event.target.value })}
+              value={draft.ipCidrs}
+            />
+            <FieldHint description="Examples: 93.184.216.34, 10.0.0.0/8, 2001:db8::/32." />
+          </FieldContent>
+        </Field>
+      </FieldGroup>
       <DialogFooter className="px-0 pb-0 pt-3">
         <Button onClick={onCancel} type="button" variant="outline">
           Cancel

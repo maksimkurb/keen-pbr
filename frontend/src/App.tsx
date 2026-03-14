@@ -1,7 +1,8 @@
 import { Route, Switch } from "wouter"
 
 import { AppShell } from "@/components/layout/app-shell"
-import { DnsPage } from "@/pages/dns-page"
+import { DnsRulesPage } from "@/pages/dns-rules-page"
+import { DnsServersPage } from "@/pages/dns-servers-page"
 import { GeneralConfigPage } from "@/pages/general-config-page"
 import { ListsPage } from "@/pages/lists-page"
 import { OutboundsPage } from "@/pages/outbounds-page"
@@ -16,7 +17,8 @@ function App() {
         <Route component={GeneralConfigPage} path="/general" />
         <Route component={ListsPage} path="/lists" />
         <Route component={OutboundsPage} path="/outbounds" />
-        <Route component={DnsPage} path="/dns" />
+        <Route component={DnsServersPage} path="/dns-servers" />
+        <Route component={DnsRulesPage} path="/dns-rules" />
         <Route component={RoutingRulesPage} path="/routing-rules" />
         <Route component={OverviewPage} />
       </Switch>

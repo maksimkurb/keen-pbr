@@ -1,11 +1,22 @@
+import type { ReactNode } from "react"
+
 import { Button } from "@/components/ui/button"
 
-export function ActionButtons({ labels }: { labels: string[] }) {
+export function ActionButtons({
+  actions,
+}: {
+  actions: Array<{ label: string; icon?: ReactNode; variant?: "ghost" | "outline" }>
+}) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {labels.map((label) => (
-        <Button key={label} size="sm" variant="outline">
-          {label}
+    <div className="flex justify-end gap-2">
+      {actions.map((action) => (
+        <Button
+          key={action.label}
+          size="sm"
+          title={action.label}
+          variant={action.variant ?? "ghost"}
+        >
+          {action.icon}
         </Button>
       ))}
     </div>
