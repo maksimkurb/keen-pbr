@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useId, useState } from "react"
 import { useLocation } from "wouter"
 
@@ -12,20 +12,13 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { PageHeader } from "@/components/shared/page-header"
+import { MultiSelectList } from "@/components/shared/multi-select-list"
+import { OrderedGroupCard } from "@/components/shared/ordered-group-card"
 import { SectionCard } from "@/components/shared/section-card"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -371,58 +364,33 @@ function OutboundForm({
         >
           <div className="space-y-4">
             {urltestGroups.map((group, index) => (
-              <div className="rounded-xl border border-border p-4" key={group.id}>
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium md:text-xs">
-                      Group {index + 1}
-                    </div>
-                    <div className="text-sm text-muted-foreground md:text-xs">
-                      Priority {index + 1}. Earlier groups are preferred before later ones.
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      disabled={index === 0}
-                      onClick={() => setUrltestGroups((current) => moveGroup(current, index, index - 1))}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                      Up
-                    </Button>
-                    <Button
-                      disabled={index === urltestGroups.length - 1}
-                      onClick={() => setUrltestGroups((current) => moveGroup(current, index, index + 1))}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                      Down
-                    </Button>
-                    <Button
-                      disabled={urltestGroups.length === 1}
-                      onClick={() =>
-                        setUrltestGroups((current) =>
-                          current.length === 1 ? current : current.filter((item) => item.id !== group.id)
-                        )
-                      }
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-
+              <OrderedGroupCard
+                canMoveDown={index !== urltestGroups.length - 1}
+                canMoveUp={index !== 0}
+                canRemove={urltestGroups.length !== 1}
+                description={`Priority ${index + 1}. Earlier groups are preferred before later ones.`}
+                key={group.id}
+                onMoveDown={() =>
+                  setUrltestGroups((current) => moveGroup(current, index, index + 1))
+                }
+                onMoveUp={() =>
+                  setUrltestGroups((current) => moveGroup(current, index, index - 1))
+                }
+                onRemove={() =>
+                  setUrltestGroups((current) =>
+                    current.length === 1 ? current : current.filter((item) => item.id !== group.id)
+                  )
+                }
+                title={`Group ${index + 1}`}
+              >
                 <Field>
                   <FieldLabel>Interface outbounds</FieldLabel>
                   <FieldContent>
                     {interfaceOutboundOptions.length ? (
-                      <InterfaceMultiSelect
+                      <MultiSelectList
+                        addLabel="Add outbound"
+                        emptyMessage="No interface outbounds found."
+                        groupLabel="Interface outbounds"
                         onChange={(nextOutbounds) =>
                           setUrltestGroups((current) =>
                             current.map((item) =>
@@ -447,7 +415,7 @@ function OutboundForm({
                     )}
                   </FieldContent>
                 </Field>
-              </div>
+              </OrderedGroupCard>
             ))}
             <div className="flex justify-start">
               <Button
@@ -630,87 +598,4 @@ function getNextAvailableOutbounds(options: string[], groups: UrltestGroup[]) {
   const used = new Set(groups.flatMap((group) => group.outbounds))
   const next = options.find((option) => !used.has(option))
   return next ? [next] : []
-}
-
-function InterfaceMultiSelect({
-  options,
-  unavailable,
-  value,
-  onChange,
-}: {
-  options: string[]
-  unavailable: string[]
-  value: string[]
-  onChange: (nextValue: string[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const selectedSet = new Set(value)
-  const unavailableSet = new Set(unavailable)
-
-  return (
-    <div className="space-y-2">
-      <div className="space-y-2 rounded-xl border border-border p-3">
-        {value.length ? (
-          value.map((outbound, index) => (
-            <InputGroup key={`${outbound}-${index}`}>
-              <InputGroupAddon className="w-full justify-start text-foreground">
-                {outbound}
-              </InputGroupAddon>
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  aria-label={`Remove ${outbound}`}
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onChange(value.filter((item) => item !== outbound))}
-                  size="icon-xs"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-          ))
-        ) : null}
-        <div className="pt-2">
-          <Popover onOpenChange={setOpen} open={open}>
-            <PopoverTrigger render={<Button size="sm" type="button" variant="outline" />}>
-              <Plus className="h-4 w-4" />
-              Add outbound
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[280px] p-0" sideOffset={2}>
-              <Command>
-                <CommandList>
-                  <CommandEmpty>No interface outbounds found.</CommandEmpty>
-                  <CommandGroup heading="Interface outbounds">
-                    {options.map((option) => {
-                      const selected = selectedSet.has(option)
-                      const disabled = selected || unavailableSet.has(option)
-
-                      return (
-                        <CommandItem
-                          data-checked={selected}
-                          disabled={disabled}
-                          key={option}
-                          onSelect={() => {
-                            if (disabled) {
-                              return
-                            }
-
-                            onChange([...value, option])
-                            setOpen(false)
-                          }}
-                        >
-                          <span className={disabled ? "text-muted-foreground" : undefined}>
-                            {option}
-                          </span>
-                        </CommandItem>
-                      )
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-    </div>
-  )
 }
