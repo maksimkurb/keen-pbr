@@ -51,7 +51,7 @@ function FieldLabel({
 }: React.ComponentProps<typeof Label>) {
   return (
     <Label
-      className={cn("flex w-fit items-center gap-2 text-sm font-medium", className)}
+      className={cn("flex w-fit items-center gap-2 text-base font-medium md:text-sm", className)}
       data-slot="field-label"
       {...props}
     />
@@ -74,7 +74,7 @@ function FieldDescription({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("text-sm leading-normal text-muted-foreground", className)}
+      className={cn("text-base leading-normal text-muted-foreground md:text-sm", className)}
       data-slot="field-description"
       {...props}
     />
@@ -131,7 +131,7 @@ function FieldError({
 
   return (
     <div
-      className={cn("text-sm font-normal text-destructive", className)}
+      className={cn("text-base font-normal text-destructive md:text-sm", className)}
       data-slot="field-error"
       role="alert"
       {...props}
@@ -144,7 +144,7 @@ function FieldError({
 function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex items-center gap-2 text-sm font-medium", className)}
+      className={cn("flex items-center gap-2 text-base font-medium md:text-sm", className)}
       data-slot="field-title"
       {...props}
     />

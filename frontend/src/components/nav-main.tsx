@@ -40,7 +40,7 @@ export function NavMain({
 
             return (
               <SidebarMenuItem key={item.title}>
-                <div className="flex h-10 items-center gap-3 px-2 text-sm font-medium">
+                <div className="flex h-11 items-center gap-3 px-2 text-base font-medium md:h-10 md:text-sm">
                   {Icon ? <Icon className="size-4 text-primary" /> : null}
                   <span>{item.title}</span>
                 </div>
@@ -49,7 +49,7 @@ export function NavMain({
                     {item.items?.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton
-                          className="min-h-10 md:min-h-7"
+                          className="min-h-11 text-base md:min-h-7 md:text-sm"
                           href={subItem.url}
                           isActive={location === subItem.url}
                           onClick={(event) => {

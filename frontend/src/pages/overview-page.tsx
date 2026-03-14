@@ -1,16 +1,11 @@
-import { Play, RotateCw, Search, Square } from "lucide-react"
+import { Play, RotateCw, Square } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/shared/input-group"
 import { SectionCard } from "@/components/shared/section-card"
 
 export function OverviewPage() {
@@ -18,12 +13,12 @@ export function OverviewPage() {
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard className="col-span-2 lg:col-span-1" title="keen-pbr">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <div className="mb-1 text-sm text-muted-foreground">Version</div>
               <div className="text-lg font-semibold">
                 3.0.0
-                <span className="ml-2 text-xs text-muted-foreground">(dev)</span>
+                <span className="ml-2 text-sm text-muted-foreground md:text-xs">(dev)</span>
               </div>
             </div>
             <div>
@@ -35,7 +30,7 @@ export function OverviewPage() {
             </div>
           </div>
 
-          <ButtonGroup className="mt-2">
+          <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
             <Button size="sm" variant="outline">
               <Play className="mr-1 h-3 w-3" />
               Start
@@ -58,9 +53,9 @@ export function OverviewPage() {
             </AlertDescription>
           </Alert>
 
-          <div className="text-sm text-muted-foreground">upstream: udp://127.0.0.1:2253</div>
+        <div className="text-sm text-muted-foreground">upstream: udp://127.0.0.1:2253</div>
 
-          <ButtonGroup className="mt-2">
+          <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
             <Button size="sm" variant="outline">
               Run again
             </Button>
@@ -73,16 +68,13 @@ export function OverviewPage() {
 
       <SectionCard title="Outbounds health">
         <DataTable
-          headers={["Tag", "Type", "Packets", "Transferred", "Details", "Status"]}
+          headers={["Tag", "Type", "Packets", "Transferred", "Status"]}
           rows={[
             [
               "vpn",
               "interface",
               "14,220",
               "1.6 GB",
-              <span className="text-sm text-muted-foreground" key="vpn-details">
-                Main VPN interface
-              </span>,
               <StatusBadge key="vpn-status" tone="healthy">
                 healthy
               </StatusBadge>,
@@ -92,19 +84,15 @@ export function OverviewPage() {
               "interface",
               "8,901",
               "840 MB",
-              <span className="text-sm text-muted-foreground" key="wan-details">
-                Main WAN fallback
-              </span>,
               <StatusBadge key="wan-status" tone="healthy">
                 healthy
               </StatusBadge>,
             ],
             [
-              "auto-select",
+              <UrltestTagTree key="urltest-tag" />,
               "urltest",
               "23,121",
               "2.4 GB",
-              <UrltestDetails key="urltest-details" />,
               <StatusBadge key="urltest-status" tone="healthy">
                 healthy
               </StatusBadge>,
@@ -152,17 +140,15 @@ export function OverviewPage() {
       </SectionCard>
 
       <SectionCard title="Domain/IP routing test">
-        <InputGroup>
-          <InputGroupAddon>
-            <Search className="h-4 w-4" />
-          </InputGroupAddon>
-          <InputGroupInput defaultValue="example.com" />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton size="sm" variant="outline">
-              Run routing test
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
+        <ButtonGroup>
+          <Input
+            className="min-w-0 flex-1 rounded-none border-0 shadow-none focus-visible:ring-0"
+            defaultValue="example.com"
+          />
+          <Button className="whitespace-nowrap">
+            Run routing test
+          </Button>
+        </ButtonGroup>
         <div className="text-sm text-muted-foreground">
           Expected outbound: vpn · Actual outbound: vpn · Matched lists: my-domains via
           dns
@@ -190,11 +176,14 @@ function StatusBadge({
   return <Badge className="bg-success text-success-foreground">{children}</Badge>
 }
 
-function UrltestDetails() {
+function UrltestTagTree() {
   return (
     <div className="space-y-2">
-      <UrltestOutboundRow active latency="42 ms" name="vpn" state="healthy" />
-      <UrltestOutboundRow latency="5 ms" name="wan" state="degraded" />
+      <div className="font-medium">auto-select</div>
+      <div>
+        <UrltestOutboundRow active latency="42 ms" name="vpn" state="healthy" />
+        <UrltestOutboundRow isLast latency="5 ms" name="wan" state="degraded" />
+      </div>
     </div>
   )
 }
@@ -204,22 +193,55 @@ function UrltestOutboundRow({
   latency,
   state,
   active = false,
+  isLast = false,
 }: {
   name: string
   latency: string
   state: "healthy" | "degraded"
   active?: boolean
+  isLast?: boolean
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="flex flex-wrap items-center text-base md:text-sm ml-1">
+      <TreeConnector isLast={isLast} />
       <span
-        className={`relative inline-flex size-2 rounded-full ${
+        className={`relative ml-2 inline-flex size-2 rounded-full ${
           state === "healthy" ? "bg-success" : "bg-destructive"
         }`}
       />
-      <span className="font-medium">{name}</span>
-      <span className="text-muted-foreground">{latency}</span>
-      {active ? <Badge variant="outline">In use</Badge> : null}
+      <span className="ml-2 font-medium">{name}</span>
+      <span className="ml-2 text-muted-foreground">{latency}</span>
+      {active ? <Badge className="ml-2" variant="outline">In use</Badge> : null}
     </div>
+  )
+}
+
+function TreeConnector({ isLast }: { isLast: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="mr-0.5 h-full shrink-0 self-stretch"
+      preserveAspectRatio="none"
+      viewBox="0 0 16 24"
+      width="16"
+    >
+      {isLast ? (
+        <path
+          d="M2 0V12H14"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.3"
+          strokeWidth="1"
+        />
+      ) : (
+        <path
+          d="M2 0V24M2 12H14"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.3"
+          strokeWidth="1"
+        />
+      )}
+    </svg>
   )
 }

@@ -47,10 +47,10 @@ export function ListsPage() {
   const [editingList, setEditingList] = useState<ListDraft | null>(null)
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => setEditingList(sampleNewList)} variant="outline">
+          <Button onClick={() => setEditingList(sampleNewList)}>
             New list
           </Button>
         }
@@ -67,7 +67,7 @@ export function ListsPage() {
                 direct
                 <ExternalLink className="h-3 w-3 text-muted-foreground" />
               </div>
-              <div className="text-xs text-muted-foreground">/opt/etc/direct.txt</div>
+              <div className="text-sm text-muted-foreground md:text-xs">/opt/etc/direct.txt</div>
             </div>,
             <Badge key="direct-type" variant="secondary">
               file
@@ -87,7 +87,7 @@ export function ListsPage() {
           [
             <div className="space-y-1" key="vpn-local-name">
               <div className="font-medium">vpn-local</div>
-              <div className="text-xs text-muted-foreground">builtin</div>
+              <div className="text-sm text-muted-foreground md:text-xs">builtin</div>
             </div>,
             <Badge key="vpn-local-type" variant="outline">
               builtin
@@ -107,7 +107,7 @@ export function ListsPage() {
           [
             <div className="space-y-1" key="signal-name">
               <div className="font-medium">signal</div>
-              <div className="text-xs text-muted-foreground">Updated 5 minutes ago</div>
+              <div className="text-sm text-muted-foreground md:text-xs">Updated 5 minutes ago</div>
             </div>,
             <Badge key="signal-type">url</Badge>,
             <StatsDisplay ipv4Subnets={0} ipv6Subnets={0} key="signal-stats" totalHosts={8} />,
@@ -145,7 +145,7 @@ export function ListsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }
 

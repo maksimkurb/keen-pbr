@@ -184,14 +184,18 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply box-border border-border outline-ring/50;
   }
 
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: clip;
   }
 }

@@ -23,7 +23,7 @@ export function SectionCard({
   className?: string
 }) {
   return (
-    <Card className={cn("border shadow-sm", className)}>
+    <Card className={cn(className)}>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">

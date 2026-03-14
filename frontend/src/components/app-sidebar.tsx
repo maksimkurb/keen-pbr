@@ -7,19 +7,20 @@ import {
   WaypointsIcon,
 } from "lucide-react"
 
-import logoUrl from "@/assets/logo.svg"
+import { AppBrandHeader } from "@/components/layout/app-brand-header"
+import { WarningBanner } from "@/components/layout/warning-banner"
 import { NavMain } from "@/components/nav-main"
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
-  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 const data = {
   navMain: [
     {
-      title: "Status",
+      title: "General",
       url: "#",
       icon: LayoutGridIcon,
       items: [
@@ -71,29 +72,31 @@ const data = {
 }
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
+  const { isMobile, toggleSidebar } = useSidebar()
+
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenuHeader />
+    <Sidebar collapsible="offcanvas" {...props}>
+      <SidebarHeader className={isMobile ? "border-b px-4 py-2" : "border-b"}>
+        <SidebarMenuHeader isMobile={isMobile} onMenuClick={toggleSidebar} />
       </SidebarHeader>
       <SidebarContent>
+        {!isMobile ? <WarningBanner className="mx-2 mt-2 mb-0 w-auto" compact /> : null}
         <NavMain items={data.navMain} />
       </SidebarContent>
-      <SidebarRail />
     </Sidebar>
   )
 }
 
-function SidebarMenuHeader() {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border bg-sidebar px-3 py-2">
-      <div className="flex size-10 items-center justify-center overflow-hidden rounded-lg border bg-[#1A2D35] p-1.5">
-        <img alt="keen-pbr logo" className="size-full object-contain" src={logoUrl} />
-      </div>
-      <div className="grid flex-1 text-left text-sm leading-tight">
-        <span className="truncate font-medium">keen-pbr</span>
-        <span className="truncate text-xs text-muted-foreground">Router control</span>
-      </div>
-    </div>
-  )
+function SidebarMenuHeader({
+  isMobile,
+  onMenuClick,
+}: {
+  isMobile: boolean
+  onMenuClick: () => void
+}) {
+  if (isMobile) {
+    return <AppBrandHeader onMenuClick={onMenuClick} variant="topbar" />
+  }
+
+  return <AppBrandHeader />
 }

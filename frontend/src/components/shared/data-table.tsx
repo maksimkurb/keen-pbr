@@ -17,8 +17,8 @@ export function DataTable({
   rows: ReactNode[][]
 }) {
   return (
-    <div className="overflow-hidden rounded-md border">
-      <Table className="min-w-[760px]">
+    <div className="max-w-full overflow-x-auto rounded-md border">
+      <Table className="w-full min-w-[640px] text-base">
         <TableHeader className="bg-muted/50">
           <TableRow>
             {headers.map((header) => (
