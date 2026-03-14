@@ -1,7 +1,7 @@
 import { MenuIcon } from "lucide-react"
 
 import logoUrl from "@/assets/logo.svg"
-import { Button } from "@/components/ui/button"
+import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 import { cn } from "@/lib/utils"
 
 export function AppBrandHeader({
@@ -22,15 +22,15 @@ export function AppBrandHeader({
       )}
     >
       {onMenuClick ? (
-        <Button
+        <IconButtonWithTooltip
           className="size-8 shrink-0 rounded-md border bg-muted text-muted-foreground shadow-none hover:bg-muted"
+          label="Open menu"
           onClick={onMenuClick}
           size="icon"
           variant="ghost"
         >
           <MenuIcon className="h-4 w-4" />
-          <span className="sr-only">Open menu</span>
-        </Button>
+        </IconButtonWithTooltip>
       ) : null}
       <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#1A2D35] p-1.5">
         <img alt="keen-pbr logo" className="size-full object-contain" src={logoUrl} />

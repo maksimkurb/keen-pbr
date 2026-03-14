@@ -4,6 +4,7 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
+import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
@@ -63,16 +64,15 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
-              <Button
-                variant="ghost"
+              <IconButtonWithTooltip
                 className="absolute top-2 right-2"
+                label="Close dialog"
                 size="icon-sm"
+                variant="ghost"
               />
             }
           >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
+            <XIcon />
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>

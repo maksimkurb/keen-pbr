@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
+import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 
 export function ActionButtons({
   actions,
@@ -8,16 +8,16 @@ export function ActionButtons({
   actions: Array<{ label: string; icon?: ReactNode; variant?: "ghost" | "outline" }>
 }) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="ml-auto inline-flex justify-end gap-2">
       {actions.map((action) => (
-        <Button
+        <IconButtonWithTooltip
           key={action.label}
-          size="sm"
-          title={action.label}
-          variant={action.variant ?? "ghost"}
+          label={action.label}
+          size="icon-sm"
+          variant="ghost"
         >
           {action.icon}
-        </Button>
+        </IconButtonWithTooltip>
       ))}
     </div>
   )

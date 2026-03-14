@@ -3,8 +3,8 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
+import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
@@ -63,16 +63,15 @@ function SheetContent({
           <SheetPrimitive.Close
             data-slot="sheet-close"
             render={
-              <Button
-                variant="ghost"
+              <IconButtonWithTooltip
                 className="absolute top-3 right-3"
+                label="Close panel"
                 size="icon-sm"
+                variant="ghost"
               />
             }
           >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
+            <XIcon />
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

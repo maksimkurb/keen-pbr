@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tooltip"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -253,25 +253,25 @@ function SidebarTrigger({
   className,
   onClick,
   ...props
-}: React.ComponentProps<typeof Button>) {
+}: Omit<React.ComponentProps<typeof IconButtonWithTooltip>, "children" | "label">) {
   const { toggleSidebar } = useSidebar()
 
   return (
-    <Button
+    <IconButtonWithTooltip
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
-      variant="ghost"
-      size="icon-sm"
       className={cn(className)}
+      label="Toggle sidebar"
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
+      size="icon-sm"
+      variant="ghost"
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
+    </IconButtonWithTooltip>
   )
 }
 
