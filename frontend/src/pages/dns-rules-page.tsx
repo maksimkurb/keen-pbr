@@ -1,15 +1,30 @@
 import { Trash2 } from "lucide-react"
+import { useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { Field, FieldContent, FieldLabel } from "@/components/shared/field"
 import { PageHeader } from "@/components/shared/page-header"
 import { SectionCard } from "@/components/shared/section-card"
 
+const dnsServerTags = ["google-dns", "vpn-dns", "local-dns"] as const
+
 export function DnsRulesPage() {
+  const [fallbackServerTag, setFallbackServerTag] = useState<
+    (typeof dnsServerTags)[number] | undefined
+  >("google-dns")
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -23,9 +38,28 @@ export function DnsRulesPage() {
         title="Fallback"
       >
         <Field>
-          <FieldLabel htmlFor="dns-fallback">Fallback server tag</FieldLabel>
+          <FieldLabel>Fallback server tag</FieldLabel>
           <FieldContent>
-            <Input defaultValue="google-dns" id="dns-fallback" />
+            <Select
+              onValueChange={(value) =>
+                setFallbackServerTag(value as (typeof dnsServerTags)[number])
+              }
+              value={fallbackServerTag}
+            >
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Select a DNS server" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>DNS servers</SelectLabel>
+                  {dnsServerTags.map((serverTag) => (
+                    <SelectItem key={serverTag} value={serverTag}>
+                      {serverTag}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </FieldContent>
         </Field>
       </SectionCard>
@@ -44,7 +78,9 @@ export function DnsRulesPage() {
               domain
             </span>,
             <ActionButtons
-              actions={[{ icon: <Trash2 className="h-4 w-4" />, label: "Delete" }]}
+              actions={[
+                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+              ]}
               key="domains-actions"
             />,
           ],
@@ -59,7 +95,9 @@ export function DnsRulesPage() {
               domain suffix
             </span>,
             <ActionButtons
-              actions={[{ icon: <Trash2 className="h-4 w-4" />, label: "Delete" }]}
+              actions={[
+                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+              ]}
               key="remote-actions"
             />,
           ],
