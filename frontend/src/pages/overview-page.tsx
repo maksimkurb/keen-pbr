@@ -53,8 +53,6 @@ export function OverviewPage() {
             </AlertDescription>
           </Alert>
 
-        <div className="text-sm text-muted-foreground">upstream: udp://127.0.0.1:2253</div>
-
           <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
             <Button size="sm" variant="outline">
               Run again

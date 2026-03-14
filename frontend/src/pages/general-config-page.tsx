@@ -146,8 +146,8 @@ export function GeneralConfigPage() {
       </Card>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline">Cancel</Button>
-        <Button>Save</Button>
+        <Button size="xl" variant="outline">Cancel</Button>
+        <Button size="xl">Save</Button>
       </div>
     </div>
   )

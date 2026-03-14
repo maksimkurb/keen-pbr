@@ -46,7 +46,7 @@ export function DnsRulesPage() {
               }
               value={fallbackServerTag}
             >
-              <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectTrigger>
                 <SelectValue placeholder="Select a DNS server" />
               </SelectTrigger>
               <SelectContent>

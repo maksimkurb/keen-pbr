@@ -1,24 +1,7 @@
-import { Pencil, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
 import { useId, useState } from "react"
+import { useLocation } from "wouter"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import {
@@ -30,10 +13,35 @@ import {
 } from "@/components/shared/field"
 import { PageHeader } from "@/components/shared/page-header"
 import { SectionCard } from "@/components/shared/section-card"
+import { UpsertPage } from "@/components/shared/upsert-page"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type OutboundDraft = {
   tag: string
   type: string
+  interfaceName: string
+  gateway: string
+  table: string
   outbounds: string
   probeUrl: string
   interval: string
@@ -43,9 +51,24 @@ type OutboundDraft = {
   strictEnforcement: string
 }
 
+type OutboundItem = {
+  id: string
+  draft: OutboundDraft
+  typeVariant?: "default" | "outline" | "secondary"
+  summary: string
+}
+
+type UrltestGroup = {
+  id: string
+  outbounds: string[]
+}
+
 const sampleNewOutbound: OutboundDraft = {
   tag: "",
   type: "interface",
+  interfaceName: "",
+  gateway: "",
+  table: "",
   outbounds: "",
   probeUrl: "https://www.gstatic.com/generate_204",
   interval: "180000",
@@ -56,124 +79,191 @@ const sampleNewOutbound: OutboundDraft = {
 }
 
 const strictOptions = ["Default (as in global config)", "Enabled", "Disabled"] as const
+const outboundTypeOptions = ["interface", "table", "blackhole", "ignore", "urltest"] as const
+
+const outboundItems: OutboundItem[] = [
+  {
+    id: "vpn",
+    draft: {
+      tag: "vpn",
+      type: "interface",
+      interfaceName: "tun0",
+      gateway: "10.8.0.1",
+      table: "",
+      outbounds: "",
+      probeUrl: "",
+      interval: "180000",
+      tolerance: "100",
+      retryAttempts: "3",
+      retryInterval: "1000",
+      strictEnforcement: "Default (as in global config)",
+    },
+    typeVariant: "outline",
+    summary: "ifname=tun0",
+  },
+  {
+    id: "wan",
+    draft: {
+      tag: "wan",
+      type: "interface",
+      interfaceName: "eth0",
+      gateway: "192.168.1.1",
+      table: "",
+      outbounds: "",
+      probeUrl: "",
+      interval: "180000",
+      tolerance: "100",
+      retryAttempts: "3",
+      retryInterval: "1000",
+      strictEnforcement: "Default (as in global config)",
+    },
+    typeVariant: "outline",
+    summary: "ifname=eth0",
+  },
+  {
+    id: "auto-select",
+    draft: {
+      tag: "auto-select",
+      type: "urltest",
+      interfaceName: "",
+      gateway: "",
+      table: "",
+      outbounds: "vpn,wan",
+      probeUrl: "https://www.gstatic.com/generate_204",
+      interval: "180000",
+      tolerance: "100",
+      retryAttempts: "3",
+      retryInterval: "1000",
+      strictEnforcement: "Default (as in global config)",
+    },
+    summary: "outbounds=vpn,wan",
+  },
+]
 
 export function OutboundsPage() {
-  const [editingOutbound, setEditingOutbound] = useState<OutboundDraft | null>(null)
+  const [, navigate] = useLocation()
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
-        actions={<Button onClick={() => setEditingOutbound(sampleNewOutbound)}>New outbound</Button>}
+        actions={<Button onClick={() => navigate("/outbounds/create")}>New outbound</Button>}
         description="Configured outbounds and urltest behavior."
         title="Outbounds"
       />
 
       <DataTable
         headers={["Tag", "Type", "Summary", "Actions"]}
-        rows={[
-          [
-            <div className="font-medium" key="vpn-tag">
-              vpn
-            </div>,
-            <Badge key="vpn-type" variant="outline">
-              interface
-            </Badge>,
-            <span className="text-sm text-muted-foreground" key="vpn-summary">
-              ifname=tun0
-            </span>,
-            <ActionButtons
-              actions={[
-                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
-                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
-              ]}
-              key="vpn-actions"
-            />,
-          ],
-          [
-            <div className="font-medium" key="wan-tag">
-              wan
-            </div>,
-            <Badge key="wan-type" variant="outline">
-              interface
-            </Badge>,
-            <span className="text-sm text-muted-foreground" key="wan-summary">
-              ifname=eth0
-            </span>,
-            <ActionButtons
-              actions={[
-                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
-                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
-              ]}
-              key="wan-actions"
-            />,
-          ],
-          [
-            <div className="font-medium" key="auto-tag">
-              auto-select
-            </div>,
-            <Badge key="auto-type">urltest</Badge>,
-            <span className="text-sm text-muted-foreground" key="auto-summary">
-              outbounds=vpn,wan
-            </span>,
-            <ActionButtons
-              actions={[
-                { icon: <Pencil className="h-4 w-4" />, label: "Edit" },
-                { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
-              ]}
-              key="auto-actions"
-            />,
-          ],
-        ]}
+        rows={outboundItems.map((outbound) => [
+          <div className="font-medium" key={`${outbound.id}-tag`}>
+            {outbound.draft.tag}
+          </div>,
+          <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
+            {outbound.draft.type}
+          </Badge>,
+          <span className="text-sm text-muted-foreground" key={`${outbound.id}-summary`}>
+            {outbound.summary}
+          </span>,
+          <ActionButtons
+            actions={[
+              {
+                icon: <Pencil className="h-4 w-4" />,
+                label: "Edit",
+                onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
+              },
+              { icon: <Trash2 className="h-4 w-4" />, label: "Delete" },
+            ]}
+            key={`${outbound.id}-actions`}
+          />,
+        ])}
       />
-
-      <Dialog onOpenChange={(open) => !open && setEditingOutbound(null)} open={Boolean(editingOutbound)}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingOutbound?.tag ? "Edit outbound" : "Create outbound"}
-            </DialogTitle>
-            <DialogDescription>Configure interface or urltest outbounds.</DialogDescription>
-          </DialogHeader>
-          {editingOutbound ? (
-            <EditOutboundForm
-              draft={editingOutbound}
-              mode={editingOutbound.tag ? "edit" : "create"}
-              onCancel={() => setEditingOutbound(null)}
-              onChange={setEditingOutbound}
-              onSubmit={() => setEditingOutbound(null)}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   )
 }
 
-function EditOutboundForm({
+export function OutboundUpsertPage({
+  mode,
+  outboundId,
+}: {
+  mode: "create" | "edit"
+  outboundId?: string
+}) {
+  const [, navigate] = useLocation()
+  const draft = mode === "edit" ? getOutboundDraft(outboundId) : sampleNewOutbound
+
+  if (!draft) {
+    return (
+      <UpsertPage
+        cardDescription="The requested outbound could not be found."
+        cardTitle="Missing outbound"
+        description="Return to the outbounds table and choose a valid entry."
+        title="Edit outbound"
+      >
+        <div className="flex justify-end">
+          <Button onClick={() => navigate("/outbounds")} variant="outline">
+            Back to outbounds
+          </Button>
+        </div>
+      </UpsertPage>
+    )
+  }
+
+  return (
+    <UpsertPage
+      cardDescription="Configure interface or urltest outbounds."
+      cardTitle={mode === "create" ? "Create outbound" : `Edit ${draft.tag}`}
+      description="Outbounds define direct interfaces or grouped urltest behavior."
+      title={mode === "create" ? "Create outbound" : "Edit outbound"}
+    >
+      <OutboundForm
+        draft={draft}
+        mode={mode}
+        onCancel={() => navigate("/outbounds")}
+        onSubmit={() => navigate("/outbounds")}
+      />
+    </UpsertPage>
+  )
+}
+
+function OutboundForm({
   mode,
   draft,
-  onChange,
   onCancel,
   onSubmit,
 }: {
   mode: "create" | "edit"
   draft: OutboundDraft
-  onChange: (next: OutboundDraft) => void
   onCancel: () => void
   onSubmit: () => void
 }) {
+  const [outboundType, setOutboundType] = useState(draft.type)
+  const [urltestGroups, setUrltestGroups] = useState<UrltestGroup[]>(
+    getInitialUrltestGroups(draft.outbounds)
+  )
+  const isUrltest = outboundType === "urltest"
+  const isInterface = outboundType === "interface"
+  const isTable = outboundType === "table"
+  const isBlackhole = outboundType === "blackhole"
+  const isIgnore = outboundType === "ignore"
   const tagId = useId()
-  const typeId = useId()
-  const outboundsId = useId()
+  const interfaceId = useId()
+  const gatewayId = useId()
+  const tableId = useId()
   const probeUrlId = useId()
   const intervalId = useId()
   const toleranceId = useId()
   const retryAttemptsId = useId()
   const retryIntervalId = useId()
+  const circuitBreakerFailuresId = useId()
+  const circuitBreakerSuccessesId = useId()
+  const circuitBreakerTimeoutId = useId()
+  const circuitBreakerHalfOpenId = useId()
+  const interfaceOutboundOptions = outboundItems
+    .filter((item) => item.draft.type === "interface" && item.draft.tag !== draft.tag)
+    .map((item) => item.draft.tag)
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-6"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit()
@@ -183,133 +273,444 @@ function EditOutboundForm({
         <Field>
           <FieldLabel htmlFor={tagId}>Tag</FieldLabel>
           <FieldContent>
-            <Input
-              id={tagId}
-              onChange={(event) => onChange({ ...draft, tag: event.target.value })}
-              readOnly={mode === "edit"}
-              value={draft.tag}
-            />
+            <Input defaultValue={draft.tag} disabled={mode === "edit"} id={tagId} />
+            <FieldHint description="Use a unique outbound tag that can be referenced by rules, groups, and detours." />
           </FieldContent>
         </Field>
         <Field>
-          <FieldLabel htmlFor={typeId}>Type</FieldLabel>
+          <FieldLabel>Type</FieldLabel>
           <FieldContent>
-            <Input
-              id={typeId}
-              onChange={(event) => onChange({ ...draft, type: event.target.value })}
-              value={draft.type}
-            />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={outboundsId}>Outbounds</FieldLabel>
-          <FieldContent>
-            <Input
-              id={outboundsId}
-              onChange={(event) => onChange({ ...draft, outbounds: event.target.value })}
-              value={draft.outbounds}
-            />
-            <FieldHint description="Outbounds inside a group are selected through combobox/select-style controls." />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={probeUrlId}>Probe URL</FieldLabel>
-          <FieldContent>
-            <Input
-              id={probeUrlId}
-              onChange={(event) => onChange({ ...draft, probeUrl: event.target.value })}
-              value={draft.probeUrl}
-            />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={intervalId}>Interval (ms)</FieldLabel>
-          <FieldContent>
-            <Input
-              id={intervalId}
-              onChange={(event) => onChange({ ...draft, interval: event.target.value })}
-              value={draft.interval}
-            />
-            <FieldHint description="Interval between probes." />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={toleranceId}>Tolerance (ms)</FieldLabel>
-          <FieldContent>
-            <Input
-              id={toleranceId}
-              onChange={(event) => onChange({ ...draft, tolerance: event.target.value })}
-              value={draft.tolerance}
-            />
-            <FieldHint description="If latency difference is not larger than this value, destination will not change." />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={retryAttemptsId}>Retry attempts</FieldLabel>
-          <FieldContent>
-            <Input
-              id={retryAttemptsId}
-              onChange={(event) => onChange({ ...draft, retryAttempts: event.target.value })}
-              value={draft.retryAttempts}
-            />
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={retryIntervalId}>Retry interval (ms)</FieldLabel>
-          <FieldContent>
-            <Input
-              id={retryIntervalId}
-              onChange={(event) => onChange({ ...draft, retryInterval: event.target.value })}
-              value={draft.retryInterval}
-            />
+            <Select
+              defaultValue={draft.type}
+              onValueChange={(value) => setOutboundType(value ?? draft.type)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Outbound types</SelectLabel>
+                  {outboundTypeOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldHint description="Choose the outbound type defined by the config schema; the form below updates to show only relevant fields." />
           </FieldContent>
         </Field>
       </FieldGroup>
 
-      <SectionCard description="Fallback parameters when probing fails." title="Circuit breaker">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input defaultValue="5" />
-          <Input defaultValue="2" />
-          <Input defaultValue="30000" />
-          <Input defaultValue="1" />
-        </div>
-      </SectionCard>
+      {isInterface ? (
+        <SectionCard
+          description="Configure the egress device and optional gateway for interface-based routing."
+          title="Interface settings"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={interfaceId}>Interface</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.interfaceName} id={interfaceId} />
+                <FieldHint description="Network interface name used for egress, such as tun0 or eth0." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={gatewayId}>Gateway</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.gateway} id={gatewayId} />
+                <FieldHint description="Optional gateway IP address for this interface outbound." />
+              </FieldContent>
+            </Field>
+          </div>
+        </SectionCard>
+      ) : null}
 
-      <Field>
-        <FieldLabel>Strict enforcement</FieldLabel>
-        <FieldContent>
-          <Select
-            onValueChange={(strictEnforcement) =>
-              onChange({
-                ...draft,
-                strictEnforcement: strictEnforcement ?? strictOptions[0],
-              })
-            }
-            value={draft.strictEnforcement}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {strictOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldHint description="Use Default (as in global config), Enabled, or Disabled." />
-        </FieldContent>
-      </Field>
+      {isTable ? (
+        <SectionCard
+          description="Map this outbound to an existing kernel routing table."
+          title="Table settings"
+        >
+          <Field>
+            <FieldLabel htmlFor={tableId}>Table ID</FieldLabel>
+            <FieldContent>
+              <Input defaultValue={draft.table} id={tableId} />
+              <FieldHint description="Kernel routing table ID required for the table outbound type." />
+            </FieldContent>
+          </Field>
+        </SectionCard>
+      ) : null}
 
-      <DialogFooter className="px-0 pb-0 pt-3">
-        <Button onClick={onCancel} type="button" variant="outline">
+      {isBlackhole ? (
+        <SectionCard
+          description="Blackhole outbounds intentionally drop all matching traffic."
+          title="Blackhole behavior"
+        >
+          <p className="text-sm text-muted-foreground md:text-xs">
+            No additional fields are required for this type beyond the outbound tag.
+          </p>
+        </SectionCard>
+      ) : null}
+
+      {isIgnore ? (
+        <SectionCard
+          description="Ignore outbounds pass matching traffic through without policy-based routing changes."
+          title="Ignore behavior"
+        >
+          <p className="text-sm text-muted-foreground md:text-xs">
+            No additional fields are required for this type beyond the outbound tag.
+          </p>
+        </SectionCard>
+      ) : null}
+
+      {isUrltest ? (
+        <SectionCard
+          description="Groups are tried in order. Each group selects from interface outbounds, and order acts as priority."
+          title="Outbound groups"
+        >
+          <div className="space-y-4">
+            {urltestGroups.map((group, index) => (
+              <div className="rounded-xl border border-border p-4" key={group.id}>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium md:text-xs">
+                      Group {index + 1}
+                    </div>
+                    <div className="text-sm text-muted-foreground md:text-xs">
+                      Priority {index + 1}. Earlier groups are preferred before later ones.
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={index === 0}
+                      onClick={() => setUrltestGroups((current) => moveGroup(current, index, index - 1))}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                      Up
+                    </Button>
+                    <Button
+                      disabled={index === urltestGroups.length - 1}
+                      onClick={() => setUrltestGroups((current) => moveGroup(current, index, index + 1))}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                      Down
+                    </Button>
+                    <Button
+                      disabled={urltestGroups.length === 1}
+                      onClick={() =>
+                        setUrltestGroups((current) =>
+                          current.length === 1 ? current : current.filter((item) => item.id !== group.id)
+                        )
+                      }
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+
+                <Field>
+                  <FieldLabel>Interface outbounds</FieldLabel>
+                  <FieldContent>
+                    {interfaceOutboundOptions.length ? (
+                      <InterfaceMultiSelect
+                        onChange={(nextOutbounds) =>
+                          setUrltestGroups((current) =>
+                            current.map((item) =>
+                              item.id === group.id
+                                ? { ...item, outbounds: nextOutbounds }
+                                : item
+                            )
+                          )
+                        }
+                        options={interfaceOutboundOptions}
+                        unavailable={getUnavailableOutbounds(urltestGroups, group)}
+                        value={group.outbounds}
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground md:text-xs">
+                        {interfaceOutboundOptions.length ? (
+                          "All interface outbounds are already assigned to other groups."
+                        ) : (
+                          "Add interface outbounds first so urltest groups have selectable targets."
+                        )}
+                      </div>
+                    )}
+                  </FieldContent>
+                </Field>
+              </div>
+            ))}
+            <div className="flex justify-start">
+              <Button
+                onClick={() =>
+                  setUrltestGroups((current) => [
+                    ...current,
+                    createUrltestGroup(
+                      getNextAvailableOutbounds(interfaceOutboundOptions, current)
+                    ),
+                  ])
+                }
+                type="button"
+                variant="outline"
+              >
+                <Plus className="h-4 w-4" />
+                Add group
+              </Button>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {isUrltest ? (
+        <SectionCard
+          description="Configure how the urltest group probes candidates and retries failed checks."
+          title="Probing and retries"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={probeUrlId}>Probe URL</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.probeUrl} id={probeUrlId} />
+                <FieldHint description="Health checks fetch this URL to measure availability and latency." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={intervalId}>Interval (ms)</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.interval} id={intervalId} />
+                <FieldHint description="Interval between probes." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={toleranceId}>Tolerance (ms)</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.tolerance} id={toleranceId} />
+                <FieldHint description="If latency difference is not larger than this value, destination will not change." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={retryAttemptsId}>Retry attempts</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.retryAttempts} id={retryAttemptsId} />
+                <FieldHint description="Number of extra probe attempts before the check is treated as failed." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={retryIntervalId}>Retry interval (ms)</FieldLabel>
+              <FieldContent>
+                <Input defaultValue={draft.retryInterval} id={retryIntervalId} />
+                <FieldHint description="Delay between retry attempts after a failed probe." />
+              </FieldContent>
+            </Field>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {isUrltest ? (
+        <SectionCard description="Fallback parameters when probing fails." title="Circuit breaker">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={circuitBreakerFailuresId}>Failures before open</FieldLabel>
+              <FieldContent>
+                <Input defaultValue="5" id={circuitBreakerFailuresId} />
+                <FieldHint description="Open the circuit after this many consecutive failed checks." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={circuitBreakerSuccessesId}>Successes to close</FieldLabel>
+              <FieldContent>
+                <Input defaultValue="2" id={circuitBreakerSuccessesId} />
+                <FieldHint description="Close the circuit again after this many successful recovery probes." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={circuitBreakerTimeoutId}>Open timeout (ms)</FieldLabel>
+              <FieldContent>
+                <Input defaultValue="30000" id={circuitBreakerTimeoutId} />
+                <FieldHint description="How long the circuit stays open before half-open probing resumes." />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={circuitBreakerHalfOpenId}>Half-open probes</FieldLabel>
+              <FieldContent>
+                <Input defaultValue="1" id={circuitBreakerHalfOpenId} />
+                <FieldHint description="Maximum concurrent probes allowed while testing recovery." />
+              </FieldContent>
+            </Field>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {isInterface ? (
+        <Field>
+          <FieldLabel>Strict enforcement</FieldLabel>
+          <FieldContent>
+            <Select defaultValue={draft.strictEnforcement}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Strict enforcement</SelectLabel>
+                  {strictOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldHint description="Override the daemon-level strict routing setting for this interface outbound." />
+          </FieldContent>
+        </Field>
+      ) : null}
+
+      <div className="flex justify-end gap-3">
+        <Button onClick={onCancel} size="xl" type="button" variant="outline">
           Cancel
         </Button>
-        <Button type="submit">
+        <Button size="xl" type="submit">
           {mode === "create" ? "Create outbound" : "Save outbound"}
         </Button>
-      </DialogFooter>
+      </div>
     </form>
+  )
+}
+
+function getOutboundDraft(outboundId?: string) {
+  if (!outboundId) {
+    return null
+  }
+
+  const outbound = outboundItems.find((item) => item.id === outboundId)
+  return outbound ? outbound.draft : null
+}
+
+function getInitialUrltestGroups(outbounds: string) {
+  const parsedOutbounds = outbounds
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  return parsedOutbounds.length
+    ? [createUrltestGroup(parsedOutbounds)]
+    : [createUrltestGroup([])]
+}
+
+function createUrltestGroup(outbounds: string[]): UrltestGroup {
+  return {
+    id: crypto.randomUUID(),
+    outbounds,
+  }
+}
+
+function moveGroup(groups: UrltestGroup[], fromIndex: number, toIndex: number) {
+  const next = [...groups]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
+}
+
+function getUnavailableOutbounds(groups: UrltestGroup[], currentGroup: UrltestGroup) {
+  return groups
+    .filter((group) => group.id !== currentGroup.id)
+    .flatMap((group) => group.outbounds)
+}
+
+function getNextAvailableOutbounds(options: string[], groups: UrltestGroup[]) {
+  const used = new Set(groups.flatMap((group) => group.outbounds))
+  const next = options.find((option) => !used.has(option))
+  return next ? [next] : []
+}
+
+function InterfaceMultiSelect({
+  options,
+  unavailable,
+  value,
+  onChange,
+}: {
+  options: string[]
+  unavailable: string[]
+  value: string[]
+  onChange: (nextValue: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selectedSet = new Set(value)
+  const unavailableSet = new Set(unavailable)
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-2 rounded-xl border border-border p-3">
+        {value.length ? (
+          value.map((outbound, index) => (
+            <InputGroup key={`${outbound}-${index}`}>
+              <InputGroupAddon className="w-full justify-start text-foreground">
+                {outbound}
+              </InputGroupAddon>
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  aria-label={`Remove ${outbound}`}
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => onChange(value.filter((item) => item !== outbound))}
+                  size="icon-xs"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          ))
+        ) : null}
+        <div className="pt-2">
+          <Popover onOpenChange={setOpen} open={open}>
+            <PopoverTrigger render={<Button size="sm" type="button" variant="outline" />}>
+              <Plus className="h-4 w-4" />
+              Add outbound
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[280px] p-0" sideOffset={2}>
+              <Command>
+                <CommandList>
+                  <CommandEmpty>No interface outbounds found.</CommandEmpty>
+                  <CommandGroup heading="Interface outbounds">
+                    {options.map((option) => {
+                      const selected = selectedSet.has(option)
+                      const disabled = selected || unavailableSet.has(option)
+
+                      return (
+                        <CommandItem
+                          data-checked={selected}
+                          disabled={disabled}
+                          key={option}
+                          onSelect={() => {
+                            if (disabled) {
+                              return
+                            }
+
+                            onChange([...value, option])
+                            setOpen(false)
+                          }}
+                        >
+                          <span className={disabled ? "text-muted-foreground" : undefined}>
+                            {option}
+                          </span>
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+    </div>
   )
 }

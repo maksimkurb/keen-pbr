@@ -5,7 +5,12 @@ import { IconButtonWithTooltip } from "@/components/shared/icon-button-with-tool
 export function ActionButtons({
   actions,
 }: {
-  actions: Array<{ label: string; icon?: ReactNode; variant?: "ghost" | "outline" }>
+  actions: Array<{
+    label: string
+    icon?: ReactNode
+    variant?: "ghost" | "outline"
+    onClick?: () => void
+  }>
 }) {
   return (
     <div className="ml-auto inline-flex justify-end gap-2">
@@ -13,6 +18,7 @@ export function ActionButtons({
         <IconButtonWithTooltip
           key={action.label}
           label={action.label}
+          onClick={action.onClick}
           size="icon-sm"
           variant="ghost"
         >
