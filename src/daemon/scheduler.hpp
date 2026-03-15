@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <functional>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -63,6 +64,7 @@ private:
 
     Daemon& daemon_;
     std::vector<TimerEntry> entries_;
+    mutable std::mutex entries_mutex_;
     int next_id_{1};
 };
 

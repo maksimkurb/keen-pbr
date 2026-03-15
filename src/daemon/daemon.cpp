@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include <algorithm>
 
 #include <cerrno>
 #include <cstring>
@@ -10,6 +11,7 @@
 #include <signal.h>
 #include <sstream>
 #include <shared_mutex>
+#include <sys/eventfd.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -76,6 +78,7 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     }
 
     setup_signals();
+    setup_control_channel();
 
     // Set outbound marks in firewall state
     firewall_state_.set_outbound_marks(outbound_marks_);
@@ -99,6 +102,10 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
 }
 
 Daemon::~Daemon() {
+    if (control_fd_ >= 0) {
+        epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, control_fd_, nullptr);
+        close(control_fd_);
+    }
     if (signal_fd_ >= 0) {
         // Remove from epoll before closing
         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
@@ -116,6 +123,89 @@ Daemon::~Daemon() {
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGHUP);
     sigprocmask(SIG_UNBLOCK, &mask, nullptr);
+}
+
+void Daemon::setup_control_channel() {
+    control_fd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (control_fd_ < 0) {
+        throw DaemonError("eventfd failed: " + std::string(strerror(errno)));
+    }
+
+    struct epoll_event ev{};
+    ev.events = EPOLLIN;
+    ev.data.fd = control_fd_;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, control_fd_, &ev) < 0) {
+        throw DaemonError("epoll_ctl add control_fd failed: " + std::string(strerror(errno)));
+    }
+}
+
+void Daemon::wake_control_loop() {
+    const uint64_t inc = 1;
+    ssize_t n = write(control_fd_, &inc, sizeof(inc));
+    if (n < 0 && errno != EAGAIN) {
+        throw DaemonError("eventfd write failed: " + std::string(strerror(errno)));
+    }
+}
+
+void Daemon::enqueue_control_command(std::function<void()> command,
+                                     bool wait_for_completion) {
+    if (!command) {
+        return;
+    }
+
+    if (event_loop_thread_id_ == std::thread::id{}) {
+        command();
+        return;
+    }
+
+    if (event_loop_thread_id_ == std::this_thread::get_id()) {
+        command();
+        return;
+    }
+
+    if (wait_for_completion) {
+        auto done = std::make_shared<std::promise<void>>();
+        auto fut = done->get_future();
+        {
+            std::lock_guard<std::mutex> lock(control_commands_mutex_);
+            control_commands_.push_back([cmd = std::move(command), done]() mutable {
+                try {
+                    cmd();
+                    done->set_value();
+                } catch (...) {
+                    done->set_exception(std::current_exception());
+                }
+            });
+        }
+        wake_control_loop();
+        fut.get();
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(control_commands_mutex_);
+        control_commands_.push_back(std::move(command));
+    }
+    wake_control_loop();
+}
+
+void Daemon::handle_control_commands() {
+    uint64_t counter = 0;
+    while (read(control_fd_, &counter, sizeof(counter)) > 0) {
+    }
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        throw DaemonError("eventfd read failed: " + std::string(strerror(errno)));
+    }
+
+    std::vector<std::function<void()>> commands;
+    {
+        std::lock_guard<std::mutex> lock(control_commands_mutex_);
+        commands.swap(control_commands_);
+    }
+
+    for (auto& command : commands) {
+        command();
+    }
 }
 
 void Daemon::setup_signals() {
@@ -208,23 +298,29 @@ void Daemon::handle_sighup() {
 }
 
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
-    struct epoll_event ev{};
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        throw DaemonError("epoll_ctl add fd failed: " + std::string(strerror(errno)));
-    }
+    enqueue_control_command([this, fd, events, cb = std::move(cb)]() mutable {
+        struct epoll_event ev{};
+        ev.events = events;
+        ev.data.fd = fd;
+        if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
+            throw DaemonError("epoll_ctl add fd failed: " + std::string(strerror(errno)));
+        }
 
-    fd_entries_.push_back({fd, std::move(cb)});
+        std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+        fd_entries_.push_back({fd, std::move(cb)});
+    }, true);
 }
 
 void Daemon::remove_fd(int fd) {
-    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
+    enqueue_control_command([this, fd]() {
+        epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
 
-    fd_entries_.erase(
-        std::remove_if(fd_entries_.begin(), fd_entries_.end(),
-                       [fd](const FdEntry& e) { return e.fd == fd; }),
-        fd_entries_.end());
+        std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+        fd_entries_.erase(
+            std::remove_if(fd_entries_.begin(), fd_entries_.end(),
+                           [fd](const FdEntry& e) { return e.fd == fd; }),
+            fd_entries_.end());
+    }, true);
 }
 
 void Daemon::run() {
@@ -258,6 +354,7 @@ void Daemon::run() {
 
     // --- Event loop ---
     running_ = true;
+    event_loop_thread_id_ = std::this_thread::get_id();
 
     constexpr int MAX_EVENTS = 16;
     struct epoll_event events[MAX_EVENTS];
@@ -278,13 +375,24 @@ void Daemon::run() {
                 handle_signal();
                 continue;
             }
+            if (fd == control_fd_) {
+                handle_control_commands();
+                continue;
+            }
 
             // Dispatch to registered fd callbacks
-            for (auto& entry : fd_entries_) {
-                if (entry.fd == fd) {
-                    entry.callback(events[i].events);
-                    break;
+            FdCallback callback;
+            {
+                std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+                for (auto& entry : fd_entries_) {
+                    if (entry.fd == fd) {
+                        callback = entry.callback;
+                        break;
+                    }
                 }
+            }
+            if (callback) {
+                callback(events[i].events);
             }
         }
     }

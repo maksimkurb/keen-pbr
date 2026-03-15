@@ -2,11 +2,14 @@
 
 #include <cstdint>
 #include <functional>
+#include <future>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "../cache/cache_manager.hpp"
@@ -70,6 +73,10 @@ public:
     // Remove a previously registered file descriptor.
     void remove_fd(int fd);
 
+    // Serialize execution of control operations in event loop.
+    void enqueue_control_command(std::function<void()> command,
+                                 bool wait_for_completion = false);
+
     // Run the daemon lifecycle: startup, event loop, shutdown.
     void run();
 
@@ -83,6 +90,9 @@ private:
     // Epoll/signal setup
     void setup_signals();
     void handle_signal();
+    void setup_control_channel();
+    void handle_control_commands();
+    void wake_control_loop();
 
     // Signal handlers
     void handle_sigusr1();
@@ -121,12 +131,18 @@ private:
     int epoll_fd_{-1};
     int signal_fd_{-1};
     bool running_{false};
+    std::thread::id event_loop_thread_id_{};
 
     struct FdEntry {
         int fd;
         FdCallback callback;
     };
     std::vector<FdEntry> fd_entries_;
+    mutable std::mutex fd_entries_mutex_;
+
+    int control_fd_{-1};
+    std::vector<std::function<void()>> control_commands_;
+    std::mutex control_commands_mutex_;
 
     // Configuration
     mutable std::shared_mutex state_mutex_;

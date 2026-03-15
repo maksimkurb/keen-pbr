@@ -1,4 +1,5 @@
 #include "scheduler.hpp"
+#include <algorithm>
 #include "daemon.hpp"
 
 #include <cerrno>
@@ -41,25 +42,39 @@ int Scheduler::create_timerfd(std::chrono::seconds initial, std::chrono::seconds
 
 int Scheduler::schedule_repeating(std::chrono::seconds interval, TaskCallback cb) {
     int fd = create_timerfd(interval, interval);
-    int id = next_id_++;
+    int id = 0;
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        id = next_id_++;
+    }
 
     daemon_.add_fd(fd, EPOLLIN, [this, fd](uint32_t events) {
         on_timer(fd, events);
     });
 
-    entries_.push_back({id, fd, std::move(cb), true});
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        entries_.push_back({id, fd, std::move(cb), true});
+    }
     return id;
 }
 
 int Scheduler::schedule_oneshot(std::chrono::seconds delay, TaskCallback cb) {
     int fd = create_timerfd(delay, std::chrono::seconds{0});
-    int id = next_id_++;
+    int id = 0;
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        id = next_id_++;
+    }
 
     daemon_.add_fd(fd, EPOLLIN, [this, fd](uint32_t events) {
         on_timer(fd, events);
     });
 
-    entries_.push_back({id, fd, std::move(cb), false});
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        entries_.push_back({id, fd, std::move(cb), false});
+    }
     return id;
 }
 
@@ -72,52 +87,77 @@ void Scheduler::on_timer(int timer_fd, uint32_t /*events*/) {
     }
 
     // Find the entry and invoke its callback
-    for (auto& entry : entries_) {
-        if (entry.timer_fd == timer_fd) {
-            TaskCallback cb = entry.callback; // copy before potential removal
-            if (!entry.repeating) {
-                // One-shot: remove after firing
-                remove_entry(timer_fd);
+    bool repeating = false;
+    TaskCallback cb;
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        for (const auto& entry : entries_) {
+            if (entry.timer_fd == timer_fd) {
+                cb = entry.callback;
+                repeating = entry.repeating;
+                break;
             }
-            cb();
-            return;
         }
     }
+    if (!cb) {
+        return;
+    }
+    if (!repeating) {
+        // One-shot: remove after firing
+        remove_entry(timer_fd);
+    }
+    cb();
 }
 
 void Scheduler::cancel(int task_id) {
-    for (auto it = entries_.begin(); it != entries_.end(); ++it) {
-        if (it->id == task_id) {
-            int fd = it->timer_fd;
-            daemon_.remove_fd(fd);
-            close(fd);
-            entries_.erase(it);
-            return;
+    int fd = -1;
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        for (auto it = entries_.begin(); it != entries_.end(); ++it) {
+            if (it->id == task_id) {
+                fd = it->timer_fd;
+                entries_.erase(it);
+                break;
+            }
         }
+    }
+    if (fd >= 0) {
+        daemon_.remove_fd(fd);
+        close(fd);
     }
 }
 
 void Scheduler::cancel_all() {
-    // Copy fds first since remove_fd modifies nothing we iterate,
-    // but close + erase should be done carefully
-    while (!entries_.empty()) {
-        auto& entry = entries_.back();
-        daemon_.remove_fd(entry.timer_fd);
-        close(entry.timer_fd);
-        entries_.pop_back();
+    std::vector<int> timer_fds;
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        timer_fds.reserve(entries_.size());
+        for (const auto& entry : entries_) {
+            timer_fds.push_back(entry.timer_fd);
+        }
+        entries_.clear();
+    }
+
+    for (int timer_fd : timer_fds) {
+        daemon_.remove_fd(timer_fd);
+        close(timer_fd);
     }
 }
 
 void Scheduler::remove_entry(int timer_fd) {
+    {
+        std::lock_guard<std::mutex> lock(entries_mutex_);
+        entries_.erase(
+            std::remove_if(entries_.begin(), entries_.end(),
+                           [timer_fd](const TimerEntry& e) { return e.timer_fd == timer_fd; }),
+            entries_.end());
+    }
     daemon_.remove_fd(timer_fd);
     close(timer_fd);
-    entries_.erase(
-        std::remove_if(entries_.begin(), entries_.end(),
-                       [timer_fd](const TimerEntry& e) { return e.timer_fd == timer_fd; }),
-        entries_.end());
 }
 
 size_t Scheduler::size() const {
+    std::lock_guard<std::mutex> lock(entries_mutex_);
     return entries_.size();
 }
 
