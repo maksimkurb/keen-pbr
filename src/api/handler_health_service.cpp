@@ -5,18 +5,20 @@
 
 #include <keen-pbr3/version.hpp>
 #include <nlohmann/json.hpp>
+#include <shared_mutex>
 
 namespace keen_pbr3 {
 
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/health/service - daemon version/status + health for all outbounds
     server.get("/api/health/service", [&ctx]() -> std::string {
+        std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
         resp.status = api::HealthResponseStatus::RUNNING;
-        resp.resolver_config_hash = ctx.resolver_config_hash;
+        resp.resolver_config_hash = ctx.resolver_config_hash_fn();
 
-        for (const auto& ob : ctx.outbounds()) {
+        for (const auto& ob : ctx.outbounds_fn()) {
             api::HealthEntry entry;
             entry.tag = ob.tag;
             entry.type = ob.type;
@@ -24,7 +26,13 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
             if (ob.type == OutboundType::URLTEST) {
                 // Report urltest state: per-child latencies, circuit breaker states, selected outbound
                 try {
-                    const auto& state = ctx.urltest_manager->get_state(entry.tag);
+                    const auto state_opt = ctx.urltest_state_fn(entry.tag);
+                    if (!state_opt.has_value()) {
+                        entry.status = api::HealthEntryStatus::UNKNOWN;
+                        resp.outbounds.push_back(std::move(entry));
+                        continue;
+                    }
+                    const auto& state = *state_opt;
 
                     std::vector<api::HealthChild> children;
                     for (const auto& [child_tag, result] : state.last_results) {
@@ -56,7 +64,7 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
                     entry.status = state.selected_outbound.empty()
                         ? api::HealthEntryStatus::DEGRADED
                         : api::HealthEntryStatus::HEALTHY;
-                } catch (const std::out_of_range&) {
+                } catch (const std::exception&) {
                     entry.status = api::HealthEntryStatus::UNKNOWN;
                 }
             } else {
@@ -68,7 +76,7 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         }
 
         nlohmann::json response = resp;
-        response["config_is_draft"] = ctx.config_is_draft();
+        response["config_is_draft"] = ctx.config_is_draft_fn();
         return response.dump();
     });
 }

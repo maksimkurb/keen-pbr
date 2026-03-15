@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <shared_mutex>
 
 #include "../health/routing_health_checker.hpp"
 
@@ -16,7 +17,8 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
     // the server wrapper returns HTTP 500. The JSON body contains "overall":"ok"/"degraded"/"error".
     server.get("/api/health/routing", [&ctx]() -> std::string {
         try {
-            auto report = ctx.routing_health_checker.check();
+            std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
+            auto report = ctx.routing_health_check_fn();
             return routing_health_report_to_json(report).dump();
         } catch (const std::exception& e) {
             api::RoutingHealthErrorResponse err;

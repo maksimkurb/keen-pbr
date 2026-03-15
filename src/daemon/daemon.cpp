@@ -5,9 +5,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <set>
 #include <signal.h>
 #include <sstream>
+#include <shared_mutex>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -168,6 +170,7 @@ void Daemon::handle_signal() {
 }
 
 void Daemon::handle_sigusr1() {
+    std::unique_lock<std::shared_mutex> lock(state_mutex_);
     auto& log = Logger::instance();
     log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
 
@@ -612,6 +615,8 @@ void Daemon::update_resolver_config_hash() {
 }
 
 void Daemon::apply_config(Config config) {
+    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+
     // Cancel any pending autoupdate task
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
@@ -668,7 +673,8 @@ void Daemon::reload_from_disk() {
 
     std::ostringstream ss;
     ss << ifs.rdbuf();
-    apply_config(parse_config(ss.str()));
+    Config next_config = parse_config(ss.str());
+    apply_config(std::move(next_config));
 }
 
 #ifdef WITH_API
@@ -677,19 +683,51 @@ void Daemon::setup_api() {
 
     api_server_ = std::make_unique<ApiServer>(*config_.api);
 
-    // ApiContext holds references to Daemon-owned members (stable addresses).
-    // Allocated on heap so it outlives the setup_api() call.
+    // ApiContext provides synchronized access to Daemon-owned runtime state.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
-        config_,
-        staged_config_,
-        staged_config_json_,
         cache_,
-        firewall_state_,
-        urltest_manager_,
-        *routing_health_checker_,
-        resolver_config_hash_,
+        state_mutex_,
         *dns_test_broadcaster_,
+        [this]() {
+            return staged_config_.has_value() ? *staged_config_ : config_;
+        },
+        [this]() {
+            return staged_config_.has_value();
+        },
+        [this](Config staged_config, std::string staged_config_json) {
+            std::unique_lock<std::shared_mutex> lock(state_mutex_);
+            staged_config_ = std::move(staged_config);
+            staged_config_json_ = std::move(staged_config_json);
+        },
+        [this]() -> std::optional<std::pair<Config, std::string>> {
+            if (!staged_config_.has_value() || !staged_config_json_.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_optional(std::make_pair(*staged_config_, *staged_config_json_));
+        },
+        [this]() {
+            std::unique_lock<std::shared_mutex> lock(state_mutex_);
+            staged_config_.reset();
+            staged_config_json_.reset();
+        },
+        [this]() {
+            return config_.outbounds.value_or(std::vector<Outbound>{});
+        },
+        [this](const std::string& tag) -> std::optional<UrltestState> {
+            if (!urltest_manager_) return std::nullopt;
+            try {
+                return urltest_manager_->get_state(tag);
+            } catch (const std::out_of_range&) {
+                return std::nullopt;
+            }
+        },
+        [this]() {
+            return routing_health_checker_->check();
+        },
+        [this]() {
+            return resolver_config_hash_;
+        },
         [this]() { reload_from_disk(); },
         [this](const Config& config) { apply_config(config); },
     });

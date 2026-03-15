@@ -9,6 +9,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <shared_mutex>
 
 namespace keen_pbr3 {
 
@@ -47,17 +48,19 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/config - return current config and whether it is staged in memory
     server.get("/api/config", [&ctx]() -> std::string {
+        std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
         nlohmann::json response = {
-            {"config", nlohmann::json(ctx.visible_config())},
-            {"is_draft", ctx.config_is_draft()},
+            {"config", nlohmann::json(ctx.visible_config_fn())},
+            {"is_draft", ctx.config_is_draft_fn()},
         };
         return response.dump();
     });
 
     // POST /api/config - validate and stage in memory only
     server.post("/api/config", [&ctx](const std::string& body) -> std::string {
+        Config staged;
         try {
-            ctx.staged_config = parse_config(body);
+            staged = parse_config(body);
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
         } catch (const ConfigError& e) {
@@ -70,7 +73,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError(e.what(), 400, payload.dump());
         }
 
-        ctx.staged_config_json = body;
+        ctx.stage_config_fn(std::move(staged), body);
 
         api::ConfigUpdateResponse resp;
         resp.status = api::ConfigUpdateResponseStatus::OK;
@@ -80,14 +83,18 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
 
     // POST /api/config/save - persist staged config and apply it
     server.post("/api/config/save", [&ctx]() -> std::string {
-        if (!ctx.staged_config.has_value() || !ctx.staged_config_json.has_value()) {
+        std::optional<std::pair<Config, std::string>> staged_snapshot;
+        {
+            std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
+            staged_snapshot = ctx.staged_config_snapshot_fn();
+        }
+        if (!staged_snapshot.has_value()) {
             throw std::runtime_error("No staged config to save");
         }
 
-        write_config_atomically(ctx.config_path, *ctx.staged_config_json);
-        ctx.apply_config_fn(*ctx.staged_config);
-        ctx.staged_config.reset();
-        ctx.staged_config_json.reset();
+        write_config_atomically(ctx.config_path, staged_snapshot->second);
+        ctx.apply_config_fn(staged_snapshot->first);
+        ctx.clear_staged_config_fn();
 
         api::ConfigUpdateResponse resp;
         resp.status = api::ConfigUpdateResponseStatus::OK;

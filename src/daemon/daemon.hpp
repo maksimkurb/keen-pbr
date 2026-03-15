@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -128,6 +129,7 @@ private:
     std::vector<FdEntry> fd_entries_;
 
     // Configuration
+    mutable std::shared_mutex state_mutex_;
     Config config_;
     std::string config_path_;
     std::optional<Config> staged_config_;
