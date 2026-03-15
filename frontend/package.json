@@ -17,6 +17,7 @@
     "@base-ui/react": "^1.2.0",
     "@fontsource-variable/noto-sans": "^5.2.10",
     "@tailwindcss/vite": "^4.1.17",
+    "@tanstack/react-form": "^1.28.5",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
     "class-variance-authority": "^0.7.1",
