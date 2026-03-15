@@ -15,10 +15,10 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
+import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -53,7 +53,8 @@ export function DnsRuleUpsertPage({
     string | null
   >(null)
 
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig =
+    configQuery.data?.status === 200 ? configQuery.data.data : undefined
   const rules = loadedConfig?.dns?.rules ?? []
   const parsedRuleIndex = Number(ruleIndex)
   const existingRule =
@@ -94,7 +95,7 @@ export function DnsRuleUpsertPage({
     defaultValues: {
       rule: {
         server: serverTags[0] ?? "",
-        lists: "",
+        lists: [],
       },
     },
     onSubmit: ({ value }) => {
@@ -153,13 +154,17 @@ export function DnsRuleUpsertPage({
         return
       }
 
-      form.setFieldValue("rule", getRuleDraft(existingRule))
+      form.reset({
+        rule: getRuleDraft(existingRule),
+      })
       return
     }
 
-    form.setFieldValue("rule", {
-      server: serverTags[0] ?? "",
-      lists: "",
+    form.reset({
+      rule: {
+        server: serverTags[0] ?? "",
+        lists: [],
+      },
     })
   }, [existingRule, form, loadedConfig, mode, serverTags])
 
@@ -207,58 +212,64 @@ export function DnsRuleUpsertPage({
         }}
       >
         <FieldGroup>
-          <Field>
-            <FieldLabel>Server tag</FieldLabel>
-            <FieldContent>
-              <Select
-                onValueChange={(server) =>
-                  form.setFieldValue("rule.server", server)
-                }
-                value={form.state.values.rule.server}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select DNS server" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>DNS servers</SelectLabel>
-                    {serverTags.map((serverTag) => (
-                      <SelectItem key={serverTag} value={serverTag}>
-                        {serverTag}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldHint
-                description={
-                  serverTags.length > 0
-                    ? `Available: ${serverTags.join(", ")}`
-                    : "No DNS servers defined in config.dns.servers."
-                }
-              />
-            </FieldContent>
-          </Field>
+          <form.Field name="rule.server">
+            {(field) => (
+              <Field>
+                <FieldLabel>Server tag</FieldLabel>
+                <FieldContent>
+                  <Select
+                    onValueChange={(server) => field.handleChange(server)}
+                    value={field.state.value}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select DNS server" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>DNS servers</SelectLabel>
+                        {serverTags.map((serverTag) => (
+                          <SelectItem key={serverTag} value={serverTag}>
+                            {serverTag}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldHint
+                    description={
+                      serverTags.length > 0
+                        ? `Available: ${serverTags.join(", ")}`
+                        : "No DNS servers defined in config.dns.servers."
+                    }
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
 
-          <Field>
-            <FieldLabel>List names</FieldLabel>
-            <FieldContent>
-              <Input
-                onChange={(event) =>
-                  form.setFieldValue("rule.lists", event.target.value)
-                }
-                placeholder="comma-separated list names"
-                value={form.state.values.rule.lists}
-              />
-              <FieldHint
-                description={
-                  listOptions.length > 0
-                    ? `Known lists: ${listOptions.join(", ")}`
-                    : "No lists found in config.lists."
-                }
-              />
-            </FieldContent>
-          </Field>
+          <form.Field name="rule.lists">
+            {(field) => (
+              <Field>
+                <FieldLabel>List names</FieldLabel>
+                <FieldContent>
+                  <MultiSelectList
+                    onChange={field.handleChange}
+                    options={listOptions}
+                    placeholderDescription="Add one or more configured list names to match this DNS rule."
+                    placeholderTitle="No lists selected"
+                    value={field.state.value}
+                  />
+                  <FieldHint
+                    description={
+                      listOptions.length > 0
+                        ? `Known lists: ${listOptions.join(", ")}`
+                        : "No lists found in config.lists."
+                    }
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
         </FieldGroup>
 
         <div className="flex justify-end gap-3">

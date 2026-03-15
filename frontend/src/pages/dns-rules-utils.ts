@@ -2,7 +2,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 
 export type DnsRuleDraft = {
   server: string
-  lists: string
+  lists: string[]
 }
 
 export type RuleErrors = {
@@ -11,20 +11,13 @@ export type RuleErrors = {
   duplicate?: string
 }
 
-export function parseListNames(value: string): string[] {
-  return value
-    .split(",")
-    .map((listName) => listName.trim())
-    .filter(Boolean)
-}
-
 export function getRuleDraft(rule?: {
   server?: string
   list?: string[]
 }): DnsRuleDraft {
   return {
     server: rule?.server ?? "",
-    lists: (rule?.list ?? []).join(", "),
+    lists: rule?.list ?? [],
   }
 }
 
@@ -40,7 +33,7 @@ export function buildUpdatedConfigWithRules(
       fallback,
       rules: rules.map((rule) => ({
         server: rule.server,
-        list: parseListNames(rule.lists),
+        list: rule.lists,
       })),
     },
   }
@@ -58,7 +51,7 @@ export function validateRules(
 
   for (const [index, rule] of rules.entries()) {
     const nextRuleErrors: RuleErrors = {}
-    const parsedLists = parseListNames(rule.lists)
+    const parsedLists = rule.lists
 
     if (!rule.server || !serverTagSet.has(rule.server)) {
       nextRuleErrors.server = "Rule must reference an existing DNS server tag."
