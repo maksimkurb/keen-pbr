@@ -856,13 +856,26 @@ void Daemon::setup_api() {
             staged_config_json_.reset();
         },
         [this](const Config& config) {
-            std::shared_lock<std::shared_mutex> lock(state_mutex_);
-            auto previous_config = config_;
-            lock.unlock();
+            const auto marks = allocate_outbound_marks(
+                config.fwmark.value_or(FwmarkConfig{}),
+                config.outbounds.value_or(std::vector<Outbound>{}));
 
-            bool rolled_back = false;
-            apply_config_with_rollback(config, rolled_back);
-            apply_config(previous_config);
+            std::map<std::string, std::string> urltest_selections;
+            {
+                std::shared_lock<std::shared_mutex> lock(state_mutex_);
+                urltest_selections = firewall_state_.get_urltest_selections();
+            }
+
+            (void)build_fw_rule_states(config, marks, &urltest_selections);
+
+            ListStreamer streamer(cache_);
+            DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
+            (void)DnsmasqGenerator::compute_config_hash(
+                dns_registry,
+                streamer,
+                config.route.value_or(RouteConfig{}),
+                config.dns.value_or(DnsConfig{}),
+                config.lists.value_or(std::map<std::string, ListConfig>{}));
         },
         [this]() {
             return config_.outbounds.value_or(std::vector<Outbound>{});
@@ -901,8 +914,8 @@ void Daemon::setup_api() {
         [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
             ConfigApplyResult result;
             enqueue_control_task([this, &result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
+                bool rolled_back = false;
                 try {
-                    bool rolled_back = false;
                     apply_config_with_rollback(config, rolled_back);
                     result.applied = true;
                     result.rolled_back = rolled_back;
@@ -913,6 +926,7 @@ void Daemon::setup_api() {
                     }
                 } catch (const std::exception& e) {
                     result.error = e.what();
+                    result.rolled_back = rolled_back;
                     Logger::instance().error("Apply staged config task failed: {}", e.what());
                 }
                 {
