@@ -24,6 +24,10 @@ void CacheManager::ensure_dir() {
     std::filesystem::create_directories(cache_dir_);
 }
 
+void CacheManager::set_fwmark(uint32_t mark) {
+    http_client_.set_fwmark(mark);
+}
+
 bool CacheManager::download(const std::string& name, const std::string& url) {
     CacheMetadata existing = load_metadata(name);
 

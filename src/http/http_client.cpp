@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <curl/curl.h>
+#include <sys/socket.h>
 
 namespace keen_pbr3 {
 
@@ -87,6 +88,18 @@ void HttpClient::set_user_agent(const std::string& user_agent) {
     user_agent_ = user_agent;
 }
 
+void HttpClient::set_fwmark(uint32_t mark) {
+    fwmark_ = mark;
+}
+
+static int sockopt_cb(void* userdata, curl_socket_t fd, curlsocktype) {
+    uint32_t mark = *static_cast<uint32_t*>(userdata);
+    if (mark != 0) {
+        setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
+    }
+    return CURL_SOCKOPT_OK;
+}
+
 std::string HttpClient::download(const std::string& url) {
     CURL* curl = curl_easy_init();
     if (!curl) {
@@ -102,6 +115,8 @@ std::string HttpClient::download(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
 
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
@@ -142,6 +157,8 @@ ConditionalDownloadResult HttpClient::download_conditional(
     curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
 
     // Set conditional request headers
     struct curl_slist* req_headers = nullptr;

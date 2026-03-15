@@ -382,6 +382,13 @@ components:
             `0` means no timeout.
           default: 0
           example: 86400000
+        detour:
+          type: string
+          description: >
+            Optional outbound tag to use when downloading this list.
+            If set, download traffic is marked with the outbound's fwmark
+            and routed via its dedicated routing table.
+            If omitted, the system default routing table is used.
 
     DnsServer:
       type: object
@@ -446,7 +453,7 @@ components:
           type: string
           description: DNS server tag to use when no rule matches.
           example: "google-dns"
-        test_server:
+        dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
 
     RouteRule:

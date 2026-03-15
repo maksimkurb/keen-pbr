@@ -143,34 +143,34 @@ TEST_CASE("dns detour: no detour field is accepted") {
 }
 
 TEST_CASE("dns test server: valid listen parses") {
-    std::string json = R"({"dns":{"test_server":{"listen":"127.0.0.88:53"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53"}}})";
     auto cfg = parse_config(json);
     REQUIRE(cfg.dns.has_value());
-    REQUIRE(cfg.dns->test_server.has_value());
-    CHECK(cfg.dns->test_server->listen == "127.0.0.88:53");
-    CHECK(!cfg.dns->test_server->answer_ipv4.has_value());
+    REQUIRE(cfg.dns->dns_test_server.has_value());
+    CHECK(cfg.dns->dns_test_server->listen == "127.0.0.88:53");
+    CHECK(!cfg.dns->dns_test_server->answer_ipv4.has_value());
 }
 
 TEST_CASE("dns test server: explicit answer IPv4 parses") {
-    std::string json = R"({"dns":{"test_server":{"listen":"127.0.0.88:53","answer_ipv4":"127.0.0.99"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"127.0.0.99"}}})";
     auto cfg = parse_config(json);
     REQUIRE(cfg.dns.has_value());
-    REQUIRE(cfg.dns->test_server.has_value());
-    CHECK(cfg.dns->test_server->answer_ipv4.value_or("") == "127.0.0.99");
+    REQUIRE(cfg.dns->dns_test_server.has_value());
+    CHECK(cfg.dns->dns_test_server->answer_ipv4.value_or("") == "127.0.0.99");
 }
 
 TEST_CASE("dns test server: invalid listen is rejected") {
-    std::string json = R"({"dns":{"test_server":{"listen":"not-an-ip:53"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})";
     CHECK_THROWS_AS(parse_config(json), ConfigError);
 }
 
 TEST_CASE("dns test server: ipv6 listen is rejected") {
-    std::string json = R"({"dns":{"test_server":{"listen":"[::1]:53"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})";
     CHECK_THROWS_AS(parse_config(json), ConfigError);
 }
 
 TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
-    std::string json = R"({"dns":{"test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
+    std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
     CHECK_THROWS_AS(parse_config(json), ConfigError);
 }
 

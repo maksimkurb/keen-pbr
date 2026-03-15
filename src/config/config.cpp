@@ -265,15 +265,15 @@ Config parse_config(const std::string& json_str) {
             }
         }
 
-        if (cfg.dns->test_server.has_value()) {
+        if (cfg.dns->dns_test_server.has_value()) {
             try {
-                const auto& test_cfg = *cfg.dns->test_server;
+                const auto& test_cfg = *cfg.dns->dns_test_server;
                 const std::string* answer_ip =
                     test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
                 (void)parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
             } catch (const std::exception& e) {
-                add_issue(issues, "dns.test_server",
-                          std::string("dns.test_server: ") + e.what());
+                add_issue(issues, "dns.dns_test_server",
+                          std::string("dns.dns_test_server: ") + e.what());
             }
         }
     }

@@ -3,6 +3,7 @@
 #include "../api/generated/api_types.hpp"
 #include "../http/http_client.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 
@@ -17,6 +18,9 @@ public:
 
     // Create cache directory if it doesn't exist.
     void ensure_dir();
+
+    // Set SO_MARK for subsequent downloads (0 = disabled, uses default routing).
+    void set_fwmark(uint32_t mark);
 
     // Download a list from URL using conditional requests (ETag/If-Modified-Since).
     // Returns true if content was updated, false if 304 Not Modified.

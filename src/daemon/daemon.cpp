@@ -496,14 +496,28 @@ void Daemon::apply_firewall() {
 
 void Daemon::download_uncached_lists() {
     for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        if (list_cfg.url.has_value() && !cache_.has_cache(name)) {
-            try {
-                cache_.download(name, list_cfg.url.value());
-            } catch (const std::exception& e) {
-                Logger::instance().warn("Failed to download list '{}': {}", name, e.what());
+        if (!list_cfg.url.has_value() || cache_.has_cache(name)) continue;
+
+        uint32_t mark = 0;
+        if (list_cfg.detour.has_value()) {
+            auto it = outbound_marks_.find(*list_cfg.detour);
+            if (it != outbound_marks_.end()) {
+                mark = it->second;
+            } else {
+                Logger::instance().warn(
+                    "List '{}': detour outbound '{}' not found, using default routing",
+                    name, *list_cfg.detour);
             }
         }
+        cache_.set_fwmark(mark);
+
+        try {
+            cache_.download(name, *list_cfg.url);
+        } catch (const std::exception& e) {
+            Logger::instance().warn("Failed to download list '{}': {}", name, e.what());
+        }
     }
+    cache_.set_fwmark(0);
 }
 
 void Daemon::register_urltest_outbounds() {
@@ -598,13 +612,26 @@ void Daemon::update_resolver_config_hash() {
 }
 
 void Daemon::apply_config(Config config) {
-    // Cancel any pending autoupdate task before teardown
+    // Cancel any pending autoupdate task
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
 
-    // Full teardown
+    // Apply new config and fwmarks early so routing is available for downloads
+    outbound_marks_ = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
+                                             config.outbounds.value_or(std::vector<Outbound>{}));
+    config_ = std::move(config);
+    firewall_state_.set_outbound_marks(outbound_marks_);
+
+    // Install new routing tables/ip rules before downloading so fwmark-based
+    // detour routing works and general connectivity is preserved
+    setup_static_routing();
+
+    // Download any lists not yet cached (uses per-list detour fwmark if configured)
+    download_uncached_lists();
+
+    // Tear down old state — no blocking I/O in this window
     teardown_dns_probe();
 
     if (urltest_manager_) {
@@ -614,17 +641,7 @@ void Daemon::apply_config(Config config) {
     policy_rules_.clear();
     firewall_->cleanup();
 
-    config_ = std::move(config);
-
-    // Re-allocate fwmarks
-    outbound_marks_ = allocate_outbound_marks(config_.fwmark.value_or(FwmarkConfig{}),
-                                             config_.outbounds.value_or(std::vector<Outbound>{}));
-    firewall_state_.set_outbound_marks(outbound_marks_);
-
-    // Download any lists not yet cached
-    download_uncached_lists();
-
-    // Re-create static routing tables and ip rules
+    // Re-install routing cleanly after teardown
     setup_static_routing();
 
     // Re-register urltest outbounds
@@ -686,11 +703,11 @@ void Daemon::setup_api() {
 void Daemon::setup_dns_probe() {
     teardown_dns_probe();
 
-    if (!config_.dns || !config_.dns->test_server.has_value()) {
+    if (!config_.dns || !config_.dns->dns_test_server.has_value()) {
         return;
     }
 
-    const auto& test_cfg = *config_.dns->test_server;
+    const auto& test_cfg = *config_.dns->dns_test_server;
     const std::string* answer_ip = test_cfg.answer_ipv4 ? &*test_cfg.answer_ipv4 : nullptr;
     auto settings = parse_dns_probe_server_settings(test_cfg.listen, answer_ip);
 

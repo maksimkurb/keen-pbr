@@ -3,6 +3,7 @@
 #include <keen-pbr3/version.hpp>
 
 #include <chrono>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -34,6 +35,7 @@ public:
 
     void set_timeout(std::chrono::seconds timeout);
     void set_user_agent(const std::string& user_agent);
+    void set_fwmark(uint32_t mark);  // 0 = disabled
 
     std::string download(const std::string& url);
 
@@ -45,6 +47,7 @@ public:
 private:
     std::chrono::seconds timeout_{30};
     std::string user_agent_{"keen-pbr3/" KEEN_PBR3_VERSION_STRING};
+    uint32_t fwmark_{0};
 };
 
 } // namespace keen_pbr3

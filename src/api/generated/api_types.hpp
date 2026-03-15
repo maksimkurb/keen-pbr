@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbr3Types1IMb9D data = nlohmann::json::parse(jsonString);
+//     KeenPbr3TypesTcizXx data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -120,6 +120,11 @@ namespace api {
         std::optional<bool> strict_enforcement;
     };
 
+    struct DnsTestServer {
+        std::optional<std::string> answer_ipv4;
+        std::string listen;
+    };
+
     struct DnsRuleElement {
         std::vector<std::string> list;
         std::string server;
@@ -131,16 +136,11 @@ namespace api {
         std::string tag;
     };
 
-    struct DnsTestServer {
-        std::optional<std::string> answer_ipv4;
-        std::string listen;
-    };
-
     struct Dns {
+        std::optional<DnsTestServer> dns_test_server;
         std::optional<std::string> fallback;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
-        std::optional<DnsTestServer> test_server;
     };
 
     struct Fwmark {
@@ -153,6 +153,7 @@ namespace api {
     };
 
     struct ListConfigValue {
+        std::optional<std::string> detour;
         std::optional<std::vector<std::string>> domains;
         std::optional<std::string> file;
         std::optional<std::vector<std::string>> ip_cidrs;
@@ -218,6 +219,11 @@ namespace api {
         std::optional<Route> route;
     };
 
+    struct ConfigStateResponse {
+        ConfigObject config;
+        bool is_draft;
+    };
+
     enum class ConfigUpdateResponseStatus : int { OK };
 
     struct ConfigUpdateResponse {
@@ -225,8 +231,14 @@ namespace api {
         ConfigUpdateResponseStatus status;
     };
 
+    struct ValidationErrorElement {
+        std::string message;
+        std::optional<std::string> path;
+    };
+
     struct ErrorResponse {
         std::string error;
+        std::optional<std::vector<ValidationErrorElement>> validation_errors;
     };
 
     struct FirewallChain {
@@ -267,6 +279,7 @@ namespace api {
     enum class HealthResponseStatus : int { RUNNING };
 
     struct HealthResponse {
+        bool config_is_draft;
         std::vector<HealthEntry> outbounds;
         std::optional<std::string> resolver_config_hash;
         HealthResponseStatus status;
@@ -350,17 +363,19 @@ namespace api {
         std::vector<std::string> warnings;
     };
 
-    struct KeenPbr3Types1IMb9D {
+    struct KeenPbr3TypesTcizXx {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
         std::optional<CircuitBreakerConfig> circuit_breaker_config;
         std::optional<ConfigObject> config_object;
+        std::optional<ConfigStateResponse> config_state_response;
         std::optional<ConfigUpdateResponse> config_update_response;
         std::optional<Daemon> daemon_config;
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
+        std::optional<DnsTestServer> dns_test_server;
         std::optional<ErrorResponse> error_response;
         std::optional<FirewallChain> firewall_chain;
         std::optional<FirewallRuleCheck> firewall_rule_check;
@@ -385,6 +400,7 @@ namespace api {
         std::optional<ListMatch> routing_test_list_match;
         std::optional<RoutingTestRequest> routing_test_request;
         std::optional<RoutingTestResponse> routing_test_response;
+        std::optional<ValidationErrorElement> validation_error;
     };
 }
 }
@@ -403,14 +419,14 @@ namespace api {
     void from_json(const json & j, Daemon & x);
     void to_json(json & j, const Daemon & x);
 
+    void from_json(const json & j, DnsTestServer & x);
+    void to_json(json & j, const DnsTestServer & x);
+
     void from_json(const json & j, DnsRuleElement & x);
     void to_json(json & j, const DnsRuleElement & x);
 
     void from_json(const json & j, DnsServerElement & x);
     void to_json(json & j, const DnsServerElement & x);
-
-    void from_json(const json & j, DnsTestServer & x);
-    void to_json(json & j, const DnsTestServer & x);
 
     void from_json(const json & j, Dns & x);
     void to_json(json & j, const Dns & x);
@@ -445,8 +461,14 @@ namespace api {
     void from_json(const json & j, ConfigObject & x);
     void to_json(json & j, const ConfigObject & x);
 
+    void from_json(const json & j, ConfigStateResponse & x);
+    void to_json(json & j, const ConfigStateResponse & x);
+
     void from_json(const json & j, ConfigUpdateResponse & x);
     void to_json(json & j, const ConfigUpdateResponse & x);
+
+    void from_json(const json & j, ValidationErrorElement & x);
+    void to_json(json & j, const ValidationErrorElement & x);
 
     void from_json(const json & j, ErrorResponse & x);
     void to_json(json & j, const ErrorResponse & x);
@@ -493,8 +515,8 @@ namespace api {
     void from_json(const json & j, RoutingTestResponse & x);
     void to_json(json & j, const RoutingTestResponse & x);
 
-    void from_json(const json & j, KeenPbr3Types1IMb9D & x);
-    void to_json(json & j, const KeenPbr3Types1IMb9D & x);
+    void from_json(const json & j, KeenPbr3TypesTcizXx & x);
+    void to_json(json & j, const KeenPbr3TypesTcizXx & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -583,6 +605,17 @@ namespace api {
         j["strict_enforcement"] = x.strict_enforcement;
     }
 
+    inline void from_json(const json & j, DnsTestServer& x) {
+        x.answer_ipv4 = get_stack_optional<std::string>(j, "answer_ipv4");
+        x.listen = j.at("listen").get<std::string>();
+    }
+
+    inline void to_json(json & j, const DnsTestServer & x) {
+        j = json::object();
+        j["answer_ipv4"] = x.answer_ipv4;
+        j["listen"] = x.listen;
+    }
+
     inline void from_json(const json & j, DnsRuleElement& x) {
         x.list = j.at("list").get<std::vector<std::string>>();
         x.server = j.at("server").get<std::string>();
@@ -607,30 +640,19 @@ namespace api {
         j["tag"] = x.tag;
     }
 
-    inline void from_json(const json & j, DnsTestServer& x) {
-        x.answer_ipv4 = get_stack_optional<std::string>(j, "answer_ipv4");
-        x.listen = j.at("listen").get<std::string>();
-    }
-
-    inline void to_json(json & j, const DnsTestServer & x) {
-        j = json::object();
-        j["answer_ipv4"] = x.answer_ipv4;
-        j["listen"] = x.listen;
-    }
-
     inline void from_json(const json & j, Dns& x) {
+        x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.fallback = get_stack_optional<std::string>(j, "fallback");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
-        x.test_server = get_stack_optional<DnsTestServer>(j, "test_server");
     }
 
     inline void to_json(json & j, const Dns & x) {
         j = json::object();
+        j["dns_test_server"] = x.dns_test_server;
         j["fallback"] = x.fallback;
         j["rules"] = x.rules;
         j["servers"] = x.servers;
-        j["test_server"] = x.test_server;
     }
 
     inline void from_json(const json & j, Fwmark& x) {
@@ -654,6 +676,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, ListConfigValue& x) {
+        x.detour = get_stack_optional<std::string>(j, "detour");
         x.domains = get_stack_optional<std::vector<std::string>>(j, "domains");
         x.file = get_stack_optional<std::string>(j, "file");
         x.ip_cidrs = get_stack_optional<std::vector<std::string>>(j, "ip_cidrs");
@@ -663,6 +686,7 @@ namespace api {
 
     inline void to_json(json & j, const ListConfigValue & x) {
         j = json::object();
+        j["detour"] = x.detour;
         j["domains"] = x.domains;
         j["file"] = x.file;
         j["ip_cidrs"] = x.ip_cidrs;
@@ -789,6 +813,17 @@ namespace api {
         j["route"] = x.route;
     }
 
+    inline void from_json(const json & j, ConfigStateResponse& x) {
+        x.config = j.at("config").get<ConfigObject>();
+        x.is_draft = j.at("is_draft").get<bool>();
+    }
+
+    inline void to_json(json & j, const ConfigStateResponse & x) {
+        j = json::object();
+        j["config"] = x.config;
+        j["is_draft"] = x.is_draft;
+    }
+
     inline void from_json(const json & j, ConfigUpdateResponse& x) {
         x.message = j.at("message").get<std::string>();
         x.status = j.at("status").get<ConfigUpdateResponseStatus>();
@@ -800,13 +835,26 @@ namespace api {
         j["status"] = x.status;
     }
 
+    inline void from_json(const json & j, ValidationErrorElement& x) {
+        x.message = j.at("message").get<std::string>();
+        x.path = get_stack_optional<std::string>(j, "path");
+    }
+
+    inline void to_json(json & j, const ValidationErrorElement & x) {
+        j = json::object();
+        j["message"] = x.message;
+        j["path"] = x.path;
+    }
+
     inline void from_json(const json & j, ErrorResponse& x) {
         x.error = j.at("error").get<std::string>();
+        x.validation_errors = get_stack_optional<std::vector<ValidationErrorElement>>(j, "validation_errors");
     }
 
     inline void to_json(json & j, const ErrorResponse & x) {
         j = json::object();
         j["error"] = x.error;
+        j["validation_errors"] = x.validation_errors;
     }
 
     inline void from_json(const json & j, FirewallChain& x) {
@@ -876,6 +924,7 @@ namespace api {
     }
 
     inline void from_json(const json & j, HealthResponse& x) {
+        x.config_is_draft = j.at("config_is_draft").get<bool>();
         x.outbounds = j.at("outbounds").get<std::vector<HealthEntry>>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
         x.status = j.at("status").get<HealthResponseStatus>();
@@ -884,6 +933,7 @@ namespace api {
 
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
+        j["config_is_draft"] = x.config_is_draft;
         j["outbounds"] = x.outbounds;
         j["resolver_config_hash"] = x.resolver_config_hash;
         j["status"] = x.status;
@@ -1041,17 +1091,19 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
-    inline void from_json(const json & j, KeenPbr3Types1IMb9D& x) {
+    inline void from_json(const json & j, KeenPbr3TypesTcizXx& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
         x.circuit_breaker_config = get_stack_optional<CircuitBreakerConfig>(j, "CircuitBreakerConfig");
         x.config_object = get_stack_optional<ConfigObject>(j, "ConfigObject");
+        x.config_state_response = get_stack_optional<ConfigStateResponse>(j, "ConfigStateResponse");
         x.config_update_response = get_stack_optional<ConfigUpdateResponse>(j, "ConfigUpdateResponse");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
+        x.dns_test_server = get_stack_optional<DnsTestServer>(j, "DnsTestServer");
         x.error_response = get_stack_optional<ErrorResponse>(j, "ErrorResponse");
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
@@ -1076,20 +1128,23 @@ namespace api {
         x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
+        x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbr3Types1IMb9D & x) {
+    inline void to_json(json & j, const KeenPbr3TypesTcizXx & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
         j["CheckStatus"] = x.check_status;
         j["CircuitBreakerConfig"] = x.circuit_breaker_config;
         j["ConfigObject"] = x.config_object;
+        j["ConfigStateResponse"] = x.config_state_response;
         j["ConfigUpdateResponse"] = x.config_update_response;
         j["DaemonConfig"] = x.daemon_config;
         j["DnsConfig"] = x.dns_config;
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
+        j["DnsTestServer"] = x.dns_test_server;
         j["ErrorResponse"] = x.error_response;
         j["FirewallChain"] = x.firewall_chain;
         j["FirewallRuleCheck"] = x.firewall_rule_check;
@@ -1114,6 +1169,7 @@ namespace api {
         j["RoutingTestListMatch"] = x.routing_test_list_match;
         j["RoutingTestRequest"] = x.routing_test_request;
         j["RoutingTestResponse"] = x.routing_test_response;
+        j["ValidationError"] = x.validation_error;
     }
 
     inline void from_json(const json & j, CheckStatus & x) {
