@@ -85,7 +85,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         {
             std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
             if (ctx.config_op_state.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
-                throw std::runtime_error("Another config operation is already in progress");
+                throw ApiError("Another config operation is already in progress", 409);
             }
             ctx.config_op_state.store(ConfigOperationState::Saving, std::memory_order_release);
         }
@@ -100,7 +100,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
             ctx.config_op_state.store(ConfigOperationState::Idle, std::memory_order_release);
             ctx.config_op_cv.notify_all();
-            throw std::runtime_error("No staged config to save");
+            throw ApiError("No staged config to save", 400);
         }
 
         try {
