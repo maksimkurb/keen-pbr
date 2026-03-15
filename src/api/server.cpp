@@ -4,7 +4,6 @@
 
 #include <cerrno>
 #include <chrono>
-#include <condition_variable>
 #include <cstring>
 #include <httplib.h>
 #include <atomic>
@@ -28,9 +27,8 @@ struct ApiServer::Impl {
     std::thread listen_thread;
     std::atomic<bool> is_listening{false};
     std::atomic<bool> listen_failed{false};
+    std::atomic<bool> listen_finished{false};
     std::mutex state_mutex;
-    std::condition_variable startup_cv;
-    bool startup_done{false};
     std::string listen_error_message;
 };
 
@@ -131,9 +129,9 @@ void ApiServer::start() {
     }
 
     impl_->listen_failed.store(false, std::memory_order_release);
+    impl_->listen_finished.store(false, std::memory_order_release);
     {
         std::lock_guard<std::mutex> lock(impl_->state_mutex);
-        impl_->startup_done = false;
         impl_->listen_error_message.clear();
     }
 
@@ -161,32 +159,36 @@ void ApiServer::start() {
         }
 
         impl_->is_listening.store(listen_ok, std::memory_order_release);
+        impl_->listen_finished.store(true, std::memory_order_release);
         {
             std::lock_guard<std::mutex> lock(impl_->state_mutex);
-            impl_->startup_done = true;
             if (!error_message.empty()) {
                 impl_->listen_error_message = std::move(error_message);
             }
         }
-        impl_->startup_cv.notify_all();
     });
 
     constexpr auto startup_timeout = std::chrono::seconds(3);
-    std::unique_lock<std::mutex> lock(impl_->state_mutex);
-    const bool startup_finished = impl_->startup_cv.wait_for(lock, startup_timeout, [this]() {
-        return impl_->server.is_running() ||
-               impl_->listen_failed.load(std::memory_order_acquire) ||
-               impl_->startup_done;
-    });
-    std::string diagnostic = impl_->listen_error_message;
-    lock.unlock();
+    const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
+    while (!impl_->server.is_running() &&
+           !impl_->listen_failed.load(std::memory_order_acquire) &&
+           !impl_->listen_finished.load(std::memory_order_acquire) &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 
     if (impl_->server.is_running()) {
         impl_->is_listening.store(true, std::memory_order_release);
         return;
     }
+
+    std::string diagnostic;
+    {
+        std::lock_guard<std::mutex> lock(impl_->state_mutex);
+        diagnostic = impl_->listen_error_message;
+    }
     if (diagnostic.empty()) {
-        diagnostic = startup_finished
+        diagnostic = impl_->listen_finished.load(std::memory_order_acquire)
             ? "listen thread exited before server became running"
             : "startup timed out after 3s";
     }
