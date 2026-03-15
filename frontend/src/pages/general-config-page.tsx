@@ -17,6 +17,7 @@ import {
   FieldLabel,
   FieldSeparator,
 } from "@/components/shared/field"
+import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { getApiErrorMessage } from "@/lib/api-errors"
+import { Skeleton } from "@/components/ui/skeleton"
 import { applyFormApiErrors, clearFormServerErrors } from "@/lib/form-api-errors"
 
 type SettingsDraft = {
@@ -51,18 +52,52 @@ const fallbackDraft: SettingsDraft = {
 }
 
 export function GeneralConfigPage() {
-  const queryClient = useQueryClient()
   const configQuery = useGetConfig()
+  const loadedConfig = selectConfig(configQuery.data)
 
-  const [savedDraft, setSavedDraft] = useState<SettingsDraft>(fallbackDraft)
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        description="Daemon defaults, global list refresh, and advanced routing values."
+        title="Settings"
+      />
+
+      {configQuery.isLoading ? (
+        <GeneralConfigPageSkeleton />
+      ) : configQuery.isError || !loadedConfig ? (
+        <ListPlaceholder
+          description="We can't load settings right now. Try refreshing the page."
+          title="Unable to load data"
+          variant="error"
+        />
+      ) : (
+        <LoadedGeneralConfigPage
+          key={getSettingsDraftKey(loadedConfig)}
+          loadedConfig={loadedConfig}
+        />
+      )}
+    </div>
+  )
+}
+
+type LoadedGeneralConfigPageProps = {
+  loadedConfig: ConfigObject
+}
+
+function LoadedGeneralConfigPage({
+  loadedConfig,
+}: LoadedGeneralConfigPageProps) {
+  const queryClient = useQueryClient()
+
+  const [savedDraft, setSavedDraft] = useState<SettingsDraft>(() =>
+    getDraftFromConfig(loadedConfig)
+  )
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
     null
   )
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
   >(null)
-
-  const loadedConfig = selectConfig(configQuery.data)
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -100,12 +135,8 @@ export function GeneralConfigPage() {
   })
 
   const form = useForm({
-    defaultValues: fallbackDraft,
+    defaultValues: savedDraft,
     onSubmit: ({ value }) => {
-      if (!loadedConfig) {
-        return
-      }
-
       const updatedConfig = buildUpdatedConfig(loadedConfig, value)
       setSaveSuccessMessage(null)
       setMutationErrorMessage(null)
@@ -115,10 +146,6 @@ export function GeneralConfigPage() {
   })
 
   useEffect(() => {
-    if (!loadedConfig) {
-      return
-    }
-
     const nextDraft = getDraftFromConfig(loadedConfig)
     setSavedDraft(nextDraft)
     form.reset(nextDraft)
@@ -135,12 +162,7 @@ export function GeneralConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        description="Daemon defaults, global list refresh, and advanced routing values."
-        title="Settings"
-      />
-
+    <>
       {saveSuccessMessage ? (
         <Alert className="border-success/30 bg-success/5 text-success">
           <AlertDescription>{saveSuccessMessage}</AlertDescription>
@@ -433,7 +455,7 @@ export function GeneralConfigPage() {
         >
           {({ canSubmit, isPristine }) => (
             <Button
-              disabled={isPending || !loadedConfig || !canSubmit || isPristine}
+              disabled={isPending || !canSubmit || isPristine}
               onClick={() => form.handleSubmit()}
               size="xl"
             >
@@ -442,8 +464,94 @@ export function GeneralConfigPage() {
           )}
         </form.Subscribe>
       </div>
-    </div>
+    </>
   )
+}
+
+function GeneralConfigPageSkeleton() {
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="h-4 w-56" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <Skeleton className="mt-0.5 h-4 w-4 rounded-sm" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-full max-w-3xl" />
+                <Skeleton className="h-4 w-5/6 max-w-2xl" />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="flex items-start gap-3">
+              <Skeleton className="mt-0.5 h-4 w-4 rounded-sm" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-44" />
+                <Skeleton className="h-4 w-full max-w-3xl" />
+              </div>
+            </div>
+            <Skeleton className="h-px w-full" />
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-4 w-80" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {[0, 1, 2].map((index) => (
+              <div className="space-y-6" key={index}>
+                {index > 0 ? <Skeleton className="h-px w-full" /> : null}
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-52" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-4 w-full max-w-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-11 w-24" />
+        <Skeleton className="h-11 w-24" />
+      </div>
+    </>
+  )
+}
+
+function getSettingsDraftKey(config: ConfigObject) {
+  return JSON.stringify({
+    strictEnforcement: config.daemon?.strict_enforcement,
+    listsAutoupdateEnabled: config.lists_autoupdate?.enabled,
+    cron: config.lists_autoupdate?.cron,
+    fwmarkStart: config.fwmark?.start,
+    fwmarkMask: config.fwmark?.mask,
+    tableStart: config.iproute?.table_start,
+  })
 }
 
 function getFirstFieldError(errors: unknown[]) {

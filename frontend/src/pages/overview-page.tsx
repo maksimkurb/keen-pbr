@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { Play, RotateCw, Square } from "lucide-react"
 
+import type { ApiError } from "@/api/client"
 import { useGetHealthRouting, useGetHealthService } from "@/api/queries"
 import {
   usePostReloadMutation,
@@ -25,6 +26,7 @@ import {
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { SectionCard } from "@/components/shared/section-card"
+import { getApiErrorMessage } from "@/lib/api-errors"
 
 const unsupportedActionReason = "Not available in current API"
 
@@ -95,7 +97,11 @@ export function OverviewPage() {
       return []
     }
 
-    const firewallRows = routingHealth.firewall_rules.map((rule, index) => [
+    const firewallRules = routingHealth.firewall_rules ?? []
+    const routeTables = routingHealth.route_tables ?? []
+    const policyRules = routingHealth.policy_rules ?? []
+
+    const firewallRows = firewallRules.map((rule, index) => [
       `Firewall #${index + 1}`,
       `set ${rule.set_name}`,
       rule.action,
@@ -107,7 +113,7 @@ export function OverviewPage() {
       </StatusBadge>,
     ])
 
-    const routeRows = routingHealth.route_tables.map((table) => [
+    const routeRows = routeTables.map((table) => [
       `Route table ${table.table_id}`,
       table.outbound_tag,
       table.expected_destination ?? "default",
@@ -122,7 +128,7 @@ export function OverviewPage() {
       </StatusBadge>,
     ])
 
-    const policyRows = routingHealth.policy_rules.map((policy, index) => [
+    const policyRows = policyRules.map((policy, index) => [
       `Policy #${index + 1}`,
       `fwmark ${policy.fwmark}/${policy.fwmask}`,
       `table ${policy.expected_table}`,
@@ -141,6 +147,9 @@ export function OverviewPage() {
     routingTestMutation.data?.status === 200
       ? routingTestMutation.data.data.results[0]
       : undefined
+  const routingHealthErrorMessage = routingHealthQuery.isError
+    ? getRoutingHealthErrorMessage(routingHealthQuery.error)
+    : null
 
   return (
     <div className="space-y-6">
@@ -276,15 +285,17 @@ export function OverviewPage() {
         {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
         {routingHealthQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>Unable to load routing checks.</AlertDescription>
+            <AlertDescription className="whitespace-pre-wrap">
+              {routingHealthErrorMessage}
+            </AlertDescription>
           </Alert>
         ) : null}
         {routingHealth && routingRows.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
-              <EmptyTitle>No routing checks available</EmptyTitle>
+              <EmptyTitle>No routing checks reported yet</EmptyTitle>
               <EmptyDescription>
-                Routing checks will appear after reload.
+                Routing checks will appear after the next reload.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -421,6 +432,19 @@ function TableSkeleton() {
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
     </div>
+  )
+}
+
+function getRoutingHealthErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "error" in error) {
+    const message = (error as { error?: unknown }).error
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message
+    }
+  }
+
+  return (
+    getApiErrorMessage(error as ApiError | null) || "Unable to load routing checks."
   )
 }
 
