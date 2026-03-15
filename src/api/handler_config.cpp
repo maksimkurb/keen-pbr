@@ -91,9 +91,14 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         }
 
         std::optional<std::pair<Config, std::string>> staged_snapshot;
-        {
+        try {
             std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
             staged_snapshot = ctx.staged_config_snapshot_fn();
+        } catch (...) {
+            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
+            ctx.config_op_state.store(ConfigOperationState::Idle, std::memory_order_release);
+            ctx.config_op_cv.notify_all();
+            throw;
         }
 
         if (!staged_snapshot.has_value()) {
