@@ -1,6 +1,7 @@
 import { Route, Switch } from "wouter"
 
 import { AppShell } from "@/components/layout/app-shell"
+import { DnsRuleUpsertPage } from "@/pages/dns-rule-upsert-page"
 import { DnsRulesPage } from "@/pages/dns-rules-page"
 import { DnsServersPage } from "@/pages/dns-servers-page"
 import { DnsServerUpsertPage } from "@/pages/dns-servers-upsert-page"
@@ -46,6 +47,14 @@ function App() {
           )}
         </Route>
         <Route component={DnsServersPage} path="/dns-servers" />
+        <Route path="/dns-rules/create">
+          <DnsRuleUpsertPage mode="create" />
+        </Route>
+        <Route path="/dns-rules/:ruleIndex/edit">
+          {(params) => (
+            <DnsRuleUpsertPage mode="edit" ruleIndex={params.ruleIndex} />
+          )}
+        </Route>
         <Route component={DnsRulesPage} path="/dns-rules" />
         <Route component={RoutingRulesPage} path="/routing-rules" />
         <Route component={OverviewPage} />
