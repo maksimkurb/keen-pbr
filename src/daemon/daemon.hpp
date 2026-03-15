@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -132,6 +133,7 @@ private:
     int signal_fd_{-1};
     bool running_{false};
     std::thread::id event_loop_thread_id_{};
+    std::atomic<bool> event_loop_active_{false};
 
     struct FdEntry {
         int fd;

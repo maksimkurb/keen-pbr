@@ -153,7 +153,8 @@ void Daemon::enqueue_control_command(std::function<void()> command,
         return;
     }
 
-    if (event_loop_thread_id_ == std::thread::id{}) {
+    if (!event_loop_active_.load(std::memory_order_acquire) ||
+        event_loop_thread_id_ == std::thread::id{}) {
         command();
         return;
     }
@@ -355,6 +356,7 @@ void Daemon::run() {
     // --- Event loop ---
     running_ = true;
     event_loop_thread_id_ = std::this_thread::get_id();
+    event_loop_active_.store(true, std::memory_order_release);
 
     constexpr int MAX_EVENTS = 16;
     struct epoll_event events[MAX_EVENTS];
@@ -396,6 +398,9 @@ void Daemon::run() {
             }
         }
     }
+
+    event_loop_active_.store(false, std::memory_order_release);
+    event_loop_thread_id_ = std::thread::id{};
 
     // --- Shutdown sequence ---
     log.info("Shutting down...");
