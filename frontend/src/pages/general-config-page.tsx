@@ -282,7 +282,7 @@ export function GeneralConfigPage() {
         <CardHeader>
           <CardTitle>Advanced routing settings</CardTitle>
           <CardDescription>
-            Core fwmark and routing table defaults.
+            Do not change these values unless you know exactly what they do.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -299,7 +299,9 @@ export function GeneralConfigPage() {
 
                 return (
                   <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="fwmark-start">fwmark.start</FieldLabel>
+                    <FieldLabel htmlFor="fwmark-start">
+                      Firewall mark starting value
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         aria-invalid={Boolean(error)}
@@ -311,7 +313,7 @@ export function GeneralConfigPage() {
                         value={field.state.value}
                       />
                       <FieldHint
-                        description="First fwmark assigned to outbounds. Enter as hexadecimal value."
+                        description="Used as the firewall mark for the first outbound, and each next outbound increases it by one step within the mask range. Example: 0x00010000."
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -333,7 +335,9 @@ export function GeneralConfigPage() {
 
                 return (
                   <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="fwmark-mask">fwmark.mask</FieldLabel>
+                    <FieldLabel htmlFor="fwmark-mask">
+                      Firewall mark mask
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         aria-invalid={Boolean(error)}
@@ -373,7 +377,7 @@ export function GeneralConfigPage() {
                 return (
                   <Field invalid={Boolean(error)}>
                     <FieldLabel htmlFor="table-start">
-                      iproute.table_start
+                      IP routing table starting value
                     </FieldLabel>
                     <FieldContent>
                       <Input
@@ -386,7 +390,7 @@ export function GeneralConfigPage() {
                         value={field.state.value}
                       />
                       <FieldHint
-                        description="Base routing table number used for per-outbound policy tables."
+                        description="Used as the routing table number for the first outbound, and each next outbound increases it by one."
                         error={error ?? null}
                       />
                     </FieldContent>
