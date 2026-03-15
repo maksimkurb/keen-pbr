@@ -8,6 +8,7 @@ import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
+import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -119,55 +120,68 @@ export function RoutingRulesPage() {
         </Alert>
       ) : null}
 
-      <DataTable
-        headers={["Order", "Lists", "Outbound", "Matchers", "Actions"]}
-        rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
-          <span className="font-medium" key={`${row.id}-order`}>
-            #{row.order}
-          </span>,
-          <div className="flex flex-wrap gap-2" key={`${row.id}-lists`}>
-            {row.lists.map((listName: string) => (
-              <Badge key={`${row.id}-${listName}`} variant="outline">
-                {listName}
-              </Badge>
-            ))}
-          </div>,
-          <div className="space-y-1" key={`${row.id}-outbound`}>
-            <Badge>{row.outbound}</Badge>
-            <div className="text-sm text-muted-foreground">
-              proto: {row.proto}
-            </div>
-          </div>,
-          <span className="text-sm text-muted-foreground" key={`${row.id}-details`}>
-            {row.details}
-          </span>,
-          <ActionButtons
-            actions={[
-              {
-                icon: <ArrowUp className="h-4 w-4" />,
-                label: "Move up",
-                onClick: () => handleMove(row.index, -1),
-              },
-              {
-                icon: <ArrowDown className="h-4 w-4" />,
-                label: "Move down",
-                onClick: () => handleMove(row.index, 1),
-              },
-              {
-                icon: <Pencil className="h-4 w-4" />,
-                label: "Edit",
-                onClick: () => navigate(`/routing-rules/${row.index}/edit`),
-              },
-              {
-                icon: <Trash2 className="h-4 w-4" />,
-                label: "Delete",
-                onClick: () => handleDelete(row.index),
-              },
-            ]}
-            key={`${row.id}-actions`}
-          />,
-        ])}
-      />
+      {configQuery.isError ? (
+        <ListPlaceholder
+          description="We can't load routing rules right now. Try refreshing the page."
+          title="Unable to load data"
+          variant="error"
+        />
+      ) : tableRows.length === 0 ? (
+        <ListPlaceholder
+          description="Add a routing rule to direct matching traffic to an outbound."
+          title="No routing rules yet"
+        />
+      ) : (
+        <DataTable
+          headers={["Order", "Lists", "Outbound", "Matchers", "Actions"]}
+          rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
+            <span className="font-medium" key={`${row.id}-order`}>
+              #{row.order}
+            </span>,
+            <div className="flex flex-wrap gap-2" key={`${row.id}-lists`}>
+              {row.lists.map((listName: string) => (
+                <Badge key={`${row.id}-${listName}`} variant="outline">
+                  {listName}
+                </Badge>
+              ))}
+            </div>,
+            <div className="space-y-1" key={`${row.id}-outbound`}>
+              <Badge>{row.outbound}</Badge>
+              <div className="text-sm text-muted-foreground">
+                proto: {row.proto}
+              </div>
+            </div>,
+            <span className="text-sm text-muted-foreground" key={`${row.id}-details`}>
+              {row.details}
+            </span>,
+            <ActionButtons
+              actions={[
+                {
+                  icon: <ArrowUp className="h-4 w-4" />,
+                  label: "Move up",
+                  onClick: () => handleMove(row.index, -1),
+                },
+                {
+                  icon: <ArrowDown className="h-4 w-4" />,
+                  label: "Move down",
+                  onClick: () => handleMove(row.index, 1),
+                },
+                {
+                  icon: <Pencil className="h-4 w-4" />,
+                  label: "Edit",
+                  onClick: () => navigate(`/routing-rules/${row.index}/edit`),
+                },
+                {
+                  icon: <Trash2 className="h-4 w-4" />,
+                  label: "Delete",
+                  onClick: () => handleDelete(row.index),
+                },
+              ]}
+              key={`${row.id}-actions`}
+            />,
+          ])}
+        />
+      )}
     </div>
   )
 }

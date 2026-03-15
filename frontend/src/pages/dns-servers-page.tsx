@@ -9,6 +9,7 @@ import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
+import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -88,44 +89,57 @@ export function DnsServersPage() {
         </Alert>
       ) : null}
 
-      <DataTable
-        headers={["Tag", "Address", "Detour", "Actions"]}
-        rows={dnsServers.map((server) => [
-          <div className="font-medium" key={`${server.tag}-tag`}>
-            {server.tag}
-          </div>,
-          <span
-            className="text-sm text-muted-foreground"
-            key={`${server.tag}-address`}
-          >
-            {server.address}
-          </span>,
-          <Badge
-            key={`${server.tag}-detour`}
-            variant={server.detour ? "outline" : "secondary"}
-          >
-            {server.detour || "none"}
-          </Badge>,
-          <ActionButtons
-            actions={[
-              {
-                icon: <Pencil className="h-4 w-4" />,
-                label: "Edit",
-                onClick: () =>
-                  navigate(
-                    `/dns-servers/${encodeURIComponent(server.tag)}/edit`
-                  ),
-              },
-              {
-                icon: <Trash2 className="h-4 w-4" />,
-                label: "Delete",
-                onClick: () => deleteServer(server.tag),
-              },
-            ]}
-            key={`${server.tag}-actions`}
-          />,
-        ])}
-      />
+      {configQuery.isError ? (
+        <ListPlaceholder
+          description="We can't load DNS servers right now. Try refreshing the page."
+          title="Unable to load data"
+          variant="error"
+        />
+      ) : dnsServers.length === 0 ? (
+        <ListPlaceholder
+          description="Add a DNS server to configure upstream resolution."
+          title="No DNS servers yet"
+        />
+      ) : (
+        <DataTable
+          headers={["Tag", "Address", "Detour", "Actions"]}
+          rows={dnsServers.map((server) => [
+            <div className="font-medium" key={`${server.tag}-tag`}>
+              {server.tag}
+            </div>,
+            <span
+              className="text-sm text-muted-foreground"
+              key={`${server.tag}-address`}
+            >
+              {server.address}
+            </span>,
+            <Badge
+              key={`${server.tag}-detour`}
+              variant={server.detour ? "outline" : "secondary"}
+            >
+              {server.detour || "none"}
+            </Badge>,
+            <ActionButtons
+              actions={[
+                {
+                  icon: <Pencil className="h-4 w-4" />,
+                  label: "Edit",
+                  onClick: () =>
+                    navigate(
+                      `/dns-servers/${encodeURIComponent(server.tag)}/edit`
+                    ),
+                },
+                {
+                  icon: <Trash2 className="h-4 w-4" />,
+                  label: "Delete",
+                  onClick: () => deleteServer(server.tag),
+                },
+              ]}
+              key={`${server.tag}-actions`}
+            />,
+          ])}
+        />
+      )}
     </div>
   )
 }

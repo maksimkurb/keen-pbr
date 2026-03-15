@@ -16,6 +16,7 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
+import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { SectionCard } from "@/components/shared/section-card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -164,73 +165,90 @@ export function DnsRulesPage() {
         </Alert>
       ) : null}
 
-      <SectionCard
-        description="Used when no DNS rule matches the current request."
-        title="Fallback"
-      >
-        <Field>
-          <FieldLabel>Fallback server tag</FieldLabel>
-          <FieldContent>
-            <Select
-              disabled={isPending || !loadedConfig}
-              onValueChange={handleFallbackChange}
-              value={loadedConfig?.dns?.fallback ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a DNS server" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>DNS servers</SelectLabel>
-                  {serverTags.map((serverTag) => (
-                    <SelectItem key={serverTag} value={serverTag}>
-                      {serverTag}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <FieldHint
-              description={
-                serverTags.length > 0
-                  ? `Available: ${serverTags.join(", ")}`
-                  : "No DNS servers defined in config.dns.servers."
-              }
-            />
-          </FieldContent>
-        </Field>
-      </SectionCard>
+      {configQuery.isError ? (
+        <ListPlaceholder
+          description="We can't load DNS rules right now. Try refreshing the page."
+          title="Unable to load data"
+          variant="error"
+        />
+      ) : (
+        <>
+          <SectionCard
+            description="Used when no DNS rule matches the current request."
+            title="Fallback"
+          >
+            <Field>
+              <FieldLabel>Fallback server tag</FieldLabel>
+              <FieldContent>
+                <Select
+                  disabled={isPending || !loadedConfig}
+                  onValueChange={handleFallbackChange}
+                  value={loadedConfig?.dns?.fallback ?? ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a DNS server" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>DNS servers</SelectLabel>
+                      {serverTags.map((serverTag) => (
+                        <SelectItem key={serverTag} value={serverTag}>
+                          {serverTag}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldHint
+                  description={
+                    serverTags.length > 0
+                      ? `Available: ${serverTags.join(", ")}`
+                      : "No DNS servers defined in config.dns.servers."
+                  }
+                />
+              </FieldContent>
+            </Field>
+          </SectionCard>
 
-      <DataTable
-        headers={["Lists", "Server tag", "Actions"]}
-        rows={rules.map((rule, index) => [
-          <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
-            {rule.list.map((listName) => (
-              <Badge key={`${index}-${listName}`} variant="outline">
-                {listName}
-              </Badge>
-            ))}
-          </div>,
-          <span className="font-medium" key={`server-${index}`}>
-            {rule.server}
-          </span>,
-          <ActionButtons
-            actions={[
-              {
-                icon: <Pencil className="h-4 w-4" />,
-                label: "Edit",
-                onClick: () => navigate(`/dns-rules/${index}/edit`),
-              },
-              {
-                icon: <Trash2 className="h-4 w-4" />,
-                label: "Delete",
-                onClick: () => handleDeleteRule(index),
-              },
-            ]}
-            key={`actions-${index}`}
-          />,
-        ])}
-      />
+          {rules.length === 0 ? (
+            <ListPlaceholder
+              description="Add a DNS rule to map configured lists to DNS servers."
+              title="No DNS rules yet"
+            />
+          ) : (
+            <DataTable
+              headers={["Lists", "Server tag", "Actions"]}
+              rows={rules.map((rule, index) => [
+                <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
+                  {rule.list.map((listName) => (
+                    <Badge key={`${index}-${listName}`} variant="outline">
+                      {listName}
+                    </Badge>
+                  ))}
+                </div>,
+                <span className="font-medium" key={`server-${index}`}>
+                  {rule.server}
+                </span>,
+                <ActionButtons
+                  actions={[
+                    {
+                      icon: <Pencil className="h-4 w-4" />,
+                      label: "Edit",
+                      onClick: () => navigate(`/dns-rules/${index}/edit`),
+                    },
+                    {
+                      icon: <Trash2 className="h-4 w-4" />,
+                      label: "Delete",
+                      onClick: () => handleDeleteRule(index),
+                    },
+                  ]}
+                  key={`actions-${index}`}
+                />,
+              ])}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }

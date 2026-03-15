@@ -13,6 +13,7 @@ import { useGetConfig } from "@/api/queries"
 import { selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
+import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -99,38 +100,51 @@ export function OutboundsPage() {
         </Alert>
       ) : null}
 
-      <DataTable
-        headers={["Tag", "Type", "Summary", "Actions"]}
-        rows={outboundItems.map((outbound) => [
-          <div className="font-medium" key={`${outbound.id}-tag`}>
-            {outbound.tag}
-          </div>,
-          <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
-            {outbound.type}
-          </Badge>,
-          <span
-            className="text-sm text-muted-foreground"
-            key={`${outbound.id}-summary`}
-          >
-            {outbound.summary}
-          </span>,
-          <ActionButtons
-            actions={[
-              {
-                icon: <Pencil className="h-4 w-4" />,
-                label: "Edit",
-                onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
-              },
-              {
-                icon: <Trash2 className="h-4 w-4" />,
-                label: "Delete",
-                onClick: () => handleDelete(outbound.id),
-              },
-            ]}
-            key={`${outbound.id}-actions`}
-          />,
-        ])}
-      />
+      {configQuery.isError ? (
+        <ListPlaceholder
+          description="We can't load outbounds right now. Try refreshing the page."
+          title="Unable to load data"
+          variant="error"
+        />
+      ) : outboundItems.length === 0 ? (
+        <ListPlaceholder
+          description="Add an outbound to start building routing behavior."
+          title="No outbounds yet"
+        />
+      ) : (
+        <DataTable
+          headers={["Tag", "Type", "Summary", "Actions"]}
+          rows={outboundItems.map((outbound) => [
+            <div className="font-medium" key={`${outbound.id}-tag`}>
+              {outbound.tag}
+            </div>,
+            <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
+              {outbound.type}
+            </Badge>,
+            <span
+              className="text-sm text-muted-foreground"
+              key={`${outbound.id}-summary`}
+            >
+              {outbound.summary}
+            </span>,
+            <ActionButtons
+              actions={[
+                {
+                  icon: <Pencil className="h-4 w-4" />,
+                  label: "Edit",
+                  onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
+                },
+                {
+                  icon: <Trash2 className="h-4 w-4" />,
+                  label: "Delete",
+                  onClick: () => handleDelete(outbound.id),
+                },
+              ]}
+              key={`${outbound.id}-actions`}
+            />,
+          ])}
+        />
+      )}
     </div>
   )
 }
