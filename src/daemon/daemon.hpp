@@ -155,7 +155,7 @@ private:
 #ifdef WITH_API
     std::mutex config_op_mutex_;
     std::condition_variable config_op_cv_;
-    std::atomic<ConfigOperationState> config_op_state_{ConfigOperationState::Idle};
+    std::atomic<ConfigOperationState> config_op_state_{static_cast<ConfigOperationState>(0)};
 #endif
 
     // Configuration
