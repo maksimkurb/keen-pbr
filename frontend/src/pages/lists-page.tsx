@@ -67,19 +67,32 @@ export function ListsPage() {
       return
     }
 
-    if (!window.confirm(`Delete list "${listId}"?`)) {
+    const nextConfig = buildUpdatedConfigForListDelete(loadedConfig, listId)
+    const hasRouteReferenceUpdates =
+      (loadedConfig.route?.rules ?? []).length !==
+        (nextConfig.route?.rules ?? []).length ||
+      (loadedConfig.route?.rules ?? []).some((rule, index) => {
+        const nextRule = nextConfig.route?.rules?.[index]
+        return !nextRule || nextRule.list.length !== rule.list.length
+      })
+    const hasDnsReferenceUpdates =
+      (loadedConfig.dns?.rules ?? []).length !==
+        (nextConfig.dns?.rules ?? []).length ||
+      (loadedConfig.dns?.rules ?? []).some((rule, index) => {
+        const nextRule = nextConfig.dns?.rules?.[index]
+        return !nextRule || nextRule.list.length !== rule.list.length
+      })
+
+    const deletePrompt =
+      hasRouteReferenceUpdates || hasDnsReferenceUpdates
+        ? `Delete list "${listId}" and remove its references from routing/dns rules?`
+        : `Delete list "${listId}"?`
+
+    if (!window.confirm(deletePrompt)) {
       return
     }
 
-    const nextLists = { ...(loadedConfig.lists ?? {}) }
-    delete nextLists[listId]
-
-    postConfigMutation.mutate({
-      data: {
-        ...loadedConfig,
-        lists: nextLists,
-      },
-    })
+    postConfigMutation.mutate({ data: nextConfig })
   }
 
   return (
@@ -181,6 +194,37 @@ function getTableRowsFromListMap(lists: ConfigObject["lists"]): ListTableRow[] {
       canRefresh: Boolean(listConfig.url),
     }
   })
+}
+
+function buildUpdatedConfigForListDelete(
+  config: ConfigObject,
+  listId: string
+): ConfigObject {
+  const nextLists = { ...(config.lists ?? {}) }
+  delete nextLists[listId]
+
+  return {
+    ...config,
+    lists: nextLists,
+    route: {
+      ...config.route,
+      rules: (config.route?.rules ?? [])
+        .map((rule) => ({
+          ...rule,
+          list: rule.list.filter((name) => name !== listId),
+        }))
+        .filter((rule) => rule.list.length > 0),
+    },
+    dns: {
+      ...config.dns,
+      rules: (config.dns?.rules ?? [])
+        .map((rule) => ({
+          ...rule,
+          list: rule.list.filter((name) => name !== listId),
+        }))
+        .filter((rule) => rule.list.length > 0),
+    },
+  }
 }
 
 function getApiErrorMessage(error: ApiError) {
