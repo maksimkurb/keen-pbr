@@ -197,7 +197,7 @@ void Daemon::handle_sighup() {
     auto& log = Logger::instance();
     log.info("SIGHUP: full reload starting...");
     try {
-        full_reload();
+        reload_from_disk();
         log.info("SIGHUP: full reload complete.");
     } catch (const std::exception& e) {
         log.error("SIGHUP: reload failed: {}", e.what());
@@ -572,11 +572,11 @@ void Daemon::refresh_lists_and_maybe_reload() {
 
     if (any_relevant_changed) {
         log.info("Lists autoupdate: relevant list(s) changed, triggering reload");
-        try { full_reload(); }
+        try { reload_from_disk(); }
         catch (const std::exception& e) {
             log.error("Lists autoupdate: reload failed: {}", e.what());
         }
-        // full_reload() calls schedule_lists_autoupdate() at its end
+        // reload_from_disk() calls schedule_lists_autoupdate() at its end
         return;
     }
 
@@ -597,7 +597,7 @@ void Daemon::update_resolver_config_hash() {
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 
-void Daemon::full_reload() {
+void Daemon::apply_config(Config config) {
     // Cancel any pending autoupdate task before teardown
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
@@ -614,14 +614,7 @@ void Daemon::full_reload() {
     policy_rules_.clear();
     firewall_->cleanup();
 
-    // Re-read config
-    std::ifstream ifs(config_path_);
-    if (!ifs.is_open()) {
-        throw DaemonError("Cannot open config file: " + config_path_);
-    }
-    std::ostringstream ss;
-    ss << ifs.rdbuf();
-    config_ = parse_config(ss.str());
+    config_ = std::move(config);
 
     // Re-allocate fwmarks
     outbound_marks_ = allocate_outbound_marks(config_.fwmark.value_or(FwmarkConfig{}),
@@ -650,6 +643,17 @@ void Daemon::full_reload() {
     setup_dns_probe();
 }
 
+void Daemon::reload_from_disk() {
+    std::ifstream ifs(config_path_);
+    if (!ifs.is_open()) {
+        throw DaemonError("Cannot open config file: " + config_path_);
+    }
+
+    std::ostringstream ss;
+    ss << ifs.rdbuf();
+    apply_config(parse_config(ss.str()));
+}
+
 #ifdef WITH_API
 void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
@@ -661,13 +665,16 @@ void Daemon::setup_api() {
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
         config_,
+        staged_config_,
+        staged_config_json_,
         cache_,
         firewall_state_,
         urltest_manager_,
         *routing_health_checker_,
         resolver_config_hash_,
         *dns_test_broadcaster_,
-        [this]() { full_reload(); },
+        [this]() { reload_from_disk(); },
+        [this](const Config& config) { apply_config(config); },
     });
     register_api_handlers(*api_server_, *api_ctx_);
     api_server_->start();

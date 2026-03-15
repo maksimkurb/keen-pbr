@@ -404,7 +404,7 @@ function getConfigData(response: getConfigResponse | undefined) {
     return undefined
   }
 
-  return response.data
+  return response.data.config
 }
 
 function getApiErrorMessage(error: ApiError | null) {

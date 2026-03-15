@@ -10,7 +10,11 @@ import type { Outbound } from "@/api/generated/model/outbound"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
-import { findOutboundByTag, selectOutbounds } from "@/api/selectors"
+import {
+  findOutboundByTag,
+  selectConfig,
+  selectOutbounds,
+} from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -93,7 +97,7 @@ export function OutboundUpsertPage({
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig = selectConfig(configQuery.data)
 
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
@@ -843,8 +847,12 @@ function getFormValue(formData: FormData, key: string): string {
 }
 
 function getApiErrorMessage(error: ApiError): string {
-  if (error.data && typeof error.data === "object" && "message" in error.data) {
-    const message = error.data.message
+  if (
+    error.details &&
+    typeof error.details === "object" &&
+    "message" in error.details
+  ) {
+    const message = error.details.message
     if (typeof message === "string" && message.length > 0) {
       return message
     }

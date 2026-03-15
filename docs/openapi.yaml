@@ -43,17 +43,18 @@ paths:
 
   /api/config:
     get:
-      summary: Get config file
+      summary: Get current config state
       description: >
-        Returns the raw contents of the current configuration file as JSON.
+        Returns the latest editable configuration object together with a flag
+        indicating whether it is a staged in-memory draft.
       operationId: getConfig
       responses:
         "200":
-          description: Current configuration file contents
+          description: Current configuration and draft status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConfigObject"
+                $ref: "#/components/schemas/ConfigStateResponse"
         "500":
           description: Error reading config file
           content:
@@ -61,10 +62,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
     post:
-      summary: Update config file
+      summary: Stage config in memory
       description: >
-        Validates the provided JSON body as a config file, writes it atomically,
-        then triggers a full reload.
+        Validates the provided JSON body as a config file and stages it in
+        daemon memory without writing it to disk or reloading the service.
       operationId: postConfig
       requestBody:
         required: true
@@ -74,13 +75,34 @@ paths:
               $ref: "#/components/schemas/ConfigObject"
       responses:
         "200":
-          description: Config updated and reload triggered
+          description: Config staged successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConfigUpdateResponse"
         "500":
           description: Validation or write error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/config/save:
+    post:
+      summary: Save staged config
+      description: >
+        Persists the currently staged in-memory config to disk and then applies
+        it with a full service reload.
+      operationId: postConfigSave
+      responses:
+        "200":
+          description: Config saved and reload triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigUpdateResponse"
+        "500":
+          description: No staged config or save/apply error
           content:
             application/json:
               schema:
@@ -810,7 +832,7 @@ components:
 
     HealthResponse:
       type: object
-      required: [version, status, outbounds]
+      required: [version, status, config_is_draft, outbounds]
       properties:
         version:
           type: string
@@ -827,6 +849,12 @@ components:
             Matches the txt-record written by generate-resolver-config; use to
             verify the dnsmasq config is up to date.
           example: "a3f7c1d9e2b84560abcdef1234567890"
+        config_is_draft:
+          type: boolean
+          description: >
+            Whether a newer configuration has been staged in memory but not yet
+            persisted and applied.
+          example: false
         outbounds:
           type: array
           items:
@@ -852,6 +880,19 @@ components:
     # /api/config
     # -------------------------------------------------------------------------
 
+    ConfigStateResponse:
+      type: object
+      required: [config, is_draft]
+      properties:
+        config:
+          $ref: "#/components/schemas/ConfigObject"
+        is_draft:
+          type: boolean
+          description: >
+            Whether the returned config is a staged in-memory draft rather than
+            the currently persisted config.
+          example: false
+
     ConfigUpdateResponse:
       type: object
       required: [status, message]
@@ -862,7 +903,7 @@ components:
           example: "ok"
         message:
           type: string
-          example: "Config updated and reload triggered"
+          example: "Config staged in memory"
 
     ErrorResponse:
       type: object

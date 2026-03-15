@@ -14,11 +14,16 @@ export const queryKeys = {
 
 export const invalidationKeysAfterConfigMutation = [
   queryKeys.config(),
-  queryKeys.healthRouting(),
   queryKeys.healthService(),
 ] as const
 
 export const invalidationKeysAfterReloadMutation = [
+  queryKeys.healthRouting(),
+  queryKeys.healthService(),
+  queryKeys.config(),
+] as const
+
+export const invalidationKeysAfterConfigSaveMutation = [
   queryKeys.healthRouting(),
   queryKeys.healthService(),
   queryKeys.config(),

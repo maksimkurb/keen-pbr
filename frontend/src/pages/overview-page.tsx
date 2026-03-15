@@ -49,8 +49,14 @@ export function OverviewPage() {
 
   const dnsEvents = useDnsTestEvents()
 
-  const serviceHealth = serviceHealthQuery.data?.data
-  const routingHealth = routingHealthQuery.data?.data
+  const serviceHealth =
+    serviceHealthQuery.data?.status === 200
+      ? serviceHealthQuery.data.data
+      : undefined
+  const routingHealth =
+    routingHealthQuery.data?.status === 200
+      ? routingHealthQuery.data.data
+      : undefined
 
   const outboundRows = useMemo(() => {
     if (!serviceHealth) {
@@ -131,7 +137,10 @@ export function OverviewPage() {
     return [...firewallRows, ...routeRows, ...policyRows]
   }, [routingHealth])
 
-  const firstRoutingTestResult = routingTestMutation.data?.data.results[0]
+  const firstRoutingTestResult =
+    routingTestMutation.data?.status === 200
+      ? routingTestMutation.data.data.results[0]
+      : undefined
 
   return (
     <div className="space-y-6">
@@ -528,8 +537,8 @@ function UrltestTagTree({
                 ? `${child.latency_ms} ms`
                 : "-"
             }
-            name={child.outbound_tag}
-            state={child.healthy ? "healthy" : "degraded"}
+            name={child.tag}
+            state={child.success ? "healthy" : "degraded"}
           />
         ))}
       </div>

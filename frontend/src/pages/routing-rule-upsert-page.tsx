@@ -8,6 +8,7 @@ import type { Outbound } from "@/api/generated/model/outbound"
 import type { RouteRule } from "@/api/generated/model/routeRule"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -49,8 +50,7 @@ export function RoutingRuleUpsertPage({
 }) {
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
-  const loadedConfig =
-    configQuery.data?.status === 200 ? configQuery.data.data : undefined
+  const loadedConfig = selectConfig(configQuery.data)
   const rules = loadedConfig?.route?.rules ?? []
   const parsedRuleIndex = Number(ruleIndex)
   const existingRule =
@@ -84,7 +84,9 @@ export function RoutingRuleUpsertPage({
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: () => {
-        setSaveSuccessMessage("Routing rule saved.")
+        setSaveSuccessMessage(
+          "Routing rule staged. Apply config to persist it."
+        )
         setMutationErrorMessage(null)
         navigate("/routing-rules")
       },

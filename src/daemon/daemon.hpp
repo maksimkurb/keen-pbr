@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -91,7 +92,8 @@ private:
     void apply_firewall();
     void download_uncached_lists();
     void register_urltest_outbounds();
-    void full_reload();
+    void apply_config(Config config);
+    void reload_from_disk();
     void schedule_lists_autoupdate();
     void refresh_lists_and_maybe_reload();
 
@@ -128,6 +130,8 @@ private:
     // Configuration
     Config config_;
     std::string config_path_;
+    std::optional<Config> staged_config_;
+    std::optional<std::string> staged_config_json_;
     DaemonOptions opts_;
 
     // Subsystems

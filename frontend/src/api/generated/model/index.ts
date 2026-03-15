@@ -12,6 +12,7 @@ export * from './checkStatus';
 export * from './circuitBreakerConfig';
 export * from './configObject';
 export * from './configObjectLists';
+export * from './configStateResponse';
 export * from './configUpdateResponse';
 export * from './configUpdateResponseStatus';
 export * from './daemonConfig';

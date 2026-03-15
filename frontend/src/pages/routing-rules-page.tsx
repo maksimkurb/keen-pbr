@@ -6,6 +6,7 @@ import type { ApiError } from "@/api/client"
 import type { RouteRule } from "@/api/generated/model/routeRule"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -14,11 +15,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  getApiErrorMessage,
-  getRuleDetails,
-  reorderRules,
-} from "@/pages/routing-rules-utils"
+import { getApiErrorMessage, reorderRules } from "@/pages/routing-rules-utils"
 
 export function RoutingRulesPage() {
   const [, navigate] = useLocation()
@@ -30,8 +27,7 @@ export function RoutingRulesPage() {
   >(null)
 
   const configQuery = useGetConfig()
-  const loadedConfig =
-    configQuery.data?.status === 200 ? configQuery.data.data : undefined
+  const loadedConfig = selectConfig(configQuery.data)
   const routeRules = loadedConfig?.route?.rules ?? []
 
   const tableRows = useMemo(
@@ -42,7 +38,9 @@ export function RoutingRulesPage() {
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: () => {
-        setSaveSuccessMessage("Routing rules saved.")
+        setSaveSuccessMessage(
+          "Routing rules staged. Apply config to persist them."
+        )
         setMutationErrorMessage(null)
       },
       onError: (error) => {
@@ -136,27 +134,28 @@ export function RoutingRulesPage() {
         />
       ) : (
         <DataTable
-          headers={["Order", "Lists", "Outbound", "Matchers", "Actions"]}
+          headers={["Order", "Criteria", "Outbound", "Actions"]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
             </span>,
-            <div className="flex flex-wrap gap-2" key={`${row.id}-lists`}>
-              {row.lists.map((listName: string) => (
-                <Badge key={`${row.id}-${listName}`} variant="outline">
-                  {listName}
-                </Badge>
+            <ul
+              className="list-disc space-y-1 pl-5 text-sm"
+              key={`${row.id}-conditions`}
+            >
+              {row.conditions.map((condition) => (
+                <li
+                  className="text-muted-foreground"
+                  key={`${row.id}-${condition.label}`}
+                >
+                  <span className="font-medium text-foreground">
+                    {condition.label}:
+                  </span>{" "}
+                  {condition.value}
+                </li>
               ))}
-            </div>,
-            <div className="space-y-1" key={`${row.id}-outbound`}>
-              <Badge>{row.outbound}</Badge>
-              <div className="text-sm text-muted-foreground">
-                proto: {row.proto}
-              </div>
-            </div>,
-            <span className="text-sm text-muted-foreground" key={`${row.id}-details`}>
-              {row.details}
-            </span>,
+            </ul>,
+            <Badge key={`${row.id}-outbound`}>{row.outbound}</Badge>,
             <ActionButtons
               actions={[
                 {
@@ -190,13 +189,45 @@ export function RoutingRulesPage() {
 }
 
 function getRouteRuleRow(rule: RouteRule, index: number) {
+  const conditions = [
+    {
+      label: "Lists",
+      value: rule.list.join(", "),
+    },
+    {
+      label: "Proto",
+      value: rule.proto,
+    },
+    {
+      label: "Source IP",
+      value: rule.src_addr,
+    },
+    {
+      label: "Destination IP",
+      value: rule.dest_addr,
+    },
+    {
+      label: "Source port",
+      value: rule.src_port,
+    },
+    {
+      label: "Destination port",
+      value: rule.dest_port,
+    },
+  ].filter(
+    (
+      condition
+    ): condition is {
+      label: string
+      value: string
+    } => typeof condition.value === "string" && condition.value.trim().length > 0
+  )
+
   return {
     id: `routing-rule-${index}`,
     index,
     order: index + 1,
-    lists: rule.list,
+    conditions,
     outbound: rule.outbound,
-    proto: rule.proto || "any",
-    details: getRuleDetails(rule),
   }
 }

@@ -8,6 +8,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -59,12 +60,12 @@ export function GeneralConfigPage() {
     string | null
   >(null)
 
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig = selectConfig(configQuery.data)
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async (_response, variables) => {
-        setSaveSuccessMessage("Settings saved.")
+        setSaveSuccessMessage("Settings staged. Apply config to persist them.")
         setMutationErrorMessage(null)
 
         await Promise.all([
@@ -144,56 +145,74 @@ export function GeneralConfigPage() {
         <CardHeader>
           <CardTitle>General</CardTitle>
           <CardDescription>
-            Daemon defaults and global refresh schedule.
+            Daemon defaults for routing behavior.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup>
             <form.Field name="strictEnforcement">
               {(field) => (
-                <Field orientation="horizontal">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      checked={field.state.value}
-                      id="strict-enforcement"
-                      onCheckedChange={(checked) =>
-                        field.handleChange(checked === true)
-                      }
-                    />
-                    <FieldLabel
-                      className="cursor-pointer flex-col items-start gap-0"
-                      htmlFor="strict-enforcement"
-                    >
-                      Global strict enforcement
-                    </FieldLabel>
-                  </div>
+                <Field>
+                  <FieldContent>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={field.state.value}
+                        id="strict-enforcement"
+                        onCheckedChange={(checked) =>
+                          field.handleChange(checked === true)
+                        }
+                      />
+                      <FieldLabel
+                        className="cursor-pointer flex-col items-start gap-0"
+                        htmlFor="strict-enforcement"
+                      >
+                        Global strict enforcement
+                      </FieldLabel>
+                    </div>
+                    <FieldHint description="Kill-switch for interface outbounds. When enabled and an outbound interface goes down, traffic matching its rules is blocked instead of falling back to the default routing table. This value can be overridden per outbound." />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lists autoupdate</CardTitle>
+          <CardDescription>
+            Automatic refresh schedule for remote lists.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            <form.Field name="listsAutoupdateEnabled">
+              {(field) => (
+                <Field>
+                  <FieldContent>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={field.state.value}
+                        id="autoupdate-lists"
+                        onCheckedChange={(checked) =>
+                          field.handleChange(checked === true)
+                        }
+                      />
+                      <FieldLabel
+                        className="cursor-pointer flex-col items-start gap-0"
+                        htmlFor="autoupdate-lists"
+                      >
+                        Enable lists autoupdate
+                      </FieldLabel>
+                    </div>
+                    <FieldHint description="Refreshes remote lists on the schedule below and reapplies routing when relevant data changes." />
+                  </FieldContent>
                 </Field>
               )}
             </form.Field>
 
             <FieldSeparator />
-
-            <form.Field name="listsAutoupdateEnabled">
-              {(field) => (
-                <Field orientation="horizontal">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      checked={field.state.value}
-                      id="autoupdate-lists"
-                      onCheckedChange={(checked) =>
-                        field.handleChange(checked === true)
-                      }
-                    />
-                    <FieldLabel
-                      className="cursor-pointer flex-col items-start gap-0"
-                      htmlFor="autoupdate-lists"
-                    >
-                      Enable global lists autoupdate
-                    </FieldLabel>
-                  </div>
-                </Field>
-              )}
-            </form.Field>
 
             <form.Field
               name="cron"
@@ -218,8 +237,37 @@ export function GeneralConfigPage() {
                         value={field.state.value}
                       />
                       <FieldHint
-                        description="Global schedule for refreshing remote lists."
-                        error={error ?? null}
+                        description={
+                          <>
+                            Cron schedule used for refreshing remote lists. You
+                            can build and verify an expression with{" "}
+                            <a
+                              className="underline underline-offset-3 hover:text-foreground"
+                              href={getCrontabGuruUrl(field.state.value)}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              Crontab Guru
+                            </a>
+                            .
+                          </>
+                        }
+                        error={
+                          error ? (
+                            <>
+                              {error}{" "}
+                              <a
+                                className="underline underline-offset-3 hover:text-foreground"
+                                href={getCrontabGuruUrl(field.state.value)}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                Open in Crontab Guru
+                              </a>
+                              .
+                            </>
+                          ) : null
+                        }
                       />
                     </FieldContent>
                   </Field>
@@ -433,7 +481,7 @@ function toHex32(value: number | undefined, fallback: string) {
     return fallback
   }
 
-  const normalized = (value >>> 0).toString(16)
+  const normalized = ((value ?? 0) >>> 0).toString(16)
   return `0x${normalized.padStart(8, "0")}`
 }
 
@@ -473,6 +521,28 @@ function getCronError(value: string) {
   }
 
   return null
+}
+
+function getCrontabGuruUrl(value: string) {
+  if (getCronHash(value) === null) {
+    return "https://crontab.guru/"
+  }
+
+  return `https://crontab.guru/#${getCronHash(value)}`
+}
+
+function getCronHash(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const fields = trimmed.split(/\s+/)
+  if (fields.length !== 5) {
+    return null
+  }
+
+  return fields.join("_")
 }
 
 function isValidCronField(field: string, min: number, max: number) {

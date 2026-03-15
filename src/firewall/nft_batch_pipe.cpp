@@ -13,11 +13,15 @@ void NftBatchVisitor::on_entry(EntryType type, std::string_view entry) {
         return; // Ignore domain entries
     }
 
+    nlohmann::json elem = {
+        {"elem", {{"val", std::string(entry)}}},
+    };
+
     if (static_timeout_ >= 0) {
-        buffer_.push_back({{"elem", {{"val", std::string(entry)}, {"timeout", static_timeout_}}}});
-    } else {
-        buffer_.push_back(std::string(entry));
+        elem["elem"]["timeout"] = static_timeout_;
     }
+
+    buffer_.push_back(std::move(elem));
     ++count_;
 }
 

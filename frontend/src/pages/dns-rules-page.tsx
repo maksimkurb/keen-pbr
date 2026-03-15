@@ -8,6 +8,7 @@ import type { ApiError } from "@/api/client"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import {
@@ -50,7 +51,7 @@ export function DnsRulesPage() {
     string | null
   >(null)
 
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig = selectConfig(configQuery.data)
 
   const serverTags = useMemo(
     () =>
@@ -69,7 +70,9 @@ export function DnsRulesPage() {
     mutation: {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-        setSaveSuccessMessage("DNS configuration saved.")
+        setSaveSuccessMessage(
+          "DNS configuration staged. Apply config to persist it."
+        )
         setMutationErrorMessage(null)
       },
       onError: (error) => {
@@ -83,8 +86,12 @@ export function DnsRulesPage() {
   const isPending = postConfigMutation.isPending
   const rules = loadedConfig?.dns?.rules ?? []
 
-  const handleFallbackChange = (fallback: string) => {
+  const handleFallbackChange = (fallback: string | null) => {
     if (!loadedConfig) {
+      return
+    }
+
+    if (!fallback) {
       return
     }
 

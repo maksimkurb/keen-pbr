@@ -26,6 +26,7 @@ import type {
 
 import type {
   ConfigObject,
+  ConfigStateResponse,
   ConfigUpdateResponse,
   ErrorResponse,
   HealthResponse,
@@ -241,12 +242,12 @@ export const usePostReload = <TError = unknown,
     }
     
 /**
- * Returns the raw contents of the current configuration file as JSON.
+ * Returns the latest editable configuration object together with a flag indicating whether it is a staged in-memory draft.
 
- * @summary Get config file
+ * @summary Get current config state
  */
 export type getConfigResponse200 = {
-  data: ConfigObject
+  data: ConfigStateResponse
   status: 200
 }
 
@@ -341,7 +342,7 @@ export function useGetConfig<TData = Awaited<ReturnType<typeof getConfig>>, TErr
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get config file
+ * @summary Get current config state
  */
 
 export function useGetConfig<TData = Awaited<ReturnType<typeof getConfig>>, TError = ErrorResponse>(
@@ -361,9 +362,9 @@ export function useGetConfig<TData = Awaited<ReturnType<typeof getConfig>>, TErr
 
 
 /**
- * Validates the provided JSON body as a config file, writes it atomically, then triggers a full reload.
+ * Validates the provided JSON body as a config file and stages it in daemon memory without writing it to disk or reloading the service.
 
- * @summary Update config file
+ * @summary Stage config in memory
  */
 export type postConfigResponse200 = {
   data: ConfigUpdateResponse
@@ -439,7 +440,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PostConfigMutationError = ErrorResponse
 
     /**
- * @summary Update config file
+ * @summary Stage config in memory
  */
 export const usePostConfig = <TError = ErrorResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfig>>, TError,{data: ConfigObject}, TContext>, request?: SecondParameter<typeof apiFetch>}
@@ -450,6 +451,97 @@ export const usePostConfig = <TError = ErrorResponse,
         TContext
       > => {
       return useMutation(getPostConfigMutationOptions(options), queryClient);
+    }
+
+/**
+ * Persists the currently staged in-memory config to disk and then applies it with a full service reload.
+
+ * @summary Save staged config
+ */
+export type postConfigSaveResponse200 = {
+  data: ConfigUpdateResponse
+  status: 200
+}
+
+export type postConfigSaveResponse500 = {
+  data: ErrorResponse
+  status: 500
+}
+
+export type postConfigSaveResponseSuccess = (postConfigSaveResponse200) & {
+  headers: Headers;
+};
+export type postConfigSaveResponseError = (postConfigSaveResponse500) & {
+  headers: Headers;
+};
+
+export type postConfigSaveResponse = (postConfigSaveResponseSuccess | postConfigSaveResponseError)
+
+export const getPostConfigSaveUrl = () => {
+
+
+  
+
+  return `/api/config/save`
+}
+
+export const postConfigSave = async ( options?: RequestInit): Promise<postConfigSaveResponse> => {
+  
+  return apiFetch<postConfigSaveResponse>(getPostConfigSaveUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+  
+
+
+
+export const getPostConfigSaveMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext> => {
+
+const mutationKey = ['postConfigSave'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postConfigSave>>, void> = () => {
+          
+
+          return  postConfigSave(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostConfigSaveMutationResult = NonNullable<Awaited<ReturnType<typeof postConfigSave>>>
+    
+    export type PostConfigSaveMutationError = ErrorResponse
+
+    /**
+ * @summary Save staged config
+ */
+export const usePostConfigSave = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postConfigSave>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostConfigSaveMutationOptions(options), queryClient);
     }
     
 /**
@@ -772,7 +864,6 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
 
 
 

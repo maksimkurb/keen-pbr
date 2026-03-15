@@ -11,6 +11,7 @@
 #include "server.hpp"
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -19,7 +20,9 @@ namespace keen_pbr3 {
 // Context struct holding references to subsystems needed by API handlers.
 struct ApiContext {
     const std::string& config_path;
-    const Config& config;
+    Config& config;
+    std::optional<Config>& staged_config;
+    std::optional<std::string>& staged_config_json;
     const CacheManager& cache_manager;
     const FirewallState& firewall_state;
     const std::unique_ptr<UrltestManager>& urltest_manager;
@@ -29,6 +32,15 @@ struct ApiContext {
 
     // Callback to trigger full reload (non-const, performs side effects)
     std::function<void()> reload_fn;
+    std::function<void(const Config&)> apply_config_fn;
+
+    const Config& visible_config() const {
+        return staged_config.has_value() ? *staged_config : config;
+    }
+
+    bool config_is_draft() const {
+        return staged_config.has_value();
+    }
 
     // Convenience accessors
     const std::vector<Outbound>& outbounds() const {
@@ -40,8 +52,9 @@ struct ApiContext {
 // Register all API endpoint handlers on the given ApiServer.
 //   GET  /api/health/service  - daemon version/status + health for all outbounds
 //   POST /api/reload          - trigger list re-download and re-apply
-//   GET  /api/config          - return raw config file content
-//   POST /api/config          - validate + write config file + reload
+//   GET  /api/config          - return current config and draft status
+//   POST /api/config          - validate + stage config in memory
+//   POST /api/config/save     - persist staged config and reload
 //   GET  /api/health/routing  - routing and firewall health verification
 //   POST /api/routing/test    - test expected/actual routing for an IP or domain
 void register_api_handlers(ApiServer& server, ApiContext& ctx);

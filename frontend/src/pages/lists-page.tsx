@@ -8,6 +8,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -46,7 +47,7 @@ export function ListsPage() {
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
   const configQuery = useGetConfig()
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig = selectConfig(configQuery.data)
 
   const tableRows = useMemo(
     () => getTableRowsFromListMap(loadedConfig?.lists),

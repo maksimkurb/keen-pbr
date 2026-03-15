@@ -67,7 +67,9 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
             resp.outbounds.push_back(std::move(entry));
         }
 
-        return nlohmann::json(resp).dump();
+        nlohmann::json response = resp;
+        response["config_is_draft"] = ctx.config_is_draft();
+        return response.dump();
     });
 }
 

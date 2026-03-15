@@ -9,6 +9,7 @@ import type { ListConfig } from "@/api/generated/model/listConfig"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -50,7 +51,7 @@ export function ListUpsertPage({
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
   const configQuery = useGetConfig()
-  const loadedConfig = configQuery.data?.data
+  const loadedConfig = selectConfig(configQuery.data)
   const listsMap = loadedConfig?.lists ?? {}
 
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
@@ -69,7 +70,9 @@ export function ListUpsertPage({
     mutation: {
       onSuccess: async () => {
         setSaveSuccessMessage(
-          mode === "create" ? "List created." : "List updated."
+          mode === "create"
+            ? "List staged. Apply config to persist it."
+            : "List changes staged. Apply config to persist them."
         )
         setMutationErrorMessage(null)
 

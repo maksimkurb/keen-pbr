@@ -203,13 +203,28 @@ TEST_CASE("build_drop_rule_json: IPv6 drop rule") {
 // =============================================================================
 
 TEST_CASE("build_elements_json: correct set name, table, and elements") {
-  nlohmann::json elems = nlohmann::json::array({"10.0.0.1", "10.0.0.2"});
+  nlohmann::json elems = nlohmann::json::array({
+      {{"elem", {{"val", "10.0.0.1"}}}},
+      {{"elem", {{"val", "10.0.0.2"}}}},
+  });
   auto j = T::build_elements_json("myset", elems);
   const auto &elem = j["add"]["element"];
   CHECK(elem["family"] == "inet");
   CHECK(elem["table"] == "KeenPbrTable");
   CHECK(elem["name"] == "myset");
   CHECK(elem["elem"] == elems);
+}
+
+TEST_CASE("build_elements_json: IPv6 element keeps explicit val wrapper") {
+  nlohmann::json elems = nlohmann::json::array({
+      {{"elem", {{"val", "2a00:1450:4010:c1e::8a"}}}},
+  });
+
+  auto j = T::build_elements_json("myset6", elems);
+  const auto &elem = j["add"]["element"]["elem"][0]["elem"];
+
+  CHECK(elem["val"] == "2a00:1450:4010:c1e::8a");
+  CHECK_FALSE(elem.contains("timeout"));
 }
 
 // =============================================================================

@@ -8,6 +8,7 @@ import type { ApiError } from "@/api/client"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -53,8 +54,7 @@ export function DnsRuleUpsertPage({
     string | null
   >(null)
 
-  const loadedConfig =
-    configQuery.data?.status === 200 ? configQuery.data.data : undefined
+  const loadedConfig = selectConfig(configQuery.data)
   const rules = loadedConfig?.dns?.rules ?? []
   const parsedRuleIndex = Number(ruleIndex)
   const existingRule =
@@ -79,7 +79,7 @@ export function DnsRuleUpsertPage({
     mutation: {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-        setSaveSuccessMessage("DNS rule saved.")
+        setSaveSuccessMessage("DNS rule staged. Apply config to persist it.")
         setMutationErrorMessage(null)
         navigate("/dns-rules")
       },
@@ -91,13 +91,15 @@ export function DnsRuleUpsertPage({
     },
   })
 
-  const form = useForm<{ rule: DnsRuleDraft }>({
-    defaultValues: {
-      rule: {
-        server: serverTags[0] ?? "",
-        lists: [],
-      },
+  const defaultValues: { rule: DnsRuleDraft } = {
+    rule: {
+      server: serverTags[0] ?? "",
+      lists: [],
     },
+  }
+
+  const form = useForm({
+    defaultValues,
     onSubmit: ({ value }) => {
       if (!loadedConfig) {
         return
@@ -218,7 +220,9 @@ export function DnsRuleUpsertPage({
                 <FieldLabel>Server tag</FieldLabel>
                 <FieldContent>
                   <Select
-                    onValueChange={(server) => field.handleChange(server)}
+                    onValueChange={(server) =>
+                      field.handleChange(server ?? "")
+                    }
                     value={field.state.value}
                   >
                     <SelectTrigger>
