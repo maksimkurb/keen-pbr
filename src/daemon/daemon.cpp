@@ -939,9 +939,20 @@ void Daemon::setup_api() {
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);
-    api_server_->start();
-    Logger::instance().info("REST API listening on {}",
-                            config_.api->listen.value_or(""));
+    const std::string listen_addr = config_.api->listen.value_or("0.0.0.0:8080");
+    Logger::instance().info("Starting REST API on {}", listen_addr);
+    try {
+        api_server_->start();
+        Logger::instance().info("REST API listening on {}", listen_addr);
+    } catch (const ApiError& e) {
+        Logger::instance().error("REST API startup failed on {}: {}", listen_addr, e.what());
+        throw;
+    } catch (const std::exception& e) {
+        Logger::instance().error("Unexpected REST API startup failure on {}: {}",
+                                 listen_addr,
+                                 e.what());
+        throw;
+    }
 }
 #endif
 
