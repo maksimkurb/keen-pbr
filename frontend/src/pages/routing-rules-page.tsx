@@ -104,14 +104,21 @@ export function RoutingRulesPage() {
           ? [...routeRules, nextRule]
           : routeRules.map((rule, index) => (index === editingIndex ? nextRule : rule))
 
-      persistRules(loadedConfig, nextRules)
-      resetToCreateMode()
+      persistRules(loadedConfig, nextRules, {
+        onSuccess: () => {
+          resetToCreateMode()
+        },
+      })
     },
   })
 
   const isPending = postConfigMutation.isPending
 
-  const persistRules = (config: ConfigObject, nextRules: RouteRule[]) => {
+  const persistRules = (
+    config: ConfigObject,
+    nextRules: RouteRule[],
+    options?: { onSuccess?: () => void }
+  ) => {
     setSaveSuccessMessage(null)
     setMutationErrorMessage(null)
 
@@ -122,6 +129,10 @@ export function RoutingRulesPage() {
           ...config.route,
           rules: nextRules,
         },
+      },
+    }, {
+      onSuccess: () => {
+        options?.onSuccess?.()
       },
     })
   }
@@ -262,7 +273,7 @@ export function RoutingRulesPage() {
         <CardHeader>
           <CardTitle>{editingIndex === null ? "Create route rule" : `Edit rule #${editingIndex + 1}`}</CardTitle>
           <CardDescription>
-            Choose lists and outbound, then optionally narrow by proto, ports, and CIDR matches.
+            Choose lists and outbound, then optionally narrow by proto, ports, and address matches.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -380,7 +391,7 @@ export function RoutingRulesPage() {
             <form.Field
               name="src_addr"
               validators={{
-                onChange: ({ value }) => getCidrSpecError(value) ?? undefined,
+                onChange: ({ value }) => getAddressSpecError(value) ?? undefined,
               }}
             >
               {(field) => {
@@ -388,17 +399,20 @@ export function RoutingRulesPage() {
 
                 return (
                   <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="routing-src-addr">Source CIDRs</FieldLabel>
+                    <FieldLabel htmlFor="routing-src-addr">Source addresses</FieldLabel>
                     <FieldContent>
                       <Input
                         aria-invalid={Boolean(error)}
                         id="routing-src-addr"
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="192.168.0.0/16,10.0.0.0/8"
+                        placeholder="192.168.1.10,10.0.0.0/8"
                         value={field.state.value}
                       />
-                      <FieldHint description="Comma-separated CIDRs. Optional leading ! negates the entire spec." error={error} />
+                      <FieldHint
+                        description="Comma-separated IP addresses or CIDRs. Optional leading ! negates the entire spec."
+                        error={error}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -408,7 +422,7 @@ export function RoutingRulesPage() {
             <form.Field
               name="dest_addr"
               validators={{
-                onChange: ({ value }) => getCidrSpecError(value) ?? undefined,
+                onChange: ({ value }) => getAddressSpecError(value) ?? undefined,
               }}
             >
               {(field) => {
@@ -416,17 +430,20 @@ export function RoutingRulesPage() {
 
                 return (
                   <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="routing-dest-addr">Destination CIDRs</FieldLabel>
+                    <FieldLabel htmlFor="routing-dest-addr">Destination addresses</FieldLabel>
                     <FieldContent>
                       <Input
                         aria-invalid={Boolean(error)}
                         id="routing-dest-addr"
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="172.16.0.0/12 or !203.0.113.0/24"
+                        placeholder="2001:db8::1 or !203.0.113.0/24"
                         value={field.state.value}
                       />
-                      <FieldHint description="Comma-separated CIDRs. Optional leading ! negates the entire spec." error={error} />
+                      <FieldHint
+                        description="Comma-separated IP addresses or CIDRs. Optional leading ! negates the entire spec."
+                        error={error}
+                      />
                     </FieldContent>
                   </Field>
                 )
@@ -609,7 +626,7 @@ function isValidPort(value: string) {
   return port >= 1 && port <= 65535
 }
 
-function getCidrSpecError(value: string) {
+function getAddressSpecError(value: string) {
   const normalized = value.trim()
   if (!normalized) {
     return null
@@ -617,21 +634,25 @@ function getCidrSpecError(value: string) {
 
   const content = normalized.startsWith("!") ? normalized.slice(1) : normalized
   if (!content || content.startsWith(",") || content.endsWith(",")) {
-    return "Use comma-separated CIDRs."
+    return "Use comma-separated IP addresses or CIDRs."
   }
 
   const tokens = content.split(",")
   for (const token of tokens) {
-    const cidr = token.trim()
-    if (!cidr || !isValidCidr(cidr)) {
-      return "CIDRs must include a valid IPv4 or IPv6 prefix, for example 10.0.0.0/8 or 2001:db8::/32."
+    const address = token.trim()
+    if (!address || !isValidAddressSpec(address)) {
+      return "Addresses must be valid IPv4 or IPv6 hosts or CIDR ranges, for example 10.0.0.1, 10.0.0.0/8, or 2001:db8::/32."
     }
   }
 
   return null
 }
 
-function isValidCidr(value: string) {
+function isValidAddressSpec(value: string) {
+  if (!value.includes("/")) {
+    return isValidIpv4(value) || isValidIpv6(value)
+  }
+
   const parts = value.split("/")
   if (parts.length !== 2) {
     return false
