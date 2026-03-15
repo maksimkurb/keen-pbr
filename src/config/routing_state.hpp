@@ -11,6 +11,20 @@
 
 namespace keen_pbr3 {
 
+// Routing table IDs that must never be used for keen-pbr3 outbound tables.
+static constexpr uint32_t RESERVED_TABLE_UNSPEC         = 0;
+static constexpr uint32_t RESERVED_TABLE_PRELOCAL       = 128;
+static constexpr uint32_t RESERVED_TABLE_BLOCK_LOW      = 250;
+static constexpr uint32_t RESERVED_TABLE_BLOCK_HIGH     = 260; // covers 253=default, 254=main, 255=local
+static constexpr uint32_t RESERVED_TABLE_SYSTEM_START   = 32000;
+
+inline bool is_reserved_table(uint32_t id) {
+    return id == RESERVED_TABLE_UNSPEC ||
+           id == RESERVED_TABLE_PRELOCAL ||
+           (id >= RESERVED_TABLE_BLOCK_LOW && id <= RESERVED_TABLE_BLOCK_HIGH) ||
+           id >= RESERVED_TABLE_SYSTEM_START;
+}
+
 using OutboundReachabilityFn = std::function<bool(const Outbound&)>;
 
 // Populate route tables and policy rules from config. Works for real or dry-run instances.

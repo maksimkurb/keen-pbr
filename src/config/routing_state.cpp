@@ -148,6 +148,19 @@ std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound
     return ordered;
 }
 
+// Returns the (offset)th non-reserved table ID starting from table_start.
+static uint32_t safe_table_id(uint32_t table_start, uint32_t offset) {
+    uint32_t id = table_start;
+    uint32_t count = 0;
+    while (true) {
+        if (!is_reserved_table(id)) {
+            if (count == offset) return id;
+            ++count;
+        }
+        ++id;
+    }
+}
+
 } // anonymous namespace
 
 void populate_routing_state(const Config& cfg,
@@ -168,7 +181,7 @@ void populate_routing_state(const Config& cfg,
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            uint32_t table_id = table_start + table_offset;
+            uint32_t table_id = safe_table_id(table_start, table_offset);
             ++table_offset;
 
             const bool strict = strict_enforcement_enabled(cfg, ob);
@@ -194,14 +207,14 @@ void populate_routing_state(const Config& cfg,
             ip_rule.fwmark = mark_it->second;
             ip_rule.fwmask = fwmark_mask;
             ip_rule.table = static_cast<uint32_t>(ob.table.value_or(0));
-            ip_rule.priority = table_start + table_offset;
+            ip_rule.priority = safe_table_id(table_start, table_offset);
             ++table_offset;
             rules.add(ip_rule);
         } else if (ob.type == OutboundType::URLTEST) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            uint32_t table_id = table_start + table_offset;
+            uint32_t table_id = safe_table_id(table_start, table_offset);
             ++table_offset;
 
             const bool strict = strict_enforcement_enabled(cfg, ob);

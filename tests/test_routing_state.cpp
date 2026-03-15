@@ -205,6 +205,91 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
     CHECK(find_route(routes.get_routes(), 102, false, true, 1000) != nullptr);
 }
 
+// =============================================================================
+// Reserved-table skipping
+// =============================================================================
+
+TEST_CASE("populate_routing_state: allocation skips reserved block 250-260") {
+    // table_start=249: offset 0 → 249, offset 1 → 261 (250-260 skipped)
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":249},
+        "outbounds":[
+            {"tag":"vpn1","type":"interface","interface":"wg1"},
+            {"tag":"vpn2","type":"interface","interface":"wg2"}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    populate_routing_state(cfg, marks, routes, rules);
+
+    const auto& rule_list = rules.get_rules();
+    REQUIRE(rule_list.size() == 2);
+    CHECK(rule_list[0].table == 249);
+    CHECK(rule_list[1].table == 261); // jumped over 250-260
+
+    for (const auto& rule : rule_list) {
+        CHECK_FALSE(is_reserved_table(rule.table));
+    }
+}
+
+TEST_CASE("populate_routing_state: allocation skips prelocal table 128") {
+    // table_start=127: offset 0 → 127, offset 1 → 129 (128 skipped)
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":127},
+        "outbounds":[
+            {"tag":"vpn1","type":"interface","interface":"wg1"},
+            {"tag":"vpn2","type":"interface","interface":"wg2"}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    populate_routing_state(cfg, marks, routes, rules);
+
+    const auto& rule_list = rules.get_rules();
+    REQUIRE(rule_list.size() == 2);
+    CHECK(rule_list[0].table == 127);
+    CHECK(rule_list[1].table == 129); // jumped over 128
+
+    for (const auto& rule : rule_list) {
+        CHECK_FALSE(is_reserved_table(rule.table));
+    }
+}
+
+TEST_CASE("populate_routing_state: no allocated table falls in reserved range") {
+    // table_start=248 with 4 outbounds crosses both 250-260 and prelocal-adjacent area
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":248},
+        "outbounds":[
+            {"tag":"a","type":"interface","interface":"wg1"},
+            {"tag":"b","type":"interface","interface":"wg2"},
+            {"tag":"c","type":"interface","interface":"wg3"},
+            {"tag":"d","type":"interface","interface":"wg4"}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+    populate_routing_state(cfg, marks, routes, rules);
+
+    for (const auto& rule : rules.get_rules()) {
+        CHECK_FALSE(is_reserved_table(rule.table));
+    }
+    for (const auto& route : routes.get_routes()) {
+        CHECK_FALSE(is_reserved_table(route.table));
+    }
+}
+
 TEST_CASE("populate_routing_state: non-strict urltest has no terminal fallback route") {
     auto cfg = parse_minimal_config(R"({
         "daemon":{"strict_enforcement":false},

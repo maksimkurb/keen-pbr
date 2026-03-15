@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "routing_state.hpp"
 
 #include <cctype>
 #include <iomanip>
@@ -229,6 +230,16 @@ Config parse_config(const std::string& json_str) {
             (void)allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}), outbounds);
         } catch (const ConfigError& e) {
             add_issue(issues, "outbounds", e.what());
+        }
+    }
+
+    {
+        const uint32_t table_start = static_cast<uint32_t>(
+            cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+        if (is_reserved_table(table_start)) {
+            add_issue(issues, "iproute.table_start",
+                      "iproute.table_start " + std::to_string(table_start) +
+                          " is reserved. Use a different value (e.g. 100).");
         }
     }
 

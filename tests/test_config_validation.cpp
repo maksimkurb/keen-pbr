@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/config/config.hpp"
+#include "../src/config/routing_state.hpp"
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -192,6 +193,90 @@ TEST_CASE("strict enforcement: outbound override parses") {
     REQUIRE(cfg.outbounds->size() == 1);
     CHECK(cfg.outbounds->front().strict_enforcement.value_or(false));
 }
+
+// =============================================================================
+// is_reserved_table
+// =============================================================================
+
+TEST_CASE("is_reserved_table: table 0 (unspec) is reserved") {
+    CHECK(is_reserved_table(0));
+}
+
+TEST_CASE("is_reserved_table: table 128 (prelocal) is reserved") {
+    CHECK(is_reserved_table(128));
+}
+
+TEST_CASE("is_reserved_table: tables 250-260 are reserved") {
+    for (uint32_t id = 250; id <= 260; ++id) {
+        CHECK(is_reserved_table(id));
+    }
+}
+
+TEST_CASE("is_reserved_table: tables 32000+ are reserved") {
+    CHECK(is_reserved_table(32000));
+    CHECK(is_reserved_table(32767));
+    CHECK(is_reserved_table(65535));
+}
+
+TEST_CASE("is_reserved_table: safe values are not reserved") {
+    CHECK_FALSE(is_reserved_table(1));
+    CHECK_FALSE(is_reserved_table(100));
+    CHECK_FALSE(is_reserved_table(127));
+    CHECK_FALSE(is_reserved_table(129));
+    CHECK_FALSE(is_reserved_table(249));
+    CHECK_FALSE(is_reserved_table(261));
+    CHECK_FALSE(is_reserved_table(31999));
+}
+
+// =============================================================================
+// iproute.table_start validation
+// =============================================================================
+
+TEST_CASE("iproute.table_start: default (no iproute section) is accepted") {
+    CHECK_NOTHROW(parse_config(R"({})"));
+}
+
+TEST_CASE("iproute.table_start: value 100 is accepted") {
+    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":100}})"));
+}
+
+TEST_CASE("iproute.table_start: value 249 is accepted") {
+    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":249}})"));
+}
+
+TEST_CASE("iproute.table_start: value 261 is accepted") {
+    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":261}})"));
+}
+
+TEST_CASE("iproute.table_start: value 31999 is accepted") {
+    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":31999}})"));
+}
+
+TEST_CASE("iproute.table_start: value 0 is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":0}})"), ConfigError);
+}
+
+TEST_CASE("iproute.table_start: value 128 (prelocal) is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":128}})"), ConfigError);
+}
+
+TEST_CASE("iproute.table_start: value 250 is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":250}})"), ConfigError);
+}
+
+TEST_CASE("iproute.table_start: value 255 (local) is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":255}})"), ConfigError);
+}
+
+TEST_CASE("iproute.table_start: value 260 is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":260}})"), ConfigError);
+}
+
+TEST_CASE("iproute.table_start: value 32000 is rejected") {
+    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
+}
+
+// =============================================================================
 
 TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
     const std::string json = R"({
