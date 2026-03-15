@@ -10,6 +10,10 @@
 #include "server.hpp"
 
 #include <functional>
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <string>
@@ -17,6 +21,12 @@
 #include <vector>
 
 namespace keen_pbr3 {
+
+enum class ConfigOperationState : uint8_t {
+    Idle = 0,
+    Saving,
+    Reloading,
+};
 
 // Context struct holding thread-safe accessors to daemon runtime state.
 struct ApiContext {
@@ -35,9 +45,14 @@ struct ApiContext {
     std::function<RoutingHealthReport()> routing_health_check_fn;
     std::function<std::string()> resolver_config_hash_fn;
 
-    // Callbacks that mutate daemon runtime state.
-    std::function<void()> reload_fn;
-    std::function<void(const Config&)> apply_config_fn;
+    // Global serialization for config operations.
+    std::mutex& config_op_mutex;
+    std::condition_variable& config_op_cv;
+    std::atomic<ConfigOperationState>& config_op_state;
+
+    // Callbacks that mutate daemon runtime state from event loop.
+    std::function<void()> enqueue_reload_fn;
+    std::function<void(const Config&)> enqueue_apply_validated_config_fn;
 
     Config visible_config() const {
         return visible_config_fn();

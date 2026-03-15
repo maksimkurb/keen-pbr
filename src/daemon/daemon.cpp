@@ -147,20 +147,20 @@ void Daemon::wake_control_loop() {
     }
 }
 
-void Daemon::enqueue_control_command(std::function<void()> command,
-                                     bool wait_for_completion) {
-    if (!command) {
+void Daemon::enqueue_control_task(std::function<void()> task,
+                                  bool wait_for_completion) {
+    if (!task) {
         return;
     }
 
     if (!event_loop_active_.load(std::memory_order_acquire) ||
         event_loop_thread_id_ == std::thread::id{}) {
-        command();
+        task();
         return;
     }
 
     if (event_loop_thread_id_ == std::this_thread::get_id()) {
-        command();
+        task();
         return;
     }
 
@@ -168,8 +168,8 @@ void Daemon::enqueue_control_command(std::function<void()> command,
         auto done = std::make_shared<std::promise<void>>();
         auto fut = done->get_future();
         {
-            std::lock_guard<std::mutex> lock(control_commands_mutex_);
-            control_commands_.push_back([cmd = std::move(command), done]() mutable {
+            std::lock_guard<std::mutex> lock(control_tasks_mutex_);
+            control_tasks_.push_back([cmd = std::move(task), done]() mutable {
                 try {
                     cmd();
                     done->set_value();
@@ -184,12 +184,17 @@ void Daemon::enqueue_control_command(std::function<void()> command,
     }
 
     {
-        std::lock_guard<std::mutex> lock(control_commands_mutex_);
-        control_commands_.push_back(std::move(command));
+        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
+        control_tasks_.push_back(std::move(task));
     }
     wake_control_loop();
 }
 
+
+void Daemon::enqueue_control_command(std::function<void()> command,
+                                     bool wait_for_completion) {
+    enqueue_control_task(std::move(command), wait_for_completion);
+}
 void Daemon::handle_control_commands() {
     uint64_t counter = 0;
     while (read(control_fd_, &counter, sizeof(counter)) > 0) {
@@ -200,8 +205,8 @@ void Daemon::handle_control_commands() {
 
     std::vector<std::function<void()>> commands;
     {
-        std::lock_guard<std::mutex> lock(control_commands_mutex_);
-        commands.swap(control_commands_);
+        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
+        commands.swap(control_tasks_);
     }
 
     for (auto& command : commands) {
@@ -299,7 +304,7 @@ void Daemon::handle_sighup() {
 }
 
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
-    enqueue_control_command([this, fd, events, cb = std::move(cb)]() mutable {
+    enqueue_control_task([this, fd, events, cb = std::move(cb)]() mutable {
         struct epoll_event ev{};
         ev.events = events;
         ev.data.fd = fd;
@@ -313,7 +318,7 @@ void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
 }
 
 void Daemon::remove_fd(int fd) {
-    enqueue_control_command([this, fd]() {
+    enqueue_control_task([this, fd]() {
         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
 
         std::lock_guard<std::mutex> lock(fd_entries_mutex_);
@@ -841,8 +846,40 @@ void Daemon::setup_api() {
         [this]() {
             return resolver_config_hash_;
         },
-        [this]() { reload_from_disk(); },
-        [this](const Config& config) { apply_config(config); },
+        config_op_mutex_,
+        config_op_cv_,
+        config_op_state_,
+        [this]() {
+            enqueue_control_task([this]() {
+                try {
+                    reload_from_disk();
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Reload task failed: {}", e.what());
+                }
+                {
+                    std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+                    config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
+                }
+                config_op_cv_.notify_all();
+            });
+        },
+        [this](const Config& config) {
+            enqueue_control_task([this, config]() {
+                try {
+                    apply_config(config);
+                    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+                    staged_config_.reset();
+                    staged_config_json_.reset();
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Apply staged config task failed: {}", e.what());
+                }
+                {
+                    std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+                    config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
+                }
+                config_op_cv_.notify_all();
+            });
+        },
     });
     register_api_handlers(*api_server_, *api_ctx_);
     api_server_->start();

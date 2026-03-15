@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -30,6 +31,7 @@ class UrltestManager;
 class DnsProbeServer;
 
 #ifdef WITH_API
+enum class ConfigOperationState : uint8_t;
 class ApiServer;
 struct ApiContext;
 class SseBroadcaster;
@@ -75,6 +77,10 @@ public:
     void remove_fd(int fd);
 
     // Serialize execution of control operations in event loop.
+    void enqueue_control_task(std::function<void()> task,
+                              bool wait_for_completion = false);
+
+    // Backward-compatible alias for enqueue_control_task.
     void enqueue_control_command(std::function<void()> command,
                                  bool wait_for_completion = false);
 
@@ -143,8 +149,14 @@ private:
     mutable std::mutex fd_entries_mutex_;
 
     int control_fd_{-1};
-    std::vector<std::function<void()>> control_commands_;
-    std::mutex control_commands_mutex_;
+    std::vector<std::function<void()>> control_tasks_;
+    std::mutex control_tasks_mutex_;
+
+#ifdef WITH_API
+    std::mutex config_op_mutex_;
+    std::condition_variable config_op_cv_;
+    std::atomic<ConfigOperationState> config_op_state_{ConfigOperationState::Idle};
+#endif
 
     // Configuration
     mutable std::shared_mutex state_mutex_;

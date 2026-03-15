@@ -4,7 +4,6 @@
 #include "generated/api_types.hpp"
 
 #include "../config/config.hpp"
-
 #include <nlohmann/json.hpp>
 
 #include <cstdio>
@@ -81,25 +80,44 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return nlohmann::json(resp).dump();
     });
 
-    // POST /api/config/save - persist staged config and apply it
+    // POST /api/config/save - persist staged config and enqueue apply
     server.post("/api/config/save", [&ctx]() -> std::string {
+        {
+            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
+            if (ctx.config_op_state.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw std::runtime_error("Another config operation is already in progress");
+            }
+            ctx.config_op_state.store(ConfigOperationState::Saving, std::memory_order_release);
+        }
+
         std::optional<std::pair<Config, std::string>> staged_snapshot;
         {
             std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
             staged_snapshot = ctx.staged_config_snapshot_fn();
         }
+
         if (!staged_snapshot.has_value()) {
+            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
+            ctx.config_op_state.store(ConfigOperationState::Idle, std::memory_order_release);
+            ctx.config_op_cv.notify_all();
             throw std::runtime_error("No staged config to save");
         }
 
-        write_config_atomically(ctx.config_path, staged_snapshot->second);
-        ctx.apply_config_fn(staged_snapshot->first);
-        ctx.clear_staged_config_fn();
+        try {
+            write_config_atomically(ctx.config_path, staged_snapshot->second);
 
-        api::ConfigUpdateResponse resp;
-        resp.status = api::ConfigUpdateResponseStatus::OK;
-        resp.message = "Config saved and reload triggered";
-        return nlohmann::json(resp).dump();
+            ctx.enqueue_apply_validated_config_fn(staged_snapshot->first);
+
+            api::ConfigUpdateResponse resp;
+            resp.status = api::ConfigUpdateResponseStatus::OK;
+            resp.message = "Config saved, apply queued";
+            return nlohmann::json(resp).dump();
+        } catch (...) {
+            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
+            ctx.config_op_state.store(ConfigOperationState::Idle, std::memory_order_release);
+            ctx.config_op_cv.notify_all();
+            throw;
+        }
     });
 }
 
