@@ -29,6 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src
+          submodules: recursive
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -52,6 +53,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src
+          submodules: recursive
       - name: Cache SDK
         id: cache
         uses: actions/cache@v4
@@ -94,6 +96,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src
+          submodules: recursive
       - name: Cache SDK
         id: cache
         uses: actions/cache@v4
