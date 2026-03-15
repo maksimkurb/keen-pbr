@@ -68,6 +68,10 @@ jobs:
             | grep -o 'openwrt-sdk-[^"]*\.tar\.zst' | head -1)
           wget "https://downloads.openwrt.org/releases/${VER}/targets/mediatek/filogic/${SDK}"
           tar --zstd -xf "${SDK}" && rm "${SDK}"
+      - name: Install Python elf tools dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pyelftools
       - name: Build package
         run: |
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
@@ -110,6 +114,10 @@ jobs:
           SDK="${{ matrix.build_env.sdk_file }}"
           wget "https://downloads.openwrt.org/releases/${VER}/targets/${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}/${SDK}"
           tar --zstd -xf "${SDK}" && rm "${SDK}"
+      - name: Install Python elf tools dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pyelftools
       - name: Build package
         run: |
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
