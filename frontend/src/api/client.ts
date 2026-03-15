@@ -33,19 +33,8 @@ const normalizeError = (status: number, payload: unknown): ApiError => {
   return { status, message: `Request failed with status ${status}`, details: payload }
 }
 
-export const getApiBaseUrl = () => {
-  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
-  if (typeof configuredBaseUrl === "string" && configuredBaseUrl.length > 0) {
-    return configuredBaseUrl
-  }
-
-  return "/"
-}
-
 export const apiFetch = async <T>(url: string, options: RequestInit): Promise<T> => {
-  const requestUrl = new URL(url, getApiBaseUrl()).toString()
-
-  const response = await fetch(requestUrl, options)
+  const response = await fetch(url, options)
   const payload = await parseResponsePayload(response)
 
   if (!response.ok) {

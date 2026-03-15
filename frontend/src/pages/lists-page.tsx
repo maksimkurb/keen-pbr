@@ -13,6 +13,7 @@ import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatsDisplay } from "@/components/shared/stats-display"
+import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -114,7 +115,9 @@ export function ListsPage() {
         </Alert>
       ) : null}
 
-      {configQuery.isError ? (
+      {configQuery.isLoading ? (
+        <TableSkeleton />
+      ) : configQuery.isError ? (
         <ListPlaceholder
           description="We can't load lists right now. Try refreshing the page."
           title="Unable to load data"
