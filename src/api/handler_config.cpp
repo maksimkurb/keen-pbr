@@ -106,7 +106,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         try {
             write_config_atomically(ctx.config_path, staged_snapshot->second);
 
-            ctx.enqueue_apply_validated_config_fn(staged_snapshot->first);
+            ctx.enqueue_apply_validated_config_fn(staged_snapshot->first, staged_snapshot->second);
 
             api::ConfigUpdateResponse resp;
             resp.status = api::ConfigUpdateResponseStatus::OK;

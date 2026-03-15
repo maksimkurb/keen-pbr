@@ -863,13 +863,15 @@ void Daemon::setup_api() {
                 config_op_cv_.notify_all();
             });
         },
-        [this](const Config& config) {
-            enqueue_control_task([this, config]() {
+        [this](Config config, std::string saved_config_json) {
+            enqueue_control_task([this, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
                 try {
                     apply_config(config);
                     std::unique_lock<std::shared_mutex> lock(state_mutex_);
-                    staged_config_.reset();
-                    staged_config_json_.reset();
+                    if (staged_config_json_.has_value() && *staged_config_json_ == saved_config_json) {
+                        staged_config_.reset();
+                        staged_config_json_.reset();
+                    }
                 } catch (const std::exception& e) {
                     Logger::instance().error("Apply staged config task failed: {}", e.what());
                 }

@@ -52,7 +52,7 @@ struct ApiContext {
 
     // Callbacks that mutate daemon runtime state from event loop.
     std::function<void()> enqueue_reload_fn;
-    std::function<void(const Config&)> enqueue_apply_validated_config_fn;
+    std::function<void(Config, std::string)> enqueue_apply_validated_config_fn;
 
     Config visible_config() const {
         return visible_config_fn();
