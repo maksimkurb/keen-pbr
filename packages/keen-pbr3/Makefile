@@ -18,9 +18,11 @@ define Package/keen-pbr3/description
   Policy-based routing daemon for Keen/OpenWRT routers.
 endef
 
+KEEN_PBR3_SRC ?= /home/me/keen-pbr3-src
+
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
-	cp -a /home/me/keen-pbr3-src/. $(PKG_BUILD_DIR)/
+	cp -a $(KEEN_PBR3_SRC)/. $(PKG_BUILD_DIR)/
 endef
 
 CMAKE_OPTIONS += \

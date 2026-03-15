@@ -1,0 +1,127 @@
+name: Build OpenWrt packages
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      openwrt_version:
+        description: 'OpenWrt release (e.g. 24.10.4)'
+        required: true
+        default: '24.10.4'
+      targets:
+        description: 'Targets filter (comma-separated, empty = all)'
+        required: false
+      subtargets:
+        description: 'Subtargets filter (comma-separated, empty = all)'
+        required: false
+
+jobs:
+  # ── 1. Query OpenWrt download server, generate full matrix ─────────────────
+  generate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      job-config: ${{ steps.gen.outputs.job-config }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+        working-directory: .github/builder
+      - name: Generate matrix
+        id: gen
+        working-directory: .github/builder
+        run: |
+          bun generate-build-matrix.js \
+            "${{ inputs.openwrt_version || '24.10.4' }}" \
+            "${{ inputs.targets }}" \
+            "${{ inputs.subtargets }}"
+
+  # ── 2. Fast validation on mediatek/filogic before full matrix ──────────────
+  validate:
+    name: "Validate (mediatek/filogic)"
+    runs-on: ubuntu-latest
+    needs: generate-config
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache SDK
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk-*/
+          key: sdk-${{ inputs.openwrt_version || '24.10.4' }}-mediatek-filogic
+      - name: Download SDK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ inputs.openwrt_version || '24.10.4' }}"
+          SDK=$(curl -s "https://downloads.openwrt.org/releases/${VER}/targets/mediatek/filogic/" \
+            | grep -o 'openwrt-sdk-[^"]*\.tar\.zst' | head -1)
+          wget "https://downloads.openwrt.org/releases/${VER}/targets/mediatek/filogic/${SDK}"
+          tar --zstd -xf "${SDK}" && rm "${SDK}"
+      - name: Build package
+        run: |
+          SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
+          cp -r packages/keen-pbr3 "$SDK_DIR/package/"
+          cd "$SDK_DIR"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cp ../packages/packages.config .config
+          make defconfig
+          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipk-validate
+          path: openwrt-sdk-*/bin/**/*.ipk
+
+  # ── 3. Full matrix — only if validate passed ────────────────────────────────
+  build:
+    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }} (${{ matrix.build_env.pkgarch }})"
+    runs-on: ubuntu-latest
+    needs: [generate-config, validate]
+    strategy:
+      fail-fast: false
+      matrix:
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache SDK
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: openwrt-sdk-*/
+          key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+      - name: Download SDK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ matrix.build_env.tag }}"
+          SDK="${{ matrix.build_env.sdk_file }}"
+          wget "https://downloads.openwrt.org/releases/${VER}/targets/${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}/${SDK}"
+          tar --zstd -xf "${SDK}" && rm "${SDK}"
+      - name: Build package
+        run: |
+          SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
+          cp -r packages/keen-pbr3 "$SDK_DIR/package/"
+          cd "$SDK_DIR"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cp ../packages/packages.config .config
+          make defconfig
+          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
+      - name: Collect artifacts
+        run: |
+          SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
+          mkdir -p release_files
+          SUFFIX="${{ matrix.build_env.tag }}_${{ matrix.build_env.pkgarch }}_${{ matrix.build_env.target }}_${{ matrix.build_env.subtarget }}"
+          find "$SDK_DIR/bin" -name "keen-pbr3*.ipk" | while read f; do
+            cp "$f" "release_files/$(basename "${f%.ipk}")-${SUFFIX}.ipk"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "ipk-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}"
+          path: release_files/*.ipk
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.ipk
