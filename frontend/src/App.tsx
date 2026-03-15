@@ -11,6 +11,7 @@ import { ListsPage } from "@/pages/lists-page"
 import { OutboundUpsertPage } from "@/pages/outbound-upsert-page"
 import { OutboundsPage } from "@/pages/outbounds-page"
 import { OverviewPage } from "@/pages/overview-page"
+import { RoutingRuleUpsertPage } from "@/pages/routing-rule-upsert-page"
 import { RoutingRulesPage } from "@/pages/routing-rules-page"
 
 function App() {
@@ -56,6 +57,14 @@ function App() {
           )}
         </Route>
         <Route component={DnsRulesPage} path="/dns-rules" />
+        <Route path="/routing-rules/create">
+          <RoutingRuleUpsertPage mode="create" />
+        </Route>
+        <Route path="/routing-rules/:ruleIndex/edit">
+          {(params) => (
+            <RoutingRuleUpsertPage mode="edit" ruleIndex={params.ruleIndex} />
+          )}
+        </Route>
         <Route component={RoutingRulesPage} path="/routing-rules" />
         <Route component={OverviewPage} />
       </Switch>
