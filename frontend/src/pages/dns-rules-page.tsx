@@ -24,6 +24,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   Select,
   SelectContent,
@@ -169,7 +170,9 @@ export function DnsRulesPage() {
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -261,12 +264,4 @@ export function DnsRulesPage() {
       )}
     </div>
   )
-}
-
-function getApiErrorMessage(error: ApiError): string {
-  if (typeof error?.message === "string" && error.message.trim().length > 0) {
-    return error.message
-  }
-
-  return "Failed to save DNS configuration."
 }

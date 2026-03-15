@@ -192,3 +192,54 @@ TEST_CASE("strict enforcement: outbound override parses") {
     REQUIRE(cfg.outbounds->size() == 1);
     CHECK(cfg.outbounds->front().strict_enforcement.value_or(false));
 }
+
+TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
+    const std::string json = R"({
+        "fwmark": {
+            "mask": 4294901761
+        }
+    })";
+
+    CHECK_THROWS_AS(parse_config(json), ConfigValidationError);
+}
+
+TEST_CASE("config parsing returns all collected validation errors") {
+    const std::string json = R"({
+        "lists_autoupdate": {
+            "enabled": true
+        },
+        "fwmark": {
+            "mask": 4294901761
+        },
+        "lists": {
+            "bad-list": {}
+        }
+    })";
+
+    try {
+        (void)parse_config(json);
+        FAIL("Expected ConfigValidationError");
+    } catch (const ConfigValidationError& e) {
+        CHECK(e.issues().size() >= 3);
+
+        bool saw_cron_error = false;
+        bool saw_fwmark_error = false;
+        bool saw_list_error = false;
+
+        for (const auto& issue : e.issues()) {
+            if (issue.path == "lists_autoupdate.cron") {
+                saw_cron_error = true;
+            }
+            if (issue.path == "fwmark.mask") {
+                saw_fwmark_error = true;
+            }
+            if (issue.path == "lists.bad-list") {
+                saw_list_error = true;
+            }
+        }
+
+        CHECK(saw_cron_error);
+        CHECK(saw_fwmark_error);
+        CHECK(saw_list_error);
+    }
+}

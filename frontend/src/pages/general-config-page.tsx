@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { getApiErrorMessage } from "@/lib/api-errors"
+import { applyFormApiErrors, clearFormServerErrors } from "@/lib/form-api-errors"
 
 type SettingsDraft = {
   strictEnforcement: boolean
@@ -67,6 +69,7 @@ export function GeneralConfigPage() {
       onSuccess: async (_response, variables) => {
         setSaveSuccessMessage("Settings staged. Apply config to persist them.")
         setMutationErrorMessage(null)
+        clearFormServerErrors(form)
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
@@ -85,7 +88,13 @@ export function GeneralConfigPage() {
       onError: (error) => {
         const apiError = error as ApiError
         setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        setMutationErrorMessage(
+          applyFormApiErrors({
+            error: apiError,
+            form,
+            resolvePath: resolveSettingsFieldPath,
+          }) ?? null
+        )
       },
     },
   })
@@ -100,6 +109,7 @@ export function GeneralConfigPage() {
       const updatedConfig = buildUpdatedConfig(loadedConfig, value)
       setSaveSuccessMessage(null)
       setMutationErrorMessage(null)
+      clearFormServerErrors(form)
       postConfigMutation.mutate({ data: updatedConfig })
     },
   })
@@ -112,12 +122,14 @@ export function GeneralConfigPage() {
     const nextDraft = getDraftFromConfig(loadedConfig)
     setSavedDraft(nextDraft)
     form.reset(nextDraft)
+    clearFormServerErrors(form)
   }, [loadedConfig, form])
 
   const isPending = postConfigMutation.isPending
 
   const handleCancel = () => {
     form.reset(savedDraft)
+    clearFormServerErrors(form)
     setMutationErrorMessage(null)
     setSaveSuccessMessage(null)
   }
@@ -137,7 +149,9 @@ export function GeneralConfigPage() {
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -497,12 +511,6 @@ function toStringInt(value: number | undefined, fallback: string) {
   return String(value)
 }
 
-function getApiErrorMessage(error: ApiError) {
-  const details = error.details
-    ? ` Details: ${JSON.stringify(error.details)}`
-    : ""
-  return `${error.message}.${details}`
-}
 
 function getCronError(value: string) {
   const fields = value.trim().split(/\s+/)
@@ -533,6 +541,25 @@ function getCrontabGuruUrl(value: string) {
   }
 
   return `https://crontab.guru/#${getCronHash(value)}`
+}
+
+function resolveSettingsFieldPath(path: string) {
+  switch (path) {
+    case "daemon.strict_enforcement":
+      return "strictEnforcement"
+    case "lists_autoupdate.enabled":
+      return "listsAutoupdateEnabled"
+    case "lists_autoupdate.cron":
+      return "cron"
+    case "fwmark.start":
+      return "fwmarkStart"
+    case "fwmark.mask":
+      return "fwmarkMask"
+    case "iproute.table_start":
+      return "tableStart"
+    default:
+      return undefined
+  }
 }
 
 function getCronHash(value: string) {

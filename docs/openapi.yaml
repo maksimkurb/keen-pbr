@@ -80,8 +80,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConfigUpdateResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
-          description: Validation or write error
+          description: Unexpected server error
           content:
             application/json:
               schema:
@@ -913,6 +919,24 @@ components:
           type: string
           description: Error message.
           example: "Cannot open config file"
+        validation_errors:
+          type: array
+          description: Optional list of validation failures returned by `POST /api/config`.
+          items:
+            $ref: "#/components/schemas/ValidationError"
+
+    ValidationError:
+      type: object
+      required: [message]
+      properties:
+        path:
+          type: string
+          description: Dot-style config path associated with the validation failure.
+          example: "fwmark.mask"
+        message:
+          type: string
+          description: Human-readable validation message.
+          example: "fwmark.mask must have exactly two adjacent hex nibbles set to F (e.g. 0x00FF0000, 0x0000FF00), got 0xffff0001"
 
     # -------------------------------------------------------------------------
     # /api/health/routing

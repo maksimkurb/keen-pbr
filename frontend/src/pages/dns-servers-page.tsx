@@ -15,6 +15,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { getApiErrorMessage } from "@/lib/api-errors"
 
 export function DnsServersPage() {
   const [, navigate] = useLocation()
@@ -86,7 +87,9 @@ export function DnsServersPage() {
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -153,12 +156,4 @@ function getConfigData(response: getConfigResponse | undefined) {
   }
 
   return response.data.config
-}
-
-function getApiErrorMessage(error: ApiError | null) {
-  if (!error) {
-    return null
-  }
-
-  return error.message
 }

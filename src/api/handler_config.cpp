@@ -27,6 +27,21 @@ void write_config_atomically(const std::string& config_path,
     }
 }
 
+nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
+    nlohmann::json issues = nlohmann::json::array();
+    for (const auto& issue : error.issues()) {
+        issues.push_back({
+            {"path", issue.path},
+            {"message", issue.message},
+        });
+    }
+
+    return {
+        {"error", error.what()},
+        {"validation_errors", std::move(issues)},
+    };
+}
+
 } // namespace
 
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
@@ -41,7 +56,20 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
 
     // POST /api/config - validate and stage in memory only
     server.post("/api/config", [&ctx](const std::string& body) -> std::string {
-        ctx.staged_config = parse_config(body);
+        try {
+            ctx.staged_config = parse_config(body);
+        } catch (const ConfigValidationError& e) {
+            throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
+        } catch (const ConfigError& e) {
+            nlohmann::json payload = {
+                {"error", e.what()},
+                {"validation_errors", nlohmann::json::array({
+                    {{"path", "$"}, {"message", e.what()}},
+                })},
+            };
+            throw ApiError(e.what(), 400, payload.dump());
+        }
+
         ctx.staged_config_json = body;
 
         api::ConfigUpdateResponse resp;

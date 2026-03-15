@@ -115,7 +115,9 @@ export function RoutingRulesPage() {
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 

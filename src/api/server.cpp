@@ -56,6 +56,9 @@ void ApiServer::get(const std::string& path, RouteHandler handler) {
         try {
             std::string body = h();
             res.set_content(body, "application/json");
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");
@@ -69,6 +72,9 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
         try {
             std::string body = h();
             res.set_content(body, "application/json");
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");
@@ -82,6 +88,9 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
         try {
             std::string result = h(req.body);
             res.set_content(result, "application/json");
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");

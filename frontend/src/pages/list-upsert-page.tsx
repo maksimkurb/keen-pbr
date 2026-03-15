@@ -22,6 +22,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  applyFormApiErrors,
+  clearFormServerErrors,
+} from "@/lib/form-api-errors"
 
 type ListDraft = {
   name: string
@@ -60,6 +64,7 @@ export function ListUpsertPage({
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
   >(null)
+  const [apiError, setApiError] = useState<ApiError | null>(null)
 
   const draft =
     mode === "edit"
@@ -75,6 +80,7 @@ export function ListUpsertPage({
             : "List changes staged. Apply config to persist them."
         )
         setMutationErrorMessage(null)
+        setApiError(null)
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
@@ -84,9 +90,8 @@ export function ListUpsertPage({
         navigate("/lists")
       },
       onError: (error) => {
-        const apiError = error as ApiError
         setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        setApiError(error as ApiError)
       },
     },
   })
@@ -125,7 +130,9 @@ export function ListUpsertPage({
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -135,7 +142,9 @@ export function ListUpsertPage({
         isConfigLoaded={Boolean(loadedConfig)}
         isPending={postConfigMutation.isPending}
         mode={mode}
+        apiError={apiError}
         onCancel={() => navigate("/lists")}
+        onErrorMessageChange={setMutationErrorMessage}
         onSubmit={(nextDraft) => {
           if (!loadedConfig) {
             return
@@ -150,6 +159,7 @@ export function ListUpsertPage({
 
           setSaveSuccessMessage(null)
           setMutationErrorMessage(null)
+          setApiError(null)
           postConfigMutation.mutate({ data: updatedConfig })
         }}
       />
@@ -164,6 +174,8 @@ function ListForm({
   isConfigLoaded,
   isPending,
   onCancel,
+  apiError,
+  onErrorMessageChange,
   onSubmit,
 }: {
   mode: "create" | "edit"
@@ -172,14 +184,35 @@ function ListForm({
   isConfigLoaded: boolean
   isPending: boolean
   onCancel: () => void
+  apiError: ApiError | null
+  onErrorMessageChange: (message: string | null) => void
   onSubmit: (draft: ListDraft) => void
 }) {
   const form = useForm({
     defaultValues: draft,
     onSubmit: ({ value }) => {
+      clearFormServerErrors(form)
+      onErrorMessageChange(null)
       onSubmit(value)
     },
   })
+
+  useEffect(() => {
+    form.reset(draft)
+    clearFormServerErrors(form)
+    onErrorMessageChange(null)
+  }, [draft, form])
+
+  useEffect(() => {
+    onErrorMessageChange(
+      applyFormApiErrors({
+        error: apiError,
+        form,
+        resolvePath: (path) =>
+          resolveListFieldPath(path, form.state.values.name || draft.name),
+      }) ?? null
+    )
+  }, [apiError, draft.name, form, onErrorMessageChange])
 
   const isCreate = mode === "create"
 
@@ -573,9 +606,40 @@ function getListContentError({
   return null
 }
 
-function getApiErrorMessage(error: ApiError) {
-  const details = error.details
-    ? ` Details: ${JSON.stringify(error.details)}`
-    : ""
-  return `${error.message}.${details}`
+function resolveListFieldPath(path: string, name: string) {
+  const normalizedName = name.trim()
+
+  if (path === "lists") {
+    return "name"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}`) {
+    return "name"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
+    return "ttlMs"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.domains`) {
+    return "domains"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.ip_cidrs`) {
+    return "ipCidrs"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.url`) {
+    return "url"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.file`) {
+    return "file"
+  }
+
+  if (path.startsWith("lists.") && !path.includes(".", "lists.".length)) {
+    return "name"
+  }
+
+  return undefined
 }

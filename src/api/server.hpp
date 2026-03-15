@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -21,7 +22,24 @@ class Daemon;
 
 class ApiError : public std::runtime_error {
 public:
-    using std::runtime_error::runtime_error;
+    explicit ApiError(std::string message,
+                      int status = 500,
+                      std::optional<std::string> body = std::nullopt)
+        : std::runtime_error(std::move(message))
+        , status_(status)
+        , body_(std::move(body)) {}
+
+    int status() const noexcept {
+        return status_;
+    }
+
+    const std::optional<std::string>& body() const noexcept {
+        return body_;
+    }
+
+private:
+    int status_;
+    std::optional<std::string> body_;
 };
 
 // HTTP REST API server using cpp-httplib.

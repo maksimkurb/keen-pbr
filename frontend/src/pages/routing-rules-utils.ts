@@ -1,5 +1,6 @@
 import type { ApiError } from "@/api/client"
 import type { RouteRule } from "@/api/generated/model/routeRule"
+import { getApiErrorMessage as getSharedApiErrorMessage } from "@/lib/api-errors"
 
 export type RouteRuleDraft = {
   list: string[]
@@ -75,10 +76,7 @@ export function getFirstFieldError(errors: unknown[]) {
 }
 
 export function getApiErrorMessage(error: ApiError) {
-  const details = error.details
-    ? ` Details: ${JSON.stringify(error.details)}`
-    : ""
-  return `${error.message}.${details}`
+  return getSharedApiErrorMessage(error)
 }
 
 export function getPortSpecError(value: string) {

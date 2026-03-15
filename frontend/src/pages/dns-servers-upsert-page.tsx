@@ -18,6 +18,10 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  applyFormApiErrors,
+  clearFormServerErrors,
+} from "@/lib/form-api-errors"
 import { useForm } from "@tanstack/react-form"
 
 type DnsServerDraft = {
@@ -105,18 +109,6 @@ function DnsServerForm({
   onSaved: () => void
 }) {
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
-  const postConfigMutation = usePostConfigMutation({
-    mutation: {
-      onSuccess: () => {
-        setApiErrorMessage(null)
-        onSaved()
-      },
-      onError: (error) => {
-        setApiErrorMessage(getApiErrorMessage(error as ApiError))
-      },
-    },
-  })
-
   const form = useForm({
     defaultValues: initialDraft,
     onSubmit: ({ value }) => {
@@ -154,12 +146,37 @@ function DnsServerForm({
       } satisfies ConfigObject
 
       setApiErrorMessage(null)
+      clearFormServerErrors(form)
       postConfigMutation.mutate({ data: updatedConfig })
+    },
+  })
+
+  const postConfigMutation = usePostConfigMutation({
+    mutation: {
+      onSuccess: () => {
+        clearFormServerErrors(form)
+        setApiErrorMessage(null)
+        onSaved()
+      },
+      onError: (error) => {
+        setApiErrorMessage(
+          applyFormApiErrors({
+            error: error as ApiError,
+            form,
+            resolvePath: (path) =>
+              resolveDnsServerFieldPath(
+                path,
+                form.state.values.tag || serverTag || initialDraft.tag
+              ),
+          }) ?? null
+        )
+      },
     },
   })
 
   useEffect(() => {
     form.reset(initialDraft)
+    clearFormServerErrors(form)
   }, [initialDraft, form])
 
   const configServers = config?.dns?.servers ?? []
@@ -175,7 +192,9 @@ function DnsServerForm({
     >
       {apiErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{apiErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {apiErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -407,10 +426,28 @@ function getConfigData(response: getConfigResponse | undefined) {
   return response.data.config
 }
 
-function getApiErrorMessage(error: ApiError | null) {
-  if (!error) {
-    return null
+function resolveDnsServerFieldPath(path: string, tag: string) {
+  const normalizedTag = tag.trim()
+
+  if (path === "dns.servers") {
+    return "tag"
   }
 
-  return error.message
+  if (path === `dns.servers.${normalizedTag}`) {
+    return "tag"
+  }
+
+  if (path === `dns.servers.${normalizedTag}.tag`) {
+    return "tag"
+  }
+
+  if (path === `dns.servers.${normalizedTag}.address`) {
+    return "address"
+  }
+
+  if (path === `dns.servers.${normalizedTag}.detour`) {
+    return "detour"
+  }
+
+  return undefined
 }

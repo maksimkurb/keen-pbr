@@ -30,6 +30,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  formatValidationErrors,
+  getApiErrorMessage,
+  getApiValidationErrors,
+} from "@/lib/api-errors"
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -58,6 +63,24 @@ type UrltestGroup = {
   id: string
   outbounds: string[]
 }
+
+type OutboundFieldName =
+  | "tag"
+  | "type"
+  | "interfaceName"
+  | "gateway"
+  | "table"
+  | "outbounds"
+  | "probeUrl"
+  | "interval"
+  | "tolerance"
+  | "retryAttempts"
+  | "retryInterval"
+  | "circuitBreakerFailures"
+  | "circuitBreakerSuccesses"
+  | "circuitBreakerTimeout"
+  | "circuitBreakerHalfOpen"
+  | "strictEnforcement"
 
 const sampleNewOutbound: OutboundDraft = {
   tag: "",
@@ -102,6 +125,10 @@ export function OutboundUpsertPage({
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
   >(null)
+  const [serverFieldErrors, setServerFieldErrors] = useState<
+    Partial<Record<OutboundFieldName, string>>
+  >({})
+  const [submittedTag, setSubmittedTag] = useState<string>(outboundId ?? "")
 
   const draft =
     getOutboundDraft(loadedConfig, mode === "edit" ? outboundId : undefined) ??
@@ -111,6 +138,7 @@ export function OutboundUpsertPage({
     mutation: {
       onSuccess: async () => {
         setMutationErrorMessage(null)
+        setServerFieldErrors({})
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
           queryClient.invalidateQueries({
@@ -124,7 +152,14 @@ export function OutboundUpsertPage({
         navigate("/outbounds")
       },
       onError: (error) => {
-        setMutationErrorMessage(getApiErrorMessage(error as ApiError))
+        const apiError = error as ApiError
+        const { fieldErrors, globalError } = splitOutboundApiErrors(
+          apiError,
+          submittedTag || draft.tag
+        )
+
+        setServerFieldErrors(fieldErrors)
+        setMutationErrorMessage(globalError)
       },
     },
   })
@@ -164,6 +199,7 @@ export function OutboundUpsertPage({
     )
 
     if (duplicateTagError) {
+      setServerFieldErrors({})
       setMutationErrorMessage(duplicateTagError)
       return
     }
@@ -178,6 +214,7 @@ export function OutboundUpsertPage({
     const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds)
 
     if (urltestReferencesError) {
+      setServerFieldErrors({})
       setMutationErrorMessage(urltestReferencesError)
       return
     }
@@ -187,6 +224,8 @@ export function OutboundUpsertPage({
       outbounds: nextOutbounds,
     }
 
+    setSubmittedTag(payload.tag)
+    setServerFieldErrors({})
     setMutationErrorMessage(null)
     postConfigMutation.mutate({ data: updatedConfig })
   }
@@ -200,7 +239,9 @@ export function OutboundUpsertPage({
     >
       {mutationErrorMessage ? (
         <Alert className="mb-6 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -210,6 +251,7 @@ export function OutboundUpsertPage({
         mode={mode}
         onCancel={() => navigate("/outbounds")}
         onSubmit={handleSubmit}
+        serverFieldErrors={serverFieldErrors}
       />
     </UpsertPage>
   )
@@ -221,12 +263,14 @@ function OutboundForm({
   existingOutbounds,
   onCancel,
   onSubmit,
+  serverFieldErrors,
 }: {
   mode: "create" | "edit"
   draft: OutboundDraft
   existingOutbounds: Outbound[]
   onCancel: () => void
   onSubmit: (payload: Outbound) => void
+  serverFieldErrors: Partial<Record<OutboundFieldName, string>>
 }) {
   const [outboundType, setOutboundType] = useState<Outbound["type"]>(draft.type)
   const [strictEnforcement, setStrictEnforcement] = useState(
@@ -273,7 +317,7 @@ function OutboundForm({
       }}
     >
       <FieldGroup>
-        <Field>
+        <Field invalid={Boolean(serverFieldErrors.tag)}>
           <FieldLabel htmlFor={tagId}>Tag</FieldLabel>
           <FieldContent>
             <Input
@@ -282,10 +326,13 @@ function OutboundForm({
               id={tagId}
               name="tag"
             />
-            <FieldHint description="Use a unique outbound tag that can be referenced by rules, groups, and detours." />
+            <FieldHint
+              description="Use a unique outbound tag that can be referenced by rules, groups, and detours."
+              error={serverFieldErrors.tag ?? null}
+            />
           </FieldContent>
         </Field>
-        <Field>
+        <Field invalid={Boolean(serverFieldErrors.type)}>
           <FieldLabel>Type</FieldLabel>
           <FieldContent>
             <Select
@@ -308,7 +355,10 @@ function OutboundForm({
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldHint description="Choose the outbound type defined by the config schema; the form below updates to show only relevant fields." />
+            <FieldHint
+              description="Choose the outbound type defined by the config schema; the form below updates to show only relevant fields."
+              error={serverFieldErrors.type ?? null}
+            />
           </FieldContent>
         </Field>
       </FieldGroup>
@@ -319,7 +369,7 @@ function OutboundForm({
           title="Interface settings"
         >
           <div className="grid gap-4 md:grid-cols-2">
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.interfaceName)}>
               <FieldLabel htmlFor={interfaceId}>Interface</FieldLabel>
               <FieldContent>
                 <Input
@@ -327,10 +377,13 @@ function OutboundForm({
                   id={interfaceId}
                   name="interfaceName"
                 />
-                <FieldHint description="Network interface name used for egress, such as tun0 or eth0." />
+                <FieldHint
+                  description="Network interface name used for egress, such as tun0 or eth0."
+                  error={serverFieldErrors.interfaceName ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.gateway)}>
               <FieldLabel htmlFor={gatewayId}>Gateway</FieldLabel>
               <FieldContent>
                 <Input
@@ -338,7 +391,10 @@ function OutboundForm({
                   id={gatewayId}
                   name="gateway"
                 />
-                <FieldHint description="Optional gateway IP address for this interface outbound." />
+                <FieldHint
+                  description="Optional gateway IP address for this interface outbound."
+                  error={serverFieldErrors.gateway ?? null}
+                />
               </FieldContent>
             </Field>
           </div>
@@ -350,11 +406,14 @@ function OutboundForm({
           description="Map this outbound to an existing kernel routing table."
           title="Table settings"
         >
-          <Field>
+          <Field invalid={Boolean(serverFieldErrors.table)}>
             <FieldLabel htmlFor={tableId}>Table ID</FieldLabel>
             <FieldContent>
               <Input defaultValue={draft.table} id={tableId} name="table" />
-              <FieldHint description="Kernel routing table ID required for the table outbound type." />
+              <FieldHint
+                description="Kernel routing table ID required for the table outbound type."
+                error={serverFieldErrors.table ?? null}
+              />
             </FieldContent>
           </Field>
         </SectionCard>
@@ -416,7 +475,7 @@ function OutboundForm({
                 }
                 title={`Group ${index + 1}`}
               >
-                <Field>
+                <Field invalid={Boolean(serverFieldErrors.outbounds)}>
                   <FieldLabel>Interface outbounds</FieldLabel>
                   <FieldContent>
                     {interfaceOutboundOptions.length ? (
@@ -446,6 +505,7 @@ function OutboundForm({
                         selectable targets.
                       </div>
                     )}
+                    <FieldHint error={serverFieldErrors.outbounds ?? null} />
                   </FieldContent>
                 </Field>
               </OrderedGroupCard>
@@ -480,7 +540,7 @@ function OutboundForm({
           title="Probing and retries"
         >
           <div className="grid gap-4 md:grid-cols-2">
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.probeUrl)}>
               <FieldLabel htmlFor={probeUrlId}>Probe URL</FieldLabel>
               <FieldContent>
                 <Input
@@ -488,10 +548,13 @@ function OutboundForm({
                   id={probeUrlId}
                   name="probeUrl"
                 />
-                <FieldHint description="Health checks fetch this URL to measure availability and latency." />
+                <FieldHint
+                  description="Health checks fetch this URL to measure availability and latency."
+                  error={serverFieldErrors.probeUrl ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.interval)}>
               <FieldLabel htmlFor={intervalId}>Interval (ms)</FieldLabel>
               <FieldContent>
                 <Input
@@ -499,10 +562,13 @@ function OutboundForm({
                   id={intervalId}
                   name="interval"
                 />
-                <FieldHint description="Interval between probes." />
+                <FieldHint
+                  description="Interval between probes."
+                  error={serverFieldErrors.interval ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.tolerance)}>
               <FieldLabel htmlFor={toleranceId}>Tolerance (ms)</FieldLabel>
               <FieldContent>
                 <Input
@@ -510,10 +576,13 @@ function OutboundForm({
                   id={toleranceId}
                   name="tolerance"
                 />
-                <FieldHint description="If latency difference is not larger than this value, destination will not change." />
+                <FieldHint
+                  description="If latency difference is not larger than this value, destination will not change."
+                  error={serverFieldErrors.tolerance ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.retryAttempts)}>
               <FieldLabel htmlFor={retryAttemptsId}>Retry attempts</FieldLabel>
               <FieldContent>
                 <Input
@@ -521,10 +590,13 @@ function OutboundForm({
                   id={retryAttemptsId}
                   name="retryAttempts"
                 />
-                <FieldHint description="Number of extra probe attempts before the check is treated as failed." />
+                <FieldHint
+                  description="Number of extra probe attempts before the check is treated as failed."
+                  error={serverFieldErrors.retryAttempts ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.retryInterval)}>
               <FieldLabel htmlFor={retryIntervalId}>
                 Retry interval (ms)
               </FieldLabel>
@@ -534,7 +606,10 @@ function OutboundForm({
                   id={retryIntervalId}
                   name="retryInterval"
                 />
-                <FieldHint description="Delay between retry attempts after a failed probe." />
+                <FieldHint
+                  description="Delay between retry attempts after a failed probe."
+                  error={serverFieldErrors.retryInterval ?? null}
+                />
               </FieldContent>
             </Field>
           </div>
@@ -547,7 +622,7 @@ function OutboundForm({
           title="Circuit breaker"
         >
           <div className="grid gap-4 md:grid-cols-2">
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.circuitBreakerFailures)}>
               <FieldLabel htmlFor={circuitBreakerFailuresId}>
                 Failures before open
               </FieldLabel>
@@ -557,10 +632,13 @@ function OutboundForm({
                   id={circuitBreakerFailuresId}
                   name="circuitBreakerFailures"
                 />
-                <FieldHint description="Open the circuit after this many consecutive failed checks." />
+                <FieldHint
+                  description="Open the circuit after this many consecutive failed checks."
+                  error={serverFieldErrors.circuitBreakerFailures ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.circuitBreakerSuccesses)}>
               <FieldLabel htmlFor={circuitBreakerSuccessesId}>
                 Successes to close
               </FieldLabel>
@@ -570,10 +648,13 @@ function OutboundForm({
                   id={circuitBreakerSuccessesId}
                   name="circuitBreakerSuccesses"
                 />
-                <FieldHint description="Close the circuit again after this many successful recovery probes." />
+                <FieldHint
+                  description="Close the circuit again after this many successful recovery probes."
+                  error={serverFieldErrors.circuitBreakerSuccesses ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.circuitBreakerTimeout)}>
               <FieldLabel htmlFor={circuitBreakerTimeoutId}>
                 Open timeout (ms)
               </FieldLabel>
@@ -583,10 +664,13 @@ function OutboundForm({
                   id={circuitBreakerTimeoutId}
                   name="circuitBreakerTimeout"
                 />
-                <FieldHint description="How long the circuit stays open before half-open probing resumes." />
+                <FieldHint
+                  description="How long the circuit stays open before half-open probing resumes."
+                  error={serverFieldErrors.circuitBreakerTimeout ?? null}
+                />
               </FieldContent>
             </Field>
-            <Field>
+            <Field invalid={Boolean(serverFieldErrors.circuitBreakerHalfOpen)}>
               <FieldLabel htmlFor={circuitBreakerHalfOpenId}>
                 Half-open probes
               </FieldLabel>
@@ -596,7 +680,10 @@ function OutboundForm({
                   id={circuitBreakerHalfOpenId}
                   name="circuitBreakerHalfOpen"
                 />
-                <FieldHint description="Maximum concurrent probes allowed while testing recovery." />
+                <FieldHint
+                  description="Maximum concurrent probes allowed while testing recovery."
+                  error={serverFieldErrors.circuitBreakerHalfOpen ?? null}
+                />
               </FieldContent>
             </Field>
           </div>
@@ -604,7 +691,7 @@ function OutboundForm({
       ) : null}
 
       {isInterface ? (
-        <Field>
+        <Field invalid={Boolean(serverFieldErrors.strictEnforcement)}>
           <FieldLabel>Strict enforcement</FieldLabel>
           <FieldContent>
             <Select
@@ -627,7 +714,10 @@ function OutboundForm({
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldHint description="Override the daemon-level strict routing setting for this interface outbound." />
+            <FieldHint
+              description="Override the daemon-level strict routing setting for this interface outbound."
+              error={serverFieldErrors.strictEnforcement ?? null}
+            />
           </FieldContent>
         </Field>
       ) : null}
@@ -846,17 +936,111 @@ function getFormValue(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : ""
 }
 
-function getApiErrorMessage(error: ApiError): string {
-  if (
-    error.details &&
-    typeof error.details === "object" &&
-    "message" in error.details
-  ) {
-    const message = error.details.message
-    if (typeof message === "string" && message.length > 0) {
-      return message
+function splitOutboundApiErrors(error: ApiError, tag: string) {
+  const validationErrors = getApiValidationErrors(error)
+  if (validationErrors.length === 0) {
+    return {
+      fieldErrors: {},
+      globalError: getApiErrorMessage(error),
     }
   }
 
-  return "Failed to save outbound configuration."
+  const fieldErrors: Partial<Record<OutboundFieldName, string>> = {}
+  const globalErrors: typeof validationErrors = []
+
+  for (const item of validationErrors) {
+    const fieldName = resolveOutboundFieldPath(item.path, tag)
+    if (!fieldName) {
+      globalErrors.push(item)
+      continue
+    }
+
+    fieldErrors[fieldName] = fieldErrors[fieldName]
+      ? `${fieldErrors[fieldName]} ${item.message}`
+      : item.message
+  }
+
+  return {
+    fieldErrors,
+    globalError: globalErrors.length > 0 ? formatValidationErrors(globalErrors) : null,
+  }
+}
+
+function resolveOutboundFieldPath(path: string, tag: string): OutboundFieldName | undefined {
+  const normalizedTag = tag.trim()
+  if (!normalizedTag) {
+    return undefined
+  }
+
+  const prefix = `outbounds.${normalizedTag}`
+  if (path === prefix || path === `${prefix}.tag`) {
+    return "tag"
+  }
+
+  if (path === `${prefix}.type`) {
+    return "type"
+  }
+
+  if (path === `${prefix}.interface`) {
+    return "interfaceName"
+  }
+
+  if (path === `${prefix}.gateway`) {
+    return "gateway"
+  }
+
+  if (path === `${prefix}.table`) {
+    return "table"
+  }
+
+  if (
+    path === `${prefix}.outbound_groups` ||
+    new RegExp(
+      `^${prefix.replaceAll(".", "\\.")}\\.outbound_groups(?:\\[\\d+\\])?(?:\\.outbounds)?$`
+    ).test(path)
+  ) {
+    return "outbounds"
+  }
+
+  if (path === `${prefix}.url`) {
+    return "probeUrl"
+  }
+
+  if (path === `${prefix}.interval_ms`) {
+    return "interval"
+  }
+
+  if (path === `${prefix}.tolerance_ms`) {
+    return "tolerance"
+  }
+
+  if (path === `${prefix}.retry.attempts`) {
+    return "retryAttempts"
+  }
+
+  if (path === `${prefix}.retry.interval_ms`) {
+    return "retryInterval"
+  }
+
+  if (path === `${prefix}.circuit_breaker.failure_threshold`) {
+    return "circuitBreakerFailures"
+  }
+
+  if (path === `${prefix}.circuit_breaker.success_threshold`) {
+    return "circuitBreakerSuccesses"
+  }
+
+  if (path === `${prefix}.circuit_breaker.timeout_ms`) {
+    return "circuitBreakerTimeout"
+  }
+
+  if (path === `${prefix}.circuit_breaker.half_open_max_requests`) {
+    return "circuitBreakerHalfOpen"
+  }
+
+  if (path === `${prefix}.strict_enforcement`) {
+    return "strictEnforcement"
+  }
+
+  return undefined
 }

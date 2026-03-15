@@ -18,6 +18,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { getApiErrorMessage } from "@/lib/api-errors"
 
 type ListDraft = {
   name: string
@@ -110,7 +111,7 @@ export function ListsPage() {
 
       {postConfigMutation.error ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
             {getApiErrorMessage(postConfigMutation.error as ApiError)}
           </AlertDescription>
         </Alert>
@@ -245,12 +246,6 @@ function buildUpdatedConfigForListDelete(
   }
 }
 
-function getApiErrorMessage(error: ApiError) {
-  const details = error.details
-    ? ` Details: ${JSON.stringify(error.details)}`
-    : ""
-  return `${error.message}.${details}`
-}
 
 function getListSourceLabel(draft: ListDraft) {
   const sources = [

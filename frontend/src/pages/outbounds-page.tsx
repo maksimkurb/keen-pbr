@@ -19,6 +19,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { getApiErrorMessage } from "@/lib/api-errors"
 
 type OutboundItem = {
   id: string
@@ -97,7 +98,9 @@ export function OutboundsPage() {
 
       {mutationErrorMessage ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -198,19 +201,4 @@ function validateUrltestGroupReferences(outbounds: Outbound[]): string | null {
   }
 
   return null
-}
-
-function getApiErrorMessage(error: ApiError): string {
-  if (
-    error.details &&
-    typeof error.details === "object" &&
-    "message" in error.details
-  ) {
-    const message = error.details.message
-    if (typeof message === "string" && message.length > 0) {
-      return message
-    }
-  }
-
-  return "Failed to save outbound configuration."
 }

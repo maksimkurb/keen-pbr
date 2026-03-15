@@ -15,6 +15,25 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+struct ConfigValidationIssue {
+    std::string path;
+    std::string message;
+};
+
+class ConfigValidationError : public ConfigError {
+public:
+    explicit ConfigValidationError(std::vector<ConfigValidationIssue> issues);
+
+    const std::vector<ConfigValidationIssue>& issues() const noexcept {
+        return issues_;
+    }
+
+private:
+    static std::string build_message(const std::vector<ConfigValidationIssue>& issues);
+
+    std::vector<ConfigValidationIssue> issues_;
+};
+
 // Type aliases: map generated QuickType names to conventional keen-pbr3 names.
 // All config structs now live in api:: with full from_json/to_json support.
 using Config               = api::ConfigObject;

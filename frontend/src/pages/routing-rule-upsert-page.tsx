@@ -22,6 +22,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  applyFormApiErrors,
+  clearFormServerErrors,
+} from "@/lib/form-api-errors"
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -33,7 +37,6 @@ import {
 import {
   emptyRouteRuleDraft,
   getAddressSpecError,
-  getApiErrorMessage,
   getFirstFieldError,
   getPortSpecError,
   normalizeRouteRuleDraft,
@@ -88,12 +91,18 @@ export function RoutingRuleUpsertPage({
           "Routing rule staged. Apply config to persist it."
         )
         setMutationErrorMessage(null)
+        clearFormServerErrors(form)
         navigate("/routing-rules")
       },
       onError: (error) => {
-        const apiError = error as ApiError
         setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        setMutationErrorMessage(
+          applyFormApiErrors({
+            error: error as ApiError,
+            form,
+            resolvePath: resolveRoutingRuleFieldPath,
+          }) ?? null
+        )
       },
     },
   })
@@ -115,6 +124,7 @@ export function RoutingRuleUpsertPage({
 
       setSaveSuccessMessage(null)
       setMutationErrorMessage(null)
+      clearFormServerErrors(form)
 
       postConfigMutation.mutate({
         data: {
@@ -139,10 +149,12 @@ export function RoutingRuleUpsertPage({
       }
 
       form.reset(toRouteRuleDraft(existingRule))
+      clearFormServerErrors(form)
       return
     }
 
     form.reset(emptyRouteRuleDraft)
+    clearFormServerErrors(form)
   }, [existingRule, form, loadedConfig, mode])
 
   if (mode === "edit" && loadedConfig && !existingRule) {
@@ -177,7 +189,9 @@ export function RoutingRuleUpsertPage({
 
       {mutationErrorMessage ? (
         <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -452,4 +466,36 @@ export function RoutingRuleUpsertPage({
       </form>
     </UpsertPage>
   )
+}
+
+function resolveRoutingRuleFieldPath(path: string) {
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
+    return "list"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.outbound$/.test(path)) {
+    return "outbound"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.proto$/.test(path)) {
+    return "proto"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_port$/.test(path)) {
+    return "src_port"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_port$/.test(path)) {
+    return "dest_port"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_addr$/.test(path)) {
+    return "src_addr"
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_addr$/.test(path)) {
+    return "dest_addr"
+  }
+
+  return undefined
 }

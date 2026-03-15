@@ -21,6 +21,10 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
+  applyFormApiErrors,
+  clearFormServerErrors,
+} from "@/lib/form-api-errors"
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -81,12 +85,18 @@ export function DnsRuleUpsertPage({
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
         setSaveSuccessMessage("DNS rule staged. Apply config to persist it.")
         setMutationErrorMessage(null)
+        clearFormServerErrors(form)
         navigate("/dns-rules")
       },
       onError: (error) => {
-        const apiError = error as ApiError
         setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        setMutationErrorMessage(
+          applyFormApiErrors({
+            error: error as ApiError,
+            form,
+            resolvePath: resolveDnsRuleFieldPath,
+          }) ?? null
+        )
       },
     },
   })
@@ -135,6 +145,7 @@ export function DnsRuleUpsertPage({
 
       setSaveSuccessMessage(null)
       setMutationErrorMessage(null)
+      clearFormServerErrors(form)
 
       postConfigMutation.mutate({
         data: buildUpdatedConfigWithRules(
@@ -159,6 +170,7 @@ export function DnsRuleUpsertPage({
       form.reset({
         rule: getRuleDraft(existingRule),
       })
+      clearFormServerErrors(form)
       return
     }
 
@@ -168,6 +180,7 @@ export function DnsRuleUpsertPage({
         lists: [],
       },
     })
+    clearFormServerErrors(form)
   }, [existingRule, form, loadedConfig, mode, serverTags])
 
   if (mode === "edit" && loadedConfig && !existingRule) {
@@ -202,7 +215,9 @@ export function DnsRuleUpsertPage({
 
       {mutationErrorMessage ? (
         <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription>{mutationErrorMessage}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -296,10 +311,14 @@ export function DnsRuleUpsertPage({
   )
 }
 
-function getApiErrorMessage(error: ApiError): string {
-  if (typeof error?.message === "string" && error.message.trim().length > 0) {
-    return error.message
+function resolveDnsRuleFieldPath(path: string) {
+  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.server$/.test(path)) {
+    return "rule.server"
   }
 
-  return "Failed to save DNS configuration."
+  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
+    return "rule.lists"
+  }
+
+  return undefined
 }
