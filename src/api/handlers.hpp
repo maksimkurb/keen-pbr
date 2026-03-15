@@ -28,6 +28,12 @@ enum class ConfigOperationState : uint8_t {
     Reloading,
 };
 
+struct ConfigApplyResult {
+    bool applied{false};
+    bool rolled_back{false};
+    std::string error;
+};
+
 // Context struct holding thread-safe accessors to daemon runtime state.
 struct ApiContext {
     const std::string& config_path;
@@ -40,6 +46,7 @@ struct ApiContext {
     std::function<void(Config, std::string)> stage_config_fn;
     std::function<std::optional<std::pair<Config, std::string>>()> staged_config_snapshot_fn;
     std::function<void()> clear_staged_config_fn;
+    std::function<void(const Config&)> dry_run_apply_check_fn;
     std::function<std::vector<Outbound>()> outbounds_fn;
     std::function<std::optional<UrltestState>(const std::string&)> urltest_state_fn;
     std::function<RoutingHealthReport()> routing_health_check_fn;
@@ -52,7 +59,7 @@ struct ApiContext {
 
     // Callbacks that mutate daemon runtime state from event loop.
     std::function<void()> enqueue_reload_fn;
-    std::function<void(Config, std::string)> enqueue_apply_validated_config_fn;
+    std::function<ConfigApplyResult(Config, std::string)> enqueue_apply_validated_config_fn;
 
     Config visible_config() const {
         return visible_config_fn();

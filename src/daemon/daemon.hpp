@@ -111,6 +111,7 @@ private:
     void download_uncached_lists();
     void register_urltest_outbounds();
     void apply_config(Config config);
+    void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
     void schedule_lists_autoupdate();
     void refresh_lists_and_maybe_reload();

@@ -783,6 +783,32 @@ void Daemon::apply_config(Config config) {
     setup_dns_probe();
 }
 
+
+void Daemon::apply_config_with_rollback(const Config& next_config, bool& rolled_back) {
+    Config previous_config;
+    {
+        std::shared_lock<std::shared_mutex> lock(state_mutex_);
+        previous_config = config_;
+    }
+
+    try {
+        apply_config(next_config);
+        rolled_back = false;
+    } catch (...) {
+        try {
+            apply_config(previous_config);
+            rolled_back = true;
+        } catch (const std::exception& rollback_error) {
+            Logger::instance().error("Rollback to previous config failed: {}", rollback_error.what());
+            rolled_back = false;
+        } catch (...) {
+            Logger::instance().error("Rollback to previous config failed: unknown error");
+            rolled_back = false;
+        }
+        throw;
+    }
+}
+
 void Daemon::reload_from_disk() {
     std::ifstream ifs(config_path_);
     if (!ifs.is_open()) {
@@ -829,6 +855,15 @@ void Daemon::setup_api() {
             staged_config_.reset();
             staged_config_json_.reset();
         },
+        [this](const Config& config) {
+            std::shared_lock<std::shared_mutex> lock(state_mutex_);
+            auto previous_config = config_;
+            lock.unlock();
+
+            bool rolled_back = false;
+            apply_config_with_rollback(config, rolled_back);
+            apply_config(previous_config);
+        },
         [this]() {
             return config_.outbounds.value_or(std::vector<Outbound>{});
         },
@@ -863,16 +898,21 @@ void Daemon::setup_api() {
                 config_op_cv_.notify_all();
             });
         },
-        [this](Config config, std::string saved_config_json) {
-            enqueue_control_task([this, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
+        [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
+            ConfigApplyResult result;
+            enqueue_control_task([this, &result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
                 try {
-                    apply_config(config);
+                    bool rolled_back = false;
+                    apply_config_with_rollback(config, rolled_back);
+                    result.applied = true;
+                    result.rolled_back = rolled_back;
                     std::unique_lock<std::shared_mutex> lock(state_mutex_);
                     if (staged_config_json_.has_value() && *staged_config_json_ == saved_config_json) {
                         staged_config_.reset();
                         staged_config_json_.reset();
                     }
                 } catch (const std::exception& e) {
+                    result.error = e.what();
                     Logger::instance().error("Apply staged config task failed: {}", e.what());
                 }
                 {
@@ -880,7 +920,8 @@ void Daemon::setup_api() {
                     config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
                 }
                 config_op_cv_.notify_all();
-            });
+            }, true);
+            return result;
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);
