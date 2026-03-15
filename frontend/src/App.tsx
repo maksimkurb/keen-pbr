@@ -27,7 +27,9 @@ function App() {
           <OutboundUpsertPage mode="create" />
         </Route>
         <Route path="/outbounds/:outboundId/edit">
-          {(params) => <OutboundUpsertPage mode="edit" outboundId={params.outboundId} />}
+          {(params) => (
+            <OutboundUpsertPage mode="edit" outboundId={params.outboundId} />
+          )}
         </Route>
         <Route component={OutboundsPage} path="/outbounds" />
         <Route component={DnsServersPage} path="/dns-servers" />
