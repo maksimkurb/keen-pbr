@@ -29,16 +29,11 @@ jobs:
         with:
           path: src
           submodules: recursive
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-        working-directory: src/.github/builder
       - name: Generate matrix
         id: gen
         working-directory: src/.github/builder
         run: |
-          bun generate-build-matrix.js \
+          python3 generate_build_matrix.py \
             "${{ inputs.openwrt_version || '24.10.4' }}" \
             "${{ inputs.targets }}" \
             "${{ inputs.subtargets }}"
