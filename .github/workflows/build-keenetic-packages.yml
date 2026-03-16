@@ -1,0 +1,130 @@
+name: Build Keenetic packages
+
+on:
+  push:
+    branches: ['**']
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      configs:
+        description: 'Config filter (comma-separated, empty = all)'
+        required: false
+
+jobs:
+  generate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      job-config: ${{ steps.gen.outputs.job-config }}
+    steps:
+      - name: Generate config matrix
+        id: gen
+        env:
+          CONFIGS_INPUT: ${{ inputs.configs }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          all_configs = [
+              "aarch64-3.10.config",
+              "mips-3.4.config",
+              "mipsel-3.4.config",
+              "x64-3.2.config",
+              "armv7-3.2.config",
+          ]
+
+          raw = os.environ.get("CONFIGS_INPUT", "")
+          selected = [item.strip() for item in raw.split(",") if item.strip()]
+          if selected:
+              builds = [cfg for cfg in all_configs if cfg in selected]
+          else:
+              builds = all_configs
+
+          matrix = []
+          for config in builds:
+              config_name = config.removesuffix(".config")
+              matrix.append({
+                  "config_file": config,
+                  "config_name": config_name,
+              })
+
+          print(f"job-config={json.dumps(matrix)}")
+          PY
+
+  build:
+    name: "${{ matrix.build_env.config_name }}"
+    runs-on: ubuntu-latest
+    needs: generate-config
+    strategy:
+      fail-fast: false
+      matrix:
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
+    steps:
+      - name: Detect local act run
+        id: runtime
+        run: |
+          if [ "${ACT:-}" = "true" ]; then
+            echo "is_act=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_act=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          submodules: recursive
+      - name: Clone Entware-KNC
+        run: git clone --depth 1 https://github.com/The-BB/Entware-KNC.git entware-knc
+      - name: Cache Entware downloads
+        uses: actions/cache@v4
+        with:
+          path: entware-knc/dl
+          key: entware-knc-dl-${{ matrix.build_env.config_name }}-${{ github.event_name }}-${{ inputs.configs || 'all' }}
+          restore-keys: |
+            entware-knc-dl-${{ matrix.build_env.config_name }}-
+            entware-knc-dl-
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+            python3 python3-setuptools python3-pyelftools rsync swig unzip zlib1g-dev \
+            file wget
+      - name: Build package
+        run: |
+          cd entware-knc
+          printf '\nsrc-link keen-pbr3_local %s/src/packages\n' "$GITHUB_WORKSPACE" >> feeds.conf
+          cp "configs/${{ matrix.build_env.config_file }}" .config
+          ./scripts/feeds update -a
+          ./scripts/feeds install keen-pbr3
+          cat ../src/packages/packages.config >> .config
+          make defconfig
+          make tools/install "-j$(nproc)"
+          make toolchain/install "-j$(nproc)"
+          make target/compile "-j$(nproc)"
+          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
+      - name: Collect artifacts
+        run: |
+          mkdir -p release_files
+          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' src/packages/keen-pbr3/Makefile | head -1)
+          find entware-knc/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr3*.ipk' | while read -r f; do
+            cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
+          done
+      - name: Upload packaged artifacts
+        if: steps.runtime.outputs.is_act != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: "keen-pbr-keenetic-${{ matrix.build_env.config_name }}"
+          path: release_files/*.ipk
+      - name: Report local artifact location
+        if: steps.runtime.outputs.is_act == 'true'
+        run: |
+          echo "Running under act; skipping actions/upload-artifact."
+          ls -lah release_files
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/') && steps.runtime.outputs.is_act != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.ipk
