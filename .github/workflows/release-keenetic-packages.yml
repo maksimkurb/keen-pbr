@@ -1,14 +1,61 @@
-name: Build Keenetic packages
+name: Release Keenetic packages
 
 on:
   push:
-    branches: ['**']
+    tags: ["v-*"]
   workflow_dispatch:
+    inputs:
+      configs:
+        description: 'Config filter (comma-separated, empty = all)'
+        required: false
 
 jobs:
-  build:
-    name: "mipsel-3.4"
+  generate-config:
     runs-on: ubuntu-latest
+    outputs:
+      job-config: ${{ steps.gen.outputs.job-config }}
+    steps:
+      - name: Generate config matrix
+        id: gen
+        env:
+          CONFIGS_INPUT: ${{ inputs.configs }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          all_configs = [
+              "aarch64-3.10.config",
+              "mips-3.4.config",
+              "mipsel-3.4.config",
+              "x64-3.2.config",
+              "armv7-3.2.config",
+          ]
+
+          raw = os.environ.get("CONFIGS_INPUT", "")
+          selected = [item.strip() for item in raw.split(",") if item.strip()]
+          builds = [cfg for cfg in all_configs if cfg in selected] if selected else all_configs
+
+          matrix = []
+          for config in builds:
+              matrix.append(
+                  {
+                      "config_file": config,
+                      "config_name": config.removesuffix(".config"),
+                  }
+              )
+
+          print(f"job-config={json.dumps(matrix)}")
+          PY
+
+  build:
+    name: "${{ matrix.build_env.config_name }}"
+    runs-on: ubuntu-latest
+    needs: generate-config
+    strategy:
+      fail-fast: false
+      matrix:
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     steps:
       - name: Detect local act run
         id: runtime
@@ -28,9 +75,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: entware-knc/dl
-          key: entware-knc-dl-mipsel-3.4-${{ github.sha }}
+          key: entware-knc-dl-${{ matrix.build_env.config_name }}-${{ inputs.configs || 'all' }}
           restore-keys: |
-            entware-knc-dl-mipsel-3.4-
+            entware-knc-dl-${{ matrix.build_env.config_name }}-
             entware-knc-dl-
       - name: Install build dependencies
         run: |
@@ -44,7 +91,7 @@ jobs:
         run: |
           cd entware-knc
           printf '\nsrc-link keen-pbr3_local %s/src/packages\n' "$GITHUB_WORKSPACE" >> feeds.conf
-          cp "configs/mipsel-3.4.config" .config
+          cp "configs/${{ matrix.build_env.config_file }}" .config
           ./scripts/feeds update -a
           ./scripts/feeds install keen-pbr3
           cat ../src/packages/packages.config >> .config
@@ -58,16 +105,21 @@ jobs:
           mkdir -p release_files
           PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' src/packages/keen-pbr3/Makefile | head -1)
           find entware-knc/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr3*.ipk' | while read -r f; do
-            cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
+            cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
       - name: Upload packaged artifacts
         if: steps.runtime.outputs.is_act != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: "keen-pbr-keenetic-mipsel-3.4"
+          name: "keen-pbr-keenetic-${{ matrix.build_env.config_name }}"
           path: release_files/*.ipk
       - name: Report local artifact location
         if: steps.runtime.outputs.is_act == 'true'
         run: |
           echo "Running under act; skipping actions/upload-artifact."
           ls -lah release_files
+      - name: Release
+        if: steps.runtime.outputs.is_act != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.ipk
