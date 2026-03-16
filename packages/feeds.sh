@@ -4,7 +4,7 @@ set -e -x
 
 # Install custom feed
 cat /home/me/openwrt/feeds.conf.default > /home/me/openwrt/feeds.conf
-cat /home/me/openwrt/owrt-packages/packages.feed >> /home/me/openwrt/feeds.conf
+cat /home/me/openwrt/owrt-packages/openwrt/packages.feed >> /home/me/openwrt/feeds.conf
 
 # Update feeds (clean/update may return non-zero on benign warnings)
 ./scripts/feeds clean

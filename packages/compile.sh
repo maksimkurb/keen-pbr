@@ -7,7 +7,7 @@ set -e -x
 
 cp /home/me/openwrt/owrt-configs/${ROUTER_CONFIG}.config /home/me/openwrt/.config
 echo "" >> /home/me/openwrt/.config
-cat /home/me/openwrt/owrt-packages/packages.config >> /home/me/openwrt/.config
+cat /home/me/openwrt/owrt-packages/openwrt/packages.config >> /home/me/openwrt/.config
 
 make defconfig
 

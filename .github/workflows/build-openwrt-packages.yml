@@ -52,11 +52,11 @@ jobs:
       - name: Build package
         run: |
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
-          cp -r src/packages/keen-pbr3 "$SDK_DIR/package/"
+          cp -r src/packages/openwrt/keen-pbr3 "$SDK_DIR/package/"
           cd "$SDK_DIR"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          cp ../src/packages/packages.config .config
+          cp ../src/packages/openwrt/packages.config .config
           make defconfig
           make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
       - name: Upload validation artifacts

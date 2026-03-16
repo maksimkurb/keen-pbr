@@ -56,6 +56,8 @@ jobs:
       fail-fast: false
       matrix:
         build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
+    container:
+      image: ghcr.io/maksimkurb/entware-builder:${{ matrix.build_env.config_name }}
     steps:
       - name: Detect local act run
         id: runtime
@@ -67,44 +69,21 @@ jobs:
           fi
       - uses: actions/checkout@v4
         with:
-          path: src
           submodules: recursive
-      - name: Clone Entware-KNC
-        run: git clone --depth 1 https://github.com/The-BB/Entware-KNC.git entware-knc
-      - name: Cache Entware downloads
-        uses: actions/cache@v4
-        with:
-          path: entware-knc/dl
-          key: entware-knc-dl-${{ matrix.build_env.config_name }}-${{ inputs.configs || 'all' }}
-          restore-keys: |
-            entware-knc-dl-${{ matrix.build_env.config_name }}-
-            entware-knc-dl-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential clang flex bison g++ gawk \
-            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
-            python3 python3-setuptools python3-pyelftools rsync swig unzip zlib1g-dev \
-            file wget
       - name: Build package
+        working-directory: /home/me/Entware
         run: |
-          cd entware-knc
-          printf '\nsrc-link keen-pbr3_local %s/src/packages\n' "$GITHUB_WORKSPACE" >> feeds.conf
-          cp "configs/${{ matrix.build_env.config_file }}" .config
-          ./scripts/feeds update -a
-          ./scripts/feeds install keen-pbr3
-          cat ../src/packages/packages.config >> .config
+          printf '\nsrc-link keenPbr %s/packages/keenetic\n' "$GITHUB_WORKSPACE" >> feeds.conf
+          ./scripts/feeds update keenPbr
+          ./scripts/feeds install keen-pbr3 -p keenPbr
+          cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
-          make tools/install "-j$(nproc)"
-          make toolchain/install "-j$(nproc)"
-          make target/compile "-j$(nproc)"
-          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
+          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
           mkdir -p release_files
-          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' src/packages/keen-pbr3/Makefile | head -1)
-          find entware-knc/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr3*.ipk' | while read -r f; do
+          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr3/Makefile | head -1)
+          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr3*.ipk' | while read -r f; do
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
       - name: Upload packaged artifacts
