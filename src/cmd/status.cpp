@@ -7,9 +7,10 @@
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "../util/format_compat.hpp"
+#include "../util/string_compat.hpp"
 
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -31,7 +32,7 @@ std::string check_status_label(CheckStatus s) {
 }
 
 std::string fwmark_hex(uint32_t v) {
-    return std::format("0x{:08x}", v);
+    return keen_pbr3::format("0x{:08x}", v);
 }
 
 std::string pad_dots(const std::string& prefix,
@@ -71,7 +72,7 @@ struct DisplayFirewallRule {
 };
 
 std::string format_route_brief(const RouteTableCheck& rt) {
-    std::string desc = std::format("table={} ", rt.table_id);
+    std::string desc = keen_pbr3::format("table={} ", rt.table_id);
     const std::string route_type = rt.expected_route_type.value_or("unicast");
     const std::string destination = rt.expected_destination.value_or("default");
     if (route_type == "blackhole") {
@@ -81,14 +82,14 @@ std::string format_route_brief(const RouteTableCheck& rt) {
     } else {
         desc += destination;
         if (rt.expected_interface) {
-            desc += std::format(" dev {}", *rt.expected_interface);
+            desc += keen_pbr3::format(" dev {}", *rt.expected_interface);
         }
         if (rt.expected_gateway) {
-            desc += std::format(" via {}", *rt.expected_gateway);
+            desc += keen_pbr3::format(" via {}", *rt.expected_gateway);
         }
     }
     if (rt.expected_metric && *rt.expected_metric != 0) {
-        desc += std::format(" metric {}", *rt.expected_metric);
+        desc += keen_pbr3::format(" metric {}", *rt.expected_metric);
     }
     return desc;
 }
@@ -193,7 +194,7 @@ std::map<std::string, std::string> infer_urltest_selections(const Config& config
                     break;
                 }
             }
-            if (selections.contains(ob.tag)) {
+            if (contains(selections, ob.tag)) {
                 break;
             }
         }
@@ -274,9 +275,9 @@ std::vector<DisplayFirewallRule> build_display_firewall_rules(
             } else if (check.status != CheckStatus::missing) {
                 display.status = CheckStatus::mismatch;
                 display.status_label_override = "ERROR";
-                display.detail = std::format("fwmark {} is not a child of urltest outbound {}",
-                                             fwmark_hex(*check.actual_fwmark),
-                                             info_it->second.urltest_tag);
+                display.detail = keen_pbr3::format("fwmark {} is not a child of urltest outbound {}",
+                                                   fwmark_hex(*check.actual_fwmark),
+                                                   info_it->second.urltest_tag);
             }
         }
 
@@ -410,20 +411,20 @@ void print_outbound_section(const Config& config,
                 if (!families.empty()) {
                     suffix += " " + families;
                 }
-                const std::string rule_desc = std::format("rule    {}/{} -> table={} pri={}",
-                                                          fwmark_hex(pr.fwmark),
-                                                          fwmark_hex(pr.fwmask),
-                                                          pr.expected_table,
-                                                          pr.priority);
+                const std::string rule_desc = keen_pbr3::format("rule    {}/{} -> table={} pri={}",
+                                                                fwmark_hex(pr.fwmark),
+                                                                fwmark_hex(pr.fwmask),
+                                                                pr.expected_table,
+                                                                pr.priority);
                 std::cout << "    " << pad_dots(rule_desc, suffix) << "\n";
                 if (pr.status != CheckStatus::ok) {
                     print_detail_if_needed(pr.detail, "      ");
                 }
             } else if (routable) {
-                const std::string rule_desc = std::format("rule    {} -> table={} pri={}",
-                                                          fwmark_hex(fwmark),
-                                                          table_id,
-                                                          priority);
+                const std::string rule_desc = keen_pbr3::format("rule    {} -> table={} pri={}",
+                                                                fwmark_hex(fwmark),
+                                                                table_id,
+                                                                priority);
                 std::cout << "    " << pad_dots(rule_desc, "MISSING") << "\n";
             }
         }

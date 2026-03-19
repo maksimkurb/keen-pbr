@@ -33,6 +33,11 @@ add_executable(keen-pbr3-tests
   ../src/routing/route_table.cpp
   ../src/routing/target.cpp
 )
+set_target_properties(keen-pbr3-tests PROPERTIES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
+  CXX_EXTENSIONS NO
+)
 
 target_compile_definitions(keen-pbr3-tests PRIVATE KEEN_PBR3_TESTING)
 
@@ -50,6 +55,9 @@ target_link_libraries(keen-pbr3-tests PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
+  fmt::fmt-header-only
 )
 
-target_compile_features(keen-pbr3-tests PRIVATE cxx_std_20)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  target_link_libraries(keen-pbr3-tests PRIVATE stdc++fs)
+endif()

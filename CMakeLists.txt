@@ -1,15 +1,13 @@
 cmake_minimum_required(VERSION 3.14)
 project(keen-pbr3 VERSION 3.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Check for <format> header
-include(CheckIncludeFileCXX)
-check_include_file_cxx("format" HAS_FORMAT)
-if(NOT HAS_FORMAT)
-  message(FATAL_ERROR "C++20 <format> header not found. GCC 13+ or Clang 17+ required.")
+if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
+  message(FATAL_ERROR "keen-pbr3 requires CMAKE_CXX_STANDARD=17.")
 endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Size optimization
 add_compile_options(-ffunction-sections -fdata-sections)
@@ -31,6 +29,14 @@ pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
 add_subdirectory(third_party/nlohmann_json)
+
+# fmt (bundled as git submodule)
+set(FMT_DOC OFF CACHE INTERNAL "")
+set(FMT_INSTALL OFF CACHE INTERNAL "")
+set(FMT_TEST OFF CACHE INTERNAL "")
+set(FMT_FUZZ OFF CACHE INTERNAL "")
+set(FMT_CUDA_TEST OFF CACHE INTERNAL "")
+add_subdirectory(third_party/fmt)
 
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)
@@ -93,17 +99,27 @@ endif()
 
 # Executable
 add_executable(keen-pbr3 ${SOURCES})
+set_target_properties(keen-pbr3 PROPERTIES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
+  CXX_EXTENSIONS NO
+)
 target_include_directories(keen-pbr3 PRIVATE include)
 target_link_libraries(keen-pbr3 PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
+  fmt::fmt-header-only
   nlohmann_json::nlohmann_json
 )
 
 if(WITH_API)
   target_compile_definitions(keen-pbr3 PRIVATE WITH_API)
   target_link_libraries(keen-pbr3 PRIVATE httplib::httplib)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  target_link_libraries(keen-pbr3 PRIVATE stdc++fs)
 endif()
 
 install(TARGETS keen-pbr3 DESTINATION bin)

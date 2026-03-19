@@ -9,22 +9,19 @@ This page covers building keen-pbr3 from source for native hosts and embedded ro
 
 | Requirement | Version |
 |---|---|
-| C++ compiler | C++20 support (GCC 10+, Clang 12+) |
-| Meson | 0.60+ |
-| Ninja | any recent |
-| Conan | 2.x (`pip install "conan>=2.0,<3.0"`) |
+| C++ compiler | C++17 support (GCC 8.4+, Clang 9+) |
 | pkg-config | any |
 
 ## Dependencies
 
-Dependencies are managed by Conan and downloaded automatically during the build.
+Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
 
 | Library | Purpose |
 |---|---|
 | libcurl | Downloading remote lists |
 | nlohmann_json | JSON parsing |
 | libnl | Netlink socket communication (routing/rules) |
-| mbedtls | TLS support for HTTPS list downloads |
+| fmt | C++17 formatting polyfill |
 | cpp-httplib | Embedded HTTP API server |
 
 ## Build
@@ -36,7 +33,7 @@ A `Makefile` wraps all build steps:
 git clone https://github.com/maksimkurb/keen-pbr3.git
 cd keen-pbr3
 
-# Build (runs Conan + Meson + Ninja under the hood)
+# Build
 make
 
 # Run tests
@@ -49,27 +46,24 @@ make clean
 Step-by-step targets are also available:
 
 ```bash
-make deps     # conan install → build/
-make setup    # meson setup
-make build    # meson compile
+make setup    # cmake -S . -B cmake-build
+make build    # cmake --build cmake-build
 ```
 
-The binary is produced at `build/keen-pbr3`.
+The binary is produced at `cmake-build/keen-pbr3`.
 
 ## Build Options
 
-Pass options during `meson setup`:
+Pass options during `cmake` configure:
 
 | Option | Default | Description |
 |---|---|---|
-| `with_api` | `true` | Build with embedded HTTP API server |
-| `firewall_backend` | `auto` | `auto`, `nftables`, or `iptables` |
+| `WITH_API` | `ON` | Build with embedded HTTP API server |
 
 Example:
 
 ```bash
-meson setup build --native-file=build/conan_meson_native.ini \
-  -Dwith_api=false -Dfirewall_backend=iptables
+cmake -S . -B cmake-build -DWITH_API=OFF
 ```
 
 ## Cross-Compilation

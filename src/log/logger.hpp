@@ -1,8 +1,9 @@
 #pragma once
 
-#include <format>
 #include <iostream>
 #include <string_view>
+
+#include "../util/format_compat.hpp"
 
 namespace keen_pbr3 {
 
@@ -25,33 +26,33 @@ public:
     void debug(std::string_view msg);
 
     template<typename... Args>
-    void error(std::format_string<Args...> fmt, Args&&... args) {
+    void error(format_string<Args...> fmt, Args&&... args) {
         if (is_enabled(LogLevel::error))
-            error(std::string_view(std::format(fmt, std::forward<Args>(args)...)));
+            error(std::string_view(keen_pbr3::format(fmt, std::forward<Args>(args)...)));
     }
 
     template<typename... Args>
-    void warn(std::format_string<Args...> fmt, Args&&... args) {
+    void warn(format_string<Args...> fmt, Args&&... args) {
         if (is_enabled(LogLevel::warn))
-            warn(std::string_view(std::format(fmt, std::forward<Args>(args)...)));
+            warn(std::string_view(keen_pbr3::format(fmt, std::forward<Args>(args)...)));
     }
 
     template<typename... Args>
-    void info(std::format_string<Args...> fmt, Args&&... args) {
+    void info(format_string<Args...> fmt, Args&&... args) {
         if (is_enabled(LogLevel::info))
-            info(std::string_view(std::format(fmt, std::forward<Args>(args)...)));
+            info(std::string_view(keen_pbr3::format(fmt, std::forward<Args>(args)...)));
     }
 
     template<typename... Args>
-    void verbose(std::format_string<Args...> fmt, Args&&... args) {
+    void verbose(format_string<Args...> fmt, Args&&... args) {
         if (is_enabled(LogLevel::verbose))
-            verbose(std::string_view(std::format(fmt, std::forward<Args>(args)...)));
+            verbose(std::string_view(keen_pbr3::format(fmt, std::forward<Args>(args)...)));
     }
 
     template<typename... Args>
-    void debug(std::format_string<Args...> fmt, Args&&... args) {
+    void debug(format_string<Args...> fmt, Args&&... args) {
         if (is_enabled(LogLevel::debug))
-            debug(std::string_view(std::format(fmt, std::forward<Args>(args)...)));
+            debug(std::string_view(keen_pbr3::format(fmt, std::forward<Args>(args)...)));
     }
 
 private:

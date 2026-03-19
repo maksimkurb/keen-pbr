@@ -1,6 +1,7 @@
 #include "iptables_verifier.hpp"
 
-#include <format>
+#include "../util/format_compat.hpp"
+
 #include <map>
 #include <sstream>
 #include <string>
@@ -100,10 +101,10 @@ FirewallChainCheck IptablesFirewallVerifier::verify_chain() {
         v4.has_prerouting_jump || v6.has_prerouting_jump;
 
     if (!result.chain_present) {
-        result.detail = std::format(
+        result.detail = keen_pbr3::format(
             "{} chain not found in iptables or ip6tables mangle table", CHAIN_NAME);
     } else if (!result.prerouting_hook_present) {
-        result.detail = std::format(
+        result.detail = keen_pbr3::format(
             "{} chain exists but PREROUTING jump not found", CHAIN_NAME);
     } else {
         result.detail = "ok";
@@ -163,7 +164,7 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
                             check.detail = "ok";
                         } else {
                             check.status = CheckStatus::mismatch;
-                            check.detail = std::format(
+                            check.detail = keen_pbr3::format(
                                 "fwmark mismatch: expected {:#x} got {:#x}",
                                 rs.fwmark, parsed.fwmark);
                         }

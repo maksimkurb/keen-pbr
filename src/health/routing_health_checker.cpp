@@ -3,9 +3,10 @@
 #include "../api/generated/api_types.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../routing/routing_verifier.hpp"
+#include "../util/format_compat.hpp"
+#include "../util/string_compat.hpp"
 
 #include <algorithm>
-#include <format>
 #include <set>
 #include <stdexcept>
 
@@ -122,7 +123,7 @@ RoutingHealthReport RoutingHealthChecker::check() const {
 
                 RouteTableCheck extra_check;
                 extra_check.table_id = table_id;
-                extra_check.outbound_tag = table_to_outbound.contains(table_id)
+                extra_check.outbound_tag = contains(table_to_outbound, table_id)
                     ? table_to_outbound.at(table_id)
                     : "";
                 extra_check.expected_destination = routes[i].destination;
@@ -203,7 +204,7 @@ RoutingHealthReport RoutingHealthChecker::check() const {
 }
 
 static std::string hex_str(uint32_t v) {
-    return std::format("0x{:08x}", v);
+    return keen_pbr3::format("0x{:08x}", v);
 }
 
 static api::CheckStatus to_api_check_status(CheckStatus s) {

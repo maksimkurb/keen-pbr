@@ -1,10 +1,10 @@
 #include "iptables.hpp"
 #include "ipset_restore_pipe.hpp"
 #include "../log/logger.hpp"
+#include "../util/format_compat.hpp"
 
 #include <cstdio>
 #include <cstdlib>
-#include <format>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -112,25 +112,25 @@ static void pipe_to_cmd(const std::string& cmd, const std::string& input) {
     Logger::instance().verbose("{} script:\n{}", cmd, input);
     FILE* pipe = popen(cmd.c_str(), "w");
     if (!pipe) {
-        throw FirewallError(std::format("Failed to open pipe to '{}'", cmd));
+        throw FirewallError(keen_pbr3::format("Failed to open pipe to '{}'", cmd));
     }
     if (std::fwrite(input.data(), 1, input.size(), pipe) != input.size()) {
         pclose(pipe);
-        throw FirewallError(std::format("Failed to write to pipe for '{}'", cmd));
+        throw FirewallError(keen_pbr3::format("Failed to write to pipe for '{}'", cmd));
     }
     int status = pclose(pipe);
     if (status != 0) {
-        throw FirewallError(std::format("{} exited with status {}", cmd, status));
+        throw FirewallError(keen_pbr3::format("{} exited with status {}", cmd, status));
     }
 }
 
 std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
     if (ps.timeout > 0) {
-        return std::format("create {} hash:net family {} timeout {} -exist\n",
-                           ps.name, ps.family_str, ps.timeout);
+        return keen_pbr3::format("create {} hash:net family {} timeout {} -exist\n",
+                                 ps.name, ps.family_str, ps.timeout);
     } else {
-        return std::format("create {} hash:net family {} -exist\n",
-                           ps.name, ps.family_str);
+        return keen_pbr3::format("create {} hash:net family {} -exist\n",
+                                 ps.name, ps.family_str);
     }
 }
 
@@ -196,8 +196,8 @@ std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto
 std::string IptablesFirewall::build_ipt_script(bool ipv6,
                                                 const std::vector<PendingRule>& rules) {
     std::string s;
-    s += std::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
-                     CHAIN_NAME, CHAIN_NAME);
+    s += keen_pbr3::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
+                           CHAIN_NAME, CHAIN_NAME);
     for (const auto& pr : rules) {
         if (pr.ipv6 != ipv6) continue;
         // Optional src/dst address constraints (-s/-d flags).
@@ -214,17 +214,17 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
                                                    pr.filter.negate_dst_port);
         if (pr.direct) {
             if (pr.action == PendingRule::Mark)
-                s += std::format("-A {}{}{} -j MARK --set-mark {:#x}\n",
-                                 CHAIN_NAME, addr_frag, pp, pr.fwmark);
+                s += keen_pbr3::format("-A {}{}{} -j MARK --set-mark {:#x}\n",
+                                       CHAIN_NAME, addr_frag, pp, pr.fwmark);
             else
-                s += std::format("-A {}{}{} -j DROP\n", CHAIN_NAME, addr_frag, pp);
+                s += keen_pbr3::format("-A {}{}{} -j DROP\n", CHAIN_NAME, addr_frag, pp);
         } else {
             if (pr.action == PendingRule::Mark)
-                s += std::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
-                                 CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
+                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
+                                       CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
             else
-                s += std::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
-                                 CHAIN_NAME, pr.set_name, addr_frag, pp);
+                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
+                                       CHAIN_NAME, pr.set_name, addr_frag, pp);
         }
     }
     s += "COMMIT\n";
@@ -279,26 +279,26 @@ void IptablesFirewall::cleanup() {
     // Remove jump rules, flush and delete custom chain for IPv4
     if (chain_v4_created_) {
         log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
-        exec_cmd(std::format("iptables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(std::format("iptables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(std::format("iptables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("iptables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("iptables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("iptables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
         chain_v4_created_ = false;
     }
 
     // Same for IPv6
     if (chain_v6_created_) {
         log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
-        exec_cmd(std::format("ip6tables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(std::format("ip6tables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(std::format("ip6tables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("ip6tables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("ip6tables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
+        exec_cmd(keen_pbr3::format("ip6tables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
         chain_v6_created_ = false;
     }
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
         log.verbose("iptables cleanup: destroying ipset {}", name);
-        exec_cmd(std::format("ipset flush {} 2>/dev/null", name));
-        exec_cmd(std::format("ipset destroy {} 2>/dev/null", name));
+        exec_cmd(keen_pbr3::format("ipset flush {} 2>/dev/null", name));
+        exec_cmd(keen_pbr3::format("ipset destroy {} 2>/dev/null", name));
     }
     created_sets_.clear();
 

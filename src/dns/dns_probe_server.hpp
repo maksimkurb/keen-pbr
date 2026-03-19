@@ -4,11 +4,11 @@
 #include <functional>
 #include <map>
 #include <optional>
-#include <span>
 #include <string>
 #include <sys/socket.h>
 #include <vector>
 
+#include "../util/byte_view.hpp"
 #include "dns_server.hpp"
 
 namespace keen_pbr3 {
@@ -42,7 +42,7 @@ struct DnsProbeEvent {
 DnsProbeListenAddress parse_dns_probe_listen_address(const std::string& listen);
 DnsProbeServerSettings parse_dns_probe_server_settings(const std::string& listen,
                                                        const std::string* answer_ipv4);
-DnsProbeQuestion parse_dns_probe_query(std::span<const uint8_t> packet);
+DnsProbeQuestion parse_dns_probe_query(ByteView packet);
 std::vector<uint8_t> build_dns_probe_response(const DnsProbeQuestion& question,
                                               const std::string& answer_ipv4);
 
@@ -77,7 +77,7 @@ private:
 
     bool handle_udp_packet(const uint8_t* data, size_t len,
                            const struct sockaddr* addr, socklen_t addrlen);
-    bool handle_tcp_packet(int fd, std::span<const uint8_t> packet);
+    bool handle_tcp_packet(int fd, ByteView packet);
     void publish_query(const DnsProbeQuestion& question, const std::string& source_ip) const;
     void close_fd(int& fd);
 

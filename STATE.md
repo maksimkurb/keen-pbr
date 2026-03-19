@@ -1,7 +1,7 @@
 # keen-pbr3 Architecture & State Document
 
 **Version:** 3.0.0
-**Language:** C++20
+**Language:** C++17
 **Target platforms:** OpenWRT (MIPS, ARM, AArch64, x86_64), Keenetic (MIPS LE)
 **Build system:** CMake 3.14+
 
@@ -1230,7 +1230,7 @@ server=/example.com/example.org/10.8.0.1
 
 ## REST API
 
-Compiled only when `with_api` Meson option is `true` (default). Guarded by `#ifdef WITH_API`.
+Compiled only when the `WITH_API` CMake option is `ON` (default). Guarded by `#ifdef WITH_API`.
 
 ### Architecture
 
@@ -1376,7 +1376,9 @@ graph TD
 
 ### Compiler Flags
 
-- Standard: C++20 (requires GCC 13+ or Clang 17+ for `<format>`)
+- Standard: C++17
+- Formatting: vendored `fmt` polyfill via `third_party/fmt`
+- GCC 8.x: link `stdc++fs` for `std::filesystem` support
 - Optimization: `-Os` (size), `-ffunction-sections`, `-fdata-sections`
 - Linker: `-Wl,--gc-sections` (dead code elimination)
 - API flag: `-DWITH_API` (when `WITH_API` is ON)

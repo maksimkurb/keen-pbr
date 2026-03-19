@@ -7,3 +7,6 @@
 [submodule "third_party/doctest"]
 	path = third_party/doctest
 	url = https://github.com/doctest/doctest.git
+[submodule "third_party/fmt"]
+	path = third_party/fmt
+	url = https://github.com/fmtlib/fmt.git

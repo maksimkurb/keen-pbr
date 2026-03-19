@@ -2,7 +2,7 @@
 
 Policy-based routing daemon for OpenWRT and Keenetic routers. Routes traffic selectively by IP addresses, subnets, and domains with interface failover, health checks, and optional REST API.
 
-Written in C++20, designed for embedded targets (MIPS, ARM, AArch64, x86_64) with minimal binary size.
+Written in C++17, designed for embedded targets (MIPS, ARM, AArch64, x86_64) with minimal binary size.
 
 ## Features
 
@@ -18,21 +18,20 @@ Written in C++20, designed for embedded targets (MIPS, ARM, AArch64, x86_64) wit
 
 ## Prerequisites
 
-- **C++20 compiler** (GCC 10+ or Clang 12+)
-- **Meson** (>= 0.56)
-- **Ninja**
-- **Conan 2.x** (`pip install "conan>=2.0,<3.0"`)
+- **C++17 compiler** (GCC 8.4+ or Clang 9+)
+- **CMake** (>= 3.14)
+- **Make**
 - **pkg-config**
 
-### Dependencies (managed by Conan)
+### Dependencies
 
 | Library | Version | Purpose |
 |---|---|---|
 | libcurl | 8.5.0 | HTTP client for list downloads |
 | nlohmann_json | 3.11.3 | JSON configuration parsing |
 | libnl | 3.8.0 | Netlink route/rule management |
-| mbedtls | 3.5.0 | TLS backend for HTTPS |
-| cpp-httplib | 0.14.0 | REST API server (optional) |
+| fmt | vendored | C++17 formatting polyfill |
+| cpp-httplib | 0.31.0 | REST API server (optional) |
 
 ## Building
 
@@ -41,31 +40,29 @@ A `Makefile` wraps all build steps. Run `make help` to see available targets.
 ### Quick start
 
 ```bash
-make          # Native build (deps + setup + compile)
+make          # Native build
 make clean    # Remove build directory
 ```
 
-The binary will be at `build/keen-pbr3`.
+The binary will be at `cmake-build/keen-pbr3`.
 
 ### Native build (step by step)
 
 ```bash
-make deps     # conan install → build/
-make setup    # meson setup
-make build    # meson compile
+make setup    # cmake -S . -B cmake-build
+make build    # cmake --build cmake-build
 ```
 
 ### Build options
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `with_api` | boolean | `true` | Build with REST API support (cpp-httplib) |
-| `firewall_backend` | combo | `auto` | Firewall backend: `auto`, `iptables`, or `nftables` |
+| `WITH_API` | boolean | `ON` | Build with REST API support (cpp-httplib) |
 
-Pass options during `meson setup`:
+Pass options during `cmake` configure:
 
 ```bash
-meson setup build --native-file=build/conan_meson_native.ini -Dwith_api=false
+cmake -S . -B cmake-build -DWITH_API=OFF
 ```
 
 ### Cross-compilation (Docker)
@@ -246,7 +243,7 @@ keen-pbr3 [options]
 
 ### REST API endpoints
 
-Available when built with `with_api=true` and not disabled with `--no-api`:
+Available when built with `WITH_API=ON` and not disabled with `--no-api`:
 
 | Method | Endpoint | Description |
 |---|---|---|

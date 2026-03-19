@@ -77,7 +77,7 @@ TEST_CASE("dns probe settings derive answer IPv4 from listen") {
 
 TEST_CASE("dns probe query parser extracts qname") {
     auto packet = make_query(0x1234, 0x0100, "www", 1);
-    auto query = parse_dns_probe_query(packet);
+    auto query = parse_dns_probe_query(ByteView(packet.data(), packet.size()));
     CHECK(query.id == 0x1234);
     CHECK(query.flags == 0x0100);
     CHECK(query.name == "www.com");
@@ -86,14 +86,14 @@ TEST_CASE("dns probe query parser extracts qname") {
 
 TEST_CASE("dns probe query parser extracts ECS") {
     auto packet = make_query_with_ecs(0x1234, "www", {192, 0, 2});
-    auto query = parse_dns_probe_query(packet);
+    auto query = parse_dns_probe_query(ByteView(packet.data(), packet.size()));
     REQUIRE(query.ecs.has_value());
     CHECK(*query.ecs == "192.0.2.0/24");
 }
 
 TEST_CASE("dns probe response returns synthetic A record") {
     auto packet = make_query(0x1234, 0x0100, "www", 28);
-    auto query = parse_dns_probe_query(packet);
+    auto query = parse_dns_probe_query(ByteView(packet.data(), packet.size()));
     auto response = build_dns_probe_response(query, "127.0.0.88");
 
     REQUIRE(response.size() >= 33);
@@ -114,5 +114,5 @@ TEST_CASE("dns probe response returns synthetic A record") {
 
 TEST_CASE("dns probe query rejects malformed packets") {
     std::vector<uint8_t> packet = {0x12, 0x34, 0x01, 0x00};
-    CHECK_THROWS_AS(parse_dns_probe_query(packet), DnsError);
+    CHECK_THROWS_AS(parse_dns_probe_query(ByteView(packet.data(), packet.size())), DnsError);
 }

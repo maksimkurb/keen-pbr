@@ -1,6 +1,7 @@
 #include "nftables_verifier.hpp"
 
-#include <format>
+#include "../util/format_compat.hpp"
+
 #include <map>
 #include <string>
 #include <nlohmann/json.hpp>
@@ -174,13 +175,13 @@ FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
     result.prerouting_hook_present = state.has_prerouting_hook;
 
     if (!state.has_table) {
-        result.detail = std::format("{} table not found in nftables", TABLE_NAME);
+        result.detail = keen_pbr3::format("{} table not found in nftables", TABLE_NAME);
     } else if (!result.chain_present) {
-        result.detail = std::format("{} chain not found in {} table",
-                                    CHAIN_NAME, TABLE_NAME);
+        result.detail = keen_pbr3::format("{} chain not found in {} table",
+                                          CHAIN_NAME, TABLE_NAME);
     } else if (!result.prerouting_hook_present) {
-        result.detail = std::format("{} chain exists but prerouting hook not configured",
-                                    CHAIN_NAME);
+        result.detail = keen_pbr3::format("{} chain exists but prerouting hook not configured",
+                                          CHAIN_NAME);
     } else {
         result.detail = "ok";
     }
@@ -231,7 +232,7 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                             check.detail = "ok";
                         } else {
                             check.status = CheckStatus::mismatch;
-                            check.detail = std::format(
+                            check.detail = keen_pbr3::format(
                                 "fwmark mismatch: expected {:#x} got {:#x}",
                                 rs.fwmark, parsed.fwmark);
                         }

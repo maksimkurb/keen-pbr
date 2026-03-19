@@ -1,10 +1,10 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
 #include "../log/logger.hpp"
+#include "../util/format_compat.hpp"
 
 #include <cstdio>
 #include <cstdlib>
-#include <format>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -354,7 +354,7 @@ void NftablesFirewall::apply() {
 
     int status = pclose(pipe);
     if (status != 0) {
-        throw FirewallError(std::format("nft -j -f - exited with status {}", status));
+        throw FirewallError(keen_pbr3::format("nft -j -f - exited with status {}", status));
     }
 
     // Clear pending buffers
@@ -367,7 +367,7 @@ void NftablesFirewall::apply() {
 void NftablesFirewall::cleanup() {
     if (table_created_) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
-        std::system(std::format("nft delete table inet {} 2>/dev/null", TABLE_NAME).c_str());
+        std::system(keen_pbr3::format("nft delete table inet {} 2>/dev/null", TABLE_NAME).c_str());
         table_created_ = false;
     }
 

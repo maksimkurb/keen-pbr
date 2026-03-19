@@ -11,7 +11,7 @@ LogLevel parse_log_level(std::string_view s) {
     if (s == "verbose") return LogLevel::verbose;
     if (s == "debug") return LogLevel::debug;
     throw std::runtime_error(
-        std::format("Unknown log level '{}'. Valid: error, warn, info, verbose, debug", s));
+        keen_pbr3::format("Unknown log level '{}'. Valid: error, warn, info, verbose, debug", s));
 }
 
 Logger& Logger::instance() {

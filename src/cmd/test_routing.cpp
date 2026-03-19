@@ -5,10 +5,11 @@
 #include "../lists/ipset.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
+#include "../util/format_compat.hpp"
+#include "../util/string_compat.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <format>
 #include <iostream>
 #include <map>
 #include <netdb.h>
@@ -46,7 +47,7 @@ std::vector<std::string> resolve_domain(const std::string& domain,
     int rc = getaddrinfo(domain.c_str(), nullptr, &hints, &result);
     if (rc != 0) {
         warnings.push_back(
-            std::format("DNS resolution failed for '{}': {}", domain, gai_strerror(rc)));
+            keen_pbr3::format("DNS resolution failed for '{}': {}", domain, gai_strerror(rc)));
         return ips;
     }
 
@@ -62,7 +63,7 @@ std::vector<std::string> resolve_domain(const std::string& domain,
             continue;
         }
         std::string ip(buf);
-        if (std::ranges::find(ips, ip) == ips.end()) {
+        if (std::find(ips.begin(), ips.end(), ip) == ips.end()) {
             ips.push_back(ip);
         }
     }
@@ -102,7 +103,7 @@ public:
                 break;
             case EntryType::Domain: {
                 std::string d(entry);
-                if (d.starts_with("*.")) d = d.substr(2);
+                if (has_prefix(d, "*.")) d = d.substr(2);
                 std::transform(d.begin(), d.end(), d.begin(), ::tolower);
                 data.domain_set.insert(std::move(d));
                 break;
@@ -162,7 +163,7 @@ find_expected_outbound(const Config& config,
             for (const auto& candidate : domain_cands) {
                 std::string lower = candidate;
                 std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-                if (lookup.domain_set.contains(lower)) {
+                if (contains(lookup.domain_set, lower)) {
                     return {rule.outbound, ListMatchInfo{list_name, candidate}};
                 }
             }
@@ -182,8 +183,8 @@ std::string find_actual_outbound(const Firewall& firewall,
         if (rs.action_type == RuleActionType::Skip) continue;
 
         for (const auto& set_name : rs.set_names) {
-            bool v4_set = set_name.starts_with("kpbr4_") || set_name.starts_with("kpbr4d_");
-            bool v6_set = set_name.starts_with("kpbr6_") || set_name.starts_with("kpbr6d_");
+            bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4d_");
+            bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6d_");
 
             if (is_v4 && !v4_set) continue;
             if (!is_v4 && !v6_set) continue;
@@ -231,7 +232,7 @@ TestRoutingResult compute_test_routing(const Config& config,
         firewall = create_firewall("auto");
     } catch (const std::exception& e) {
         result.warnings.push_back(
-            std::format("Cannot check actual outbound (firewall tool unavailable): {}", e.what()));
+            keen_pbr3::format("Cannot check actual outbound (firewall tool unavailable): {}", e.what()));
     }
 
     // If DNS failed we still want to show a domain-only match row
@@ -287,7 +288,7 @@ int run_test_routing_command(const Config& config,
     constexpr int list_w      = 35;
     constexpr int outbound_w  = 18;
 
-    std::cout << std::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
+    std::cout << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
                              "IP", ip_w,
                              "List Match", list_w,
                              "Expected Outbound", outbound_w,
@@ -309,7 +310,7 @@ int run_test_routing_command(const Config& config,
         const std::string status = entry.ok ? "OK" : "NOK";
         if (!entry.ok) all_ok = false;
 
-        std::cout << std::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
+        std::cout << keen_pbr3::format("{:<{}} | {:<{}} | {:<{}} | {:<{}} | {}\n",
                                  entry.ip, ip_w,
                                  list_str, list_w,
                                  entry.expected_outbound, outbound_w,

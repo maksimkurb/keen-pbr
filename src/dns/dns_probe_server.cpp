@@ -117,7 +117,7 @@ bool write_all(int fd, const uint8_t* data, size_t len) {
     return true;
 }
 
-size_t read_name_length(std::span<const uint8_t> packet, size_t pos) {
+size_t read_name_length(ByteView packet, size_t pos) {
     size_t cursor = pos;
     size_t jumps = 0;
     while (true) {
@@ -146,7 +146,7 @@ size_t read_name_length(std::span<const uint8_t> packet, size_t pos) {
     }
 }
 
-std::optional<std::string> parse_ecs_option(std::span<const uint8_t> option_data) {
+std::optional<std::string> parse_ecs_option(ByteView option_data) {
     if (option_data.size() < 4) {
         return std::nullopt;
     }
@@ -188,7 +188,7 @@ std::optional<std::string> parse_ecs_option(std::span<const uint8_t> option_data
     return std::nullopt;
 }
 
-std::optional<std::string> parse_edns_client_subnet(std::span<const uint8_t> packet,
+std::optional<std::string> parse_edns_client_subnet(ByteView packet,
                                                     size_t pos,
                                                     uint16_t arcount) {
     for (uint16_t i = 0; i < arcount; ++i) {
@@ -292,7 +292,7 @@ DnsProbeServerSettings parse_dns_probe_server_settings(const std::string& listen
     };
 }
 
-DnsProbeQuestion parse_dns_probe_query(std::span<const uint8_t> packet) {
+DnsProbeQuestion parse_dns_probe_query(ByteView packet) {
     if (packet.size() < DNS_HEADER_SIZE) {
         throw DnsError("DNS probe packet too short");
     }
@@ -458,7 +458,7 @@ std::vector<int> DnsProbeServer::accept_tcp_clients() {
 
 bool DnsProbeServer::handle_udp_packet(const uint8_t* data, size_t len,
                                        const sockaddr* addr, socklen_t addrlen) {
-    DnsProbeQuestion question = parse_dns_probe_query(std::span<const uint8_t>(data, len));
+    DnsProbeQuestion question = parse_dns_probe_query(ByteView(data, len));
     publish_query(question, socket_addr_to_string(addr));
 
     auto response = build_dns_probe_response(question, settings_.answer_ipv4);
@@ -500,7 +500,7 @@ bool DnsProbeServer::handle_udp_readable() {
     }
 }
 
-bool DnsProbeServer::handle_tcp_packet(int fd, std::span<const uint8_t> packet) {
+bool DnsProbeServer::handle_tcp_packet(int fd, ByteView packet) {
     DnsProbeQuestion question = parse_dns_probe_query(packet);
     publish_query(question, peer_addr_to_string(fd));
 
@@ -534,7 +534,7 @@ bool DnsProbeServer::handle_tcp_client_readable(int fd) {
             }
             if (state.have_size && state.buffer.size() >= static_cast<size_t>(state.expected_size) + 2) {
                 try {
-                    return handle_tcp_packet(fd, std::span<const uint8_t>(
+                    return handle_tcp_packet(fd, ByteView(
                         state.buffer.data() + 2, state.expected_size));
                 } catch (const std::exception& e) {
                     Logger::instance().warn("DNS test server dropped malformed TCP query: {}", e.what());
