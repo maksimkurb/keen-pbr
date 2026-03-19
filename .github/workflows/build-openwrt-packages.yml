@@ -15,14 +15,6 @@ jobs:
     name: "mediatek/filogic"
     runs-on: ubuntu-latest
     steps:
-      - name: Detect local act run
-        id: runtime
-        run: |
-          if [ "${ACT:-}" = "true" ]; then
-            echo "is_act=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_act=false" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/checkout@v4
         with:
           path: src
@@ -60,16 +52,9 @@ jobs:
           make defconfig
           make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
       - name: Upload validation artifacts
-        if: steps.runtime.outputs.is_act != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: keen-pbr-validate
           path: |
             openwrt-sdk-*/bin/**/*.ipk
             openwrt-sdk-*/bin/**/*.apk
-      - name: Report local artifact location
-        if: steps.runtime.outputs.is_act == 'true'
-        run: |
-          echo "Running under act; skipping actions/upload-artifact."
-          echo "Built packages remain under:"
-          find openwrt-sdk-*/bin -type f \( -name "*.ipk" -o -name "*.apk" \)

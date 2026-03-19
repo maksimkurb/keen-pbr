@@ -12,14 +12,6 @@ jobs:
     container:
       image: ghcr.io/maksimkurb/entware-builder:mipsel-3.4
     steps:
-      - name: Detect local act run
-        id: runtime
-        run: |
-          if [ "${ACT:-}" = "true" ]; then
-            echo "is_act=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_act=false" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -40,13 +32,7 @@ jobs:
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
           done
       - name: Upload packaged artifacts
-        if: steps.runtime.outputs.is_act != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: "keen-pbr-keenetic-mipsel-3.4"
           path: release_files/*.ipk
-      - name: Report local artifact location
-        if: steps.runtime.outputs.is_act == 'true'
-        run: |
-          echo "Running under act; skipping actions/upload-artifact."
-          ls -lah release_files
