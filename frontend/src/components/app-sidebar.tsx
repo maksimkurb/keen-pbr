@@ -95,7 +95,7 @@ function SidebarMenuHeader({
   onMenuClick: () => void
 }) {
   if (isMobile) {
-    return <AppBrandHeader onMenuClick={onMenuClick} variant="topbar" />
+    return <AppBrandHeader onMenuClick={onMenuClick} />
   }
 
   return <AppBrandHeader />

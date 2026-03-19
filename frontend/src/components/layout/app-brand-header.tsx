@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils"
 
 export function AppBrandHeader({
   onMenuClick,
-  variant = "sidebar",
   className = "",
 }: {
   onMenuClick?: () => void
@@ -16,8 +15,7 @@ export function AppBrandHeader({
   return (
     <div
       className={cn(
-        "flex items-center gap-3",
-        variant === "sidebar" ? "bg-transparent px-0 py-0" : "bg-background px-0 py-0",
+        "flex items-center gap-3 px-0 py-0",
         className
       )}
     >
