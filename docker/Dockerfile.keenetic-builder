@@ -1,0 +1,7 @@
+ARG KEENETIC_ARCH=mipsel-3.4
+FROM ghcr.io/maksimkurb/entware-builder:${KEENETIC_ARCH}
+
+USER root
+WORKDIR /home/me/Entware
+ENTRYPOINT []
+CMD ["sh", "-lc", "trap : TERM INT; while :; do sleep 3600; done"]

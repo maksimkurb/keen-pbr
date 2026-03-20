@@ -1,0 +1,35 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      bash \
+      build-essential \
+      clang \
+      flex \
+      bison \
+      g++ \
+      gawk \
+      gcc-multilib \
+      g++-multilib \
+      gettext \
+      git \
+      libncurses5-dev \
+      libssl-dev \
+      python3 \
+      python3-setuptools \
+      python3-pyelftools \
+      rsync \
+      swig \
+      unzip \
+      zlib1g-dev \
+      file \
+      wget \
+      ca-certificates \
+      curl \
+      xz-utils \
+      zstd && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
+ENTRYPOINT []
+CMD ["sh", "-lc", "trap : TERM INT; while :; do sleep 3600; done"]

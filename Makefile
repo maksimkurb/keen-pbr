@@ -112,8 +112,10 @@ cross-deploy: cross-build ## Cross-compile and upload binary to router via SFTP 
 		sftp -P $(ROUTER_PORT) $(ROUTER_USER)@$(ROUTER_HOST)
 	@echo "Done."
 
+-include docker/build.mk
+
 ## Help ########################################################################
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
+	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
