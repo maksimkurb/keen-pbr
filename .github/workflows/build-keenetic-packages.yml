@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/maksimkurb/entware-builder:mipsel-3.4
+      options: --user root
     steps:
       - uses: actions/checkout@v4
         with:

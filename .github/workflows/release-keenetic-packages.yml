@@ -58,6 +58,7 @@ jobs:
         build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     container:
       image: ghcr.io/maksimkurb/entware-builder:${{ matrix.build_env.config_name }}
+      options: --user root
     steps:
       - uses: actions/checkout@v4
         with:
