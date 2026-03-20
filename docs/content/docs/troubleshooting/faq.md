@@ -5,7 +5,7 @@ weight: 1
 
 ## What firewall backend will be used?
 
-keen-pbr3 auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels. You can override this at build time with the `firewall_backend` Meson option.
+keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels. You can override this at build time with the `firewall_backend` Meson option.
 
 ## How do I reload lists without restarting the daemon?
 
@@ -13,7 +13,7 @@ Two options:
 
 ```bash
 # Via signal
-kill -HUP $(cat /var/run/keen-pbr3.pid)
+kill -HUP $(cat /var/run/keen-pbr.pid)
 
 # Via API
 curl -X POST http://127.0.0.1:8080/api/reload
@@ -27,11 +27,11 @@ Both trigger a full reload: re-downloads all remote lists and re-applies firewal
 
 ## What happens if a remote list URL is unreachable at startup?
 
-keen-pbr3 uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, that list is skipped for this run.
+keen-pbr uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, that list is skipped for this run.
 
 ## How does the urltest outbound select the best child?
 
-On each probe interval, keen-pbr3 sends an HTTP request to the configured `url` from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within `tolerance_ms` of the best are considered equivalent and selected by weight.
+On each probe interval, keen-pbr sends an HTTP request to the configured `url` from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within `tolerance_ms` of the best are considered equivalent and selected by weight.
 
 The circuit breaker prevents flapping: after `failure_threshold` consecutive failures, the circuit opens and that child is bypassed during the `timeout_ms` cooldown. After cooldown, it enters half-open state and gets limited probe attempts to recover.
 

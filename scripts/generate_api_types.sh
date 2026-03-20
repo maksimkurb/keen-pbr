@@ -7,8 +7,8 @@ mkdir -p "$REPO_ROOT/src/api/generated"
 # JSON Schema $defs document with a synthetic root that references ALL schemas.
 # This ensures QuickType generates types for config, health, cache, and routing.
 # Uses only Node.js tooling: npx js-yaml + node built-ins.
-SCHEMA_TMP="$(mktemp /tmp/keen-pbr3-schema-XXXXXX.json)"
-TYPES_TMP="$(mktemp /tmp/keen-pbr3-types-XXXXXX.hpp)"
+SCHEMA_TMP="$(mktemp /tmp/keen-pbr-schema-XXXXXX.json)"
+TYPES_TMP="$(mktemp /tmp/keen-pbr-types-XXXXXX.hpp)"
 trap 'rm -f "$SCHEMA_TMP" "$TYPES_TMP"' EXIT
 
 npx --yes js-yaml "$REPO_ROOT/docs/openapi.yaml" \

@@ -40,7 +40,7 @@ if [ ! -f .stamp-feeds ]; then
     touch .stamp-feeds
 fi
 
-# ── 4. Configure: enable only the deps keen-pbr3 needs ────────────────────────
+# ── 4. Configure: enable only the deps keen-pbr needs ────────────────────────
 echo "[cross-setup] Configuring deps..."
 cat >.config <<'EOF'
 CONFIG_PACKAGE_libcurl=y

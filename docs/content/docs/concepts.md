@@ -3,7 +3,7 @@ title: Concepts
 weight: 2
 ---
 
-keen-pbr3 orchestrates three Linux kernel subsystems — **netfilter** (firewall), **policy routing** (ip rules + routing tables), and **DNS** (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
+keen-pbr orchestrates three Linux kernel subsystems — **netfilter** (firewall), **policy routing** (ip rules + routing tables), and **DNS** (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
 
 ## Core Entities
 
@@ -51,7 +51,7 @@ See [Route Rules](configuration/route-rules/) for the full reference.
 
 Maps domain lists to DNS servers via dnsmasq `server=` directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.
 
-Integration is via `conf-file=` (or `conf-script=`): keen-pbr3 writes `/tmp/keen-pbr3-dnsmasq.conf` on startup; dnsmasq reads it on the next reload.
+Integration is via `conf-file=` (or `conf-script=`): keen-pbr writes `/tmp/keen-pbr-dnsmasq.conf` on startup; dnsmasq reads it on the next reload.
 
 See [DNS](configuration/dns/) for the full reference.
 
@@ -62,7 +62,7 @@ See [DNS](configuration/dns/) for the full reference.
 1. **Load lists** — download remote URLs (using cache if unavailable), read local files and inline entries
 2. **Populate ipsets/nftsets** — IP/CIDR entries from lists are inserted into kernel sets (`kpbr4_<list>`, `kpbr6_<list>`)
 3. **Install routing** — create routing tables and ip rules for each outbound based on assigned fwmarks
-4. **Generate resolver config** — write `/tmp/keen-pbr3-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
+4. **Generate resolver config** — write `/tmp/keen-pbr-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
 5. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
 
 ---

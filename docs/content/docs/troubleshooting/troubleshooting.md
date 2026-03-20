@@ -5,9 +5,9 @@ weight: 2
 
 ## Daemon won't start
 
-1. **Check config JSON validity** — parse errors are logged to stderr on startup. Validate with `jq . /etc/keen-pbr3/config.json`.
+1. **Check config JSON validity** — parse errors are logged to stderr on startup. Validate with `jq . /etc/keen-pbr/config.json`.
 2. **PID file permissions** — ensure the directory for `daemon.pid_file` exists and is writable by the process user.
-3. **Cache directory** — ensure `daemon.cache_dir` exists and is writable. Create it if needed: `mkdir -p /var/cache/keen-pbr3`.
+3. **Cache directory** — ensure `daemon.cache_dir` exists and is writable. Create it if needed: `mkdir -p /var/cache/keen-pbr`.
 4. **Port conflict** — if the API is enabled, check that the `api.listen` address/port is not already in use.
 
 ## Traffic not routed through VPN
@@ -19,7 +19,7 @@ curl http://127.0.0.1:8080/api/health/routing
 ```
 
 Look for entries with `"status": "missing"` or `"status": "mismatch"` in:
-- `firewall` — the keen-pbr3 chain may not be hooked into PREROUTING
+- `firewall` — the keen-pbr chain may not be hooked into PREROUTING
 - `firewall_rules` — fwmark rules for your sets may be missing
 - `route_tables` — routing table may not have a default route via the VPN interface
 - `policy_rules` — ip rule to lookup the table by fwmark may be missing
@@ -42,15 +42,15 @@ The `urltest` outbound is `degraded` when no child has been successfully selecte
 
 ## dnsmasq not resolving domains to VPN
 
-1. Verify `generate-resolver-config` produces output: `keen-pbr3 generate-resolver-config dnsmasq-nftset`.
-2. Ensure your dnsmasq configuration includes `conf-script=` pointing to keen-pbr3, e.g.: `conf-script=/usr/sbin/keen-pbr3 generate-resolver-config dnsmasq-nftset`
+1. Verify `generate-resolver-config` produces output: `keen-pbr generate-resolver-config dnsmasq-nftset`.
+2. Ensure your dnsmasq configuration includes `conf-script=` pointing to keen-pbr, e.g.: `conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset`
 3. Restart dnsmasq after adding the `conf-script=` line.
 4. Check that `dns.rules` lists the correct list names and server tag.
 5. If using `detour`, ensure the outbound interface is up.
 
 ## Remote list not updating
 
-1. Check keen-pbr3 logs for HTTP errors when downloading the list.
+1. Check keen-pbr logs for HTTP errors when downloading the list.
 2. Verify the URL is reachable from the router: `curl -I <url>`.
 3. Check `lists_autoupdate.cron` — ensure the schedule is correct.
 4. Trigger a manual reload to test: `curl -X POST http://127.0.0.1:8080/api/reload`

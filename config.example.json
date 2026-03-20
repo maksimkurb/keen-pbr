@@ -1,7 +1,7 @@
 {
   "daemon": {
-    "pid_file": "/var/run/keen-pbr3.pid",
-    "cache_dir": "/var/cache/keen-pbr3",
+    "pid_file": "/var/run/keen-pbr.pid",
+    "cache_dir": "/var/cache/keen-pbr",
     "strict_enforcement": false
   },
 

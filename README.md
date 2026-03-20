@@ -1,4 +1,4 @@
-# keen-pbr3
+# keen-pbr
 
 Policy-based routing daemon for OpenWRT and Keenetic routers. Routes traffic selectively by IP addresses, subnets, and domains with interface failover, health checks, and optional REST API.
 
@@ -44,7 +44,7 @@ make          # Native build
 make clean    # Remove build directory
 ```
 
-The binary will be at `cmake-build/keen-pbr3`.
+The binary will be at `cmake-build/keen-pbr`.
 
 ### Native build (step by step)
 
@@ -77,8 +77,8 @@ make docker-mips-le-keenetic     # Build for a single architecture
 Or manually:
 
 ```bash
-docker build -f docker/Dockerfile.openwrt -t keen-pbr3-builder .
-docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr3-builder <arch>
+docker build -f docker/Dockerfile.openwrt -t keen-pbr-builder .
+docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr-builder <arch>
 ```
 
 #### Supported architectures
@@ -92,18 +92,18 @@ docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr3-builder <arch>
 | `x86_64-openwrt` | x86_64 | OpenWRT routers |
 | `mips-le-keenetic` | MIPS little-endian | Keenetic routers |
 
-Output binaries go to `dist/<arch>/keen-pbr3`. Cross-compiled binaries are statically linked.
+Output binaries go to `dist/<arch>/keen-pbr`. Cross-compiled binaries are statically linked.
 
 ## Configuration
 
-keen-pbr3 reads a JSON config file (default: `/etc/keen-pbr3/config.json`).
+keen-pbr reads a JSON config file (default: `/etc/keen-pbr/config.json`).
 
 ### Example config
 
 ```json
 {
   "daemon": {
-    "pid_file": "/var/run/keen-pbr3.pid",
+    "pid_file": "/var/run/keen-pbr.pid",
     "list_update_interval": "24h"
   },
   "api": {
@@ -141,7 +141,7 @@ keen-pbr3 reads a JSON config file (default: `/etc/keen-pbr3/config.json`).
       "ip_cidrs": ["10.0.0.0/8", "192.168.100.1"]
     },
     "local-list": {
-      "file": "/etc/keen-pbr3/local.txt"
+      "file": "/etc/keen-pbr/local.txt"
     }
   },
   "route": {
@@ -221,14 +221,14 @@ Rules are evaluated in order; first match wins. Unmatched traffic uses the `fall
 ## Usage
 
 ```bash
-keen-pbr3 [options]
+keen-pbr [options]
 ```
 
 ### Options
 
 | Flag | Description |
 |---|---|
-| `--config <path>` | Path to JSON config file (default: `/etc/keen-pbr3/config.json`) |
+| `--config <path>` | Path to JSON config file (default: `/etc/keen-pbr/config.json`) |
 | `-d` | Daemonize (run in background) |
 | `--no-api` | Disable REST API at runtime |
 | `--version`, `-v` | Show version and exit |
@@ -255,24 +255,24 @@ Available when built with `WITH_API=ON` and not disabled with `--no-api`:
 
 ```bash
 # Copy the binary to the router
-scp dist/mips-le-keenetic/keen-pbr3 root@router:/opt/sbin/keen-pbr3
+scp dist/mips-le-keenetic/keen-pbr root@router:/opt/sbin/keen-pbr
 
 # Copy config
-scp config.json root@router:/etc/keen-pbr3/config.json
+scp config.json root@router:/etc/keen-pbr/config.json
 
 # Run as daemon
-/opt/sbin/keen-pbr3 --config /etc/keen-pbr3/config.json -d
+/opt/sbin/keen-pbr --config /etc/keen-pbr/config.json -d
 ```
 
 ### Dnsmasq integration
 
-keen-pbr3 generates a dnsmasq config file at `/tmp/keen-pbr3-dnsmasq.conf` with `ipset=` and `server=` directives for domain-based routing. Add this to your dnsmasq configuration:
+keen-pbr generates a dnsmasq config file at `/tmp/keen-pbr-dnsmasq.conf` with `ipset=` and `server=` directives for domain-based routing. Add this to your dnsmasq configuration:
 
 ```
-conf-file=/tmp/keen-pbr3-dnsmasq.conf
+conf-file=/tmp/keen-pbr-dnsmasq.conf
 ```
 
-Then restart dnsmasq after keen-pbr3 starts.
+Then restart dnsmasq after keen-pbr starts.
 
 ## How it works
 

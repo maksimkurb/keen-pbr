@@ -3,7 +3,7 @@ title: Build from Source
 weight: 3
 ---
 
-This page covers building keen-pbr3 from source for native hosts and embedded router targets.
+This page covers building keen-pbr from source for native hosts and embedded router targets.
 
 ## Prerequisites
 
@@ -30,8 +30,8 @@ A `Makefile` wraps all build steps:
 
 ```bash
 # Clone the repository
-git clone https://github.com/maksimkurb/keen-pbr3.git
-cd keen-pbr3
+git clone https://github.com/maksimkurb/keen-pbr.git
+cd keen-pbr
 
 # Build
 make
@@ -50,7 +50,7 @@ make setup    # cmake -S . -B cmake-build
 make build    # cmake --build cmake-build
 ```
 
-The binary is produced at `cmake-build/keen-pbr3`.
+The binary is produced at `cmake-build/keen-pbr`.
 
 ## Build Options
 
@@ -81,8 +81,8 @@ make docker-mips-le-keenetic
 Or run Docker manually:
 
 ```bash
-docker build -f docker/Dockerfile.openwrt -t keen-pbr3-builder .
-docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr3-builder <arch>
+docker build -f docker/Dockerfile.openwrt -t keen-pbr-builder .
+docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr-builder <arch>
 ```
 
 ### Supported Architectures
@@ -96,7 +96,7 @@ docker run --rm -v "$(pwd)/dist:/src/dist" keen-pbr3-builder <arch>
 | `x86_64-openwrt` | x86_64 | OpenWRT routers |
 | `mips-le-keenetic` | MIPS little-endian | Keenetic routers |
 
-Output binaries are placed in `dist/<arch>/keen-pbr3`. Cross-compiled binaries are statically linked.
+Output binaries are placed in `dist/<arch>/keen-pbr`. Cross-compiled binaries are statically linked.
 
 ## Deployment to Router
 
@@ -104,16 +104,16 @@ Copy the binary and a config file to your router:
 
 ```bash
 # Keenetic example
-scp dist/mips-le-keenetic/keen-pbr3 root@192.168.1.1:/opt/sbin/keen-pbr3
-scp config.json root@192.168.1.1:/etc/keen-pbr3/config.json
+scp dist/mips-le-keenetic/keen-pbr root@192.168.1.1:/opt/sbin/keen-pbr
+scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 
 # OpenWRT example
-scp dist/mips-le-openwrt/keen-pbr3 root@192.168.1.1:/usr/sbin/keen-pbr3
-scp config.json root@192.168.1.1:/etc/keen-pbr3/config.json
+scp dist/mips-le-openwrt/keen-pbr root@192.168.1.1:/usr/sbin/keen-pbr
+scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 ```
 
 Run on the router:
 
 ```bash
-/opt/sbin/keen-pbr3 --config /etc/keen-pbr3/config.json -d
+/opt/sbin/keen-pbr --config /etc/keen-pbr/config.json -d
 ```

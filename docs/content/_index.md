@@ -1,5 +1,5 @@
 ---
-title: keen-pbr3
+title: keen-pbr
 layout: hextra-home
 toc: false
 ---
@@ -11,7 +11,7 @@ toc: false
 {{< /hextra/hero-badge >}}
 
 <div class="hx:mt-6 hx:mb-2 hx:flex hx:justify-center">
-  <img src="/logo.svg" alt="keen-pbr3 logo" width="120" height="120" style="border-radius:16px;" />
+  <img src="/logo.svg" alt="keen-pbr logo" width="120" height="120" style="border-radius:16px;" />
 </div>
 
 <div class="hx:mt-4 hx:mb-6">
@@ -116,7 +116,7 @@ toc: false
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Web Interface</h3>
 <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.</p>
 <div style="flex:1;position:relative;overflow:hidden;border-radius:12px 0 0 0;margin:16px -24px -24px 0;min-height:120px;">
-<img src="https://picsum.photos/seed/keen-pbr3-webui/600/400" alt="Web interface screenshot" style="width:120%;max-width:none;height:auto;display:block;border-radius:10px 0 0 0;border-top:1.5px solid rgba(139,92,246,0.3);border-left:1.5px solid rgba(139,92,246,0.3);transform:translate(8%, 8%);box-shadow:-4px -4px 24px rgba(139,92,246,0.12);" />
+<img src="https://picsum.photos/seed/keen-pbr-webui/600/400" alt="Web interface screenshot" style="width:120%;max-width:none;height:auto;display:block;border-radius:10px 0 0 0;border-top:1.5px solid rgba(139,92,246,0.3);border-left:1.5px solid rgba(139,92,246,0.3);transform:translate(8%, 8%);box-shadow:-4px -4px 24px rgba(139,92,246,0.12);" />
 </div>
 </div>
 </div>

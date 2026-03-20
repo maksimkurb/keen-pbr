@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
-  title: keen-pbr3 API
-  description: REST API for the keen-pbr3 policy-based routing daemon.
+  title: keen-pbr API
+  description: REST API for the keen-pbr policy-based routing daemon.
   version: "3.0.0"
 
 servers:
@@ -200,12 +200,12 @@ components:
         pid_file:
           type: string
           description: Path to the PID file.
-          example: "/var/run/keen-pbr3.pid"
+          example: "/var/run/keen-pbr.pid"
         cache_dir:
           type: string
           description: Directory for cached list data.
-          default: "/var/cache/keen-pbr3"
-          example: "/var/cache/keen-pbr3"
+          default: "/var/cache/keen-pbr"
+          example: "/var/cache/keen-pbr"
         strict_enforcement:
           type: boolean
           description: >
@@ -556,7 +556,7 @@ components:
 
     ConfigObject:
       type: object
-      description: keen-pbr3 configuration file.
+      description: keen-pbr configuration file.
       properties:
         daemon:
           $ref: "#/components/schemas/DaemonConfig"
@@ -583,8 +583,8 @@ components:
           $ref: "#/components/schemas/ListsAutoupdateConfig"
       example:
         daemon:
-          pid_file: "/var/run/keen-pbr3.pid"
-          cache_dir: "/var/cache/keen-pbr3"
+          pid_file: "/var/run/keen-pbr.pid"
+          cache_dir: "/var/cache/keen-pbr"
           strict_enforcement: true
         api:
           enabled: true
@@ -964,7 +964,7 @@ components:
       properties:
         chain_present:
           type: boolean
-          description: Whether the keen-pbr3 firewall chain exists.
+          description: Whether the keen-pbr firewall chain exists.
           example: true
         prerouting_hook_present:
           type: boolean
@@ -973,7 +973,7 @@ components:
         detail:
           type: string
           description: Human-readable detail. Omitted when empty.
-          example: "chain keen-pbr3 found in table mangle"
+          example: "chain keen-pbr found in table mangle"
 
     FirewallRuleCheck:
       type: object
@@ -982,7 +982,7 @@ components:
         set_name:
           type: string
           description: IP set or nftables set name for this rule.
-          example: "keen-pbr3-russia"
+          example: "keen-pbr-russia"
         action:
           type: string
           description: Expected firewall action (e.g. "MARK", "DROP").

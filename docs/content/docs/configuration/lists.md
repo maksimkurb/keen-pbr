@@ -36,7 +36,7 @@ Static entries (from `ip_cidrs`, `file`, `url`) are always permanent — they pe
 
 ## List File Format
 
-Whether loaded from `url` or `file`, keen-pbr3 expects one entry per line:
+Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 
 - IPv4 address: `93.184.216.34`
 - IPv4 CIDR: `10.0.0.0/8`
@@ -100,7 +100,7 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 {
   "lists": {
     "local-list": {
-      "file": "/etc/keen-pbr3/my-list.txt"
+      "file": "/etc/keen-pbr/my-list.txt"
     }
   }
 }
@@ -115,7 +115,7 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
       "url": "https://example.com/remote-list.txt",
       "domains": ["extra.example.com"],
       "ip_cidrs": ["192.168.100.0/24"],
-      "file": "/etc/keen-pbr3/local-additions.txt",
+      "file": "/etc/keen-pbr/local-additions.txt",
       "ttl_ms": 86400000
     }
   }

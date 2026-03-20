@@ -1,6 +1,6 @@
 BUILD_DIR := cmake-build
 DIST_DIR := dist
-DOCKER_IMAGE := keen-pbr3-builder
+DOCKER_IMAGE := keen-pbr-builder
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
@@ -33,8 +33,8 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(BUILD_DIR) --target keen-pbr3-tests
-	$(BUILD_DIR)/tests/keen-pbr3-tests
+	cmake --build $(BUILD_DIR) --target keen-pbr-tests
+	$(BUILD_DIR)/tests/keen-pbr-tests
 
 clean: ## Remove build artifacts
 	rm -rf $(BUILD_DIR)
@@ -50,18 +50,18 @@ docker-image: ## Build the Docker builder image
 docker-extract: docker-image ## Extract .ipk packages from Docker image
 	@rm -rf $(DIST_DIR)
 	@mkdir -p $(DIST_DIR)
-	docker rm keen-pbr3-tmp 2>/dev/null || true
-	docker create --name keen-pbr3-tmp $(DOCKER_IMAGE)
-	docker cp keen-pbr3-tmp:/home/me/openwrt/bin/packages/. $(DIST_DIR)/
-	docker rm keen-pbr3-tmp
+	docker rm keen-pbr-tmp 2>/dev/null || true
+	docker create --name keen-pbr-tmp $(DOCKER_IMAGE)
+	docker cp keen-pbr-tmp:/home/me/openwrt/bin/packages/. $(DIST_DIR)/
+	docker rm keen-pbr-tmp
 
 ## Cross-compilation for aarch64_cortex-a53 + deploy ##########################
 
 CROSS_TOOLCHAIN_DIR   := cross-toolchain
 CROSS_TOOLCHAIN_STAMP := $(CROSS_TOOLCHAIN_DIR)/.stamp-extracted
 CROSS_BUILD_DIR       := cmake-build-aarch64
-CROSS_BIN             := $(DIST_DIR)/keen-pbr3-aarch64
-CROSS_DEBUG_BIN       := $(DIST_DIR)/keen-pbr3-aarch64.debug
+CROSS_BIN             := $(DIST_DIR)/keen-pbr-aarch64
+CROSS_DEBUG_BIN       := $(DIST_DIR)/keen-pbr-aarch64.debug
 CROSS_OBJCOPY         := $(shell ls $(CROSS_TOOLCHAIN_DIR)/toolchain-*/bin/aarch64-openwrt-linux-musl-objcopy 2>/dev/null | head -1)
 # runas.so (LD_PRELOAD'd by the compiler wrapper) uses STAGING_DIR to redirect
 # the compiler's baked-in absolute sysroot paths to the actual extracted location.
@@ -76,7 +76,7 @@ OPENWRT_SDK_URL ?= https://archive.openwrt.org/releases/24.10.3/targets/mediatek
 ROUTER_HOST ?=
 ROUTER_USER ?= root
 ROUTER_PORT ?= 22
-ROUTER_DEST ?= /tmp/keen-pbr3
+ROUTER_DEST ?= /tmp/keen-pbr
 
 cross-setup: ## Download OpenWrt SDK and build cross-compile deps (no Docker; requires OPENWRT_SDK_URL)
 	@test -n "$(OPENWRT_SDK_URL)" || { \
@@ -97,10 +97,10 @@ cross-build: $(CROSS_TOOLCHAIN_STAMP) ## Cross-compile for aarch64_cortex-a53 di
 	STAGING_DIR=$(CROSS_STAGING_DIR) cmake --build $(CROSS_BUILD_DIR) -j$(shell nproc)
 	@mkdir -p $(DIST_DIR)
 	# Extract full debug symbols into a separate .debug file (stays on the host)
-	$(CROSS_OBJCOPY) --only-keep-debug $(CROSS_BUILD_DIR)/keen-pbr3 $(CROSS_DEBUG_BIN)
+	$(CROSS_OBJCOPY) --only-keep-debug $(CROSS_BUILD_DIR)/keen-pbr $(CROSS_DEBUG_BIN)
 	# Strip DWARF from the deployed binary (symbol table kept — backtrace() still resolves names)
 	$(CROSS_OBJCOPY) --strip-debug --add-gnu-debuglink=$(CROSS_DEBUG_BIN) \
-		$(CROSS_BUILD_DIR)/keen-pbr3 $(CROSS_BIN)
+		$(CROSS_BUILD_DIR)/keen-pbr $(CROSS_BIN)
 	@echo "Binary:        $(CROSS_BIN)"
 	@echo "Debug symbols: $(CROSS_DEBUG_BIN)"
 	@echo "Resolve crash addresses: addr2line -e $(CROSS_DEBUG_BIN) <address>"

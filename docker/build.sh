@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build keen-pbr3 for a specified architecture using Meson.
+# Build keen-pbr for a specified architecture using Meson.
 #
 # Usage: ./docker/build.sh <architecture>
 #
@@ -30,7 +30,7 @@ if [ ! -f "$CROSS_FILE" ]; then
     exit 1
 fi
 
-echo "=== Building keen-pbr3 for ${ARCH} ==="
+echo "=== Building keen-pbr for ${ARCH} ==="
 echo "Project dir: ${PROJECT_DIR}"
 echo "Build dir:   ${BUILD_DIR}"
 echo "Cross-file:  ${CROSS_FILE}"
@@ -51,12 +51,12 @@ meson compile -C "$BUILD_DIR"
 # Step 3: Copy binary to dist directory
 echo "--- Collecting output ---"
 mkdir -p "$DIST_DIR"
-if [ -f "$BUILD_DIR/keen-pbr3" ]; then
-    cp "$BUILD_DIR/keen-pbr3" "$DIST_DIR/keen-pbr3"
-    echo "Binary: ${DIST_DIR}/keen-pbr3"
-    file "$DIST_DIR/keen-pbr3"
+if [ -f "$BUILD_DIR/keen-pbr" ]; then
+    cp "$BUILD_DIR/keen-pbr" "$DIST_DIR/keen-pbr"
+    echo "Binary: ${DIST_DIR}/keen-pbr"
+    file "$DIST_DIR/keen-pbr"
 else
-    echo "Warning: Binary not found at ${BUILD_DIR}/keen-pbr3"
+    echo "Warning: Binary not found at ${BUILD_DIR}/keen-pbr"
     echo "Build directory contents:"
     ls -la "$BUILD_DIR/"
 fi
