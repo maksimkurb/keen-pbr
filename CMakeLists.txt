@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
-project(keen-pbr3 VERSION 3.0.0 LANGUAGES CXX)
+project(keen-pbr VERSION 3.0.0 LANGUAGES CXX)
 
 if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
-  message(FATAL_ERROR "keen-pbr3 requires CMAKE_CXX_STANDARD=17.")
+  message(FATAL_ERROR "keen-pbr requires CMAKE_CXX_STANDARD=17.")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -98,14 +98,14 @@ if(WITH_API)
 endif()
 
 # Executable
-add_executable(keen-pbr3 ${SOURCES})
-set_target_properties(keen-pbr3 PROPERTIES
+add_executable(keen-pbr ${SOURCES})
+set_target_properties(keen-pbr PROPERTIES
   CXX_STANDARD 17
   CXX_STANDARD_REQUIRED YES
   CXX_EXTENSIONS NO
 )
-target_include_directories(keen-pbr3 PRIVATE include)
-target_link_libraries(keen-pbr3 PRIVATE
+target_include_directories(keen-pbr PRIVATE include)
+target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
@@ -114,15 +114,15 @@ target_link_libraries(keen-pbr3 PRIVATE
 )
 
 if(WITH_API)
-  target_compile_definitions(keen-pbr3 PRIVATE WITH_API)
-  target_link_libraries(keen-pbr3 PRIVATE httplib::httplib)
+  target_compile_definitions(keen-pbr PRIVATE WITH_API)
+  target_link_libraries(keen-pbr PRIVATE httplib::httplib)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-  target_link_libraries(keen-pbr3 PRIVATE stdc++fs)
+  target_link_libraries(keen-pbr PRIVATE stdc++fs)
 endif()
 
-install(TARGETS keen-pbr3 DESTINATION bin)
+install(TARGETS keen-pbr DESTINATION bin)
 
 # Unit tests (optional, requires doctest submodule)
 option(BUILD_TESTS "Build unit tests" OFF)

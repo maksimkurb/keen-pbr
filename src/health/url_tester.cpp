@@ -48,7 +48,7 @@ URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, static_cast<long>(timeout_ms));
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "keen-pbr3-urltest");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "keen-pbr-urltest");
 
     // Route test traffic through the outbound's fwmark via SO_MARK
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_callback);

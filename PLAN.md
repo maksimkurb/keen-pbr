@@ -1,4 +1,4 @@
-# keen-pbr3 Feature Backlog
+# keen-pbr Feature Backlog
 
 Features sourced from OpenWrt PBR (openwrt-22.03) gap analysis. Ordered by priority.
 
@@ -71,7 +71,7 @@ the wrong interface.
 
 **How it works:**
 PREROUTING only intercepts forwarded packets. Traffic originating from the router itself
-(e.g., DNS queries, curl) bypasses PREROUTING and is not subject to keen-pbr3 marking.
+(e.g., DNS queries, curl) bypasses PREROUTING and is not subject to keen-pbr marking.
 Adding equivalent rules to the OUTPUT chain lets the router's own traffic be
 policy-routed through the configured outbounds.
 
@@ -98,7 +98,7 @@ state and prints a human-readable summary of:
 Works without the REST API being enabled or the daemon running.
 
 **Acceptance criteria:**
-- `keen-pbr3 --config <path> status` exits 0 and prints a readable report.
+- `keen-pbr --config <path> status` exits 0 and prints a readable report.
 - Output includes per-outbound routing table summary and ip rule listing.
 - Output includes firewall chain/set status (present / missing).
 - Works when the daemon is not running (reads kernel state directly).
@@ -112,7 +112,7 @@ Works without the REST API being enabled or the daemon running.
 The `detour` field in `dns.servers` is parsed and stored but never acted upon. The
 `generate-resolver-config` subcommand emits `server=<domain>/<ip>` directives that tell
 dnsmasq *which IP* to query, but nothing ensures that DNS traffic to that IP actually
-goes through the specified outbound interface. To make `detour` work, keen-pbr3 must
+goes through the specified outbound interface. To make `detour` work, keen-pbr must
 create firewall mark rules for each DNS server that has a `detour` tag, so that UDP/TCP
 packets destined for `server.address:53` are marked with the fwmark of the named outbound
 and thus routed through it.
@@ -135,7 +135,7 @@ and thus routed through it.
 The `dns.fallback` server tag is validated and stored in `DnsServerRegistry` but never
 used in `DnsmasqGenerator::generate()`. No global `server=<ip>` directive is emitted,
 so dnsmasq uses its own default upstream for domains not covered by any DNS rule — not
-the one configured in keen-pbr3. A bare `server=<fallback_ip>` line (without a domain
+the one configured in keen-pbr. A bare `server=<fallback_ip>` line (without a domain
 path) should be appended to the generated config so dnsmasq forwards unmatched queries
 to the intended server.
 

@@ -1,6 +1,6 @@
-# keen-pbr3 UI User Stories
+# keen-pbr UI User Stories
 
-This document describes the current wireframed UI for `keen-pbr3`.
+This document describes the current wireframed UI for `keen-pbr`.
 The intended implementation target is the existing `frontend/` app:
 React + TypeScript + Vite, using `shadcn/ui` and Base UI, with no server-side rendering.
 

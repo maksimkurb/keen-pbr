@@ -318,7 +318,7 @@ int count_failed_checks(const RoutingHealthReport& report,
 }
 
 void print_header(const RoutingHealthReport& report, const std::string& config_path) {
-    std::cout << "keen-pbr3 status - config: " << config_path << "\n";
+    std::cout << "keen-pbr status - config: " << config_path << "\n";
     if (!report.firewall_backend.empty()) {
         std::cout << "Firewall backend: " << report.firewall_backend << "\n";
     } else {

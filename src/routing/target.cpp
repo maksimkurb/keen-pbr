@@ -27,7 +27,7 @@ RoutingDecision resolve_route_action(
         return RoutingDecision::none();
     }
 
-    // IGNORE type means skip (not managed by keen-pbr3)
+    // IGNORE type means skip (not managed by keen-pbr)
     if (ob->type == OutboundType::IGNORE) {
         return RoutingDecision::skip();
     }

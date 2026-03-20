@@ -14,7 +14,7 @@ COPY --chown=me:me packages /home/me/openwrt/owrt-packages
 RUN ./owrt-packages/feeds.sh
 
 # Copy project source (invalidates cache on source changes, but feeds are already cached)
-COPY --chown=me:me . /home/me/keen-pbr3-src
+COPY --chown=me:me . /home/me/keen-pbr-src
 
 ARG ROUTER_CONFIG=${ROUTER_CONFIG}
 

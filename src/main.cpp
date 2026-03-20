@@ -17,7 +17,7 @@
 #  define KEEN_HAS_EXECINFO 0
 #endif
 
-#include <keen-pbr3/version.hpp>
+#include <keen-pbr/version.hpp>
 
 #include "cache/cache_manager.hpp"
 #include "config/config.hpp"
@@ -34,7 +34,7 @@ namespace {
 
 #if !KEEN_HAS_EXECINFO
 // musl / no-execinfo fallback: collect frames via libgcc's unwinder,
-// print raw addresses (resolve later with: addr2line -e keen-pbr3.debug <addr>)
+// print raw addresses (resolve later with: addr2line -e keen-pbr.debug <addr>)
 struct UnwindState { void** frames; int count; int max; };
 
 _Unwind_Reason_Code unwind_cb(struct _Unwind_Context* ctx, void* arg) {
@@ -80,7 +80,7 @@ void crash_handler(int signum, siginfo_t* /*info*/, void* /*context*/) {
     void* frames[64];
     UnwindState state{frames, 0, 64};
     _Unwind_Backtrace(unwind_cb, &state);
-    const char hint[] = "(raw addresses — resolve with: addr2line -e keen-pbr3.debug <addr>)\n";
+    const char hint[] = "(raw addresses — resolve with: addr2line -e keen-pbr.debug <addr>)\n";
     write(STDERR_FILENO, hint, sizeof(hint) - 1);
     for (int i = 0; i < state.count; ++i)
         write_hex_addr(reinterpret_cast<uintptr_t>(frames[i]));
@@ -104,7 +104,7 @@ void install_crash_handler() {
 }
 
 struct CliOptions {
-    std::string config_path{"/etc/keen-pbr3/config.json"};
+    std::string config_path{"/etc/keen-pbr/config.json"};
     std::string log_level{"info"};
     bool no_api{false};
     bool run_service{false};
@@ -123,7 +123,7 @@ void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options] <command>\n"
               << "\n"
               << "Options:\n"
-              << "  --config <path>    Path to JSON config file (default: /etc/keen-pbr3/config.json)\n"
+              << "  --config <path>    Path to JSON config file (default: /etc/keen-pbr/config.json)\n"
               << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
               << "  --no-api           Disable REST API at runtime\n"
               << "  --version          Show version and exit\n"
@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
     CliOptions opts = parse_args(argc, argv);
 
     if (opts.show_version) {
-        std::cout << "keen-pbr3 " << KEEN_PBR3_VERSION_STRING << "\n";
+        std::cout << "keen-pbr " << KEEN_PBR3_VERSION_STRING << "\n";
         return 0;
     }
 
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
 
         if (opts.run_test_routing) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+                                       .cache_dir.value_or("/var/cache/keen-pbr");
             keen_pbr3::CacheManager cache(cache_dir);
             return keen_pbr3::run_test_routing_command(config, cache, opts.test_routing_target);
         }
@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
         // Handle download command: download all lists to cache, count entries, exit
         if (opts.download_lists) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+                                       .cache_dir.value_or("/var/cache/keen-pbr");
             keen_pbr3::CacheManager cache(cache_dir);
             cache.ensure_dir();
             for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{})) {
@@ -284,7 +284,7 @@ int main(int argc, char* argv[]) {
         // Handle resolver-config-hash command: print MD5 of full generated directives, exit
         if (opts.resolver_config_hash) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+                                       .cache_dir.value_or("/var/cache/keen-pbr");
             keen_pbr3::CacheManager cache(cache_dir);
             keen_pbr3::ListStreamer streamer(cache);
             const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
@@ -302,7 +302,7 @@ int main(int argc, char* argv[]) {
         // Handle generate-resolver-config command: load lists, generate, print, exit
         if (opts.generate_resolver_config) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr3");
+                                       .cache_dir.value_or("/var/cache/keen-pbr");
             keen_pbr3::CacheManager cache(cache_dir);
             cache.ensure_dir();
             // Download lists that aren't already cached
@@ -333,7 +333,7 @@ int main(int argc, char* argv[]) {
 
         // Construct Daemon with all subsystems and run
         if (opts.run_service) {
-            logger.info("keen-pbr3 {} starting...", KEEN_PBR3_VERSION_STRING);
+            logger.info("keen-pbr {} starting...", KEEN_PBR3_VERSION_STRING);
             keen_pbr3::DaemonOptions daemon_opts;
             daemon_opts.no_api = opts.no_api;
 

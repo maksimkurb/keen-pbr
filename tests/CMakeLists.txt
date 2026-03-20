@@ -1,4 +1,4 @@
-add_executable(keen-pbr3-tests
+add_executable(keen-pbr-tests
   test_main.cpp
   test_firewall_verifier.cpp
   test_nftables_builder.cpp
@@ -33,15 +33,15 @@ add_executable(keen-pbr3-tests
   ../src/routing/route_table.cpp
   ../src/routing/target.cpp
 )
-set_target_properties(keen-pbr3-tests PROPERTIES
+set_target_properties(keen-pbr-tests PROPERTIES
   CXX_STANDARD 17
   CXX_STANDARD_REQUIRED YES
   CXX_EXTENSIONS NO
 )
 
-target_compile_definitions(keen-pbr3-tests PRIVATE KEEN_PBR3_TESTING)
+target_compile_definitions(keen-pbr-tests PRIVATE KEEN_PBR3_TESTING)
 
-target_include_directories(keen-pbr3-tests PRIVATE
+target_include_directories(keen-pbr-tests PRIVATE
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/third_party/doctest
@@ -50,7 +50,7 @@ target_include_directories(keen-pbr3-tests PRIVATE
   ${LIBNL_ROUTE_INCLUDE_DIRS}
 )
 
-target_link_libraries(keen-pbr3-tests PRIVATE
+target_link_libraries(keen-pbr-tests PRIVATE
   nlohmann_json::nlohmann_json
   CURL::libcurl
   PkgConfig::LIBNL
@@ -59,5 +59,5 @@ target_link_libraries(keen-pbr3-tests PRIVATE
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-  target_link_libraries(keen-pbr3-tests PRIVATE stdc++fs)
+  target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)
 endif()

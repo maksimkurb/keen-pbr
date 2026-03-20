@@ -3,7 +3,7 @@ title: Configuration
 weight: 3
 ---
 
-keen-pbr3 is configured via a JSON file. The default path is `/etc/keen-pbr3/config.json`, overridable with `--config`.
+keen-pbr is configured via a JSON file. The default path is `/etc/keen-pbr/config.json`, overridable with `--config`.
 
 ## Top-Level Keys
 
@@ -28,8 +28,8 @@ The following is the full annotated example configuration:
 ```json
 {
   "daemon": {
-    "pid_file": "/var/run/keen-pbr3.pid",
-    "cache_dir": "/var/cache/keen-pbr3"
+    "pid_file": "/var/run/keen-pbr.pid",
+    "cache_dir": "/var/cache/keen-pbr"
   },
 
   "api": {

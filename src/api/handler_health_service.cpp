@@ -3,7 +3,7 @@
 #include "handler_health_service.hpp"
 #include "generated/api_types.hpp"
 
-#include <keen-pbr3/version.hpp>
+#include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
 #include <shared_mutex>
 

@@ -3,7 +3,7 @@ title: DNS
 weight: 4
 ---
 
-keen-pbr3 integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a `generate-resolver-config` subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its `conf-script=` directive.
+keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a `generate-resolver-config` subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its `conf-script=` directive.
 
 ## Configuration
 
@@ -29,7 +29,7 @@ keen-pbr3 integrates with dnsmasq to route DNS queries for specific domain lists
 
 ## DNS Test Server
 
-`dns.test_server` enables a minimal DNS server inside keen-pbr3. It listens on
+`dns.test_server` enables a minimal DNS server inside keen-pbr. It listens on
 the configured IPv4 `host:port`, accepts both UDP and TCP DNS requests, logs
 the queried name, and always replies with one synthetic `A` record.
 
@@ -82,7 +82,7 @@ The `detour` field binds DNS queries for this server to a specific outbound. Thi
 
 ### How `detour` works
 
-When `detour` is set, keen-pbr3 installs a firewall mark rule for UDP **and**
+When `detour` is set, keen-pbr installs a firewall mark rule for UDP **and**
 TCP traffic whose destination is `<server.address>:<server.port>` (default port
 53). The rule marks those packets with the fwmark of the referenced outbound,
 so the kernel routes DNS queries through that outbound's routing table — the
@@ -120,7 +120,7 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 
 ## dnsmasq Integration
 
-keen-pbr3 provides the `generate-resolver-config` subcommand that prints `server=` and `ipset=`/`nftset=` directives to stdout for every domain in the configured lists.
+keen-pbr provides the `generate-resolver-config` subcommand that prints `server=` and `ipset=`/`nftset=` directives to stdout for every domain in the configured lists.
 
 Two resolver types are supported:
 
@@ -129,19 +129,19 @@ Two resolver types are supported:
 | `dnsmasq-ipset` | `ipset=` | iptables/ipset backend |
 | `dnsmasq-nftset` | `nftset=` | nftables backend |
 
-Use dnsmasq's `conf-script=` directive to call keen-pbr3 directly — no intermediate file needed:
+Use dnsmasq's `conf-script=` directive to call keen-pbr directly — no intermediate file needed:
 
 ```
-conf-script=/usr/sbin/keen-pbr3 generate-resolver-config dnsmasq-nftset
+conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset
 ```
 
 Restart dnsmasq after adding this line. dnsmasq will re-run the script on each reload.
 
 {{< callout type="info" >}}
-To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr3 against the TXT record dnsmasq exposes (written by `generate-resolver-config`):
+To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr against the TXT record dnsmasq exposes (written by `generate-resolver-config`):
 
 ```bash
-# Hash known to keen-pbr3
+# Hash known to keen-pbr
 curl -s http://127.0.0.1:8080/api/health/service | grep resolver_config_hash
 
 # Hash dnsmasq is currently using

@@ -7,13 +7,13 @@ This guide walks you through a minimal working configuration that routes traffic
 
 ## Minimal Configuration
 
-Create `/etc/keen-pbr3/config.json`:
+Create `/etc/keen-pbr/config.json`:
 
 ```json
 {
   "daemon": {
-    "pid_file": "/var/run/keen-pbr3.pid",
-    "cache_dir": "/var/cache/keen-pbr3"
+    "pid_file": "/var/run/keen-pbr.pid",
+    "cache_dir": "/var/cache/keen-pbr"
   },
   "outbounds": [
     {
@@ -55,13 +55,13 @@ This config:
 ## Run the Daemon
 
 ```bash
-keen-pbr3 --config /etc/keen-pbr3/config.json
+keen-pbr --config /etc/keen-pbr/config.json
 ```
 
 Add `-d` to run as a background daemon:
 
 ```bash
-keen-pbr3 --config /etc/keen-pbr3/config.json -d
+keen-pbr --config /etc/keen-pbr/config.json -d
 ```
 
 ## Verify Routing

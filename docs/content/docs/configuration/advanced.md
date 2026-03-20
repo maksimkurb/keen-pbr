@@ -12,13 +12,13 @@ Controls the PID file path and cache directory.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `pid_file` | string | — | Path to write the PID file |
-| `cache_dir` | string | `/var/cache/keen-pbr3` | Directory for cached list data |
+| `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
 
 ```json
 {
   "daemon": {
-    "pid_file": "/var/run/keen-pbr3.pid",
-    "cache_dir": "/var/cache/keen-pbr3"
+    "pid_file": "/var/run/keen-pbr.pid",
+    "cache_dir": "/var/cache/keen-pbr"
   }
 }
 ```
@@ -110,5 +110,5 @@ The `cron` field uses the standard 5-field format: `minute hour day-of-month mon
 The `cron` field is validated even when `enabled` is `false`.
 
 You can also trigger a manual refresh at any time:
-- Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr3.pid)`
+- Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr.pid)`
 - Call `POST /api/reload`

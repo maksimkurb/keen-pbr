@@ -1,6 +1,6 @@
 baseURL: https://example.org/
 languageCode: en-us
-title: keen-pbr3
+title: keen-pbr
 
 module:
   imports:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <keen-pbr3/version.hpp>
+#include <keen-pbr/version.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -46,7 +46,7 @@ public:
 
 private:
     std::chrono::seconds timeout_{30};
-    std::string user_agent_{"keen-pbr3/" KEEN_PBR3_VERSION_STRING};
+    std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
     uint32_t fwmark_{0};
 };
 

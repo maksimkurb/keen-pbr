@@ -97,7 +97,7 @@ curl http://127.0.0.1:8080/api/config
 
 ```json
 {
-  "daemon": { "pid_file": "/var/run/keen-pbr3.pid", "cache_dir": "/var/cache/keen-pbr3" },
+  "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
   "api": { "enabled": true, "listen": "127.0.0.1:8080" },
   "outbounds": [...],
   "lists": {...},
@@ -161,11 +161,11 @@ curl http://127.0.0.1:8080/api/health/routing
   "firewall": {
     "chain_present": true,
     "prerouting_hook_present": true,
-    "detail": "chain keen-pbr3 found in table mangle"
+    "detail": "chain keen-pbr found in table mangle"
   },
   "firewall_rules": [
     {
-      "set_name": "keen-pbr3-my-domains",
+      "set_name": "keen-pbr-my-domains",
       "action": "MARK",
       "expected_fwmark": "0x00010000",
       "actual_fwmark": "0x00010000",

@@ -34,7 +34,7 @@ private:
     std::vector<ConfigValidationIssue> issues_;
 };
 
-// Type aliases: map generated QuickType names to conventional keen-pbr3 names.
+// Type aliases: map generated QuickType names to conventional keen-pbr names.
 // All config structs now live in api:: with full from_json/to_json support.
 using Config               = api::ConfigObject;
 using DaemonConfig         = api::Daemon;
