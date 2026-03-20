@@ -22,3 +22,5 @@ _deps/
 !cmake/*.cmake
 .clangd
 /**/__pycache__
+
+release_files/

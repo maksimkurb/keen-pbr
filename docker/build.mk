@@ -10,7 +10,7 @@ KEENETIC_CONTAINER = keen-pbr-keenetic-$(KEENETIC_ARCH)
 KEENETIC_IMAGE = $(DOCKER_KEENETIC_IMAGE_PREFIX):$(KEENETIC_ARCH)
 OPENWRT_CONTAINER = keen-pbr-openwrt-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 
-.PHONY: docker-build-keenetic docker-build-openwrt docker-build-openwrt-image docker-build-keenetic-image docker-clean-keenetic docker-clean-openwrt
+.PHONY: docker-build-keenetic docker-build-openwrt docker-build-openwrt-image docker-build-keenetic-image docker-clean-keenetic docker-clean-openwrt list-openwrt-targets
 
 define require_var
 	@test -n "$($1)" || { \
@@ -26,6 +26,9 @@ docker-build-keenetic-image:
 
 docker-build-openwrt-image:
 	docker build -f docker/Dockerfile.openwrt-builder -t "$(DOCKER_OPENWRT_IMAGE)" .
+
+list-openwrt-targets: ## List available OpenWrt targets from the workflow discovery script (optional OPENWRT_VERSION/OPENWRT_TARGET/OPENWRT_SUBTARGET filters)
+	@python3 "$(REPO_ROOT)/docker/list_openwrt_targets.py" "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" "$(REPO_ROOT)"
 
 docker-build-keenetic: docker-build-keenetic-image ## Build Keenetic package locally in a persistent builder container (requires KEENETIC_ARCH=...)
 	$(call require_var,KEENETIC_ARCH,KEENETIC_ARCH=<aarch64-3.10|mips-3.4|mipsel-3.4|x64-3.2|armv7-3.2> make docker-build-keenetic)
