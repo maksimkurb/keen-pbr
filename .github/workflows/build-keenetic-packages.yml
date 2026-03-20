@@ -13,7 +13,7 @@ jobs:
       image: ghcr.io/maksimkurb/entware-builder:mipsel-3.4
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Build package
@@ -33,7 +33,7 @@ jobs:
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
           done
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "keen-pbr-keenetic-mipsel-3.4"
           path: release_files/*.ipk

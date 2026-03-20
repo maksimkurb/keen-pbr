@@ -60,7 +60,7 @@ jobs:
       image: ghcr.io/maksimkurb/entware-builder:${{ matrix.build_env.config_name }}
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Build package
@@ -80,7 +80,7 @@ jobs:
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "keen-pbr-keenetic-${{ matrix.build_env.config_name }}"
           path: release_files/*.ipk

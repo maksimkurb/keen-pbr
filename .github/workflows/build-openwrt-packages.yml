@@ -15,7 +15,7 @@ jobs:
     name: "mediatek/filogic"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: src
           submodules: recursive
@@ -52,7 +52,7 @@ jobs:
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
       - name: Upload validation artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: keen-pbr-validate
           path: |

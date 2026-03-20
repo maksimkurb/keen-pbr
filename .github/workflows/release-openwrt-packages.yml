@@ -22,7 +22,7 @@ jobs:
     outputs:
       job-config: ${{ steps.gen.outputs.job-config }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: src
           submodules: recursive
@@ -44,7 +44,7 @@ jobs:
       matrix:
         build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: src
           submodules: recursive
@@ -89,7 +89,7 @@ jobs:
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_openwrt_${{ matrix.build_env.target }}_${{ matrix.build_env.subtarget }}.${EXT}"
           done
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: "keen-pbr-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}"
           path: |
