@@ -80,13 +80,17 @@ Config parse_config(const std::string& json_str) {
     try {
         parsed_json = json::parse(json_str);
     } catch (const json::parse_error& e) {
-        throw ConfigValidationError({{"$", std::string("Invalid JSON: ") + e.what()}});
+        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
+            {"$", std::string("Invalid JSON: ") + e.what()}
+        });
     }
 
     try {
         cfg = parsed_json.get<Config>();
     } catch (const json::exception& e) {
-        throw ConfigValidationError({{"$", e.what()}});
+        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
+            {"$", e.what()}
+        });
     }
 
     std::vector<ConfigValidationIssue> issues;
