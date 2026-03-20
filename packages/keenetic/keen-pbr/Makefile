@@ -30,8 +30,8 @@ CMAKE_OPTIONS += \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 
 define Package/keen-pbr/install
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/keen-pbr $(1)/usr/sbin/keen-pbr
+	$(INSTALL_DIR) $(1)/opt/usr/bin
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/opt/bin/keen-pbr $(1)/opt/usr/bin/keen-pbr
 endef
 
 $(eval $(call BuildPackage,keen-pbr))
