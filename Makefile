@@ -1,6 +1,5 @@
 BUILD_DIR := cmake-build
 DIST_DIR := dist
-DOCKER_IMAGE := keen-pbr-builder
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
@@ -11,7 +10,6 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 .PHONY: all build clean distclean setup \
         test \
         generate \
-        docker-image docker-extract \
         cross-setup cross-build cross-deploy \
         help
 
@@ -41,19 +39,6 @@ clean: ## Remove build artifacts
 
 distclean: clean ## Remove build and dist directories
 	rm -rf $(DIST_DIR)
-
-## Docker cross-compilation ####################################################
-
-docker-image: ## Build the Docker builder image
-	 docker build -f docker/Dockerfile.packages -t $(DOCKER_IMAGE) --build-arg ROUTER_CONFIG=$(ROUTER_CONFIG) .
-
-docker-extract: docker-image ## Extract .ipk packages from Docker image
-	@rm -rf $(DIST_DIR)
-	@mkdir -p $(DIST_DIR)
-	docker rm keen-pbr-tmp 2>/dev/null || true
-	docker create --name keen-pbr-tmp $(DOCKER_IMAGE)
-	docker cp keen-pbr-tmp:/home/me/openwrt/bin/packages/. $(DIST_DIR)/
-	docker rm keen-pbr-tmp
 
 ## Cross-compilation for aarch64_cortex-a53 + deploy ##########################
 
