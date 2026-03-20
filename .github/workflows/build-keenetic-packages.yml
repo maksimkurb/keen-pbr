@@ -21,15 +21,15 @@ jobs:
         run: |
           printf '\nsrc-link keenPbr %s/packages/keenetic\n' "$GITHUB_WORKSPACE" >> feeds.conf
           ./scripts/feeds update keenPbr
-          ./scripts/feeds install keen-pbr3 -p keenPbr
+          ./scripts/feeds install -p keenPbr keen-pbr
           cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
-          make package/keen-pbr3/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
+          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
           mkdir -p release_files
-          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr3/Makefile | head -1)
-          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr3*.ipk' | while read -r f; do
+          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
+          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr*.ipk' | while read -r f; do
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
           done
       - name: Upload packaged artifacts
