@@ -38,23 +38,15 @@ signal_service() {
 
 prepare_start() {
     disable_hwnat
-    if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" configure || true
-        "$DNSMASQ_HELPER" reload || true
-    fi
+    reapply_dnsmasq_config || true
 }
 
 prepare_stop() {
-    if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" restore || true
-        "$DNSMASQ_HELPER" reload || true
-    fi
     enable_hwnat
 }
 
 reapply_dnsmasq_config() {
     if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" configure || return 1
         "$DNSMASQ_HELPER" reload || true
     fi
 }

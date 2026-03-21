@@ -1,42 +1,11 @@
 #!/bin/sh
 
-KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
-CONFIG_PATH="/opt/etc/keen-pbr/config.json"
-
-resolver_type() {
-    echo "dnsmasq-ipset"
-}
-
-conf_dir() {
-    for dir in /opt/etc/dnsmasq.d /etc/dnsmasq.d /tmp/dnsmasq.d; do
-        if [ -d "$dir" ]; then
-            echo "$dir"
-            return 0
-        fi
-    done
-
-    echo "/opt/etc/dnsmasq.d"
-}
-
-snippet_path() {
-    printf "%s/keen-pbr.conf\n" "$(conf_dir)"
-}
-
 configure_dnsmasq() {
-    local dir file
-
-    dir="$(conf_dir)"
-    file="$(snippet_path)"
-    mkdir -p "$dir"
-
-    cat >"$file" <<EOF
-# Managed by keen-pbr. Removed automatically on service stop.
-conf-script=${KEEN_PBR_BIN} --config ${CONFIG_PATH} generate-resolver-config $(resolver_type)
-EOF
+    :
 }
 
 restore_dnsmasq() {
-    rm -f "$(snippet_path)"
+    :
 }
 
 reload_dnsmasq() {

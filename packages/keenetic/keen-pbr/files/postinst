@@ -2,6 +2,8 @@
 
 NDM_IFLAYER="/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh"
 NDM_IFSTATE="/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh"
+DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
+DNSMASQ_TEMPLATE="/opt/etc/keen-pbr/dnsmasq.conf.template"
 
 echo "keen-pbr installation"
 echo "------------------------"
@@ -14,6 +16,12 @@ if [ -n "$NDM_MAJOR_VERSION" ] && [ "$NDM_MAJOR_VERSION" -ge 4 ]; then
 else
     echo "KeeneticOS major version is ${NDM_MAJOR_VERSION:-unknown}, using ifstatechanged.d hook"
     rm -f "$NDM_IFLAYER"
+fi
+
+mkdir -p /opt/etc/dnsmasq.d
+
+if [ ! -e "$DNSMASQ_CONF" ] && [ -f "$DNSMASQ_TEMPLATE" ]; then
+    cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
 fi
 
 echo ""

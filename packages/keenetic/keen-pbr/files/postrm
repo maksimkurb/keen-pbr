@@ -1,6 +1,6 @@
 #!/bin/sh
 
-rm -f /opt/etc/dnsmasq.d/keen-pbr.conf
+rm -f /opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
 rm -f /etc/dnsmasq.d/keen-pbr.conf
 rm -f /tmp/dnsmasq.d/keen-pbr.conf
 

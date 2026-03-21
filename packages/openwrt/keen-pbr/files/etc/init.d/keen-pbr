@@ -3,9 +3,15 @@
 USE_PROCD=1
 START=95
 STOP=10
-EXTRA_COMMANDS="reapply-firewall reapply-dnsmasq-config"
-EXTRA_HELP="        reapply-firewall        Send SIGUSR1 to the running service
-        reapply-dnsmasq-config  Regenerate keen-pbr dnsmasq config and reload dnsmasq"
+
+if type extra_command >/dev/null 2>&1; then
+    extra_command "reapply_firewall" "Send SIGUSR1 to the running service"
+    extra_command "reapply_dnsmasq_config" "Regenerate keen-pbr dnsmasq config and reload dnsmasq"
+else
+    EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config"
+    EXTRA_HELP="        reapply_firewall        Send SIGUSR1 to the running service
+        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and reload dnsmasq"
+fi
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
