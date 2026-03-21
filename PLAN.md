@@ -1,259 +1,395 @@
-# keen-pbr Feature Backlog
+## План работ
 
-Features sourced from OpenWrt PBR (openwrt-22.03) gap analysis. Ordered by priority.
+### 1. Keenetic DNS
 
----
+#### 1.1. Переиспользовать встроенный DNS-сервер для DoH / DoT
 
-## 1. Kill-switch during reload
+Статус: `TODO`
 
-**How it works:**
-Before tearing down existing firewall rules during a reload (SIGHUP / POST /api/reload /
-list autoupdate), insert a temporary DROP rule on the FORWARD chain that blocks all
-LAN→WAN traffic. After the new rules are fully applied, remove the temporary block.
-This prevents traffic from silently leaking through the wrong (or no) interface during
-the brief window when the firewall has been cleared but not yet rebuilt.
+Разработка:
 
-**Acceptance criteria:**
-- During `full_reload()`, all forwarded traffic is blocked for the duration of the teardown+rebuild cycle.
-- The temporary block is always removed — even if `apply_firewall()` throws an exception.
-- A config option (e.g., `daemon.secure_reload: true`, default `true`) controls the feature.
-- Normal steady-state traffic is unaffected when no reload is happening.
-- `make test` passes.
+- добавить новый тип DNS-сервера в конфигурацию, например:
+  `{ "tag": "keenetic-dns", "type": "keenetic" }`;
+- сделать поддержку DNS-сервера типа `keenetic` опциональной compile-time feature,
+  которая включается только при сборке с CMake-флагом `USE_KEENETIC_API`;
+- определить контракт для DNS-серверов типа `keenetic`: у такого сервера IP-адрес не
+  задаётся вручную, а получается динамически через Keenetic API (`RCI`);
+- если `USE_KEENETIC_API` выключен, конфигурация с `type: "keenetic"` должна либо
+  быть недоступна на уровне сборки, либо завершаться явной ошибкой валидации /
+  запуска с понятным сообщением о том, что Keenetic API support не включён;
+- при инициализации конфигурации запрашивать через `RCI` текущую конфигурацию
+  встроенного DNS-сервера роутера и извлекать из неё IP-адрес, который должен
+  использоваться дальше в общей DNS-логике `keen-pbr`;
+- использовать полученный IP так, как если бы он был указан в обычном DNS-сервере
+  статически, без отдельной ветки логики в остальном пайплайне;
+- при необходимости переиспользовать подход из предыдущей реализации на Go:
+  `lib/keenetic/rci.go`
+  (`https://raw.githubusercontent.com/maksimkurb/keen-pbr/971d5b5d7eeaf457620b2b79a24353c14da31613/lib/keenetic/rci.go`);
+- определить, какой именно endpoint / раздел `RCI` считается источником истины для
+  встроенного DNS-сервера, и зафиксировать это в коде и документации;
+- предусмотреть обработку ошибок: недоступность `RCI`, отсутствие нужного поля в
+  ответе, отключённый встроенный DNS-сервер, невалидный IP-адрес;
+- явно определить момент обновления значения: на старте сервиса, при reload и при
+  ручном перезапуске через UI.
 
----
+Критерии приёмки:
 
-## 4. Source MAC address matching in route rules
+- конфигурация вида `{ "tag": "keenetic-dns", "type": "keenetic" }` валидна и
+  корректно обрабатывается сервисом;
+- поддержка `type: "keenetic"` попадает в сборку только при включённом CMake-флаге
+  `USE_KEENETIC_API`;
+- в сборке без `USE_KEENETIC_API` использование `type: "keenetic"` приводит к
+  понятной и диагностируемой ошибке, а не к скрытому некорректному поведению;
+- для DNS-сервера типа `keenetic` IP-адрес автоматически подтягивается из Keenetic
+  `RCI`, а не задаётся вручную;
+- полученный через `RCI` IP используется во всех местах системы так же, как обычный
+  DNS-сервер с явным `address`;
+- при reload сервис повторно запрашивает актуальную DNS-конфигурацию роутера;
+- при ошибке запроса или парсинга сервис не падает молча: ошибка видна в логах и в
+  диагностике;
+- новая опция не ломает существующие DNS-серверы других типов;
+- добавлены тесты на парсинг конфигурации и обработку ответа `RCI`, либо описан
+  воспроизводимый интеграционный сценарий проверки.
 
-**How it works:**
-Extend `RouteRule` to support an optional `src_mac` field (single MAC address or list).
-The firewall marks packets originating from the specified hardware address regardless of
-the device's current IP. Useful for DHCP clients whose IP may change.
+#### 1.2. Обновление списка DNS через UI-перезапуск сервиса
 
-Example config:
-```json
-"route": {
-  "rules": [
-    { "src_mac": "aa:bb:cc:dd:ee:ff", "outbound": "vpn" }
-  ]
-}
-```
+Статус: `TODO`
 
-**Acceptance criteria:**
-- `src_mac` accepts a single MAC string or an array of MAC strings.
-- iptables backend: uses `-m mac --mac-source`.
-- nftables backend: uses `ether saddr` match.
-- A rule with only `src_mac` (no `list`) routes all traffic from that device.
-- `src_mac` can be combined with `list` (both conditions must match).
-- `make test` covers MAC-based rule generation for both backends.
+Разработка:
 
----
+- связать действие перезапуска сервиса из UI с повторной загрузкой списка DNS из
+  Keenetic DNS provider;
+- исключить ситуацию, в которой UI инициирует reload, но список DNS остаётся старым;
+- добавить явное логирование этапов обновления DNS-списка;
+- проверить поведение при частичной недоступности провайдера.
 
-## 6. Strict enforcement (unreachable route when gateway down)
+Критерии приёмки:
 
-**How it works:**
-When `strict_enforcement` is enabled for an outbound, and the gateway/interface for that
-outbound is not reachable, add an `ip route add unreachable` entry to the routing table
-instead of leaving it empty. This causes traffic hitting that table to receive ICMP
-unreachable immediately rather than falling through to the default route and leaking to
-the wrong interface.
+- перезапуск сервиса через UI всегда инициирует обновление DNS-списка;
+- после reload в сервисе используется актуальный список DNS, полученный от provider;
+- ошибка обновления DNS видна в API / логах и не остаётся незамеченной;
+- сценарий покрыт ручной или автоматизированной проверкой.
 
-**Acceptance criteria:**
-- Config option `strict_enforcement: true` at outbound level (or global in `daemon` section).
-- On startup and after reload, if a gateway for an INTERFACE outbound cannot be confirmed
-  reachable, an `unreachable` default route is installed in that outbound's routing table.
-- When the gateway becomes reachable (detected via SIGUSR1 re-check), the unreachable
-  route is replaced with the real default route.
-- `make test` passes.
+### 2. Стабилизация работы с ipset
 
----
+#### 2.1. Проверка, пересоздание и безопасная замена `ipset`
 
-## 7. OUTPUT chain support for locally-generated traffic
+Статус: `TODO`
 
-**How it works:**
-PREROUTING only intercepts forwarded packets. Traffic originating from the router itself
-(e.g., DNS queries, curl) bypasses PREROUTING and is not subject to keen-pbr marking.
-Adding equivalent rules to the OUTPUT chain lets the router's own traffic be
-policy-routed through the configured outbounds.
+Разработка:
 
-**Acceptance criteria:**
-- Config option on route rules: `"chain": "output"` (alongside existing `"prerouting"` default).
-- When `chain: "output"` is set, the firewall mark rules are inserted into OUTPUT instead
-  of PREROUTING.
-- Both iptables and nftables backends support the OUTPUT chain.
-- Existing behavior (PREROUTING) is unchanged when `chain` is omitted.
-- `make test` covers OUTPUT chain rule generation for both backends.
+- при запуске сервиса проверять существование и тип требуемых `ipset`;
+- если тип набора не соответствует ожидаемому, выполнять пересоздание;
+- определить все точки, в которых удаление `ipset` может завершаться ошибкой из-за
+  связанных `iptables`-правил;
+- реализовать безопасную стратегию пересборки: отвязка правил, удаление набора,
+  создание нового набора, повторное применение правил;
+- учитывать порядок операций, чтобы пересоздание не ломало уже применённые правила и
+  не создавало непредсказуемого состояния трафика;
+- сделать поведение одинаково предсказуемым для чистого старта и reload;
+- добавить диагностику, чтобы было понятно, на каком этапе не удалось удалить или
+  пересоздать набор.
 
----
+Критерии приёмки:
 
-## 8. CLI status / diagnostic command
+- при старте сервиса неподходящий `ipset` автоматически обнаруживается;
+- сервис умеет пересоздать набор нужного типа без ручного вмешательства;
+- сервис корректно обрабатывает сценарий, в котором `ipset` занят связанными
+  `iptables`-правилами;
+- пересборка не требует ручной очистки firewall пользователем;
+- после пересоздания маршрутизация продолжает работать корректно;
+- в случае сбоя есть понятное сообщение о причине и этапе ошибки;
+- поведение проверено на реальном или воспроизводимом тестовом кейсе.
 
-**How it works:**
-Add a `status` subcommand to the CLI. It reads the config, then queries the live kernel
-state and prints a human-readable summary of:
-- Each outbound: type, interface/table, fwmark, routing table contents
-- IP policy rules (`ip rule list`)
-- Firewall chain and ipset/nftset presence (entry counts)
-- Overall health aligned with what `GET /api/health/routing` returns
+#### 2.2. Валидация названий `ipset` и разбор кейса `vpn1_6`
 
-Works without the REST API being enabled or the daemon running.
+Статус: `TODO`
 
-**Acceptance criteria:**
-- `keen-pbr --config <path> status` exits 0 and prints a readable report.
-- Output includes per-outbound routing table summary and ip rule listing.
-- Output includes firewall chain/set status (present / missing).
-- Works when the daemon is not running (reads kernel state directly).
-- No dependency on the REST API.
+Разработка:
 
----
+- проверить ограничения на имена `ipset` для целевых платформ;
+- разобрать и воспроизвести кейс из обсуждения: https://t.me/keen_pbr/1/1580;
+- отдельно проверить сценарий с именем вида `vpn1_6`, при котором создание `ipset`
+  завершалось ошибкой:
+  `[ERR] Failed to run command: failed to apply lists: failed to create ipset [ipset vpn1_6 (IPv6)]: exit status 1`;
+- выяснить, является ли причина проблемы ограничением на имя, особенностью IPv6-набора,
+  ошибкой генерации команды или другой несовместимостью платформы;
+- обновить правила нормализации и валидации названий;
+- при необходимости добавить преобразование проблемных имён в безопасный формат;
+- если проблема не в названии, зафиксировать реальную причину и включить исправление в
+  соответствующий технический подпункт.
 
-## 9. Implement `detour` for DNS servers
+Критерии приёмки:
 
-**How it works:**
-The `detour` field in `dns.servers` is parsed and stored but never acted upon. The
-`generate-resolver-config` subcommand emits `server=<domain>/<ip>` directives that tell
-dnsmasq *which IP* to query, but nothing ensures that DNS traffic to that IP actually
-goes through the specified outbound interface. To make `detour` work, keen-pbr must
-create firewall mark rules for each DNS server that has a `detour` tag, so that UDP/TCP
-packets destined for `server.address:53` are marked with the fwmark of the named outbound
-and thus routed through it.
+- имена наборов валидируются до применения конфигурации;
+- проблемные имена либо корректно поддерживаются, либо отклоняются с понятной ошибкой;
+- кейс `vpn1_6` воспроизведён или подробно разобран;
+- причина проблемы задокументирована;
+- если требуется исправление, оно внесено и проверено;
+- логика валидации покрыта тестами;
+- итог разбора отражён в `PLAN.md` или документации.
 
-**Acceptance criteria:**
-- For each entry in `dns.servers` with a `detour` field, a firewall rule is created that
-  marks packets destined for `<server.address>:53` (UDP + TCP) with the fwmark of the
-  referenced outbound.
-- Rules are applied in both iptables and nftables backends.
-- Rules are torn down and rebuilt on `full_reload()`.
-- Referencing an unknown outbound tag in `detour` is a config validation error.
-- `make test` covers fwmark rule generation for DNS detour.
-- Docs (`dns.md`) are updated to document the `detour` field as implemented.
+### 3. Диагностика
 
----
+#### 3.1. Проверка маршрутизации до IP / домена через API / WebUI
 
-## 10. DNS fallback server in `generate-resolver-config`
+Статус: `TODO`
 
-**How it works:**
-The `dns.fallback` server tag is validated and stored in `DnsServerRegistry` but never
-used in `DnsmasqGenerator::generate()`. No global `server=<ip>` directive is emitted,
-so dnsmasq uses its own default upstream for domains not covered by any DNS rule — not
-the one configured in keen-pbr. A bare `server=<fallback_ip>` line (without a domain
-path) should be appended to the generated config so dnsmasq forwards unmatched queries
-to the intended server.
+Разработка:
 
-**Acceptance criteria:**
-- `generate()` emits a global `server=<fallback_server_ip>` line for the configured
-  `dns.fallback` server.
-- The fallback `server=` line appears after all per-domain directives.
-- If `dns.fallback` is not set, no global `server=` line is emitted.
-- `make test` covers fallback server output in generated config.
-- Docs (`dns.md`) updated to describe fallback behaviour accurately.
+- реализовать диагностический endpoint и UI-форму для проверки маршрутизации;
+- поддержать ввод как IP-адреса, так и домена;
+- выводить, через какой outbound пойдёт трафик и почему был сделан такой выбор;
+- предусмотреть отображение ошибок DNS-resolve и отсутствия подходящего правила.
 
----
+Критерии приёмки:
 
-## 11. Fix `resolver_config_hash` to hash the full generated config
+- пользователь может проверить маршрут до IP или домена через WebUI;
+- API возвращает структурированный диагностический результат;
+- UI показывает итоговый outbound, интерфейс и статус проверки;
+- ошибки разрешения имени и маршрутизации отображаются явно.
 
-**How it works:**
-`compute_config_hash()` currently hashes only a string of `domain/ipset4/ipset6` tuples.
-This means the hash does not change if, for example, a DNS rule's server IP changes or
-the fallback server changes — only domain-to-ipset mappings affect it. The hash should
-instead be computed over the complete dnsmasq config output (excluding the TXT record
-line itself), so any change to the generated file is reflected in the hash.
+#### 3.2. Проверка маршрутизации до IP / домена через CLI
 
-Implementation: stream the full config to the hashing stream,
-compute the MD5 on-the-go, producing config to stdout at the same time, then write the `txt-record=config-hash.keen.pbr,<hash>` line at the end of dnsmasq config as the new line.
+Статус: `TODO`
 
-**Acceptance criteria:**
-- `resolver_config_hash` changes whenever any part of the generated dnsmasq config
-  changes (server IPs, ipset names, domain lists, fallback, etc.).
-- The TXT record line is excluded from the hashed content.
-- The TXT record is emitted at the **end** of the generated output (after all directives).
-- `compute_config_hash()` and `generate()` produce consistent hashes for the same input.
-- `make test` covers hash consistency and TXT record placement.
+Разработка:
 
----
+- добавить CLI-команду для диагностики маршрутизации;
+- унифицировать логику вычисления результата с API / WebUI;
+- обеспечить удобный текстовый вывод для локальной диагностики;
+- предусмотреть режимы для IP и доменного имени.
 
-## 12. Boot wait for WAN (`boot_timeout`)
+Критерии приёмки:
 
-**How it works:**
-Add an optional `daemon.boot_timeout_s` config field (default: 0 = disabled). When set,
-the daemon polls for the presence of a default route on each configured INTERFACE
-outbound's interface before proceeding with startup. If the route does not appear within
-the timeout, startup proceeds anyway with a warning.
+- CLI позволяет проверить маршрут до IP и домена;
+- результат CLI совпадает с результатом API для одного и того же сценария;
+- команда завершается предсказуемым кодом возврата;
+- при ошибках пользователь получает понятное объяснение.
 
-**Acceptance criteria:**
-- `daemon.boot_timeout_s: 30` causes the daemon to wait up to 30 seconds for each
-  INTERFACE outbound's gateway/interface to become reachable before building routing tables.
-- Progress is logged every few seconds.
-- If the timeout expires, a warning is logged and startup continues normally.
-- `daemon.boot_timeout_s: 0` (default) skips waiting entirely (current behavior).
-- `make test` passes.
+#### 3.3. DNS Check через WebUI
 
----
+Статус: `TODO`
 
-## 13. Separate static and dynamic ipsets/nftsets per list
+Разработка:
 
-**How it works:**
-Currently each list gets a single ipset/nftset pair (`kpbr4_<list>` / `kpbr6_<list>`)
-used for both statically-defined IPs (from `ip_cidrs`, `file`, `url`) and dynamically
-resolved IPs (added by dnsmasq at DNS resolution time via `ipset=` / `nftset=`
-directives). These have different lifecycle requirements:
+- добавить страницу или блок диагностики DNS-настроек устройства;
+- проверять, что DNS-сервер на устройстве настроен в ожидаемой схеме;
+- отображать расхождения между ожидаемой и фактической конфигурацией;
+- сделать результат пригодным для быстрого пользовательского self-check.
 
-- **Static entries** come from list data loaded at startup/reload and must persist until
-  the next reload. They should never expire automatically.
-- **Dynamic entries** are populated by dnsmasq when a listed domain is resolved. If
-  `ttl_ms` is set on the list, these entries should expire after that many milliseconds
-  so stale resolved IPs don't continue to be routed after a DNS record changes.
+Критерии приёмки:
 
-The fix is to maintain **two separate set pairs per list**:
+- WebUI показывает, корректно ли настроен DNS на устройстве;
+- пользователь видит, что именно настроено неверно;
+- результат не ограничивается бинарным `OK` / `FAIL`, а помогает понять причину;
+- сценарий проверен на корректной и некорректной конфигурации.
 
-| Set name | Contents | TTL |
-|---|---|---|
-| `kpbr4_<list>` / `kpbr6_<list>` | Static IPs from list data | none (permanent) |
-| `kpbr4d_<list>` / `kpbr6d_<list>` | IPs resolved by dnsmasq | `ttl_ms` (if set) |
+#### 3.4. DNS Check через CLI
 
-The firewall MARK rule for the list must match on **both** sets (OR semantics). The
-`ipset=` / `nftset=` directives in `generate-resolver-config` output must reference the
-dynamic set names (`kpbr4d_*` / `kpbr6d_*`). The TTL is applied when creating the
-dynamic ipset (`--timeout`) or nftset (`timeout`).
+Статус: `TODO`
 
-**Acceptance criteria:**
-- Static IPs (from `ip_cidrs`, `url`, `file` entries) are added only to the static set and are never expired.
-- dnsmasq `ipset=` / `nftset=` directives reference the dynamic set (`kpbr4d_*` / `kpbr6d_*`).
-- When `ttl_ms` is set on a list, the dynamic ipset/nftset is created with that timeout; entries added by dnsmasq expire automatically.
-- When `ttl_ms` is `0` (default), the dynamic set has no timeout.
-- Firewall MARK rules match packets in either the static or dynamic set for the list.
-- `make test` covers set naming, TTL configuration, and dual-set firewall rule generation for both backends.
-- Docs (`lists.md`) updated to clarify the static/dynamic split and the effect of `ttl_ms`.
+Разработка:
 
----
+- реализовать CLI-проверку DNS-конфигурации;
+- использовать ту же модель диагностики, что и в WebUI;
+- вывести ключевые параметры и найденные несоответствия;
+- предусмотреть код завершения для автоматизации.
 
-## 14. Change `src_addr` / `dest_addr` from array to string with port-style syntax
+Критерии приёмки:
 
-**How it works:**
-Currently `src_addr` and `dest_addr` are arrays of CIDR strings where negation is
-indicated per-entry with a `!` prefix. This design allows mixed negation (some entries
-negated, some not) which silently produces broken firewall rules. Replace the field type
-with a single string using the same syntax as port specs:
+- CLI-команда проверяет корректность DNS-настроек устройства;
+- вывод пригоден для ручной диагностики и автоматических проверок;
+- при некорректной конфигурации код завершения и текст ошибки однозначны;
+- результат соответствует данным, видимым в WebUI.
 
-- `"192.168.1.0/24"` — match this subnet
-- `"192.168.1.0/24,10.0.0.0/8"` — match either subnet (comma-separated list)
-- `"!192.168.1.0/24"` — NOT this subnet (single `!` at the start negates the whole value)
-- `"!192.168.1.0/24,10.0.0.0/8"` — NOT either subnet
+### 4. WebUI
 
-This makes negation unambiguous by design — one `!` at the start applies to all CIDRs,
-so mixed negation is impossible.
+#### 4.2. Улучшение страницы правил маршрутизации
 
-**Changes required:**
-- Update `RouteRuleElement` in `docs/openapi.yaml` (and regenerate `api_types.hpp`) to
-  change `src_addr` / `dest_addr` from `array of string` to `string`.
-- Update `daemon.cpp` to parse the string: strip leading `!` to detect negation, then
-  split on `,` to get individual CIDRs.
-- Update `config.example.json` and all docs to use string syntax.
-- Remove the old array-based negation stripping logic.
+Статус: `TODO`
 
-**Acceptance criteria:**
-- `src_addr` and `dest_addr` accept a single string value.
-- A leading `!` on the whole string sets the negation flag; individual CIDRs never carry `!`.
-- Comma-separated CIDRs work for both positive and negated forms.
-- Old array-of-strings configs produce a clear parse error.
-- `make test` covers single CIDR, comma list, negated single, and negated list cases.
-- `docs/openapi.yaml`, `config.example.json`, and all relevant docs pages updated.
+Разработка:
+
+- переработать страницу так, чтобы она показывала не только статическую конфигурацию,
+  но и текущее состояние маршрутизации;
+- заложить место под статусы интерфейсов, активный интерфейс и человекочитаемые имена;
+- продумать структуру данных, чтобы страница могла обновляться без перегрузки логики;
+- свести отображение технических параметров к понятной для пользователя форме.
+
+Критерии приёмки:
+
+- страница правил маршрутизации показывает и конфигурацию, и текущее состояние;
+- пользователь может понять, какой outbound активен и что происходит с остальными;
+- интерфейс остаётся читаемым при нескольких правилах и нескольких uplink;
+- данные страницы синхронизированы с API.
+
+#### 4.3. Отображение активного интерфейса
+
+Статус: `TODO`
+
+Разработка:
+
+- определить источник истины для активного интерфейса;
+- добавить отображение активного интерфейса в карточку правила или outbound;
+- обновлять состояние без необходимости ручного refresh всей страницы.
+
+Критерии приёмки:
+
+- активный интерфейс виден в WebUI;
+- данные обновляются после переключения интерфейса;
+- отображаемое состояние соответствует фактическому состоянию сервиса.
+
+#### 4.4. Отображение статуса всех интерфейсов
+
+Статус: `TODO`
+
+Разработка:
+
+- показывать состояние каждого интерфейса: доступен, деградирован, недоступен и т.д.;
+- связать статусы с данными мониторинга или health-check;
+- продумать компактное представление для нескольких outbound.
+
+Критерии приёмки:
+
+- для каждого интерфейса отображается актуальный статус;
+- пользователь видит отличие между активным и просто доступным интерфейсом;
+- статус интерфейсов обновляется без рассинхронизации с backend.
+
+#### 4.5. Human-friendly name интерфейсов
+
+Статус: `TODO`
+
+Разработка:
+
+- добавить поддержку отображаемых имён интерфейсов;
+- определить, где имя задаётся: в конфигурации, metadata или вычисляется автоматически;
+- в UI показывать friendly name, а технический идентификатор оставлять как справочную
+  информацию.
+
+Критерии приёмки:
+
+- интерфейсы в WebUI отображаются в понятном человеку виде;
+- техническое имя остаётся доступным для диагностики;
+- friendly name используется консистентно на всех связанных страницах.
+
+### 6. CI/CD
+
+#### 6.1. Отдельный репозиторий OpenWRT под каждую архитектуру
+
+Статус: `TODO`
+
+Разработка:
+
+- определить список поддерживаемых архитектур OpenWRT;
+- подготовить структуру репозиториев и процесс публикации пакетов;
+- связать сборку пакетов с существующим pipeline;
+- предусмотреть версионирование и публикацию индексов пакетов.
+
+Критерии приёмки:
+
+- для каждой поддерживаемой архитектуры OpenWRT существует отдельный пакетный репозиторий;
+- пакеты публикуются автоматически или по предсказуемой процедуре;
+- пользователь может подключить репозиторий и установить пакет без ручной сборки.
+
+#### 6.2. Отдельный репозиторий Keenetic под каждую архитектуру
+
+Статус: `TODO`
+
+Разработка:
+
+- определить набор поддерживаемых архитектур Keenetic;
+- организовать отдельные репозитории или публикационные каналы по архитектурам;
+- привести процесс публикации к тому же уровню предсказуемости, что и для OpenWRT;
+- учитывать различия форматов и требований платформ.
+
+Критерии приёмки:
+
+- для каждой поддерживаемой архитектуры Keenetic есть отдельный репозиторий пакетов;
+- публикация пакетов воспроизводима и документирована;
+- установка пакета на целевое устройство не требует ручных обходных действий.
+
+#### 6.3. Два варианта пакета: `full` / `headless`
+
+Статус: `TODO`
+
+Разработка:
+
+- разделить состав поставки на вариант с WebUI и вариант без него;
+- определить зависимости для каждого типа пакета;
+- адаптировать CI/CD под выпуск обоих вариантов;
+- проверить, что headless-сборка не подтягивает лишние frontend-зависимости.
+
+Критерии приёмки:
+
+- публикуются два варианта пакета: `full` и `headless`;
+- `headless` можно установить без UI-компонентов;
+- `full` включает весь необходимый пользовательский интерфейс;
+- оба варианта собираются и публикуются через единый pipeline.
+
+### 7. Документация
+
+#### 7.1. Полноценная документация по установке
+
+Статус: `TODO`
+
+Разработка:
+
+- подготовить пошаговую документацию по установке для OpenWRT и Keenetic;
+- учесть различия в пакетах, архитектурах и вариантах поставки;
+- описать минимальные требования и типовые ошибки установки.
+
+Критерии приёмки:
+
+- новый пользователь может установить `keen-pbr` по документации без обращения к коду;
+- инструкция покрывает все поддерживаемые основные платформы;
+- в документации есть раздел с типовыми проблемами и их решением.
+
+#### 7.2. Документация по обновлению с предыдущих версий
+
+Статус: `TODO`
+
+Разработка:
+
+- описать путь миграции с предыдущих версий `keen-pbr`;
+- выделить несовместимые изменения в конфигурации и поведении;
+- дать безопасный сценарий обновления и отката.
+
+Критерии приёмки:
+
+- пользователь понимает, как перейти на `3.0` с предыдущих версий;
+- перечислены breaking changes и способы адаптации конфигурации;
+- сценарий обновления не оставляет критичных неописанных шагов.
+
+#### 7.3. Документация по настройке списков и правил
+
+Статус: `TODO`
+
+Разработка:
+
+- подробно описать модель списков, правил и outbound;
+- показать примеры типовых конфигураций;
+- объяснить взаимосвязь между списками, DNS и firewall.
+
+Критерии приёмки:
+
+- документация позволяет настроить списки и правила без чтения исходного кода;
+- приведены рабочие примеры конфигурации;
+- спорные и неочевидные места объяснены отдельно.
+
+#### 7.4. Примеры решения реальных задач
+
+Статус: `TODO`
+
+Разработка:
+
+- подготовить прикладные сценарии: корпоративный VPN, AdGuard DNS, разные DNS для
+  разных gateway и другие;
+- для каждого сценария показать конфигурацию и ожидаемый результат;
+- отметить ограничения и важные нюансы.
+
+Критерии приёмки:
+
+- в документации есть набор реальных примеров использования;
+- примеры можно адаптировать под свой случай с минимальными изменениями;
+- каждый пример содержит ожидаемое поведение и пояснение, зачем он нужен.
