@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
 
 #include <nlohmann/json.hpp>
@@ -224,6 +225,40 @@ TEST_CASE("build_elements_json: IPv6 element is emitted as a plain string") {
   const auto &elem = j["add"]["element"]["elem"][0];
 
   CHECK(elem == "2a00:1450:4010:c1e::8a");
+}
+
+TEST_CASE("NftBatchVisitor: CIDR element is emitted as nft prefix JSON") {
+  nlohmann::json elems = nlohmann::json::array();
+  NftBatchVisitor v(elems, "myset");
+
+  v.on_entry(EntryType::Cidr, "10.0.0.0/24");
+
+  REQUIRE(elems.size() == 1);
+  REQUIRE(elems[0].contains("prefix"));
+  CHECK(elems[0]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(elems[0]["prefix"]["len"] == 24);
+}
+
+TEST_CASE("NftBatchVisitor: IPv6 CIDR element is emitted as nft prefix JSON") {
+  nlohmann::json elems = nlohmann::json::array();
+  NftBatchVisitor v(elems, "myset6");
+
+  v.on_entry(EntryType::Cidr, "2001:db8::/32");
+
+  REQUIRE(elems.size() == 1);
+  REQUIRE(elems[0].contains("prefix"));
+  CHECK(elems[0]["prefix"]["addr"] == "2001:db8::");
+  CHECK(elems[0]["prefix"]["len"] == 32);
+}
+
+TEST_CASE("NftBatchVisitor: plain IP element remains a string") {
+  nlohmann::json elems = nlohmann::json::array();
+  NftBatchVisitor v(elems, "myset");
+
+  v.on_entry(EntryType::Ip, "10.0.1.3");
+
+  REQUIRE(elems.size() == 1);
+  CHECK(elems[0] == "10.0.1.3");
 }
 
 // =============================================================================
@@ -698,6 +733,8 @@ TEST_CASE("nft static set naming: kpbr4_ prefix, no timeout") {
   auto j = T::build_set_json("kpbr4_mylist", "ipv4_addr", 0);
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr4_mylist");
+  CHECK(set["flags"].is_array());
+  CHECK(set["flags"][0] == "interval");
   CHECK_FALSE(set.contains("timeout"));
 }
 
@@ -705,6 +742,8 @@ TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
   auto j = T::build_set_json("kpbr4d_mylist", "ipv4_addr", 0);
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr4d_mylist");
+  CHECK(set["flags"].is_array());
+  CHECK(set["flags"][0] == "interval");
   CHECK_FALSE(set.contains("timeout"));
 }
 
@@ -712,6 +751,9 @@ TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set"
   auto j = T::build_set_json("kpbr4d_mylist", "ipv4_addr", 3600);
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr4d_mylist");
+  CHECK(set["flags"].is_array());
+  CHECK(set["flags"][0] == "interval");
+  CHECK(set["flags"][1] == "timeout");
   CHECK(set.contains("timeout"));
   CHECK(set["timeout"] == 3600);
 }
@@ -720,6 +762,9 @@ TEST_CASE("nft dynamic set naming: kpbr6d_ IPv6 with timeout") {
   auto j = T::build_set_json("kpbr6d_mylist", "ipv6_addr", 86400);
   const auto &set = j["add"]["set"];
   CHECK(set["name"] == "kpbr6d_mylist");
+  CHECK(set["flags"].is_array());
+  CHECK(set["flags"][0] == "interval");
+  CHECK(set["flags"][1] == "timeout");
   CHECK(set["timeout"] == 86400);
 }
 
