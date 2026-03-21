@@ -98,23 +98,15 @@ static Rule drop_rule(const std::string &set_name, bool ipv6,
 
 TEST_CASE("IpsetRestoreVisitor: IP entry without timeout") {
   std::ostringstream buf;
-  IpsetRestoreVisitor v(buf, "myset", -1);
+  IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Ip, "10.0.0.1");
   CHECK(buf.str() == "add myset 10.0.0.1\n");
   CHECK(v.count() == 1);
 }
 
-TEST_CASE("IpsetRestoreVisitor: IP entry with timeout=60") {
-  std::ostringstream buf;
-  IpsetRestoreVisitor v(buf, "myset", 60);
-  v.on_entry(EntryType::Ip, "10.0.0.1");
-  CHECK(buf.str() == "add myset 10.0.0.1 timeout 60\n");
-  CHECK(v.count() == 1);
-}
-
 TEST_CASE("IpsetRestoreVisitor: CIDR entry") {
   std::ostringstream buf;
-  IpsetRestoreVisitor v(buf, "myset", -1);
+  IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Cidr, "192.168.0.0/24");
   CHECK(buf.str() == "add myset 192.168.0.0/24\n");
   CHECK(v.count() == 1);
@@ -122,7 +114,7 @@ TEST_CASE("IpsetRestoreVisitor: CIDR entry") {
 
 TEST_CASE("IpsetRestoreVisitor: Domain entry is ignored") {
   std::ostringstream buf;
-  IpsetRestoreVisitor v(buf, "myset", -1);
+  IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Domain, "example.com");
   CHECK(buf.str().empty());
   CHECK(v.count() == 0);
@@ -130,7 +122,7 @@ TEST_CASE("IpsetRestoreVisitor: Domain entry is ignored") {
 
 TEST_CASE("IpsetRestoreVisitor: count increments only for IP/CIDR") {
   std::ostringstream buf;
-  IpsetRestoreVisitor v(buf, "myset", -1);
+  IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Ip, "1.2.3.4");
   v.on_entry(EntryType::Domain, "example.com");
   v.on_entry(EntryType::Cidr, "10.0.0.0/8");

@@ -31,10 +31,10 @@ public:
     // Buffer a direct meta mark set rule matching dst IP/port (no named set).
     void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
 
-    // Return an NftBatchVisitor that appends element JSON objects to the pending
+    // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
-        const std::string& set_name, int32_t entry_timeout = -1) override;
+        const std::string& set_name) override;
 
     // Atomically apply all pending table/set/rule/element operations via
     // a single 'nft -j -f -' invocation with a JSON batch.

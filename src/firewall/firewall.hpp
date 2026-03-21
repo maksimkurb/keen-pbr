@@ -83,10 +83,9 @@ public:
 
     // Create a batch loader visitor for streaming IP/CIDR entries into a set.
     // Returns a ListEntryVisitor that buffers entries for atomic application.
-    // entry_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
     // Caller must call finish() on the returned visitor after streaming is complete.
     virtual std::unique_ptr<ListEntryVisitor> create_batch_loader(
-        const std::string& set_name, int32_t entry_timeout = -1) = 0;
+        const std::string& set_name) = 0;
 
     // Apply all pending changes atomically (where supported by the backend).
     virtual void apply() = 0;

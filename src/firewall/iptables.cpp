@@ -103,9 +103,9 @@ void IptablesFirewall::create_direct_mark_rule(uint32_t fwmark,
 }
 
 std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
-    const std::string& set_name, int32_t entry_timeout) {
+    const std::string& set_name) {
     auto& buf = pending_elements_[set_name];
-    return std::make_unique<IpsetRestoreVisitor>(buf, set_name, entry_timeout);
+    return std::make_unique<IpsetRestoreVisitor>(buf, set_name);
 }
 
 static void pipe_to_cmd(const std::string& cmd, const std::string& input) {

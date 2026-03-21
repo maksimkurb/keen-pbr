@@ -204,8 +204,8 @@ TEST_CASE("build_drop_rule_json: IPv6 drop rule") {
 
 TEST_CASE("build_elements_json: correct set name, table, and elements") {
   nlohmann::json elems = nlohmann::json::array({
-      {{"elem", {{"val", "10.0.0.1"}}}},
-      {{"elem", {{"val", "10.0.0.2"}}}},
+      "10.0.0.1",
+      "10.0.0.2",
   });
   auto j = T::build_elements_json("myset", elems);
   const auto &elem = j["add"]["element"];
@@ -215,16 +215,15 @@ TEST_CASE("build_elements_json: correct set name, table, and elements") {
   CHECK(elem["elem"] == elems);
 }
 
-TEST_CASE("build_elements_json: IPv6 element keeps explicit val wrapper") {
+TEST_CASE("build_elements_json: IPv6 element is emitted as a plain string") {
   nlohmann::json elems = nlohmann::json::array({
-      {{"elem", {{"val", "2a00:1450:4010:c1e::8a"}}}},
+      "2a00:1450:4010:c1e::8a",
   });
 
   auto j = T::build_elements_json("myset6", elems);
-  const auto &elem = j["add"]["element"]["elem"][0]["elem"];
+  const auto &elem = j["add"]["element"]["elem"][0];
 
-  CHECK(elem["val"] == "2a00:1450:4010:c1e::8a");
-  CHECK_FALSE(elem.contains("timeout"));
+  CHECK(elem == "2a00:1450:4010:c1e::8a");
 }
 
 // =============================================================================
@@ -238,9 +237,8 @@ TEST_CASE("full document structure: top-level key is nftables array") {
   arr.push_back({{"metainfo", {{"json_schema_version", 1}}}});
   arr.push_back(T::build_table_json());
   arr.push_back(
-      {{"delete",
+      {{"flush",
         {{"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}}}}});
-  arr.push_back(T::build_table_json());
   arr.push_back(T::build_chain_json());
 
   CHECK(doc.contains("nftables"));
@@ -255,10 +253,10 @@ TEST_CASE("each command object has expected top-level key") {
   CHECK(add_table.contains("add"));
   CHECK(add_table["add"].contains("table"));
 
-  nlohmann::json del = {
-      {"delete", {{"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}}}}};
-  CHECK(del.contains("delete"));
-  CHECK(del["delete"].contains("table"));
+  nlohmann::json flush = {
+      {"flush", {{"table", {{"family", "inet"}, {"name", "KeenPbrTable"}}}}}};
+  CHECK(flush.contains("flush"));
+  CHECK(flush["flush"].contains("table"));
 
   auto chain = T::build_chain_json();
   CHECK(chain.contains("add"));

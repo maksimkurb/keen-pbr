@@ -34,7 +34,7 @@ public:
     // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
     // element buffer for set_name; entries are flushed during apply().
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
-        const std::string& set_name, int32_t entry_timeout = -1) override;
+        const std::string& set_name) override;
 
     // Atomically apply all pending ipsets (via ipset restore) and rules
     // (via iptables-restore / ip6tables-restore), then create the PREROUTING

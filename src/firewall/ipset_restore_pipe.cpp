@@ -4,9 +4,8 @@
 
 namespace keen_pbr3 {
 
-IpsetRestoreVisitor::IpsetRestoreVisitor(std::ostringstream& buffer, const std::string& set_name,
-                                         int32_t static_timeout)
-    : buffer_(buffer), set_name_(set_name), static_timeout_(static_timeout) {}
+IpsetRestoreVisitor::IpsetRestoreVisitor(std::ostringstream& buffer, const std::string& set_name)
+    : buffer_(buffer), set_name_(set_name) {}
 
 void IpsetRestoreVisitor::on_entry(EntryType type, std::string_view entry) {
     if (type == EntryType::Domain) {
@@ -14,9 +13,6 @@ void IpsetRestoreVisitor::on_entry(EntryType type, std::string_view entry) {
     }
 
     buffer_ << "add " << set_name_ << " " << entry;
-    if (static_timeout_ >= 0) {
-        buffer_ << " timeout " << static_timeout_;
-    }
     buffer_ << "\n";
     ++count_;
 }

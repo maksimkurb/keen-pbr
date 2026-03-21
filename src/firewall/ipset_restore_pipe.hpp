@@ -15,11 +15,9 @@ class IpsetRestoreVisitor : public ListEntryVisitor {
 public:
     // buffer: reference to the ostringstream to append add lines to
     // set_name: target ipset name
-    // static_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
-    explicit IpsetRestoreVisitor(std::ostringstream& buffer, const std::string& set_name,
-                                 int32_t static_timeout = -1);
+    explicit IpsetRestoreVisitor(std::ostringstream& buffer, const std::string& set_name);
 
-    // Appends 'add <setname> <entry> [timeout N]\n' for Ip and Cidr types.
+    // Appends 'add <setname> <entry>\n' for Ip and Cidr types.
     // Domain entries are ignored.
     void on_entry(EntryType type, std::string_view entry) override;
 
@@ -36,7 +34,6 @@ public:
 private:
     std::ostringstream& buffer_;
     std::string set_name_;
-    int32_t static_timeout_;
     size_t count_ = 0;
 };
 

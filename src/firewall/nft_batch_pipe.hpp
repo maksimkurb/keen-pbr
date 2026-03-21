@@ -15,12 +15,9 @@ class NftBatchVisitor : public ListEntryVisitor {
 public:
     // buffer: reference to the JSON array to append elements to
     // set_name: target nft set name (within table inet KeenPbrTable)
-    // static_timeout: per-entry timeout in seconds (-1 = use set default, 0 = permanent)
-    explicit NftBatchVisitor(nlohmann::json& buffer, const std::string& set_name,
-                             int32_t static_timeout = -1);
+    explicit NftBatchVisitor(nlohmann::json& buffer, const std::string& set_name);
 
-    // Appends an element JSON object (bare string or {elem:{val,timeout}})
-    // for Ip and Cidr types. Domain entries are ignored.
+    // Appends element values for Ip and Cidr types. Domain entries are ignored.
     void on_entry(EntryType type, std::string_view entry) override;
 
     // No-op (buffer is owned externally, applied later by Firewall::apply())
@@ -36,7 +33,6 @@ public:
 private:
     nlohmann::json& buffer_;
     std::string set_name_;
-    int32_t static_timeout_;
     size_t count_ = 0;
 };
 

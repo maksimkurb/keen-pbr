@@ -519,9 +519,9 @@ void Daemon::apply_firewall() {
             firewall_->create_ipset(set6,  AF_INET6, 0);               // static, permanent
             firewall_->create_ipset(set4d, AF_INET,  dynamic_timeout); // dynamic, TTL
             firewall_->create_ipset(set6d, AF_INET6, dynamic_timeout); // dynamic, TTL
-            // Stream IP/CIDR entries into the static sets (permanent, entry_timeout=-1)
-            auto loader4 = firewall_->create_batch_loader(set4, -1);
-            auto loader6 = firewall_->create_batch_loader(set6, -1);
+            // Stream IP/CIDR entries into the static sets (permanent).
+            auto loader4 = firewall_->create_batch_loader(set4);
+            auto loader6 = firewall_->create_batch_loader(set6);
             FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
                 if (type == EntryType::Domain) return;
                 bool is_v6 = entry.find(':') != std::string_view::npos;

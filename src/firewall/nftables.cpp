@@ -108,13 +108,13 @@ void NftablesFirewall::create_drop_rule(const std::string& set_name,
 }
 
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
-    const std::string& set_name, int32_t entry_timeout) {
+    const std::string& set_name) {
     // Ensure an entry exists in pending_elements_ for this set (as an empty array)
     auto& buf = pending_elements_[set_name];
     if (!buf.is_array()) {
         buf = nlohmann::json::array();
     }
-    return std::make_unique<NftBatchVisitor>(buf, set_name, entry_timeout);
+    return std::make_unique<NftBatchVisitor>(buf, set_name);
 }
 
 // --- Port spec helpers ---
@@ -309,10 +309,9 @@ void NftablesFirewall::apply() {
     // metainfo
     arr.push_back({{"metainfo", {{"json_schema_version", 1}}}});
 
-    // Ensure table exists (no-op if already present), then delete for clean slate
+    // Ensure table exists, then flush for a clean slate.
     arr.push_back(build_table_json());
-    arr.push_back({{"delete", {{"table", {{"family", "inet"}, {"name", TABLE_NAME}}}}}});
-    arr.push_back(build_table_json());
+    arr.push_back({{"flush", {{"table", {{"family", "inet"}, {"name", TABLE_NAME}}}}}});
 
     // Sets
     for (const auto& ps : pending_sets_) {
