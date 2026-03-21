@@ -2,17 +2,21 @@ import { Loader2, Search } from "lucide-react"
 import { useState } from "react"
 
 import { usePostRoutingTestMutation } from "@/api/mutations"
-import { ButtonGroup } from "@/components/shared/button-group"
 import { SectionCard } from "@/components/shared/section-card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { RoutingDiagnosticsResult } from "./routing-diagnostics-result"
@@ -20,14 +24,12 @@ import { sanitizeRoutingTarget } from "./sanitize-routing-target"
 
 export function RoutingTestPanel() {
   const [testTarget, setTestTarget] = useState("example.com")
-  const [routingInputError, setRoutingInputError] = useState<string | null>(null)
+  const [routingInputError, setRoutingInputError] = useState<string | null>(
+    null
+  )
 
   const routingTestMutation = usePostRoutingTestMutation()
 
-  const firstRoutingTestResult =
-    routingTestMutation.data?.status === 200
-      ? routingTestMutation.data.data.results[0]
-      : undefined
   const routingDiagnostics =
     routingTestMutation.data?.status === 200
       ? routingTestMutation.data.data
@@ -51,10 +53,13 @@ export function RoutingTestPanel() {
           routingTestMutation.mutate({ data: { target: sanitized } })
         }}
       >
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
+        <InputGroup>
+          <InputGroupAddon>
+            <InputGroupText>
+              <Search className="h-4 w-4" />
+            </InputGroupText>
+          </InputGroupAddon>
+          <InputGroupInput
             onChange={(event) => setTestTarget(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && testTarget.trim()) {
@@ -66,20 +71,20 @@ export function RoutingTestPanel() {
             placeholder="Domain, IP or URL"
             value={testTarget}
           />
-        </div>
-
-        <ButtonGroup className="flex-wrap gap-2">
-          <Button
-            className="whitespace-nowrap"
-            disabled={routingTestMutation.isPending || !testTarget.trim()}
-            type="submit"
-          >
-            {routingTestMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            Run routing test
-          </Button>
-        </ButtonGroup>
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              className="whitespace-nowrap"
+              disabled={routingTestMutation.isPending || !testTarget.trim()}
+              type="submit"
+              variant="default"
+            >
+              {routingTestMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Run routing test
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
       </form>
 
       {routingTestMutation.isPending ? (
@@ -105,7 +110,7 @@ export function RoutingTestPanel() {
 
       {routingTestMutation.isSuccess &&
       routingDiagnostics &&
-      !firstRoutingTestResult &&
+      routingDiagnostics.results.length === 0 &&
       routingDiagnostics.rule_diagnostics.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>
@@ -118,10 +123,7 @@ export function RoutingTestPanel() {
       ) : null}
 
       {routingDiagnostics ? (
-        <RoutingDiagnosticsResult
-          diagnostics={routingDiagnostics}
-          firstResult={firstRoutingTestResult}
-        />
+        <RoutingDiagnosticsResult diagnostics={routingDiagnostics} />
       ) : null}
     </SectionCard>
   )

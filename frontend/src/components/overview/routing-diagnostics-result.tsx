@@ -1,6 +1,6 @@
-import { CircleCheckBig, CircleOff } from "lucide-react"
+import { CircleCheckBig, CircleOff, Link } from "lucide-react"
 
-import type { RoutingTestEntry, RoutingTestResponse } from "@/api/generated/model"
+import type { RoutingTestResponse } from "@/api/generated/model"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Table,
@@ -16,10 +16,8 @@ import { RoutingLegend } from "./routing-legend"
 
 export function RoutingDiagnosticsResult({
   diagnostics,
-  firstResult,
 }: {
   diagnostics: RoutingTestResponse
-  firstResult?: RoutingTestEntry
 }) {
   const ruleDiagnostics = diagnostics.rule_diagnostics ?? []
   const ipRows = diagnostics.is_domain
@@ -39,20 +37,13 @@ export function RoutingDiagnosticsResult({
         </Alert>
       )}
 
-      {firstResult ? (
-        <div className="text-sm text-muted-foreground">
-          Expected outbound: {firstResult.expected_outbound} · Actual outbound:{" "}
-          {firstResult.actual_outbound}
-        </div>
-      ) : null}
-
       {ruleDiagnostics.length > 0 ? (
         <div className="overflow-x-auto rounded-md border">
           <Table className="min-w-[720px]">
             <TableHeader className="bg-muted/40">
               <TableRow>
                 <TableHead className="font-semibold">
-                  Host "{diagnostics.target}"
+                  <div>Host "{diagnostics.target}"</div>
                 </TableHead>
                 {ruleDiagnostics.map((rule) => (
                   <TableHead key={`rule-head-${rule.rule_index}`} className="text-center">
@@ -60,6 +51,12 @@ export function RoutingDiagnosticsResult({
                     <div className="text-xs text-muted-foreground">
                       {rule.interface_name || "-"}
                     </div>
+                    {rule.target_match?.via ? (
+                      <div className="inline-flex items-center justify-center gap-1 text-xs font-normal text-muted-foreground">
+                        <Link className="h-3 w-3" />
+                        <span>{rule.target_match.via}</span>
+                      </div>
+                    ) : null}
                   </TableHead>
                 ))}
               </TableRow>
