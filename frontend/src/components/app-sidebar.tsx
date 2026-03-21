@@ -13,9 +13,9 @@ import { NavMain } from "@/components/nav-main"
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
-  useSidebar,
+  SidebarHeader
 } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar-context"
 
 const data = {
   navMain: [

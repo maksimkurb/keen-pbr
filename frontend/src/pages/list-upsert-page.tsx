@@ -201,7 +201,7 @@ function ListForm({
     form.reset(draft)
     clearFormServerErrors(form)
     onErrorMessageChange(null)
-  }, [draft, form])
+  }, [draft, form, onErrorMessageChange])
 
   useEffect(() => {
     onErrorMessageChange(

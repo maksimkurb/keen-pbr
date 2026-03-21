@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -30,9 +30,8 @@ export function RoutingRulesPage() {
   const loadedConfig = selectConfig(configQuery.data)
   const routeRules = loadedConfig?.route?.rules ?? []
 
-  const tableRows = useMemo(
-    () => routeRules.map((rule: RouteRule, index: number) => getRouteRuleRow(rule, index)),
-    [routeRules]
+  const tableRows = routeRules.map((rule: RouteRule, index: number) =>
+    getRouteRuleRow(rule, index)
   )
 
   const postConfigMutation = usePostConfigMutation({

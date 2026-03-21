@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
@@ -145,12 +145,6 @@ function LoadedGeneralConfigPage({
     },
   })
 
-  useEffect(() => {
-    const nextDraft = getDraftFromConfig(loadedConfig)
-    setSavedDraft(nextDraft)
-    form.reset(nextDraft)
-    clearFormServerErrors(form)
-  }, [loadedConfig, form])
 
   const isPending = postConfigMutation.isPending
 

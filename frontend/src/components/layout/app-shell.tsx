@@ -5,9 +5,9 @@ import { AppBrandHeader } from "@/components/layout/app-brand-header"
 import { WarningBanner } from "@/components/layout/warning-banner"
 import {
   SidebarInset,
-  SidebarProvider,
-  useSidebar,
+  SidebarProvider
 } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar-context"
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
