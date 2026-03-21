@@ -130,6 +130,8 @@ NetlinkManager::~NetlinkManager() {
 }
 
 void NetlinkManager::add_route(const RouteSpec& spec) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     int family = spec.family;
     if (family == 0) {
         if (spec.destination == "default") {
@@ -207,6 +209,8 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
 }
 
 void NetlinkManager::delete_route(const RouteSpec& spec) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     int family = spec.family;
     if (family == 0) {
         if (spec.destination == "default") {
@@ -269,6 +273,8 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
 }
 
 void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
     if (err < 0) {
@@ -305,6 +311,8 @@ void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
 }
 
 void NetlinkManager::add_rule(const RuleSpec& spec) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     auto add_for_family = [&](int fam) {
         RulePtr rule(rtnl_rule_alloc());
         if (!rule) {
@@ -344,6 +352,8 @@ void NetlinkManager::add_rule(const RuleSpec& spec) {
 }
 
 void NetlinkManager::delete_rule(const RuleSpec& spec) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     auto del_for_family = [&](int fam) {
         RulePtr rule(rtnl_rule_alloc());
         if (!rule) {
@@ -378,6 +388,8 @@ void NetlinkManager::delete_rule(const RuleSpec& spec) {
 
 std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
                                                               int family) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_route_alloc_cache(impl_->sock, family, 0, &raw_cache);
     if (err < 0) {
@@ -453,6 +465,8 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
 }
 
 std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     struct nl_cache* raw_cache = nullptr;
     int err = rtnl_rule_alloc_cache(impl_->sock, family, &raw_cache);
     if (err < 0) {

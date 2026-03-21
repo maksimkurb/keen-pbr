@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useMemo } from "react"
 import {
   Play,
   RotateCw,
@@ -29,6 +29,7 @@ import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
+import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
@@ -50,8 +51,6 @@ export function OverviewPage() {
   })
 
   const postReloadMutation = usePostReloadMutation()
-
-  const dnsEvents = useDnsTestEvents()
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
@@ -176,38 +175,7 @@ export function OverviewPage() {
           ) : null}
         </SectionCard>
 
-        <SectionCard
-          className="col-span-2 lg:col-span-1"
-          title="DNS server self-check"
-        >
-          <div className="rounded-md border p-3">
-            {dnsEvents.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                Waiting for DNS test events…
-              </div>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {dnsEvents.map((event, index) => (
-                  <li
-                    key={`${event}-${index}`}
-                    className="font-mono text-xs md:text-sm"
-                  >
-                    {event}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
-            <Button size="sm" variant="outline" disabled>
-              Run again
-            </Button>
-            <Button size="sm" variant="outline" disabled>
-              Test from PC
-            </Button>
-          </ButtonGroup>
-        </SectionCard>
+        <DnsCheckWidget dnsServers={loadedConfig?.dns?.servers ?? []} />
       </div>
 
       <SectionCard title="Outbounds health">
@@ -269,36 +237,6 @@ export function OverviewPage() {
       <RoutingTestPanel />
     </div>
   )
-}
-
-function useDnsTestEvents(maxEvents = 8) {
-  const [events, setEvents] = useState<string[]>([])
-
-  useEffect(() => {
-    const eventSource = new EventSource("/api/dns/test")
-
-    eventSource.onmessage = (event) => {
-      const message = event.data?.trim()
-      if (!message) {
-        return
-      }
-
-      setEvents((previous) => [message, ...previous].slice(0, maxEvents))
-    }
-
-    eventSource.onerror = () => {
-      setEvents((previous) =>
-        ["DNS monitor disconnected", ...previous].slice(0, maxEvents)
-      )
-      eventSource.close()
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [maxEvents])
-
-  return events
 }
 
 function ServiceSummarySkeleton() {

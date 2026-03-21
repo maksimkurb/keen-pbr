@@ -244,12 +244,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field
-              name="cron"
-              validators={{
-                onChange: ({ value }) => getCronError(value) ?? undefined,
-              }}
-            >
+            <form.Field name="cron">
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -317,13 +312,7 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field
-              name="fwmarkStart"
-              validators={{
-                onChange: ({ value }) =>
-                  getFwmarkStartError(value) ?? undefined,
-              }}
-            >
+            <form.Field name="fwmarkStart">
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -354,12 +343,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field
-              name="fwmarkMask"
-              validators={{
-                onChange: ({ value }) => getFwmarkMaskError(value) ?? undefined,
-              }}
-            >
+            <form.Field name="fwmarkMask">
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -395,12 +379,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field
-              name="tableStart"
-              validators={{
-                onChange: ({ value }) => getTableStartError(value) ?? undefined,
-              }}
-            >
+            <form.Field name="tableStart">
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -614,29 +593,6 @@ function toStringInt(value: number | undefined, fallback: string) {
 }
 
 
-function getCronError(value: string) {
-  const fields = value.trim().split(/\s+/)
-  if (fields.length !== 5) {
-    return "Cron must have exactly 5 fields."
-  }
-
-  const ranges: Array<[number, number]> = [
-    [0, 59],
-    [0, 23],
-    [1, 31],
-    [1, 12],
-    [0, 7],
-  ]
-
-  for (const [index, field] of fields.entries()) {
-    if (!isValidCronField(field, ranges[index][0], ranges[index][1])) {
-      return "Enter a valid 5-field cron expression."
-    }
-  }
-
-  return null
-}
-
 function getCrontabGuruUrl(value: string) {
   if (getCronHash(value) === null) {
     return "https://crontab.guru/"
@@ -676,89 +632,4 @@ function getCronHash(value: string) {
   }
 
   return fields.join("_")
-}
-
-function isValidCronField(field: string, min: number, max: number) {
-  return field.split(",").every((part) => isValidCronPart(part, min, max))
-}
-
-function isValidCronPart(part: string, min: number, max: number) {
-  const stepParts = part.split("/")
-  if (stepParts.length > 2) {
-    return false
-  }
-
-  const [base, step] = stepParts
-  if (step && !isValidNumber(step, 1, max)) {
-    return false
-  }
-
-  if (base === "*") {
-    return true
-  }
-
-  const rangeParts = base.split("-")
-  if (rangeParts.length === 2) {
-    const [start, end] = rangeParts
-    return (
-      isValidNumber(start, min, max) &&
-      isValidNumber(end, min, max) &&
-      Number(start) <= Number(end)
-    )
-  }
-
-  if (rangeParts.length === 1) {
-    return isValidNumber(base, min, max)
-  }
-
-  return false
-}
-
-function isValidNumber(value: string, min: number, max: number) {
-  if (!/^\d+$/.test(value)) {
-    return false
-  }
-
-  const numericValue = Number(value)
-  return numericValue >= min && numericValue <= max
-}
-
-function getFwmarkStartError(value: string) {
-  return isValidHex32(value)
-    ? null
-    : "fwmark.start must be a 32-bit hexadecimal value like 0x00010000."
-}
-
-function getFwmarkMaskError(value: string) {
-  if (!isValidHex32(value)) {
-    return "fwmark.mask must be a 32-bit hexadecimal value."
-  }
-
-  const normalizedValue = value.slice(2).toLowerCase()
-  if (!/0*f+0*/.test(normalizedValue) || /[^0f]/.test(normalizedValue)) {
-    return "fwmark.mask must contain one consecutive run of f digits."
-  }
-
-  return null
-}
-
-function isValidHex32(value: string) {
-  return /^0x[0-9a-fA-F]{8}$/.test(value)
-}
-
-function getTableStartError(value: string) {
-  if (!/^\d+$/.test(value)) {
-    return "iproute.table_start must be a positive integer."
-  }
-
-  const numericValue = Number(value)
-  if (
-    !Number.isInteger(numericValue) ||
-    numericValue < 1 ||
-    numericValue > 252
-  ) {
-    return "iproute.table_start must be between 1 and 252."
-  }
-
-  return null
 }

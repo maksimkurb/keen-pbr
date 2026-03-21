@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -94,6 +95,7 @@ public:
 private:
     struct Impl;
     Impl* impl_;
+    mutable std::mutex mutex_;
 };
 
 } // namespace keen_pbr3

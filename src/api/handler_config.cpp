@@ -12,6 +12,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fcntl.h>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <shared_mutex>
@@ -122,6 +123,34 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
     };
 }
 
+std::string serialize_config_pretty(const Config& config) {
+    nlohmann::json json = config;
+    std::function<bool(nlohmann::json&)> prune_json = [&](nlohmann::json& value) -> bool {
+        if (value.is_object()) {
+            for (auto it = value.begin(); it != value.end();) {
+                if (prune_json(it.value())) {
+                    it = value.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            return value.empty();
+        }
+
+        if (value.is_array()) {
+            for (auto& item : value) {
+                (void)prune_json(item);
+            }
+            return false;
+        }
+
+        return value.is_null();
+    };
+
+    (void)prune_json(json);
+    return json.dump(1, '\t') + "\n";
+}
+
 } // namespace
 
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
@@ -152,7 +181,8 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError(e.what(), 400, payload.dump());
         }
 
-        ctx.stage_config_fn(std::move(staged), body);
+        std::string formatted_config = serialize_config_pretty(staged);
+        ctx.stage_config_fn(std::move(staged), std::move(formatted_config));
 
         api::ConfigUpdateResponse resp;
         resp.status = api::ConfigUpdateResponseStatus::OK;
