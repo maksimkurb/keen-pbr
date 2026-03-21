@@ -351,14 +351,31 @@ namespace api {
         bool ok;
     };
 
+    struct RoutingTestRuleIpDiagnostic {
+        std::optional<bool> in_ipset;
+        std::string ip;
+    };
+
+    struct RoutingTestRuleDiagnostic {
+        std::string interface_name;
+        std::string outbound;
+        std::vector<RoutingTestRuleIpDiagnostic> ip_rows;
+        int64_t rule_index;
+        bool target_in_lists;
+        std::optional<ListMatch> target_match;
+    };
+
     struct RoutingTestRequest {
         std::string target;
     };
 
     struct RoutingTestResponse {
+        std::optional<std::string> dns_error;
         bool is_domain;
+        bool no_matching_rule;
         std::vector<std::string> resolved_ips;
         std::vector<RoutingTestEntry> results;
+        std::vector<RoutingTestRuleDiagnostic> rule_diagnostics;
         std::string target;
         std::vector<std::string> warnings;
     };
@@ -508,6 +525,12 @@ namespace api {
 
     void from_json(const json & j, RoutingTestEntry & x);
     void to_json(json & j, const RoutingTestEntry & x);
+
+    void from_json(const json & j, RoutingTestRuleIpDiagnostic & x);
+    void to_json(json & j, const RoutingTestRuleIpDiagnostic & x);
+
+    void from_json(const json & j, RoutingTestRuleDiagnostic & x);
+    void to_json(json & j, const RoutingTestRuleDiagnostic & x);
 
     void from_json(const json & j, RoutingTestRequest & x);
     void to_json(json & j, const RoutingTestRequest & x);
@@ -1065,6 +1088,36 @@ namespace api {
         j["ok"] = x.ok;
     }
 
+    inline void from_json(const json & j, RoutingTestRuleIpDiagnostic& x) {
+        x.in_ipset = get_stack_optional<bool>(j, "in_ipset");
+        x.ip = j.at("ip").get<std::string>();
+    }
+
+    inline void to_json(json & j, const RoutingTestRuleIpDiagnostic & x) {
+        j = json::object();
+        j["in_ipset"] = x.in_ipset;
+        j["ip"] = x.ip;
+    }
+
+    inline void from_json(const json & j, RoutingTestRuleDiagnostic& x) {
+        x.interface_name = j.at("interface_name").get<std::string>();
+        x.outbound = j.at("outbound").get<std::string>();
+        x.ip_rows = j.at("ip_rows").get<std::vector<RoutingTestRuleIpDiagnostic>>();
+        x.rule_index = j.at("rule_index").get<int64_t>();
+        x.target_in_lists = j.at("target_in_lists").get<bool>();
+        x.target_match = get_stack_optional<ListMatch>(j, "target_match");
+    }
+
+    inline void to_json(json & j, const RoutingTestRuleDiagnostic & x) {
+        j = json::object();
+        j["interface_name"] = x.interface_name;
+        j["outbound"] = x.outbound;
+        j["ip_rows"] = x.ip_rows;
+        j["rule_index"] = x.rule_index;
+        j["target_in_lists"] = x.target_in_lists;
+        j["target_match"] = x.target_match;
+    }
+
     inline void from_json(const json & j, RoutingTestRequest& x) {
         x.target = j.at("target").get<std::string>();
     }
@@ -1075,18 +1128,24 @@ namespace api {
     }
 
     inline void from_json(const json & j, RoutingTestResponse& x) {
+        x.dns_error = get_stack_optional<std::string>(j, "dns_error");
         x.is_domain = j.at("is_domain").get<bool>();
+        x.no_matching_rule = j.at("no_matching_rule").get<bool>();
         x.resolved_ips = j.at("resolved_ips").get<std::vector<std::string>>();
         x.results = j.at("results").get<std::vector<RoutingTestEntry>>();
+        x.rule_diagnostics = j.at("rule_diagnostics").get<std::vector<RoutingTestRuleDiagnostic>>();
         x.target = j.at("target").get<std::string>();
         x.warnings = j.at("warnings").get<std::vector<std::string>>();
     }
 
     inline void to_json(json & j, const RoutingTestResponse & x) {
         j = json::object();
+        j["dns_error"] = x.dns_error;
         j["is_domain"] = x.is_domain;
+        j["no_matching_rule"] = x.no_matching_rule;
         j["resolved_ips"] = x.resolved_ips;
         j["results"] = x.results;
+        j["rule_diagnostics"] = x.rule_diagnostics;
         j["target"] = x.target;
         j["warnings"] = x.warnings;
     }

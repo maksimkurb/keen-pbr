@@ -1,12 +1,13 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react"
-import { Play, RotateCw, Square } from "lucide-react"
+import {
+  Play,
+  RotateCw,
+  Square,
+} from "lucide-react"
 
 import type { ApiError } from "@/api/client"
 import { useGetHealthRouting, useGetHealthService } from "@/api/queries"
-import {
-  usePostReloadMutation,
-  usePostRoutingTestMutation,
-} from "@/api/mutations"
+import { usePostReloadMutation } from "@/api/mutations"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -26,13 +27,12 @@ import {
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { SectionCard } from "@/components/shared/section-card"
+import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
 const unsupportedActionReason = "Not available in current API"
 
 export function OverviewPage() {
-  const [testTarget, setTestTarget] = useState("example.com")
-
   const serviceHealthQuery = useGetHealthService({
     query: {
       refetchInterval: 30_000,
@@ -47,7 +47,6 @@ export function OverviewPage() {
   })
 
   const postReloadMutation = usePostReloadMutation()
-  const routingTestMutation = usePostRoutingTestMutation()
 
   const dnsEvents = useDnsTestEvents()
 
@@ -143,10 +142,6 @@ export function OverviewPage() {
     return [...firewallRows, ...routeRows, ...policyRows]
   }, [routingHealth])
 
-  const firstRoutingTestResult =
-    routingTestMutation.data?.status === 200
-      ? routingTestMutation.data.data.results[0]
-      : undefined
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error)
     : null
@@ -316,66 +311,7 @@ export function OverviewPage() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Domain/IP routing test">
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            routingTestMutation.mutate({ data: { target: testTarget.trim() } })
-          }}
-        >
-          <ButtonGroup>
-            <Input
-              className="min-w-0 flex-1 rounded-none border-0 shadow-none focus-visible:ring-0"
-              onChange={(event) => setTestTarget(event.target.value)}
-              value={testTarget}
-            />
-            <Button
-              className="whitespace-nowrap"
-              disabled={routingTestMutation.isPending || !testTarget.trim()}
-            >
-              Run routing test
-            </Button>
-          </ButtonGroup>
-        </form>
-
-        {routingTestMutation.isPending ? (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        ) : null}
-
-        {routingTestMutation.isError ? (
-          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>
-              Routing test failed. Please try again.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {routingTestMutation.isSuccess && !firstRoutingTestResult ? (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyTitle>No route matched</EmptyTitle>
-              <EmptyDescription>
-                Try another domain or IP address.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
-
-        {firstRoutingTestResult ? (
-          <div className="text-sm text-muted-foreground">
-            Expected outbound: {firstRoutingTestResult.expected_outbound} ·
-            Actual outbound: {firstRoutingTestResult.actual_outbound} · Matched
-            lists:{" "}
-            {firstRoutingTestResult.list_match
-              ? `${firstRoutingTestResult.list_match.list} via ${firstRoutingTestResult.list_match.via}`
-              : "none"}
-          </div>
-        ) : null}
-      </SectionCard>
+      <RoutingTestPanel />
     </div>
   )
 }

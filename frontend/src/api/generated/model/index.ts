@@ -52,4 +52,6 @@ export * from './routingHealthResponseOverall';
 export * from './routingTestEntry';
 export * from './routingTestListMatch';
 export * from './routingTestRequest';
+export * from './routingTestRuleDiagnostic';
+export * from './routingTestRuleIpDiagnostic';
 export * from './routingTestResponse';

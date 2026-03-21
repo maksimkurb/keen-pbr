@@ -22,11 +22,29 @@ struct TestRoutingEntry {
     bool ok;
 };
 
+struct RuleIpDiagnostic {
+    std::string ip;
+    // true/false when checked against live firewall set, null when unavailable.
+    std::optional<bool> in_ipset;
+};
+
+struct RuleDiagnostic {
+    int rule_index{0};
+    std::string outbound;
+    std::string interface_name; // "-" when unknown/not applicable
+    bool target_in_lists{false};
+    std::optional<ListMatchInfo> target_match;
+    std::vector<RuleIpDiagnostic> ip_rows;
+};
+
 struct TestRoutingResult {
     std::string target;
     bool is_domain{false};
     std::vector<std::string> resolved_ips;
     std::vector<TestRoutingEntry> entries;
+    std::vector<RuleDiagnostic> rule_diagnostics;
+    bool no_matching_rule{false};
+    std::optional<std::string> dns_error;
     std::vector<std::string> warnings;
 };
 

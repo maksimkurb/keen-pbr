@@ -722,9 +722,42 @@ components:
           description: true when expected_outbound equals actual_outbound.
           example: true
 
+    RoutingTestRuleIpDiagnostic:
+      type: object
+      required: [ip]
+      properties:
+        ip:
+          type: string
+          description: Resolved IP represented by this matrix row.
+        in_ipset:
+          type: boolean
+          nullable: true
+          description: |
+            Whether the IP exists in this rule's firewall set.
+            null when firewall check is unavailable.
+
+    RoutingTestRuleDiagnostic:
+      type: object
+      required: [rule_index, outbound, interface_name, target_in_lists, ip_rows]
+      properties:
+        rule_index:
+          type: integer
+        outbound:
+          type: string
+        interface_name:
+          type: string
+        target_in_lists:
+          type: boolean
+        target_match:
+          $ref: "#/components/schemas/RoutingTestListMatch"
+        ip_rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingTestRuleIpDiagnostic"
+
     RoutingTestResponse:
       type: object
-      required: [target, is_domain, resolved_ips, warnings, results]
+      required: [target, is_domain, resolved_ips, warnings, results, rule_diagnostics, no_matching_rule]
       properties:
         target:
           type: string
@@ -748,6 +781,18 @@ components:
           items:
             type: string
           example: []
+        dns_error:
+          type: string
+          nullable: true
+          description: DNS resolution error message for domain targets.
+        no_matching_rule:
+          type: boolean
+          description: true when no routing rule matched target lists.
+        rule_diagnostics:
+          type: array
+          description: Rule-by-rule matrix diagnostics for UI rendering.
+          items:
+            $ref: "#/components/schemas/RoutingTestRuleDiagnostic"
         results:
           type: array
           description: Per-IP routing test results.
