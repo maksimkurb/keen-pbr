@@ -71,7 +71,7 @@ jobs:
           ./scripts/feeds install -p keenPbr keen-pbr
           cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
-          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE"
+          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
           mkdir -p release_files

@@ -1,4 +1,12 @@
+ARG OPENWRT_VERSION=24.10.4
+ARG OPENWRT_TARGET=mediatek
+ARG OPENWRT_SUBTARGET=filogic
+
 FROM ubuntu:24.04
+
+ARG OPENWRT_VERSION
+ARG OPENWRT_TARGET
+ARG OPENWRT_SUBTARGET
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -30,6 +38,16 @@ RUN apt-get update && \
       zstd && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /work
+COPY .github/builder/generate_build_matrix.py /opt/keen-pbr/generate_build_matrix.py
+COPY docker/openwrt-prepare.sh /usr/local/bin/openwrt-prepare.sh
+COPY packages/openwrt/packages.config /opt/keen-pbr/packages.config
+
+RUN chmod +x /usr/local/bin/openwrt-prepare.sh && \
+    OPENWRT_VERSION="${OPENWRT_VERSION}" \
+    OPENWRT_TARGET="${OPENWRT_TARGET}" \
+    OPENWRT_SUBTARGET="${OPENWRT_SUBTARGET}" \
+    /usr/local/bin/openwrt-prepare.sh
+
+WORKDIR /work/sdk
 ENTRYPOINT []
 CMD ["sh", "-lc", "trap : TERM INT; while :; do sleep 3600; done"]

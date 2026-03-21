@@ -50,7 +50,7 @@ jobs:
           ./scripts/feeds install -a
           cp ../src/packages/openwrt/packages.config .config
           make defconfig
-          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="$GITHUB_WORKSPACE/src"
+          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
       - name: Upload validation artifacts
         uses: actions/upload-artifact@v6
         with:

@@ -148,7 +148,7 @@ Behavior:
 - Downloads and extracts the matching OpenWrt SDK inside the persistent container on first run
 - Reuses that same container and SDK on later runs
 - Rebuilds only the `keen-pbr` package
-- Copies resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<target>_<subtarget>.<ext>`
+- Copies resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.<ext>`
 
 Cleanup:
 
@@ -173,8 +173,8 @@ ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_keenetic_<arch>.ipk
 scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 
 # OpenWRT example
-scp release_files/keen-pbr_<version>_openwrt_<target>_<subtarget>.ipk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<target>_<subtarget>.ipk
+scp release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk
 scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 ```
 

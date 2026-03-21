@@ -1,13 +1,14 @@
 SHELL := bash
 
 RELEASE_DIR ?= release_files
-DOCKER_OPENWRT_IMAGE ?= keen-pbr-openwrt-builder
+DOCKER_OPENWRT_IMAGE_PREFIX ?= keen-pbr-openwrt-builder
 DOCKER_KEENETIC_IMAGE_PREFIX ?= keen-pbr-keenetic-builder
 OPENWRT_VERSION ?= 24.10.4
 REPO_ROOT ?= $(abspath $(CURDIR))
 
 KEENETIC_CONTAINER = keen-pbr-keenetic-$(KEENETIC_ARCH)
 KEENETIC_IMAGE = $(DOCKER_KEENETIC_IMAGE_PREFIX):$(KEENETIC_ARCH)
+OPENWRT_IMAGE = $(DOCKER_OPENWRT_IMAGE_PREFIX):$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 OPENWRT_CONTAINER = keen-pbr-openwrt-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 
 .PHONY: docker-build-keenetic docker-build-openwrt docker-build-openwrt-image docker-build-keenetic-image docker-clean-keenetic docker-clean-openwrt list-openwrt-targets
@@ -25,14 +26,24 @@ docker-build-keenetic-image:
 	docker build -f docker/Dockerfile.keenetic-builder --build-arg KEENETIC_ARCH="$(KEENETIC_ARCH)" -t "$(KEENETIC_IMAGE)" .
 
 docker-build-openwrt-image:
-	docker build -f docker/Dockerfile.openwrt-builder -t "$(DOCKER_OPENWRT_IMAGE)" .
+	$(call require_var,OPENWRT_TARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt-image)
+	$(call require_var,OPENWRT_SUBTARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt-image)
+	docker build \
+		-f docker/Dockerfile.openwrt-builder \
+		--build-arg OPENWRT_VERSION="$(OPENWRT_VERSION)" \
+		--build-arg OPENWRT_TARGET="$(OPENWRT_TARGET)" \
+		--build-arg OPENWRT_SUBTARGET="$(OPENWRT_SUBTARGET)" \
+		-t "$(OPENWRT_IMAGE)" .
 
 list-openwrt-targets: ## List available OpenWrt targets from the workflow discovery script (optional OPENWRT_VERSION/OPENWRT_TARGET/OPENWRT_SUBTARGET filters)
 	@python3 "$(REPO_ROOT)/docker/list_openwrt_targets.py" "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" "$(REPO_ROOT)"
 
-docker-build-keenetic: docker-build-keenetic-image ## Build Keenetic package locally in a persistent builder container (requires KEENETIC_ARCH=...)
+docker-build-keenetic: ## Build Keenetic package locally in a persistent builder container (requires KEENETIC_ARCH=...)
 	$(call require_var,KEENETIC_ARCH,KEENETIC_ARCH=<aarch64-3.10|mips-3.4|mipsel-3.4|x64-3.2|armv7-3.2> make docker-build-keenetic)
 	@mkdir -p "$(RELEASE_DIR)"
+	@if ! docker image inspect "$(KEENETIC_IMAGE)" >/dev/null 2>&1; then \
+		$(MAKE) docker-build-keenetic-image KEENETIC_ARCH="$(KEENETIC_ARCH)"; \
+	fi
 	@if ! docker container inspect "$(KEENETIC_CONTAINER)" >/dev/null 2>&1; then \
 		echo "[keenetic] Creating persistent container $(KEENETIC_CONTAINER)..."; \
 		docker create --name "$(KEENETIC_CONTAINER)" --user root -v "$(REPO_ROOT):/src" "$(KEENETIC_IMAGE)" >/dev/null; \
@@ -42,13 +53,16 @@ docker-build-keenetic: docker-build-keenetic-image ## Build Keenetic package loc
 	docker start "$(KEENETIC_CONTAINER)" >/dev/null; \
 	docker exec -e KEENETIC_ARCH="$(KEENETIC_ARCH)" -e RELEASE_DIR="/src/$(RELEASE_DIR)" -e REPO_ROOT="/src" "$(KEENETIC_CONTAINER)" bash /src/docker/keenetic-build.sh
 
-docker-build-openwrt: docker-build-openwrt-image ## Build OpenWrt package locally in a persistent builder container (requires OPENWRT_TARGET=... OPENWRT_SUBTARGET=...)
+docker-build-openwrt: ## Build OpenWrt package locally in a persistent builder container (requires OPENWRT_TARGET=... OPENWRT_SUBTARGET=...)
 	$(call require_var,OPENWRT_TARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt)
 	$(call require_var,OPENWRT_SUBTARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt)
 	@mkdir -p "$(RELEASE_DIR)"
+	@if ! docker image inspect "$(OPENWRT_IMAGE)" >/dev/null 2>&1; then \
+		$(MAKE) docker-build-openwrt-image OPENWRT_VERSION="$(OPENWRT_VERSION)" OPENWRT_TARGET="$(OPENWRT_TARGET)" OPENWRT_SUBTARGET="$(OPENWRT_SUBTARGET)"; \
+	fi
 	@if ! docker container inspect "$(OPENWRT_CONTAINER)" >/dev/null 2>&1; then \
 		echo "[openwrt] Creating persistent container $(OPENWRT_CONTAINER)..."; \
-		docker create --name "$(OPENWRT_CONTAINER)" -v "$(REPO_ROOT):/src" "$(DOCKER_OPENWRT_IMAGE)" >/dev/null; \
+		docker create --name "$(OPENWRT_CONTAINER)" -v "$(REPO_ROOT):/src" "$(OPENWRT_IMAGE)" >/dev/null; \
 	fi
 	@set -e; \
 	trap 'docker stop "$(OPENWRT_CONTAINER)" >/dev/null 2>&1 || true' EXIT; \
@@ -74,6 +88,8 @@ docker-clean-keenetic: ## Remove persistent Keenetic builder containers/images (
 docker-clean-openwrt: ## Remove persistent OpenWrt builder containers (optionally scoped with OPENWRT_VERSION/OPENWRT_TARGET/OPENWRT_SUBTARGET)
 	@if [ -n "$(OPENWRT_TARGET)" ] && [ -n "$(OPENWRT_SUBTARGET)" ]; then \
 		docker rm -f "$(OPENWRT_CONTAINER)" 2>/dev/null || true; \
+		docker image rm "$(OPENWRT_IMAGE)" 2>/dev/null || true; \
 	else \
 		docker ps -a --format '{{.Names}}' | grep '^keen-pbr-openwrt-' | xargs -r docker rm -f; \
+		docker images --format '{{.Repository}}:{{.Tag}}' | grep '^$(DOCKER_OPENWRT_IMAGE_PREFIX):' | xargs -r docker image rm; \
 	fi

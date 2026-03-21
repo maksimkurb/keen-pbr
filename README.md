@@ -145,7 +145,7 @@ Behavior:
 - Mounts the repo into the container at `/src`
 - Downloads and extracts the matching OpenWrt SDK inside the persistent container on first run
 - Reuses that same container and SDK on later runs, rebuilding only the `keen-pbr` package
-- Copies the resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<target>_<subtarget>.<ext>`
+- Copies the resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.<ext>`
 
 Cleanup:
 

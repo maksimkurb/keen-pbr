@@ -25,7 +25,7 @@ done < "${REPO_ROOT}/packages/keenetic/packages.config"
 
 make defconfig
 make package/keen-pbr/clean
-make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR3_SRC="${REPO_ROOT}"
+make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="${REPO_ROOT}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/keenetic/keen-pbr/Makefile" | head -1)"
 find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr*.ipk' | while read -r file; do
