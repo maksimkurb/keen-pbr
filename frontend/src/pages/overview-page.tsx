@@ -26,6 +26,7 @@ import {
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { SectionCard } from "@/components/shared/section-card"
+import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
@@ -89,57 +90,6 @@ export function OverviewPage() {
       ]
     })
   }, [serviceHealth])
-
-  const routingRows = useMemo(() => {
-    if (!routingHealth) {
-      return []
-    }
-
-    const firewallRules = routingHealth.firewall_rules ?? []
-    const routeTables = routingHealth.route_tables ?? []
-    const policyRules = routingHealth.policy_rules ?? []
-
-    const firewallRows = firewallRules.map((rule, index) => [
-      `Firewall #${index + 1}`,
-      `set ${rule.set_name}`,
-      rule.action,
-      rule.expected_fwmark ?? "-",
-      rule.actual_fwmark ?? "-",
-      rule.detail ?? "-",
-      <StatusBadge key={`fw-${index}`} tone={mapCheckTone(rule.status)}>
-        {rule.status}
-      </StatusBadge>,
-    ])
-
-    const routeRows = routeTables.map((table) => [
-      `Route table ${table.table_id}`,
-      table.outbound_tag,
-      table.expected_destination ?? "default",
-      table.expected_interface ?? "-",
-      table.expected_gateway ?? "-",
-      table.detail ?? "-",
-      <StatusBadge
-        key={`route-${table.table_id}`}
-        tone={mapCheckTone(table.status)}
-      >
-        {table.status}
-      </StatusBadge>,
-    ])
-
-    const policyRows = policyRules.map((policy, index) => [
-      `Policy #${index + 1}`,
-      `fwmark ${policy.fwmark}/${policy.fwmask}`,
-      `table ${policy.expected_table}`,
-      `priority ${policy.priority}`,
-      `v4:${policy.rule_present_v4 ? "yes" : "no"} v6:${policy.rule_present_v6 ? "yes" : "no"}`,
-      policy.detail ?? "-",
-      <StatusBadge key={`policy-${index}`} tone={mapCheckTone(policy.status)}>
-        {policy.status}
-      </StatusBadge>,
-    ])
-
-    return [...firewallRows, ...routeRows, ...policyRows]
-  }, [routingHealth])
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error)
@@ -284,7 +234,10 @@ export function OverviewPage() {
             </AlertDescription>
           </Alert>
         ) : null}
-        {routingHealth && routingRows.length === 0 ? (
+        {routingHealth &&
+        routingHealth.firewall_rules.length === 0 &&
+        routingHealth.route_tables.length === 0 &&
+        routingHealth.policy_rules.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
               <EmptyTitle>No routing checks reported yet</EmptyTitle>
@@ -294,19 +247,11 @@ export function OverviewPage() {
             </EmptyHeader>
           </Empty>
         ) : null}
-        {routingRows.length > 0 ? (
-          <DataTable
-            headers={[
-              "Check",
-              "Expected",
-              "Observed",
-              "Field 1",
-              "Field 2",
-              "Detail",
-              "Status",
-            ]}
-            rows={routingRows}
-          />
+        {routingHealth &&
+        (routingHealth.firewall_rules.length > 0 ||
+          routingHealth.route_tables.length > 0 ||
+          routingHealth.policy_rules.length > 0) ? (
+          <RoutingHealthCard routingHealth={routingHealth} />
         ) : null}
       </SectionCard>
 
@@ -427,18 +372,6 @@ function mapHealthTone(status: string): "healthy" | "warning" | "degraded" {
   }
 
   if (status === "unknown") {
-    return "warning"
-  }
-
-  return "degraded"
-}
-
-function mapCheckTone(status: string): "healthy" | "warning" | "degraded" {
-  if (status === "ok") {
-    return "healthy"
-  }
-
-  if (status === "missing") {
     return "warning"
   }
 
