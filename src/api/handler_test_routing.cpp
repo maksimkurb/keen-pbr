@@ -35,6 +35,8 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
         api::RoutingTestResponse resp;
         resp.target       = result.target;
         resp.is_domain    = result.is_domain;
+        resp.dns_error    = result.dns_error;
+        resp.no_matching_rule = result.no_matching_rule;
         resp.resolved_ips = result.resolved_ips;
         resp.warnings     = result.warnings;
 
@@ -51,6 +53,27 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
                 e.list_match = std::move(lm);
             }
             resp.results.push_back(std::move(e));
+        }
+
+        for (const auto& rule_diag : result.rule_diagnostics) {
+            api::RoutingTestRuleDiagnostic rd;
+            rd.rule_index = rule_diag.rule_index;
+            rd.outbound = rule_diag.outbound;
+            rd.interface_name = rule_diag.interface_name;
+            rd.target_in_lists = rule_diag.target_in_lists;
+            if (rule_diag.target_match) {
+                api::ListMatch lm;
+                lm.list = rule_diag.target_match->list_name;
+                lm.via  = rule_diag.target_match->via;
+                rd.target_match = std::move(lm);
+            }
+            for (const auto& ip_diag : rule_diag.ip_rows) {
+                api::RoutingTestRuleIpDiagnostic ipd;
+                ipd.ip = ip_diag.ip;
+                ipd.in_ipset = ip_diag.in_ipset;
+                rd.ip_rows.push_back(std::move(ipd));
+            }
+            resp.rule_diagnostics.push_back(std::move(rd));
         }
 
         nlohmann::json out;

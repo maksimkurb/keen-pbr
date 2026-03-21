@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { RoutingTestEntry } from './routingTestEntry';
+import type { RoutingTestRuleDiagnostic } from './routingTestRuleDiagnostic';
 
 export interface RoutingTestResponse {
   /** The original input value passed to the test. */
@@ -17,6 +18,12 @@ export interface RoutingTestResponse {
   resolved_ips: string[];
   /** Non-fatal warnings such as DNS resolution failures. */
   warnings: string[];
+  /** DNS resolution error message for domain targets. */
+  dns_error?: string | null;
+  /** true when no routing rule matched target lists. */
+  no_matching_rule: boolean;
+  /** Rule-by-rule matrix diagnostics for UI rendering. */
+  rule_diagnostics: RoutingTestRuleDiagnostic[];
   /** Per-IP routing test results. */
   results: RoutingTestEntry[];
 }

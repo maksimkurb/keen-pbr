@@ -173,6 +173,63 @@ find_expected_outbound(const Config& config,
     return {"(default)", std::nullopt};
 }
 
+std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
+                                             const std::map<std::string, ListLookupData>& lookups,
+                                             const std::string& ip,
+                                             const std::vector<std::string>& domain_cands) {
+    for (const auto& list_name : rule.list) {
+        auto it = lookups.find(list_name);
+        if (it == lookups.end()) continue;
+        const auto& lookup = it->second;
+
+        if (!ip.empty() && lookup.ip_set.contains(ip)) {
+            return ListMatchInfo{list_name, ip};
+        }
+
+        for (const auto& candidate : domain_cands) {
+            std::string lower = candidate;
+            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+            if (contains(lookup.domain_set, lower)) {
+                return ListMatchInfo{list_name, candidate};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::string outbound_interface_name(const Config& config, const std::string& outbound_tag) {
+    const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
+    for (const auto& outbound : outbounds) {
+        if (outbound.tag != outbound_tag) continue;
+        return outbound.interface.value_or("-");
+    }
+    return "-";
+}
+
+std::optional<bool> test_rule_ipset_membership(const Firewall& firewall,
+                                               const RuleState& rule_state,
+                                               const std::string& ip,
+                                               bool is_v4) {
+    bool any_answer = false;
+
+    for (const auto& set_name : rule_state.set_names) {
+        const bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4d_");
+        const bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6d_");
+        if (is_v4 && !v4_set) continue;
+        if (!is_v4 && !v6_set) continue;
+
+        auto result = firewall.test_ip_in_set(set_name, ip);
+        if (!result.has_value()) {
+            continue;
+        }
+        any_answer = true;
+        if (*result) return true;
+    }
+
+    if (!any_answer) return std::nullopt;
+    return false;
+}
+
 std::string find_actual_outbound(const Firewall& firewall,
                                    const std::vector<RuleState>& rule_states,
                                    const std::string& ip,
@@ -214,6 +271,9 @@ TestRoutingResult compute_test_routing(const Config& config,
 
     if (result.is_domain) {
         ips = resolve_domain(target, result.warnings);
+        if (ips.empty() && !result.warnings.empty()) {
+            result.dns_error = result.warnings.front();
+        }
         domain_cands = domain_candidates(target);
         result.resolved_ips = ips;
     } else {
@@ -226,6 +286,8 @@ TestRoutingResult compute_test_routing(const Config& config,
         config.fwmark.value_or(FwmarkConfig{}),
         config.outbounds.value_or(std::vector<Outbound>{}));
     const auto rule_states = build_fw_rule_states(config, marks);
+    const auto& route_rules =
+        config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 
     std::unique_ptr<Firewall> firewall;
     try {
@@ -245,7 +307,17 @@ TestRoutingResult compute_test_routing(const Config& config,
         entry.actual_outbound = "(unknown)";
         entry.ok = false;
         result.entries.push_back(std::move(entry));
-        return result;
+    }
+
+    for (size_t idx = 0; idx < route_rules.size(); ++idx) {
+        RuleDiagnostic diag;
+        diag.rule_index = static_cast<int>(idx);
+        diag.outbound = route_rules[idx].outbound;
+        diag.interface_name = outbound_interface_name(config, diag.outbound);
+        diag.target_match = find_rule_match(route_rules[idx], lookups,
+                                            result.is_domain ? "" : target, domain_cands);
+        diag.target_in_lists = diag.target_match.has_value();
+        result.rule_diagnostics.push_back(std::move(diag));
     }
 
     for (const auto& ip : ips) {
@@ -259,7 +331,22 @@ TestRoutingResult compute_test_routing(const Config& config,
             : "(unknown)";
         entry.ok = (entry.expected_outbound == entry.actual_outbound);
         result.entries.push_back(std::move(entry));
+
+        for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
+            RuleIpDiagnostic ip_diag;
+            ip_diag.ip = ip;
+            if (firewall && idx < rule_states.size()) {
+                ip_diag.in_ipset = test_rule_ipset_membership(
+                    *firewall, rule_states[idx], ip, is_ipv4_address(ip));
+            }
+            result.rule_diagnostics[idx].ip_rows.push_back(std::move(ip_diag));
+        }
     }
+
+    result.no_matching_rule = std::none_of(
+        result.entries.begin(), result.entries.end(), [](const TestRoutingEntry& entry) {
+            return entry.expected_outbound != "(default)";
+        });
 
     return result;
 }
