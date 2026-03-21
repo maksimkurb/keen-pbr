@@ -13,6 +13,10 @@ resolver_type() {
     fi
 }
 
+generate_dnsmasq_config() {
+    "$KEEN_PBR_BIN" --config "$CONFIG_PATH" generate-resolver-config "$(resolver_type)"
+}
+
 uci_add_list_if_new() {
     local package="$1"
     local config="$2"
@@ -37,7 +41,7 @@ dnsmasq_instance_get_confdir() {
 
     cfg_file="$(ubus call service list '{"name":"dnsmasq"}' 2>/dev/null |
         jsonfilter -e "@.dnsmasq.instances.${cfg}.command" |
-        awk '{gsub(/\\\//,"/");gsub(/[][\",]/,"");for(i=1;i<=NF;i++)if($i==\"-C\"){print $(i+1);exit}}')"
+        awk '{gsub(/\\\//,"/");gsub(/[][",]/,"");for(i=1;i<=NF;i++)if($i=="-C"){print $(i+1);exit}}')"
 
     [ -n "$cfg_file" ] && [ -f "$cfg_file" ] || return 1
     awk -F= '/^conf-dir=/{print $2; exit}' "$cfg_file"
@@ -71,13 +75,17 @@ dnsmasq_instance_cleanup() {
 }
 
 configure_dnsmasq() {
-    local section
+    local section tmp_file
 
     mkdir -p "${DNSMASQ_FILE%/*}"
-    cat >"$DNSMASQ_FILE" <<EOF
-# Managed by keen-pbr. Removed automatically on service stop.
-conf-script=${KEEN_PBR_BIN} --config ${CONFIG_PATH} generate-resolver-config $(resolver_type)
-EOF
+    tmp_file="${DNSMASQ_FILE}.tmp"
+
+    if ! generate_dnsmasq_config >"$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+
+    mv "$tmp_file" "$DNSMASQ_FILE"
 
     for section in $(dnsmasq_sections); do
         dnsmasq_instance_setup "$section" || true

@@ -52,13 +52,25 @@ prepare_stop() {
     enable_hwnat
 }
 
+reapply_dnsmasq_config() {
+    if [ -x "$DNSMASQ_HELPER" ]; then
+        "$DNSMASQ_HELPER" configure || return 1
+        "$DNSMASQ_HELPER" reload || true
+    fi
+}
+
 case "$1" in
     reload)
+        reapply_dnsmasq_config || exit 1
         signal_service HUP
         exit $?
         ;;
     reapply-firewall)
         signal_service SIGUSR1
+        exit $?
+        ;;
+    reapply-dnsmasq-config)
+        reapply_dnsmasq_config
         exit $?
         ;;
     start|restart|restartall|check)

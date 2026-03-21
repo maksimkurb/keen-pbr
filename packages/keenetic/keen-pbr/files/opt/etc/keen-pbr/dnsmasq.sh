@@ -4,11 +4,7 @@ KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
 CONFIG_PATH="/opt/etc/keen-pbr/config.json"
 
 resolver_type() {
-    if command -v nft >/dev/null 2>&1; then
-        echo "dnsmasq-nftset"
-    else
-        echo "dnsmasq-ipset"
-    fi
+    echo "dnsmasq-ipset"
 }
 
 conf_dir() {

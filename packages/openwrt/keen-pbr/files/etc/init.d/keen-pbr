@@ -3,8 +3,9 @@
 USE_PROCD=1
 START=95
 STOP=10
-EXTRA_COMMANDS="reapply-firewall"
-EXTRA_HELP="        reapply-firewall    Send SIGUSR1 to the running service"
+EXTRA_COMMANDS="reapply-firewall reapply-dnsmasq-config"
+EXTRA_HELP="        reapply-firewall        Send SIGUSR1 to the running service
+        reapply-dnsmasq-config  Regenerate keen-pbr dnsmasq config and reload dnsmasq"
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
@@ -39,10 +40,20 @@ stop_service() {
 
 reload_service() {
     [ -s "$PIDFILE" ] || return 1
+
+    reapply_dnsmasq_config || return 1
+
     kill -HUP "$(cat "$PIDFILE")"
 }
 
 reapply_firewall() {
     [ -s "$PIDFILE" ] || return 1
     kill -SIGUSR1 "$(cat "$PIDFILE")"
+}
+
+reapply_dnsmasq_config() {
+    if [ -x "$HELPER" ]; then
+        "$HELPER" configure || return 1
+        "$HELPER" reload || true
+    fi
 }
