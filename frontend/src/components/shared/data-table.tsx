@@ -12,20 +12,30 @@ import {
 export function DataTable({
   headers,
   rows,
+  compact = false,
 }: {
   headers: string[]
   rows: ReactNode[][]
+  compact?: boolean
 }) {
   const lastColumnIndex = headers.length - 1
 
   return (
     <div className="max-w-full overflow-x-auto rounded-md border">
-      <Table className="w-full min-w-[640px] text-base">
+      <Table className={compact ? "w-full min-w-[640px] text-sm" : "w-full min-w-[640px] text-base"}>
         <TableHeader className="bg-muted/50">
           <TableRow>
             {headers.map((header, headerIndex) => (
               <TableHead
-                className={headerIndex === lastColumnIndex ? "w-px text-right font-semibold" : "font-semibold"}
+                className={
+                  headerIndex === lastColumnIndex
+                    ? compact
+                      ? "h-8 w-px text-right font-semibold"
+                      : "w-px text-right font-semibold"
+                    : compact
+                      ? "h-8 font-semibold"
+                      : "font-semibold"
+                }
                 key={header}
               >
                 {header}
@@ -40,8 +50,12 @@ export function DataTable({
                 <TableCell
                   className={
                     cellIndex === lastColumnIndex
-                      ? "w-px whitespace-nowrap p-3 text-right align-top"
-                      : "whitespace-normal p-3 align-top"
+                      ? compact
+                        ? "w-px whitespace-nowrap px-2 py-1.5 text-right align-top"
+                        : "w-px whitespace-nowrap p-3 text-right align-top"
+                      : compact
+                        ? "whitespace-normal px-2 py-1.5 align-top"
+                        : "whitespace-normal p-3 align-top"
                   }
                   key={cellIndex}
                 >

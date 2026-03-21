@@ -6,8 +6,10 @@ import {
 } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
-import { useGetHealthRouting, useGetHealthService } from "@/api/queries"
+import type { ConfigObject, HealthEntry, Outbound } from "@/api/generated/model"
+import { useGetConfig, useGetHealthRouting, useGetHealthService } from "@/api/queries"
 import { usePostReloadMutation } from "@/api/mutations"
+import { selectConfig } from "@/api/selectors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -39,6 +41,7 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
+  const configQuery = useGetConfig()
   const routingHealthQuery = useGetHealthRouting({
     query: {
       refetchInterval: 45_000,
@@ -54,6 +57,7 @@ export function OverviewPage() {
     serviceHealthQuery.data?.status === 200
       ? serviceHealthQuery.data.data
       : undefined
+  const loadedConfig = selectConfig(configQuery.data)
   const routingHealth =
     routingHealthQuery.data?.status === 200
       ? routingHealthQuery.data.data
@@ -65,22 +69,28 @@ export function OverviewPage() {
     }
 
     return serviceHealth.outbounds.map((outbound) => {
-      const childRows = outbound.children?.length ? (
+      const configuredOutbound = findConfiguredOutbound(loadedConfig, outbound.tag)
+      const tagCell = outbound.children?.length ? (
         <UrltestTagTree
           children={outbound.children}
           selectedOutbound={outbound.selected_outbound}
         />
       ) : (
-        outbound.tag
+        <div className="flex flex-wrap items-center gap-2">
+          <span>{outbound.tag}</span>
+          <Badge variant="outline" className="text-[11px]">
+            {outbound.type}
+          </Badge>
+        </div>
       )
 
       return [
-        childRows,
-        outbound.type,
-        outbound.children?.length
-          ? `${outbound.children.length} children`
-          : "-",
-        outbound.selected_outbound ?? "-",
+        tagCell,
+        <OutboundDestinationCell
+          key={`${outbound.tag}-destination`}
+          configuredOutbound={configuredOutbound}
+          outbound={outbound}
+        />,
         <StatusBadge
           key={`${outbound.tag}-status`}
           tone={mapHealthTone(outbound.status)}
@@ -89,7 +99,7 @@ export function OverviewPage() {
         </StatusBadge>,
       ]
     })
-  }, [serviceHealth])
+  }, [loadedConfig, serviceHealth])
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error)
@@ -219,7 +229,8 @@ export function OverviewPage() {
         ) : null}
         {outboundRows.length > 0 ? (
           <DataTable
-            headers={["Tag", "Type", "Children", "Selected", "Status"]}
+            compact
+            headers={["Tag", "Destination", "Status"]}
             rows={outboundRows}
           />
         ) : null}
@@ -352,6 +363,55 @@ function DisabledActionButton({
   )
 }
 
+function OutboundDestinationCell({
+  outbound,
+  configuredOutbound,
+}: {
+  outbound: HealthEntry
+  configuredOutbound?: Outbound
+}) {
+  return (
+    <span className="text-sm">
+      {formatOutboundDestination(outbound, configuredOutbound)}
+    </span>
+  )
+}
+
+function formatOutboundDestination(
+  outbound: HealthEntry,
+  configuredOutbound?: Outbound
+) {
+  if (outbound.type === "interface") {
+    const interfaceName = configuredOutbound?.interface ?? outbound.tag
+    const gateway = configuredOutbound?.gateway
+
+    return gateway
+      ? `Interface ${interfaceName} (gw: ${gateway})`
+      : `Interface ${interfaceName}`
+  }
+
+  if (outbound.type === "table") {
+    if (typeof configuredOutbound?.table === "number") {
+      return `Table ${configuredOutbound.table}`
+    }
+
+    return `Table ${outbound.tag}`
+  }
+
+  if (outbound.type === "urltest") {
+    return `Outbound ${outbound.selected_outbound ?? "-"}`
+  }
+
+  return `Outbound ${outbound.tag}`
+}
+
+function findConfiguredOutbound(
+  config: ConfigObject | undefined,
+  tag: string
+) {
+  return config?.outbounds?.find((outbound) => outbound.tag === tag)
+}
+
 function mapServiceStatusTone(
   status: string
 ): "healthy" | "warning" | "degraded" {
@@ -417,7 +477,12 @@ function UrltestTagTree({
 }) {
   return (
     <div className="space-y-2">
-      <div className="font-medium">urltest</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="font-medium">urltest</div>
+        <Badge variant="outline" className="text-[11px]">
+          urltest
+        </Badge>
+      </div>
       <div>
         {children.map((child, index) => (
           <UrltestOutboundRow
