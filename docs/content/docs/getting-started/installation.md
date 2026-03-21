@@ -14,15 +14,19 @@ opkg update
 opkg install keen-pbr
 ```
 
-The config file is placed at `/etc/keen-pbr/config.json`. Edit it before starting the service.
+The package installs its config at `/opt/etc/keen-pbr/config.json` and enables the init script automatically.
 
-Start the daemon:
+Start the service:
 
 ```bash
-/opt/sbin/keen-pbr --config /etc/keen-pbr/config.json -d
+/opt/etc/init.d/S80keen-pbr start
 ```
 
-To start automatically on boot, add the command to your router's startup scripts.
+Restart it after editing the config:
+
+```bash
+/opt/etc/init.d/S80keen-pbr restart
+```
 
 ## OpenWRT
 
@@ -47,7 +51,7 @@ service keen-pbr enable
 
 ## Post-Install
 
-After installation, the default config path is `/etc/keen-pbr/config.json`. See the [Quick Start](../quick-start/) guide for a minimal working configuration, or the full [Configuration](../../configuration/) reference.
+After installation, the default config path is `/etc/keen-pbr/config.json` on OpenWrt and `/opt/etc/keen-pbr/config.json` on Keenetic. See the [Quick Start](../quick-start/) guide for a minimal working configuration, or the full [Configuration](../../configuration/) reference.
 
 {{< callout type="info" >}}
 If pre-built packages are not yet available for your platform, see [Build from Source](../compilation/) to compile keen-pbr yourself.
@@ -57,7 +61,7 @@ If pre-built packages are not yet available for your platform, see [Build from S
 
 | Flag | Description |
 |---|---|
-| `--config <path>` | Path to the JSON config file (default: `/etc/keen-pbr/config.json`) |
+| `--config <path>` | Path to the JSON config file (default depends on the build target, e.g. `/etc/keen-pbr/config.json` on OpenWrt and `/opt/etc/keen-pbr/config.json` on Keenetic) |
 | `-d` | Run as daemon (daemonize) |
 | `--no-api` | Disable the HTTP API even if configured |
 | `--version` | Print version and exit |

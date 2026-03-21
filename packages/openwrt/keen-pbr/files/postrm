@@ -1,0 +1,10 @@
+#!/bin/sh
+
+[ -n "$IPKG_INSTROOT" ] && exit 0
+
+if [ -x /usr/lib/keen-pbr/dnsmasq.sh ]; then
+    /usr/lib/keen-pbr/dnsmasq.sh restore || true
+    /usr/lib/keen-pbr/dnsmasq.sh reload || true
+fi
+
+exit 0

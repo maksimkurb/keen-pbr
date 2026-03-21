@@ -18,6 +18,8 @@ add_link_options(-rdynamic)
 
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
+set(KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json" CACHE STRING
+  "Default config file path used by keen-pbr when --config is not passed")
 
 # Dependencies
 find_package(CURL REQUIRED)
@@ -112,6 +114,9 @@ set_target_properties(keen-pbr PROPERTIES
   CXX_EXTENSIONS NO
 )
 target_include_directories(keen-pbr PRIVATE include)
+target_compile_definitions(keen-pbr PRIVATE
+  KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
+)
 target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL

@@ -1,0 +1,54 @@
+#!/bin/sh
+
+. /opt/etc/keen-pbr/defaults
+
+ENABLED=yes
+PROCS=$(basename "$KEEN_PBR")
+ARGS="--config $CONFIG service"
+PREARGS=""
+DESC="keen-pbr"
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+log() {
+    logger -t "keen-pbr" "$1"
+    echo "[keen-pbr] $1" >&2
+}
+
+enable_hwnat() {
+    log "Enabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=1 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=1 2>/dev/null || true
+}
+
+disable_hwnat() {
+    log "Disabling HW NAT..."
+    sysctl -w net.ipv4.netfilter.ip_conntrack_fastnat=0 2>/dev/null || true
+    sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true
+}
+
+prepare_start() {
+    disable_hwnat
+    if [ -x "$DNSMASQ_HELPER" ]; then
+        "$DNSMASQ_HELPER" configure || true
+        "$DNSMASQ_HELPER" reload || true
+    fi
+}
+
+prepare_stop() {
+    if [ -x "$DNSMASQ_HELPER" ]; then
+        "$DNSMASQ_HELPER" restore || true
+        "$DNSMASQ_HELPER" reload || true
+    fi
+    enable_hwnat
+}
+
+case "$1" in
+    start|restart|restartall|check)
+        prepare_start
+        ;;
+    stop|kill)
+        prepare_stop
+        ;;
+esac
+
+. /opt/etc/init.d/rc.func

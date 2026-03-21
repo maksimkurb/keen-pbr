@@ -26,12 +26,43 @@ define Build/Prepare
 endef
 
 CMAKE_OPTIONS += \
+	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
 	-DWITH_API=ON \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 
+define Package/keen-pbr/conffiles
+/opt/etc/keen-pbr/config.json
+/opt/etc/keen-pbr/local.lst
+endef
+
 define Package/keen-pbr/install
+	$(INSTALL_DIR) $(1)/opt/etc/init.d
+	$(INSTALL_DIR) $(1)/opt/etc/keen-pbr
+	$(INSTALL_DIR) $(1)/opt/etc/ndm/iflayerchanged.d
+	$(INSTALL_DIR) $(1)/opt/etc/ndm/ifstatechanged.d
+	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/usr/bin
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/opt/bin/keen-pbr $(1)/opt/usr/bin/keen-pbr
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/defaults $(1)/opt/etc/keen-pbr/defaults
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/dnsmasq.sh $(1)/opt/etc/keen-pbr/dnsmasq.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/50-keen-pbr-iflayerchanged.sh $(1)/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/50-keen-pbr-ifstatechanged.sh $(1)/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/50-keen-pbr-netfilter.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.json $(1)/opt/etc/keen-pbr/config.json
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
+endef
+
+define Package/keen-pbr/postinst
+$(file <$(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/postinst)
+endef
+
+define Package/keen-pbr/prerm
+$(file <$(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/prerm)
+endef
+
+define Package/keen-pbr/postrm
+$(file <$(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/postrm)
 endef
 
 $(eval $(call BuildPackage,keen-pbr))

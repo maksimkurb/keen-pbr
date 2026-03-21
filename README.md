@@ -161,7 +161,7 @@ make OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-clean-openwrt
 
 ## Configuration
 
-keen-pbr reads a JSON config file (default: `/etc/keen-pbr/config.json`).
+keen-pbr reads a JSON config file whose default path is set at build time (`/etc/keen-pbr/config.json` on OpenWrt builds, `/opt/etc/keen-pbr/config.json` on Keenetic builds).
 
 ### Example config
 
@@ -293,7 +293,7 @@ keen-pbr [options]
 
 | Flag | Description |
 |---|---|
-| `--config <path>` | Path to JSON config file (default: `/etc/keen-pbr/config.json`) |
+| `--config <path>` | Path to JSON config file (default depends on the build target) |
 | `-d` | Daemonize (run in background) |
 | `--no-api` | Disable REST API at runtime |
 | `--version`, `-v` | Show version and exit |
@@ -326,10 +326,10 @@ scp release_files/keen-pbr_<version>_keenetic_<arch>.ipk root@router:/tmp/
 opkg install /tmp/keen-pbr_<version>_keenetic_<arch>.ipk
 
 # Copy config
-scp config.json root@router:/etc/keen-pbr/config.json
+scp config.json root@router:/opt/etc/keen-pbr/config.json
 
 # Run as daemon
-/opt/sbin/keen-pbr --config /etc/keen-pbr/config.json -d
+/opt/etc/init.d/S80keen-pbr start
 ```
 
 ### Dnsmasq integration

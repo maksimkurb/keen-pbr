@@ -1,0 +1,8 @@
+#!/bin/sh
+
+[ "$ACTION" = "reload" ] || [ "$ACTION" = "restart" ] || exit 0
+
+if [ -x /etc/init.d/keen-pbr ] && /etc/init.d/keen-pbr enabled; then
+    logger -t "keen-pbr" "Sending reload signal to keen-pbr due to firewall action: $ACTION"
+    /etc/init.d/keen-pbr reload
+fi

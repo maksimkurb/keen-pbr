@@ -3,7 +3,7 @@ title: Configuration
 weight: 3
 ---
 
-keen-pbr is configured via a JSON file. The default path is `/etc/keen-pbr/config.json`, overridable with `--config`.
+keen-pbr is configured via a JSON file. The default path is set at build time and overridable with `--config` (`/etc/keen-pbr/config.json` on OpenWrt builds, `/opt/etc/keen-pbr/config.json` on Keenetic builds).
 
 ## Top-Level Keys
 

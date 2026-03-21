@@ -1,0 +1,8 @@
+#!/bin/sh
+
+[ -n "$IPKG_INSTROOT" ] && exit 0
+
+/etc/init.d/keen-pbr enable || true
+/etc/init.d/keen-pbr start || true
+
+exit 0

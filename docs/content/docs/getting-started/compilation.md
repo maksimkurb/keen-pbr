@@ -170,7 +170,7 @@ Copy a built package and a config file to your router:
 # Keenetic example
 scp release_files/keen-pbr_<version>_keenetic_<arch>.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_keenetic_<arch>.ipk
-scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
+scp config.json root@192.168.1.1:/opt/etc/keen-pbr/config.json
 
 # OpenWRT example
 scp release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk root@192.168.1.1:/tmp/
@@ -181,5 +181,5 @@ scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 Run on the router:
 
 ```bash
-/opt/sbin/keen-pbr --config /etc/keen-pbr/config.json -d
+/opt/etc/init.d/S80keen-pbr start
 ```

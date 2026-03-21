@@ -30,6 +30,10 @@
 #include "lists/list_streamer.hpp"
 #include "log/logger.hpp"
 
+#ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
+#define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
+#endif
+
 namespace {
 
 #if !KEEN_HAS_EXECINFO
@@ -104,7 +108,7 @@ void install_crash_handler() {
 }
 
 struct CliOptions {
-    std::string config_path{"/etc/keen-pbr/config.json"};
+    std::string config_path{KEEN_PBR_DEFAULT_CONFIG_PATH};
     std::string log_level{"info"};
     bool no_api{false};
     bool run_service{false};
@@ -123,7 +127,7 @@ void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options] <command>\n"
               << "\n"
               << "Options:\n"
-              << "  --config <path>    Path to JSON config file (default: /etc/keen-pbr/config.json)\n"
+              << "  --config <path>    Path to JSON config file (default: " << KEEN_PBR_DEFAULT_CONFIG_PATH << ")\n"
               << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
               << "  --no-api           Disable REST API at runtime\n"
               << "  --version          Show version and exit\n"
