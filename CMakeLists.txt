@@ -62,6 +62,7 @@ set(SOURCES
   src/config/list_parser.cpp
   src/lists/ipset.cpp
   src/lists/list_streamer.cpp
+  src/lists/list_set_usage.cpp
   src/cache/cache_manager.cpp
   src/cmd/status.cpp
   src/cmd/test_routing.cpp

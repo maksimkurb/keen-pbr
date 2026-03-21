@@ -248,3 +248,30 @@ TEST_CASE("hash changes when domain list content changes") {
     CHECK(!hash2.empty());
     CHECK(hash1 != hash2);
 }
+
+TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "my-ips";
+    RouteConfig route_cfg = make_route_cfg(list_name);
+    DnsConfig dns_cfg = make_empty_dns_cfg();
+
+    ListConfig list_cfg;
+    list_cfg.ip_cidrs = std::vector<std::string>{"10.0.0.1", "192.168.0.0/24"};
+    auto lists = std::map<std::string, ListConfig>{{list_name, list_cfg}};
+
+    DnsServerRegistry reg(dns_cfg);
+
+    DnsmasqGenerator ipset_gen(reg, streamer, route_cfg, dns_cfg, lists,
+                               ResolverType::DNSMASQ_IPSET);
+    const std::string ipset_output = run_generate(ipset_gen);
+    CHECK(ipset_output.find("ipset=") == std::string::npos);
+    CHECK(ipset_output.find("server=") == std::string::npos);
+
+    DnsmasqGenerator nftset_gen(reg, streamer, route_cfg, dns_cfg, lists,
+                                ResolverType::DNSMASQ_NFTSET);
+    const std::string nftset_output = run_generate(nftset_gen);
+    CHECK(nftset_output.find("nftset=") == std::string::npos);
+    CHECK(nftset_output.find("server=") == std::string::npos);
+}
