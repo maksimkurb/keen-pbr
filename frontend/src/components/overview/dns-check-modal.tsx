@@ -36,14 +36,9 @@ export function DnsCheckModal({
     startCheck: startPcCheck,
     reset: resetPcCheck,
   } = useDnsCheck()
-  const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">(
-    "idle"
-  )
-
   useEffect(() => {
     if (open) {
       startPcCheck(false)
-      setCopyFeedback("idle")
     }
   }, [open, startPcCheck])
 
@@ -60,7 +55,6 @@ export function DnsCheckModal({
         onOpenChange(nextOpen)
         if (!nextOpen) {
           resetPcCheck()
-          setCopyFeedback("idle")
         }
       }}
       open={open}
@@ -107,44 +101,7 @@ export function DnsCheckModal({
               <div className="text-sm text-muted-foreground">
                 Copy and run this command:
               </div>
-              <InputGroup>
-                <InputGroupAddon>
-                  <InputGroupText>
-                    <Terminal className="h-4 w-4" />
-                  </InputGroupText>
-                </InputGroupAddon>
-                <InputGroupInput
-                  className="cursor-pointer font-mono text-sm"
-                  onClick={(event) => {
-                    event.currentTarget.select()
-                    void copyCommand(command, setCopyFeedback)
-                  }}
-                  readOnly
-                  value={command}
-                />
-                <InputGroupAddon align="inline-end">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <InputGroupButton
-                          aria-label="Copy command"
-                          onClick={() => void copyCommand(command, setCopyFeedback)}
-                          size="icon-xs"
-                        />
-                      }
-                    >
-                      <Copy />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {copyFeedback === "copied"
-                        ? "Copied"
-                        : copyFeedback === "failed"
-                          ? "Clipboard unavailable"
-                          : "Copy"}
-                    </TooltipContent>
-                  </Tooltip>
-                </InputGroupAddon>
-              </InputGroup>
+              <CommandCopyField key={command} command={command} />
             </div>
           ) : null}
 
@@ -175,6 +132,53 @@ function StatusLine({ icon, text }: { icon: React.ReactNode; text: string }) {
       {icon}
       <span>{text}</span>
     </div>
+  )
+}
+
+function CommandCopyField({ command }: { command: string }) {
+  const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">(
+    "idle"
+  )
+
+  return (
+    <InputGroup>
+      <InputGroupAddon>
+        <InputGroupText>
+          <Terminal className="h-4 w-4" />
+        </InputGroupText>
+      </InputGroupAddon>
+      <InputGroupInput
+        className="cursor-pointer font-mono text-sm"
+        onClick={(event) => {
+          event.currentTarget.select()
+          void copyCommand(command, setCopyFeedback)
+        }}
+        readOnly
+        value={command}
+      />
+      <InputGroupAddon align="inline-end">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <InputGroupButton
+                aria-label="Copy command"
+                onClick={() => void copyCommand(command, setCopyFeedback)}
+                size="icon-xs"
+              />
+            }
+          >
+            <Copy />
+          </TooltipTrigger>
+          <TooltipContent>
+            {copyFeedback === "copied"
+              ? "Copied"
+              : copyFeedback === "failed"
+                ? "Clipboard unavailable"
+                : "Copy"}
+          </TooltipContent>
+        </Tooltip>
+      </InputGroupAddon>
+    </InputGroup>
   )
 }
 
