@@ -1,11 +1,17 @@
 #!/bin/sh
 
+DNSMASQ_MANAGED_FILE="/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf"
+DNSMASQ_LEGACY_FILE="/etc/dnsmasq.d/keen-pbr.conf"
+DNSMASQ_TMP_FILE="/tmp/dnsmasq.d/keen-pbr.conf"
+
 configure_dnsmasq() {
     :
 }
 
 restore_dnsmasq() {
-    :
+    rm -f "$DNSMASQ_MANAGED_FILE"
+    rm -f "$DNSMASQ_LEGACY_FILE"
+    rm -f "$DNSMASQ_TMP_FILE"
 }
 
 reload_dnsmasq() {
