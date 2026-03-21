@@ -1,6 +1,6 @@
 #!/bin/sh
 
 if [ -x /etc/init.d/keen-pbr ] && /etc/init.d/keen-pbr enabled; then
-    logger -t "keen-pbr" "Sending reload signal to keen-pbr for $INTERFACE due to $ACTION of $INTERFACE${DEVICE:+ (${DEVICE})}"
-    /etc/init.d/keen-pbr on_interface_reload "$INTERFACE" "$ACTION"
+    logger -t "keen-pbr" "Sending SIGUSR1 to keen-pbr for $INTERFACE due to $ACTION of $INTERFACE${DEVICE:+ (${DEVICE})}"
+    /etc/init.d/keen-pbr reapply-firewall
 fi

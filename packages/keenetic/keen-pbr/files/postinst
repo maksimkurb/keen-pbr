@@ -22,6 +22,6 @@ echo ""
 
 echo "Installation complete!"
 echo "Config path: /opt/etc/keen-pbr/config.json"
-echo "Web API: http://my.keenetic.net:8080"
+echo "Web API: http://my.keenetic.net:12121"
 
 exit 0

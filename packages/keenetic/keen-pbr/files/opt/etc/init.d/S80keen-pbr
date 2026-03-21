@@ -26,6 +26,16 @@ disable_hwnat() {
     sysctl -w net.netfilter.nf_conntrack_fastnat=0 2>/dev/null || true
 }
 
+signal_service() {
+    local signal="$1"
+    local pid
+
+    pid="$(pidof "$(basename "$KEEN_PBR")")"
+    [ -n "$pid" ] || return 1
+
+    kill "-$signal" "$pid"
+}
+
 prepare_start() {
     disable_hwnat
     if [ -x "$DNSMASQ_HELPER" ]; then
@@ -43,6 +53,14 @@ prepare_stop() {
 }
 
 case "$1" in
+    reload)
+        signal_service HUP
+        exit $?
+        ;;
+    reapply-firewall)
+        signal_service SIGUSR1
+        exit $?
+        ;;
     start|restart|restartall|check)
         prepare_start
         ;;

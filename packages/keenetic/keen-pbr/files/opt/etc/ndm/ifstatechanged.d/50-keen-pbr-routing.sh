@@ -2,11 +2,6 @@
 
 [ "$1" = "hook" ] || exit 0
 
-. /opt/etc/keen-pbr/defaults
-
-PID="$(pidof "$(basename "$KEEN_PBR")")"
-[ -n "$PID" ] || exit 0
-
 STATE="$link-$connected-$up-$change"
 
 is_terminal_state() {
@@ -22,7 +17,7 @@ is_terminal_state() {
 
 if is_terminal_state; then
     logger -t "keen-pbr" "Refreshing ip routes and ip rules (iface='$system_name', state='$STATE')"
-    kill -SIGUSR1 "$PID"
+    /opt/etc/init.d/S80keen-pbr reapply-firewall >/dev/null 2>&1 || exit 0
 
     if [ -f /opt/etc/keen-pbr/hook.sh ]; then
         keen_pbr_hook="ifstatechanged"

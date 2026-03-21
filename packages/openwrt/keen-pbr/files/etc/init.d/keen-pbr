@@ -3,12 +3,13 @@
 USE_PROCD=1
 START=95
 STOP=10
-EXTRA_COMMANDS="on_interface_reload"
-EXTRA_HELP="        on_interface_reload   Reload service on interface hotplug events"
+EXTRA_COMMANDS="reapply-firewall"
+EXTRA_HELP="        reapply-firewall    Send SIGUSR1 to the running service"
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
 HELPER=/usr/lib/keen-pbr/dnsmasq.sh
+PIDFILE=/var/run/keen-pbr.pid
 
 start_service() {
     [ -x "$PROG" ] || return 1
@@ -37,10 +38,11 @@ stop_service() {
 }
 
 reload_service() {
-    stop
-    start
+    [ -s "$PIDFILE" ] || return 1
+    kill -HUP "$(cat "$PIDFILE")"
 }
 
-on_interface_reload() {
-    reload_service
+reapply_firewall() {
+    [ -s "$PIDFILE" ] || return 1
+    kill -SIGUSR1 "$(cat "$PIDFILE")"
 }
