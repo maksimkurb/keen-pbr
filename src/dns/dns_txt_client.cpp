@@ -1,43 +1,24 @@
 #include "dns_txt_client.hpp"
 
-#include <arpa/inet.h>
 #include <algorithm>
 #include <array>
-#include <cerrno>
+#include <arpa/inet.h>
+#include <arpa/nameser.h>
 #include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <netinet/in.h>
+#include <resolv.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <vector>
 
 #include "dns_server.hpp"
 
 namespace keen_pbr3 {
 
 namespace {
-
-constexpr size_t DNS_HEADER_SIZE = 12;
-constexpr uint16_t DNS_TYPE_TXT = 16;
-constexpr uint16_t DNS_CLASS_IN = 1;
-
-void append_u16(std::vector<uint8_t>& out, uint16_t value) {
-    out.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    out.push_back(static_cast<uint8_t>(value & 0xFF));
-}
-
-uint16_t read_u16(const uint8_t* p) {
-    return static_cast<uint16_t>((static_cast<uint16_t>(p[0]) << 8) | p[1]);
-}
-
-uint32_t read_u32(const uint8_t* p) {
-    return (static_cast<uint32_t>(p[0]) << 24) |
-           (static_cast<uint32_t>(p[1]) << 16) |
-           (static_cast<uint32_t>(p[2]) << 8) |
-           static_cast<uint32_t>(p[3]);
-}
 
 bool is_hex_char(char c) {
     return std::isxdigit(static_cast<unsigned char>(c)) != 0;
@@ -55,142 +36,68 @@ std::string trim_copy(const std::string& s) {
     return s.substr(begin, end - begin);
 }
 
-size_t skip_dns_name(const std::vector<uint8_t>& packet, size_t pos) {
-    size_t cursor = pos;
-    size_t jumps = 0;
-    while (true) {
-        if (cursor >= packet.size()) {
-            throw DnsError("DNS name truncated");
-        }
-
-        uint8_t len = packet[cursor];
-        if (len == 0) {
-            return (cursor - pos) + 1;
-        }
-        if ((len & 0xC0) == 0xC0) {
-            if (cursor + 1 >= packet.size()) {
-                throw DnsError("DNS compression pointer truncated");
-            }
-            return (cursor - pos) + 2;
-        }
-        if ((len & 0xC0) != 0) {
-            throw DnsError("DNS name label invalid");
-        }
-
-        cursor += 1 + len;
-        if (++jumps > 128) {
-            throw DnsError("DNS name parse exceeded limit");
-        }
-    }
-}
-
-std::vector<uint8_t> build_txt_query(const std::string& domain) {
+int build_txt_query_packet(const std::string& domain,
+                           std::array<unsigned char, NS_PACKETSZ * 2>& out,
+                           std::string* error_out) {
     if (domain.empty()) {
-        throw DnsError("DNS TXT query domain is empty");
+        if (error_out) *error_out = "DNS TXT query domain is empty";
+        return -1;
     }
 
-    std::vector<uint8_t> out;
-    out.reserve(512);
-
-    // Header
-    append_u16(out, 0x4B50); // ID
-    append_u16(out, 0x0100); // RD
-    append_u16(out, 1);      // QDCOUNT
-    append_u16(out, 0);      // ANCOUNT
-    append_u16(out, 0);      // NSCOUNT
-    append_u16(out, 0);      // ARCOUNT
-
-    size_t start = 0;
-    while (start < domain.size()) {
-        size_t dot = domain.find('.', start);
-        if (dot == std::string::npos) {
-            dot = domain.size();
-        }
-        const size_t len = dot - start;
-        if (len == 0 || len > 63) {
-            throw DnsError("Invalid DNS label in domain: " + domain);
-        }
-        out.push_back(static_cast<uint8_t>(len));
-        for (size_t i = start; i < dot; ++i) {
-            out.push_back(static_cast<uint8_t>(domain[i]));
-        }
-        start = dot + 1;
+    const int query_len = res_mkquery(ns_o_query,
+                                      domain.c_str(),
+                                      ns_c_in,
+                                      ns_t_txt,
+                                      nullptr,
+                                      0,
+                                      nullptr,
+                                      out.data(),
+                                      static_cast<int>(out.size()));
+    if (query_len < 0) {
+        if (error_out) *error_out = "res_mkquery failed";
+        return -1;
     }
-    out.push_back(0); // end name
 
-    append_u16(out, DNS_TYPE_TXT);
-    append_u16(out, DNS_CLASS_IN);
-
-    return out;
+    return query_len;
 }
 
-std::optional<std::string> parse_first_txt_answer(const std::vector<uint8_t>& packet,
+std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
+                                                  int response_len,
                                                   std::string* error_out) {
-    if (packet.size() < DNS_HEADER_SIZE) {
-        if (error_out) *error_out = "DNS response header truncated";
+    ns_msg handle {};
+    if (ns_initparse(response, response_len, &handle) < 0) {
+        if (error_out) *error_out = "Failed to parse DNS response";
         return std::nullopt;
     }
 
-    const uint16_t flags = read_u16(packet.data() + 2);
-    const uint8_t rcode = static_cast<uint8_t>(flags & 0x000F);
-    if (rcode != 0) {
-        if (error_out) *error_out = "DNS TXT query failed with rcode=" + std::to_string(rcode);
-        return std::nullopt;
-    }
-
-    const uint16_t qdcount = read_u16(packet.data() + 4);
-    const uint16_t ancount = read_u16(packet.data() + 6);
-
-    size_t pos = DNS_HEADER_SIZE;
-    for (uint16_t i = 0; i < qdcount; ++i) {
-        const size_t name_len = skip_dns_name(packet, pos);
-        pos += name_len;
-        if (pos + 4 > packet.size()) {
-            if (error_out) *error_out = "DNS question section truncated";
-            return std::nullopt;
+    const int answer_count = ns_msg_count(handle, ns_s_an);
+    for (int i = 0; i < answer_count; ++i) {
+        ns_rr rr {};
+        if (ns_parserr(&handle, ns_s_an, i, &rr) < 0) {
+            continue;
         }
-        pos += 4;
-    }
-
-    for (uint16_t i = 0; i < ancount; ++i) {
-        const size_t name_len = skip_dns_name(packet, pos);
-        pos += name_len;
-        if (pos + 10 > packet.size()) {
-            if (error_out) *error_out = "DNS answer section truncated";
-            return std::nullopt;
+        if (ns_rr_type(rr) != ns_t_txt || ns_rr_class(rr) != ns_c_in) {
+            continue;
         }
 
-        const uint16_t type = read_u16(packet.data() + pos);
-        pos += 2;
-        const uint16_t klass = read_u16(packet.data() + pos);
-        pos += 2;
-        (void)read_u32(packet.data() + pos); // ttl
-        pos += 4;
-        const uint16_t rdlen = read_u16(packet.data() + pos);
-        pos += 2;
-
-        if (pos + rdlen > packet.size()) {
-            if (error_out) *error_out = "DNS answer payload truncated";
-            return std::nullopt;
+        const unsigned char* rdata = ns_rr_rdata(rr);
+        const int rdlen = ns_rr_rdlen(rr);
+        if (rdlen <= 0) {
+            continue;
         }
 
-        if (type == DNS_TYPE_TXT && klass == DNS_CLASS_IN && rdlen > 0) {
-            size_t txt_pos = pos;
-            size_t txt_end = pos + rdlen;
-            std::string txt;
-            while (txt_pos < txt_end) {
-                const uint8_t len = packet[txt_pos++];
-                if (txt_pos + len > txt_end) {
-                    if (error_out) *error_out = "DNS TXT chunk truncated";
-                    return std::nullopt;
-                }
-                txt.append(reinterpret_cast<const char*>(packet.data() + txt_pos), len);
-                txt_pos += len;
+        std::string txt;
+        int offset = 0;
+        while (offset < rdlen) {
+            const unsigned char chunk_len = rdata[offset++];
+            if (offset + chunk_len > rdlen) {
+                if (error_out) *error_out = "DNS TXT chunk truncated";
+                return std::nullopt;
             }
-            return txt;
+            txt.append(reinterpret_cast<const char*>(rdata + offset), chunk_len);
+            offset += chunk_len;
         }
-
-        pos += rdlen;
+        return txt;
     }
 
     if (error_out) *error_out = "DNS TXT answer not found";
@@ -204,7 +111,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                                                 std::chrono::milliseconds timeout,
                                                 std::string* error_out) {
     ParsedDnsAddress server = parse_dns_address_str(dns_server_address);
-    const std::vector<uint8_t> request = build_txt_query(domain);
+
+    std::array<unsigned char, NS_PACKETSZ * 2> query{};
+    const int query_len = build_txt_query_packet(domain, query, error_out);
+    if (query_len < 0) {
+        return std::nullopt;
+    }
 
     int family = AF_INET;
     std::array<uint8_t, sizeof(sockaddr_in6)> addr_storage{};
@@ -244,12 +156,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     };
 
     const ssize_t sent = sendto(sock,
-                                request.data(),
-                                request.size(),
+                                query.data(),
+                                static_cast<size_t>(query_len),
                                 0,
                                 reinterpret_cast<const sockaddr*>(addr_storage.data()),
                                 addr_len);
-    if (sent < 0 || static_cast<size_t>(sent) != request.size()) {
+    if (sent < 0 || sent != query_len) {
         if (error_out) *error_out = "sendto() failed: " + std::string(strerror(errno));
         close_sock();
         return std::nullopt;
@@ -273,8 +185,8 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         return std::nullopt;
     }
 
-    std::array<uint8_t, 4096> buffer{};
-    const ssize_t n = recv(sock, buffer.data(), buffer.size(), 0);
+    std::array<unsigned char, NS_PACKETSZ * 8> response{};
+    const ssize_t n = recv(sock, response.data(), response.size(), 0);
     if (n <= 0) {
         if (error_out) *error_out = "recv() failed: " + std::string(strerror(errno));
         close_sock();
@@ -282,9 +194,7 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     }
 
     close_sock();
-
-    std::vector<uint8_t> response(buffer.begin(), buffer.begin() + n);
-    return parse_first_txt_answer(response, error_out);
+    return parse_first_txt_answer(response.data(), static_cast<int>(n), error_out);
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {
