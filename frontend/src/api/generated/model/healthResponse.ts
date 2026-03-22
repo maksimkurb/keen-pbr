@@ -15,7 +15,8 @@ export interface HealthResponse {
   /** MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
  */
   resolver_config_hash?: string;
-  /** Whether a newer configuration has been staged in memory but not yet persisted and applied. */
+  /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
+ */
   config_is_draft: boolean;
   outbounds: HealthEntry[];
 }

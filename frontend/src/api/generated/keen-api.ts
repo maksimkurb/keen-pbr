@@ -371,6 +371,11 @@ export type postConfigResponse200 = {
   status: 200
 }
 
+export type postConfigResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
 export type postConfigResponse500 = {
   data: ErrorResponse
   status: 500
@@ -379,7 +384,7 @@ export type postConfigResponse500 = {
 export type postConfigResponseSuccess = (postConfigResponse200) & {
   headers: Headers;
 };
-export type postConfigResponseError = (postConfigResponse500) & {
+export type postConfigResponseError = (postConfigResponse400 | postConfigResponse500) & {
   headers: Headers;
 };
 
@@ -452,7 +457,7 @@ export const usePostConfig = <TError = ErrorResponse,
       > => {
       return useMutation(getPostConfigMutationOptions(options), queryClient);
     }
-
+    
 /**
  * Persists the currently staged in-memory config to disk and then applies it with a full service reload.
 
@@ -864,6 +869,7 @@ export function useGetDnsTest<TData = Awaited<ReturnType<typeof getDnsTest>>, TE
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
 
 
 

@@ -9,6 +9,8 @@
 export interface RoutingTestRuleIpDiagnostic {
   /** Resolved IP represented by this matrix row. */
   ip: string;
-  /** Whether the IP exists in this rule's firewall set. null when firewall check is unavailable. */
+  /** Whether the IP exists in this rule's firewall set.
+null when firewall check is unavailable.
+ */
   in_ipset?: boolean | null;
 }

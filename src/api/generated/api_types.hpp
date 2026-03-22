@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbr3TypesTcizXx data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes7R7Ofu data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -136,11 +136,20 @@ namespace api {
         std::string tag;
     };
 
+    enum class DnsSystemResolverType : int { DNSMASQ_IPSET, DNSMASQ_NFTSET };
+
+    struct SystemResolver {
+        std::string address;
+        std::string hook;
+        DnsSystemResolverType type;
+    };
+
     struct Dns {
         std::optional<DnsTestServer> dns_test_server;
         std::optional<std::string> fallback;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
+        std::optional<SystemResolver> system_resolver;
     };
 
     struct Fwmark {
@@ -176,7 +185,7 @@ namespace api {
         std::optional<int64_t> interval_ms;
     };
 
-    enum class Type : int { BLACKHOLE, IGNORE, INTERFACE, TABLE, URLTEST };
+    enum class OutboundType : int { BLACKHOLE, IGNORE, INTERFACE, TABLE, URLTEST };
 
     struct OutboundElement {
         std::optional<CircuitBreakerConfig> circuit_breaker;
@@ -189,7 +198,7 @@ namespace api {
         std::optional<int64_t> table;
         std::string tag;
         std::optional<int64_t> tolerance_ms;
-        Type type;
+        OutboundType type;
         std::optional<std::string> url;
     };
 
@@ -273,7 +282,7 @@ namespace api {
         std::optional<std::string> selected_outbound;
         HealthEntryStatus status;
         std::string tag;
-        Type type;
+        OutboundType type;
     };
 
     enum class HealthResponseStatus : int { RUNNING };
@@ -351,22 +360,22 @@ namespace api {
         bool ok;
     };
 
-    struct RoutingTestRuleIpDiagnostic {
+    struct RoutingTestRequest {
+        std::string target;
+    };
+
+    struct RoutingTestRuleIpDiagnosticElement {
         std::optional<bool> in_ipset;
         std::string ip;
     };
 
-    struct RoutingTestRuleDiagnostic {
+    struct RoutingTestRuleDiagnosticElement {
         std::string interface_name;
+        std::vector<RoutingTestRuleIpDiagnosticElement> ip_rows;
         std::string outbound;
-        std::vector<RoutingTestRuleIpDiagnostic> ip_rows;
         int64_t rule_index;
         bool target_in_lists;
         std::optional<ListMatch> target_match;
-    };
-
-    struct RoutingTestRequest {
-        std::string target;
     };
 
     struct RoutingTestResponse {
@@ -375,12 +384,12 @@ namespace api {
         bool no_matching_rule;
         std::vector<std::string> resolved_ips;
         std::vector<RoutingTestEntry> results;
-        std::vector<RoutingTestRuleDiagnostic> rule_diagnostics;
+        std::vector<RoutingTestRuleDiagnosticElement> rule_diagnostics;
         std::string target;
         std::vector<std::string> warnings;
     };
 
-    struct KeenPbr3TypesTcizXx {
+    struct KeenPbrTypes7R7Ofu {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -392,6 +401,7 @@ namespace api {
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
         std::optional<DnsServerElement> dns_server;
+        std::optional<SystemResolver> dns_system_resolver;
         std::optional<DnsTestServer> dns_test_server;
         std::optional<ErrorResponse> error_response;
         std::optional<FirewallChain> firewall_chain;
@@ -417,6 +427,8 @@ namespace api {
         std::optional<ListMatch> routing_test_list_match;
         std::optional<RoutingTestRequest> routing_test_request;
         std::optional<RoutingTestResponse> routing_test_response;
+        std::optional<RoutingTestRuleDiagnosticElement> routing_test_rule_diagnostic;
+        std::optional<RoutingTestRuleIpDiagnosticElement> routing_test_rule_ip_diagnostic;
         std::optional<ValidationErrorElement> validation_error;
     };
 }
@@ -444,6 +456,9 @@ namespace api {
 
     void from_json(const json & j, DnsServerElement & x);
     void to_json(json & j, const DnsServerElement & x);
+
+    void from_json(const json & j, SystemResolver & x);
+    void to_json(json & j, const SystemResolver & x);
 
     void from_json(const json & j, Dns & x);
     void to_json(json & j, const Dns & x);
@@ -526,26 +541,29 @@ namespace api {
     void from_json(const json & j, RoutingTestEntry & x);
     void to_json(json & j, const RoutingTestEntry & x);
 
-    void from_json(const json & j, RoutingTestRuleIpDiagnostic & x);
-    void to_json(json & j, const RoutingTestRuleIpDiagnostic & x);
-
-    void from_json(const json & j, RoutingTestRuleDiagnostic & x);
-    void to_json(json & j, const RoutingTestRuleDiagnostic & x);
-
     void from_json(const json & j, RoutingTestRequest & x);
     void to_json(json & j, const RoutingTestRequest & x);
+
+    void from_json(const json & j, RoutingTestRuleIpDiagnosticElement & x);
+    void to_json(json & j, const RoutingTestRuleIpDiagnosticElement & x);
+
+    void from_json(const json & j, RoutingTestRuleDiagnosticElement & x);
+    void to_json(json & j, const RoutingTestRuleDiagnosticElement & x);
 
     void from_json(const json & j, RoutingTestResponse & x);
     void to_json(json & j, const RoutingTestResponse & x);
 
-    void from_json(const json & j, KeenPbr3TypesTcizXx & x);
-    void to_json(json & j, const KeenPbr3TypesTcizXx & x);
+    void from_json(const json & j, KeenPbrTypes7R7Ofu & x);
+    void to_json(json & j, const KeenPbrTypes7R7Ofu & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
 
-    void from_json(const json & j, Type & x);
-    void to_json(json & j, const Type & x);
+    void from_json(const json & j, DnsSystemResolverType & x);
+    void to_json(json & j, const DnsSystemResolverType & x);
+
+    void from_json(const json & j, OutboundType & x);
+    void to_json(json & j, const OutboundType & x);
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
@@ -663,11 +681,25 @@ namespace api {
         j["tag"] = x.tag;
     }
 
+    inline void from_json(const json & j, SystemResolver& x) {
+        x.address = j.at("address").get<std::string>();
+        x.hook = j.at("hook").get<std::string>();
+        x.type = j.at("type").get<DnsSystemResolverType>();
+    }
+
+    inline void to_json(json & j, const SystemResolver & x) {
+        j = json::object();
+        j["address"] = x.address;
+        j["hook"] = x.hook;
+        j["type"] = x.type;
+    }
+
     inline void from_json(const json & j, Dns& x) {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
         x.fallback = get_stack_optional<std::string>(j, "fallback");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
+        x.system_resolver = get_stack_optional<SystemResolver>(j, "system_resolver");
     }
 
     inline void to_json(json & j, const Dns & x) {
@@ -676,6 +708,7 @@ namespace api {
         j["fallback"] = x.fallback;
         j["rules"] = x.rules;
         j["servers"] = x.servers;
+        j["system_resolver"] = x.system_resolver;
     }
 
     inline void from_json(const json & j, Fwmark& x) {
@@ -761,7 +794,7 @@ namespace api {
         x.table = get_stack_optional<int64_t>(j, "table");
         x.tag = j.at("tag").get<std::string>();
         x.tolerance_ms = get_stack_optional<int64_t>(j, "tolerance_ms");
-        x.type = j.at("type").get<Type>();
+        x.type = j.at("type").get<OutboundType>();
         x.url = get_stack_optional<std::string>(j, "url");
     }
 
@@ -934,7 +967,7 @@ namespace api {
         x.selected_outbound = get_stack_optional<std::string>(j, "selected_outbound");
         x.status = j.at("status").get<HealthEntryStatus>();
         x.tag = j.at("tag").get<std::string>();
-        x.type = j.at("type").get<Type>();
+        x.type = j.at("type").get<OutboundType>();
     }
 
     inline void to_json(json & j, const HealthEntry & x) {
@@ -1088,36 +1121,6 @@ namespace api {
         j["ok"] = x.ok;
     }
 
-    inline void from_json(const json & j, RoutingTestRuleIpDiagnostic& x) {
-        x.in_ipset = get_stack_optional<bool>(j, "in_ipset");
-        x.ip = j.at("ip").get<std::string>();
-    }
-
-    inline void to_json(json & j, const RoutingTestRuleIpDiagnostic & x) {
-        j = json::object();
-        j["in_ipset"] = x.in_ipset;
-        j["ip"] = x.ip;
-    }
-
-    inline void from_json(const json & j, RoutingTestRuleDiagnostic& x) {
-        x.interface_name = j.at("interface_name").get<std::string>();
-        x.outbound = j.at("outbound").get<std::string>();
-        x.ip_rows = j.at("ip_rows").get<std::vector<RoutingTestRuleIpDiagnostic>>();
-        x.rule_index = j.at("rule_index").get<int64_t>();
-        x.target_in_lists = j.at("target_in_lists").get<bool>();
-        x.target_match = get_stack_optional<ListMatch>(j, "target_match");
-    }
-
-    inline void to_json(json & j, const RoutingTestRuleDiagnostic & x) {
-        j = json::object();
-        j["interface_name"] = x.interface_name;
-        j["outbound"] = x.outbound;
-        j["ip_rows"] = x.ip_rows;
-        j["rule_index"] = x.rule_index;
-        j["target_in_lists"] = x.target_in_lists;
-        j["target_match"] = x.target_match;
-    }
-
     inline void from_json(const json & j, RoutingTestRequest& x) {
         x.target = j.at("target").get<std::string>();
     }
@@ -1127,13 +1130,43 @@ namespace api {
         j["target"] = x.target;
     }
 
+    inline void from_json(const json & j, RoutingTestRuleIpDiagnosticElement& x) {
+        x.in_ipset = get_stack_optional<bool>(j, "in_ipset");
+        x.ip = j.at("ip").get<std::string>();
+    }
+
+    inline void to_json(json & j, const RoutingTestRuleIpDiagnosticElement & x) {
+        j = json::object();
+        j["in_ipset"] = x.in_ipset;
+        j["ip"] = x.ip;
+    }
+
+    inline void from_json(const json & j, RoutingTestRuleDiagnosticElement& x) {
+        x.interface_name = j.at("interface_name").get<std::string>();
+        x.ip_rows = j.at("ip_rows").get<std::vector<RoutingTestRuleIpDiagnosticElement>>();
+        x.outbound = j.at("outbound").get<std::string>();
+        x.rule_index = j.at("rule_index").get<int64_t>();
+        x.target_in_lists = j.at("target_in_lists").get<bool>();
+        x.target_match = get_stack_optional<ListMatch>(j, "target_match");
+    }
+
+    inline void to_json(json & j, const RoutingTestRuleDiagnosticElement & x) {
+        j = json::object();
+        j["interface_name"] = x.interface_name;
+        j["ip_rows"] = x.ip_rows;
+        j["outbound"] = x.outbound;
+        j["rule_index"] = x.rule_index;
+        j["target_in_lists"] = x.target_in_lists;
+        j["target_match"] = x.target_match;
+    }
+
     inline void from_json(const json & j, RoutingTestResponse& x) {
         x.dns_error = get_stack_optional<std::string>(j, "dns_error");
         x.is_domain = j.at("is_domain").get<bool>();
         x.no_matching_rule = j.at("no_matching_rule").get<bool>();
         x.resolved_ips = j.at("resolved_ips").get<std::vector<std::string>>();
         x.results = j.at("results").get<std::vector<RoutingTestEntry>>();
-        x.rule_diagnostics = j.at("rule_diagnostics").get<std::vector<RoutingTestRuleDiagnostic>>();
+        x.rule_diagnostics = j.at("rule_diagnostics").get<std::vector<RoutingTestRuleDiagnosticElement>>();
         x.target = j.at("target").get<std::string>();
         x.warnings = j.at("warnings").get<std::vector<std::string>>();
     }
@@ -1150,7 +1183,7 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
-    inline void from_json(const json & j, KeenPbr3TypesTcizXx& x) {
+    inline void from_json(const json & j, KeenPbrTypes7R7Ofu& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1162,6 +1195,7 @@ namespace api {
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
         x.dns_server = get_stack_optional<DnsServerElement>(j, "DnsServer");
+        x.dns_system_resolver = get_stack_optional<SystemResolver>(j, "DnsSystemResolver");
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "DnsTestServer");
         x.error_response = get_stack_optional<ErrorResponse>(j, "ErrorResponse");
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
@@ -1187,10 +1221,12 @@ namespace api {
         x.routing_test_list_match = get_stack_optional<ListMatch>(j, "RoutingTestListMatch");
         x.routing_test_request = get_stack_optional<RoutingTestRequest>(j, "RoutingTestRequest");
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
+        x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnosticElement>(j, "RoutingTestRuleDiagnostic");
+        x.routing_test_rule_ip_diagnostic = get_stack_optional<RoutingTestRuleIpDiagnosticElement>(j, "RoutingTestRuleIpDiagnostic");
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbr3TypesTcizXx & x) {
+    inline void to_json(json & j, const KeenPbrTypes7R7Ofu & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1203,6 +1239,7 @@ namespace api {
         j["DnsConfig"] = x.dns_config;
         j["DnsRule"] = x.dns_rule;
         j["DnsServer"] = x.dns_server;
+        j["DnsSystemResolver"] = x.dns_system_resolver;
         j["DnsTestServer"] = x.dns_test_server;
         j["ErrorResponse"] = x.error_response;
         j["FirewallChain"] = x.firewall_chain;
@@ -1228,6 +1265,8 @@ namespace api {
         j["RoutingTestListMatch"] = x.routing_test_list_match;
         j["RoutingTestRequest"] = x.routing_test_request;
         j["RoutingTestResponse"] = x.routing_test_response;
+        j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
+        j["RoutingTestRuleIpDiagnostic"] = x.routing_test_rule_ip_diagnostic;
         j["ValidationError"] = x.validation_error;
     }
 
@@ -1247,23 +1286,37 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, Type & x) {
-        if (j == "blackhole") x = Type::BLACKHOLE;
-        else if (j == "ignore") x = Type::IGNORE;
-        else if (j == "interface") x = Type::INTERFACE;
-        else if (j == "table") x = Type::TABLE;
-        else if (j == "urltest") x = Type::URLTEST;
+    inline void from_json(const json & j, DnsSystemResolverType & x) {
+        if (j == "dnsmasq-ipset") x = DnsSystemResolverType::DNSMASQ_IPSET;
+        else if (j == "dnsmasq-nftset") x = DnsSystemResolverType::DNSMASQ_NFTSET;
         else { throw std::runtime_error("Input JSON does not conform to schema!"); }
     }
 
-    inline void to_json(json & j, const Type & x) {
+    inline void to_json(json & j, const DnsSystemResolverType & x) {
         switch (x) {
-            case Type::BLACKHOLE: j = "blackhole"; break;
-            case Type::IGNORE: j = "ignore"; break;
-            case Type::INTERFACE: j = "interface"; break;
-            case Type::TABLE: j = "table"; break;
-            case Type::URLTEST: j = "urltest"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"Type\": " + std::to_string(static_cast<int>(x)));
+            case DnsSystemResolverType::DNSMASQ_IPSET: j = "dnsmasq-ipset"; break;
+            case DnsSystemResolverType::DNSMASQ_NFTSET: j = "dnsmasq-nftset"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DnsSystemResolverType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, OutboundType & x) {
+        if (j == "blackhole") x = OutboundType::BLACKHOLE;
+        else if (j == "ignore") x = OutboundType::IGNORE;
+        else if (j == "interface") x = OutboundType::INTERFACE;
+        else if (j == "table") x = OutboundType::TABLE;
+        else if (j == "urltest") x = OutboundType::URLTEST;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const OutboundType & x) {
+        switch (x) {
+            case OutboundType::BLACKHOLE: j = "blackhole"; break;
+            case OutboundType::IGNORE: j = "ignore"; break;
+            case OutboundType::INTERFACE: j = "interface"; break;
+            case OutboundType::TABLE: j = "table"; break;
+            case OutboundType::URLTEST: j = "urltest"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"OutboundType\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

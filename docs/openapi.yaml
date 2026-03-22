@@ -438,6 +438,24 @@ components:
           description: IPv4 address returned in synthetic `A` answers. Defaults to the host part of `listen`.
           example: "127.0.0.88"
 
+    DnsSystemResolver:
+      type: object
+      required: [type, hook, address]
+      properties:
+        type:
+          type: string
+          enum: [dnsmasq-ipset, dnsmasq-nftset]
+          description: Type of external system resolver integration.
+          example: "dnsmasq-nftset"
+        hook:
+          type: string
+          description: Filesystem path to the resolver hook script.
+          example: "/usr/lib/keen-pbr/dnsmasq.sh"
+        address:
+          type: string
+          description: IP address or host for the system resolver.
+          example: "127.0.0.1"
+
     DnsConfig:
       type: object
       properties:
@@ -455,6 +473,8 @@ components:
           example: "google-dns"
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
+        system_resolver:
+          $ref: "#/components/schemas/DnsSystemResolver"
 
     RouteRule:
       type: object

@@ -7,6 +7,7 @@
  */
 import type { DnsRule } from './dnsRule';
 import type { DnsServer } from './dnsServer';
+import type { DnsSystemResolver } from './dnsSystemResolver';
 import type { DnsTestServer } from './dnsTestServer';
 
 export interface DnsConfig {
@@ -14,5 +15,6 @@ export interface DnsConfig {
   rules?: DnsRule[];
   /** DNS server tag to use when no rule matches. */
   fallback?: string;
-  test_server?: DnsTestServer;
+  dns_test_server?: DnsTestServer;
+  system_resolver?: DnsSystemResolver;
 }

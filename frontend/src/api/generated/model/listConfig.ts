@@ -22,4 +22,7 @@ export interface ListConfig {
   /** TTL for dnsmasq-resolved ipset entries in milliseconds. `0` means no timeout.
  */
   ttl_ms?: number;
+  /** Optional outbound tag to use when downloading this list. If set, download traffic is marked with the outbound's fwmark and routed via its dedicated routing table. If omitted, the system default routing table is used.
+ */
+  detour?: string;
 }

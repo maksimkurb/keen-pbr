@@ -280,6 +280,30 @@ Config parse_config(const std::string& json_str) {
             }
         }
 
+        if (cfg.dns->system_resolver.has_value()) {
+            const auto& resolver = *cfg.dns->system_resolver;
+
+            if (resolver.hook.empty()) {
+                add_issue(issues, "dns.system_resolver.hook",
+                          "dns.system_resolver.hook must not be empty");
+            }
+
+            if (resolver.address.empty()) {
+                add_issue(issues, "dns.system_resolver.address",
+                          "dns.system_resolver.address must not be empty");
+            }
+
+            switch (resolver.type) {
+                case DnsSystemResolverType::DNSMASQ_IPSET:
+                case DnsSystemResolverType::DNSMASQ_NFTSET:
+                    break;
+                default:
+                    add_issue(issues, "dns.system_resolver.type",
+                              "dns.system_resolver.type must be one of: dnsmasq-ipset, dnsmasq-nftset");
+                    break;
+            }
+        }
+
         if (cfg.dns->dns_test_server.has_value()) {
             try {
                 const auto& test_cfg = *cfg.dns->dns_test_server;
