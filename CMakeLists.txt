@@ -26,7 +26,12 @@ set(KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend" CACHE STRING
 # Dependencies
 find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
-find_library(LIBRESOLV resolv REQUIRED)
+find_library(LIBRESOLV resolv)
+if(LIBRESOLV)
+  message(STATUS "Found libresolv: ${LIBRESOLV}")
+else()
+  message(STATUS "libresolv not found; relying on libc resolver symbols")
+endif()
 pkg_check_modules(LIBNL REQUIRED IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 set(HTTPLIB_ANL_LIB "")
@@ -126,12 +131,15 @@ target_compile_definitions(keen-pbr PRIVATE
 )
 target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
-  ${LIBRESOLV}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
   nlohmann_json::nlohmann_json
 )
+
+if(LIBRESOLV)
+  target_link_libraries(keen-pbr PRIVATE ${LIBRESOLV})
+endif()
 
 if(WITH_API)
   target_compile_definitions(keen-pbr PRIVATE WITH_API)

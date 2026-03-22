@@ -35,8 +35,10 @@ set(CMAKE_C_FLAGS_INIT             "-I${_TGT}/usr/include")
 set(CMAKE_CXX_FLAGS_INIT           "-I${_TGT}/usr/include")
 set(CMAKE_EXE_LINKER_FLAGS_INIT    "-L${_TGT}/usr/lib -Wl,-rpath-link,${_TGT}/usr/lib")
 
-# Tell CMake's find_* machinery to look in the staging dir for headers/libs.
-set(CMAKE_FIND_ROOT_PATH "${_TGT}")
+# Tell CMake's find_* machinery to look in both the target sysroot and the
+# toolchain root. Some OpenWrt SDK libraries needed at link time (for example
+# libresolv.a) live under the toolchain staging dir rather than the target one.
+set(CMAKE_FIND_ROOT_PATH "${_TGT}" "${_TC}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
