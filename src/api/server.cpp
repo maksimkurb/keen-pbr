@@ -6,9 +6,11 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <httplib.h>
 #include <atomic>
 #include <cctype>
+#include <unordered_map>
 #include <mutex>
 #include <nlohmann/json.hpp>
 
@@ -18,6 +20,64 @@ namespace {
 
 std::string make_error_json(const std::string& message) {
     return nlohmann::json{{"error", message}}.dump();
+}
+
+std::string get_mime_type_for_path(const std::filesystem::path& path) {
+    static const std::unordered_map<std::string, std::string> kMimeByExtension{
+        {".css", "text/css"},
+        {".csv", "text/csv"},
+        {".gif", "image/gif"},
+        {".htm", "text/html"},
+        {".html", "text/html"},
+        {".ico", "image/x-icon"},
+        {".jpeg", "image/jpeg"},
+        {".jpg", "image/jpeg"},
+        {".js", "application/javascript"},
+        {".json", "application/json"},
+        {".map", "application/json"},
+        {".mjs", "application/javascript"},
+        {".png", "image/png"},
+        {".svg", "image/svg+xml"},
+        {".txt", "text/plain"},
+        {".wasm", "application/wasm"},
+        {".webp", "image/webp"},
+        {".woff", "font/woff"},
+        {".woff2", "font/woff2"},
+        {".xml", "application/xml"},
+    };
+
+    const auto ext = path.extension().string();
+    const auto it = kMimeByExtension.find(ext);
+    if (it != kMimeByExtension.end()) {
+        return it->second;
+    }
+    return "application/octet-stream";
+}
+
+bool read_file(const std::filesystem::path& path, std::string& output) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        return false;
+    }
+    output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    return !file.bad();
+}
+
+bool serve_file_response(httplib::Response& res,
+                         const std::filesystem::path& path,
+                         const std::filesystem::path& mime_from_path,
+                         bool gzip_encoded) {
+    std::string body;
+    if (!read_file(path, body)) {
+        return false;
+    }
+
+    res.set_content(body, get_mime_type_for_path(mime_from_path));
+    if (gzip_encoded) {
+        res.set_header("Content-Encoding", "gzip");
+        res.set_header("Vary", "Accept-Encoding");
+    }
+    return true;
 }
 
 } // namespace
@@ -162,16 +222,47 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         }
 
         fs::path requested = root / relative;
+        fs::path requested_gzip = requested;
+        requested_gzip += ".gz";
+
+        if (fs::is_regular_file(requested_gzip)) {
+            if (serve_file_response(res, requested_gzip, requested, true)) {
+                return;
+            }
+            res.status = 500;
+            res.set_content(make_error_json("failed to read static file"), "application/json");
+            return;
+        }
+
         if (fs::is_regular_file(requested)) {
-            res.set_file_content(requested.string());
+            if (serve_file_response(res, requested, requested, false)) {
+                return;
+            }
+            res.status = 500;
+            res.set_content(make_error_json("failed to read static file"), "application/json");
             return;
         }
 
         if (!fs::is_regular_file(index_path)) {
             res.status = 404;
         } else {
-            res.set_file_content(index_path.string());
-            res.status = 200;
+            fs::path index_gzip = index_path;
+            index_gzip += ".gz";
+            if (fs::is_regular_file(index_gzip)) {
+                if (serve_file_response(res, index_gzip, index_path, true)) {
+                    res.status = 200;
+                    return;
+                }
+                res.status = 500;
+                res.set_content(make_error_json("failed to read static file"), "application/json");
+                return;
+            }
+            if (serve_file_response(res, index_path, index_path, false)) {
+                res.status = 200;
+            } else {
+                res.status = 500;
+                res.set_content(make_error_json("failed to read static file"), "application/json");
+            }
         }
     });
 
