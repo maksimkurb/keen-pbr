@@ -80,6 +80,20 @@ bool serve_file_response(httplib::Response& res,
     return true;
 }
 
+bool path_starts_with(const std::filesystem::path& path,
+                      const std::filesystem::path& prefix) {
+    auto path_it = path.begin();
+    auto prefix_it = prefix.begin();
+
+    for (; prefix_it != prefix.end(); ++prefix_it, ++path_it) {
+        if (path_it == path.end() || *path_it != *prefix_it) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 struct ApiServer::Impl {
@@ -188,9 +202,14 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
 bool ApiServer::register_static_root(const std::string& frontend_root) {
     namespace fs = std::filesystem;
 
-    const fs::path root(frontend_root);
+    std::error_code ec;
+    const fs::path root = fs::weakly_canonical(fs::path(frontend_root), ec);
+    if (ec || !fs::is_directory(root)) {
+        return false;
+    }
+
     const fs::path index_path = root / "index.html";
-    if (!fs::is_directory(root) || !fs::is_regular_file(index_path)) {
+    if (!fs::is_regular_file(index_path)) {
         return false;
     }
 
@@ -201,27 +220,18 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             return;
         }
 
-        std::string path_lower = req.path;
-        for (char& ch : path_lower) {
-            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-        }
+        const fs::path relative =
+            req.path == "/" ? fs::path("index.html") : fs::path(req.path).relative_path();
 
-        if (req.path.find("..") != std::string::npos ||
-            req.path.find('\\') != std::string::npos ||
-            path_lower.find("%2e%2e") != std::string::npos) {
+        std::error_code ec;
+        ec.clear();
+        const fs::path requested = fs::weakly_canonical(root / relative, ec);
+        if (ec || !path_starts_with(requested, root)) {
             res.status = 400;
             res.set_content(make_error_json("invalid path"), "application/json");
             return;
         }
 
-        fs::path relative = req.path == "/" ? fs::path("index.html") : fs::path(req.path.substr(1));
-        if (relative.is_absolute()) {
-            res.status = 400;
-            res.set_content(make_error_json("invalid path"), "application/json");
-            return;
-        }
-
-        fs::path requested = root / relative;
         fs::path requested_gzip = requested;
         requested_gzip += ".gz";
 
