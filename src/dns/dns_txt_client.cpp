@@ -6,6 +6,7 @@
 #include <arpa/nameser.h>
 #include <cctype>
 #include <cstdint>
+#include <mutex>
 #include <netinet/in.h>
 #include <resolv.h>
 
@@ -74,47 +75,6 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
     return std::nullopt;
 }
 
-void configure_resolver_server(res_state resolver_state,
-                               const ParsedDnsAddress& parsed_server,
-                               sockaddr_in6* ipv6_storage) {
-    resolver_state->nscount = 1;
-    resolver_state->retry = 1;
-
-    if (parsed_server.ip.find(':') == std::string::npos) {
-        resolver_state->nsaddr_list[0].sin_family = AF_INET;
-        resolver_state->nsaddr_list[0].sin_port = htons(parsed_server.port);
-        if (inet_pton(AF_INET,
-                      parsed_server.ip.c_str(),
-                      &resolver_state->nsaddr_list[0].sin_addr) != 1) {
-            throw DnsError("Invalid IPv4 DNS resolver address: " + parsed_server.ip);
-        }
-        resolver_state->_u._ext.nscount = 0;
-        resolver_state->_u._ext.nsaddrs[0] = nullptr;
-        return;
-    }
-
-    if (ipv6_storage == nullptr) {
-        throw DnsError("Internal DNS resolver setup error");
-    }
-
-    *ipv6_storage = {};
-    ipv6_storage->sin6_family = AF_INET6;
-    ipv6_storage->sin6_port = htons(parsed_server.port);
-    if (inet_pton(AF_INET6, parsed_server.ip.c_str(), &ipv6_storage->sin6_addr) != 1) {
-        throw DnsError("Invalid IPv6 DNS resolver address: " + parsed_server.ip);
-    }
-
-    // Keep an IPv4 placeholder for slot 0 and point the extended resolver table
-    // at the real IPv6 server address.
-    resolver_state->nsaddr_list[0].sin_family = AF_INET;
-    resolver_state->nsaddr_list[0].sin_port = htons(parsed_server.port);
-    resolver_state->nsaddr_list[0].sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-    resolver_state->_u._ext.nscount = 1;
-    resolver_state->_u._ext.nsmap[0] = 0;
-    resolver_state->_u._ext.nsaddrs[0] = ipv6_storage;
-}
-
 } // namespace
 
 std::optional<std::string> query_dns_txt_record(const std::string& dns_server_address,
@@ -128,40 +88,49 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
 
     ParsedDnsAddress parsed_server = parse_dns_address_str(dns_server_address);
 
-    struct __res_state resolver_state_storage {};
-    res_state resolver_state = &resolver_state_storage;
-    if (res_ninit(resolver_state) != 0) {
-        if (error_out) *error_out = "res_ninit failed";
+    if (parsed_server.ip.find(':') != std::string::npos) {
+        if (error_out) *error_out = "IPv6 resolver addresses are not supported by this resolver backend";
         return std::nullopt;
     }
 
-    sockaddr_in6 ipv6_server {};
-    try {
-        configure_resolver_server(resolver_state, parsed_server, &ipv6_server);
+    static std::mutex resolver_mutex;
+    std::lock_guard<std::mutex> guard(resolver_mutex);
 
-        const int timeout_sec = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
-        resolver_state->retrans = timeout_sec;
+    const struct __res_state saved_resolver_state = _res;
+    auto restore_state = [&saved_resolver_state]() {
+        _res = saved_resolver_state;
+    };
 
-        std::array<unsigned char, NS_PACKETSZ * 8> response {};
-        const int response_len = res_nquery(resolver_state,
-                                            domain.c_str(),
-                                            ns_c_in,
-                                            ns_t_txt,
-                                            response.data(),
-                                            static_cast<int>(response.size()));
-        if (response_len < 0) {
-            if (error_out) *error_out = "DNS TXT query failed";
-            res_nclose(resolver_state);
-            return std::nullopt;
-        }
-
-        auto parsed = parse_first_txt_answer(response.data(), response_len, error_out);
-        res_nclose(resolver_state);
-        return parsed;
-    } catch (...) {
-        res_nclose(resolver_state);
-        throw;
+    if (res_init() != 0) {
+        if (error_out) *error_out = "res_init failed";
+        restore_state();
+        return std::nullopt;
     }
+
+    _res.nscount = 1;
+    _res.retry = 1;
+    _res.retrans = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
+    _res.nsaddr_list[0].sin_family = AF_INET;
+    _res.nsaddr_list[0].sin_port = htons(parsed_server.port);
+    if (inet_pton(AF_INET, parsed_server.ip.c_str(), &_res.nsaddr_list[0].sin_addr) != 1) {
+        if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
+        restore_state();
+        return std::nullopt;
+    }
+
+    std::array<unsigned char, NS_PACKETSZ * 8> response {};
+    const int response_len = res_query(domain.c_str(),
+                                       ns_c_in,
+                                       ns_t_txt,
+                                       response.data(),
+                                       static_cast<int>(response.size()));
+    restore_state();
+    if (response_len < 0) {
+        if (error_out) *error_out = "DNS TXT query failed";
+        return std::nullopt;
+    }
+
+    return parse_first_txt_answer(response.data(), response_len, error_out);
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {
