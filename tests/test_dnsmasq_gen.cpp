@@ -249,6 +249,30 @@ TEST_CASE("hash changes when domain list content changes") {
     CHECK(hash1 != hash2);
 }
 
+
+TEST_CASE("hash changes when resolver type changes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg1(dns_cfg);
+    DnsServerRegistry reg2(dns_cfg);
+
+    const std::string ipset_hash = DnsmasqGenerator::compute_config_hash(
+        reg1, streamer1, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string nftset_hash = DnsmasqGenerator::compute_config_hash(
+        reg2, streamer2, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_NFTSET);
+
+    CHECK(!ipset_hash.empty());
+    CHECK(!nftset_hash.empty());
+    CHECK(ipset_hash != nftset_hash);
+}
+
 TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);

@@ -16,6 +16,10 @@ enum class ResolverType {
     DNSMASQ_NFTSET,
 };
 
+// Resolve runtime resolver mode from config dns.system_resolver.type.
+// Falls back to dnsmasq-ipset when system_resolver/type is absent.
+ResolverType resolver_type_from_dns_config(const DnsConfig& dns_config);
+
 class DnsmasqGenerator {
 public:
     // Parse "dnsmasq-ipset" / "dnsmasq-nftset" string → ResolverType.
