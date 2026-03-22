@@ -23,6 +23,7 @@
 #include "../dns/dns_probe_server.hpp"
 #include "../dns/dns_router.hpp"
 #include "../dns/dns_server.hpp"
+#include "../dns/dns_txt_client.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
@@ -350,6 +351,7 @@ void Daemon::run() {
     schedule_lists_autoupdate();
 
     update_resolver_config_hash();
+    update_resolver_config_hash_actual();
 
     setup_dns_probe();
 
@@ -747,6 +749,38 @@ void Daemon::update_resolver_config_hash() {
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 
+void Daemon::update_resolver_config_hash_actual() {
+    resolver_config_hash_actual_.clear();
+
+    const auto dns_cfg_opt = config_.dns;
+    if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
+        return;
+    }
+
+    const std::string& resolver_addr = dns_cfg_opt->system_resolver->address;
+    if (resolver_addr.empty()) {
+        return;
+    }
+
+    try {
+        std::string error;
+        auto txt = query_dns_txt_record(
+            resolver_addr, "config-hash.keen.pbr", std::chrono::milliseconds(2000), &error);
+        if (!txt.has_value()) {
+            if (!error.empty()) {
+                Logger::instance().warn("Resolver config hash TXT query failed: {}", error);
+            }
+            return;
+        }
+
+        resolver_config_hash_actual_ = normalize_dns_txt_md5(*txt);
+        Logger::instance().info("Resolver config hash (actual): {}",
+                                resolver_config_hash_actual_);
+    } catch (const std::exception& e) {
+        Logger::instance().warn("Resolver config hash TXT query failed: {}", e.what());
+    }
+}
+
 void Daemon::apply_config(Config config) {
     std::unique_lock<std::shared_mutex> lock(state_mutex_);
 
@@ -793,6 +827,7 @@ void Daemon::apply_config(Config config) {
 
     // Recompute resolver config hash after reload
     update_resolver_config_hash();
+    update_resolver_config_hash_actual();
 
     // Recreate DNS test listener with the new config
     setup_dns_probe();
@@ -911,6 +946,9 @@ void Daemon::setup_api() {
         },
         [this]() {
             return resolver_config_hash_;
+        },
+        [this]() {
+            return resolver_config_hash_actual_;
         },
         config_op_mutex_,
         config_op_cv_,

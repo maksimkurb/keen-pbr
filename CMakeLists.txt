@@ -85,6 +85,7 @@ set(SOURCES
   src/firewall/iptables_verifier.cpp
   src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
+  src/dns/dns_txt_client.cpp
   src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp

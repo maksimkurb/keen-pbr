@@ -128,9 +128,13 @@ private:
 
     // Hash of the current domain-to-ipset mapping (matches dnsmasq txt-record)
     std::string resolver_config_hash_;
+    // Hash currently published by the live system resolver TXT record.
+    std::string resolver_config_hash_actual_;
 
     // Recompute resolver_config_hash_ from current config/cache state
     void update_resolver_config_hash();
+    // Query resolver TXT record and update resolver_config_hash_actual_.
+    void update_resolver_config_hash_actual();
 
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
