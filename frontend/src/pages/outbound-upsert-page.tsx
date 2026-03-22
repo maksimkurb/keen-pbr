@@ -322,9 +322,9 @@ function OutboundForm({
           <FieldContent>
             <Input
               defaultValue={draft.tag}
-              disabled={mode === "edit"}
               id={tagId}
               name="tag"
+              readOnly={mode === "edit"}
             />
             <FieldHint
               description="Use a unique outbound tag that can be referenced by rules, groups, and detours."

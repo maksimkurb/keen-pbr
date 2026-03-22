@@ -552,6 +552,10 @@ function buildUpdatedConfig(
   config: ConfigObject,
   draft: SettingsDraft
 ): ConfigObject {
+  const fwmarkStart = parseStrictHexToNumber(draft.fwmarkStart)
+  const fwmarkMask = parseStrictHexToNumber(draft.fwmarkMask)
+  const tableStart = parseStrictDecimalToNumber(draft.tableStart)
+
   return {
     ...config,
     daemon: {
@@ -560,12 +564,12 @@ function buildUpdatedConfig(
     },
     fwmark: {
       ...config.fwmark,
-      start: Number.parseInt(draft.fwmarkStart.slice(2), 16),
-      mask: Number.parseInt(draft.fwmarkMask.slice(2), 16),
+      start: toBackendIntegerValue(fwmarkStart, draft.fwmarkStart.trim()),
+      mask: toBackendIntegerValue(fwmarkMask, draft.fwmarkMask.trim()),
     },
     iproute: {
       ...config.iproute,
-      table_start: Number.parseInt(draft.tableStart, 10),
+      table_start: toBackendIntegerValue(tableStart, draft.tableStart.trim()),
     },
     lists_autoupdate: {
       ...config.lists_autoupdate,
@@ -590,6 +594,32 @@ function toStringInt(value: number | undefined, fallback: string) {
   }
 
   return String(value)
+}
+
+function parseStrictHexToNumber(value: string) {
+  const trimmed = value.trim()
+  if (!/^0x[0-9a-fA-F]+$/.test(trimmed)) {
+    return null
+  }
+
+  return Number.parseInt(trimmed.slice(2), 16)
+}
+
+function parseStrictDecimalToNumber(value: string) {
+  const trimmed = value.trim()
+  if (!/^\d+$/.test(trimmed)) {
+    return null
+  }
+
+  return Number.parseInt(trimmed, 10)
+}
+
+function toBackendIntegerValue(parsed: number | null, raw: string): number {
+  if (parsed !== null) {
+    return parsed
+  }
+
+  return raw as unknown as number
 }
 
 

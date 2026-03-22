@@ -441,6 +441,7 @@ export function RoutingRuleUpsertPage({
         <div className="flex justify-end gap-3">
           <Button
             onClick={() => navigate("/routing-rules")}
+            size="xl"
             type="button"
             variant="outline"
           >
@@ -456,6 +457,7 @@ export function RoutingRuleUpsertPage({
                 disabled={
                   postConfigMutation.isPending || !loadedConfig || !canSubmit
                 }
+                size="xl"
                 type="submit"
               >
                 {mode === "create" ? "Create rule" : "Save rule"}

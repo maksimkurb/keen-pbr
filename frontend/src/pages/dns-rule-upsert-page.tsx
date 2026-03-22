@@ -294,6 +294,7 @@ export function DnsRuleUpsertPage({
         <div className="flex justify-end gap-3">
           <Button
             onClick={() => navigate("/dns-rules")}
+            size="xl"
             type="button"
             variant="outline"
           >
@@ -301,6 +302,7 @@ export function DnsRuleUpsertPage({
           </Button>
           <Button
             disabled={postConfigMutation.isPending || !loadedConfig}
+            size="xl"
             type="submit"
           >
             {mode === "create" ? "Create rule" : "Save rule"}

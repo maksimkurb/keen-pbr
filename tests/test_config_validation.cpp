@@ -276,6 +276,17 @@ TEST_CASE("iproute.table_start: value 32000 is rejected") {
     CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
 }
 
+TEST_CASE("iproute.table_start: non-integer value is rejected") {
+    CHECK_THROWS_AS(
+        parse_config(R"({"iproute":{"table_start":"400abc"}})"),
+        ConfigValidationError
+    );
+    CHECK_THROWS_AS(
+        parse_config(R"({"iproute":{"table_start":400.5}})"),
+        ConfigValidationError
+    );
+}
+
 // =============================================================================
 
 TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
