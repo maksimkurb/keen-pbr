@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { useTheme } from "@/components/theme-provider"
 import {
   Select,
@@ -8,29 +10,30 @@ import {
 } from "@/components/ui/select"
 
 const THEME_OPTIONS = [
-  { value: "system", label: "Use system setting" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+  { value: "system", labelKey: "theme.useSystem" },
+  { value: "light", labelKey: "theme.light" },
+  { value: "dark", labelKey: "theme.dark" },
 ] as const
 
 export function ThemeSelector() {
   const { theme, setTheme } = useTheme()
+  const { t } = useTranslation()
 
   return (
     <div className="space-y-2">
-      <p className="px-1 text-xs font-medium text-sidebar-foreground/70">Theme</p>
+      <p className="px-1 text-xs font-medium text-sidebar-foreground/70">{t("common.theme")}</p>
       <Select
         defaultValue={theme}
         onValueChange={(value) => setTheme(value as "system" | "light" | "dark")}
         value={theme}
       >
-        <SelectTrigger aria-label="Theme selector" className="bg-sidebar">
-          <SelectValue placeholder="Use system setting" />
+        <SelectTrigger aria-label={t("theme.selectorAria")} className="bg-sidebar">
+          <SelectValue placeholder={t("theme.useSystem")} />
         </SelectTrigger>
         <SelectContent align="start">
           {THEME_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {t(option.labelKey)}
             </SelectItem>
           ))}
         </SelectContent>

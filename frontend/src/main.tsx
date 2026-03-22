@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 
 import "./index.css"
+import "./i18n"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { TooltipProvider } from "@/components/ui/tooltip"
