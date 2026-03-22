@@ -30,6 +30,7 @@ CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
 	-DKEEN_PBR_FRONTEND_ROOT:STRING=/opt/usr/share/keen-pbr/frontend \
 	-DWITH_API=ON \
+	-DUSE_KEENETIC_API=ON \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 
 define Package/keen-pbr/conffiles

@@ -392,16 +392,23 @@ components:
 
     DnsServer:
       type: object
-      required: [tag, address]
+      required: [tag]
       properties:
         tag:
           type: string
           description: Unique identifier for this DNS server.
           example: "vpn-dns"
+        type:
+          type: string
+          description: DNS server source type.
+          enum: [static, keenetic]
+          default: static
+          example: "static"
         address:
           type: string
           description: >
             IPv4 or IPv6 address of the DNS server, with optional port.
+            Required for `type=static`. Must be omitted for `type=keenetic`.
             Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353".
             Default port is 53.
           example: "10.8.0.1"

@@ -99,11 +99,16 @@
     "servers": [
       {
         "tag": "vpn-dns",
+        "type": "static",
         "address": "10.8.0.1"
       },
       {
         "tag": "google-dns",
         "address": "8.8.8.8"
+      },
+      {
+        "tag": "keenetic-dns",
+        "type": "keenetic"
       }
     ],
     "rules": [

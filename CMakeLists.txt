@@ -18,6 +18,7 @@ add_link_options(-rdynamic)
 
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
+option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend" CACHE STRING
@@ -93,6 +94,7 @@ set(SOURCES
   src/firewall/iptables_verifier.cpp
   src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
+  src/dns/keenetic_dns.cpp
   src/dns/dns_txt_client.cpp
   src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
@@ -129,6 +131,9 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
 )
+if(USE_KEENETIC_API)
+  target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)
+endif()
 target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
