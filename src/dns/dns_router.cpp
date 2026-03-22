@@ -1,4 +1,5 @@
 #include "dns_router.hpp"
+#include "keenetic_dns.hpp"
 
 namespace keen_pbr3 {
 
@@ -6,9 +7,21 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
     : fallback_tag_(dns_config.fallback.value_or("")) {
     // Parse all DNS server definitions into DnsServerConfig
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
+        const std::string server_type = server.type.value_or("static");
+        std::string resolved_address;
+        if (server_type == "keenetic") {
+            resolved_address = resolve_keenetic_dns_address();
+        } else if (server_type == "static") {
+            if (!server.address.has_value()) {
+                throw DnsError("DNS server '" + server.tag + "' is missing address");
+            }
+            resolved_address = *server.address;
+        } else {
+            throw DnsError("DNS server '" + server.tag + "' has unsupported type: " + server_type);
+        }
         servers_.emplace(
             server.tag,
-            parse_dns_server(server.tag, server.address, server.detour));
+            parse_dns_server(server.tag, resolved_address, server.detour));
     }
 
     // Validate that fallback server tag exists

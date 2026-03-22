@@ -131,9 +131,10 @@ namespace api {
     };
 
     struct DnsServerElement {
-        std::string address;
+        std::optional<std::string> address;
         std::optional<std::string> detour;
         std::string tag;
+        std::optional<std::string> type;
     };
 
     enum class DnsSystemResolverType : int { DNSMASQ_IPSET, DNSMASQ_NFTSET };
@@ -670,9 +671,10 @@ namespace api {
     }
 
     inline void from_json(const json & j, DnsServerElement& x) {
-        x.address = j.at("address").get<std::string>();
+        x.address = get_stack_optional<std::string>(j, "address");
         x.detour = get_stack_optional<std::string>(j, "detour");
         x.tag = j.at("tag").get<std::string>();
+        x.type = get_stack_optional<std::string>(j, "type");
     }
 
     inline void to_json(json & j, const DnsServerElement & x) {
@@ -680,6 +682,7 @@ namespace api {
         j["address"] = x.address;
         j["detour"] = x.detour;
         j["tag"] = x.tag;
+        j["type"] = x.type;
     }
 
     inline void from_json(const json & j, SystemResolver& x) {

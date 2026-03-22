@@ -280,6 +280,32 @@ Config parse_config(const std::string& json_str) {
     if (cfg.dns.has_value()) {
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         for (const auto& srv : dns_servers) {
+            const std::string srv_type = srv.type.value_or("static");
+            if (srv_type != "static" && srv_type != "keenetic") {
+                add_issue(issues, "dns.servers." + srv.tag + ".type",
+                          "dns.servers[\"" + srv.tag +
+                              "\"].type must be one of: static, keenetic");
+            }
+
+            if (srv_type == "keenetic") {
+#ifndef USE_KEENETIC_API
+                add_issue(issues, "dns.servers." + srv.tag + ".type",
+                          "dns.servers[\"" + srv.tag +
+                              "\"].type='keenetic' requires build with USE_KEENETIC_API=ON");
+#endif
+                if (srv.address.has_value() && !srv.address->empty()) {
+                    add_issue(issues, "dns.servers." + srv.tag + ".address",
+                              "dns.servers[\"" + srv.tag +
+                                  "\"].address must not be set for type='keenetic' (resolved via RCI)");
+                }
+            } else {
+                if (!srv.address.has_value() || srv.address->empty()) {
+                    add_issue(issues, "dns.servers." + srv.tag + ".address",
+                              "dns.servers[\"" + srv.tag +
+                                  "\"].address is required for type='static'");
+                }
+            }
+
             if (!srv.detour.has_value()) continue;
 
             const std::string& dtag = srv.detour.value();

@@ -54,12 +54,13 @@ event per queried DNS name observed while that connection stays open.
 
 ## DNS Servers
 
-Each server has a tag, an address, and an optional `detour`.
+Each server has a tag, optional `type`, optional `address`, and optional `detour`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier for this DNS server |
-| `address` | string | yes | IPv4 or IPv6 address of the DNS server, with optional port: `"8.8.8.8"`, `"8.8.8.8:5353"`, `"[::1]:5353"`. Default port: 53. |
+| `type` | string | no | DNS source type: `static` (default) or `keenetic`. |
+| `address` | string | for `static` | IPv4 or IPv6 address of the DNS server, with optional port: `"8.8.8.8"`, `"8.8.8.8:5353"`, `"[::1]:5353"`. Default port: 53. |
 | `detour` | string | no | Outbound tag to use when querying this server |
 
 The `detour` field binds DNS queries for this server to a specific outbound. This ensures that DNS resolution goes through the same path as the routed traffic.
@@ -69,16 +70,31 @@ The `detour` field binds DNS queries for this server to a specific outbound. Thi
   "servers": [
     {
       "tag": "vpn-dns",
+      "type": "static",
       "address": "10.8.0.1",
       "detour": "vpn"
     },
     {
       "tag": "google-dns",
       "address": "8.8.8.8"
+    },
+    {
+      "tag": "keenetic-dns",
+      "type": "keenetic"
     }
   ]
 }
 ```
+
+### `type: keenetic` (built-in router DNS via RCI)
+
+When `type` is set to `keenetic`, `keen-pbr` resolves the DNS server address from Keenetic RCI at startup, on config reload, and after manual restart via UI reload flow.
+
+- Compile-time requirement: `USE_KEENETIC_API=ON`.
+- Source of truth endpoint: `GET http://127.0.0.1:79/rci/show/dns-proxy`.
+- Data source inside response: `proxy-status[]` entry with `proxy-name == "System"`, field `proxy-config`, first `dns_server = ...` directive.
+
+If Keenetic API support is not compiled in, config with `type: "keenetic"` fails validation with a clear diagnostic.
 
 ### How `detour` works
 

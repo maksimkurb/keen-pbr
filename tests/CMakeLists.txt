@@ -7,6 +7,7 @@ add_executable(keen-pbr-tests
   test_addr_spec.cpp
   test_dnsmasq_gen.cpp
   test_dns_server.cpp
+  test_keenetic_dns.cpp
   test_dns_probe_server.cpp
   test_list_set_usage.cpp
   test_config_validation.cpp
@@ -25,6 +26,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dnsmasq_gen.cpp
   ../src/dns/dns_router.cpp
   ../src/dns/dns_server.cpp
+  ../src/dns/keenetic_dns.cpp
   ../src/daemon/system_resolver_hook.cpp
   ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
@@ -64,4 +66,8 @@ target_link_libraries(keen-pbr-tests PRIVATE
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)
+endif()
+
+if(USE_KEENETIC_API)
+  target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
 endif()
