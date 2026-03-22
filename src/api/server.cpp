@@ -5,8 +5,10 @@
 #include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <httplib.h>
 #include <atomic>
+#include <cctype>
 #include <mutex>
 #include <nlohmann/json.hpp>
 
@@ -121,6 +123,59 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
             }
         }
     });
+}
+
+bool ApiServer::register_static_root(const std::string& frontend_root) {
+    namespace fs = std::filesystem;
+
+    const fs::path root(frontend_root);
+    const fs::path index_path = root / "index.html";
+    if (!fs::is_directory(root) || !fs::is_regular_file(index_path)) {
+        return false;
+    }
+
+    impl_->server.Get(R"(/(.*))", [root, index_path](const httplib::Request& req,
+                                                      httplib::Response& res) {
+        const bool is_api_route = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
+        if (is_api_route) {
+            return;
+        }
+
+        std::string path_lower = req.path;
+        for (char& ch : path_lower) {
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+
+        if (req.path.find("..") != std::string::npos ||
+            req.path.find('\\') != std::string::npos ||
+            path_lower.find("%2e%2e") != std::string::npos) {
+            res.status = 400;
+            res.set_content(make_error_json("invalid path"), "application/json");
+            return;
+        }
+
+        fs::path relative = req.path == "/" ? fs::path("index.html") : fs::path(req.path.substr(1));
+        if (relative.is_absolute()) {
+            res.status = 400;
+            res.set_content(make_error_json("invalid path"), "application/json");
+            return;
+        }
+
+        fs::path requested = root / relative;
+        if (fs::is_regular_file(requested)) {
+            res.set_file_content(requested.string());
+            return;
+        }
+
+        if (!fs::is_regular_file(index_path)) {
+            res.status = 404;
+        } else {
+            res.set_file_content(index_path.string());
+            res.status = 200;
+        }
+    });
+
+    return true;
 }
 
 void ApiServer::start() {

@@ -27,6 +27,7 @@ endef
 
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
+	-DKEEN_PBR_FRONTEND_ROOT:STRING=/usr/share/keen-pbr/frontend \
 	-DWITH_API=ON \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 

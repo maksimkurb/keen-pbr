@@ -76,6 +76,10 @@ public:
     // Register a GET handler that streams a non-JSON response.
     void get_stream(const std::string& path, StreamRouteHandler handler);
 
+    // Register static file serving and SPA fallback from frontend_root for non-/api routes.
+    // Returns false if static serving could not be configured.
+    bool register_static_root(const std::string& frontend_root);
+
     // Start listening in a background thread.
     void start();
 

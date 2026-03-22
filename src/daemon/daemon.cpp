@@ -36,6 +36,10 @@
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
 
+#ifndef KEEN_PBR_FRONTEND_ROOT
+#define KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend"
+#endif
+
 #ifdef WITH_API
 #include "../api/handlers.hpp"
 #include "../api/server.hpp"
@@ -912,6 +916,22 @@ void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
     api_server_ = std::make_unique<ApiServer>(*config_.api);
+    const std::filesystem::path frontend_root(KEEN_PBR_FRONTEND_ROOT);
+    const std::filesystem::path frontend_index = frontend_root / "index.html";
+    const bool has_frontend_root =
+        std::filesystem::is_directory(frontend_root) &&
+        std::filesystem::is_regular_file(frontend_index);
+    if (!has_frontend_root) {
+        Logger::instance().warn(
+            "API enabled but frontend root is unavailable: {} (missing directory or index.html). API endpoints will remain available.",
+            frontend_root.string());
+    } else if (!api_server_->register_static_root(frontend_root.string())) {
+        Logger::instance().warn(
+            "Failed to register frontend static root: {}. API endpoints will remain available.",
+            frontend_root.string());
+    } else {
+        Logger::instance().info("Frontend static root: {}", frontend_root.string());
+    }
 
     // ApiContext provides synchronized access to Daemon-owned runtime state.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
