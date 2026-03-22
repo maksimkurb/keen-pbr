@@ -23,6 +23,7 @@ KEEN_PBR_SRC ?= /home/me/keen-pbr-src
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	cp -a $(KEEN_PBR_SRC)/. $(PKG_BUILD_DIR)/
+	@test -d $(PKG_BUILD_DIR)/frontend/dist || (echo "Missing frontend/dist (provide frontend-build artifacts in KEEN_PBR_SRC)"; false)
 endef
 
 CMAKE_OPTIONS += \
@@ -43,11 +44,14 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/etc/keen-pbr
 	$(INSTALL_DIR) $(1)/usr/lib/keen-pbr
 	$(INSTALL_DIR) $(1)/usr/sbin
+	$(INSTALL_DIR) $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/keen-pbr $(1)/usr/sbin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/init.d/keen-pbr $(1)/etc/init.d/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/iface/70-keen-pbr $(1)/etc/hotplug.d/iface/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq.sh $(1)/usr/lib/keen-pbr/dnsmasq.sh
+	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/usr/share/keen-pbr/frontend/
+	chmod -R a=rX,u+w $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.json $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 endef

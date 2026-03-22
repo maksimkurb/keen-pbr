@@ -23,6 +23,7 @@ KEEN_PBR_SRC ?= /home/me/keen-pbr-src
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	cp -a $(KEEN_PBR_SRC)/. $(PKG_BUILD_DIR)/
+	@test -d $(PKG_BUILD_DIR)/frontend/dist || (echo "Missing frontend/dist (provide frontend-build artifacts in KEEN_PBR_SRC)"; false)
 endef
 
 CMAKE_OPTIONS += \
@@ -44,6 +45,7 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/ifstatechanged.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/usr/bin
+	$(INSTALL_DIR) $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/opt/bin/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf $(1)/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
@@ -53,6 +55,8 @@ define Package/keen-pbr/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
+	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/opt/usr/share/keen-pbr/frontend/
+	chmod -R a=rX,u+w $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.json $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
 endef
