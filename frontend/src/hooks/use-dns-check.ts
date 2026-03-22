@@ -27,6 +27,8 @@ type UseDnsCheckReturn = {
   reset: () => void
 }
 
+export const DNS_CHECK_DOMAIN_SUFFIX = "check.keen.pbr"
+
 const browserCheckTimeoutMs = 5_000
 const pcCheckTimeoutMs = 300_000
 const pcWarningTimeoutMs = 30_000
@@ -73,7 +75,7 @@ export function useDnsCheck(): UseDnsCheckReturn {
       cleanup()
 
       const randomString = Math.random().toString(36).slice(2, 15)
-      const domain = `${randomString}.dns-check.keen-pbr.internal`
+      const domain = `${randomString}.${DNS_CHECK_DOMAIN_SUFFIX}`
 
       setCheckState({
         randomString,

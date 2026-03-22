@@ -11,17 +11,33 @@ import { Separator } from "@/components/ui/separator"
 
 import { DnsCheckModal } from "./dns-check-modal"
 
-export function DnsCheckWidget({ dnsServers }: { dnsServers: DnsServer[] }) {
+export function DnsCheckWidget({
+  dnsServers,
+  dnsProbeEnabled,
+}: {
+  dnsServers: DnsServer[]
+  dnsProbeEnabled: boolean
+}) {
   const [showPcCheckDialog, setShowPcCheckDialog] = useState(false)
   const { status, startCheck, reset } = useDnsCheck()
 
   useEffect(() => {
+    if (!dnsProbeEnabled) {
+      reset()
+      return
+    }
+
     startCheck(true)
-  }, [startCheck])
+  }, [dnsProbeEnabled, reset, startCheck])
 
   const isChecking = status === "checking"
+  const isDisabled = !dnsProbeEnabled
 
   const cardClassName = useMemo(() => {
+    if (isDisabled) {
+      return "border-border bg-muted/20"
+    }
+
     switch (status) {
       case "browser-fail":
       case "sse-fail":
@@ -29,13 +45,17 @@ export function DnsCheckWidget({ dnsServers }: { dnsServers: DnsServer[] }) {
       default:
         return undefined
     }
-  }, [status])
+  }, [isDisabled, status])
 
   return (
     <>
       <SectionCard
         className={cardClassName}
-        description="Confirms that DNS lookups reach the built-in test server from the browser and from another device."
+        description={
+          isDisabled
+            ? "Enable `config.dns.dns_test_server` to run the built-in DNS self-check."
+            : "Confirms that DNS lookups reach the built-in test server from the browser and from another device."
+        }
         title="DNS server self-check"
       >
         <div className="flex flex-col gap-4 md:flex-row">
@@ -73,11 +93,11 @@ export function DnsCheckWidget({ dnsServers }: { dnsServers: DnsServer[] }) {
           <Separator className="md:hidden" orientation="horizontal" />
 
           <div className="flex flex-1 flex-col justify-between gap-4">
-            <DnsStatusSummary status={status} />
+            <DnsStatusSummary disabled={isDisabled} status={status} />
 
             <ButtonGroup className="mt-auto [&>[data-slot=button]]:flex-1">
               <Button
-                disabled={isChecking}
+                disabled={isChecking || isDisabled}
                 onClick={() => {
                   reset()
                   startCheck(true)
@@ -89,6 +109,7 @@ export function DnsCheckWidget({ dnsServers }: { dnsServers: DnsServer[] }) {
                 {isChecking ? "Checking..." : "Run again"}
               </Button>
               <Button
+                disabled={isDisabled}
                 onClick={() => setShowPcCheckDialog(true)}
                 size="sm"
                 variant="outline"
@@ -111,10 +132,22 @@ export function DnsCheckWidget({ dnsServers }: { dnsServers: DnsServer[] }) {
 }
 
 function DnsStatusSummary({
+  disabled,
   status,
 }: {
+  disabled: boolean
   status: ReturnType<typeof useDnsCheck>["status"]
 }) {
+  if (disabled) {
+    return (
+      <DnsStatusMessage
+        icon={<AlertCircle className="h-5 w-5 text-muted-foreground" />}
+        text="Built-in DNS probe is disabled in config."
+        tone="muted"
+      />
+    )
+  }
+
   switch (status) {
     case "success":
       return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text="Browser DNS lookup reached the test server." tone="success" />
@@ -141,14 +174,16 @@ function DnsStatusMessage({
 }: {
   icon: React.ReactNode
   text: string
-  tone: "success" | "error"
+  tone: "success" | "error" | "muted"
 }) {
   return (
     <div
       className={
         tone === "success"
           ? "flex items-center gap-2 text-emerald-700 dark:text-emerald-300"
-          : "flex items-center gap-2 text-destructive"
+          : tone === "error"
+            ? "flex items-center gap-2 text-destructive"
+            : "flex items-center gap-2 text-muted-foreground"
       }
     >
       {icon}

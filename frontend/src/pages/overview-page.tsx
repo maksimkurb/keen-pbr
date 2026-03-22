@@ -189,7 +189,10 @@ export function OverviewPage() {
           ) : null}
         </SectionCard>
 
-        <DnsCheckWidget dnsServers={loadedConfig?.dns?.servers ?? []} />
+        <DnsCheckWidget
+          dnsProbeEnabled={Boolean(loadedConfig?.dns?.dns_test_server)}
+          dnsServers={loadedConfig?.dns?.servers ?? []}
+        />
       </div>
 
       <SectionCard title="Outbounds health">

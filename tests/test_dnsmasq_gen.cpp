@@ -224,6 +224,39 @@ TEST_CASE("server= directive has no #port suffix for default port 53") {
     CHECK(output.find("#53") == std::string::npos);
 }
 
+TEST_CASE("generate-resolver-config includes dns probe server directive when enabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto dns_cfg = make_empty_dns_cfg();
+    DnsTestServer probe_cfg;
+    probe_cfg.listen = "127.0.0.88:53";
+    dns_cfg.dns_test_server = probe_cfg;
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/check.keen.pbr/127.0.0.88#53\n") != std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config omits dns probe server directive when disabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/check.keen.pbr/") == std::string::npos);
+}
+
 TEST_CASE("hash changes when domain list content changes") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);

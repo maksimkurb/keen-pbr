@@ -2,7 +2,7 @@ import { AlertCircle, CheckCircle2, Copy, Loader2, Terminal } from "lucide-react
 import { useEffect, useState } from "react"
 
 import type { DnsCheckStatus } from "@/hooks/use-dns-check"
-import { useDnsCheck } from "@/hooks/use-dns-check"
+import { DNS_CHECK_DOMAIN_SUFFIX, useDnsCheck } from "@/hooks/use-dns-check"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,7 +43,7 @@ export function DnsCheckModal({
   }, [open, startPcCheck])
 
   const command = pcCheckState.randomString
-    ? `nslookup ${pcCheckState.randomString}.dns-check.keen-pbr.internal`
+    ? `nslookup ${pcCheckState.randomString}.${DNS_CHECK_DOMAIN_SUFFIX}`
     : ""
 
   const isBrowserSuccess = browserStatus === "success"
