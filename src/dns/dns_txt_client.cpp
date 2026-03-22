@@ -5,14 +5,9 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <cctype>
-#include <cerrno>
 #include <cstdint>
-#include <cstring>
 #include <netinet/in.h>
 #include <resolv.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #include "dns_server.hpp"
 
@@ -34,31 +29,6 @@ std::string trim_copy(const std::string& s) {
         --end;
     }
     return s.substr(begin, end - begin);
-}
-
-int build_txt_query_packet(const std::string& domain,
-                           std::array<unsigned char, NS_PACKETSZ * 2>& out,
-                           std::string* error_out) {
-    if (domain.empty()) {
-        if (error_out) *error_out = "DNS TXT query domain is empty";
-        return -1;
-    }
-
-    const int query_len = res_mkquery(ns_o_query,
-                                      domain.c_str(),
-                                      ns_c_in,
-                                      ns_t_txt,
-                                      nullptr,
-                                      0,
-                                      nullptr,
-                                      out.data(),
-                                      static_cast<int>(out.size()));
-    if (query_len < 0) {
-        if (error_out) *error_out = "res_mkquery failed";
-        return -1;
-    }
-
-    return query_len;
 }
 
 std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
@@ -104,97 +74,94 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
     return std::nullopt;
 }
 
+void configure_resolver_server(res_state resolver_state,
+                               const ParsedDnsAddress& parsed_server,
+                               sockaddr_in6* ipv6_storage) {
+    resolver_state->nscount = 1;
+    resolver_state->retry = 1;
+
+    if (parsed_server.ip.find(':') == std::string::npos) {
+        resolver_state->nsaddr_list[0].sin_family = AF_INET;
+        resolver_state->nsaddr_list[0].sin_port = htons(parsed_server.port);
+        if (inet_pton(AF_INET,
+                      parsed_server.ip.c_str(),
+                      &resolver_state->nsaddr_list[0].sin_addr) != 1) {
+            throw DnsError("Invalid IPv4 DNS resolver address: " + parsed_server.ip);
+        }
+        resolver_state->_u._ext.nscount = 0;
+        resolver_state->_u._ext.nsaddrs[0] = nullptr;
+        return;
+    }
+
+    if (ipv6_storage == nullptr) {
+        throw DnsError("Internal DNS resolver setup error");
+    }
+
+    *ipv6_storage = {};
+    ipv6_storage->sin6_family = AF_INET6;
+    ipv6_storage->sin6_port = htons(parsed_server.port);
+    if (inet_pton(AF_INET6, parsed_server.ip.c_str(), &ipv6_storage->sin6_addr) != 1) {
+        throw DnsError("Invalid IPv6 DNS resolver address: " + parsed_server.ip);
+    }
+
+    // Keep an IPv4 placeholder for slot 0 and point the extended resolver table
+    // at the real IPv6 server address.
+    resolver_state->nsaddr_list[0].sin_family = AF_INET;
+    resolver_state->nsaddr_list[0].sin_port = htons(parsed_server.port);
+    resolver_state->nsaddr_list[0].sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+    resolver_state->_u._ext.nscount = 1;
+    resolver_state->_u._ext.nsmap[0] = 0;
+    resolver_state->_u._ext.nsaddrs[0] = ipv6_storage;
+}
+
 } // namespace
 
 std::optional<std::string> query_dns_txt_record(const std::string& dns_server_address,
                                                 const std::string& domain,
                                                 std::chrono::milliseconds timeout,
                                                 std::string* error_out) {
-    ParsedDnsAddress server = parse_dns_address_str(dns_server_address);
-
-    std::array<unsigned char, NS_PACKETSZ * 2> query{};
-    const int query_len = build_txt_query_packet(domain, query, error_out);
-    if (query_len < 0) {
+    if (domain.empty()) {
+        if (error_out) *error_out = "DNS TXT query domain is empty";
         return std::nullopt;
     }
 
-    int family = AF_INET;
-    std::array<uint8_t, sizeof(sockaddr_in6)> addr_storage{};
-    socklen_t addr_len = 0;
+    ParsedDnsAddress parsed_server = parse_dns_address_str(dns_server_address);
 
-    if (server.ip.find(':') != std::string::npos) {
-        family = AF_INET6;
-        sockaddr_in6 addr6{};
-        addr6.sin6_family = AF_INET6;
-        addr6.sin6_port = htons(server.port);
-        if (inet_pton(AF_INET6, server.ip.c_str(), &addr6.sin6_addr) != 1) {
-            if (error_out) *error_out = "Invalid IPv6 DNS resolver address";
+    struct __res_state resolver_state_storage {};
+    res_state resolver_state = &resolver_state_storage;
+    if (res_ninit(resolver_state) != 0) {
+        if (error_out) *error_out = "res_ninit failed";
+        return std::nullopt;
+    }
+
+    sockaddr_in6 ipv6_server {};
+    try {
+        configure_resolver_server(resolver_state, parsed_server, &ipv6_server);
+
+        const int timeout_sec = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
+        resolver_state->retrans = timeout_sec;
+
+        std::array<unsigned char, NS_PACKETSZ * 8> response {};
+        const int response_len = res_nquery(resolver_state,
+                                            domain.c_str(),
+                                            ns_c_in,
+                                            ns_t_txt,
+                                            response.data(),
+                                            static_cast<int>(response.size()));
+        if (response_len < 0) {
+            if (error_out) *error_out = "DNS TXT query failed";
+            res_nclose(resolver_state);
             return std::nullopt;
         }
-        std::memcpy(addr_storage.data(), &addr6, sizeof(addr6));
-        addr_len = static_cast<socklen_t>(sizeof(addr6));
-    } else {
-        sockaddr_in addr4{};
-        addr4.sin_family = AF_INET;
-        addr4.sin_port = htons(server.port);
-        if (inet_pton(AF_INET, server.ip.c_str(), &addr4.sin_addr) != 1) {
-            if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
-            return std::nullopt;
-        }
-        std::memcpy(addr_storage.data(), &addr4, sizeof(addr4));
-        addr_len = static_cast<socklen_t>(sizeof(addr4));
+
+        auto parsed = parse_first_txt_answer(response.data(), response_len, error_out);
+        res_nclose(resolver_state);
+        return parsed;
+    } catch (...) {
+        res_nclose(resolver_state);
+        throw;
     }
-
-    const int sock = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-    if (sock < 0) {
-        if (error_out) *error_out = "socket() failed: " + std::string(strerror(errno));
-        return std::nullopt;
-    }
-
-    auto close_sock = [&]() {
-        close(sock);
-    };
-
-    const ssize_t sent = sendto(sock,
-                                query.data(),
-                                static_cast<size_t>(query_len),
-                                0,
-                                reinterpret_cast<const sockaddr*>(addr_storage.data()),
-                                addr_len);
-    if (sent < 0 || sent != query_len) {
-        if (error_out) *error_out = "sendto() failed: " + std::string(strerror(errno));
-        close_sock();
-        return std::nullopt;
-    }
-
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(sock, &read_fds);
-
-    timeval tv{};
-    tv.tv_sec = static_cast<time_t>(timeout.count() / 1000);
-    tv.tv_usec = static_cast<suseconds_t>((timeout.count() % 1000) * 1000);
-
-    const int rc = select(sock + 1, &read_fds, nullptr, nullptr, &tv);
-    if (rc <= 0) {
-        if (error_out) {
-            *error_out = (rc == 0) ? "DNS TXT query timeout"
-                                   : "select() failed: " + std::string(strerror(errno));
-        }
-        close_sock();
-        return std::nullopt;
-    }
-
-    std::array<unsigned char, NS_PACKETSZ * 8> response{};
-    const ssize_t n = recv(sock, response.data(), response.size(), 0);
-    if (n <= 0) {
-        if (error_out) *error_out = "recv() failed: " + std::string(strerror(errno));
-        close_sock();
-        return std::nullopt;
-    }
-
-    close_sock();
-    return parse_first_txt_answer(response.data(), static_cast<int>(n), error_out);
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {
