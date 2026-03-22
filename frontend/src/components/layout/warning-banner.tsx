@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import { useGetHealthService, useGetConfig } from "@/api/queries"
 import { usePostConfigSaveMutation, usePostReloadMutation } from "@/api/mutations"
 import { selectConfigIsDraft } from "@/api/selectors"
@@ -17,6 +19,7 @@ export function WarningBanner({
   compact?: boolean
   className?: string
 }) {
+  const { t } = useTranslation()
   const configQuery = useGetConfig()
   const healthQuery = useGetHealthService({
     query: {
@@ -45,32 +48,36 @@ export function WarningBanner({
     return (
       <div className={cn("space-y-2", className)}>
         {isDraft ? (
-          <Alert className="mb-0 px-2 py-1.5 text-warning-foreground border-warning/50 bg-warning/5 [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
-            <AlertTitle>Configuration draft pending save.</AlertTitle>
-            <AlertAction className="top-1.5 right-1.5">
+          <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
+            <AlertTitle>{t("warning.compact.draftPending")}</AlertTitle>
+            <AlertAction className="right-1.5 top-1.5">
               <Button
                 disabled={postConfigSaveMutation.isPending}
                 onClick={() => postConfigSaveMutation.mutate()}
                 size="xs"
                 variant="outline"
               >
-                {postConfigSaveMutation.isPending ? "Saving..." : "Apply"}
+                {postConfigSaveMutation.isPending
+                  ? t("warning.compact.saving")
+                  : t("warning.compact.apply")}
               </Button>
             </AlertAction>
           </Alert>
         ) : null}
 
         {hasResolverHashMismatch ? (
-          <Alert className="mb-0 px-2 py-1.5 text-warning-foreground border-warning/50 bg-warning/5 [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
-            <AlertTitle>dnsmasq config is stale; reload required.</AlertTitle>
-            <AlertAction className="top-1.5 right-1.5">
+          <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
+            <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
+            <AlertAction className="right-1.5 top-1.5">
               <Button
                 disabled={postReloadMutation.isPending}
                 onClick={() => postReloadMutation.mutate()}
                 size="xs"
                 variant="outline"
               >
-                {postReloadMutation.isPending ? "Reloading..." : "Reload"}
+                {postReloadMutation.isPending
+                  ? t("warning.compact.reloading")
+                  : t("warning.compact.reload")}
               </Button>
             </AlertAction>
           </Alert>
@@ -83,11 +90,8 @@ export function WarningBanner({
     <div className={cn("space-y-3", className)}>
       {isDraft ? (
         <Alert className="border-warning/50 bg-warning/5 text-warning-foreground">
-          <AlertTitle>Configuration is unsaved</AlertTitle>
-          <AlertDescription>
-            Configuration has been staged in memory. Save and apply it to persist it
-            to disk and reload the service.
-          </AlertDescription>
+          <AlertTitle>{t("warning.full.unsavedTitle")}</AlertTitle>
+          <AlertDescription>{t("warning.full.unsavedDescription")}</AlertDescription>
           <AlertAction>
             <Button
               disabled={postConfigSaveMutation.isPending}
@@ -95,7 +99,9 @@ export function WarningBanner({
               size="sm"
               variant="outline"
             >
-              {postConfigSaveMutation.isPending ? "Applying..." : "Apply config"}
+              {postConfigSaveMutation.isPending
+                ? t("warning.full.applying")
+                : t("warning.full.applyConfig")}
             </Button>
           </AlertAction>
         </Alert>
@@ -103,11 +109,12 @@ export function WarningBanner({
 
       {hasResolverHashMismatch ? (
         <Alert className="border-warning/50 bg-warning/5 text-warning-foreground">
-          <AlertTitle>dnsmasq is using a stale resolver config</AlertTitle>
+          <AlertTitle>{t("warning.full.staleTitle")}</AlertTitle>
           <AlertDescription>
-            The expected resolver hash ({expectedResolverHash?.slice(0, 10)}…)
-            doesn&apos;t match dnsmasq&apos;s active hash ({actualResolverHash?.slice(0, 10)}…).
-            Reload keen-pbr to regenerate and apply the current resolver configuration.
+            {t("warning.full.staleDescription", {
+              expected: expectedResolverHash?.slice(0, 10),
+              actual: actualResolverHash?.slice(0, 10),
+            })}
           </AlertDescription>
           <AlertAction>
             <Button
@@ -116,7 +123,9 @@ export function WarningBanner({
               size="sm"
               variant="outline"
             >
-              {postReloadMutation.isPending ? "Reloading..." : "Reload service"}
+              {postReloadMutation.isPending
+                ? t("warning.full.reloading")
+                : t("warning.full.reloadService")}
             </Button>
           </AlertAction>
         </Alert>
