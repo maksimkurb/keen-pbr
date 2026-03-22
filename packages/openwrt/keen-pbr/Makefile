@@ -19,11 +19,17 @@ define Package/keen-pbr/description
 endef
 
 KEEN_PBR_SRC ?= /home/me/keen-pbr-src
+KEEN_PBR_FRONTEND_DIST ?= $(KEEN_PBR_SRC)/frontend/dist
 
 define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	cp -a $(KEEN_PBR_SRC)/. $(PKG_BUILD_DIR)/
-	@test -d $(PKG_BUILD_DIR)/frontend/dist || (echo "Missing frontend/dist (provide frontend-build artifacts in KEEN_PBR_SRC)"; false)
+	rm -rf $(PKG_BUILD_DIR)
+	mkdir -p $(PKG_BUILD_DIR) $(PKG_BUILD_DIR)/frontend
+	rsync -a --delete \
+		--exclude='frontend/node_modules' \
+		--exclude='frontend/dist' \
+		$(KEEN_PBR_SRC)/ $(PKG_BUILD_DIR)/
+	cp -a $(KEEN_PBR_FRONTEND_DIST) $(PKG_BUILD_DIR)/frontend/dist
+	@test -d $(PKG_BUILD_DIR)/frontend/dist || (echo "Missing frontend/dist (provide frontend-build artifacts in KEEN_PBR_FRONTEND_DIST)"; false)
 endef
 
 CMAKE_OPTIONS += \

@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-/src}"
 RELEASE_DIR="${RELEASE_DIR:-/src/release_files}"
 SDK_DIR="/work/sdk"
-BUILD_SRC_ROOT="/tmp/keen-pbr-src"
+FRONTEND_OUT_DIR="/tmp/keen-pbr-frontend-dist"
 
 mkdir -p "$RELEASE_DIR"
 cd "${SDK_DIR}"
@@ -22,22 +22,19 @@ fi
 
 echo "[openwrt] Building frontend with bun..."
 mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache
-rm -rf "${BUILD_SRC_ROOT}"
-mkdir -p "${BUILD_SRC_ROOT}"
-cp -a "${REPO_ROOT}/." "${BUILD_SRC_ROOT}/"
+rm -rf "${FRONTEND_OUT_DIR}"
 
-cd "${BUILD_SRC_ROOT}/frontend"
-rm -rf dist
+cd "${REPO_ROOT}/frontend"
 TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun install --frozen-lockfile
-TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun run build
-find dist -type f ! -name '*.gz' -delete
+TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache KEEN_PBR_FRONTEND_OUT_DIR="${FRONTEND_OUT_DIR}" bun run build
+find "${FRONTEND_OUT_DIR}" -type f ! -name '*.gz' -delete
 
 cd "${SDK_DIR}"
 rm -rf package/keen-pbr
-cp -r "${BUILD_SRC_ROOT}/packages/openwrt/keen-pbr" package/
+cp -r "${REPO_ROOT}/packages/openwrt/keen-pbr" package/
 
 make package/keen-pbr/clean
-make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="${BUILD_SRC_ROOT}"
+make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/openwrt/keen-pbr/Makefile" | head -1)"
 find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr*.ipk' -o -name 'keen-pbr*.apk' \) | while read -r file; do
