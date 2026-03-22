@@ -22,6 +22,7 @@
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "system_resolver_hook.hpp"
 
 namespace keen_pbr3 {
 
@@ -61,7 +62,10 @@ const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
 // Handles signal dispatch, routing, firewall, urltest, and API lifecycle.
 class Daemon {
 public:
-    Daemon(Config config, std::string config_path, DaemonOptions opts);
+    Daemon(Config config,
+           std::string config_path,
+           DaemonOptions opts,
+           HookCommandExecutor hook_command_executor = default_hook_command_executor);
     ~Daemon();
 
     // Non-copyable, non-movable
@@ -113,6 +117,7 @@ private:
     void apply_config(Config config);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
+    void run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
     void refresh_lists_and_maybe_reload();
 
@@ -191,6 +196,7 @@ private:
 #endif
 
     std::unique_ptr<class DnsProbeServer> dns_probe_server_;
+    HookCommandExecutor hook_command_executor_;
 };
 
 } // namespace keen_pbr3

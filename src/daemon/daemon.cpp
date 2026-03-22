@@ -34,6 +34,7 @@
 #include "../config/addr_spec.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
+#include "system_resolver_hook.hpp"
 
 #ifdef WITH_API
 #include "../api/handlers.hpp"
@@ -59,7 +60,10 @@ const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
     return nullptr;
 }
 
-Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
+Daemon::Daemon(Config config,
+               std::string config_path,
+               DaemonOptions opts,
+               HookCommandExecutor hook_command_executor)
     : config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
@@ -72,7 +76,12 @@ Daemon::Daemon(Config config, std::string config_path, DaemonOptions opts)
     , url_tester_()
     , outbound_marks_(allocate_outbound_marks(config_.fwmark.value_or(FwmarkConfig{}),
                                              config_.outbounds.value_or(std::vector<Outbound>{})))
+    , hook_command_executor_(std::move(hook_command_executor))
 {
+    if (!hook_command_executor_) {
+        hook_command_executor_ = default_hook_command_executor;
+    }
+
     // Initialize epoll
     epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd_ < 0) {
@@ -303,6 +312,31 @@ void Daemon::handle_sighup() {
     } catch (const std::exception& e) {
         log.error("SIGHUP: reload failed: {}", e.what());
     }
+}
+
+void Daemon::run_system_resolver_hook_reload() {
+    auto& log = Logger::instance();
+
+    std::string command;
+    int exit_code = 0;
+    const bool ok = execute_system_resolver_reload_hook(
+        config_,
+        hook_command_executor_,
+        command,
+        exit_code);
+
+    if (command.empty()) {
+        return;
+    }
+
+    if (!ok) {
+        log.warn("System resolver reload hook failed (exit code: {}): {}",
+                 exit_code,
+                 command);
+        return;
+    }
+
+    log.info("System resolver reload hook complete: {}", command);
 }
 
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
@@ -831,6 +865,8 @@ void Daemon::apply_config(Config config) {
 
     // Recreate DNS test listener with the new config
     setup_dns_probe();
+
+    run_system_resolver_hook_reload();
 }
 
 
