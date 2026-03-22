@@ -251,6 +251,7 @@ function ListForm({
                 <FieldContent>
                   <Input
                     aria-invalid={Boolean(error)}
+                    disabled={!isCreate}
                     id="list-name"
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
@@ -475,42 +476,11 @@ function buildUpdatedConfigForListUpsert(
 ): ConfigObject {
   const nextLists = { ...(config.lists ?? {}) }
   const trimmedName = nextDraft.name.trim()
-  const trimmedOriginalName = originalName?.trim()
+  const resolvedName =
+    mode === "edit" ? (originalName?.trim() ?? trimmedName) : trimmedName
   const nextListConfig = getListConfigFromDraft(nextDraft)
 
-  if (
-    mode === "edit" &&
-    trimmedOriginalName &&
-    trimmedOriginalName !== trimmedName
-  ) {
-    delete nextLists[trimmedOriginalName]
-    nextLists[trimmedName] = nextListConfig
-
-    return {
-      ...config,
-      lists: nextLists,
-      route: {
-        ...config.route,
-        rules: (config.route?.rules ?? []).map((rule) => ({
-          ...rule,
-          list: rule.list.map((name) =>
-            name === trimmedOriginalName ? trimmedName : name
-          ),
-        })),
-      },
-      dns: {
-        ...config.dns,
-        rules: (config.dns?.rules ?? []).map((rule) => ({
-          ...rule,
-          list: rule.list.map((name) =>
-            name === trimmedOriginalName ? trimmedName : name
-          ),
-        })),
-      },
-    }
-  }
-
-  nextLists[trimmedName] = nextListConfig
+  nextLists[resolvedName] = nextListConfig
 
   return {
     ...config,

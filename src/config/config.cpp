@@ -22,6 +22,26 @@ void add_issue(std::vector<ConfigValidationIssue>& issues,
     issues.push_back({std::move(path), std::move(message)});
 }
 
+void validate_optional_integer_field(const json& root,
+                                     const char* parent_key,
+                                     const char* child_key,
+                                     const std::string& path,
+                                     std::vector<ConfigValidationIssue>& issues) {
+    const auto parent_it = root.find(parent_key);
+    if (parent_it == root.end() || !parent_it->is_object()) {
+        return;
+    }
+
+    const auto child_it = parent_it->find(child_key);
+    if (child_it == parent_it->end() || child_it->is_null()) {
+        return;
+    }
+
+    if (!child_it->is_number_integer()) {
+        add_issue(issues, path, path + " must be an integer");
+    }
+}
+
 } // namespace
 
 ConfigValidationError::ConfigValidationError(std::vector<ConfigValidationIssue> issues)
@@ -76,6 +96,7 @@ static void validate_fwmark_mask(uint32_t mask) {
 Config parse_config(const std::string& json_str) {
     Config cfg;
     json parsed_json;
+    std::vector<ConfigValidationIssue> issues;
 
     try {
         parsed_json = json::parse(json_str);
@@ -85,6 +106,17 @@ Config parse_config(const std::string& json_str) {
         });
     }
 
+    validate_optional_integer_field(
+        parsed_json, "fwmark", "start", "fwmark.start", issues);
+    validate_optional_integer_field(
+        parsed_json, "fwmark", "mask", "fwmark.mask", issues);
+    validate_optional_integer_field(
+        parsed_json, "iproute", "table_start", "iproute.table_start", issues);
+
+    if (!issues.empty()) {
+        throw ConfigValidationError(std::move(issues));
+    }
+
     try {
         cfg = parsed_json.get<Config>();
     } catch (const json::exception& e) {
@@ -92,8 +124,6 @@ Config parse_config(const std::string& json_str) {
             {"$", e.what()}
         });
     }
-
-    std::vector<ConfigValidationIssue> issues;
 
     if (cfg.lists_autoupdate) {
         const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
