@@ -8,11 +8,13 @@ import {
 } from "lucide-react"
 
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
+import { ThemeSelector } from "@/components/theme-selector"
 import { WarningBanner } from "@/components/layout/warning-banner"
 import { NavMain } from "@/components/nav-main"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader
 } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
@@ -83,6 +85,9 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         {!isMobile ? <WarningBanner className="mx-2 mt-2 mb-0 w-auto" compact /> : null}
         <NavMain items={data.navMain} />
       </SidebarContent>
+      <SidebarFooter className={isMobile ? "border-t px-4 py-3" : "border-t"}>
+        <ThemeSelector />
+      </SidebarFooter>
     </Sidebar>
   )
 }
