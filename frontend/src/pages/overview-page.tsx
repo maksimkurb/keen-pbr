@@ -61,6 +61,10 @@ export function OverviewPage() {
     routingHealthQuery.data?.status === 200
       ? routingHealthQuery.data.data
       : undefined
+  const hasResolverHashMismatch =
+    Boolean(serviceHealth?.resolver_config_hash) &&
+    Boolean(serviceHealth?.resolver_config_hash_actual) &&
+    serviceHealth?.resolver_config_hash !== serviceHealth?.resolver_config_hash_actual
 
   const outboundRows = useMemo(() => {
     if (!serviceHealth) {
@@ -133,7 +137,7 @@ export function OverviewPage() {
                   <div className="mb-1 text-sm text-muted-foreground">
                     Service status
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
                       tone={mapServiceStatusTone(serviceHealth.status)}
                     >
@@ -141,7 +145,17 @@ export function OverviewPage() {
                     </StatusBadge>
                     {serviceHealth.resolver_config_hash ? (
                       <Badge variant="outline" className="font-mono text-xs">
-                        {serviceHealth.resolver_config_hash.slice(0, 10)}…
+                        expected {serviceHealth.resolver_config_hash.slice(0, 10)}…
+                      </Badge>
+                    ) : null}
+                    {serviceHealth.resolver_config_hash_actual ? (
+                      <Badge variant="outline" className="font-mono text-xs">
+                        active {serviceHealth.resolver_config_hash_actual.slice(0, 10)}…
+                      </Badge>
+                    ) : null}
+                    {hasResolverHashMismatch ? (
+                      <Badge className="bg-warning/10 text-warning-foreground border-warning/50" variant="outline">
+                        dnsmasq stale
                       </Badge>
                     ) : null}
                   </div>
