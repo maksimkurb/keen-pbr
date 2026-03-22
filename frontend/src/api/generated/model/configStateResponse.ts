@@ -9,6 +9,7 @@ import type { ConfigObject } from './configObject';
 
 export interface ConfigStateResponse {
   config: ConfigObject;
-  /** Whether the returned config is a staged in-memory draft rather than the currently persisted config. */
+  /** Whether the returned config is a staged in-memory draft rather than the currently persisted config.
+ */
   is_draft: boolean;
 }

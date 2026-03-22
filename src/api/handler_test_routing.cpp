@@ -56,7 +56,7 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
         }
 
         for (const auto& rule_diag : result.rule_diagnostics) {
-            api::RoutingTestRuleDiagnostic rd;
+            api::RoutingTestRuleDiagnosticElement rd;
             rd.rule_index = rule_diag.rule_index;
             rd.outbound = rule_diag.outbound;
             rd.interface_name = rule_diag.interface_name;
@@ -68,7 +68,7 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
                 rd.target_match = std::move(lm);
             }
             for (const auto& ip_diag : rule_diag.ip_rows) {
-                api::RoutingTestRuleIpDiagnostic ipd;
+                api::RoutingTestRuleIpDiagnosticElement ipd;
                 ipd.ip = ip_diag.ip;
                 ipd.in_ipset = ip_diag.in_ipset;
                 rd.ip_rows.push_back(std::move(ipd));

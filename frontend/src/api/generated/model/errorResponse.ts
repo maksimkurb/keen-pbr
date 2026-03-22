@@ -5,8 +5,11 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { ValidationError } from './validationError';
 
 export interface ErrorResponse {
   /** Error message. */
   error: string;
+  /** Optional list of validation failures returned by `POST /api/config`. */
+  validation_errors?: ValidationError[];
 }
