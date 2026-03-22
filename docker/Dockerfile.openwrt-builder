@@ -38,6 +38,11 @@ RUN apt-get update && \
       zstd && \
     rm -rf /var/lib/apt/lists/*
 
+ENV BUN_INSTALL=/root/.bun
+ENV PATH=${BUN_INSTALL}/bin:${PATH}
+
+RUN curl -fsSL https://bun.sh/install | bash
+
 COPY .github/builder/generate_build_matrix.py /opt/keen-pbr/generate_build_matrix.py
 COPY docker/openwrt-prepare.sh /usr/local/bin/openwrt-prepare.sh
 COPY packages/openwrt/packages.config /opt/keen-pbr/packages.config

@@ -17,7 +17,7 @@ jobs:
       run:
         working-directory: src/frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           path: src
           submodules: recursive
@@ -42,12 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare-frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           path: src
           submodules: recursive
       - name: Download frontend bundle
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist-gz
           path: frontend-dist-gz
@@ -58,7 +58,7 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
       - name: Cache SDK
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: openwrt-sdk-*/
           key: sdk-${{ inputs.openwrt_version || '24.10.4' }}-mediatek-filogic

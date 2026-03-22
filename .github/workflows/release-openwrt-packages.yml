@@ -23,7 +23,7 @@ jobs:
       run:
         working-directory: src/frontend
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           path: src
           submodules: recursive
@@ -48,7 +48,7 @@ jobs:
     outputs:
       job-config: ${{ steps.gen.outputs.job-config }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           path: src
           submodules: recursive
@@ -70,12 +70,12 @@ jobs:
       matrix:
         build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           path: src
           submodules: recursive
       - name: Download frontend bundle
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist-gz
           path: frontend-dist-gz
@@ -86,7 +86,7 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
       - name: Cache SDK
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: openwrt-sdk-*/
           key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}

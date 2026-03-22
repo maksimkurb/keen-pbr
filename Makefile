@@ -8,6 +8,7 @@ CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_EXPORT_COMPILE_COMMANDS=O
 SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
+        frontend-build \
         test \
         generate \
         cross-setup cross-build cross-deploy \
@@ -25,6 +26,12 @@ setup: $(SETUP_STAMP) ## Configure CMake
 
 build: $(SETUP_STAMP) ## Compile the project
 	cmake --build $(BUILD_DIR)
+
+frontend-build: ## Build frontend assets with bun
+	mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache /tmp/keen-pbr-frontend-dist
+	cd frontend && \
+	TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun install --frozen-lockfile && \
+	KEEN_PBR_FRONTEND_OUT_DIR=/tmp/keen-pbr-frontend-dist TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun run build
 
 generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (requires Node.js)
 	bash scripts/generate_api_types.sh

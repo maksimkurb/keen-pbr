@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
+  build: {
+    outDir: process.env.KEEN_PBR_FRONTEND_OUT_DIR || "dist",
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       "/api": {
