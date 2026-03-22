@@ -24,6 +24,7 @@ set(KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json" CACHE STRING
 # Dependencies
 find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_library(LIBRESOLV resolv REQUIRED)
 pkg_check_modules(LIBNL REQUIRED IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 set(HTTPLIB_ANL_LIB "")
@@ -85,6 +86,7 @@ set(SOURCES
   src/firewall/iptables_verifier.cpp
   src/firewall/nftables_verifier.cpp
   src/dns/dns_server.cpp
+  src/dns/dns_txt_client.cpp
   src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
@@ -120,6 +122,7 @@ target_compile_definitions(keen-pbr PRIVATE
 )
 target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
+  ${LIBRESOLV}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only

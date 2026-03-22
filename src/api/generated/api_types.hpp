@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes7R7Ofu data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesL45J8V data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -291,6 +291,7 @@ namespace api {
         bool config_is_draft;
         std::vector<HealthEntry> outbounds;
         std::optional<std::string> resolver_config_hash;
+        std::optional<std::string> resolver_config_hash_actual;
         HealthResponseStatus status;
         std::string version;
     };
@@ -389,7 +390,7 @@ namespace api {
         std::vector<std::string> warnings;
     };
 
-    struct KeenPbrTypes7R7Ofu {
+    struct KeenPbrTypesL45J8V {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -553,8 +554,8 @@ namespace api {
     void from_json(const json & j, RoutingTestResponse & x);
     void to_json(json & j, const RoutingTestResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes7R7Ofu & x);
-    void to_json(json & j, const KeenPbrTypes7R7Ofu & x);
+    void from_json(const json & j, KeenPbrTypesL45J8V & x);
+    void to_json(json & j, const KeenPbrTypesL45J8V & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -983,6 +984,7 @@ namespace api {
         x.config_is_draft = j.at("config_is_draft").get<bool>();
         x.outbounds = j.at("outbounds").get<std::vector<HealthEntry>>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
+        x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
         x.status = j.at("status").get<HealthResponseStatus>();
         x.version = j.at("version").get<std::string>();
     }
@@ -992,6 +994,7 @@ namespace api {
         j["config_is_draft"] = x.config_is_draft;
         j["outbounds"] = x.outbounds;
         j["resolver_config_hash"] = x.resolver_config_hash;
+        j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
         j["status"] = x.status;
         j["version"] = x.version;
     }
@@ -1183,7 +1186,7 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes7R7Ofu& x) {
+    inline void from_json(const json & j, KeenPbrTypesL45J8V& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1226,7 +1229,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes7R7Ofu & x) {
+    inline void to_json(json & j, const KeenPbrTypesL45J8V & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

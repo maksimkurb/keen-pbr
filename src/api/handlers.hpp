@@ -51,6 +51,7 @@ struct ApiContext {
     std::function<std::optional<UrltestState>(const std::string&)> urltest_state_fn;
     std::function<RoutingHealthReport()> routing_health_check_fn;
     std::function<std::string()> resolver_config_hash_fn;
+    std::function<std::string()> resolver_config_hash_actual_fn;
 
     // Global serialization for config operations.
     std::mutex& config_op_mutex;
