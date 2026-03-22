@@ -11,6 +11,7 @@ add_executable(keen-pbr-tests
   test_list_set_usage.cpp
   test_config_validation.cpp
   test_routing_state.cpp
+  test_system_resolver_hook.cpp
   ../src/config/config.cpp
   ../src/config/routing_state.cpp
   ../src/firewall/iptables_verifier.cpp
@@ -24,6 +25,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dnsmasq_gen.cpp
   ../src/dns/dns_router.cpp
   ../src/dns/dns_server.cpp
+  ../src/daemon/system_resolver_hook.cpp
   ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
   ../src/lists/list_streamer.cpp
