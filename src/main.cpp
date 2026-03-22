@@ -292,13 +292,15 @@ int main(int argc, char* argv[]) {
             keen_pbr3::CacheManager cache(cache_dir);
             keen_pbr3::ListStreamer streamer(cache);
             const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
+            const auto resolver_type = keen_pbr3::resolver_type_from_dns_config(dns_cfg);
             keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
             const std::string hash = keen_pbr3::DnsmasqGenerator::compute_config_hash(
                 dns_registry,
                 streamer,
                 config.route.value_or(keen_pbr3::RouteConfig{}),
                 dns_cfg,
-                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}));
+                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}),
+                resolver_type);
             std::cout << hash << "\n";
             return 0;
         }

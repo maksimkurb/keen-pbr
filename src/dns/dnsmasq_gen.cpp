@@ -222,6 +222,21 @@ void DnsmasqGenerator::generate(std::ostream& out) {
 }
 
 
+ResolverType resolver_type_from_dns_config(const DnsConfig& dns_config) {
+    if (!dns_config.system_resolver.has_value()) {
+        return ResolverType::DNSMASQ_IPSET;
+    }
+
+    switch (dns_config.system_resolver->type) {
+    case DnsSystemResolverType::DNSMASQ_IPSET:
+        return ResolverType::DNSMASQ_IPSET;
+    case DnsSystemResolverType::DNSMASQ_NFTSET:
+        return ResolverType::DNSMASQ_NFTSET;
+    }
+
+    return ResolverType::DNSMASQ_IPSET;
+}
+
 ResolverType DnsmasqGenerator::parse_resolver_type(const std::string& s) {
     if (s == "dnsmasq-ipset")  return ResolverType::DNSMASQ_IPSET;
     if (s == "dnsmasq-nftset") return ResolverType::DNSMASQ_NFTSET;

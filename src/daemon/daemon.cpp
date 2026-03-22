@@ -735,13 +735,15 @@ void Daemon::refresh_lists_and_maybe_reload() {
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(cache_);
     const DnsConfig dns_cfg = config_.dns.value_or(DnsConfig{});
+    const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
     DnsServerRegistry dns_registry(dns_cfg);
     resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
         dns_registry,
         streamer,
         config_.route.value_or(RouteConfig{}),
         dns_cfg,
-        config_.lists.value_or(std::map<std::string, ListConfig>{}));
+        config_.lists.value_or(std::map<std::string, ListConfig>{}),
+        resolver_type);
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 
@@ -882,13 +884,16 @@ void Daemon::setup_api() {
             (void)build_fw_rule_states(config, marks, &urltest_selections);
 
             ListStreamer streamer(cache_);
-            DnsServerRegistry dns_registry(config.dns.value_or(DnsConfig{}));
+            const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
+            const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
+            DnsServerRegistry dns_registry(dns_cfg);
             (void)DnsmasqGenerator::compute_config_hash(
                 dns_registry,
                 streamer,
                 config.route.value_or(RouteConfig{}),
-                config.dns.value_or(DnsConfig{}),
-                config.lists.value_or(std::map<std::string, ListConfig>{}));
+                dns_cfg,
+                config.lists.value_or(std::map<std::string, ListConfig>{}),
+                resolver_type);
         },
         [this]() {
             return config_.outbounds.value_or(std::vector<Outbound>{});
