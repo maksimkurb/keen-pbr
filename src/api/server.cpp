@@ -163,15 +163,14 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
 
         fs::path requested = root / relative;
         if (fs::is_regular_file(requested)) {
-            if (!res.set_file_content(requested.string())) {
-                res.status = 404;
-            }
+            res.set_file_content(requested.string());
             return;
         }
 
-        if (!res.set_file_content(index_path.string())) {
+        if (!fs::is_regular_file(index_path)) {
             res.status = 404;
         } else {
+            res.set_file_content(index_path.string());
             res.status = 200;
         }
     });
