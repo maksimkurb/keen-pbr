@@ -17,6 +17,32 @@ on:
         required: false
 
 jobs:
+  prepare-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: src
+          submodules: recursive
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build frontend
+        run: bun run build
+      - name: Keep only .gz frontend assets
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/frontend-dist-gz"
+          cd dist
+          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/frontend-dist-gz" \;
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist-gz
+          path: frontend-dist-gz
+
   generate-config:
     runs-on: ubuntu-latest
     outputs:
@@ -38,7 +64,7 @@ jobs:
   build:
     name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }} (${{ matrix.build_env.pkgarch }})"
     runs-on: ubuntu-latest
-    needs: generate-config
+    needs: [generate-config, prepare-frontend]
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +74,16 @@ jobs:
         with:
           path: src
           submodules: recursive
+      - name: Download frontend bundle
+        uses: actions/download-artifact@v6
+        with:
+          name: frontend-dist-gz
+          path: frontend-dist-gz
+      - name: Stage frontend dist
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/src/frontend/dist"
+          mkdir -p "$GITHUB_WORKSPACE/src/frontend/dist"
+          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
       - name: Cache SDK
         id: cache
         uses: actions/cache@v4

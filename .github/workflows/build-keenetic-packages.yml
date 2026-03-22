@@ -6,9 +6,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  prepare-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build frontend
+        run: bun run build
+      - name: Keep only .gz frontend assets
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/frontend-dist-gz"
+          cd dist
+          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/frontend-dist-gz" \;
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist-gz
+          path: frontend-dist-gz
+
   build:
     name: "mipsel-3.4"
     runs-on: ubuntu-latest
+    needs: prepare-frontend
     container:
       image: ghcr.io/maksimkurb/entware-builder:mipsel-3.4
       options: --user root
@@ -16,6 +40,16 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: Download frontend bundle
+        uses: actions/download-artifact@v6
+        with:
+          name: frontend-dist-gz
+          path: frontend-dist-gz
+      - name: Stage frontend dist
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/frontend/dist"
+          mkdir -p "$GITHUB_WORKSPACE/frontend/dist"
+          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/frontend/dist/"
       - name: Build package
         working-directory: /home/me/Entware
         run: |

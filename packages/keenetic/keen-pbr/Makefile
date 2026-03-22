@@ -55,7 +55,7 @@ define Package/keen-pbr/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
-	(cd $(PKG_BUILD_DIR)/frontend/dist && find . -type f -name '*.gz' -exec cp --parents {} $(1)/opt/usr/share/keen-pbr/frontend/ \;)
+	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/opt/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.json $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst

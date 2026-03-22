@@ -50,7 +50,7 @@ define Package/keen-pbr/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/iface/70-keen-pbr $(1)/etc/hotplug.d/iface/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq.sh $(1)/usr/lib/keen-pbr/dnsmasq.sh
-	(cd $(PKG_BUILD_DIR)/frontend/dist && find . -type f -name '*.gz' -exec cp --parents {} $(1)/usr/share/keen-pbr/frontend/ \;)
+	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/config.example.json $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
