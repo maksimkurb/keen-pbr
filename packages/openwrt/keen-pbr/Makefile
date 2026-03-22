@@ -23,11 +23,7 @@ KEEN_PBR_SRC ?= /home/me/keen-pbr-src
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	cp -a $(KEEN_PBR_SRC)/. $(PKG_BUILD_DIR)/
-endef
-
-define Build/Compile
-	(cd $(PKG_BUILD_DIR)/frontend && bun install --frozen-lockfile && bun run build)
-	$(call Build/Compile/Default)
+	@test -d $(PKG_BUILD_DIR)/frontend/dist || (echo "Missing frontend/dist (provide frontend-build artifacts in KEEN_PBR_SRC)"; false)
 endef
 
 CMAKE_OPTIONS += \
