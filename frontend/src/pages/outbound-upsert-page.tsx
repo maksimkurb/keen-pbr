@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react"
 import { useId, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -117,6 +118,7 @@ export function OutboundUpsertPage({
   mode: "create" | "edit"
   outboundId?: string
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
@@ -171,14 +173,14 @@ export function OutboundUpsertPage({
   ) {
     return (
       <UpsertPage
-        cardDescription="The requested outbound could not be found."
-        cardTitle="Missing outbound"
-        description="Return to the outbounds table and choose a valid entry."
-        title="Edit outbound"
+        cardDescription={t("pages.outboundUpsert.missing.cardDescription")}
+        cardTitle={t("pages.outboundUpsert.missing.cardTitle")}
+        description={t("pages.outboundUpsert.missing.description")}
+        title={t("pages.outboundUpsert.editTitle")}
       >
         <div className="flex justify-end">
           <Button onClick={() => navigate("/outbounds")} variant="outline">
-            Back to outbounds
+            {t("pages.outboundUpsert.missing.back")}
           </Button>
         </div>
       </UpsertPage>
@@ -195,7 +197,8 @@ export function OutboundUpsertPage({
     const duplicateTagError = validateTagUniqueness(
       currentOutbounds,
       payload.tag,
-      mode === "edit" ? outboundId : undefined
+      mode === "edit" ? outboundId : undefined,
+      t
     )
 
     if (duplicateTagError) {
@@ -211,7 +214,7 @@ export function OutboundUpsertPage({
             outbound.tag === outboundId ? payload : outbound
           )
 
-    const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds)
+    const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds, t)
 
     if (urltestReferencesError) {
       setServerFieldErrors({})
@@ -232,10 +235,18 @@ export function OutboundUpsertPage({
 
   return (
     <UpsertPage
-      cardDescription="Configure interface or urltest outbounds."
-      cardTitle={mode === "create" ? "Create outbound" : `Edit ${draft.tag}`}
-      description="Outbounds define direct interfaces or grouped urltest behavior."
-      title={mode === "create" ? "Create outbound" : "Edit outbound"}
+      cardDescription={t("pages.outboundUpsert.cardDescription")}
+      cardTitle={
+        mode === "create"
+          ? t("pages.outboundUpsert.createTitle")
+          : t("pages.outboundUpsert.editCardTitle", { tag: draft.tag })
+      }
+      description={t("pages.outboundUpsert.description")}
+      title={
+        mode === "create"
+          ? t("pages.outboundUpsert.createTitle")
+          : t("pages.outboundUpsert.editTitle")
+      }
     >
       {mutationErrorMessage ? (
         <Alert className="mb-6 border-destructive/30 bg-destructive/5 text-destructive">
@@ -272,6 +283,7 @@ function OutboundForm({
   onSubmit: (payload: Outbound) => void
   serverFieldErrors: Partial<Record<OutboundFieldName, string>>
 }) {
+  const { t } = useTranslation()
   const [outboundType, setOutboundType] = useState<Outbound["type"]>(draft.type)
   const [strictEnforcement, setStrictEnforcement] = useState(
     draft.strictEnforcement
@@ -318,7 +330,7 @@ function OutboundForm({
     >
       <FieldGroup>
         <Field invalid={Boolean(serverFieldErrors.tag)}>
-          <FieldLabel htmlFor={tagId}>Tag</FieldLabel>
+          <FieldLabel htmlFor={tagId}>{t("pages.outboundUpsert.fields.tag")}</FieldLabel>
           <FieldContent>
             <Input
               defaultValue={draft.tag}
@@ -327,13 +339,13 @@ function OutboundForm({
               readOnly={mode === "edit"}
             />
             <FieldHint
-              description="Use a unique outbound tag that can be referenced by rules, groups, and detours."
+              description={t("pages.outboundUpsert.fields.tagHint")}
               error={serverFieldErrors.tag ?? null}
             />
           </FieldContent>
         </Field>
         <Field invalid={Boolean(serverFieldErrors.type)}>
-          <FieldLabel>Type</FieldLabel>
+          <FieldLabel>{t("pages.outboundUpsert.fields.type")}</FieldLabel>
           <FieldContent>
             <Select
               defaultValue={draft.type}
@@ -346,7 +358,7 @@ function OutboundForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Outbound types</SelectLabel>
+                  <SelectLabel>{t("pages.outboundUpsert.fields.outboundTypes")}</SelectLabel>
                   {outboundTypeOptions.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -356,7 +368,7 @@ function OutboundForm({
               </SelectContent>
             </Select>
             <FieldHint
-              description="Choose the outbound type defined by the config schema; the form below updates to show only relevant fields."
+              description={t("pages.outboundUpsert.fields.typeHint")}
               error={serverFieldErrors.type ?? null}
             />
           </FieldContent>
@@ -365,12 +377,12 @@ function OutboundForm({
 
       {isInterface ? (
         <SectionCard
-          description="Configure the egress device and optional gateway for interface-based routing."
-          title="Interface settings"
+          description={t("pages.outboundUpsert.interface.description")}
+          title={t("pages.outboundUpsert.interface.title")}
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field invalid={Boolean(serverFieldErrors.interfaceName)}>
-              <FieldLabel htmlFor={interfaceId}>Interface</FieldLabel>
+              <FieldLabel htmlFor={interfaceId}>{t("pages.outboundUpsert.interface.interface")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.interfaceName}
@@ -378,13 +390,13 @@ function OutboundForm({
                   name="interfaceName"
                 />
                 <FieldHint
-                  description="Network interface name used for egress, such as tun0 or eth0."
+                  description={t("pages.outboundUpsert.interface.interfaceHint")}
                   error={serverFieldErrors.interfaceName ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.gateway)}>
-              <FieldLabel htmlFor={gatewayId}>Gateway</FieldLabel>
+              <FieldLabel htmlFor={gatewayId}>{t("pages.outboundUpsert.interface.gateway")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.gateway}
@@ -392,7 +404,7 @@ function OutboundForm({
                   name="gateway"
                 />
                 <FieldHint
-                  description="Optional gateway IP address for this interface outbound."
+                  description={t("pages.outboundUpsert.interface.gatewayHint")}
                   error={serverFieldErrors.gateway ?? null}
                 />
               </FieldContent>
@@ -403,15 +415,15 @@ function OutboundForm({
 
       {isTable ? (
         <SectionCard
-          description="Map this outbound to an existing kernel routing table."
-          title="Table settings"
+          description={t("pages.outboundUpsert.table.description")}
+          title={t("pages.outboundUpsert.table.title")}
         >
           <Field invalid={Boolean(serverFieldErrors.table)}>
-            <FieldLabel htmlFor={tableId}>Table ID</FieldLabel>
+            <FieldLabel htmlFor={tableId}>{t("pages.outboundUpsert.table.field")}</FieldLabel>
             <FieldContent>
               <Input defaultValue={draft.table} id={tableId} name="table" />
               <FieldHint
-                description="Kernel routing table ID required for the table outbound type."
+                description={t("pages.outboundUpsert.table.hint")}
                 error={serverFieldErrors.table ?? null}
               />
             </FieldContent>
@@ -421,32 +433,30 @@ function OutboundForm({
 
       {isBlackhole ? (
         <SectionCard
-          description="Blackhole outbounds intentionally drop all matching traffic."
-          title="Blackhole behavior"
+          description={t("pages.outboundUpsert.blackhole.description")}
+          title={t("pages.outboundUpsert.blackhole.title")}
         >
           <p className="text-sm text-muted-foreground md:text-xs">
-            No additional fields are required for this type beyond the outbound
-            tag.
+            {t("pages.outboundUpsert.common.noExtraFields")}
           </p>
         </SectionCard>
       ) : null}
 
       {isIgnore ? (
         <SectionCard
-          description="Ignore outbounds pass matching traffic through without policy-based routing changes."
-          title="Ignore behavior"
+          description={t("pages.outboundUpsert.ignore.description")}
+          title={t("pages.outboundUpsert.ignore.title")}
         >
           <p className="text-sm text-muted-foreground md:text-xs">
-            No additional fields are required for this type beyond the outbound
-            tag.
+            {t("pages.outboundUpsert.common.noExtraFields")}
           </p>
         </SectionCard>
       ) : null}
 
       {isUrltest ? (
         <SectionCard
-          description="Groups are tried in order. Each group selects from interface outbounds, and order acts as priority."
-          title="Outbound groups"
+          description={t("pages.outboundUpsert.urltest.groupsDescription")}
+          title={t("pages.outboundUpsert.urltest.groupsTitle")}
         >
           <div className="space-y-4">
             {urltestGroups.map((group, index) => (
@@ -454,7 +464,7 @@ function OutboundForm({
                 canMoveDown={index !== urltestGroups.length - 1}
                 canMoveUp={index !== 0}
                 canRemove={urltestGroups.length !== 1}
-                description={`Priority ${index + 1}. Earlier groups are preferred before later ones.`}
+                description={t("pages.outboundUpsert.urltest.groupDescription", { index: index + 1 })}
                 key={group.id}
                 onMoveDown={() =>
                   setUrltestGroups((current) =>
@@ -473,16 +483,16 @@ function OutboundForm({
                       : current.filter((item) => item.id !== group.id)
                   )
                 }
-                title={`Group ${index + 1}`}
+                title={t("pages.outboundUpsert.urltest.groupTitle", { index: index + 1 })}
               >
                 <Field invalid={Boolean(serverFieldErrors.outbounds)}>
-                  <FieldLabel>Interface outbounds</FieldLabel>
+                  <FieldLabel>{t("pages.outboundUpsert.urltest.interfaceOutbounds")}</FieldLabel>
                   <FieldContent>
                     {interfaceOutboundOptions.length ? (
                       <MultiSelectList
-                        addLabel="Add outbound"
-                        emptyMessage="No interface outbounds found."
-                        groupLabel="Interface outbounds"
+                        addLabel={t("pages.outboundUpsert.urltest.addOutbound")}
+                        emptyMessage={t("pages.outboundUpsert.urltest.noInterfaceOutbounds")}
+                        groupLabel={t("pages.outboundUpsert.urltest.interfaceOutbounds")}
                         onChange={(nextOutbounds) =>
                           setUrltestGroups((current) =>
                             current.map((item) =>
@@ -501,8 +511,7 @@ function OutboundForm({
                       />
                     ) : (
                       <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground md:text-xs">
-                        Add interface outbounds first so urltest groups have
-                        selectable targets.
+                        {t("pages.outboundUpsert.urltest.addInterfaceOutboundsFirst")}
                       </div>
                     )}
                     <FieldHint error={serverFieldErrors.outbounds ?? null} />
@@ -527,7 +536,7 @@ function OutboundForm({
                 variant="outline"
               >
                 <Plus className="h-4 w-4" />
-                Add group
+                {t("pages.outboundUpsert.urltest.addGroup")}
               </Button>
             </div>
           </div>
@@ -536,12 +545,12 @@ function OutboundForm({
 
       {isUrltest ? (
         <SectionCard
-          description="Configure how the urltest group probes candidates and retries failed checks."
-          title="Probing and retries"
+          description={t("pages.outboundUpsert.urltest.probingDescription")}
+          title={t("pages.outboundUpsert.urltest.probingTitle")}
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field invalid={Boolean(serverFieldErrors.probeUrl)}>
-              <FieldLabel htmlFor={probeUrlId}>Probe URL</FieldLabel>
+              <FieldLabel htmlFor={probeUrlId}>{t("pages.outboundUpsert.urltest.probeUrl")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.probeUrl}
@@ -549,13 +558,13 @@ function OutboundForm({
                   name="probeUrl"
                 />
                 <FieldHint
-                  description="Health checks fetch this URL to measure availability and latency."
+                  description={t("pages.outboundUpsert.urltest.probeUrlHint")}
                   error={serverFieldErrors.probeUrl ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.interval)}>
-              <FieldLabel htmlFor={intervalId}>Interval (ms)</FieldLabel>
+              <FieldLabel htmlFor={intervalId}>{t("pages.outboundUpsert.urltest.interval")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.interval}
@@ -563,13 +572,13 @@ function OutboundForm({
                   name="interval"
                 />
                 <FieldHint
-                  description="Interval between probes."
+                  description={t("pages.outboundUpsert.urltest.intervalHint")}
                   error={serverFieldErrors.interval ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.tolerance)}>
-              <FieldLabel htmlFor={toleranceId}>Tolerance (ms)</FieldLabel>
+              <FieldLabel htmlFor={toleranceId}>{t("pages.outboundUpsert.urltest.tolerance")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.tolerance}
@@ -577,13 +586,13 @@ function OutboundForm({
                   name="tolerance"
                 />
                 <FieldHint
-                  description="If latency difference is not larger than this value, destination will not change."
+                  description={t("pages.outboundUpsert.urltest.toleranceHint")}
                   error={serverFieldErrors.tolerance ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.retryAttempts)}>
-              <FieldLabel htmlFor={retryAttemptsId}>Retry attempts</FieldLabel>
+              <FieldLabel htmlFor={retryAttemptsId}>{t("pages.outboundUpsert.urltest.retryAttempts")}</FieldLabel>
               <FieldContent>
                 <Input
                   defaultValue={draft.retryAttempts}
@@ -591,14 +600,14 @@ function OutboundForm({
                   name="retryAttempts"
                 />
                 <FieldHint
-                  description="Number of extra probe attempts before the check is treated as failed."
+                  description={t("pages.outboundUpsert.urltest.retryAttemptsHint")}
                   error={serverFieldErrors.retryAttempts ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.retryInterval)}>
               <FieldLabel htmlFor={retryIntervalId}>
-                Retry interval (ms)
+                {t("pages.outboundUpsert.urltest.retryInterval")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -607,7 +616,7 @@ function OutboundForm({
                   name="retryInterval"
                 />
                 <FieldHint
-                  description="Delay between retry attempts after a failed probe."
+                  description={t("pages.outboundUpsert.urltest.retryIntervalHint")}
                   error={serverFieldErrors.retryInterval ?? null}
                 />
               </FieldContent>
@@ -618,13 +627,13 @@ function OutboundForm({
 
       {isUrltest ? (
         <SectionCard
-          description="Fallback parameters when probing fails."
-          title="Circuit breaker"
+          description={t("pages.outboundUpsert.circuitBreaker.description")}
+          title={t("pages.outboundUpsert.circuitBreaker.title")}
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field invalid={Boolean(serverFieldErrors.circuitBreakerFailures)}>
               <FieldLabel htmlFor={circuitBreakerFailuresId}>
-                Failures before open
+                {t("pages.outboundUpsert.circuitBreaker.failures")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -633,14 +642,14 @@ function OutboundForm({
                   name="circuitBreakerFailures"
                 />
                 <FieldHint
-                  description="Open the circuit after this many consecutive failed checks."
+                  description={t("pages.outboundUpsert.circuitBreaker.failuresHint")}
                   error={serverFieldErrors.circuitBreakerFailures ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.circuitBreakerSuccesses)}>
               <FieldLabel htmlFor={circuitBreakerSuccessesId}>
-                Successes to close
+                {t("pages.outboundUpsert.circuitBreaker.successes")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -649,14 +658,14 @@ function OutboundForm({
                   name="circuitBreakerSuccesses"
                 />
                 <FieldHint
-                  description="Close the circuit again after this many successful recovery probes."
+                  description={t("pages.outboundUpsert.circuitBreaker.successesHint")}
                   error={serverFieldErrors.circuitBreakerSuccesses ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.circuitBreakerTimeout)}>
               <FieldLabel htmlFor={circuitBreakerTimeoutId}>
-                Open timeout (ms)
+                {t("pages.outboundUpsert.circuitBreaker.timeout")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -665,14 +674,14 @@ function OutboundForm({
                   name="circuitBreakerTimeout"
                 />
                 <FieldHint
-                  description="How long the circuit stays open before half-open probing resumes."
+                  description={t("pages.outboundUpsert.circuitBreaker.timeoutHint")}
                   error={serverFieldErrors.circuitBreakerTimeout ?? null}
                 />
               </FieldContent>
             </Field>
             <Field invalid={Boolean(serverFieldErrors.circuitBreakerHalfOpen)}>
               <FieldLabel htmlFor={circuitBreakerHalfOpenId}>
-                Half-open probes
+                {t("pages.outboundUpsert.circuitBreaker.halfOpen")}
               </FieldLabel>
               <FieldContent>
                 <Input
@@ -681,7 +690,7 @@ function OutboundForm({
                   name="circuitBreakerHalfOpen"
                 />
                 <FieldHint
-                  description="Maximum concurrent probes allowed while testing recovery."
+                  description={t("pages.outboundUpsert.circuitBreaker.halfOpenHint")}
                   error={serverFieldErrors.circuitBreakerHalfOpen ?? null}
                 />
               </FieldContent>
@@ -692,7 +701,7 @@ function OutboundForm({
 
       {isInterface ? (
         <Field invalid={Boolean(serverFieldErrors.strictEnforcement)}>
-          <FieldLabel>Strict enforcement</FieldLabel>
+          <FieldLabel>{t("pages.outboundUpsert.strictEnforcement.label")}</FieldLabel>
           <FieldContent>
             <Select
               defaultValue={draft.strictEnforcement}
@@ -705,17 +714,17 @@ function OutboundForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Strict enforcement</SelectLabel>
+                  <SelectLabel>{t("pages.outboundUpsert.strictEnforcement.label")}</SelectLabel>
                   {strictOptions.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {option}
+                      {getStrictOptionLabel(option, t)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
             <FieldHint
-              description="Override the daemon-level strict routing setting for this interface outbound."
+              description={t("pages.outboundUpsert.strictEnforcement.hint")}
               error={serverFieldErrors.strictEnforcement ?? null}
             />
           </FieldContent>
@@ -724,10 +733,12 @@ function OutboundForm({
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button size="xl" type="submit">
-          {mode === "create" ? "Create outbound" : "Save outbound"}
+          {mode === "create"
+            ? t("pages.outboundUpsert.actions.create")
+            : t("pages.outboundUpsert.actions.save")}
         </Button>
       </div>
     </form>
@@ -889,18 +900,39 @@ function mapStrictEnforcementToBoolean(value: string): boolean | undefined {
   return value === strictOptions[1]
 }
 
+function getStrictOptionLabel(
+  value: (typeof strictOptions)[number],
+  t: (key: string) => string
+) {
+  if (value === strictOptions[0]) {
+    return t("pages.outboundUpsert.strictEnforcement.default")
+  }
+
+  if (value === strictOptions[1]) {
+    return t("pages.outboundUpsert.strictEnforcement.enabled")
+  }
+
+  return t("pages.outboundUpsert.strictEnforcement.disabled")
+}
+
 function validateTagUniqueness(
   outbounds: Outbound[],
   tag: string,
-  existingTag?: string
+  existingTag: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
 ): string | null {
   const isDuplicate = outbounds.some(
     (outbound) => outbound.tag === tag && outbound.tag !== existingTag
   )
-  return isDuplicate ? `Outbound tag "${tag}" already exists.` : null
+  return isDuplicate
+    ? t("pages.outboundUpsert.validation.duplicateTag", { tag })
+    : null
 }
 
-function validateUrltestGroupReferences(outbounds: Outbound[]): string | null {
+function validateUrltestGroupReferences(
+  outbounds: Outbound[],
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | null {
   const tags = new Set(outbounds.map((outbound) => outbound.tag))
 
   for (const outbound of outbounds) {
@@ -911,7 +943,10 @@ function validateUrltestGroupReferences(outbounds: Outbound[]): string | null {
     for (const group of outbound.outbound_groups ?? []) {
       for (const referencedTag of group.outbounds) {
         if (!tags.has(referencedTag)) {
-          return `Outbound "${outbound.tag}" references missing outbound tag "${referencedTag}".`
+          return t("pages.outboundUpsert.validation.missingReference", {
+            outbound: outbound.tag,
+            referenced: referencedTag,
+          })
         }
       }
     }

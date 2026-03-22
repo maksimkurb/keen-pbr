@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Play,
   RotateCw,
@@ -33,9 +34,8 @@ import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
-const unsupportedActionReason = "Not available in current API"
-
 export function OverviewPage() {
+  const { t } = useTranslation()
   const serviceHealthQuery = useGetHealthService({
     query: {
       refetchInterval: 30_000,
@@ -105,19 +105,19 @@ export function OverviewPage() {
   }, [loadedConfig, serviceHealth])
 
   const routingHealthErrorMessage = routingHealthQuery.isError
-    ? getRoutingHealthErrorMessage(routingHealthQuery.error)
+    ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
     : null
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard className="col-span-2 lg:col-span-1" title="keen-pbr">
+        <SectionCard className="col-span-2 lg:col-span-1" title={t("overview.service.title")}>
           {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
 
           {serviceHealthQuery.isError ? (
             <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
               <AlertDescription>
-                Failed to load service health.
+                {t("overview.service.loadError")}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -127,7 +127,7 @@ export function OverviewPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
-                    Version
+                    {t("overview.service.version")}
                   </div>
                   <div className="text-lg font-semibold">
                     {serviceHealth.version}
@@ -135,7 +135,7 @@ export function OverviewPage() {
                 </div>
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
-                    Service status
+                    {t("overview.service.status")}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
@@ -145,17 +145,21 @@ export function OverviewPage() {
                     </StatusBadge>
                     {serviceHealth.resolver_config_hash ? (
                       <Badge variant="outline" className="font-mono text-xs">
-                        expected {serviceHealth.resolver_config_hash.slice(0, 10)}…
+                        {t("overview.service.expectedHash", {
+                          hash: serviceHealth.resolver_config_hash.slice(0, 10),
+                        })}
                       </Badge>
                     ) : null}
                     {serviceHealth.resolver_config_hash_actual ? (
                       <Badge variant="outline" className="font-mono text-xs">
-                        active {serviceHealth.resolver_config_hash_actual.slice(0, 10)}…
+                        {t("overview.service.activeHash", {
+                          hash: serviceHealth.resolver_config_hash_actual.slice(0, 10),
+                        })}
                       </Badge>
                     ) : null}
                     {hasResolverHashMismatch ? (
                       <Badge className="bg-warning/10 text-warning-foreground border-warning/50" variant="outline">
-                        dnsmasq stale
+                        {t("overview.service.dnsmasqStale")}
                       </Badge>
                     ) : null}
                   </div>
@@ -165,15 +169,15 @@ export function OverviewPage() {
               <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
                 <DisabledActionButton
                   icon={<Play className="mr-1 h-3 w-3" />}
-                  label="Start"
+                  label={t("overview.service.actions.start")}
                 />
                 <DisabledActionButton
                   icon={<Square className="mr-1 h-3 w-3" />}
-                  label="Stop"
+                  label={t("overview.service.actions.stop")}
                 />
                 <DisabledActionButton
                   icon={<RotateCw className="mr-1 h-3 w-3" />}
-                  label="Restart"
+                  label={t("overview.service.actions.restart")}
                 />
                 <Button
                   size="sm"
@@ -182,7 +186,7 @@ export function OverviewPage() {
                   onClick={() => postReloadMutation.mutate()}
                 >
                   <RotateCw className="mr-1 h-3 w-3" />
-                  Reload
+                  {t("overview.service.actions.reload")}
                 </Button>
               </ButtonGroup>
             </>
@@ -195,19 +199,19 @@ export function OverviewPage() {
         />
       </div>
 
-      <SectionCard title="Outbounds health">
+      <SectionCard title={t("overview.outbounds.title")}>
         {serviceHealthQuery.isLoading ? <TableSkeleton /> : null}
         {serviceHealthQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>Unable to load outbound health.</AlertDescription>
+            <AlertDescription>{t("overview.outbounds.loadError")}</AlertDescription>
           </Alert>
         ) : null}
         {serviceHealth && outboundRows.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
-              <EmptyTitle>No outbounds configured</EmptyTitle>
+              <EmptyTitle>{t("overview.outbounds.emptyTitle")}</EmptyTitle>
               <EmptyDescription>
-                Add outbounds to see health checks.
+                {t("overview.outbounds.emptyDescription")}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -215,13 +219,17 @@ export function OverviewPage() {
         {outboundRows.length > 0 ? (
           <DataTable
             compact
-            headers={["Tag", "Destination", "Status"]}
+            headers={[
+              t("overview.outbounds.headers.tag"),
+              t("overview.outbounds.headers.destination"),
+              t("overview.outbounds.headers.status"),
+            ]}
             rows={outboundRows}
           />
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Routing rule health">
+      <SectionCard title={t("overview.routing.title")}>
         {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
         {routingHealthQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -236,9 +244,9 @@ export function OverviewPage() {
         routingHealth.policy_rules.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
-              <EmptyTitle>No routing checks reported yet</EmptyTitle>
+              <EmptyTitle>{t("overview.routing.emptyTitle")}</EmptyTitle>
               <EmptyDescription>
-                Routing checks will appear after the next reload.
+                {t("overview.routing.emptyDescription")}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -281,7 +289,10 @@ function TableSkeleton() {
   )
 }
 
-function getRoutingHealthErrorMessage(error: unknown) {
+function getRoutingHealthErrorMessage(
+  error: unknown,
+  t: (key: string) => string
+) {
   if (error && typeof error === "object" && "error" in error) {
     const message = (error as { error?: unknown }).error
     if (typeof message === "string" && message.trim().length > 0) {
@@ -290,7 +301,7 @@ function getRoutingHealthErrorMessage(error: unknown) {
   }
 
   return (
-    getApiErrorMessage(error as ApiError | null) || "Unable to load routing checks."
+    getApiErrorMessage(error as ApiError | null) || t("overview.routing.loadError")
   )
 }
 
@@ -301,6 +312,7 @@ function DisabledActionButton({
   label: string
   icon: ReactNode
 }) {
+  const { t } = useTranslation()
   return (
     <Tooltip>
       <TooltipTrigger
@@ -313,7 +325,7 @@ function DisabledActionButton({
           </span>
         }
       />
-      <TooltipContent>{unsupportedActionReason}</TooltipContent>
+      <TooltipContent>{t("overview.service.unsupportedActionReason")}</TooltipContent>
     </Tooltip>
   )
 }
@@ -325,39 +337,48 @@ function OutboundDestinationCell({
   outbound: HealthEntry
   configuredOutbound?: Outbound
 }) {
+  const { t } = useTranslation()
   return (
     <span className="text-sm">
-      {formatOutboundDestination(outbound, configuredOutbound)}
+      {formatOutboundDestination(outbound, configuredOutbound, t)}
     </span>
   )
 }
 
 function formatOutboundDestination(
   outbound: HealthEntry,
-  configuredOutbound?: Outbound
+  configuredOutbound: Outbound | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
 ) {
   if (outbound.type === "interface") {
     const interfaceName = configuredOutbound?.interface ?? outbound.tag
     const gateway = configuredOutbound?.gateway
 
     return gateway
-      ? `Interface ${interfaceName} (gw: ${gateway})`
-      : `Interface ${interfaceName}`
+      ? t("overview.outbounds.destination.interfaceWithGateway", {
+          name: interfaceName,
+          gateway,
+        })
+      : t("overview.outbounds.destination.interface", { name: interfaceName })
   }
 
   if (outbound.type === "table") {
     if (typeof configuredOutbound?.table === "number") {
-      return `Table ${configuredOutbound.table}`
+      return t("overview.outbounds.destination.table", {
+        value: configuredOutbound.table,
+      })
     }
 
-    return `Table ${outbound.tag}`
+    return t("overview.outbounds.destination.table", { value: outbound.tag })
   }
 
   if (outbound.type === "urltest") {
-    return `Outbound ${outbound.selected_outbound ?? "-"}`
+    return t("overview.outbounds.destination.outbound", {
+      name: outbound.selected_outbound ?? "-",
+    })
   }
 
-  return `Outbound ${outbound.tag}`
+  return t("overview.outbounds.destination.outbound", { name: outbound.tag })
 }
 
 function findConfiguredOutbound(
@@ -430,10 +451,11 @@ function UrltestTagTree({
   }>
   selectedOutbound?: string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="font-medium">urltest</div>
+        <div className="font-medium">{t("overview.outbounds.urltestTitle")}</div>
         <Badge variant="outline" className="text-[11px]">
           urltest
         </Badge>
@@ -471,6 +493,7 @@ function UrltestOutboundRow({
   active?: boolean
   isLast?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="ml-1 flex flex-wrap items-center text-base md:text-sm">
       <TreeConnector isLast={isLast} />
@@ -483,7 +506,7 @@ function UrltestOutboundRow({
       <span className="ml-2 text-muted-foreground">{latency}</span>
       {active ? (
         <Badge className="ml-2" variant="outline">
-          In use
+          {t("overview.outbounds.inUse")}
         </Badge>
       ) : null}
     </div>

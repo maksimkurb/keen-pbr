@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { getApiErrorMessage, reorderRules } from "@/pages/routing-rules-utils"
 
 export function RoutingRulesPage() {
+  const { t } = useTranslation()
   const [, navigate] = useLocation()
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
     null
@@ -31,15 +33,13 @@ export function RoutingRulesPage() {
   const routeRules = loadedConfig?.route?.rules ?? []
 
   const tableRows = routeRules.map((rule: RouteRule, index: number) =>
-    getRouteRuleRow(rule, index)
+    getRouteRuleRow(rule, index, t)
   )
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: () => {
-        setSaveSuccessMessage(
-          "Routing rules staged. Apply config to persist them."
-        )
+        setSaveSuccessMessage(t("pages.routingRules.messages.saved"))
         setMutationErrorMessage(null)
       },
       onError: (error) => {
@@ -99,11 +99,11 @@ export function RoutingRulesPage() {
         actions={
           <Button onClick={() => navigate("/routing-rules/create")}>
             <Plus className="mr-1 h-4 w-4" />
-            Add rule
+            {t("pages.routingRules.actions.addRule")}
           </Button>
         }
-        description="Manage route rule order and field-level match criteria."
-        title="Routing rules"
+        description={t("pages.routingRules.description")}
+        title={t("pages.routingRules.title")}
       />
 
       {saveSuccessMessage ? (
@@ -124,18 +124,23 @@ export function RoutingRulesPage() {
         <TableSkeleton />
       ) : configQuery.isError ? (
         <ListPlaceholder
-          description="We can't load routing rules right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("common.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : tableRows.length === 0 ? (
         <ListPlaceholder
-          description="Add a routing rule to direct matching traffic to an outbound."
-          title="No routing rules yet"
+          description={t("pages.routingRules.empty.description")}
+          title={t("pages.routingRules.empty.title")}
         />
       ) : (
         <DataTable
-          headers={["Order", "Criteria", "Outbound", "Actions"]}
+          headers={[
+            t("pages.routingRules.headers.order"),
+            t("pages.routingRules.headers.criteria"),
+            t("pages.routingRules.headers.outbound"),
+            t("pages.routingRules.headers.actions"),
+          ]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
@@ -161,22 +166,22 @@ export function RoutingRulesPage() {
               actions={[
                 {
                   icon: <ArrowUp className="h-4 w-4" />,
-                  label: "Move up",
+                  label: t("common.moveUp"),
                   onClick: () => handleMove(row.index, -1),
                 },
                 {
                   icon: <ArrowDown className="h-4 w-4" />,
-                  label: "Move down",
+                  label: t("common.moveDown"),
                   onClick: () => handleMove(row.index, 1),
                 },
                 {
                   icon: <Pencil className="h-4 w-4" />,
-                  label: "Edit",
+                  label: t("common.edit"),
                   onClick: () => navigate(`/routing-rules/${row.index}/edit`),
                 },
                 {
                   icon: <Trash2 className="h-4 w-4" />,
-                  label: "Delete",
+                  label: t("common.delete"),
                   onClick: () => handleDelete(row.index),
                 },
               ]}
@@ -189,30 +194,34 @@ export function RoutingRulesPage() {
   )
 }
 
-function getRouteRuleRow(rule: RouteRule, index: number) {
+function getRouteRuleRow(
+  rule: RouteRule,
+  index: number,
+  t: (key: string) => string
+) {
   const conditions = [
     {
-      label: "Lists",
+      label: t("pages.routingRules.criteriaLabels.lists"),
       value: rule.list.join(", "),
     },
     {
-      label: "Proto",
+      label: t("pages.routingRules.criteriaLabels.proto"),
       value: rule.proto,
     },
     {
-      label: "Source IP",
+      label: t("pages.routingRules.criteriaLabels.sourceIp"),
       value: rule.src_addr,
     },
     {
-      label: "Destination IP",
+      label: t("pages.routingRules.criteriaLabels.destinationIp"),
       value: rule.dest_addr,
     },
     {
-      label: "Source port",
+      label: t("pages.routingRules.criteriaLabels.sourcePort"),
       value: rule.src_port,
     },
     {
-      label: "Destination port",
+      label: t("pages.routingRules.criteriaLabels.destinationPort"),
       value: rule.dest_port,
     },
   ].filter(

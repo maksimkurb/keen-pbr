@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Copy, Loader2, Terminal } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { DnsCheckStatus } from "@/hooks/use-dns-check"
 import { DNS_CHECK_DOMAIN_SUFFIX, useDnsCheck } from "@/hooks/use-dns-check"
@@ -30,6 +31,7 @@ export function DnsCheckModal({
   onOpenChange: (open: boolean) => void
   browserStatus: DnsCheckStatus
 }) {
+  const { t } = useTranslation()
   const {
     status: pcStatus,
     checkState: pcCheckState,
@@ -61,11 +63,8 @@ export function DnsCheckModal({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Test DNS from another device</DialogTitle>
-          <DialogDescription>
-            Run the generated `nslookup` command on your PC or phone while this dialog
-            stays open.
-          </DialogDescription>
+          <DialogTitle>{t("overview.dnsCheck.modal.title")}</DialogTitle>
+          <DialogDescription>{t("overview.dnsCheck.modal.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -80,7 +79,7 @@ export function DnsCheckModal({
                   <AlertCircle className="h-4 w-4 text-destructive" />
                 )
               }
-              text={getBrowserStatusText(browserStatus)}
+              text={getBrowserStatusText(browserStatus, t)}
             />
             <StatusLine
               icon={
@@ -92,14 +91,14 @@ export function DnsCheckModal({
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 )
               }
-              text={getPcStatusText(isPcSuccess, pcCheckState.waiting)}
+              text={getPcStatusText(isPcSuccess, pcCheckState.waiting, t)}
             />
           </div>
 
           {pcCheckState.waiting && command ? (
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">
-                Copy and run this command:
+                {t("overview.dnsCheck.modal.copyCommand")}
               </div>
               <CommandCopyField key={command} command={command} />
             </div>
@@ -109,15 +108,14 @@ export function DnsCheckModal({
             <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300">
               <AlertCircle className="text-amber-600 dark:text-amber-300" />
               <AlertDescription className="text-amber-700 dark:text-amber-300">
-                The DNS test query has not arrived yet. Make sure the device is using
-                your router DNS and try the command again.
+                {t("overview.dnsCheck.modal.warning")}
               </AlertDescription>
             </Alert>
           ) : null}
 
           {isPcSuccess ? (
             <Button className="w-full" onClick={() => onOpenChange(false)} variant="outline">
-              Close
+              {t("common.close")}
             </Button>
           ) : null}
         </div>
@@ -136,6 +134,7 @@ function StatusLine({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 function CommandCopyField({ command }: { command: string }) {
+  const { t } = useTranslation()
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">(
     "idle"
   )
@@ -161,7 +160,7 @@ function CommandCopyField({ command }: { command: string }) {
           <TooltipTrigger
             render={
               <InputGroupButton
-                aria-label="Copy command"
+                aria-label={t("overview.dnsCheck.modal.copyAria")}
                 onClick={() => void copyCommand(command, setCopyFeedback)}
                 size="icon-xs"
               />
@@ -171,10 +170,10 @@ function CommandCopyField({ command }: { command: string }) {
           </TooltipTrigger>
           <TooltipContent>
             {copyFeedback === "copied"
-              ? "Copied"
+              ? t("common.copied")
               : copyFeedback === "failed"
-                ? "Clipboard unavailable"
-                : "Copy"}
+                ? t("common.clipboardUnavailable")
+                : t("common.copy")}
           </TooltipContent>
         </Tooltip>
       </InputGroupAddon>
@@ -182,31 +181,35 @@ function CommandCopyField({ command }: { command: string }) {
   )
 }
 
-function getBrowserStatusText(status: DnsCheckStatus) {
+function getBrowserStatusText(status: DnsCheckStatus, t: (key: string) => string) {
   switch (status) {
     case "success":
-      return "Browser DNS lookup reached the test server."
+      return t("overview.dnsCheck.status.browserSuccess")
     case "browser-fail":
-      return "Browser request ran, but the DNS lookup was not observed."
+      return t("overview.dnsCheck.status.browserFail")
     case "sse-fail":
-      return "Live DNS event stream is not connected."
+      return t("overview.dnsCheck.status.sseFail")
     case "checking":
-      return "Checking browser DNS path..."
+      return t("overview.dnsCheck.status.browserChecking")
     default:
-      return "Browser DNS status is not known yet."
+      return t("overview.dnsCheck.status.browserUnknown")
   }
 }
 
-function getPcStatusText(isPcSuccess: boolean, isWaiting: boolean) {
+function getPcStatusText(
+  isPcSuccess: boolean,
+  isWaiting: boolean,
+  t: (key: string) => string
+) {
   if (isPcSuccess) {
-    return "Manual device test reached the DNS probe."
+    return t("overview.dnsCheck.status.manualSuccess")
   }
 
   if (isWaiting) {
-    return "Waiting for your manual nslookup command..."
+    return t("overview.dnsCheck.status.manualWaiting")
   }
 
-  return "Manual device test has not completed yet."
+  return t("overview.dnsCheck.status.manualIncomplete")
 }
 
 async function copyCommand(

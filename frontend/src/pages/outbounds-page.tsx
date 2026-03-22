@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -30,6 +31,7 @@ type OutboundItem = {
 }
 
 export function OutboundsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
@@ -38,7 +40,9 @@ export function OutboundsPage() {
     string | null
   >(null)
 
-  const outboundItems = selectOutbounds(loadedConfig).map(mapOutboundToItem)
+  const outboundItems = selectOutbounds(loadedConfig).map((outbound) =>
+    mapOutboundToItem(outbound, t)
+  )
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -68,7 +72,7 @@ export function OutboundsPage() {
     const nextOutbounds = selectOutbounds(loadedConfig).filter(
       (item) => item.tag !== tag
     )
-    const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds)
+    const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds, t)
 
     if (urltestReferencesError) {
       setMutationErrorMessage(urltestReferencesError)
@@ -89,11 +93,11 @@ export function OutboundsPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/outbounds/create")}>
-            New outbound
+            {t("pages.outbounds.actions.new")}
           </Button>
         }
-        description="Configured outbounds and urltest behavior."
-        title="Outbounds"
+        description={t("pages.outbounds.description")}
+        title={t("pages.outbounds.title")}
       />
 
       {mutationErrorMessage ? (
@@ -108,18 +112,23 @@ export function OutboundsPage() {
         <TableSkeleton />
       ) : configQuery.isError ? (
         <ListPlaceholder
-          description="We can't load outbounds right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("common.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : outboundItems.length === 0 ? (
         <ListPlaceholder
-          description="Add an outbound to start building routing behavior."
-          title="No outbounds yet"
+          description={t("pages.outbounds.empty.description")}
+          title={t("pages.outbounds.empty.title")}
         />
       ) : (
         <DataTable
-          headers={["Tag", "Type", "Summary", "Actions"]}
+          headers={[
+            t("pages.outbounds.headers.tag"),
+            t("pages.outbounds.headers.type"),
+            t("pages.outbounds.headers.summary"),
+            t("pages.outbounds.headers.actions"),
+          ]}
           rows={outboundItems.map((outbound) => [
             <div className="font-medium" key={`${outbound.id}-tag`}>
               {outbound.tag}
@@ -137,12 +146,12 @@ export function OutboundsPage() {
               actions={[
                 {
                   icon: <Pencil className="h-4 w-4" />,
-                  label: "Edit",
+                  label: t("common.edit"),
                   onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
                 },
                 {
                   icon: <Trash2 className="h-4 w-4" />,
-                  label: "Delete",
+                  label: t("common.delete"),
                   onClick: () => handleDelete(outbound.id),
                 },
               ]}
@@ -155,35 +164,50 @@ export function OutboundsPage() {
   )
 }
 
-function mapOutboundToItem(outbound: Outbound): OutboundItem {
+function mapOutboundToItem(
+  outbound: Outbound,
+  t: (key: string, options?: Record<string, unknown>) => string
+): OutboundItem {
   return {
     id: outbound.tag,
     tag: outbound.tag,
     type: outbound.type,
-    summary: getOutboundSummary(outbound),
+    summary: getOutboundSummary(outbound, t),
     typeVariant: outbound.type === "interface" ? "outline" : undefined,
   }
 }
 
-function getOutboundSummary(outbound: Outbound): string {
+function getOutboundSummary(
+  outbound: Outbound,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string {
   if (outbound.type === "interface") {
-    return `ifname=${outbound.interface ?? "-"}`
+    return t("pages.outbounds.summary.interface", {
+      value: outbound.interface ?? "-",
+    })
   }
 
   if (outbound.type === "table") {
-    return `table=${outbound.table ?? "-"}`
+    return t("pages.outbounds.summary.table", {
+      value: outbound.table ?? "-",
+    })
   }
 
   if (outbound.type === "urltest") {
     const allOutbounds =
       outbound.outbound_groups?.flatMap((group) => group.outbounds) ?? []
-    return `outbounds=${allOutbounds.join(",")}`
+    return t("pages.outbounds.summary.urltest", {
+      value: allOutbounds.join(","),
+    })
   }
 
-  return "-"
+  return t("common.noneShort")
 }
 
-function validateUrltestGroupReferences(outbounds: Outbound[]): string | null {
+function validateUrltestGroupReferences(
+  outbounds: Outbound[],
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | null {
   const tags = new Set(outbounds.map((outbound) => outbound.tag))
 
   for (const outbound of outbounds) {
@@ -194,7 +218,10 @@ function validateUrltestGroupReferences(outbounds: Outbound[]): string | null {
     for (const group of outbound.outbound_groups ?? []) {
       for (const referencedTag of group.outbounds) {
         if (!tags.has(referencedTag)) {
-          return `Outbound "${outbound.tag}" references missing outbound tag "${referencedTag}".`
+          return t("pages.outbounds.messages.missingReference", {
+            outbound: outbound.tag,
+            referenced: referencedTag,
+          })
         }
       }
     }

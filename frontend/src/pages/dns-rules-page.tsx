@@ -1,5 +1,6 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -41,6 +42,7 @@ import {
 } from "@/pages/dns-rules-utils"
 
 export function DnsRulesPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
@@ -72,7 +74,7 @@ export function DnsRulesPage() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
         setSaveSuccessMessage(
-          "DNS configuration staged. Apply config to persist it."
+          t("pages.dnsRules.messages.saved")
         )
         setMutationErrorMessage(null)
       },
@@ -97,9 +99,7 @@ export function DnsRulesPage() {
     }
 
     if (!serverTags.includes(fallback)) {
-      setMutationErrorMessage(
-        "Fallback server must reference an existing server tag."
-      )
+      setMutationErrorMessage(t("pages.dnsRules.validation.invalidFallback"))
       return
     }
 
@@ -107,7 +107,7 @@ export function DnsRulesPage() {
     const validation = validateRules(draftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
       setMutationErrorMessage(
-        "Cannot change fallback while DNS rules are invalid."
+        t("pages.dnsRules.validation.invalidFallbackChange")
       )
       return
     }
@@ -132,7 +132,7 @@ export function DnsRulesPage() {
     const validation = validateRules(nextDraftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
       setMutationErrorMessage(
-        "Cannot save because resulting DNS rules are invalid."
+        t("pages.dnsRules.validation.invalidResult")
       )
       return
     }
@@ -155,11 +155,11 @@ export function DnsRulesPage() {
         actions={
           <Button onClick={() => navigate("/dns-rules/create")}>
             <Plus className="mr-1 h-4 w-4" />
-            Add DNS rule
+            {t("pages.dnsRules.actions.add")}
           </Button>
         }
-        description="Assign routing lists to specific DNS servers."
-        title="DNS Rules"
+        description={t("pages.dnsRules.description")}
+        title={t("pages.dnsRules.title")}
       />
 
       {saveSuccessMessage ? (
@@ -180,18 +180,18 @@ export function DnsRulesPage() {
         <TableSkeleton />
       ) : configQuery.isError ? (
         <ListPlaceholder
-          description="We can't load DNS rules right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("common.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : (
         <>
           <SectionCard
-            description="Used when no DNS rule matches the current request."
-            title="Fallback"
+            description={t("pages.dnsRules.fallback.description")}
+            title={t("pages.dnsRules.fallback.title")}
           >
             <Field>
-              <FieldLabel>Fallback server tag</FieldLabel>
+              <FieldLabel>{t("pages.dnsRules.fallback.field")}</FieldLabel>
               <FieldContent>
                 <Select
                   disabled={isPending || !loadedConfig}
@@ -199,11 +199,11 @@ export function DnsRulesPage() {
                   value={loadedConfig?.dns?.fallback ?? ""}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a DNS server" />
+                    <SelectValue placeholder={t("pages.dnsRules.fallback.placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>DNS servers</SelectLabel>
+                      <SelectLabel>{t("pages.dnsRules.fallback.group")}</SelectLabel>
                       {serverTags.map((serverTag) => (
                         <SelectItem key={serverTag} value={serverTag}>
                           {serverTag}
@@ -215,8 +215,8 @@ export function DnsRulesPage() {
                 <FieldHint
                   description={
                     serverTags.length > 0
-                      ? `Available: ${serverTags.join(", ")}`
-                      : "No DNS servers defined in config.dns.servers."
+                      ? t("pages.dnsRules.fallback.available", { tags: serverTags.join(", ") })
+                      : t("pages.dnsRules.fallback.noneDefined")
                   }
                 />
               </FieldContent>
@@ -225,12 +225,16 @@ export function DnsRulesPage() {
 
           {rules.length === 0 ? (
             <ListPlaceholder
-              description="Add a DNS rule to map configured lists to DNS servers."
-              title="No DNS rules yet"
+              description={t("pages.dnsRules.empty.description")}
+              title={t("pages.dnsRules.empty.title")}
             />
           ) : (
             <DataTable
-              headers={["Lists", "Server tag", "Actions"]}
+              headers={[
+                t("pages.dnsRules.headers.lists"),
+                t("pages.dnsRules.headers.serverTag"),
+                t("pages.dnsRules.headers.actions"),
+              ]}
               rows={rules.map((rule, index) => [
                 <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
                   {rule.list.map((listName) => (
@@ -246,12 +250,12 @@ export function DnsRulesPage() {
                   actions={[
                     {
                       icon: <Pencil className="h-4 w-4" />,
-                      label: "Edit",
+                      label: t("common.edit"),
                       onClick: () => navigate(`/dns-rules/${index}/edit`),
                     },
                     {
                       icon: <Trash2 className="h-4 w-4" />,
-                      label: "Delete",
+                      label: t("common.delete"),
                       onClick: () => handleDeleteRule(index),
                     },
                   ]}

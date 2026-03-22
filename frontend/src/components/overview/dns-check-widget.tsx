@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, SquareTerminal } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { DnsServer } from "@/api/generated/model"
 import { useDnsCheck } from "@/hooks/use-dns-check"
@@ -18,6 +19,7 @@ export function DnsCheckWidget({
   dnsServers: DnsServer[]
   dnsProbeEnabled: boolean
 }) {
+  const { t } = useTranslation()
   const [showPcCheckDialog, setShowPcCheckDialog] = useState(false)
   const { status, startCheck, reset } = useDnsCheck()
 
@@ -53,19 +55,19 @@ export function DnsCheckWidget({
         className={cardClassName}
         description={
           isDisabled
-            ? "Enable `config.dns.dns_test_server` to run the built-in DNS self-check."
-            : "Confirms that DNS lookups reach the built-in test server from the browser and from another device."
+            ? t("overview.dnsCheck.card.disabledDescription")
+            : t("overview.dnsCheck.card.description")
         }
-        title="DNS server self-check"
+        title={t("overview.dnsCheck.card.title")}
       >
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="flex-1 space-y-3">
             <div className="text-sm font-medium text-muted-foreground">
-              Configured DNS servers
+              {t("overview.dnsCheck.card.configuredServers")}
             </div>
             {dnsServers.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                No upstream DNS servers are configured in `config.dns.servers`.
+                {t("overview.dnsCheck.card.noServers")}
               </div>
             ) : (
               <div className="space-y-2">
@@ -80,7 +82,7 @@ export function DnsCheckWidget({
                     </span>
                     {server.detour ? (
                       <span className="text-xs text-muted-foreground">
-                        via {server.detour}
+                        {t("overview.dnsCheck.card.via", { detour: server.detour })}
                       </span>
                     ) : null}
                   </div>
@@ -106,7 +108,9 @@ export function DnsCheckWidget({
                 variant="outline"
               >
                 <RefreshCw className="h-4 w-4" />
-                {isChecking ? "Checking..." : "Run again"}
+                {isChecking
+                  ? t("overview.dnsCheck.card.checking")
+                  : t("overview.dnsCheck.card.runAgain")}
               </Button>
               <Button
                 disabled={isDisabled}
@@ -115,7 +119,7 @@ export function DnsCheckWidget({
                 variant="outline"
               >
                 <SquareTerminal className="h-4 w-4" />
-                Test from PC
+                {t("overview.dnsCheck.card.testFromPc")}
               </Button>
             </ButtonGroup>
           </div>
@@ -138,11 +142,12 @@ function DnsStatusSummary({
   disabled: boolean
   status: ReturnType<typeof useDnsCheck>["status"]
 }) {
+  const { t } = useTranslation()
   if (disabled) {
     return (
       <DnsStatusMessage
         icon={<AlertCircle className="h-5 w-5 text-muted-foreground" />}
-        text="Built-in DNS probe is disabled in config."
+        text={t("overview.dnsCheck.status.disabled")}
         tone="muted"
       />
     )
@@ -150,13 +155,13 @@ function DnsStatusSummary({
 
   switch (status) {
     case "success":
-      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text="Browser DNS lookup reached the test server." tone="success" />
+      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text={t("overview.dnsCheck.status.browserSuccess")} tone="success" />
     case "pc-success":
-      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text="Manual device DNS lookup reached the test server." tone="success" />
+      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text={t("overview.dnsCheck.status.manualProbeSuccess")} tone="success" />
     case "browser-fail":
-      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text="Browser request completed, but the DNS probe did not see the lookup." tone="error" />
+      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text={t("overview.dnsCheck.status.browserProbeFail")} tone="error" />
     case "sse-fail":
-      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text="The live DNS event stream is unavailable, so the check could not start." tone="error" />
+      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text={t("overview.dnsCheck.status.sseUnavailable")} tone="error" />
     case "idle":
     case "checking":
       return (

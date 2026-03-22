@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import { useForm } from "@tanstack/react-form"
@@ -47,6 +48,7 @@ export function DnsRuleUpsertPage({
   mode: "create" | "edit"
   ruleIndex?: string
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
@@ -83,7 +85,7 @@ export function DnsRuleUpsertPage({
     mutation: {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-        setSaveSuccessMessage("DNS rule staged. Apply config to persist it.")
+        setSaveSuccessMessage(t("pages.dnsRuleUpsert.messages.saved"))
         setMutationErrorMessage(null)
         clearFormServerErrors(form)
         navigate("/dns-rules")
@@ -119,7 +121,7 @@ export function DnsRuleUpsertPage({
 
       if (mode === "edit") {
         if (!existingRule || Number.isNaN(parsedRuleIndex)) {
-          setMutationErrorMessage("The requested DNS rule was not found.")
+          setMutationErrorMessage(t("pages.dnsRuleUpsert.validation.notFound"))
           return
         }
 
@@ -138,7 +140,7 @@ export function DnsRuleUpsertPage({
           currentError?.duplicate ??
             currentError?.server ??
             currentError?.lists ??
-            "Fix validation errors before saving."
+            t("pages.dnsRuleUpsert.validation.fixErrors")
         )
         return
       }
@@ -186,14 +188,14 @@ export function DnsRuleUpsertPage({
   if (mode === "edit" && loadedConfig && !existingRule) {
     return (
       <UpsertPage
-        cardDescription="The requested DNS rule could not be found."
-        cardTitle="Missing DNS rule"
-        description="Return to DNS Rules and choose a valid entry."
-        title="Edit DNS rule"
+        cardDescription={t("pages.dnsRuleUpsert.missing.cardDescription")}
+        cardTitle={t("pages.dnsRuleUpsert.missing.cardTitle")}
+        description={t("pages.dnsRuleUpsert.missing.description")}
+        title={t("pages.dnsRuleUpsert.editTitle")}
       >
         <div className="flex justify-end">
           <Button onClick={() => navigate("/dns-rules")} variant="outline">
-            Back to DNS rules
+            {t("pages.dnsRuleUpsert.missing.back")}
           </Button>
         </div>
       </UpsertPage>
@@ -202,10 +204,10 @@ export function DnsRuleUpsertPage({
 
   return (
     <UpsertPage
-      cardDescription="Set the list names and DNS server for this rule."
-      cardTitle={mode === "create" ? "Create DNS rule" : "Edit DNS rule"}
-      description="DNS rules map configured lists to DNS server tags."
-      title={mode === "create" ? "Create DNS rule" : "Edit DNS rule"}
+      cardDescription={t("pages.dnsRuleUpsert.cardDescription")}
+      cardTitle={mode === "create" ? t("pages.dnsRuleUpsert.createTitle") : t("pages.dnsRuleUpsert.editTitle")}
+      description={t("pages.dnsRuleUpsert.description")}
+      title={mode === "create" ? t("pages.dnsRuleUpsert.createTitle") : t("pages.dnsRuleUpsert.editTitle")}
     >
       {saveSuccessMessage ? (
         <Alert className="mb-4 border-success/30 bg-success/5 text-success">
@@ -232,7 +234,7 @@ export function DnsRuleUpsertPage({
           <form.Field name="rule.server">
             {(field) => (
               <Field>
-                <FieldLabel>Server tag</FieldLabel>
+                <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
                 <FieldContent>
                   <Select
                     onValueChange={(server) =>
@@ -241,11 +243,11 @@ export function DnsRuleUpsertPage({
                     value={field.state.value}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select DNS server" />
+                      <SelectValue placeholder={t("pages.dnsRuleUpsert.fields.selectServer")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>DNS servers</SelectLabel>
+                        <SelectLabel>{t("pages.dnsRuleUpsert.fields.dnsServers")}</SelectLabel>
                         {serverTags.map((serverTag) => (
                           <SelectItem key={serverTag} value={serverTag}>
                             {serverTag}
@@ -257,8 +259,8 @@ export function DnsRuleUpsertPage({
                   <FieldHint
                     description={
                       serverTags.length > 0
-                        ? `Available: ${serverTags.join(", ")}`
-                        : "No DNS servers defined in config.dns.servers."
+                        ? t("pages.dnsRuleUpsert.fields.availableServers", { tags: serverTags.join(", ") })
+                        : t("pages.dnsRuleUpsert.fields.noServers")
                     }
                   />
                 </FieldContent>
@@ -269,20 +271,20 @@ export function DnsRuleUpsertPage({
           <form.Field name="rule.lists">
             {(field) => (
               <Field>
-                <FieldLabel>List names</FieldLabel>
+                <FieldLabel>{t("pages.dnsRuleUpsert.fields.listNames")}</FieldLabel>
                 <FieldContent>
                   <MultiSelectList
                     onChange={field.handleChange}
                     options={listOptions}
-                    placeholderDescription="Add one or more configured list names to match this DNS rule."
-                    placeholderTitle="No lists selected"
+                    placeholderDescription={t("pages.dnsRuleUpsert.fields.listPlaceholderDescription")}
+                    placeholderTitle={t("pages.dnsRuleUpsert.fields.noListsSelected")}
                     value={field.state.value}
                   />
                   <FieldHint
                     description={
                       listOptions.length > 0
-                        ? `Known lists: ${listOptions.join(", ")}`
-                        : "No lists found in config.lists."
+                        ? t("pages.dnsRuleUpsert.fields.knownLists", { lists: listOptions.join(", ") })
+                        : t("pages.dnsRuleUpsert.fields.noLists")
                     }
                   />
                 </FieldContent>
@@ -298,14 +300,14 @@ export function DnsRuleUpsertPage({
             type="button"
             variant="outline"
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             disabled={postConfigMutation.isPending || !loadedConfig}
             size="xl"
             type="submit"
           >
-            {mode === "create" ? "Create rule" : "Save rule"}
+            {mode === "create" ? t("pages.dnsRuleUpsert.actions.create") : t("pages.dnsRuleUpsert.actions.save")}
           </Button>
         </div>
       </form>
