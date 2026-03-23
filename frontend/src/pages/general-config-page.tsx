@@ -96,15 +96,11 @@ function LoadedGeneralConfigPage({
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
     null
   )
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async (_response, variables) => {
         setSaveSuccessMessage("Settings staged. Apply config to persist them.")
-        setMutationErrorMessage(null)
         clearFormServerErrors(form)
 
         await Promise.all([
@@ -124,13 +120,11 @@ function LoadedGeneralConfigPage({
       onError: (error) => {
         const apiError = error as ApiError
         setSaveSuccessMessage(null)
-        setMutationErrorMessage(
-          applyFormApiErrors({
-            error: apiError,
-            form,
-            resolvePath: resolveSettingsFieldPath,
-          }) ?? null
-        )
+        applyFormApiErrors({
+          error: apiError,
+          form,
+          resolvePath: resolveSettingsFieldPath,
+        })
       },
     },
   })
@@ -140,13 +134,16 @@ function LoadedGeneralConfigPage({
     onSubmit: ({ value }) => {
       const updatedConfig = buildUpdatedConfig(loadedConfig, value)
       setSaveSuccessMessage(null)
-      setMutationErrorMessage(null)
       clearFormServerErrors(form)
       postConfigMutation.mutate({ data: updatedConfig })
     },
   })
 
   const formValues = useStore(form.store, (state) => state.values)
+  const mutationErrorMessage = useStore(
+    form.store,
+    (state) => state.errorMap.onServer?.form
+  )
   const hasServerErrors = useStore(
     form.store,
     (state) =>
@@ -166,7 +163,6 @@ function LoadedGeneralConfigPage({
     }
 
     clearFormServerErrors(form)
-    setMutationErrorMessage(null)
   }, [form, formValues, hasServerErrors])
 
   const isPending = postConfigMutation.isPending
@@ -174,7 +170,6 @@ function LoadedGeneralConfigPage({
   const handleCancel = () => {
     form.reset(savedDraft)
     clearFormServerErrors(form)
-    setMutationErrorMessage(null)
     setSaveSuccessMessage(null)
   }
 

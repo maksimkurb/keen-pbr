@@ -36,6 +36,12 @@ export function applyFormApiErrors({
 
   const validationErrors = getApiValidationErrors(error)
   if (validationErrors.length === 0) {
+    form.setErrorMap({
+      onServer: {
+        form: error.message,
+        fields: {},
+      },
+    })
     return error.message
   }
 
@@ -54,16 +60,19 @@ export function applyFormApiErrors({
       : item.message
   }
 
+  const formError =
+    globalErrors.length === 0 ? undefined : formatValidationErrors(globalErrors)
+
   form.setErrorMap({
     onServer: {
-      form: undefined,
+      form: formError,
       fields: fieldErrors,
     },
   })
 
-  if (globalErrors.length === 0) {
+  if (!formError) {
     return null
   }
 
-  return formatValidationErrors(globalErrors)
+  return formError
 }
