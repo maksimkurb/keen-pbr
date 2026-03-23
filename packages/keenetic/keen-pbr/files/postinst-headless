@@ -1,0 +1,35 @@
+#!/bin/sh
+
+NDM_IFLAYER="/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh"
+NDM_IFSTATE="/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh"
+DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
+DNSMASQ_TEMPLATE="/opt/etc/keen-pbr/dnsmasq.conf.template"
+
+echo "keen-pbr-headless installation"
+echo "--------------------------------"
+
+NDM_MAJOR_VERSION="$(ndmc -c "show version" 2>/dev/null | grep "release:" | head -n 1 | awk '{print $2}' | cut -d'.' -f1)"
+
+if [ -n "$NDM_MAJOR_VERSION" ] && [ "$NDM_MAJOR_VERSION" -ge 4 ]; then
+    echo "KeeneticOS major version is ${NDM_MAJOR_VERSION}, using iflayerchanged.d hook"
+    rm -f "$NDM_IFSTATE"
+else
+    echo "KeeneticOS major version is ${NDM_MAJOR_VERSION:-unknown}, using ifstatechanged.d hook"
+    rm -f "$NDM_IFLAYER"
+fi
+
+mkdir -p /opt/etc/dnsmasq.d
+
+if [ ! -e "$DNSMASQ_CONF" ] && [ -f "$DNSMASQ_TEMPLATE" ]; then
+    cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
+fi
+
+echo ""
+/opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"
+echo ""
+
+echo "Installation complete!"
+echo "Config path: /opt/etc/keen-pbr/config.json"
+echo "Web API is unavailable in the headless version. Please use CLI to manage keen-pbr."
+
+exit 0

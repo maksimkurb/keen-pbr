@@ -88,10 +88,14 @@ jobs:
           cp ../src/packages/openwrt/packages.config .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
+          rm -rf "$GITHUB_WORKSPACE/src/frontend/dist"
+          make package/keen-pbr-headless/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
       - name: Upload validation artifacts
         uses: actions/upload-artifact@v6
         with:
           name: keen-pbr-validate
           path: |
-            openwrt-sdk-*/bin/**/*.ipk
-            openwrt-sdk-*/bin/**/*.apk
+            openwrt-sdk-*/bin/**/keen-pbr_*.ipk
+            openwrt-sdk-*/bin/**/keen-pbr_*.apk
+            openwrt-sdk-*/bin/**/keen-pbr-headless_*.ipk
+            openwrt-sdk-*/bin/**/keen-pbr-headless_*.apk

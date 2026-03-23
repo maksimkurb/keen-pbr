@@ -105,12 +105,17 @@ jobs:
           cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
+          rm -rf "$GITHUB_WORKSPACE/frontend/dist"
+          make package/keen-pbr-headless/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
           mkdir -p release_files
           PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
-          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr*.ipk' | while read -r f; do
+          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r f; do
             cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
+          done
+          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r f; do
+            cp "$f" "release_files/keen-pbr-headless_${PKG_VERSION}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
