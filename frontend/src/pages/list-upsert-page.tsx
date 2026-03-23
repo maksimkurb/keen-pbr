@@ -55,6 +55,11 @@ const LIST_SOURCE_GROUP_ICONS = {
   file: FileTextIcon,
   inline: ScrollTextIcon,
 } satisfies Record<ListSourceGroup, typeof CloudIcon>
+const LIST_SOURCE_GROUP_FIELDS = {
+  url: ["url"],
+  file: ["file"],
+  inline: ["domains", "ipCidrs"],
+} satisfies Record<ListSourceGroup, (keyof ListDraft)[]>
 
 const sampleNewList: ListDraft = {
   name: "",
@@ -276,7 +281,9 @@ function ListForm({
         continue
       }
 
-      form.setFieldValue(sourceGroup, "")
+      for (const fieldName of LIST_SOURCE_GROUP_FIELDS[sourceGroup]) {
+        form.setFieldValue(fieldName, "")
+      }
     }
 
     if (group !== "inline") {

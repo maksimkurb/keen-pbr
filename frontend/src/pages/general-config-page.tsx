@@ -142,7 +142,14 @@ function LoadedGeneralConfigPage({
   const formValues = useStore(form.store, (state) => state.values)
   const mutationErrorMessage = useStore(
     form.store,
-    (state) => state.errorMap.onServer?.form
+    (state) =>
+      (
+        state.errorMap as {
+          onServer?: {
+            form?: string
+          }
+        }
+      ).onServer?.form
   )
   const hasServerErrors = useStore(
     form.store,
