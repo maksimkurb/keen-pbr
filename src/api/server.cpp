@@ -94,6 +94,18 @@ bool path_starts_with(const std::filesystem::path& path,
     return true;
 }
 
+bool is_regular_file_or_gzip(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) {
+        return true;
+    }
+
+    ec.clear();
+    auto gzip_path = path;
+    gzip_path += ".gz";
+    return std::filesystem::is_regular_file(gzip_path, ec);
+}
+
 } // namespace
 
 struct ApiServer::Impl {
@@ -209,7 +221,7 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
     }
 
     const fs::path index_path = root / "index.html";
-    if (!fs::is_regular_file(index_path)) {
+    if (!is_regular_file_or_gzip(index_path)) {
         return false;
     }
 

@@ -922,12 +922,15 @@ void Daemon::setup_api() {
     api_server_ = std::make_unique<ApiServer>(*config_.api);
     const std::filesystem::path frontend_root(KEEN_PBR_FRONTEND_ROOT);
     const std::filesystem::path frontend_index = frontend_root / "index.html";
+    std::filesystem::path frontend_index_gzip = frontend_index;
+    frontend_index_gzip += ".gz";
     const bool has_frontend_root =
         std::filesystem::is_directory(frontend_root) &&
-        std::filesystem::is_regular_file(frontend_index);
+        (std::filesystem::is_regular_file(frontend_index) ||
+         std::filesystem::is_regular_file(frontend_index_gzip));
     if (!has_frontend_root) {
         Logger::instance().warn(
-            "API enabled but frontend root is unavailable: {} (missing directory or index.html). API endpoints will remain available.",
+            "API enabled but frontend root is unavailable: {} (missing directory or index.html(.gz)). API endpoints will remain available.",
             frontend_root.string());
     } else if (!api_server_->register_static_root(frontend_root.string())) {
         Logger::instance().warn(
