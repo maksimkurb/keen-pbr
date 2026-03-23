@@ -1,8 +1,10 @@
 #include "config.hpp"
+#include "addr_spec.hpp"
 #include "routing_state.hpp"
 
 #include <cctype>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
@@ -40,6 +42,119 @@ void validate_optional_integer_field(const json& root,
     if (!child_it->is_number_integer()) {
         add_issue(issues, path, path + " must be an integer");
     }
+}
+
+std::string trim_copy(const std::string& value) {
+    const auto begin = value.find_first_not_of(" \t\n\r\f\v");
+    if (begin == std::string::npos) {
+        return {};
+    }
+
+    const auto end = value.find_last_not_of(" \t\n\r\f\v");
+    return value.substr(begin, end - begin + 1);
+}
+
+bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, int& out) {
+    if (raw.empty()) {
+        return false;
+    }
+
+    long long value = 0;
+    for (char c : raw) {
+        if (!std::isdigit(static_cast<unsigned char>(c))) {
+            return false;
+        }
+
+        value = value * 10 + (c - '0');
+        if (value > std::numeric_limits<int>::max()) {
+            return false;
+        }
+    }
+
+    if (value < min_value || value > max_value) {
+        return false;
+    }
+
+    out = static_cast<int>(value);
+    return true;
+}
+
+std::optional<std::string> validate_port_spec(const std::optional<std::string>& value) {
+    if (!value.has_value()) {
+        return std::nullopt;
+    }
+
+    const std::string normalized = trim_copy(*value);
+    if (normalized.empty()) {
+        return std::nullopt;
+    }
+
+    const std::string content = normalized[0] == '!' ? normalized.substr(1) : normalized;
+    if (content.empty() || content.front() == ',' || content.back() == ',') {
+        return std::string("Use comma-separated ports or ranges.");
+    }
+
+    std::stringstream ss(content);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        const std::string part = trim_copy(token);
+        if (part.empty()) {
+            return std::string("Use comma-separated ports or ranges.");
+        }
+
+        const auto dash = part.find('-');
+        if (dash != std::string::npos) {
+            if (part.find('-', dash + 1) != std::string::npos) {
+                return std::string("Port ranges must use valid ports such as 8000-9000.");
+            }
+
+            const std::string start_part = trim_copy(part.substr(0, dash));
+            const std::string end_part = trim_copy(part.substr(dash + 1));
+            int start = 0;
+            int end = 0;
+            if (!parse_uint_in_range(start_part, 1, 65535, start) ||
+                !parse_uint_in_range(end_part, 1, 65535, end)) {
+                return std::string("Port ranges must use valid ports such as 8000-9000.");
+            }
+
+            if (start > end) {
+                return std::string("Port range start must be less than or equal to end.");
+            }
+
+            continue;
+        }
+
+        int port = 0;
+        if (!parse_uint_in_range(part, 1, 65535, port)) {
+            return std::string("Ports must be integers between 1 and 65535.");
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::string> validate_address_spec(const std::optional<std::string>& value) {
+    if (!value.has_value()) {
+        return std::nullopt;
+    }
+
+    const std::string normalized = trim_copy(*value);
+    if (normalized.empty()) {
+        return std::nullopt;
+    }
+
+    const std::string content = normalized[0] == '!' ? normalized.substr(1) : normalized;
+    if (content.empty() || content.front() == ',' || content.back() == ',') {
+        return std::string("Use comma-separated IP addresses or CIDRs.");
+    }
+
+    try {
+        (void)parse_addr_spec(normalized);
+    } catch (const std::invalid_argument&) {
+        return std::string("Addresses must be valid IPv4 or IPv6 hosts or CIDR ranges, for example 10.0.0.1, 10.0.0.0/8, or 2001:db8::/32.");
+    }
+
+    return std::nullopt;
 }
 
 } // namespace
@@ -191,8 +306,26 @@ Config parse_config(const std::string& json_str) {
         }
     }
 
-    for (const auto& rule : cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{})) {
-        (void)rule;
+    const auto route_rules = cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    for (size_t index = 0; index < route_rules.size(); ++index) {
+        const auto& rule = route_rules[index];
+        const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
+
+        if (auto error = validate_port_spec(rule.src_port)) {
+            add_issue(issues, rule_path + ".src_port", *error);
+        }
+
+        if (auto error = validate_port_spec(rule.dest_port)) {
+            add_issue(issues, rule_path + ".dest_port", *error);
+        }
+
+        if (auto error = validate_address_spec(rule.src_addr)) {
+            add_issue(issues, rule_path + ".src_addr", *error);
+        }
+
+        if (auto error = validate_address_spec(rule.dest_addr)) {
+            add_issue(issues, rule_path + ".dest_addr", *error);
+        }
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
