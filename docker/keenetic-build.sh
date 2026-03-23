@@ -5,6 +5,11 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-/src}"
 RELEASE_DIR="${RELEASE_DIR:-/src/release_files}"
 FRONTEND_OUT_DIR="/tmp/keen-pbr-frontend-dist"
+job_count="$(( $(nproc) - 1 ))"
+
+if (( job_count < 1 )); then
+  job_count=1
+fi
 
 mkdir -p "$RELEASE_DIR"
 
@@ -36,7 +41,7 @@ done < "${REPO_ROOT}/packages/keenetic/packages.config"
 
 make defconfig
 make package/keen-pbr/clean
-make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
+make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/keenetic/keen-pbr/Makefile" | head -1)"
 find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr*.ipk' | while read -r file; do

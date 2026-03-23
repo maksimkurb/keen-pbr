@@ -32,7 +32,7 @@ TEST_CASE("config: type=keenetic rejected when feature disabled") {
         ]
       }
     })";
-    CHECK_THROWS_AS(parse_config(json), ConfigValidationError);
+    CHECK_THROWS_AS(parse_and_validate_config(json), ConfigValidationError);
 }
 #endif
 

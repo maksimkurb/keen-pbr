@@ -448,6 +448,10 @@ components:
     DnsSystemResolver:
       type: object
       required: [type, hook, address]
+      description: >
+        System resolver integration used by daemon runtime. This object is
+        required for service startup, reload, and applied config updates,
+        although non-daemon commands may still parse configs without it.
       properties:
         type:
           type: string
@@ -460,7 +464,11 @@ components:
           example: "/usr/lib/keen-pbr/dnsmasq.sh"
         address:
           type: string
-          description: IP address or host for the system resolver.
+          description: >
+            IP address or host for the system resolver, with optional port.
+            This is also the resolver endpoint used for TXT lookup of
+            `config-hash.keen.pbr`; if the port is omitted, runtime behavior
+            defaults to 53.
           example: "127.0.0.1"
 
     DnsConfig:
@@ -938,7 +946,8 @@ components:
           type: string
           description: >
             MD5 hex digest read from TXT record `config-hash.keen.pbr` using
-            `dns.system_resolver.address`, normalized to a raw md5 string.
+            `dns.system_resolver.address` (optional `:port`, default `:53`),
+            normalized to a raw md5 string.
           example: "a3f7c1d9e2b84560abcdef1234567890"
         config_is_draft:
           type: boolean

@@ -27,6 +27,21 @@ keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists 
 | `fallback` | string | DNS server tag for queries that match no rule |
 | `test_server` | object | Optional built-in DNS probe listener for connectivity checks |
 
+## System Resolver
+
+`dns.system_resolver` configures the dnsmasq integration used by keen-pbr's
+daemon runtime.
+
+- It is required for daemon service startup, config reload, and config apply via the API.
+- `address` is also the endpoint used by `/api/health/service` to query the TXT record `config-hash.keen.pbr`.
+- `address` accepts `host[:port]`; when the port is omitted, keen-pbr queries port `53`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | string | yes | Resolver integration type: `dnsmasq-ipset` or `dnsmasq-nftset` |
+| `hook` | string | yes | Hook script path used to reload the system resolver |
+| `address` | string | yes | Resolver address used for integration and TXT health checks, for example `"127.0.0.1"` or `"127.0.0.1:5353"` |
+
 ## DNS Test Server
 
 `dns.test_server` enables a minimal DNS server inside keen-pbr. It listens on

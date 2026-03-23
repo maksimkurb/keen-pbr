@@ -19,6 +19,7 @@ export * from './daemonConfig';
 export * from './dnsConfig';
 export * from './dnsRule';
 export * from './dnsServer';
+export * from './dnsServerType';
 export * from './dnsSystemResolver';
 export * from './dnsSystemResolverType';
 export * from './dnsTestServer';

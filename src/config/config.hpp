@@ -57,9 +57,11 @@ using IprouteConfig        = api::Iproute;
 using ListsAutoupdateConfig = api::ListsAutoupdate;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
-// --- JSON deserialization with validation ---
+// --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
+void validate_config(const Config& config);
+Config parse_and_validate_config(const std::string& json_str);
 
 // --- Fwmark allocation ---
 

@@ -81,9 +81,8 @@ const resources = {
           unsupportedActionReason: "Not available in current API",
           version: "Version",
           status: "Service status",
-          expectedHash: "expected {{hash}}…",
-          activeHash: "active {{hash}}…",
-          dnsmasqStale: "dnsmasq stale",
+          dnsmasqGood: "dnsmasq good",
+          dnsmasqStale: "dnsmasq restart required",
           actions: {
             start: "Start",
             stop: "Stop",
@@ -481,9 +480,8 @@ const resources = {
           unsupportedActionReason: "Недоступно в текущем API",
           version: "Версия",
           status: "Статус сервиса",
-          expectedHash: "ожидаемый {{hash}}…",
-          activeHash: "активный {{hash}}…",
-          dnsmasqStale: "dnsmasq устарел",
+          dnsmasqGood: "dnsmasq в порядке",
+          dnsmasqStale: "dnsmasq требуется перезапуск",
           actions: {
             start: "Запустить",
             stop: "Остановить",

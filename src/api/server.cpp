@@ -220,15 +220,28 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         return false;
     }
 
-    const fs::path index_path = root / "index.html";
-    if (!is_regular_file_or_gzip(index_path)) {
-        return false;
-    }
+    impl_->server.Get(R"(/(.*))", [root](const httplib::Request& req,
+                                          httplib::Response& res) {
+        auto serve_index = [&res, &root]() -> bool {
+            const fs::path index_path = root / "index.html";
+            auto index_gzip_path = index_path;
+            index_gzip_path += ".gz";
 
-    impl_->server.Get(R"(/(.*))", [root, index_path](const httplib::Request& req,
-                                                      httplib::Response& res) {
+            if (fs::is_regular_file(index_gzip_path)) {
+                return serve_file_response(res, index_gzip_path, index_path, true);
+            }
+
+            if (fs::is_regular_file(index_path)) {
+                return serve_file_response(res, index_path, index_path, false);
+            }
+
+            return false;
+        };
+
         const bool is_api_route = req.path == "/api" || req.path.rfind("/api/", 0) == 0;
         if (is_api_route) {
+            res.status = 404;
+            res.set_content(make_error_json("not found"), "application/json");
             return;
         }
 
@@ -265,27 +278,12 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             return;
         }
 
-        if (!fs::is_regular_file(index_path)) {
-            res.status = 404;
-        } else {
-            fs::path index_gzip = index_path;
-            index_gzip += ".gz";
-            if (fs::is_regular_file(index_gzip)) {
-                if (serve_file_response(res, index_gzip, index_path, true)) {
-                    res.status = 200;
-                    return;
-                }
-                res.status = 500;
-                res.set_content(make_error_json("failed to read static file"), "application/json");
-                return;
-            }
-            if (serve_file_response(res, index_path, index_path, false)) {
-                res.status = 200;
-            } else {
-                res.status = 500;
-                res.set_content(make_error_json("failed to read static file"), "application/json");
-            }
+        if (serve_index()) {
+            return;
         }
+
+        res.status = 404;
+        res.set_content(make_error_json("not found"), "application/json");
     });
 
     return true;

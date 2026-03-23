@@ -303,7 +303,7 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
 
   return {
     tag: server.tag,
-    address: server.address,
+    address: server.address ?? "",
     detour: server.detour ?? "",
   }
 }

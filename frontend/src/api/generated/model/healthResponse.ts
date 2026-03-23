@@ -14,10 +14,10 @@ export interface HealthResponse {
   status: HealthResponseStatus;
   /** MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
  */
-  resolver_config_hash?: string | null;
-  /** MD5 hex digest read from TXT record `config-hash.keen.pbr` using `dns.system_resolver.address`, normalized to a raw md5 string.
+  resolver_config_hash?: string;
+  /** MD5 hex digest read from TXT record `config-hash.keen.pbr` using `dns.system_resolver.address` (optional `:port`, default `:53`), normalized to a raw md5 string.
  */
-  resolver_config_hash_actual?: string | null;
+  resolver_config_hash_actual?: string;
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
  */
   config_is_draft: boolean;

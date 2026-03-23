@@ -169,6 +169,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         Config staged;
         try {
             staged = parse_config(body);
+            validate_config(staged);
         } catch (const ConfigValidationError& e) {
             throw ApiError(e.what(), 400, make_validation_error_json(e).dump());
         } catch (const ConfigError& e) {
@@ -223,6 +224,13 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         // Phase 1: validation + dry-run apply check.
         try {
             ctx.dry_run_apply_check_fn(staged_snapshot->first);
+        } catch (const ConfigValidationError& e) {
+            finish_operation();
+            nlohmann::json error_payload = make_validation_error_json(e);
+            error_payload["saved"] = false;
+            error_payload["applied"] = false;
+            error_payload["rolled_back"] = false;
+            throw ApiError("Dry-run apply check failed", 400, error_payload.dump());
         } catch (const std::exception& e) {
             finish_operation();
             nlohmann::json error_payload = {

@@ -6,6 +6,26 @@
 
 using namespace keen_pbr3;
 
+namespace {
+
+Config parse_test_config(const std::string& json_str) {
+    Config cfg = parse_config(json_str);
+    if (!cfg.dns.has_value()) {
+        cfg.dns = DnsConfig{};
+    }
+    if (!cfg.dns->system_resolver.has_value()) {
+        api::SystemResolver resolver;
+        resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+        resolver.hook = "/usr/lib/keen-pbr/dnsmasq.sh";
+        resolver.address = "127.0.0.1";
+        cfg.dns->system_resolver = resolver;
+    }
+    validate_config(cfg);
+    return cfg;
+}
+
+} // namespace
+
 // =============================================================================
 // cron_validate — valid expressions
 // =============================================================================
@@ -152,44 +172,44 @@ TEST_CASE("cron_next: deterministic calendar tests") {
 
 TEST_CASE("parse_config: lists_autoupdate") {
     SUBCASE("absent key → defaults") {
-        auto cfg = parse_config("{}");
+        auto cfg = parse_test_config("{}");
         CHECK(cfg.lists_autoupdate.value_or(ListsAutoupdateConfig{}).enabled.value_or(false) == false);
         CHECK(cfg.lists_autoupdate.value_or(ListsAutoupdateConfig{}).cron.value_or("")    == "");
     }
 
     SUBCASE("enabled false, no cron") {
-        auto cfg = parse_config(R"({"lists_autoupdate":{"enabled":false}})");
+        auto cfg = parse_test_config(R"({"lists_autoupdate":{"enabled":false}})");
         CHECK(cfg.lists_autoupdate->enabled.value_or(false) == false);
         CHECK(cfg.lists_autoupdate->cron.value_or("")    == "");
     }
 
     SUBCASE("enabled true, valid cron") {
-        auto cfg = parse_config(R"({"lists_autoupdate":{"enabled":true,"cron":"0 4 * * *"}})");
+        auto cfg = parse_test_config(R"({"lists_autoupdate":{"enabled":true,"cron":"0 4 * * *"}})");
         CHECK(cfg.lists_autoupdate->enabled.value_or(false) == true);
         CHECK(cfg.lists_autoupdate->cron.value_or("") == "0 4 * * *");
     }
 
     SUBCASE("enabled true, missing cron key") {
         CHECK_THROWS_AS(
-            parse_config(R"({"lists_autoupdate":{"enabled":true}})"),
+            parse_test_config(R"({"lists_autoupdate":{"enabled":true}})"),
             ConfigError);
     }
 
     SUBCASE("enabled true, empty cron") {
         CHECK_THROWS_AS(
-            parse_config(R"({"lists_autoupdate":{"enabled":true,"cron":""}})"),
+            parse_test_config(R"({"lists_autoupdate":{"enabled":true,"cron":""}})"),
             ConfigError);
     }
 
     SUBCASE("invalid cron string") {
         CHECK_THROWS_AS(
-            parse_config(R"({"lists_autoupdate":{"cron":"99 * * * *"}})"),
+            parse_test_config(R"({"lists_autoupdate":{"cron":"99 * * * *"}})"),
             ConfigError);
     }
 
     SUBCASE("invalid cron even when disabled") {
         CHECK_THROWS_AS(
-            parse_config(R"({"lists_autoupdate":{"enabled":false,"cron":"99 * * * *"}})"),
+            parse_test_config(R"({"lists_autoupdate":{"enabled":false,"cron":"99 * * * *"}})"),
             ConfigError);
     }
 }

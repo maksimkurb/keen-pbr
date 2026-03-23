@@ -810,7 +810,10 @@ void Daemon::update_resolver_config_hash_actual() {
             resolver_addr, "config-hash.keen.pbr", std::chrono::milliseconds(2000), &error);
         if (!txt.has_value()) {
             if (!error.empty()) {
-                Logger::instance().warn("Resolver config hash TXT query failed: {}", error);
+                Logger::instance().warn(
+                    "Resolver config hash TXT query failed via {}: {}",
+                    resolver_addr,
+                    error);
             }
             return;
         }
@@ -819,11 +822,15 @@ void Daemon::update_resolver_config_hash_actual() {
         Logger::instance().info("Resolver config hash (actual): {}",
                                 resolver_config_hash_actual_);
     } catch (const std::exception& e) {
-        Logger::instance().warn("Resolver config hash TXT query failed: {}", e.what());
+        Logger::instance().warn("Resolver config hash TXT query failed via {}: {}",
+                                resolver_addr,
+                                e.what());
     }
 }
 
 void Daemon::apply_config(Config config) {
+    validate_config(config);
+
     std::unique_lock<std::shared_mutex> lock(state_mutex_);
 
     // Cancel any pending autoupdate task
@@ -912,6 +919,7 @@ void Daemon::reload_from_disk() {
     std::ostringstream ss;
     ss << ifs.rdbuf();
     Config next_config = parse_config(ss.str());
+    validate_config(next_config);
     apply_config(std::move(next_config));
 }
 
@@ -920,26 +928,6 @@ void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
     api_server_ = std::make_unique<ApiServer>(*config_.api);
-    const std::filesystem::path frontend_root(KEEN_PBR_FRONTEND_ROOT);
-    const std::filesystem::path frontend_index = frontend_root / "index.html";
-    std::filesystem::path frontend_index_gzip = frontend_index;
-    frontend_index_gzip += ".gz";
-    const bool has_frontend_root =
-        std::filesystem::is_directory(frontend_root) &&
-        (std::filesystem::is_regular_file(frontend_index) ||
-         std::filesystem::is_regular_file(frontend_index_gzip));
-    if (!has_frontend_root) {
-        Logger::instance().warn(
-            "API enabled but frontend root is unavailable: {} (missing directory or index.html(.gz)). API endpoints will remain available.",
-            frontend_root.string());
-    } else if (!api_server_->register_static_root(frontend_root.string())) {
-        Logger::instance().warn(
-            "Failed to register frontend static root: {}. API endpoints will remain available.",
-            frontend_root.string());
-    } else {
-        Logger::instance().info("Frontend static root: {}", frontend_root.string());
-    }
-
     // ApiContext provides synchronized access to Daemon-owned runtime state.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
@@ -969,6 +957,8 @@ void Daemon::setup_api() {
             staged_config_json_.reset();
         },
         [this](const Config& config) {
+            validate_config(config);
+
             const auto marks = allocate_outbound_marks(
                 config.fwmark.value_or(FwmarkConfig{}),
                 config.outbounds.value_or(std::vector<Outbound>{}));
@@ -1058,6 +1048,27 @@ void Daemon::setup_api() {
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);
+
+    const std::filesystem::path frontend_root(KEEN_PBR_FRONTEND_ROOT);
+    const std::filesystem::path frontend_index = frontend_root / "index.html";
+    std::filesystem::path frontend_index_gzip = frontend_index;
+    frontend_index_gzip += ".gz";
+    const bool has_frontend_root =
+        std::filesystem::is_directory(frontend_root) &&
+        (std::filesystem::is_regular_file(frontend_index) ||
+         std::filesystem::is_regular_file(frontend_index_gzip));
+    if (!has_frontend_root) {
+        Logger::instance().warn(
+            "API enabled but frontend root is unavailable: {} (missing directory or index.html(.gz)). API endpoints will remain available.",
+            frontend_root.string());
+    } else if (!api_server_->register_static_root(frontend_root.string())) {
+        Logger::instance().warn(
+            "Failed to register frontend static root: {}. API endpoints will remain available.",
+            frontend_root.string());
+    } else {
+        Logger::instance().info("Frontend static root: {}", frontend_root.string());
+    }
+
     const std::string listen_addr = config_.api->listen.value_or("0.0.0.0:8080");
     Logger::instance().info("Starting REST API on {}", listen_addr);
     try {

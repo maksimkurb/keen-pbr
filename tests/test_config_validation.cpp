@@ -8,6 +8,26 @@
 
 using namespace keen_pbr3;
 
+namespace {
+
+Config parse_test_config(const std::string& json_str) {
+    Config cfg = parse_config(json_str);
+    if (!cfg.dns.has_value()) {
+        cfg.dns = DnsConfig{};
+    }
+    if (!cfg.dns->system_resolver.has_value()) {
+        api::SystemResolver resolver;
+        resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+        resolver.hook = "/usr/lib/keen-pbr/dnsmasq.sh";
+        resolver.address = "127.0.0.1";
+        cfg.dns->system_resolver = resolver;
+    }
+    validate_config(cfg);
+    return cfg;
+}
+
+} // namespace
+
 // Helper: build a minimal valid config JSON with a single list entry.
 static std::string list_config_json(const std::string& list_name,
                                     const std::string& list_body = R"({"ip_cidrs":["10.0.0.1"]})") {
@@ -23,22 +43,22 @@ static std::string list_config_json(const std::string& list_name,
 
 TEST_CASE("list name: exactly 24 chars is valid") {
     const std::string name(24, 'a'); // "aaaaaaaaaaaaaaaaaaaaaaaa"
-    CHECK_NOTHROW(parse_config(list_config_json(name)));
+    CHECK_NOTHROW(parse_test_config(list_config_json(name)));
 }
 
 TEST_CASE("list name: 25 chars is rejected") {
     const std::string name(25, 'a');
-    CHECK_THROWS_AS(parse_config(list_config_json(name)), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json(name)), ConfigError);
 }
 
 TEST_CASE("list name: 1 char is valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("a")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("a")));
 }
 
 TEST_CASE("list name: empty string is rejected") {
     // JSON object key "" is valid JSON but must be rejected by our validation.
     const std::string json = R"({"lists":{"":{"ip_cidrs":["10.0.0.1"]}}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 // =============================================================================
@@ -46,43 +66,43 @@ TEST_CASE("list name: empty string is rejected") {
 // =============================================================================
 
 TEST_CASE("list name: lowercase letters only is valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("mylist")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("mylist")));
 }
 
 TEST_CASE("list name: uppercase letters are valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("MyList")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("MyList")));
 }
 
 TEST_CASE("list name: uppercase first char is valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("Mylist")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("Mylist")));
 }
 
 TEST_CASE("list name: mixed case + digits + underscore is valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("My_List01")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("My_List01")));
 }
 
 TEST_CASE("list name: lowercase + digits + underscore is valid") {
-    CHECK_NOTHROW(parse_config(list_config_json("my_list01")));
+    CHECK_NOTHROW(parse_test_config(list_config_json("my_list01")));
 }
 
 TEST_CASE("list name: first char digit is rejected") {
-    CHECK_THROWS_AS(parse_config(list_config_json("1list")), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json("1list")), ConfigError);
 }
 
 TEST_CASE("list name: first char underscore is rejected") {
-    CHECK_THROWS_AS(parse_config(list_config_json("_list")), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json("_list")), ConfigError);
 }
 
 TEST_CASE("list name: hyphen in name is rejected") {
-    CHECK_THROWS_AS(parse_config(list_config_json("my-list")), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json("my-list")), ConfigError);
 }
 
 TEST_CASE("list name: space in name is rejected") {
-    CHECK_THROWS_AS(parse_config(list_config_json("my list")), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json("my list")), ConfigError);
 }
 
 TEST_CASE("list name: dot in name is rejected") {
-    CHECK_THROWS_AS(parse_config(list_config_json("my.list")), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(list_config_json("my.list")), ConfigError);
 }
 
 // =============================================================================
@@ -103,13 +123,13 @@ static const std::string kDnsDetourBase = R"({
 TEST_CASE("dns detour: valid interface outbound") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
         "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"vpn"}]}})";
-    CHECK_NOTHROW(parse_config(json));
+    CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: valid table outbound") {
     std::string json = R"({"outbounds":[{"tag":"tbl","type":"table","table":100}],
         "dns":{"servers":[{"tag":"tbl-dns","address":"10.8.0.2","detour":"tbl"}]}})";
-    CHECK_NOTHROW(parse_config(json));
+    CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: valid urltest outbound") {
@@ -117,35 +137,35 @@ TEST_CASE("dns detour: valid urltest outbound") {
         {"tag":"vpn","type":"interface","interface":"wg0"},
         {"tag":"ut","type":"urltest","url":"http://example.com","outbound_groups":[{"outbounds":["vpn"]}]}
     ],"dns":{"servers":[{"tag":"ut-dns","address":"10.8.0.3","detour":"ut"}]}})";
-    CHECK_NOTHROW(parse_config(json));
+    CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: unknown outbound tag is rejected") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
         "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"nonexistent"}]}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: blackhole outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"bh","type":"blackhole"}],
         "dns":{"servers":[{"tag":"bh-dns","address":"10.8.0.1","detour":"bh"}]}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: ignore outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"ig","type":"ignore"}],
         "dns":{"servers":[{"tag":"ig-dns","address":"10.8.0.1","detour":"ig"}]}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: no detour field is accepted") {
     std::string json = R"({"dns":{"servers":[{"tag":"plain-dns","address":"8.8.8.8"}]}})";
-    CHECK_NOTHROW(parse_config(json));
+    CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns test server: valid listen parses") {
     std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53"}}})";
-    auto cfg = parse_config(json);
+    auto cfg = parse_test_config(json);
     REQUIRE(cfg.dns.has_value());
     REQUIRE(cfg.dns->dns_test_server.has_value());
     CHECK(cfg.dns->dns_test_server->listen == "127.0.0.88:53");
@@ -154,7 +174,7 @@ TEST_CASE("dns test server: valid listen parses") {
 
 TEST_CASE("dns test server: explicit answer IPv4 parses") {
     std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"127.0.0.99"}}})";
-    auto cfg = parse_config(json);
+    auto cfg = parse_test_config(json);
     REQUIRE(cfg.dns.has_value());
     REQUIRE(cfg.dns->dns_test_server.has_value());
     CHECK(cfg.dns->dns_test_server->answer_ipv4.value_or("") == "127.0.0.99");
@@ -162,22 +182,72 @@ TEST_CASE("dns test server: explicit answer IPv4 parses") {
 
 TEST_CASE("dns test server: invalid listen is rejected") {
     std::string json = R"({"dns":{"dns_test_server":{"listen":"not-an-ip:53"}}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns test server: ipv6 listen is rejected") {
     std::string json = R"({"dns":{"dns_test_server":{"listen":"[::1]:53"}}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
     std::string json = R"({"dns":{"dns_test_server":{"listen":"127.0.0.88:53","answer_ipv4":"example.com"}}})";
-    CHECK_THROWS_AS(parse_config(json), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+
+TEST_CASE("config validation: accepts system_resolver") {
+    auto cfg = parse_test_config(R"({
+        "dns": {
+            "system_resolver": {
+                "type": "dnsmasq-nftset",
+                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_NOTHROW(validate_config(cfg));
+}
+
+TEST_CASE("config validation: rejects missing system_resolver") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [
+                {"tag":"plain-dns","address":"8.8.8.8"}
+            ]
+        }
+    })");
+
+    try {
+        validate_config(cfg);
+        FAIL("Expected ConfigValidationError");
+    } catch (const ConfigValidationError& e) {
+        REQUIRE(e.issues().size() == 1);
+        CHECK(e.issues().front().path == "dns.system_resolver");
+        CHECK(e.issues().front().message == "dns.system_resolver must be present");
+    }
+}
+
+TEST_CASE("config validation: collects empty system_resolver fields") {
+    Config cfg;
+    cfg.dns = DnsConfig{};
+    cfg.dns->system_resolver = api::SystemResolver{};
+
+    try {
+        validate_config(cfg);
+        FAIL("Expected ConfigValidationError");
+    } catch (const ConfigValidationError& e) {
+        REQUIRE(e.issues().size() == 2);
+        CHECK(e.issues()[0].path == "dns.system_resolver.hook");
+        CHECK(e.issues()[0].message == "dns.system_resolver.hook must not be empty");
+        CHECK(e.issues()[1].path == "dns.system_resolver.address");
+        CHECK(e.issues()[1].message == "dns.system_resolver.address must not be empty");
+    }
 }
 
 TEST_CASE("strict enforcement: daemon default parses") {
     std::string json = R"({"daemon":{"strict_enforcement":true}})";
-    auto cfg = parse_config(json);
+    auto cfg = parse_test_config(json);
     REQUIRE(cfg.daemon.has_value());
     CHECK(cfg.daemon->strict_enforcement.value_or(false));
 }
@@ -188,7 +258,7 @@ TEST_CASE("strict enforcement: outbound override parses") {
             {"tag":"vpn","type":"interface","interface":"wg0","strict_enforcement":true}
         ]
     })";
-    auto cfg = parse_config(json);
+    auto cfg = parse_test_config(json);
     REQUIRE(cfg.outbounds.has_value());
     REQUIRE(cfg.outbounds->size() == 1);
     CHECK(cfg.outbounds->front().strict_enforcement.value_or(false));
@@ -233,56 +303,56 @@ TEST_CASE("is_reserved_table: safe values are not reserved") {
 // =============================================================================
 
 TEST_CASE("iproute.table_start: default (no iproute section) is accepted") {
-    CHECK_NOTHROW(parse_config(R"({})"));
+    CHECK_NOTHROW(parse_test_config(R"({})"));
 }
 
 TEST_CASE("iproute.table_start: value 100 is accepted") {
-    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":100}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":100}})"));
 }
 
 TEST_CASE("iproute.table_start: value 249 is accepted") {
-    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":249}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":249}})"));
 }
 
 TEST_CASE("iproute.table_start: value 261 is accepted") {
-    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":261}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":261}})"));
 }
 
 TEST_CASE("iproute.table_start: value 31999 is accepted") {
-    CHECK_NOTHROW(parse_config(R"({"iproute":{"table_start":31999}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":31999}})"));
 }
 
 TEST_CASE("iproute.table_start: value 0 is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":0}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":0}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: value 128 (prelocal) is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":128}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":128}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: value 250 is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":250}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":250}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: value 255 (local) is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":255}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":255}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: value 260 is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":260}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":260}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: value 32000 is rejected") {
-    CHECK_THROWS_AS(parse_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
+    CHECK_THROWS_AS(parse_test_config(R"({"iproute":{"table_start":32000}})"), ConfigError);
 }
 
 TEST_CASE("iproute.table_start: non-integer value is rejected") {
     CHECK_THROWS_AS(
-        parse_config(R"({"iproute":{"table_start":"400abc"}})"),
+        parse_test_config(R"({"iproute":{"table_start":"400abc"}})"),
         ConfigValidationError
     );
     CHECK_THROWS_AS(
-        parse_config(R"({"iproute":{"table_start":400.5}})"),
+        parse_test_config(R"({"iproute":{"table_start":400.5}})"),
         ConfigValidationError
     );
 }
@@ -296,7 +366,7 @@ TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
         }
     })";
 
-    CHECK_THROWS_AS(parse_config(json), ConfigValidationError);
+    CHECK_THROWS_AS(parse_test_config(json), ConfigValidationError);
 }
 
 TEST_CASE("config parsing returns all collected validation errors") {
@@ -313,7 +383,7 @@ TEST_CASE("config parsing returns all collected validation errors") {
     })";
 
     try {
-        (void)parse_config(json);
+        (void)parse_test_config(json);
         FAIL("Expected ConfigValidationError");
     } catch (const ConfigValidationError& e) {
         CHECK(e.issues().size() >= 3);

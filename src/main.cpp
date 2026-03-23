@@ -238,6 +238,7 @@ int main(int argc, char* argv[]) {
         // Load and parse configuration
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
+        keen_pbr3::validate_config(config);
 
         if (opts.run_status) {
             return keen_pbr3::run_status_command(config, opts.config_path);
@@ -350,6 +351,13 @@ int main(int argc, char* argv[]) {
         }
         return 0;
 
+    } catch (const keen_pbr3::ConfigValidationError& e) {
+        auto& logger = keen_pbr3::Logger::instance();
+        logger.error("Configuration validation failed:");
+        for (const auto& issue : e.issues()) {
+            logger.error("  {}: {}", issue.path, issue.message);
+        }
+        return 1;
     } catch (const keen_pbr3::ConfigError& e) {
         keen_pbr3::Logger::instance().error("Configuration error: {}", e.what());
         return 1;

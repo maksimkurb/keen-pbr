@@ -143,25 +143,13 @@ export function OverviewPage() {
                     >
                       {serviceHealth.status}
                     </StatusBadge>
-                    {serviceHealth.resolver_config_hash ? (
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {t("overview.service.expectedHash", {
-                          hash: serviceHealth.resolver_config_hash.slice(0, 10),
-                        })}
-                      </Badge>
-                    ) : null}
-                    {serviceHealth.resolver_config_hash_actual ? (
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {t("overview.service.activeHash", {
-                          hash: serviceHealth.resolver_config_hash_actual.slice(0, 10),
-                        })}
-                      </Badge>
-                    ) : null}
                     {hasResolverHashMismatch ? (
-                      <Badge className="bg-warning/10 text-warning-foreground border-warning/50" variant="outline">
+                      <StatusBadge tone="warning">
                         {t("overview.service.dnsmasqStale")}
-                      </Badge>
-                    ) : null}
+                      </StatusBadge>
+                    ) : <StatusBadge tone="healthy">
+                        {t("overview.service.dnsmasqGood")}
+                      </StatusBadge>}
                   </div>
                 </div>
               </div>

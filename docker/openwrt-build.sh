@@ -6,6 +6,11 @@ REPO_ROOT="${REPO_ROOT:-/src}"
 RELEASE_DIR="${RELEASE_DIR:-/src/release_files}"
 SDK_DIR="/work/sdk"
 FRONTEND_OUT_DIR="/tmp/keen-pbr-frontend-dist"
+job_count="$(( $(nproc) - 1 ))"
+
+if (( job_count < 1 )); then
+  job_count=1
+fi
 
 mkdir -p "$RELEASE_DIR"
 cd "${SDK_DIR}"
@@ -34,7 +39,7 @@ rm -rf package/keen-pbr
 cp -r "${REPO_ROOT}/packages/openwrt/keen-pbr" package/
 
 make package/keen-pbr/clean
-make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
+make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/openwrt/keen-pbr/Makefile" | head -1)"
 find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr*.ipk' -o -name 'keen-pbr*.apk' \) | while read -r file; do

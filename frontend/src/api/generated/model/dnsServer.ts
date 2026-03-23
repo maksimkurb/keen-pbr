@@ -5,13 +5,16 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { DnsServerType } from './dnsServerType';
 
 export interface DnsServer {
   /** Unique identifier for this DNS server. */
   tag: string;
-  /** IPv4 or IPv6 address of the DNS server, with optional port. Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353". Default port is 53.
+  /** DNS server source type. */
+  type?: DnsServerType;
+  /** IPv4 or IPv6 address of the DNS server, with optional port. Required for `type=static`. Must be omitted for `type=keenetic`. Formats: "8.8.8.8", "8.8.8.8:5353", "::1", "[::1]:5353". Default port is 53.
  */
-  address: string;
+  address?: string;
   /** Outbound tag to use when querying this DNS server. */
   detour?: string;
 }

@@ -125,6 +125,12 @@ Config parse_config(const std::string& json_str) {
         });
     }
 
+    return cfg;
+}
+
+void validate_config(const Config& cfg) {
+    std::vector<ConfigValidationIssue> issues;
+
     if (cfg.lists_autoupdate) {
         const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
         const std::string cron = cfg.lists_autoupdate->cron.value_or("");
@@ -358,6 +364,9 @@ Config parse_config(const std::string& json_str) {
                               "dns.system_resolver.type must be one of: dnsmasq-ipset, dnsmasq-nftset");
                     break;
             }
+        } else {
+            add_issue(issues, "dns.system_resolver",
+                      "dns.system_resolver must be present");
         }
 
         if (cfg.dns->dns_test_server.has_value()) {
@@ -371,13 +380,20 @@ Config parse_config(const std::string& json_str) {
                           std::string("dns.dns_test_server: ") + e.what());
             }
         }
+    } else {
+        add_issue(issues, "dns.system_resolver",
+                  "dns.system_resolver must be present");
     }
 
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
     }
+}
 
-    return cfg;
+Config parse_and_validate_config(const std::string& json_str) {
+    Config config = parse_config(json_str);
+    validate_config(config);
+    return config;
 }
 
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,

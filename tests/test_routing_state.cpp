@@ -11,7 +11,19 @@ using namespace keen_pbr3;
 namespace {
 
 Config parse_minimal_config(const std::string& json) {
-    return parse_config(json);
+    Config cfg = parse_config(json);
+    if (!cfg.dns.has_value()) {
+        cfg.dns = DnsConfig{};
+    }
+    if (!cfg.dns->system_resolver.has_value()) {
+        api::SystemResolver resolver;
+        resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+        resolver.hook = "/usr/lib/keen-pbr/dnsmasq.sh";
+        resolver.address = "127.0.0.1";
+        cfg.dns->system_resolver = resolver;
+    }
+    validate_config(cfg);
+    return cfg;
 }
 
 const RouteSpec* find_route(const std::vector<RouteSpec>& routes,
