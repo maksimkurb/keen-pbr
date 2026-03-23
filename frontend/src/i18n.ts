@@ -1,6 +1,13 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 
+export type Language = "en" | "ru"
+
+export const DEFAULT_LANGUAGE: Language = "en"
+export const LANGUAGE_STORAGE_KEY = "language"
+
+const LANGUAGE_VALUES: Language[] = ["en", "ru"]
+
 const resources = {
   en: {
     translation: {
@@ -19,6 +26,14 @@ const resources = {
         unableToLoadData: "Unable to load data",
         loadErrorDescription: "We can't load data right now. Try refreshing the page.",
         noneShort: "-",
+        multiSelectList: {
+          addItem: "Add item",
+          emptyMessage: "No items found.",
+          availableItems: "Available items",
+          noItemsSelected: "No items selected",
+          addFirstItem: "Add your first item to start building this list.",
+          removeItem: "Remove {{item}}",
+        },
       },
       language: {
         selectorAria: "Language selector",
@@ -355,7 +370,6 @@ const resources = {
             field: "Fallback server tag",
             placeholder: "Select a DNS server",
             group: "DNS servers",
-            available: "Available: {{tags}}",
             noneDefined: "No DNS servers defined in config.dns.servers.",
           },
           empty: {
@@ -389,13 +403,98 @@ const resources = {
             serverTag: "Server tag",
             selectServer: "Select DNS server",
             dnsServers: "DNS servers",
-            availableServers: "Available: {{tags}}",
-            noServers: "No DNS servers defined in config.dns.servers.",
+            noServers: "No DNS servers defined on the DNS Servers page.",
             listNames: "List names",
             listPlaceholderDescription: "Add one or more configured list names to match this DNS rule.",
             noListsSelected: "No lists selected",
-            knownLists: "Known lists: {{lists}}",
-            noLists: "No lists found in config.lists.",
+            noLists: "No lists found. Please, create first filter on the Lists page.",
+          },
+        },
+        lists: {
+          title: "Lists",
+          description: "Manage domain and IP lists used by routing and DNS rules.",
+          actions: {
+            new: "New list",
+            update: "Update",
+          },
+          empty: {
+            title: "No lists yet",
+            description: "Create your first list to use it in routing and DNS rules.",
+          },
+          headers: {
+            name: "Name",
+            type: "Type",
+            stats: "Stats",
+            rules: "Rules",
+            actions: "Actions",
+          },
+          delete: {
+            confirm: 'Delete list "{{name}}"?',
+            confirmWithReferences:
+              'Delete list "{{name}}" and remove its references from routing and DNS rules?',
+          },
+          location: {
+            inline: "Inline",
+          },
+          rule: {
+            configured: "Configured",
+          },
+          source: {
+            url: "URL",
+            file: "File",
+            domains: "Domains",
+            ip_cidrs: "IP CIDRs",
+            empty: "Empty",
+          },
+        },
+        listUpsert: {
+          createTitle: "Create list",
+          editTitle: "Edit list",
+          editCardTitle: "Edit {{name}}",
+          fallbackName: "list",
+          description: "Lists can be backed by files, built-in sources, or remote URLs.",
+          cardDescription: "Review the list source, TTL, and matching entries before saving.",
+          messages: {
+            created: "List staged. Apply config to persist it.",
+            updated: "List changes staged. Apply config to persist them.",
+          },
+          missing: {
+            cardDescription: "The requested list could not be found.",
+            cardTitle: "Missing list",
+            description: "Return to the lists table and choose a valid entry.",
+            back: "Back to lists",
+          },
+          actions: {
+            saving: "Saving...",
+            create: "Create list",
+            save: "Save list",
+          },
+          fields: {
+            name: "Name",
+            nameHint:
+              "Use a stable identifier so rules and references remain easy to follow.",
+            ttlMs: "TTL ms",
+            ttlMsHint:
+              "How long resolved IPs from domains in this list stay in the IP set; 0 means no timeout.",
+            url: "Remote URL",
+            urlHint:
+              "Optional remote source loaded over HTTP or HTTPS and merged into the list.",
+            file: "Local file",
+            fileHint:
+              "Optional local file path. File entries are merged with any inline domains, IPs, and remote URL data.",
+            domains: "Domains",
+            domainsHint:
+              "Inline domain patterns. Writing example.com automatically includes all subdomains.",
+            ipCidrs: "IP CIDRs",
+            ipCidrsHint:
+              "Inline IP addresses or CIDR ranges, for example 93.184.216.34, 10.0.0.0/8, or 2001:db8::/32.",
+          },
+          validation: {
+            nameRequired: "Name is required.",
+            duplicateName: "A list with this name already exists.",
+            invalidTtl: "TTL must be a non-negative integer.",
+            sourceRequired:
+              "At least one source is required: remote URL, local file, domains, or IP CIDRs.",
           },
         },
       },
@@ -418,6 +517,14 @@ const resources = {
         unableToLoadData: "Не удалось загрузить данные",
         loadErrorDescription: "Сейчас не получается загрузить данные. Попробуйте обновить страницу.",
         noneShort: "-",
+        multiSelectList: {
+          addItem: "Добавить элемент",
+          emptyMessage: "Элементы не найдены.",
+          availableItems: "Доступные элементы",
+          noItemsSelected: "Элементы не выбраны",
+          addFirstItem: "Добавьте первый элемент, чтобы начать формировать этот список.",
+          removeItem: "Удалить {{item}}",
+        },
       },
       language: {
         selectorAria: "Выбор языка",
@@ -426,7 +533,7 @@ const resources = {
       },
       theme: {
         selectorAria: "Выбор темы",
-        useSystem: "Использовать системную",
+        useSystem: "Как в системе",
         light: "Светлая",
         dark: "Тёмная",
       },
@@ -439,7 +546,7 @@ const resources = {
         items: {
           systemMonitor: "Мониторинг системы",
           settings: "Настройки",
-          outbounds: "Выходы",
+          outbounds: "Интерфейсы / выходы",
           dnsServers: "DNS-серверы",
           lists: "Списки",
           routingRules: "Правила маршрутизации",
@@ -448,7 +555,7 @@ const resources = {
       },
       brand: {
         logoAlt: "логотип keen-pbr",
-        tagline: "Сортировка пакетов",
+        tagline: "Пакет для пакетов с пакетами",
         openMenu: "Открыть меню",
       },
       warning: {
@@ -522,7 +629,7 @@ const resources = {
             disabledDescription:
               "Включите `config.dns.dns_test_server`, чтобы запустить встроенную самопроверку DNS.",
             configuredServers: "Настроенные DNS-серверы",
-            noServers: "В `config.dns.servers` не настроены вышестоящие DNS-серверы.",
+            noServers: "На странице DNS-серверов не определено ни одного DNS-сервера.",
             via: "через {{detour}}",
             checking: "Проверка...",
             runAgain: "Запустить снова",
@@ -626,8 +733,8 @@ const resources = {
           },
         },
         outbounds: {
-          title: "Выходы",
-          description: "Настроенные outbounds и поведение urltest.",
+          title: "Интерфейсы / выходы",
+          description: "Outbounds, на которые будет поступать трафик. Это может быть интерфейс, существующая таблица маршрутизации или авто-переключаемый интерфейс.",
           actions: { new: "Новый outbound" },
           empty: {
             title: "Outbounds пока нет",
@@ -749,12 +856,11 @@ const resources = {
             invalidResult: "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
           },
           fallback: {
-            title: "Fallback",
+            title: "Основной DNS-сервер",
             description: "Используется, когда ни одно DNS-правило не подходит текущему запросу.",
-            field: "Тег fallback-сервера",
+            field: "Тег DNS сервера по умолчанию",
             placeholder: "Выберите DNS-сервер",
             group: "DNS-серверы",
-            available: "Доступно: {{tags}}",
             noneDefined: "В config.dns.servers не определены DNS-серверы.",
           },
           empty: {
@@ -788,13 +894,104 @@ const resources = {
             serverTag: "Тег сервера",
             selectServer: "Выберите DNS-сервер",
             dnsServers: "DNS-серверы",
-            availableServers: "Доступно: {{tags}}",
             noServers: "В config.dns.servers не определены DNS-серверы.",
             listNames: "Имена списков",
             listPlaceholderDescription: "Добавьте один или несколько настроенных списков для этого DNS-правила.",
             noListsSelected: "Списки не выбраны",
-            knownLists: "Известные списки: {{lists}}",
-            noLists: "В config.lists не найдено списков.",
+            noLists: "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
+          },
+        },
+        lists: {
+          title: "Списки",
+          description:
+            "Управляйте списками доменов и IP-адресов, которые используются в правилах маршрутизации и DNS.",
+          actions: {
+            new: "Новый список",
+            update: "Обновить",
+          },
+          empty: {
+            title: "Списков пока нет",
+            description:
+              "Создайте первый список, чтобы использовать его в правилах маршрутизации и DNS.",
+          },
+          headers: {
+            name: "Имя",
+            type: "Тип",
+            stats: "Статистика",
+            rules: "Правила",
+            actions: "Действия",
+          },
+          delete: {
+            confirm: 'Удалить список "{{name}}"?',
+            confirmWithReferences:
+              'Удалить список "{{name}}" и убрать его ссылки из правил маршрутизации и DNS?',
+          },
+          location: {
+            inline: "Встроенный",
+          },
+          rule: {
+            configured: "Настроен",
+          },
+          source: {
+            url: "URL",
+            file: "Файл",
+            domains: "Домены",
+            ip_cidrs: "IP CIDR",
+            empty: "Пусто",
+          },
+        },
+        listUpsert: {
+          createTitle: "Создать список",
+          editTitle: "Изменить список",
+          editCardTitle: "Изменить {{name}}",
+          fallbackName: "список",
+          description:
+            "Списки могут использовать файлы, встроенные источники или удалённые URL.",
+          cardDescription:
+            "Проверьте источник списка, TTL и содержимое перед сохранением.",
+          messages: {
+            created:
+              "Список сохранён в черновик. Примените конфиг, чтобы записать его.",
+            updated:
+              "Изменения списка сохранены в черновик. Примените конфиг, чтобы записать их.",
+          },
+          missing: {
+            cardDescription: "Запрошенный список не найден.",
+            cardTitle: "Список не найден",
+            description: "Вернитесь к таблице списков и выберите корректную запись.",
+            back: "Назад к спискам",
+          },
+          actions: {
+            saving: "Сохранение...",
+            create: "Создать список",
+            save: "Сохранить список",
+          },
+          fields: {
+            name: "Имя",
+            nameHint:
+              "Используйте стабильный идентификатор, чтобы правила и ссылки на список оставались понятными.",
+            ttlMs: "TTL мс",
+            ttlMsHint:
+              "Как долго IP-адреса, разрешённые из доменов этого списка, хранятся в IP set; 0 означает отсутствие таймаута.",
+            url: "Удалённый URL",
+            urlHint:
+              "Необязательный удалённый источник по HTTP или HTTPS, который объединяется со списком.",
+            file: "Локальный файл",
+            fileHint:
+              "Необязательный путь к локальному файлу. Его содержимое объединяется с inline-доменами, IP-адресами и данными из удалённого URL.",
+            domains: "Домены",
+            domainsHint:
+              "Встроенные шаблоны доменов. Если указать example.com, автоматически будут включены и все поддомены.",
+            ipCidrs: "IP CIDR",
+            ipCidrsHint:
+              "Встроенные IP-адреса или диапазоны CIDR, например 93.184.216.34, 10.0.0.0/8 или 2001:db8::/32.",
+          },
+          validation: {
+            nameRequired: "Имя обязательно.",
+            duplicateName: "Список с таким именем уже существует.",
+            invalidTtl: "TTL должен быть неотрицательным целым числом.",
+            sourceRequired:
+              "Нужен хотя бы один источник: удалённый URL, локальный файл, домены или IP CIDR.",
           },
         },
       },
@@ -802,19 +999,34 @@ const resources = {
   },
 } as const
 
-function detectInitialLanguage() {
+export function isLanguage(value: string | null): value is Language {
+  if (value === null) {
+    return false
+  }
+
+  return LANGUAGE_VALUES.includes(value as Language)
+}
+
+function detectInitialLanguage(): Language {
+  if (typeof window !== "undefined") {
+    const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
+    if (isLanguage(storedLanguage)) {
+      return storedLanguage
+    }
+  }
+
   if (typeof navigator === "undefined") {
-    return "en"
+    return DEFAULT_LANGUAGE
   }
 
   const preferred = navigator.languages?.[0] ?? navigator.language
-  return preferred.toLowerCase().startsWith("ru") ? "ru" : "en"
+  return preferred.toLowerCase().startsWith("ru") ? "ru" : DEFAULT_LANGUAGE
 }
 
 void i18n.use(initReactI18next).init({
   resources,
   lng: detectInitialLanguage(),
-  fallbackLng: "en",
+  fallbackLng: DEFAULT_LANGUAGE,
   interpolation: { escapeValue: false },
 })
 

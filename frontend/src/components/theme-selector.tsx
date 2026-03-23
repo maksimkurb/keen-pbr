@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { PaletteIcon } from "lucide-react"
 
 const THEME_OPTIONS = [
   { value: "system", labelKey: "theme.useSystem" },
@@ -18,19 +19,27 @@ const THEME_OPTIONS = [
 export function ThemeSelector() {
   const { theme, setTheme } = useTheme()
   const { t } = useTranslation()
+  const items = THEME_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }))
 
   return (
     <div className="space-y-2">
-      <p className="px-1 text-xs font-medium text-sidebar-foreground/70">{t("common.theme")}</p>
+      <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-sidebar-foreground/70">
+        <PaletteIcon className="size-3.5" />
+        {t("common.theme")}
+      </p>
       <Select
         defaultValue={theme}
+        items={items}
         onValueChange={(value) => setTheme(value as "system" | "light" | "dark")}
         value={theme}
       >
         <SelectTrigger aria-label={t("theme.selectorAria")} className="bg-sidebar">
           <SelectValue placeholder={t("theme.useSystem")} />
         </SelectTrigger>
-        <SelectContent align="start">
+        <SelectContent align="start" side="top" alignItemWithTrigger={false}>
           {THEME_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {t(option.labelKey)}

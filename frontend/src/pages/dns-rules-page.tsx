@@ -1,6 +1,7 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -20,11 +21,10 @@ import {
 } from "@/components/shared/field"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
-import { SectionCard } from "@/components/shared/section-card"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   Select,
@@ -47,13 +47,6 @@ export function DnsRulesPage() {
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
 
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
-    null
-  )
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
-
   const loadedConfig = selectConfig(configQuery.data)
 
   const serverTags = useMemo(
@@ -73,15 +66,11 @@ export function DnsRulesPage() {
     mutation: {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-        setSaveSuccessMessage(
-          t("pages.dnsRules.messages.saved")
-        )
-        setMutationErrorMessage(null)
+        toast.success(t("pages.dnsRules.messages.saved"))
       },
       onError: (error) => {
         const apiError = error as ApiError
-        setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        toast.error(getApiErrorMessage(apiError))
       },
     },
   })
@@ -99,21 +88,16 @@ export function DnsRulesPage() {
     }
 
     if (!serverTags.includes(fallback)) {
-      setMutationErrorMessage(t("pages.dnsRules.validation.invalidFallback"))
+      toast.error(t("pages.dnsRules.validation.invalidFallback"))
       return
     }
 
     const draftRules = rules.map((rule) => getRuleDraft(rule))
     const validation = validateRules(draftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
-      setMutationErrorMessage(
-        t("pages.dnsRules.validation.invalidFallbackChange")
-      )
+      toast.error(t("pages.dnsRules.validation.invalidFallbackChange"))
       return
     }
-
-    setSaveSuccessMessage(null)
-    setMutationErrorMessage(null)
 
     postConfigMutation.mutate({
       data: buildUpdatedConfigWithRules(loadedConfig, fallback, draftRules),
@@ -131,14 +115,9 @@ export function DnsRulesPage() {
 
     const validation = validateRules(nextDraftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
-      setMutationErrorMessage(
-        t("pages.dnsRules.validation.invalidResult")
-      )
+      toast.error(t("pages.dnsRules.validation.invalidResult"))
       return
     }
-
-    setSaveSuccessMessage(null)
-    setMutationErrorMessage(null)
 
     postConfigMutation.mutate({
       data: buildUpdatedConfigWithRules(
@@ -162,20 +141,6 @@ export function DnsRulesPage() {
         title={t("pages.dnsRules.title")}
       />
 
-      {saveSuccessMessage ? (
-        <Alert className="border-success/30 bg-success/5 text-success">
-          <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {configQuery.isLoading ? (
         <TableSkeleton />
       ) : configQuery.isError ? (
@@ -186,12 +151,10 @@ export function DnsRulesPage() {
         />
       ) : (
         <>
-          <SectionCard
-            description={t("pages.dnsRules.fallback.description")}
-            title={t("pages.dnsRules.fallback.title")}
-          >
+          <Card>
+            <CardContent>
             <Field>
-              <FieldLabel>{t("pages.dnsRules.fallback.field")}</FieldLabel>
+              <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
               <FieldContent>
                 <Select
                   disabled={isPending || !loadedConfig}
@@ -214,14 +177,20 @@ export function DnsRulesPage() {
                 </Select>
                 <FieldHint
                   description={
-                    serverTags.length > 0
-                      ? t("pages.dnsRules.fallback.available", { tags: serverTags.join(", ") })
-                      : t("pages.dnsRules.fallback.noneDefined")
+                    serverTags.length === 0 ? (
+                      <>
+                        {t("pages.dnsRules.fallback.description")}{" "}
+                        {t("pages.dnsRules.fallback.noneDefined")}
+                      </>
+                    ) : (
+                      t("pages.dnsRules.fallback.description")
+                    )
                   }
                 />
               </FieldContent>
             </Field>
-          </SectionCard>
+            </CardContent>
+          </Card>
 
           {rules.length === 0 ? (
             <ListPlaceholder

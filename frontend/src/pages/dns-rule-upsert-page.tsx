@@ -205,9 +205,17 @@ export function DnsRuleUpsertPage({
   return (
     <UpsertPage
       cardDescription={t("pages.dnsRuleUpsert.cardDescription")}
-      cardTitle={mode === "create" ? t("pages.dnsRuleUpsert.createTitle") : t("pages.dnsRuleUpsert.editTitle")}
+      cardTitle={
+        mode === "create"
+          ? t("pages.dnsRuleUpsert.createTitle")
+          : t("pages.dnsRuleUpsert.editTitle")
+      }
       description={t("pages.dnsRuleUpsert.description")}
-      title={mode === "create" ? t("pages.dnsRuleUpsert.createTitle") : t("pages.dnsRuleUpsert.editTitle")}
+      title={
+        mode === "create"
+          ? t("pages.dnsRuleUpsert.createTitle")
+          : t("pages.dnsRuleUpsert.editTitle")
+      }
     >
       {saveSuccessMessage ? (
         <Alert className="mb-4 border-success/30 bg-success/5 text-success">
@@ -234,20 +242,26 @@ export function DnsRuleUpsertPage({
           <form.Field name="rule.server">
             {(field) => (
               <Field>
-                <FieldLabel>{t("pages.dnsRuleUpsert.fields.serverTag")}</FieldLabel>
+                <FieldLabel>
+                  {t("pages.dnsRuleUpsert.fields.serverTag")}
+                </FieldLabel>
                 <FieldContent>
                   <Select
-                    onValueChange={(server) =>
-                      field.handleChange(server ?? "")
-                    }
+                    onValueChange={(server) => field.handleChange(server ?? "")}
                     value={field.state.value}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={t("pages.dnsRuleUpsert.fields.selectServer")} />
+                      <SelectValue
+                        placeholder={t(
+                          "pages.dnsRuleUpsert.fields.selectServer"
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>{t("pages.dnsRuleUpsert.fields.dnsServers")}</SelectLabel>
+                        <SelectLabel>
+                          {t("pages.dnsRuleUpsert.fields.dnsServers")}
+                        </SelectLabel>
                         {serverTags.map((serverTag) => (
                           <SelectItem key={serverTag} value={serverTag}>
                             {serverTag}
@@ -258,9 +272,7 @@ export function DnsRuleUpsertPage({
                   </Select>
                   <FieldHint
                     description={
-                      serverTags.length > 0
-                        ? t("pages.dnsRuleUpsert.fields.availableServers", { tags: serverTags.join(", ") })
-                        : t("pages.dnsRuleUpsert.fields.noServers")
+                      serverTags.length === 0 && t("pages.dnsRuleUpsert.fields.noServers")
                     }
                   />
                 </FieldContent>
@@ -271,20 +283,25 @@ export function DnsRuleUpsertPage({
           <form.Field name="rule.lists">
             {(field) => (
               <Field>
-                <FieldLabel>{t("pages.dnsRuleUpsert.fields.listNames")}</FieldLabel>
+                <FieldLabel>
+                  {t("pages.dnsRuleUpsert.fields.listNames")}
+                </FieldLabel>
                 <FieldContent>
                   <MultiSelectList
                     onChange={field.handleChange}
                     options={listOptions}
-                    placeholderDescription={t("pages.dnsRuleUpsert.fields.listPlaceholderDescription")}
-                    placeholderTitle={t("pages.dnsRuleUpsert.fields.noListsSelected")}
+                    placeholderDescription={t(
+                      "pages.dnsRuleUpsert.fields.listPlaceholderDescription"
+                    )}
+                    placeholderTitle={t(
+                      "pages.dnsRuleUpsert.fields.noListsSelected"
+                    )}
                     value={field.state.value}
                   />
                   <FieldHint
                     description={
-                      listOptions.length > 0
-                        ? t("pages.dnsRuleUpsert.fields.knownLists", { lists: listOptions.join(", ") })
-                        : t("pages.dnsRuleUpsert.fields.noLists")
+                      listOptions.length === 0 &&
+                      t("pages.dnsRuleUpsert.fields.noLists")
                     }
                   />
                 </FieldContent>
@@ -307,7 +324,9 @@ export function DnsRuleUpsertPage({
             size="xl"
             type="submit"
           >
-            {mode === "create" ? t("pages.dnsRuleUpsert.actions.create") : t("pages.dnsRuleUpsert.actions.save")}
+            {mode === "create"
+              ? t("pages.dnsRuleUpsert.actions.create")
+              : t("pages.dnsRuleUpsert.actions.save")}
           </Button>
         </div>
       </form>

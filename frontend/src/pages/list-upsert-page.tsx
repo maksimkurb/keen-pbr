@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -52,6 +53,7 @@ export function ListUpsertPage({
   mode: "create" | "edit"
   listId?: string
 }) {
+  const { t } = useTranslation()
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
   const configQuery = useGetConfig()
@@ -76,8 +78,8 @@ export function ListUpsertPage({
       onSuccess: async () => {
         setSaveSuccessMessage(
           mode === "create"
-            ? "List staged. Apply config to persist it."
-            : "List changes staged. Apply config to persist them."
+            ? t("pages.listUpsert.messages.created")
+            : t("pages.listUpsert.messages.updated")
         )
         setMutationErrorMessage(null)
         setApiError(null)
@@ -99,14 +101,14 @@ export function ListUpsertPage({
   if (mode === "edit" && !draft) {
     return (
       <UpsertPage
-        cardDescription="The requested list could not be found."
-        cardTitle="Missing list"
-        description="Return to the lists table and choose a valid entry."
-        title="Edit list"
+        cardDescription={t("pages.listUpsert.missing.cardDescription")}
+        cardTitle={t("pages.listUpsert.missing.cardTitle")}
+        description={t("pages.listUpsert.missing.description")}
+        title={t("pages.listUpsert.editTitle")}
       >
         <div className="flex justify-end">
           <Button onClick={() => navigate("/lists")} variant="outline">
-            Back to lists
+            {t("pages.listUpsert.missing.back")}
           </Button>
         </div>
       </UpsertPage>
@@ -115,12 +117,20 @@ export function ListUpsertPage({
 
   return (
     <UpsertPage
-      cardDescription="Review the list source, TTL, and matching entries before saving."
+      cardDescription={t("pages.listUpsert.cardDescription")}
       cardTitle={
-        mode === "create" ? "Create list" : `Edit ${draft?.name ?? "list"}`
+        mode === "create"
+          ? t("pages.listUpsert.createTitle")
+          : t("pages.listUpsert.editCardTitle", {
+              name: draft?.name ?? t("pages.listUpsert.fallbackName"),
+            })
       }
-      description="Lists can be backed by files, builtin sources, or remote URLs."
-      title={mode === "create" ? "Create list" : "Edit list"}
+      description={t("pages.listUpsert.description")}
+      title={
+        mode === "create"
+          ? t("pages.listUpsert.createTitle")
+          : t("pages.listUpsert.editTitle")
+      }
     >
       {saveSuccessMessage ? (
         <Alert className="border-success/30 bg-success/5 text-success">
@@ -188,6 +198,7 @@ function ListForm({
   onErrorMessageChange: (message: string | null) => void
   onSubmit: (draft: ListDraft) => void
 }) {
+  const { t } = useTranslation()
   const form = useForm({
     defaultValues: draft,
     onSubmit: ({ value }) => {
@@ -232,13 +243,15 @@ function ListForm({
               getListNameError(
                 value,
                 existingListNames,
-                isCreate ? undefined : draft.name
+                isCreate ? undefined : draft.name,
+                t
               ) ?? undefined,
             onChange: ({ value }) =>
               getListNameError(
                 value,
                 existingListNames,
-                isCreate ? undefined : draft.name
+                isCreate ? undefined : draft.name,
+                t
               ) ?? undefined,
           }}
         >
@@ -247,7 +260,9 @@ function ListForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="list-name">Name</FieldLabel>
+                <FieldLabel htmlFor="list-name">
+                  {t("pages.listUpsert.fields.name")}
+                </FieldLabel>
                 <FieldContent>
                   <Input
                     aria-invalid={Boolean(error)}
@@ -258,7 +273,7 @@ function ListForm({
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="Use a stable identifier so rules and references remain easy to follow."
+                    description={t("pages.listUpsert.fields.nameHint")}
                     error={error ?? null}
                   />
                 </FieldContent>
@@ -270,8 +285,8 @@ function ListForm({
         <form.Field
           name="ttlMs"
           validators={{
-            onMount: ({ value }) => getTtlError(value) ?? undefined,
-            onChange: ({ value }) => getTtlError(value) ?? undefined,
+            onMount: ({ value }) => getTtlError(value, t) ?? undefined,
+            onChange: ({ value }) => getTtlError(value, t) ?? undefined,
           }}
         >
           {(field) => {
@@ -279,7 +294,9 @@ function ListForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="list-ttl-ms">TTL ms</FieldLabel>
+                <FieldLabel htmlFor="list-ttl-ms">
+                  {t("pages.listUpsert.fields.ttlMs")}
+                </FieldLabel>
                 <FieldContent>
                   <Input
                     aria-invalid={Boolean(error)}
@@ -289,7 +306,7 @@ function ListForm({
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="How long resolved IPs from domains in this list stay in the IP set; 0 means no timeout."
+                    description={t("pages.listUpsert.fields.ttlMsHint")}
                     error={error ?? null}
                   />
                 </FieldContent>
@@ -301,7 +318,9 @@ function ListForm({
         <form.Field name="url">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor="list-url">Remote URL</FieldLabel>
+              <FieldLabel htmlFor="list-url">
+                {t("pages.listUpsert.fields.url")}
+              </FieldLabel>
               <FieldContent>
                 <Input
                   id="list-url"
@@ -309,7 +328,7 @@ function ListForm({
                   onChange={(event) => field.handleChange(event.target.value)}
                   value={field.state.value}
                 />
-                <FieldHint description="Optional remote source loaded over HTTP or HTTPS and merged into the list." />
+                <FieldHint description={t("pages.listUpsert.fields.urlHint")} />
               </FieldContent>
             </Field>
           )}
@@ -318,7 +337,9 @@ function ListForm({
         <form.Field name="file">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor="list-file">Local file</FieldLabel>
+              <FieldLabel htmlFor="list-file">
+                {t("pages.listUpsert.fields.file")}
+              </FieldLabel>
               <FieldContent>
                 <Input
                   id="list-file"
@@ -326,7 +347,9 @@ function ListForm({
                   onChange={(event) => field.handleChange(event.target.value)}
                   value={field.state.value}
                 />
-                <FieldHint description="Optional local file path. File entries are merged with any inline domains, IPs, and remote URL data." />
+                <FieldHint
+                  description={t("pages.listUpsert.fields.fileHint")}
+                />
               </FieldContent>
             </Field>
           )}
@@ -341,6 +364,7 @@ function ListForm({
                 file: fieldApi.form.getFieldValue("file"),
                 domains: value,
                 ipCidrs: fieldApi.form.getFieldValue("ipCidrs"),
+                t,
               }) ?? undefined,
             onChangeListenTo: ["url", "file", "ipCidrs"],
             onChange: ({ value, fieldApi }) =>
@@ -349,6 +373,7 @@ function ListForm({
                 file: fieldApi.form.getFieldValue("file"),
                 domains: value,
                 ipCidrs: fieldApi.form.getFieldValue("ipCidrs"),
+                t,
               }) ?? undefined,
           }}
         >
@@ -357,7 +382,9 @@ function ListForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="list-domains">Domains</FieldLabel>
+                <FieldLabel htmlFor="list-domains">
+                  {t("pages.listUpsert.fields.domains")}
+                </FieldLabel>
                 <FieldContent>
                   <Textarea
                     aria-invalid={Boolean(error)}
@@ -368,7 +395,7 @@ function ListForm({
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="Inline domain patterns. Writing example.com automatically includes all subdomains."
+                    description={t("pages.listUpsert.fields.domainsHint")}
                     error={error ?? null}
                   />
                 </FieldContent>
@@ -386,6 +413,7 @@ function ListForm({
                 file: fieldApi.form.getFieldValue("file"),
                 domains: fieldApi.form.getFieldValue("domains"),
                 ipCidrs: value,
+                t,
               }) ?? undefined,
             onChangeListenTo: ["url", "file", "domains"],
             onChange: ({ value, fieldApi }) =>
@@ -394,6 +422,7 @@ function ListForm({
                 file: fieldApi.form.getFieldValue("file"),
                 domains: fieldApi.form.getFieldValue("domains"),
                 ipCidrs: value,
+                t,
               }) ?? undefined,
           }}
         >
@@ -402,7 +431,9 @@ function ListForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="list-ip-cidrs">IP CIDRs</FieldLabel>
+                <FieldLabel htmlFor="list-ip-cidrs">
+                  {t("pages.listUpsert.fields.ipCidrs")}
+                </FieldLabel>
                 <FieldContent>
                   <Textarea
                     aria-invalid={Boolean(error)}
@@ -413,7 +444,7 @@ function ListForm({
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="Inline IP addresses or CIDR ranges, for example 93.184.216.34, 10.0.0.0/8, or 2001:db8::/32."
+                    description={t("pages.listUpsert.fields.ipCidrsHint")}
                     error={error ?? null}
                   />
                 </FieldContent>
@@ -424,7 +455,7 @@ function ListForm({
       </FieldGroup>
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
-          Cancel
+          {t("common.cancel")}
         </Button>
         <form.Subscribe
           selector={(state) => ({
@@ -438,10 +469,10 @@ function ListForm({
               type="submit"
             >
               {isPending
-                ? "Saving..."
+                ? t("pages.listUpsert.actions.saving")
                 : mode === "create"
-                  ? "Create list"
-                  : "Save list"}
+                  ? t("pages.listUpsert.actions.create")
+                  : t("pages.listUpsert.actions.save")}
             </Button>
           )}
         </form.Subscribe>
@@ -530,24 +561,31 @@ function getFirstFieldError(errors: unknown[]) {
 function getListNameError(
   value: string,
   existingListNames: string[],
-  currentName?: string
+  currentName?: string,
+  t?: (key: string) => string
 ) {
   const trimmedName = value.trim()
   if (!trimmedName) {
-    return "Name is required."
+    return t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required."
   }
 
   if (existingListNames.includes(trimmedName) && trimmedName !== currentName) {
-    return "A list with this name already exists."
+    return (
+      t?.("pages.listUpsert.validation.duplicateName") ??
+      "A list with this name already exists."
+    )
   }
 
   return null
 }
 
-function getTtlError(value: string) {
+function getTtlError(value: string, t?: (key: string) => string) {
   const trimmed = value.trim()
   if (!/^\d+$/.test(trimmed)) {
-    return "TTL must be a non-negative integer."
+    return (
+      t?.("pages.listUpsert.validation.invalidTtl") ??
+      "TTL must be a non-negative integer."
+    )
   }
 
   return null
@@ -558,11 +596,13 @@ function getListContentError({
   file,
   domains,
   ipCidrs,
+  t,
 }: {
   url: string
   file: string
   domains: string
   ipCidrs: string
+  t?: (key: string) => string
 }) {
   const hasUrl = url.trim().length > 0
   const hasFile = file.trim().length > 0
@@ -570,7 +610,10 @@ function getListContentError({
   const hasIpCidrs = splitLines(ipCidrs).length > 0
 
   if (!hasUrl && !hasFile && !hasDomains && !hasIpCidrs) {
-    return "At least one source is required: remote URL, local file, domains, or IP CIDRs."
+    return (
+      t?.("pages.listUpsert.validation.sourceRequired") ??
+      "At least one source is required: remote URL, local file, domains, or IP CIDRs."
+    )
   }
 
   return null

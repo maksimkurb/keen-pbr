@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react"
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -45,14 +46,15 @@ type ListTableRow = {
 }
 
 export function ListsPage() {
+  const { t } = useTranslation()
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
 
   const tableRows = useMemo(
-    () => getTableRowsFromListMap(loadedConfig?.lists),
-    [loadedConfig?.lists]
+    () => getTableRowsFromListMap(loadedConfig?.lists, t),
+    [loadedConfig?.lists, t]
   )
 
   const postConfigMutation = usePostConfigMutation({
@@ -89,8 +91,8 @@ export function ListsPage() {
 
     const deletePrompt =
       hasRouteReferenceUpdates || hasDnsReferenceUpdates
-        ? `Delete list "${listId}" and remove its references from routing/dns rules?`
-        : `Delete list "${listId}"?`
+        ? t("pages.lists.delete.confirmWithReferences", { name: listId })
+        : t("pages.lists.delete.confirm", { name: listId })
 
     if (!window.confirm(deletePrompt)) {
       return
@@ -103,10 +105,12 @@ export function ListsPage() {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/lists/create")}>New list</Button>
+          <Button onClick={() => navigate("/lists/create")}>
+            {t("pages.lists.actions.new")}
+          </Button>
         }
-        description="Manage domain and IP lists used by routing rules."
-        title="Lists"
+        description={t("pages.lists.description")}
+        title={t("pages.lists.title")}
       />
 
       {postConfigMutation.error ? (
@@ -121,18 +125,24 @@ export function ListsPage() {
         <TableSkeleton />
       ) : configQuery.isError ? (
         <ListPlaceholder
-          description="We can't load lists right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("common.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : tableRows.length === 0 ? (
         <ListPlaceholder
-          description="Create your first list to use it in routing and DNS rules."
-          title="No lists yet"
+          description={t("pages.lists.empty.description")}
+          title={t("pages.lists.empty.title")}
         />
       ) : (
         <DataTable
-          headers={["Name", "Type", "Stats", "Rules", "Actions"]}
+          headers={[
+            t("pages.lists.headers.name"),
+            t("pages.lists.headers.type"),
+            t("pages.lists.headers.stats"),
+            t("pages.lists.headers.rules"),
+            t("pages.lists.headers.actions"),
+          ]}
           rows={tableRows.map((list) => [
             <div className="space-y-1" key={`${list.id}-name`}>
               <div className="flex items-center gap-2 font-medium">
@@ -146,7 +156,7 @@ export function ListsPage() {
               </div>
             </div>,
             <Badge key={`${list.id}-type`} variant={list.typeVariant}>
-              {getListSourceLabel(list.draft)}
+              {getListSourceLabel(list.draft, t)}
             </Badge>,
             <StatsDisplay
               ipv4Subnets={list.stats.ipv4Subnets}
@@ -160,16 +170,21 @@ export function ListsPage() {
             <ActionButtons
               actions={[
                 ...(list.canRefresh
-                  ? [{ icon: <RefreshCw className="h-4 w-4" />, label: "Update" }]
+                  ? [
+                      {
+                        icon: <RefreshCw className="h-4 w-4" />,
+                        label: t("pages.lists.actions.update"),
+                      },
+                    ]
                   : []),
                 {
                   icon: <Pencil className="h-4 w-4" />,
-                  label: "Edit",
+                  label: t("common.edit"),
                   onClick: () => navigate(`/lists/${list.id}/edit`),
                 },
                 {
                   icon: <Trash2 className="h-4 w-4" />,
-                  label: "Delete",
+                  label: t("common.delete"),
                   onClick: () => handleDelete(list.id),
                 },
               ]}
@@ -182,7 +197,10 @@ export function ListsPage() {
   )
 }
 
-function getTableRowsFromListMap(lists: ConfigObject["lists"]): ListTableRow[] {
+function getTableRowsFromListMap(
+  lists: ConfigObject["lists"],
+  t: (key: string) => string
+): ListTableRow[] {
   return Object.entries(lists ?? {}).map(([name, listConfig]) => {
     const domains = listConfig.domains ?? []
     const ipCidrs = listConfig.ip_cidrs ?? []
@@ -197,14 +215,15 @@ function getTableRowsFromListMap(lists: ConfigObject["lists"]): ListTableRow[] {
         url: listConfig.url ?? "",
         file: listConfig.file ?? "",
       },
-      locationLabel: listConfig.file || listConfig.url || "inline",
+      locationLabel:
+        listConfig.file || listConfig.url || t("pages.lists.location.inline"),
       locationIcon: listConfig.url ? "external" : undefined,
       typeVariant: listConfig.url
         ? "default"
         : listConfig.file
           ? "secondary"
           : "outline",
-      rule: "configured",
+      rule: t("pages.lists.rule.configured"),
       stats: {
         totalHosts: domains.length + ipCidrs.length,
         ipv4Subnets: ipCidrs.filter((value) => value.includes(".")).length,
@@ -247,7 +266,10 @@ function buildUpdatedConfigForListDelete(
 }
 
 
-function getListSourceLabel(draft: ListDraft) {
+function getListSourceLabel(
+  draft: ListDraft,
+  t: (key: string) => string
+) {
   const sources = [
     draft.url ? "url" : null,
     draft.file ? "file" : null,
@@ -256,12 +278,8 @@ function getListSourceLabel(draft: ListDraft) {
   ].filter(Boolean)
 
   if (sources.length === 0) {
-    return "empty"
+    return t("pages.lists.source.empty")
   }
 
-  if (sources.length === 1) {
-    return sources[0]
-  }
-
-  return "combined"
+  return sources.map((source) => t(`pages.lists.source.${source}`)).join(", ")
 }

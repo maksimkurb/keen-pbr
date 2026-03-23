@@ -1,14 +1,7 @@
 import { ListPlus, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
-import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import {
   Empty,
   EmptyContent,
@@ -18,18 +11,25 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function MultiSelectList({
   options,
   unavailable = [],
   value,
   onChange,
-  addLabel = "Add item",
-  emptyMessage = "No items found.",
-  groupLabel = "Available items",
-  placeholderTitle = "No items selected",
-  placeholderDescription = "Add your first item to start building this list.",
+  addLabel,
+  emptyMessage,
+  placeholderTitle,
+  placeholderDescription,
 }: {
   options: string[]
   unavailable?: string[]
@@ -41,50 +41,58 @@ export function MultiSelectList({
   placeholderTitle?: string
   placeholderDescription?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const { t } = useTranslation()
+  const [selectValue, setSelectValue] = useState("")
   const selectedSet = new Set(value)
   const unavailableSet = new Set(unavailable)
+  const availableOptions = options.filter(
+    (option) => !selectedSet.has(option) && !unavailableSet.has(option)
+  )
 
-  const addButton = (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger render={<Button size="sm" type="button" variant="outline" />}>
+  const resolvedAddLabel = addLabel ?? t("common.multiSelectList.addItem")
+  const resolvedEmptyMessage =
+    emptyMessage ?? t("common.multiSelectList.emptyMessage")
+  const resolvedPlaceholderTitle =
+    placeholderTitle ?? t("common.multiSelectList.noItemsSelected")
+  const resolvedPlaceholderDescription =
+    placeholderDescription ?? t("common.multiSelectList.addFirstItem")
+
+  const addSelect = (
+    <Select
+      onValueChange={(nextValue) => {
+        if (!nextValue) {
+          return
+        }
+
+        onChange([...value, nextValue])
+        setSelectValue("")
+      }}
+      value={selectValue}
+    >
+      <SelectTrigger
+        className="w-full sm:w-auto sm:min-w-52"
+        disabled={availableOptions.length === 0}
+        size="sm"
+      >
         <Plus className="h-4 w-4" />
-        {addLabel}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[280px] p-0" sideOffset={2}>
-        <Command>
-          <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
-            <CommandGroup heading={groupLabel}>
-              {options.map((option) => {
-                const selected = selectedSet.has(option)
-                const disabled = selected || unavailableSet.has(option)
-
-                return (
-                  <CommandItem
-                    data-checked={selected}
-                    disabled={disabled}
-                    key={option}
-                    onSelect={() => {
-                      if (disabled) {
-                        return
-                      }
-
-                      onChange([...value, option])
-                      setOpen(false)
-                    }}
-                  >
-                    <span className={disabled ? "text-muted-foreground" : undefined}>
-                      {option}
-                    </span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        <SelectValue
+          placeholder={
+            availableOptions.length > 0
+              ? resolvedAddLabel
+              : resolvedEmptyMessage
+          }
+        />
+      </SelectTrigger>
+      <SelectContent alignItemWithTrigger={false} align="start">
+        <SelectGroup>
+          {availableOptions.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   )
 
   return (
@@ -98,7 +106,7 @@ export function MultiSelectList({
               </InputGroupAddon>
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
-                  aria-label={`Remove ${item}`}
+                  aria-label={t("common.multiSelectList.removeItem", { item })}
                   className="text-destructive hover:text-destructive"
                   onClick={() => onChange(value.filter((current) => current !== item))}
                   size="icon-xs"
@@ -108,7 +116,7 @@ export function MultiSelectList({
               </InputGroupAddon>
             </InputGroup>
           ))}
-          <div>{addButton}</div>
+          <div>{addSelect}</div>
         </div>
       ) : (
         <Empty className="border border-border">
@@ -116,10 +124,10 @@ export function MultiSelectList({
             <EmptyMedia variant="icon">
               <ListPlus />
             </EmptyMedia>
-            <EmptyTitle>{placeholderTitle}</EmptyTitle>
-            <EmptyDescription>{placeholderDescription}</EmptyDescription>
+            <EmptyTitle>{resolvedPlaceholderTitle}</EmptyTitle>
+            <EmptyDescription>{resolvedPlaceholderDescription}</EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>{addButton}</EmptyContent>
+          <EmptyContent>{addSelect}</EmptyContent>
         </Empty>
       )}
     </div>

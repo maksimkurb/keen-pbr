@@ -38,7 +38,7 @@ export function AppBrandHeader({
       </div>
       <div className="grid min-w-0 flex-1 text-left leading-tight">
         <span className="truncate text-base font-medium">keen-pbr</span>
-        <span className="truncate text-sm text-muted-foreground">{t("brand.tagline")}</span>
+        <span className="truncate text-xs text-muted-foreground">{t("brand.tagline")}</span>
       </div>
     </div>
   )

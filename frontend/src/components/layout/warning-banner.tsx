@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next"
 
 import { useGetHealthService, useGetConfig } from "@/api/queries"
-import { usePostConfigSaveMutation, usePostReloadMutation } from "@/api/mutations"
+import {
+  usePostConfigSaveMutation,
+  usePostReloadMutation,
+} from "@/api/mutations"
 import { selectConfigIsDraft } from "@/api/selectors"
 import {
   Alert,
@@ -30,7 +33,8 @@ export function WarningBanner({
   const postConfigSaveMutation = usePostConfigSaveMutation()
   const postReloadMutation = usePostReloadMutation()
 
-  const serviceHealth = healthQuery.data?.status === 200 ? healthQuery.data.data : null
+  const serviceHealth =
+    healthQuery.data?.status === 200 ? healthQuery.data.data : null
   const isDraft =
     serviceHealth?.config_is_draft ?? selectConfigIsDraft(configQuery.data)
   const expectedResolverHash = serviceHealth?.resolver_config_hash
@@ -50,36 +54,34 @@ export function WarningBanner({
         {isDraft ? (
           <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
             <AlertTitle>{t("warning.compact.draftPending")}</AlertTitle>
-            <AlertAction className="right-1.5 top-1.5">
-              <Button
-                disabled={postConfigSaveMutation.isPending}
-                onClick={() => postConfigSaveMutation.mutate()}
-                size="xs"
-                variant="outline"
-              >
-                {postConfigSaveMutation.isPending
-                  ? t("warning.compact.saving")
-                  : t("warning.compact.apply")}
-              </Button>
-            </AlertAction>
+            <Button
+              disabled={postConfigSaveMutation.isPending}
+              onClick={() => postConfigSaveMutation.mutate()}
+              size="xs"
+              variant="outline"
+              className="mt-2"
+            >
+              {postConfigSaveMutation.isPending
+                ? t("warning.compact.saving")
+                : t("warning.compact.apply")}
+            </Button>
           </Alert>
         ) : null}
 
         {hasResolverHashMismatch ? (
           <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
             <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
-            <AlertAction className="right-1.5 top-1.5">
-              <Button
-                disabled={postReloadMutation.isPending}
-                onClick={() => postReloadMutation.mutate()}
-                size="xs"
-                variant="outline"
-              >
-                {postReloadMutation.isPending
-                  ? t("warning.compact.reloading")
-                  : t("warning.compact.reload")}
-              </Button>
-            </AlertAction>
+            <Button
+              disabled={postReloadMutation.isPending}
+              onClick={() => postReloadMutation.mutate()}
+              size="xs"
+              variant="outline"
+              className="mt-2"
+            >
+              {postReloadMutation.isPending
+                ? t("warning.compact.reloading")
+                : t("warning.compact.reload")}
+            </Button>
           </Alert>
         ) : null}
       </div>
@@ -91,7 +93,9 @@ export function WarningBanner({
       {isDraft ? (
         <Alert className="border-warning/50 bg-warning/5 text-warning-foreground">
           <AlertTitle>{t("warning.full.unsavedTitle")}</AlertTitle>
-          <AlertDescription>{t("warning.full.unsavedDescription")}</AlertDescription>
+          <AlertDescription>
+            {t("warning.full.unsavedDescription")}
+          </AlertDescription>
           <AlertAction>
             <Button
               disabled={postConfigSaveMutation.isPending}
