@@ -48,7 +48,7 @@ export function RoutingHealthCard({
         <StatusBadge tone={mapCheckTone(routingHealth.overall)}>
           {routingHealth.overall}
         </StatusBadge>
-        <Badge variant="outline" className="text-xs">
+        <Badge size="xs" variant="outline">
           {routingHealth.firewall_backend}
         </Badge>
         <ChainStateBadge
@@ -217,16 +217,7 @@ function ChainStateBadge({
   children: ReactNode
 }) {
   return (
-    <Badge
-      variant="outline"
-      className={
-        isHealthy
-          ? "border-success/40 bg-success/10 text-success"
-          : "border-warning/40 bg-warning/10 text-warning-foreground"
-      }
-    >
-      {children}
-    </Badge>
+    <Badge variant={isHealthy ? "success" : "warning"}>{children}</Badge>
   )
 }
 
@@ -238,15 +229,9 @@ function PresenceBadge({
   present: boolean
 }) {
   return (
-    <span
-      className={
-        present
-          ? "rounded-full bg-success/10 px-2 py-0.5 text-[11px] text-success"
-          : "rounded-full bg-warning/10 px-2 py-0.5 text-[11px] text-warning-foreground"
-      }
-    >
+    <Badge size="xs" variant={present ? "success" : "warning"}>
       {label} {present ? "yes" : "no"}
-    </span>
+    </Badge>
   )
 }
 
@@ -387,20 +372,12 @@ function StatusBadge({
   children: string
 }) {
   if (tone === "warning") {
-    return (
-      <Badge className="bg-warning text-warning-foreground">{children}</Badge>
-    )
+    return <Badge variant="warning">{children}</Badge>
   }
 
   if (tone === "degraded") {
-    return (
-      <Badge className="bg-destructive text-destructive-foreground">
-        {children}
-      </Badge>
-    )
+    return <Badge variant="destructive">{children}</Badge>
   }
 
-  return (
-    <Badge className="bg-success text-success-foreground">{children}</Badge>
-  )
+  return <Badge variant="success">{children}</Badge>
 }

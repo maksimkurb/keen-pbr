@@ -52,7 +52,7 @@ export function WarningBanner({
     return (
       <div className={cn("space-y-2", className)}>
         {isDraft ? (
-          <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
+          <Alert variant="warning">
             <AlertTitle>{t("warning.compact.draftPending")}</AlertTitle>
             <Button
               disabled={postConfigSaveMutation.isPending}
@@ -69,7 +69,7 @@ export function WarningBanner({
         ) : null}
 
         {hasResolverHashMismatch ? (
-          <Alert className="mb-0 border-warning/50 bg-warning/5 px-2 py-1.5 text-warning-foreground [&_[data-slot=alert-title]]:text-xs [&_[data-slot=alert-title]]:font-medium">
+          <Alert variant="warning">
             <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
             <Button
               disabled={postReloadMutation.isPending}

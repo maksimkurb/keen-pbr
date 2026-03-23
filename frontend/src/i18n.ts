@@ -24,7 +24,8 @@ const resources = {
         moveUp: "Move up",
         moveDown: "Move down",
         unableToLoadData: "Unable to load data",
-        loadErrorDescription: "We can't load data right now. Try refreshing the page.",
+        loadErrorDescription:
+          "We can't load data right now. Try refreshing the page.",
         noneShort: "-",
         multiSelectList: {
           addItem: "Add item",
@@ -138,7 +139,8 @@ const resources = {
             disabledDescription:
               "Enable `config.dns.dns_test_server` to run the built-in DNS self-check.",
             configuredServers: "Configured DNS servers",
-            noServers: "No upstream DNS servers are configured in `config.dns.servers`.",
+            noServers:
+              "No upstream DNS servers are configured in `config.dns.servers`.",
             via: "via {{detour}}",
             checking: "Checking...",
             runAgain: "Run again",
@@ -156,12 +158,14 @@ const resources = {
           status: {
             disabled: "Built-in DNS probe is disabled in config.",
             browserSuccess: "Browser DNS lookup reached the test server.",
-            manualProbeSuccess: "Manual device DNS lookup reached the test server.",
+            manualProbeSuccess:
+              "Manual device DNS lookup reached the test server.",
             browserProbeFail:
               "Browser request completed, but the DNS probe did not see the lookup.",
             sseUnavailable:
               "The live DNS event stream is unavailable, so the check could not start.",
-            browserFail: "Browser request ran, but the DNS lookup was not observed.",
+            browserFail:
+              "Browser request ran, but the DNS lookup was not observed.",
             sseFail: "Live DNS event stream is not connected.",
             browserChecking: "Checking browser DNS path...",
             browserUnknown: "Browser DNS status is not known yet.",
@@ -174,12 +178,16 @@ const resources = {
       pages: {
         routingRules: {
           title: "Routing rules",
-          description: "Manage route rule order and field-level match criteria.",
+          description:
+            "Manage route rule order and field-level match criteria.",
           actions: { addRule: "Add rule" },
-          messages: { saved: "Routing rules staged. Apply config to persist them." },
+          messages: {
+            saved: "Routing rules staged. Apply config to persist them.",
+          },
           empty: {
             title: "No routing rules yet",
-            description: "Add a routing rule to direct matching traffic to an outbound.",
+            description:
+              "Add a routing rule to direct matching traffic to an outbound.",
           },
           headers: {
             order: "Order",
@@ -199,13 +207,18 @@ const resources = {
         routingRuleUpsert: {
           createTitle: "Create routing rule",
           editTitle: "Edit routing rule",
-          description: "Routing rules are matched in order and direct traffic to configured outbounds.",
-          cardDescription: "Choose lists and outbound, then optionally narrow by protocol, ports, and addresses.",
-          messages: { saved: "Routing rule staged. Apply config to persist it." },
+          description:
+            "Routing rules are matched in order and direct traffic to configured outbounds.",
+          cardDescription:
+            "Choose lists and outbound, then optionally narrow by protocol, ports, and addresses.",
+          messages: {
+            saved: "Routing rule staged. Apply config to persist it.",
+          },
           missing: {
             cardDescription: "The requested routing rule could not be found.",
             cardTitle: "Missing routing rule",
-            description: "Return to the routing rules table and choose a valid entry.",
+            description:
+              "Return to the routing rules table and choose a valid entry.",
             back: "Back to routing rules",
           },
           validation: {
@@ -215,7 +228,8 @@ const resources = {
           actions: { create: "Create rule", save: "Save rule" },
           fields: {
             lists: "Lists",
-            listsPlaceholderDescription: "Add one or more configured list names to match for this rule.",
+            listsPlaceholderDescription:
+              "Add one or more configured list names to match for this rule.",
             noListsSelected: "No lists selected",
             listsHint: "List names are sourced from config.lists keys.",
             proto: "Proto",
@@ -225,10 +239,12 @@ const resources = {
             protoHint: 'Use "any" by leaving proto empty.',
             sourcePort: "Source port",
             destinationPort: "Destination port",
-            portHint: "Comma-separated ports or ranges. Optional leading ! to negate.",
+            portHint:
+              "Comma-separated ports or ranges. Optional leading ! to negate.",
             sourceAddresses: "Source addresses",
             destinationAddresses: "Destination addresses",
-            addressHint: "Comma-separated IP addresses or CIDRs. Optional leading ! negates the entire spec.",
+            addressHint:
+              "Comma-separated IP addresses or CIDRs. Optional leading ! negates the entire spec.",
             outbound: "Outbound",
             selectOutbound: "Select outbound",
             configuredOutbounds: "Configured outbounds",
@@ -261,86 +277,112 @@ const resources = {
             urltest: "outbounds={{value}}",
           },
           messages: {
-            missingReference: 'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
+            missingReference:
+              'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
           },
         },
         outboundUpsert: {
           createTitle: "Create outbound",
           editTitle: "Edit outbound",
           editCardTitle: "Edit {{tag}}",
-          description: "Outbounds define direct interfaces or grouped urltest behavior.",
+          description:
+            "Outbounds define direct interfaces or grouped urltest behavior.",
           cardDescription: "Configure interface or urltest outbounds.",
           missing: {
             cardDescription: "The requested outbound could not be found.",
             cardTitle: "Missing outbound",
-            description: "Return to the outbounds table and choose a valid entry.",
+            description:
+              "Return to the outbounds table and choose a valid entry.",
             back: "Back to outbounds",
           },
           actions: { create: "Create outbound", save: "Save outbound" },
-          common: { noExtraFields: "No additional fields are required for this type beyond the outbound tag." },
+          common: {
+            noExtraFields:
+              "No additional fields are required for this type beyond the outbound tag.",
+          },
           fields: {
             tag: "Tag",
-            tagHint: "Use a unique outbound tag that can be referenced by rules, groups, and detours.",
+            tagHint:
+              "Use a unique outbound tag that can be referenced by rules, groups, and detours.",
             type: "Type",
             outboundTypes: "Outbound types",
-            typeHint: "Choose the outbound type defined by the config schema; the form below updates to show only relevant fields.",
+            typeHint:
+              "Choose the outbound type defined by the config schema; the form below updates to show only relevant fields.",
           },
           interface: {
             title: "Interface settings",
-            description: "Configure the egress device and optional gateway for interface-based routing.",
+            description:
+              "Configure the egress device and optional gateway for interface-based routing.",
             interface: "Interface",
-            interfaceHint: "Network interface name used for egress, such as tun0 or eth0.",
+            interfaceHint:
+              "Network interface name used for egress, such as tun0 or eth0.",
             gateway: "Gateway",
-            gatewayHint: "Optional gateway IP address for this interface outbound.",
+            gatewayHint:
+              "Optional gateway IP address for this interface outbound.",
           },
           table: {
             title: "Table settings",
-            description: "Map this outbound to an existing kernel routing table.",
+            description:
+              "Map this outbound to an existing kernel routing table.",
             field: "Table ID",
             hint: "Kernel routing table ID required for the table outbound type.",
           },
           blackhole: {
             title: "Blackhole behavior",
-            description: "Blackhole outbounds intentionally drop all matching traffic.",
+            description:
+              "Blackhole outbounds intentionally drop all matching traffic.",
           },
           ignore: {
             title: "Ignore behavior",
-            description: "Ignore outbounds pass matching traffic through without policy-based routing changes.",
+            description:
+              "Ignore outbounds pass matching traffic through without policy-based routing changes.",
           },
           urltest: {
             groupsTitle: "Outbound groups",
-            groupsDescription: "Groups are tried in order. Each group selects from interface outbounds, and order acts as priority.",
+            groupsDescription:
+              "Groups are tried in order. Each group selects from interface outbounds, and order acts as priority.",
             groupTitle: "Group {{index}}",
-            groupDescription: "Priority {{index}}. Earlier groups are preferred before later ones.",
+            groupDescription:
+              "Priority {{index}}. Earlier groups are preferred before later ones.",
             interfaceOutbounds: "Interface outbounds",
             addOutbound: "Add outbound",
             noInterfaceOutbounds: "No interface outbounds found.",
-            addInterfaceOutboundsFirst: "Add interface outbounds first so urltest groups have selectable targets.",
+            addInterfaceOutboundsFirst:
+              "Add interface outbounds first so urltest groups have selectable targets.",
             addGroup: "Add group",
             probingTitle: "Probing and retries",
-            probingDescription: "Configure how the urltest group probes candidates and retries failed checks.",
+            probingDescription:
+              "Configure how the urltest group probes candidates and retries failed checks.",
             probeUrl: "Probe URL",
-            probeUrlHint: "Health checks fetch this URL to measure availability and latency.",
+            probeUrlHint:
+              "Health checks fetch this URL to measure availability and latency.",
             interval: "Interval (ms)",
             intervalHint: "Interval between probes.",
             tolerance: "Tolerance (ms)",
-            toleranceHint: "If latency difference is not larger than this value, destination will not change.",
+            toleranceHint:
+              "If latency difference is not larger than this value, destination will not change.",
             retryAttempts: "Retry attempts",
-            retryAttemptsHint: "Number of extra probe attempts before the check is treated as failed.",
+            retryAttemptsHint:
+              "Number of extra probe attempts before the check is treated as failed.",
             retryInterval: "Retry interval (ms)",
-            retryIntervalHint: "Delay between retry attempts after a failed probe.",
+            retryIntervalHint:
+              "Delay between retry attempts after a failed probe.",
           },
           circuitBreaker: {
             title: "Circuit breaker",
             description: "Fallback parameters when probing fails.",
             failures: "Failures before open",
-            failuresHint: "Open the circuit after this many consecutive failed checks.",
+            failuresHint:
+              "Open the circuit after this many consecutive failed checks.",
             successes: "Successes to close",
-            successesHint: "Close the circuit again after this many successful recovery probes.",
+            successesHint:
+              "Close the circuit again after this many successful recovery probes.",
             timeout: "Open timeout (ms)",
-            timeoutHint: "How long the circuit stays open before half-open probing resumes.",
+            timeoutHint:
+              "How long the circuit stays open before half-open probing resumes.",
             halfOpen: "Half-open probes",
-            halfOpenHint: "Maximum concurrent probes allowed while testing recovery.",
+            halfOpenHint:
+              "Maximum concurrent probes allowed while testing recovery.",
           },
           strictEnforcement: {
             label: "Strict enforcement",
@@ -351,18 +393,24 @@ const resources = {
           },
           validation: {
             duplicateTag: 'Outbound tag "{{tag}}" already exists.',
-            missingReference: 'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
+            missingReference:
+              'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',
           },
         },
         dnsRules: {
           title: "DNS Rules",
           description: "Assign routing lists to specific DNS servers.",
           actions: { add: "Add DNS rule" },
-          messages: { saved: "DNS configuration staged. Apply config to persist it." },
+          messages: {
+            saved: "DNS configuration staged. Apply config to persist it.",
+          },
           validation: {
-            invalidFallback: "Fallback server must reference an existing server tag.",
-            invalidFallbackChange: "Cannot change fallback while DNS rules are invalid.",
-            invalidResult: "Cannot save because resulting DNS rules are invalid.",
+            invalidFallback:
+              "Fallback server must reference an existing server tag.",
+            invalidFallbackChange:
+              "Cannot change fallback while DNS rules are invalid.",
+            invalidResult:
+              "Cannot save because resulting DNS rules are invalid.",
           },
           fallback: {
             title: "Fallback",
@@ -374,7 +422,8 @@ const resources = {
           },
           empty: {
             title: "No DNS rules yet",
-            description: "Add a DNS rule to map configured lists to DNS servers.",
+            description:
+              "Add a DNS rule to map configured lists to DNS servers.",
           },
           headers: {
             lists: "Lists",
@@ -405,21 +454,25 @@ const resources = {
             dnsServers: "DNS servers",
             noServers: "No DNS servers defined on the DNS Servers page.",
             listNames: "List names",
-            listPlaceholderDescription: "Add one or more configured list names to match this DNS rule.",
+            listPlaceholderDescription:
+              "Add one or more configured list names to match this DNS rule.",
             noListsSelected: "No lists selected",
-            noLists: "No lists found. Please, create first filter on the Lists page.",
+            noLists:
+              "No lists found. Please, create first filter on the Lists page.",
           },
         },
         lists: {
           title: "Lists",
-          description: "Manage domain and IP lists used by routing and DNS rules.",
+          description:
+            "Manage domain and IP lists used by routing and DNS rules.",
           actions: {
             new: "New list",
             update: "Update",
           },
           empty: {
             title: "No lists yet",
-            description: "Create your first list to use it in routing and DNS rules.",
+            description:
+              "Create your first list to use it in routing and DNS rules.",
           },
           headers: {
             name: "Name",
@@ -452,8 +505,10 @@ const resources = {
           editTitle: "Edit list",
           editCardTitle: "Edit {{name}}",
           fallbackName: "list",
-          description: "Lists can be backed by files, built-in sources, or remote URLs.",
-          cardDescription: "Review the list source, TTL, and matching entries before saving.",
+          description:
+            "Lists can be backed by files, built-in sources, or remote URLs.",
+          cardDescription:
+            "Review the list source, TTL, and matching entries before saving.",
           messages: {
             created: "List staged. Apply config to persist it.",
             updated: "List changes staged. Apply config to persist them.",
@@ -469,19 +524,48 @@ const resources = {
             create: "Create list",
             save: "Save list",
           },
+          common: {
+            title: "List settings",
+            description: "Set the list identity before choosing the source.",
+          },
+          sourceSwitcher: {
+            title: "Source type",
+            description:
+              "Choose which source to edit. Legacy lists with multiple saved sources stay visible until you switch.",
+            confirmChange:
+              "Switch source type and clear the currently filled fields?",
+          },
+          sourceGroups: {
+            url: {
+              button: "URL",
+              title: "Remote URL",
+              description:
+                "Load list entries from a remote HTTP or HTTPS endpoint and control the cache lifetime for resolved IPs.",
+            },
+            file: {
+              button: "File on device",
+              title: "Local file",
+              description:
+                "Read list entries from a file available on the router.",
+            },
+            inline: {
+              button: "Domains / IPs",
+              title: "Domains / IPs",
+              description: "Enter domains and IPs directly in the config.",
+            },
+          },
           fields: {
             name: "Name",
             nameHint:
               "Use a stable identifier so rules and references remain easy to follow.",
-            ttlMs: "TTL ms",
+            ttlMs: "TTL (milliseconds)",
             ttlMsHint:
               "How long resolved IPs from domains in this list stay in the IP set; 0 means no timeout.",
             url: "Remote URL",
-            urlHint:
-              "Optional remote source loaded over HTTP or HTTPS and merged into the list.",
-            file: "Local file",
+            urlHint: "Direct URL to the file with domains / IPs or CIDRs, one per line.",
+            file: "Absolute file path",
             fileHint:
-              "Optional local file path. File entries are merged with any inline domains, IPs, and remote URL data.",
+              "File must be accessible to the keen-pbr process and contain domains or IPs/CIDRs, one per line.",
             domains: "Domains",
             domainsHint:
               "Inline domain patterns. Writing example.com automatically includes all subdomains.",
@@ -493,8 +577,6 @@ const resources = {
             nameRequired: "Name is required.",
             duplicateName: "A list with this name already exists.",
             invalidTtl: "TTL must be a non-negative integer.",
-            sourceRequired:
-              "At least one source is required: remote URL, local file, domains, or IP CIDRs.",
           },
         },
       },
@@ -515,14 +597,16 @@ const resources = {
         moveUp: "Переместить вверх",
         moveDown: "Переместить вниз",
         unableToLoadData: "Не удалось загрузить данные",
-        loadErrorDescription: "Сейчас не получается загрузить данные. Попробуйте обновить страницу.",
+        loadErrorDescription:
+          "Сейчас не получается загрузить данные. Попробуйте обновить страницу.",
         noneShort: "-",
         multiSelectList: {
           addItem: "Добавить элемент",
           emptyMessage: "Элементы не найдены.",
           availableItems: "Доступные элементы",
           noItemsSelected: "Элементы не выбраны",
-          addFirstItem: "Добавьте первый элемент, чтобы начать формировать этот список.",
+          addFirstItem:
+            "Добавьте первый элемент, чтобы начать формировать этот список.",
           removeItem: "Удалить {{item}}",
         },
       },
@@ -600,7 +684,8 @@ const resources = {
           title: "Состояние выходов",
           loadError: "Не удалось загрузить состояние выходов.",
           emptyTitle: "Выходы не настроены",
-          emptyDescription: "Добавьте выходы, чтобы увидеть проверки состояния.",
+          emptyDescription:
+            "Добавьте выходы, чтобы увидеть проверки состояния.",
           inUse: "Используется",
           urltestTitle: "urltest",
           headers: {
@@ -619,7 +704,8 @@ const resources = {
           title: "Состояние правил маршрутизации",
           loadError: "Не удалось загрузить проверки маршрутизации.",
           emptyTitle: "Проверки маршрутизации ещё не появились",
-          emptyDescription: "Проверки маршрутизации появятся после следующей перезагрузки.",
+          emptyDescription:
+            "Проверки маршрутизации появятся после следующей перезагрузки.",
         },
         dnsCheck: {
           card: {
@@ -629,7 +715,8 @@ const resources = {
             disabledDescription:
               "Включите `config.dns.dns_test_server`, чтобы запустить встроенную самопроверку DNS.",
             configuredServers: "Настроенные DNS-серверы",
-            noServers: "На странице DNS-серверов не определено ни одного DNS-сервера.",
+            noServers:
+              "На странице DNS-серверов не определено ни одного DNS-сервера.",
             via: "через {{detour}}",
             checking: "Проверка...",
             runAgain: "Запустить снова",
@@ -647,12 +734,14 @@ const resources = {
           status: {
             disabled: "Встроенный DNS-пробник отключён в конфиге.",
             browserSuccess: "DNS-запрос из браузера достиг тестового сервера.",
-            manualProbeSuccess: "Ручной DNS-запрос с устройства достиг тестового сервера.",
+            manualProbeSuccess:
+              "Ручной DNS-запрос с устройства достиг тестового сервера.",
             browserProbeFail:
               "Запрос браузера завершился, но DNS-пробник не увидел lookup.",
             sseUnavailable:
               "Поток событий DNS в реальном времени недоступен, поэтому проверка не смогла запуститься.",
-            browserFail: "Запрос браузера выполнился, но DNS lookup не был замечен.",
+            browserFail:
+              "Запрос браузера выполнился, но DNS lookup не был замечен.",
             sseFail: "Поток событий DNS в реальном времени не подключён.",
             browserChecking: "Проверяем DNS-путь браузера...",
             browserUnknown: "Статус DNS в браузере пока неизвестен.",
@@ -665,12 +754,17 @@ const resources = {
       pages: {
         routingRules: {
           title: "Правила маршрутизации",
-          description: "Управляйте порядком правил маршрутизации и критериями сопоставления.",
+          description:
+            "Управляйте порядком правил маршрутизации и критериями сопоставления.",
           actions: { addRule: "Добавить правило" },
-          messages: { saved: "Правила маршрутизации сохранены в черновик. Примените конфиг, чтобы записать их." },
+          messages: {
+            saved:
+              "Правила маршрутизации сохранены в черновик. Примените конфиг, чтобы записать их.",
+          },
           empty: {
             title: "Правил маршрутизации пока нет",
-            description: "Добавьте правило маршрутизации, чтобы направлять подходящий трафик в outbound.",
+            description:
+              "Добавьте правило маршрутизации, чтобы направлять подходящий трафик в outbound.",
           },
           headers: {
             order: "Порядок",
@@ -690,13 +784,19 @@ const resources = {
         routingRuleUpsert: {
           createTitle: "Создать правило маршрутизации",
           editTitle: "Изменить правило маршрутизации",
-          description: "Правила маршрутизации проверяются по порядку и направляют трафик в настроенные outbounds.",
-          cardDescription: "Выберите списки и outbound, затем при необходимости сузьте правило по протоколу, портам и адресам.",
-          messages: { saved: "Правило маршрутизации сохранено в черновик. Примените конфиг, чтобы записать его." },
+          description:
+            "Правила маршрутизации проверяются по порядку и направляют трафик в настроенные outbounds.",
+          cardDescription:
+            "Выберите списки и outbound, затем при необходимости сузьте правило по протоколу, портам и адресам.",
+          messages: {
+            saved:
+              "Правило маршрутизации сохранено в черновик. Примените конфиг, чтобы записать его.",
+          },
           missing: {
             cardDescription: "Запрошенное правило маршрутизации не найдено.",
             cardTitle: "Правило не найдено",
-            description: "Вернитесь к таблице правил маршрутизации и выберите корректную запись.",
+            description:
+              "Вернитесь к таблице правил маршрутизации и выберите корректную запись.",
             back: "Назад к правилам маршрутизации",
           },
           validation: {
@@ -706,7 +806,8 @@ const resources = {
           actions: { create: "Создать правило", save: "Сохранить правило" },
           fields: {
             lists: "Списки",
-            listsPlaceholderDescription: "Добавьте один или несколько настроенных списков для этого правила.",
+            listsPlaceholderDescription:
+              "Добавьте один или несколько настроенных списков для этого правила.",
             noListsSelected: "Списки не выбраны",
             listsHint: "Названия списков берутся из ключей config.lists.",
             proto: "Протокол",
@@ -716,10 +817,12 @@ const resources = {
             protoHint: 'Оставьте proto пустым, чтобы использовать "любой".',
             sourcePort: "Исходный порт",
             destinationPort: "Порт назначения",
-            portHint: "Порты или диапазоны через запятую. Для отрицания можно добавить ! в начале.",
+            portHint:
+              "Порты или диапазоны через запятую. Для отрицания можно добавить ! в начале.",
             sourceAddresses: "Исходные адреса",
             destinationAddresses: "Адреса назначения",
-            addressHint: "IP-адреса или CIDR через запятую. ! в начале инвертирует всё выражение.",
+            addressHint:
+              "IP-адреса или CIDR через запятую. ! в начале инвертирует всё выражение.",
             outbound: "Outbound",
             selectOutbound: "Выберите outbound",
             configuredOutbounds: "Настроенные outbounds",
@@ -734,11 +837,13 @@ const resources = {
         },
         outbounds: {
           title: "Интерфейсы / выходы",
-          description: "Outbounds, на которые будет поступать трафик. Это может быть интерфейс, существующая таблица маршрутизации или авто-переключаемый интерфейс.",
+          description:
+            "Outbounds, на которые будет поступать трафик. Это может быть интерфейс, существующая таблица маршрутизации или авто-переключаемый интерфейс.",
           actions: { new: "Новый outbound" },
           empty: {
             title: "Outbounds пока нет",
-            description: "Добавьте outbound, чтобы начать строить поведение маршрутизации.",
+            description:
+              "Добавьте outbound, чтобы начать строить поведение маршрутизации.",
           },
           headers: {
             tag: "Тег",
@@ -752,86 +857,112 @@ const resources = {
             urltest: "outbounds={{value}}",
           },
           messages: {
-            missingReference: 'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
+            missingReference:
+              'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
           },
         },
         outboundUpsert: {
           createTitle: "Создать outbound",
           editTitle: "Изменить outbound",
           editCardTitle: "Изменить {{tag}}",
-          description: "Outbounds определяют прямые интерфейсы или сгруппированное поведение urltest.",
+          description:
+            "Outbounds определяют прямые интерфейсы или сгруппированное поведение urltest.",
           cardDescription: "Настройте interface или urltest outbound.",
           missing: {
             cardDescription: "Запрошенный outbound не найден.",
             cardTitle: "Outbound не найден",
-            description: "Вернитесь к таблице outbounds и выберите корректную запись.",
+            description:
+              "Вернитесь к таблице outbounds и выберите корректную запись.",
             back: "Назад к outbounds",
           },
           actions: { create: "Создать outbound", save: "Сохранить outbound" },
-          common: { noExtraFields: "Для этого типа не нужны дополнительные поля, кроме тега outbound." },
+          common: {
+            noExtraFields:
+              "Для этого типа не нужны дополнительные поля, кроме тега outbound.",
+          },
           fields: {
             tag: "Тег",
-            tagHint: "Используйте уникальный тег outbound, на который могут ссылаться правила, группы и detour.",
+            tagHint:
+              "Используйте уникальный тег outbound, на который могут ссылаться правила, группы и detour.",
             type: "Тип",
             outboundTypes: "Типы outbound",
-            typeHint: "Выберите тип outbound из схемы конфига; форма ниже покажет только подходящие поля.",
+            typeHint:
+              "Выберите тип outbound из схемы конфига; форма ниже покажет только подходящие поля.",
           },
           interface: {
             title: "Настройки интерфейса",
-            description: "Настройте устройство выхода и необязательный шлюз для маршрутизации по интерфейсу.",
+            description:
+              "Настройте устройство выхода и необязательный шлюз для маршрутизации по интерфейсу.",
             interface: "Интерфейс",
-            interfaceHint: "Имя сетевого интерфейса для выхода, например tun0 или eth0.",
+            interfaceHint:
+              "Имя сетевого интерфейса для выхода, например tun0 или eth0.",
             gateway: "Шлюз",
-            gatewayHint: "Необязательный IP-адрес шлюза для этого interface outbound.",
+            gatewayHint:
+              "Необязательный IP-адрес шлюза для этого interface outbound.",
           },
           table: {
             title: "Настройки таблицы",
-            description: "Свяжите этот outbound с существующей таблицей маршрутизации ядра.",
+            description:
+              "Свяжите этот outbound с существующей таблицей маршрутизации ядра.",
             field: "ID таблицы",
             hint: "ID таблицы маршрутизации ядра, обязательный для типа table.",
           },
           blackhole: {
             title: "Поведение blackhole",
-            description: "Outbounds типа blackhole намеренно отбрасывают весь подходящий трафик.",
+            description:
+              "Outbounds типа blackhole намеренно отбрасывают весь подходящий трафик.",
           },
           ignore: {
             title: "Поведение ignore",
-            description: "Outbounds типа ignore пропускают подходящий трафик без изменений policy-based routing.",
+            description:
+              "Outbounds типа ignore пропускают подходящий трафик без изменений policy-based routing.",
           },
           urltest: {
             groupsTitle: "Группы outbound",
-            groupsDescription: "Группы пробуются по порядку. Каждая группа выбирает из interface outbounds, а порядок задаёт приоритет.",
+            groupsDescription:
+              "Группы пробуются по порядку. Каждая группа выбирает из interface outbounds, а порядок задаёт приоритет.",
             groupTitle: "Группа {{index}}",
-            groupDescription: "Приоритет {{index}}. Более ранние группы предпочтительнее поздних.",
+            groupDescription:
+              "Приоритет {{index}}. Более ранние группы предпочтительнее поздних.",
             interfaceOutbounds: "Interface outbounds",
             addOutbound: "Добавить outbound",
             noInterfaceOutbounds: "Interface outbounds не найдены.",
-            addInterfaceOutboundsFirst: "Сначала добавьте interface outbounds, чтобы у групп urltest были цели для выбора.",
+            addInterfaceOutboundsFirst:
+              "Сначала добавьте interface outbounds, чтобы у групп urltest были цели для выбора.",
             addGroup: "Добавить группу",
             probingTitle: "Проверки и повторы",
-            probingDescription: "Настройте, как группа urltest проверяет кандидатов и повторяет неудачные проверки.",
+            probingDescription:
+              "Настройте, как группа urltest проверяет кандидатов и повторяет неудачные проверки.",
             probeUrl: "URL проверки",
-            probeUrlHint: "Проверки доступности загружают этот URL, чтобы измерить доступность и задержку.",
+            probeUrlHint:
+              "Проверки доступности загружают этот URL, чтобы измерить доступность и задержку.",
             interval: "Интервал (мс)",
             intervalHint: "Интервал между проверками.",
             tolerance: "Допуск (мс)",
-            toleranceHint: "Если разница задержки не превышает это значение, направление не меняется.",
+            toleranceHint:
+              "Если разница задержки не превышает это значение, направление не меняется.",
             retryAttempts: "Число повторов",
-            retryAttemptsHint: "Сколько дополнительных попыток выполнить перед тем, как считать проверку неуспешной.",
+            retryAttemptsHint:
+              "Сколько дополнительных попыток выполнить перед тем, как считать проверку неуспешной.",
             retryInterval: "Интервал повтора (мс)",
-            retryIntervalHint: "Задержка между повторными попытками после неудачной проверки.",
+            retryIntervalHint:
+              "Задержка между повторными попытками после неудачной проверки.",
           },
           circuitBreaker: {
             title: "Circuit breaker",
             description: "Параметры резервного поведения при сбоях проверок.",
             failures: "Ошибок до открытия",
-            failuresHint: "Открывать circuit после такого числа последовательных неудачных проверок.",
+            failuresHint:
+              "Открывать circuit после такого числа последовательных неудачных проверок.",
             successes: "Успехов до закрытия",
-            successesHint: "Снова закрывать circuit после такого числа успешных восстановительных проверок.",
+            successesHint:
+              "Снова закрывать circuit после такого числа успешных восстановительных проверок.",
             timeout: "Таймаут открытия (мс)",
-            timeoutHint: "Как долго circuit остаётся открытым перед переходом к half-open проверкам.",
+            timeoutHint:
+              "Как долго circuit остаётся открытым перед переходом к half-open проверкам.",
             halfOpen: "Half-open проверки",
-            halfOpenHint: "Максимум одновременных проверок при тестировании восстановления.",
+            halfOpenHint:
+              "Максимум одновременных проверок при тестировании восстановления.",
           },
           strictEnforcement: {
             label: "Строгое применение",
@@ -842,22 +973,31 @@ const resources = {
           },
           validation: {
             duplicateTag: 'Тег outbound "{{tag}}" уже существует.',
-            missingReference: 'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
+            missingReference:
+              'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
           },
         },
         dnsRules: {
           title: "DNS-правила",
-          description: "Назначайте списки маршрутизации конкретным DNS-серверам.",
+          description:
+            "Назначайте списки маршрутизации конкретным DNS-серверам.",
           actions: { add: "Добавить DNS-правило" },
-          messages: { saved: "Конфигурация DNS сохранена в черновик. Примените конфиг, чтобы записать её." },
+          messages: {
+            saved:
+              "Конфигурация DNS сохранена в черновик. Примените конфиг, чтобы записать её.",
+          },
           validation: {
-            invalidFallback: "Fallback-сервер должен ссылаться на существующий тег сервера.",
-            invalidFallbackChange: "Нельзя изменить fallback, пока DNS-правила невалидны.",
-            invalidResult: "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
+            invalidFallback:
+              "Fallback-сервер должен ссылаться на существующий тег сервера.",
+            invalidFallbackChange:
+              "Нельзя изменить fallback, пока DNS-правила невалидны.",
+            invalidResult:
+              "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
           },
           fallback: {
             title: "Основной DNS-сервер",
-            description: "Используется, когда ни одно DNS-правило не подходит текущему запросу.",
+            description:
+              "Используется, когда ни одно DNS-правило не подходит текущему запросу.",
             field: "Тег DNS сервера по умолчанию",
             placeholder: "Выберите DNS-сервер",
             group: "DNS-серверы",
@@ -865,7 +1005,8 @@ const resources = {
           },
           empty: {
             title: "DNS-правил пока нет",
-            description: "Добавьте DNS-правило, чтобы связывать настроенные списки с DNS-серверами.",
+            description:
+              "Добавьте DNS-правило, чтобы связывать настроенные списки с DNS-серверами.",
           },
           headers: {
             lists: "Списки",
@@ -876,9 +1017,14 @@ const resources = {
         dnsRuleUpsert: {
           createTitle: "Создать DNS-правило",
           editTitle: "Изменить DNS-правило",
-          description: "DNS-правила связывают настроенные списки с тегами DNS-серверов.",
-          cardDescription: "Укажите имена списков и DNS-сервер для этого правила.",
-          messages: { saved: "DNS-правило сохранено в черновик. Примените конфиг, чтобы записать его." },
+          description:
+            "DNS-правила связывают настроенные списки с тегами DNS-серверов.",
+          cardDescription:
+            "Укажите имена списков и DNS-сервер для этого правила.",
+          messages: {
+            saved:
+              "DNS-правило сохранено в черновик. Примените конфиг, чтобы записать его.",
+          },
           validation: {
             notFound: "Запрошенное DNS-правило не найдено.",
             fixErrors: "Исправьте ошибки валидации перед сохранением.",
@@ -896,9 +1042,11 @@ const resources = {
             dnsServers: "DNS-серверы",
             noServers: "В config.dns.servers не определены DNS-серверы.",
             listNames: "Имена списков",
-            listPlaceholderDescription: "Добавьте один или несколько настроенных списков для этого DNS-правила.",
+            listPlaceholderDescription:
+              "Добавьте один или несколько настроенных списков для этого DNS-правила.",
             noListsSelected: "Списки не выбраны",
-            noLists: "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
+            noLists:
+              "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
           },
         },
         lists: {
@@ -958,7 +1106,8 @@ const resources = {
           missing: {
             cardDescription: "Запрошенный список не найден.",
             cardTitle: "Список не найден",
-            description: "Вернитесь к таблице списков и выберите корректную запись.",
+            description:
+              "Вернитесь к таблице списков и выберите корректную запись.",
             back: "Назад к спискам",
           },
           actions: {
@@ -966,19 +1115,50 @@ const resources = {
             create: "Создать список",
             save: "Сохранить список",
           },
+          common: {
+            title: "Параметры списка",
+            description:
+              "Задайте идентификатор списка перед выбором источника.",
+          },
+          sourceSwitcher: {
+            title: "Тип источника",
+            description:
+              "Выберите источник для редактирования. Старые списки с несколькими сохранёнными источниками останутся видимыми, пока вы не переключитесь.",
+            confirmChange:
+              "Переключить тип источника и очистить заполненные сейчас поля?",
+          },
+          sourceGroups: {
+            url: {
+              button: "URL",
+              title: "Удалённый URL",
+              description:
+                "Загружает записи списка с удалённой точки по HTTP или HTTPS и задаёт время жизни кэша для разрешённых IP.",
+            },
+            file: {
+              button: "Файл на устройстве",
+              title: "Локальный файл",
+              description:
+                "Читает записи списка из файла, доступного на роутере.",
+            },
+            inline: {
+              button: "Домены / IP",
+              title: "Домены / IP",
+              description:
+                "Позволяет указать домены и IP-адреса прямо в конфиге.",
+            },
+          },
           fields: {
             name: "Имя",
             nameHint:
               "Используйте стабильный идентификатор, чтобы правила и ссылки на список оставались понятными.",
-            ttlMs: "TTL мс",
+            ttlMs: "TTL (миллисекунды)",
             ttlMsHint:
               "Как долго IP-адреса, разрешённые из доменов этого списка, хранятся в IP set; 0 означает отсутствие таймаута.",
             url: "Удалённый URL",
-            urlHint:
-              "Необязательный удалённый источник по HTTP или HTTPS, который объединяется со списком.",
-            file: "Локальный файл",
+            urlHint: "Прямой URL к файлу с доменами / IP-адресами или CIDR, по одному в строке.",
+            file: "Абсолютный путь к файлу",
             fileHint:
-              "Необязательный путь к локальному файлу. Его содержимое объединяется с inline-доменами, IP-адресами и данными из удалённого URL.",
+              "Файл должен быть доступен процессу keen-pbr и содержать домены или IP/CIDR, по одному в строке.",
             domains: "Домены",
             domainsHint:
               "Встроенные шаблоны доменов. Если указать example.com, автоматически будут включены и все поддомены.",
@@ -990,8 +1170,6 @@ const resources = {
             nameRequired: "Имя обязательно.",
             duplicateName: "Список с таким именем уже существует.",
             invalidTtl: "TTL должен быть неотрицательным целым числом.",
-            sourceRequired:
-              "Нужен хотя бы один источник: удалённый URL, локальный файл, домены или IP CIDR.",
           },
         },
       },

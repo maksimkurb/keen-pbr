@@ -161,7 +161,9 @@ export function RoutingRulesPage() {
                 </li>
               ))}
             </ul>,
-            <Badge key={`${row.id}-outbound`}>{row.outbound}</Badge>,
+            <Badge key={`${row.id}-outbound`} variant="outline">
+              {row.outbound}
+            </Badge>,
             <ActionButtons
               actions={[
                 {

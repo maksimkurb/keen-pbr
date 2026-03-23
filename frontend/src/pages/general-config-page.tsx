@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -145,6 +146,28 @@ function LoadedGeneralConfigPage({
     },
   })
 
+  const formValues = useStore(form.store, (state) => state.values)
+  const hasServerErrors = useStore(
+    form.store,
+    (state) =>
+      state.errorMap.onServer !== undefined ||
+      Object.values(state.fieldMetaBase).some(
+        (fieldMeta) => fieldMeta?.errorMap?.onServer !== undefined
+      )
+  )
+  const previousValuesRef = useRef(formValues)
+
+  useEffect(() => {
+    const previousValues = previousValuesRef.current
+    previousValuesRef.current = formValues
+
+    if (previousValues === formValues || !hasServerErrors) {
+      return
+    }
+
+    clearFormServerErrors(form)
+    setMutationErrorMessage(null)
+  }, [form, formValues, hasServerErrors])
 
   const isPending = postConfigMutation.isPending
 

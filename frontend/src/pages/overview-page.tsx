@@ -81,7 +81,7 @@ export function OverviewPage() {
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <span>{outbound.tag}</span>
-          <Badge variant="outline" className="text-[11px]">
+          <Badge size="xs" variant="outline">
             {outbound.type}
           </Badge>
         </div>
@@ -410,22 +410,14 @@ function StatusBadge({
   children: string
 }) {
   if (tone === "warning") {
-    return (
-      <Badge className="bg-warning text-warning-foreground">{children}</Badge>
-    )
+    return <Badge variant="warning">{children}</Badge>
   }
 
   if (tone === "degraded") {
-    return (
-      <Badge className="bg-destructive text-destructive-foreground">
-        {children}
-      </Badge>
-    )
+    return <Badge variant="destructive">{children}</Badge>
   }
 
-  return (
-    <Badge className="bg-success text-success-foreground">{children}</Badge>
-  )
+  return <Badge variant="success">{children}</Badge>
 }
 
 function UrltestTagTree({
@@ -444,7 +436,7 @@ function UrltestTagTree({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="font-medium">{t("overview.outbounds.urltestTitle")}</div>
-        <Badge variant="outline" className="text-[11px]">
+        <Badge size="xs" variant="outline">
           urltest
         </Badge>
       </div>
@@ -493,9 +485,9 @@ function UrltestOutboundRow({
       <span className="ml-2 font-medium">{name}</span>
       <span className="ml-2 text-muted-foreground">{latency}</span>
       {active ? (
-        <Badge className="ml-2" variant="outline">
-          {t("overview.outbounds.inUse")}
-        </Badge>
+        <span className="ml-2">
+          <Badge variant="outline">{t("overview.outbounds.inUse")}</Badge>
+        </span>
       ) : null}
     </div>
   )
