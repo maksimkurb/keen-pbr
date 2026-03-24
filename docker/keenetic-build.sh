@@ -5,6 +5,7 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-/src}"
 RELEASE_DIR="${RELEASE_DIR:-/src/release_files}"
 FRONTEND_OUT_DIR="/tmp/keen-pbr-frontend-dist"
+BUILD_HEADLESS="${BUILD_HEADLESS:-false}"
 job_count="$(( $(nproc) - 1 ))"
 
 if (( job_count < 1 )); then
@@ -44,6 +45,12 @@ make package/keen-pbr/clean
 make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/keenetic/keen-pbr/Makefile" | head -1)"
-find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr*.ipk' | while read -r file; do
+find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r file; do
   cp "$file" "${RELEASE_DIR}/keen-pbr_${pkg_version}_keenetic_${KEENETIC_ARCH}.ipk"
 done
+
+if [[ "${BUILD_HEADLESS,,}" == "true" ]]; then
+  find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r file; do
+    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${pkg_version}_keenetic_${KEENETIC_ARCH}.ipk"
+  done
+fi

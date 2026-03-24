@@ -6,6 +6,7 @@ REPO_ROOT="${REPO_ROOT:-/src}"
 RELEASE_DIR="${RELEASE_DIR:-/src/release_files}"
 SDK_DIR="/work/sdk"
 FRONTEND_OUT_DIR="/tmp/keen-pbr-frontend-dist"
+BUILD_HEADLESS="${BUILD_HEADLESS:-false}"
 job_count="$(( $(nproc) - 1 ))"
 
 if (( job_count < 1 )); then
@@ -42,7 +43,14 @@ make package/keen-pbr/clean
 make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
 pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/openwrt/keen-pbr/Makefile" | head -1)"
-find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr*.ipk' -o -name 'keen-pbr*.apk' \) | while read -r file; do
+find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr_*.ipk' -o -name 'keen-pbr_*.apk' \) | while read -r file; do
   ext="${file##*.}"
   cp "$file" "${RELEASE_DIR}/keen-pbr_${pkg_version}_openwrt_${OPENWRT_VERSION}_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}.${ext}"
 done
+
+if [[ "${BUILD_HEADLESS,,}" == "true" ]]; then
+  find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr-headless_*.ipk' -o -name 'keen-pbr-headless_*.apk' \) | while read -r file; do
+    ext="${file##*.}"
+    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${pkg_version}_openwrt_${OPENWRT_VERSION}_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}.${ext}"
+  done
+fi
