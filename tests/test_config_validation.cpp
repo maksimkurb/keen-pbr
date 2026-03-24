@@ -23,8 +23,6 @@ static std::vector<ConfigValidationIssue> parse_issues(const std::string& json) 
         return {};
     } catch (const ConfigValidationError& e) {
         return e.issues();
-    } catch (const ConfigError&) {
-        return {};
     }
 }
 

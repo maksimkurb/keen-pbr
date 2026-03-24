@@ -157,6 +157,52 @@ std::optional<std::string> validate_address_spec(const std::optional<std::string
     return std::nullopt;
 }
 
+std::optional<std::string> get_optional_string_field(const json& object, const char* key) {
+    const auto it = object.find(key);
+    if (it == object.end() || it->is_null() || !it->is_string()) {
+        return std::nullopt;
+    }
+
+    return it->get<std::string>();
+}
+
+void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIssue>& issues) {
+    const auto route_it = root.find("route");
+    if (route_it == root.end() || !route_it->is_object()) {
+        return;
+    }
+
+    const auto rules_it = route_it->find("rules");
+    if (rules_it == route_it->end() || !rules_it->is_array()) {
+        return;
+    }
+
+    for (size_t index = 0; index < rules_it->size(); ++index) {
+        const auto& rule = rules_it->at(index);
+        if (!rule.is_object()) {
+            continue;
+        }
+
+        const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
+
+        if (auto error = validate_port_spec(get_optional_string_field(rule, "src_port"))) {
+            add_issue(issues, rule_path + ".src_port", *error);
+        }
+
+        if (auto error = validate_port_spec(get_optional_string_field(rule, "dest_port"))) {
+            add_issue(issues, rule_path + ".dest_port", *error);
+        }
+
+        if (auto error = validate_address_spec(get_optional_string_field(rule, "src_addr"))) {
+            add_issue(issues, rule_path + ".src_addr", *error);
+        }
+
+        if (auto error = validate_address_spec(get_optional_string_field(rule, "dest_addr"))) {
+            add_issue(issues, rule_path + ".dest_addr", *error);
+        }
+    }
+}
+
 } // namespace
 
 ConfigValidationError::ConfigValidationError(std::vector<ConfigValidationIssue> issues)
@@ -227,6 +273,7 @@ Config parse_config(const std::string& json_str) {
         parsed_json, "fwmark", "mask", "fwmark.mask", issues);
     validate_optional_integer_field(
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
+    validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
@@ -303,28 +350,6 @@ Config parse_config(const std::string& json_str) {
             add_issue(issues, list_path,
                       "List '" + name +
                           "' must have at least one of: url, domains, ip_cidrs, file");
-        }
-    }
-
-    const auto route_rules = cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
-    for (size_t index = 0; index < route_rules.size(); ++index) {
-        const auto& rule = route_rules[index];
-        const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
-
-        if (auto error = validate_port_spec(rule.src_port)) {
-            add_issue(issues, rule_path + ".src_port", *error);
-        }
-
-        if (auto error = validate_port_spec(rule.dest_port)) {
-            add_issue(issues, rule_path + ".dest_port", *error);
-        }
-
-        if (auto error = validate_address_spec(rule.src_addr)) {
-            add_issue(issues, rule_path + ".src_addr", *error);
-        }
-
-        if (auto error = validate_address_spec(rule.dest_addr)) {
-            add_issue(issues, rule_path + ".dest_addr", *error);
         }
     }
 
