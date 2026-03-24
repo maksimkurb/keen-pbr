@@ -8,14 +8,16 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
+import { RuntimeOutboundStateSummary } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +30,7 @@ type OutboundItem = {
   type: Outbound["type"]
   typeVariant?: "default" | "outline" | "secondary"
   summary: string
+  runtimeState?: RuntimeOutboundState
 }
 
 export function OutboundsPage() {
@@ -35,13 +38,25 @@ export function OutboundsPage() {
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
   const loadedConfig = selectConfig(configQuery.data)
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
   >(null)
 
+  const runtimeOutboundByTag = new Map(
+    (runtimeOutboundsQuery.data?.status === 200
+      ? runtimeOutboundsQuery.data.data.outbounds
+      : []
+    ).map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+  )
   const outboundItems = selectOutbounds(loadedConfig).map((outbound) =>
-    mapOutboundToItem(outbound, t)
+    mapOutboundToItem(outbound, runtimeOutboundByTag.get(outbound.tag), t)
   )
 
   const postConfigMutation = usePostConfigMutation({
@@ -55,6 +70,9 @@ export function OutboundsPage() {
           }),
           queryClient.invalidateQueries({
             queryKey: queryKeys.healthRouting(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.runtimeOutbounds(),
           }),
         ])
       },
@@ -127,6 +145,7 @@ export function OutboundsPage() {
             t("pages.outbounds.headers.tag"),
             t("pages.outbounds.headers.type"),
             t("pages.outbounds.headers.summary"),
+            t("pages.outbounds.headers.runtime"),
             t("pages.outbounds.headers.actions"),
           ]}
           rows={outboundItems.map((outbound) => [
@@ -142,6 +161,12 @@ export function OutboundsPage() {
             >
               {outbound.summary}
             </span>,
+            <RuntimeOutboundStateSummary
+              compact
+              key={`${outbound.id}-runtime`}
+              runtimeState={outbound.runtimeState}
+              t={t}
+            />,
             <ActionButtons
               actions={[
                 {
@@ -166,6 +191,7 @@ export function OutboundsPage() {
 
 function mapOutboundToItem(
   outbound: Outbound,
+  runtimeState: RuntimeOutboundState | undefined,
   t: (key: string, options?: Record<string, unknown>) => string
 ): OutboundItem {
   return {
@@ -174,6 +200,7 @@ function mapOutboundToItem(
     type: outbound.type,
     summary: getOutboundSummary(outbound, t),
     typeVariant: outbound.type === "interface" ? "outline" : undefined,
+    runtimeState,
   }
 }
 

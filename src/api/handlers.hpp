@@ -50,6 +50,7 @@ struct ApiContext {
     std::function<std::vector<Outbound>()> outbounds_fn;
     std::function<std::optional<UrltestState>(const std::string&)> urltest_state_fn;
     std::function<RoutingHealthReport()> routing_health_check_fn;
+    std::function<api::RuntimeOutboundsResponse()> runtime_outbounds_fn;
     std::function<std::string()> resolver_config_hash_fn;
     std::function<std::string()> resolver_config_hash_actual_fn;
 
@@ -78,6 +79,7 @@ struct ApiContext {
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/save     - persist staged config and reload
 //   GET  /api/health/routing  - routing and firewall health verification
+//   GET  /api/runtime/outbounds - live outbound/interface runtime state
 //   POST /api/routing/test    - test expected/actual routing for an IP or domain
 void register_api_handlers(ApiServer& server, ApiContext& ctx);
 

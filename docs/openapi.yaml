@@ -165,6 +165,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/RoutingHealthErrorResponse"
 
+  /api/runtime/outbounds:
+    get:
+      summary: Live outbound and interface runtime state
+      description: >
+        Returns the daemon's current outbound runtime state derived from the
+        live routing tables, urltest runtime selection, and current interface
+        reachability. Use this to distinguish the currently active interface
+        from interfaces that are merely available.
+      operationId: getRuntimeOutbounds
+      responses:
+        "200":
+          description: Live outbound/interface runtime state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeOutboundsResponse"
+
   /api/dns/test:
     get:
       summary: Stream DNS test queries
@@ -959,6 +976,93 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HealthEntry"
+
+    # -------------------------------------------------------------------------
+    # /api/runtime/outbounds
+    # -------------------------------------------------------------------------
+
+    RuntimeInterfaceStatus:
+      type: string
+      enum: [active, available, degraded, unavailable, unknown]
+      description: >
+        - active: interface is currently selected by the live service state
+        - available: interface is reachable and can be selected
+        - degraded: interface exists but recent checks failed
+        - unavailable: interface cannot currently be used
+        - unknown: runtime state could not be determined
+
+    RuntimeOutboundStatus:
+      type: string
+      enum: [healthy, degraded, unavailable, unknown]
+      description: >
+        - healthy: outbound has an active live interface/path
+        - degraded: outbound has partial availability or live/runtime mismatch
+        - unavailable: outbound currently has no usable interface/path
+        - unknown: runtime state is not applicable or cannot be determined
+
+    RuntimeInterfaceState:
+      type: object
+      required: [outbound_tag, status]
+      properties:
+        outbound_tag:
+          type: string
+          description: Configured child outbound tag for this interface candidate.
+          example: "vpn0"
+        interface_name:
+          type: string
+          description: Interface name when the candidate resolves to an interface outbound.
+          example: "tun0"
+        status:
+          $ref: "#/components/schemas/RuntimeInterfaceStatus"
+        is_active:
+          type: boolean
+          description: Whether this interface is the currently active one.
+          example: true
+        detail:
+          type: string
+          description: Optional runtime detail explaining degradation or mismatch.
+          example: "live route selection differs from urltest manager selection"
+
+    RuntimeOutboundState:
+      type: object
+      required: [tag, type, status, interfaces]
+      properties:
+        tag:
+          type: string
+          description: Configured outbound tag.
+          example: "auto-select"
+        type:
+          type: string
+          enum: [interface, table, blackhole, ignore, urltest]
+          example: "urltest"
+        status:
+          $ref: "#/components/schemas/RuntimeOutboundStatus"
+        active_outbound_tag:
+          type: string
+          description: Effective active outbound tag at runtime.
+          example: "vpn0"
+        active_interface_name:
+          type: string
+          description: Active interface derived from the live service state.
+          example: "tun0"
+        detail:
+          type: string
+          description: Optional runtime detail for mismatches or degraded state.
+          example: "live route selection differs from urltest manager selection"
+        interfaces:
+          type: array
+          description: Candidate interfaces or live interface paths for this outbound.
+          items:
+            $ref: "#/components/schemas/RuntimeInterfaceState"
+
+    RuntimeOutboundsResponse:
+      type: object
+      required: [outbounds]
+      properties:
+        outbounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeOutboundState"
 
     # -------------------------------------------------------------------------
     # /api/reload

@@ -25,6 +25,23 @@ export const ruTranslation = {
           removeItem: "Удалить {{item}}",
         },
       },
+      runtime: {
+        activeOutbound: "Активный outbound {{value}}",
+        activeInterface: "Активный {{value}}",
+        outboundStatus: {
+          healthy: "Исправен",
+          degraded: "Деградирован",
+          unavailable: "Недоступен",
+          unknown: "Неизвестно",
+        },
+        interfaceStatus: {
+          active: "Активен",
+          available: "Доступен",
+          degraded: "Деградирован",
+          unavailable: "Недоступен",
+          unknown: "Неизвестно",
+        },
+      },
       language: {
         selectorAria: "Выбор языка",
         english: "Английский",
@@ -355,6 +372,7 @@ export const ruTranslation = {
             order: "Порядок",
             criteria: "Условие",
             outbound: "Outbound",
+            runtime: "Состояние",
             actions: "Действия",
           },
           criteriaLabels: {
@@ -438,6 +456,7 @@ export const ruTranslation = {
             tag: "Название",
             type: "Тип",
             summary: "Детали",
+            runtime: "Состояние",
             actions: "Действия",
           },
           summary: {

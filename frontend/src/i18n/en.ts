@@ -24,6 +24,23 @@ export const enTranslation = {
           removeItem: "Remove {{item}}",
         },
       },
+      runtime: {
+        activeOutbound: "Active outbound {{value}}",
+        activeInterface: "Active {{value}}",
+        outboundStatus: {
+          healthy: "Healthy",
+          degraded: "Degraded",
+          unavailable: "Unavailable",
+          unknown: "Unknown",
+        },
+        interfaceStatus: {
+          active: "Active",
+          available: "Available",
+          degraded: "Degraded",
+          unavailable: "Unavailable",
+          unknown: "Unknown",
+        },
+      },
       language: {
         selectorAria: "Language selector",
         english: "English",
@@ -345,6 +362,7 @@ export const enTranslation = {
             order: "Order",
             criteria: "Match",
             outbound: "Outbound",
+            runtime: "Runtime",
             actions: "Actions",
           },
           criteriaLabels: {
@@ -425,6 +443,7 @@ export const enTranslation = {
             tag: "Name",
             type: "Type",
             summary: "Details",
+            runtime: "Runtime",
             actions: "Actions",
           },
           summary: {

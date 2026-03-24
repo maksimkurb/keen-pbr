@@ -6,13 +6,10 @@
  * OpenAPI spec version: 3.0.0
  */
 
-/**
- * Outbound type.
- */
-export type OutboundType = typeof OutboundType[keyof typeof OutboundType];
+export type RuntimeOutboundStateType = typeof RuntimeOutboundStateType[keyof typeof RuntimeOutboundStateType];
 
 
-export const OutboundType = {
+export const RuntimeOutboundStateType = {
   interface: 'interface',
   table: 'table',
   blackhole: 'blackhole',
