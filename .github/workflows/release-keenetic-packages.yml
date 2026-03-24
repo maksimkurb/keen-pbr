@@ -105,8 +105,6 @@ jobs:
           cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
-          rm -rf "$GITHUB_WORKSPACE/frontend/dist"
-          make package/keen-pbr-headless/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
           mkdir -p release_files

@@ -115,8 +115,6 @@ jobs:
           cp ../src/packages/openwrt/packages.config .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
-          rm -rf "$GITHUB_WORKSPACE/src/frontend/dist"
-          make package/keen-pbr-headless/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
       - name: Collect artifacts
         run: |
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
