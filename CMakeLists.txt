@@ -27,6 +27,7 @@ set(KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend" CACHE STRING
 # Dependencies
 find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
 find_library(LIBRESOLV resolv)
 if(LIBRESOLV)
   message(STATUS "Found libresolv: ${LIBRESOLV}")
@@ -138,6 +139,7 @@ target_link_libraries(keen-pbr PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
+  Threads::Threads
   fmt::fmt-header-only
   nlohmann_json::nlohmann_json
 )

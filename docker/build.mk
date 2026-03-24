@@ -5,6 +5,7 @@ DOCKER_OPENWRT_IMAGE_PREFIX ?= keen-pbr-openwrt-builder
 DOCKER_KEENETIC_IMAGE_PREFIX ?= keen-pbr-keenetic-builder
 OPENWRT_VERSION ?= 24.10.4
 REPO_ROOT ?= $(abspath $(CURDIR))
+BUILD_HEADLESS ?= false
 
 KEENETIC_CONTAINER = keen-pbr-keenetic-$(KEENETIC_ARCH)
 KEENETIC_IMAGE = $(DOCKER_KEENETIC_IMAGE_PREFIX):$(KEENETIC_ARCH)
@@ -38,7 +39,7 @@ docker-build-openwrt-image:
 list-openwrt-targets: ## List available OpenWrt targets from the workflow discovery script (optional OPENWRT_VERSION/OPENWRT_TARGET/OPENWRT_SUBTARGET filters)
 	@python3 "$(REPO_ROOT)/docker/list_openwrt_targets.py" "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" "$(REPO_ROOT)"
 
-docker-build-keenetic: ## Build Keenetic package locally in a persistent builder container (requires KEENETIC_ARCH=...)
+docker-build-keenetic: ## Build Keenetic package locally in a persistent builder container (requires KEENETIC_ARCH=..., optional BUILD_HEADLESS=true)
 	$(call require_var,KEENETIC_ARCH,KEENETIC_ARCH=<aarch64-3.10|mips-3.4|mipsel-3.4|x64-3.2|armv7-3.2> make docker-build-keenetic)
 	@mkdir -p "$(RELEASE_DIR)"
 	@if ! docker image inspect "$(KEENETIC_IMAGE)" >/dev/null 2>&1; then \
@@ -51,9 +52,9 @@ docker-build-keenetic: ## Build Keenetic package locally in a persistent builder
 	@set -e; \
 	trap 'docker stop "$(KEENETIC_CONTAINER)" >/dev/null 2>&1 || true' EXIT; \
 	docker start "$(KEENETIC_CONTAINER)" >/dev/null; \
-	docker exec -e KEENETIC_ARCH="$(KEENETIC_ARCH)" -e RELEASE_DIR="/src/$(RELEASE_DIR)" -e REPO_ROOT="/src" "$(KEENETIC_CONTAINER)" bash /src/docker/keenetic-build.sh
+	docker exec -e KEENETIC_ARCH="$(KEENETIC_ARCH)" -e BUILD_HEADLESS="$(BUILD_HEADLESS)" -e RELEASE_DIR="/src/$(RELEASE_DIR)" -e REPO_ROOT="/src" "$(KEENETIC_CONTAINER)" bash /src/docker/keenetic-build.sh
 
-docker-build-openwrt: ## Build OpenWrt package locally in a persistent builder container (requires OPENWRT_TARGET=... OPENWRT_SUBTARGET=...)
+docker-build-openwrt: ## Build OpenWrt package locally in a persistent builder container (requires OPENWRT_TARGET=... OPENWRT_SUBTARGET=..., optional BUILD_HEADLESS=true)
 	$(call require_var,OPENWRT_TARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt)
 	$(call require_var,OPENWRT_SUBTARGET,OPENWRT_TARGET=<target> OPENWRT_SUBTARGET=<subtarget> [OPENWRT_VERSION=$(OPENWRT_VERSION)] make docker-build-openwrt)
 	@mkdir -p "$(RELEASE_DIR)"
@@ -68,6 +69,7 @@ docker-build-openwrt: ## Build OpenWrt package locally in a persistent builder c
 	trap 'docker stop "$(OPENWRT_CONTAINER)" >/dev/null 2>&1 || true' EXIT; \
 	docker start "$(OPENWRT_CONTAINER)" >/dev/null; \
 	docker exec \
+		-e BUILD_HEADLESS="$(BUILD_HEADLESS)" \
 		-e OPENWRT_VERSION="$(OPENWRT_VERSION)" \
 		-e OPENWRT_TARGET="$(OPENWRT_TARGET)" \
 		-e OPENWRT_SUBTARGET="$(OPENWRT_SUBTARGET)" \

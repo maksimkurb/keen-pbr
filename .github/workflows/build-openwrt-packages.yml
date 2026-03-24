@@ -93,5 +93,7 @@ jobs:
         with:
           name: keen-pbr-validate
           path: |
-            openwrt-sdk-*/bin/**/*.ipk
-            openwrt-sdk-*/bin/**/*.apk
+            openwrt-sdk-*/bin/**/keen-pbr_*.ipk
+            openwrt-sdk-*/bin/**/keen-pbr_*.apk
+            openwrt-sdk-*/bin/**/keen-pbr-headless_*.ipk
+            openwrt-sdk-*/bin/**/keen-pbr-headless_*.apk
