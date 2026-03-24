@@ -37,9 +37,7 @@ import {
 } from "@/components/ui/select"
 import {
   emptyRouteRuleDraft,
-  getAddressSpecError,
   getFirstFieldError,
-  getPortSpecError,
   normalizeRouteRuleDraft,
   protoOptions,
   toRouteRuleDraft,
@@ -273,12 +271,7 @@ export function RoutingRuleUpsertPage({
             )}
           </form.Field>
 
-          <form.Field
-            name="src_port"
-            validators={{
-              onChange: ({ value }) => getPortSpecError(value) ?? undefined,
-            }}
-          >
+          <form.Field name="src_port">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -304,12 +297,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field
-            name="dest_port"
-            validators={{
-              onChange: ({ value }) => getPortSpecError(value) ?? undefined,
-            }}
-          >
+          <form.Field name="dest_port">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -337,12 +325,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field
-            name="src_addr"
-            validators={{
-              onChange: ({ value }) => getAddressSpecError(value) ?? undefined,
-            }}
-          >
+          <form.Field name="src_addr">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -370,12 +353,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field
-            name="dest_addr"
-            validators={{
-              onChange: ({ value }) => getAddressSpecError(value) ?? undefined,
-            }}
-          >
+          <form.Field name="dest_addr">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 

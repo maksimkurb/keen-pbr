@@ -37,6 +37,15 @@ static std::string list_config_json(const std::string& list_name,
     return config.dump();
 }
 
+static std::vector<ConfigValidationIssue> parse_issues(const std::string& json) {
+    try {
+        (void)parse_config(json);
+        return {};
+    } catch (const ConfigValidationError& e) {
+        return e.issues();
+    }
+}
+
 // =============================================================================
 // List name: length validation
 // =============================================================================
@@ -262,6 +271,47 @@ TEST_CASE("strict enforcement: outbound override parses") {
     REQUIRE(cfg.outbounds.has_value());
     REQUIRE(cfg.outbounds->size() == 1);
     CHECK(cfg.outbounds->front().strict_enforcement.value_or(false));
+}
+
+// =============================================================================
+// Route rule port/address validation
+// =============================================================================
+
+TEST_CASE("route rule: valid port and address filters are accepted") {
+    std::string json = R"({
+        "route":{"rules":[
+            {"list":["ads"],"outbound":"vpn","src_port":"80,443","dest_port":"!10000-20000","src_addr":"10.0.0.1,2001:db8::1","dest_addr":"!192.168.0.0/16"}
+        ]}
+    })";
+    CHECK_NOTHROW(parse_config(json));
+}
+
+TEST_CASE("route rule: invalid src_port reports route.rules[0].src_port") {
+    std::string json = R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn","src_port":"1,,2"}]}})";
+    const auto issues = parse_issues(json);
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.rules[0].src_port");
+}
+
+TEST_CASE("route rule: invalid dest_port range reports route.rules[0].dest_port") {
+    std::string json = R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn","dest_port":"9000-8000"}]}})";
+    const auto issues = parse_issues(json);
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.rules[0].dest_port");
+}
+
+TEST_CASE("route rule: invalid src_addr reports route.rules[0].src_addr") {
+    std::string json = R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn","src_addr":"not-an-ip"}]}})";
+    const auto issues = parse_issues(json);
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.rules[0].src_addr");
+}
+
+TEST_CASE("route rule: invalid dest_addr reports route.rules[0].dest_addr") {
+    std::string json = R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn","dest_addr":",10.0.0.0/8"}]}})";
+    const auto issues = parse_issues(json);
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.rules[0].dest_addr");
 }
 
 // =============================================================================
