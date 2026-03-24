@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useState } from "react"
 import { HeartPlus } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type {
   RouteTableCheck,
@@ -22,6 +23,7 @@ export function RoutingHealthCard({
 }: {
   routingHealth: RoutingHealthResponse
 }) {
+  const { t } = useTranslation()
   const [showHealthyEntries, setShowHealthyEntries] = useState(false)
 
   const firewallRules = useMemo(
@@ -54,17 +56,17 @@ export function RoutingHealthCard({
         <ChainStateBadge
           isHealthy={routingHealth.firewall.chain_present}
         >
-          chain
+          {t("overview.routing.chain")}
         </ChainStateBadge>
         <ChainStateBadge isHealthy={routingHealth.firewall.prerouting_hook_present}>
-          prerouting
+          {t("overview.routing.prerouting")}
         </ChainStateBadge>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Checkbox
             checked={showHealthyEntries}
             onCheckedChange={(checked) => setShowHealthyEntries(checked === true)}
           />
-          <span>Show healthy entries</span>
+          <span>{t("overview.routing.showHealthyEntries")}</span>
         </label>
       </div>
 
@@ -80,12 +82,14 @@ export function RoutingHealthCard({
               </EmptyMedia>
             ) : null}
             <EmptyTitle>
-              {showHealthyEntries ? "No checks reported" : "Everything is good"}
+              {showHealthyEntries
+                ? t("overview.routing.noChecksTitle")
+                : t("overview.routing.allHealthyTitle")}
             </EmptyTitle>
             <EmptyDescription>
               {showHealthyEntries
-                ? "Routing health has no entries to display."
-                : "No failing routing health entries right now."}
+                ? t("overview.routing.noChecksDescription")
+                : t("overview.routing.allHealthyDescription")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -93,7 +97,7 @@ export function RoutingHealthCard({
 
       {firewallRules.length > 0 ? (
         <CompactSection
-          title="Firewall"
+          title={t("overview.routing.sections.firewall")}
           items={firewallRules}
           renderItem={(rule, index) => (
             <CompactDiagnosticRow
@@ -102,7 +106,7 @@ export function RoutingHealthCard({
                 <>
                   <span className="font-mono text-[12px] sm:text-sm">{rule.set_name}</span>
                   <InlineMeta>{rule.action}</InlineMeta>
-                  {renderFirewallMark(rule.expected_fwmark, rule.actual_fwmark)}
+                  {renderFirewallMark(rule.expected_fwmark, rule.actual_fwmark, t)}
                   {renderInlineDetail(getDiagnosticDetail(rule.status, rule.detail))}
                 </>
               }
@@ -114,7 +118,7 @@ export function RoutingHealthCard({
 
       {groupedRoutes.length > 0 ? (
         <CompactSection
-          title="Routes"
+          title={t("overview.routing.sections.routes")}
           items={groupedRoutes}
           renderItem={(group) => (
             <div className="space-y-1.5" key={group.key}>
@@ -124,10 +128,15 @@ export function RoutingHealthCard({
                   primary={
                     <>
                       <span className="text-sm font-medium">{group.outboundTag}</span>
-                      <InlineMeta>table {group.tableId}</InlineMeta>
-                      <InlineMeta>{table.expected_destination ?? "default"}</InlineMeta>
-                      <InlineMeta>{formatRouteExpectation(table)}</InlineMeta>
-                      {renderInlineDetail(getRouteMismatchDetail(table))}
+                      <InlineMeta>
+                        {t("overview.routing.tableLabel", { value: group.tableId })}
+                      </InlineMeta>
+                      <InlineMeta>
+                        {table.expected_destination ??
+                          t("overview.routing.defaultRoute")}
+                      </InlineMeta>
+                      <InlineMeta>{formatRouteExpectation(table, t)}</InlineMeta>
+                      {renderInlineDetail(getRouteMismatchDetail(table, t))}
                     </>
                   }
                   status={table.status}
@@ -140,7 +149,7 @@ export function RoutingHealthCard({
 
       {policyRules.length > 0 ? (
         <CompactSection
-          title="Policies"
+          title={t("overview.routing.sections.policies")}
           items={policyRules}
           renderItem={(policy, index) => (
             <CompactDiagnosticRow
@@ -150,10 +159,24 @@ export function RoutingHealthCard({
                   <span className="font-mono text-[12px] sm:text-sm">
                     {policy.fwmark}/{policy.fwmask}
                   </span>
-                  <InlineMeta>table {policy.expected_table}</InlineMeta>
-                  <InlineMeta>priority {policy.priority}</InlineMeta>
-                  <PresenceBadge label="IPv4" present={policy.rule_present_v4} />
-                  <PresenceBadge label="IPv6" present={policy.rule_present_v6} />
+                  <InlineMeta>
+                    {t("overview.routing.tableLabel", { value: policy.expected_table })}
+                  </InlineMeta>
+                  <InlineMeta>
+                    {t("overview.routing.priorityLabel", { value: policy.priority })}
+                  </InlineMeta>
+                  <PresenceBadge
+                    label={t("overview.routing.ipv4")}
+                    present={policy.rule_present_v4}
+                    yesLabel={t("overview.routing.yes")}
+                    noLabel={t("overview.routing.no")}
+                  />
+                  <PresenceBadge
+                    label={t("overview.routing.ipv6")}
+                    present={policy.rule_present_v6}
+                    yesLabel={t("overview.routing.yes")}
+                    noLabel={t("overview.routing.no")}
+                  />
                   {renderInlineDetail(getDiagnosticDetail(policy.status, policy.detail))}
                 </>
               }
@@ -224,35 +247,47 @@ function ChainStateBadge({
 function PresenceBadge({
   label,
   present,
+  yesLabel,
+  noLabel,
 }: {
   label: string
   present: boolean
+  yesLabel: string
+  noLabel: string
 }) {
   return (
     <Badge size="xs" variant={present ? "success" : "warning"}>
-      {label} {present ? "yes" : "no"}
+      {label} {present ? yesLabel : noLabel}
     </Badge>
   )
 }
 
-function renderFirewallMark(expected?: string, actual?: string) {
+function renderFirewallMark(
+  expected: string | undefined,
+  actual: string | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
   if (!expected && !actual) {
     return null
   }
 
   if (expected && actual && expected === actual) {
-    return <InlineMeta>fwmark {expected}</InlineMeta>
+    return <InlineMeta>{t("overview.routing.fwmarkLabel", { value: expected })}</InlineMeta>
   }
 
   if (expected && actual) {
-    return <InlineMeta>expected {expected}, got {actual}</InlineMeta>
+    return (
+      <InlineMeta>
+        {t("overview.routing.fwmarkExpectedActual", { expected, actual })}
+      </InlineMeta>
+    )
   }
 
   if (expected) {
-    return <InlineMeta>fwmark {expected}</InlineMeta>
+    return <InlineMeta>{t("overview.routing.fwmarkLabel", { value: expected })}</InlineMeta>
   }
 
-  return <InlineMeta>actual {actual}</InlineMeta>
+  return <InlineMeta>{t("overview.routing.actualLabel", { value: actual })}</InlineMeta>
 }
 
 function renderInlineDetail(detail?: string | null) {
@@ -300,41 +335,47 @@ function filterByHealth<T extends { status: string }>(
   return items.filter((item) => item.status !== "ok")
 }
 
-function formatRouteExpectation(table: RouteTableCheck) {
-  const parts = [table.expected_route_type ?? "route"]
+function formatRouteExpectation(
+  table: RouteTableCheck,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  const parts = [table.expected_route_type ?? t("overview.routing.routeTypeFallback")]
 
   if (table.expected_interface) {
-    parts.push(`via ${table.expected_interface}`)
+    parts.push(t("overview.routing.routeVia", { value: table.expected_interface }))
   }
 
   if (table.expected_gateway) {
-    parts.push(`gw ${table.expected_gateway}`)
+    parts.push(t("overview.routing.routeGateway", { value: table.expected_gateway }))
   }
 
   if (typeof table.expected_metric === "number") {
-    parts.push(`metric ${table.expected_metric}`)
+    parts.push(t("overview.routing.routeMetric", { value: table.expected_metric }))
   }
 
   return parts.join(" ")
 }
 
-function getRouteMismatchDetail(table: RouteTableCheck) {
+function getRouteMismatchDetail(
+  table: RouteTableCheck,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
   const issues: string[] = []
 
   if (!table.table_exists) {
-    issues.push("table missing")
+    issues.push(t("overview.routing.issues.tableMissing"))
   }
 
   if (!table.default_route_present) {
-    issues.push("default route missing")
+    issues.push(t("overview.routing.issues.defaultRouteMissing"))
   }
 
   if (!table.interface_matches) {
-    issues.push("interface mismatch")
+    issues.push(t("overview.routing.issues.interfaceMismatch"))
   }
 
   if (!table.gateway_matches) {
-    issues.push("gateway mismatch")
+    issues.push(t("overview.routing.issues.gatewayMismatch"))
   }
 
   if (issues.length > 0) {

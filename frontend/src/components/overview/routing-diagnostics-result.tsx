@@ -1,4 +1,5 @@
 import { CircleCheckBig, CircleOff, Link } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type { RoutingTestResponse } from "@/api/generated/model"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -19,6 +20,7 @@ export function RoutingDiagnosticsResult({
 }: {
   diagnostics: RoutingTestResponse
 }) {
+  const { t } = useTranslation()
   const ruleDiagnostics = diagnostics.rule_diagnostics ?? []
   const ipRows = diagnostics.is_domain
     ? diagnostics.resolved_ips
@@ -31,7 +33,7 @@ export function RoutingDiagnosticsResult({
           <AlertDescription className="space-y-1 text-sm">
             {diagnostics.dns_error ? <div>{diagnostics.dns_error}</div> : null}
             {diagnostics.no_matching_rule ? (
-              <div>No matching routing rule for the target lists.</div>
+              <div>{t("overview.routingDiagnostics.noMatchingRule")}</div>
             ) : null}
           </AlertDescription>
         </Alert>
@@ -43,13 +45,17 @@ export function RoutingDiagnosticsResult({
             <TableHeader className="bg-muted/40">
               <TableRow>
                 <TableHead className="font-semibold">
-                  <div>Host "{diagnostics.target}"</div>
+                  <div>
+                    {t("overview.routingDiagnostics.hostLabel", {
+                      target: diagnostics.target,
+                    })}
+                  </div>
                 </TableHead>
                 {ruleDiagnostics.map((rule) => (
                   <TableHead key={`rule-head-${rule.rule_index}`} className="text-center">
                     <div>{rule.outbound}</div>
                     <div className="text-xs text-muted-foreground">
-                      {rule.interface_name || "-"}
+                      {rule.interface_name || t("common.noneShort")}
                     </div>
                     {rule.target_match?.via ? (
                       <div className="inline-flex items-center justify-center gap-1 text-xs font-normal text-muted-foreground">
@@ -61,7 +67,7 @@ export function RoutingDiagnosticsResult({
                 ))}
               </TableRow>
               <TableRow>
-                <TableHead>In rule domain/IP lists?</TableHead>
+                <TableHead>{t("overview.routingDiagnostics.inRuleLists")}</TableHead>
                 {ruleDiagnostics.map((rule) => (
                   <TableHead key={`rule-list-${rule.rule_index}`} className="text-center">
                     {rule.target_in_lists ? (

@@ -361,16 +361,13 @@ function OutboundForm({
                   <SelectLabel>{t("pages.outboundUpsert.fields.outboundTypes")}</SelectLabel>
                   {outboundTypeOptions.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {option}
+                      {t(`pages.outboundUpsert.fields.typeOptions.${option}`)}
                     </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <FieldHint
-              description={t("pages.outboundUpsert.fields.typeHint")}
-              error={serverFieldErrors.type ?? null}
-            />
+            <FieldHint error={serverFieldErrors.type ?? null} />
           </FieldContent>
         </Field>
       </FieldGroup>

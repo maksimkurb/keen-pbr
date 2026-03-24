@@ -1,5 +1,6 @@
 import { Loader2, Search } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { usePostRoutingTestMutation } from "@/api/mutations"
 import { SectionCard } from "@/components/shared/section-card"
@@ -23,6 +24,7 @@ import { RoutingDiagnosticsResult } from "./routing-diagnostics-result"
 import { sanitizeRoutingTarget } from "./sanitize-routing-target"
 
 export function RoutingTestPanel() {
+  const { t } = useTranslation()
   const [testTarget, setTestTarget] = useState("example.com")
   const [routingInputError, setRoutingInputError] = useState<string | null>(
     null
@@ -36,14 +38,14 @@ export function RoutingTestPanel() {
       : undefined
 
   return (
-    <SectionCard title="Domain/IP routing test">
+    <SectionCard title={t("overview.routingTest.title")}>
       <form
         className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault()
           const sanitized = sanitizeRoutingTarget(testTarget)
           if (!sanitized) {
-            setRoutingInputError("Please enter a valid domain or IP.")
+            setRoutingInputError(t("overview.routingTest.invalidTarget"))
             return
           }
           setRoutingInputError(null)
@@ -68,7 +70,7 @@ export function RoutingTestPanel() {
                 form?.requestSubmit()
               }
             }}
-            placeholder="Domain, IP or URL"
+            placeholder={t("overview.routingTest.placeholder")}
             value={testTarget}
           />
           <InputGroupAddon align="inline-end">
@@ -81,7 +83,7 @@ export function RoutingTestPanel() {
               {routingTestMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}
-              Run routing test
+              {t("overview.routingTest.submit")}
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
@@ -103,7 +105,7 @@ export function RoutingTestPanel() {
       {routingTestMutation.isError ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
           <AlertDescription>
-            Routing test failed. Please try again.
+            {t("overview.routingTest.requestFailed")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -114,9 +116,9 @@ export function RoutingTestPanel() {
       routingDiagnostics.rule_diagnostics.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>
-            <EmptyTitle>No route matched</EmptyTitle>
+            <EmptyTitle>{t("overview.routingTest.emptyTitle")}</EmptyTitle>
             <EmptyDescription>
-              Try another domain or IP address.
+              {t("overview.routingTest.emptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

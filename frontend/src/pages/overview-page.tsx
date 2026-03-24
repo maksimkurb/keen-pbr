@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip"
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
+import { PageHeader } from "@/components/shared/page-header"
 import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
@@ -110,6 +111,11 @@ export function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        description={t("overview.pageDescription")}
+        title={t("nav.items.systemMonitor")}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard className="col-span-2 lg:col-span-1" title={t("overview.service.title")}>
           {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
@@ -53,14 +54,15 @@ const fallbackDraft: SettingsDraft = {
 }
 
 export function GeneralConfigPage() {
+  const { t } = useTranslation()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
 
   return (
     <div className="space-y-6">
       <PageHeader
-        description="Daemon defaults, global list refresh, and advanced routing values."
-        title="Settings"
+        description={t("pages.settings.description")}
+        title={t("pages.settings.title")}
       />
 
       {configQuery.isLoading ? (
@@ -88,6 +90,7 @@ type LoadedGeneralConfigPageProps = {
 function LoadedGeneralConfigPage({
   loadedConfig,
 }: LoadedGeneralConfigPageProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [savedDraft, setSavedDraft] = useState<SettingsDraft>(() =>
@@ -100,7 +103,7 @@ function LoadedGeneralConfigPage({
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async (_response, variables) => {
-        setSaveSuccessMessage("Settings staged. Apply config to persist them.")
+        setSaveSuccessMessage(t("pages.settings.saved"))
         clearFormServerErrors(form)
 
         await Promise.all([
@@ -198,9 +201,9 @@ function LoadedGeneralConfigPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>General</CardTitle>
+          <CardTitle>{t("pages.settings.general.title")}</CardTitle>
           <CardDescription>
-            Daemon defaults for routing behavior.
+            {t("pages.settings.general.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -221,10 +224,12 @@ function LoadedGeneralConfigPage({
                         className="cursor-pointer flex-col items-start gap-0"
                         htmlFor="strict-enforcement"
                       >
-                        Global strict enforcement
+                        {t("pages.settings.general.strictEnforcementLabel")}
                       </FieldLabel>
                     </div>
-                    <FieldHint description="Kill-switch for interface outbounds. When enabled and an outbound interface goes down, traffic matching its rules is blocked instead of falling back to the default routing table. This value can be overridden per outbound." />
+                    <FieldHint
+                      description={t("pages.settings.general.strictEnforcementHint")}
+                    />
                   </FieldContent>
                 </Field>
               )}
@@ -235,9 +240,9 @@ function LoadedGeneralConfigPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Lists autoupdate</CardTitle>
+          <CardTitle>{t("pages.settings.autoupdate.title")}</CardTitle>
           <CardDescription>
-            Automatic refresh schedule for remote lists.
+            {t("pages.settings.autoupdate.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -258,10 +263,12 @@ function LoadedGeneralConfigPage({
                         className="cursor-pointer flex-col items-start gap-0"
                         htmlFor="autoupdate-lists"
                       >
-                        Enable lists autoupdate
+                        {t("pages.settings.autoupdate.enabledLabel")}
                       </FieldLabel>
                     </div>
-                    <FieldHint description="Refreshes remote lists on the schedule below and reapplies routing when relevant data changes." />
+                    <FieldHint
+                      description={t("pages.settings.autoupdate.enabledHint")}
+                    />
                   </FieldContent>
                 </Field>
               )}
@@ -275,7 +282,9 @@ function LoadedGeneralConfigPage({
 
                 return (
                   <Field invalid={Boolean(error)}>
-                    <FieldLabel htmlFor="general-cron">Cron</FieldLabel>
+                    <FieldLabel htmlFor="general-cron">
+                      {t("pages.settings.autoupdate.cronLabel")}
+                    </FieldLabel>
                     <FieldContent>
                       <Input
                         aria-invalid={Boolean(error)}
@@ -289,8 +298,7 @@ function LoadedGeneralConfigPage({
                       <FieldHint
                         description={
                           <>
-                            Cron schedule used for refreshing remote lists. You
-                            can build and verify an expression with{" "}
+                            {t("pages.settings.autoupdate.cronHintPrefix")}{" "}
                             <a
                               className="underline underline-offset-3 hover:text-foreground"
                               href={getCrontabGuruUrl(field.state.value)}
@@ -299,7 +307,8 @@ function LoadedGeneralConfigPage({
                             >
                               Crontab Guru
                             </a>
-                            .
+                            {" "}
+                            {t("pages.settings.autoupdate.cronHintSuffix")}
                           </>
                         }
                         error={
@@ -312,7 +321,7 @@ function LoadedGeneralConfigPage({
                                 rel="noreferrer"
                                 target="_blank"
                               >
-                                Open in Crontab Guru
+                                {t("pages.settings.autoupdate.openInGuru")}
                               </a>
                               .
                             </>
@@ -330,9 +339,9 @@ function LoadedGeneralConfigPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Advanced routing settings</CardTitle>
+          <CardTitle>{t("pages.settings.advanced.title")}</CardTitle>
           <CardDescription>
-            Do not change these values unless you know exactly what they do.
+            {t("pages.settings.advanced.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -344,7 +353,7 @@ function LoadedGeneralConfigPage({
                 return (
                   <Field invalid={Boolean(error)}>
                     <FieldLabel htmlFor="fwmark-start">
-                      Firewall mark starting value
+                      {t("pages.settings.advanced.fwmarkStartLabel")}
                     </FieldLabel>
                     <FieldContent>
                       <Input
@@ -357,7 +366,7 @@ function LoadedGeneralConfigPage({
                         value={field.state.value}
                       />
                       <FieldHint
-                        description="Used as the firewall mark for the first outbound, and each next outbound increases it by one step within the mask range. Example: 0x00010000."
+                        description={t("pages.settings.advanced.fwmarkStartHint")}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -375,7 +384,7 @@ function LoadedGeneralConfigPage({
                 return (
                   <Field invalid={Boolean(error)}>
                     <FieldLabel htmlFor="fwmark-mask">
-                      Firewall mark mask
+                      {t("pages.settings.advanced.fwmarkMaskLabel")}
                     </FieldLabel>
                     <FieldContent>
                       <Input
@@ -390,8 +399,9 @@ function LoadedGeneralConfigPage({
                       <FieldHint
                         description={
                           <>
-                            Hex only. Must contain one consecutive run of{" "}
-                            <code>f</code> digits, e.g. <code>0x00ff0000</code>.
+                            {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
+                            <code>f</code> {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
+                            <code>0x00ff0000</code>.
                           </>
                         }
                         error={error ?? null}
@@ -411,7 +421,7 @@ function LoadedGeneralConfigPage({
                 return (
                   <Field invalid={Boolean(error)}>
                     <FieldLabel htmlFor="table-start">
-                      IP routing table starting value
+                      {t("pages.settings.advanced.tableStartLabel")}
                     </FieldLabel>
                     <FieldContent>
                       <Input
@@ -424,7 +434,7 @@ function LoadedGeneralConfigPage({
                         value={field.state.value}
                       />
                       <FieldHint
-                        description="Used as the routing table number for the first outbound, and each next outbound increases it by one."
+                        description={t("pages.settings.advanced.tableStartHint")}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -457,7 +467,9 @@ function LoadedGeneralConfigPage({
               onClick={() => form.handleSubmit()}
               size="xl"
             >
-              {isPending ? "Saving..." : "Save"}
+              {isPending
+                ? t("pages.settings.actions.saving")
+                : t("pages.settings.actions.save")}
             </Button>
           )}
         </form.Subscribe>

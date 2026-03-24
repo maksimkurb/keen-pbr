@@ -288,7 +288,7 @@ export function RoutingRuleUpsertPage({
                       value={field.state.value}
                     />
                     <FieldHint
-                      description={t("pages.routingRuleUpsert.fields.portHint")}
+                      description={t("pages.routingRuleUpsert.fields.sourcePortHint")}
                       error={error}
                     />
                   </FieldContent>
@@ -316,7 +316,7 @@ export function RoutingRuleUpsertPage({
                       value={field.state.value}
                     />
                     <FieldHint
-                      description={t("pages.routingRuleUpsert.fields.portHint")}
+                      description={t("pages.routingRuleUpsert.fields.destinationPortHint")}
                       error={error}
                     />
                   </FieldContent>
@@ -344,7 +344,7 @@ export function RoutingRuleUpsertPage({
                       value={field.state.value}
                     />
                     <FieldHint
-                      description={t("pages.routingRuleUpsert.fields.addressHint")}
+                      description={t("pages.routingRuleUpsert.fields.sourceAddressHint")}
                       error={error}
                     />
                   </FieldContent>
@@ -372,7 +372,7 @@ export function RoutingRuleUpsertPage({
                       value={field.state.value}
                     />
                     <FieldHint
-                      description={t("pages.routingRuleUpsert.fields.addressHint")}
+                      description={t("pages.routingRuleUpsert.fields.destinationAddressHint")}
                       error={error}
                     />
                   </FieldContent>

@@ -1,3 +1,13 @@
 {
-  "mesonbuild.selectRootDir": false
+  "mesonbuild.selectRootDir": false,
+  "i18n-ally.localesPaths": [
+    "docs/i18n",
+    "cross-toolchain/sdk/feeds/packages/lang",
+    "frontend/src/i18n"
+  ],
+  "i18n-ally-next.localesPaths": [
+    "docs/i18n",
+    "frontend/src/i18n",
+    "cross-toolchain/sdk/feeds/packages/lang"
+  ]
 }

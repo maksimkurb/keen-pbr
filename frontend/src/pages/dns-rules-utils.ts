@@ -1,4 +1,5 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import i18n from "@/i18n"
 
 export type DnsRuleDraft = {
   server: string
@@ -44,6 +45,7 @@ export function validateRules(
   serverTags: string[],
   listOptions: string[]
 ): Record<number, RuleErrors> {
+  const t = i18n.t.bind(i18n)
   const errors: Record<number, RuleErrors> = {}
   const serverTagSet = new Set(serverTags)
   const listOptionSet = new Set(listOptions)
@@ -54,23 +56,25 @@ export function validateRules(
     const parsedLists = rule.lists
 
     if (!rule.server || !serverTagSet.has(rule.server)) {
-      nextRuleErrors.server = "Rule must reference an existing DNS server tag."
+      nextRuleErrors.server = t("pages.dnsRuleUpsert.validation.serverRequired")
     }
 
     if (parsedLists.length === 0) {
-      nextRuleErrors.lists = "Rule must include at least one list name."
+      nextRuleErrors.lists = t("pages.dnsRuleUpsert.validation.listsRequired")
     }
 
     const missingLists = parsedLists.filter(
       (listName) => !listOptionSet.has(listName)
     )
     if (missingLists.length > 0) {
-      nextRuleErrors.lists = `Unknown list names: ${missingLists.join(", ")}`
+      nextRuleErrors.lists = t("pages.dnsRuleUpsert.validation.unknownLists", {
+        lists: missingLists.join(", "),
+      })
     }
 
     const dedupeKey = `${rule.server}::${[...parsedLists].sort().join("|")}`
     if (seenRules.has(dedupeKey)) {
-      nextRuleErrors.duplicate = "Duplicate rule entry."
+      nextRuleErrors.duplicate = t("pages.dnsRuleUpsert.validation.duplicate")
     }
 
     seenRules.add(dedupeKey)

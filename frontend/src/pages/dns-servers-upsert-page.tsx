@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -18,6 +19,7 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import i18n from "@/i18n"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
@@ -43,6 +45,7 @@ export function DnsServerUpsertPage({
   mode: "create" | "edit"
   serverTag?: string
 }) {
+  const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
   const config = getConfigData(configQuery.data)
@@ -56,14 +59,14 @@ export function DnsServerUpsertPage({
   if (mode === "edit" && !existingServer && !configQuery.isLoading) {
     return (
       <UpsertPage
-        cardDescription="The requested DNS server could not be found."
-        cardTitle="Missing DNS server"
-        description="Return to the DNS servers table and choose a valid entry."
-        title="Edit DNS server"
+        cardDescription={t("pages.dnsServerUpsert.missingCardDescription")}
+        cardTitle={t("pages.dnsServerUpsert.missingCardTitle")}
+        description={t("pages.dnsServerUpsert.missingDescription")}
+        title={t("pages.dnsServerUpsert.editTitle")}
       >
         <div className="flex justify-end">
           <Button onClick={() => navigate("/dns-servers")} variant="outline">
-            Back to DNS servers
+            {t("pages.dnsServerUpsert.back")}
           </Button>
         </div>
       </UpsertPage>
@@ -72,14 +75,20 @@ export function DnsServerUpsertPage({
 
   return (
     <UpsertPage
-      cardDescription="Configure server address and optional detour outbound."
+      cardDescription={t("pages.dnsServerUpsert.cardDescription")}
       cardTitle={
         mode === "create"
-          ? "Create DNS server"
-          : `Edit ${existingServer?.tag ?? "DNS server"}`
+          ? t("pages.dnsServerUpsert.createTitle")
+          : t("pages.dnsServerUpsert.editCardTitle", {
+              tag: existingServer?.tag ?? t("pages.dnsServerUpsert.editTitle"),
+            })
       }
-      description="DNS servers can be referenced by DNS rules and the fallback selector."
-      title={mode === "create" ? "Create DNS server" : "Edit DNS server"}
+      description={t("pages.dnsServerUpsert.description")}
+      title={
+        mode === "create"
+          ? t("pages.dnsServerUpsert.createTitle")
+          : t("pages.dnsServerUpsert.editTitle")
+      }
     >
       <DnsServerForm
         config={config}
@@ -108,6 +117,7 @@ function DnsServerForm({
   onCancel: () => void
   onSaved: () => void
 }) {
+  const { t } = useTranslation()
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
   const form = useForm({
     defaultValues: initialDraft,
@@ -215,7 +225,9 @@ function DnsServerForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="dns-server-tag">Tag</FieldLabel>
+                <FieldLabel htmlFor="dns-server-tag">
+                  {t("pages.dnsServerUpsert.fields.tag")}
+                </FieldLabel>
                 <FieldContent>
                   <Input
                     aria-invalid={Boolean(error)}
@@ -225,7 +237,7 @@ function DnsServerForm({
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="Unique server tag referenced by DNS rules and fallback."
+                    description={t("pages.dnsServerUpsert.fields.tagHint")}
                     error={error}
                   />
                 </FieldContent>
@@ -245,18 +257,20 @@ function DnsServerForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel htmlFor="dns-server-address">Address</FieldLabel>
+                <FieldLabel htmlFor="dns-server-address">
+                  {t("pages.dnsServerUpsert.fields.address")}
+                </FieldLabel>
                 <FieldContent>
                   <Input
                     aria-invalid={Boolean(error)}
                     id="dns-server-address"
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="8.8.8.8, 8.8.8.8:5353, ::1, [::1]:5353"
+                    placeholder={t("pages.dnsServerUpsert.fields.addressPlaceholder")}
                     value={field.state.value}
                   />
                   <FieldHint
-                    description="IPv4 or IPv6 address, optionally with a port."
+                    description={t("pages.dnsServerUpsert.fields.addressHint")}
                     error={error}
                   />
                 </FieldContent>
@@ -268,16 +282,18 @@ function DnsServerForm({
         <form.Field name="detour">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor="dns-server-detour">Detour</FieldLabel>
+              <FieldLabel htmlFor="dns-server-detour">
+                {t("pages.dnsServerUpsert.fields.detour")}
+              </FieldLabel>
               <FieldContent>
                 <Input
                   id="dns-server-detour"
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="Optional outbound tag"
+                  placeholder={t("pages.dnsServerUpsert.fields.detourPlaceholder")}
                   value={field.state.value}
                 />
-                <FieldHint description="Optional outbound tag used when querying this DNS server." />
+                <FieldHint description={t("pages.dnsServerUpsert.fields.detourHint")} />
               </FieldContent>
             </Field>
           )}
@@ -286,10 +302,12 @@ function DnsServerForm({
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button size="xl" type="submit">
-          {mode === "create" ? "Create DNS server" : "Save DNS server"}
+          {mode === "create"
+            ? t("pages.dnsServerUpsert.actions.create")
+            : t("pages.dnsServerUpsert.actions.save")}
         </Button>
       </div>
     </form>
@@ -314,28 +332,30 @@ function getFirstFieldError(errors: unknown[]) {
 }
 
 function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
+  const t = i18n.t.bind(i18n)
   const normalizedTag = value.trim()
   if (!normalizedTag) {
-    return "Tag is required."
+    return t("pages.dnsServerUpsert.validation.tagRequired")
   }
 
   const duplicate = servers.some(
     (server) => server.tag === normalizedTag && server.tag !== editingTag
   )
   if (duplicate) {
-    return "Tag must be unique."
+    return t("pages.dnsServerUpsert.validation.tagUnique")
   }
 
   return undefined
 }
 
 function getAddressError(value: string) {
+  const t = i18n.t.bind(i18n)
   if (!value.trim()) {
-    return "Address is required."
+    return t("pages.dnsServerUpsert.validation.addressRequired")
   }
 
   if (!normalizeDnsAddress(value)) {
-    return "Address must be a valid IPv4/IPv6 value with an optional port."
+    return t("pages.dnsServerUpsert.validation.addressInvalid")
   }
 
   return undefined

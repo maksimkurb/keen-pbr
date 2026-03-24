@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react"
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
 export function DnsServersPage() {
+  const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
   const postConfigMutation = usePostConfigMutation()
@@ -42,10 +44,13 @@ export function DnsServersPage() {
     let shouldCleanupReferences = false
     if (matchingRules.length > 0 || usesFallback) {
       shouldCleanupReferences = window.confirm(
-        [
-          `DNS server "${serverTag}" is currently used by ${matchingRules.length} rule(s)${usesFallback ? " and as fallback" : ""}.`,
-          "Delete and automatically remove those references?",
-        ].join("\n")
+        t("pages.dnsServers.delete.confirmWithReferences", {
+          count: matchingRules.length,
+          fallbackSuffix: usesFallback
+            ? t("pages.dnsServers.delete.fallbackSuffix")
+            : "",
+          serverTag,
+        })
       )
 
       if (!shouldCleanupReferences) {
@@ -78,11 +83,11 @@ export function DnsServersPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/dns-servers/create")}>
-            Add DNS server
+            {t("pages.dnsServers.actions.add")}
           </Button>
         }
-        description="Configure upstream DNS servers and default fallback behavior."
-        title="DNS Servers"
+        description={t("pages.dnsServers.description")}
+        title={t("pages.dnsServers.title")}
       />
 
       {mutationErrorMessage ? (
@@ -97,18 +102,23 @@ export function DnsServersPage() {
         <TableSkeleton />
       ) : configQuery.isError ? (
         <ListPlaceholder
-          description="We can't load DNS servers right now. Try refreshing the page."
-          title="Unable to load data"
+          description={t("pages.dnsServers.loadErrorDescription")}
+          title={t("common.unableToLoadData")}
           variant="error"
         />
       ) : dnsServers.length === 0 ? (
         <ListPlaceholder
-          description="Add a DNS server to configure upstream resolution."
-          title="No DNS servers yet"
+          description={t("pages.dnsServers.empty.description")}
+          title={t("pages.dnsServers.empty.title")}
         />
       ) : (
         <DataTable
-          headers={["Tag", "Address", "Detour", "Actions"]}
+          headers={[
+            t("pages.dnsServers.headers.name"),
+            t("pages.dnsServers.headers.address"),
+            t("pages.dnsServers.headers.outbound"),
+            t("pages.dnsServers.headers.actions"),
+          ]}
           rows={dnsServers.map((server) => [
             <div className="font-medium" key={`${server.tag}-tag`}>
               {server.tag}
@@ -123,13 +133,13 @@ export function DnsServersPage() {
               key={`${server.tag}-detour`}
               variant={server.detour ? "outline" : "secondary"}
             >
-              {server.detour || "none"}
+              {server.detour || t("pages.dnsServers.none")}
             </Badge>,
             <ActionButtons
               actions={[
                 {
                   icon: <Pencil className="h-4 w-4" />,
-                  label: "Edit",
+                  label: t("common.edit"),
                   onClick: () =>
                     navigate(
                       `/dns-servers/${encodeURIComponent(server.tag)}/edit`
@@ -137,7 +147,7 @@ export function DnsServersPage() {
                 },
                 {
                   icon: <Trash2 className="h-4 w-4" />,
-                  label: "Delete",
+                  label: t("common.delete"),
                   onClick: () => deleteServer(server.tag),
                 },
               ]}
