@@ -526,11 +526,16 @@ void Daemon::apply_firewall() {
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
-        const RuleState& rs = rule_states[rule_idx];
+        RuleState& rs = rule_states[rule_idx];
 
         if (rs.action_type == RuleActionType::Skip) {
             continue;
         }
+
+        // Keep expected firewall state aligned with what we actually create.
+        // build_fw_rule_states() pre-populates all static/dynamic set variants,
+        // but apply_firewall() intentionally skips sets that would be always empty.
+        rs.set_names.clear();
 
         const bool is_blackhole = (rs.action_type == RuleActionType::Drop);
 
@@ -558,6 +563,8 @@ void Daemon::apply_firewall() {
             if (usage.has_static_entries) {
                 firewall_->create_ipset(set4, AF_INET, 0);
                 firewall_->create_ipset(set6, AF_INET6, 0);
+                rs.set_names.push_back(set4);
+                rs.set_names.push_back(set6);
 
                 auto loader4 = firewall_->create_batch_loader(set4);
                 auto loader6 = firewall_->create_batch_loader(set6);
@@ -575,6 +582,8 @@ void Daemon::apply_firewall() {
             if (usage.has_domain_entries) {
                 firewall_->create_ipset(set4d, AF_INET, usage.dynamic_timeout);
                 firewall_->create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
+                rs.set_names.push_back(set4d);
+                rs.set_names.push_back(set6d);
             }
 
             // Build proto/port/addr filter from route rule.
