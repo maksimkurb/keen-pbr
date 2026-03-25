@@ -2,9 +2,9 @@
 #include "nft_batch_pipe.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
+#include "../util/safe_exec.hpp"
 
 #include <cstdio>
-#include <cstdlib>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -382,9 +382,8 @@ FirewallBackend NftablesFirewall::backend() const {
 
 std::optional<bool> NftablesFirewall::test_ip_in_set(const std::string& set_name,
                                                        const std::string& ip) const {
-    std::string cmd = "nft get element inet " + std::string(TABLE_NAME) +
-                      " " + set_name + " { " + ip + " } >/dev/null 2>&1";
-    int exit_code = WEXITSTATUS(std::system(cmd.c_str()));
+    int exit_code = safe_exec({"nft", "get", "element", "inet", std::string(TABLE_NAME),
+                               set_name, "{", ip, "}"}, /*suppress_output=*/true);
     if (exit_code == 127) return std::nullopt; // nft not installed
     return exit_code == 0;
 }

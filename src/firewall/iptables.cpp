@@ -2,9 +2,9 @@
 #include "ipset_restore_pipe.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
+#include "../util/safe_exec.hpp"
 
 #include <cstdio>
-#include <cstdlib>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -313,8 +313,7 @@ FirewallBackend IptablesFirewall::backend() const {
 
 std::optional<bool> IptablesFirewall::test_ip_in_set(const std::string& set_name,
                                                        const std::string& ip) const {
-    std::string cmd = "ipset test " + set_name + " " + ip + " >/dev/null 2>&1";
-    int exit_code = WEXITSTATUS(std::system(cmd.c_str()));
+    int exit_code = safe_exec({"ipset", "test", set_name, ip}, /*suppress_output=*/true);
     if (exit_code == 127) return std::nullopt; // ipset not installed
     return exit_code == 0;
 }
