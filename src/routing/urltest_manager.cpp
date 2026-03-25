@@ -174,6 +174,24 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
             continue;
         }
 
+        uint32_t tolerance = static_cast<uint32_t>(ut.tolerance_ms.value_or(100));
+
+        // Prefer the currently selected outbound if it belongs to this group
+        // and is still within tolerance — avoids unnecessary switching
+        if (!state.selected_outbound.empty()) {
+            auto incumbent_in_group = std::find(group.outbounds.begin(), group.outbounds.end(), state.selected_outbound);
+            if (incumbent_in_group != group.outbounds.end()) {
+                auto cb_it = state.circuit_breakers.find(state.selected_outbound);
+                if (cb_it != state.circuit_breakers.end() && cb_it->second.state(state.selected_outbound) != CircuitState::open) {
+                    auto res_it = state.last_results.find(state.selected_outbound);
+                    if (res_it != state.last_results.end() && res_it->second.success &&
+                        res_it->second.latency_ms <= min_latency + tolerance) {
+                        return state.selected_outbound;
+                    }
+                }
+            }
+        }
+
         // Find first outbound within tolerance of min_latency
         for (const auto& child_tag : group.outbounds) {
             auto cb_it = state.circuit_breakers.find(child_tag);
@@ -185,7 +203,7 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
             auto res_it = state.last_results.find(child_tag);
             if (res_it == state.last_results.end() || !res_it->second.success) continue;
 
-            if (res_it->second.latency_ms <= min_latency + static_cast<uint32_t>(ut.tolerance_ms.value_or(100))) {
+            if (res_it->second.latency_ms <= min_latency + tolerance) {
                 return child_tag;
             }
         }
