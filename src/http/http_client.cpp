@@ -1,6 +1,7 @@
 #include "http_client.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <curl/curl.h>
 #include <sys/socket.h>
 
@@ -16,6 +17,7 @@ long HttpError::status_code() const noexcept { return status_code_; }
 // write callback for libcurl
 static size_t write_callback(char* ptr, size_t size, size_t nmemb,
                              void* userdata) {
+    if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
     auto* body = static_cast<std::string*>(userdata);
     size_t total = size * nmemb;
     body->append(ptr, total);
@@ -44,6 +46,7 @@ static std::string trim_header_value(const std::string& s) {
 
 static size_t header_callback(char* buffer, size_t size, size_t nitems,
                               void* userdata) {
+    if (nitems != 0 && size > SIZE_MAX / nitems) return 0;
     size_t total = size * nitems;
     auto* capture = static_cast<HeaderCapture*>(userdata);
     std::string header(buffer, total);
@@ -70,13 +73,7 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems,
 
 // HttpClient
 
-HttpClient::HttpClient() {
-    static bool curl_initialized = [] {
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-        return true;
-    }();
-    (void)curl_initialized;
-}
+HttpClient::HttpClient() {}
 
 HttpClient::~HttpClient() = default;
 

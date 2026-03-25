@@ -24,6 +24,8 @@ constexpr uint16_t DNS_TYPE_OPT = 41;
 constexpr uint16_t DNS_FLAG_QR = 0x8000;
 constexpr uint16_t DNS_FLAG_RD = 0x0100;
 constexpr uint16_t DNS_EDNS_OPTION_ECS = 8;
+constexpr size_t kMaxTcpClients = 16;
+constexpr size_t kMaxTcpBufferSize = 16384;
 
 bool is_valid_ipv4(const std::string& ip) {
     struct in_addr addr {};
@@ -438,6 +440,10 @@ std::vector<int> DnsProbeServer::accept_tcp_clients() {
     while (true) {
         int client_fd = accept4(tcp_fd_, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
         if (client_fd >= 0) {
+            if (tcp_clients_.size() >= kMaxTcpClients) {
+                close(client_fd);
+                break;
+            }
             tcp_clients_.emplace(client_fd, TcpClientState{});
             accepted.push_back(client_fd);
             continue;
@@ -528,6 +534,10 @@ bool DnsProbeServer::handle_tcp_client_readable(int fd) {
         ssize_t n = recv(fd, buf, sizeof(buf), 0);
         if (n > 0) {
             state.buffer.insert(state.buffer.end(), buf, buf + n);
+            if (state.buffer.size() > kMaxTcpBufferSize) {
+                Logger::instance().warn("DNS test server TCP buffer exceeded limit, closing connection");
+                return false;
+            }
             if (!state.have_size && state.buffer.size() >= 2) {
                 state.expected_size = static_cast<uint16_t>((state.buffer[0] << 8) | state.buffer[1]);
                 state.have_size = true;

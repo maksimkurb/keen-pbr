@@ -17,6 +17,7 @@
 #  define KEEN_HAS_EXECINFO 0
 #endif
 
+#include <curl/curl.h>
 #include <keen-pbr/version.hpp>
 
 #include "cache/cache_manager.hpp"
@@ -211,6 +212,13 @@ std::string read_file(const std::string& path) {
 
 int main(int argc, char* argv[]) {
     install_crash_handler();
+
+    struct CurlGuard {
+        CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
+        ~CurlGuard() { curl_global_cleanup(); }
+    };
+    CurlGuard curl_guard;
+
     CliOptions opts = parse_args(argc, argv);
 
     if (opts.show_version) {
