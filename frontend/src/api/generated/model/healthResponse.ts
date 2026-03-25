@@ -5,7 +5,6 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { HealthEntry } from './healthEntry';
 import type { HealthResponseStatus } from './healthResponseStatus';
 
 export interface HealthResponse {
@@ -21,5 +20,4 @@ export interface HealthResponse {
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
    */
   config_is_draft: boolean;
-  outbounds: HealthEntry[];
 }

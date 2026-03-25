@@ -1,5 +1,5 @@
-import { AlertCircle, CheckCircle2, Copy, Loader2, Terminal } from "lucide-react"
-import { useEffect, useState } from "react"
+import { AlertCircle, Check, CheckCircle2, Copy, Loader2, Terminal } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import type { DnsCheckStatus } from "@/hooks/use-dns-check"
@@ -138,10 +138,29 @@ function CommandCopyField({ command }: { command: string }) {
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">(
     "idle"
   )
+  const resetTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     setCopyFeedback("idle")
   }, [command])
+
+  useEffect(() => {
+    if (copyFeedback !== "copied") {
+      return
+    }
+
+    resetTimerRef.current = window.setTimeout(() => {
+      setCopyFeedback("idle")
+      resetTimerRef.current = null
+    }, 1000)
+
+    return () => {
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current)
+        resetTimerRef.current = null
+      }
+    }
+  }, [copyFeedback])
 
   return (
     <InputGroup>
@@ -167,7 +186,11 @@ function CommandCopyField({ command }: { command: string }) {
               onClick={() => void copyCommand(command, setCopyFeedback)}
               size="icon-xs"
             >
-              <Copy />
+              {copyFeedback === "copied" ? (
+                <Check className="text-emerald-600" />
+              ) : (
+                <Copy />
+              )}
             </InputGroupButton>
           </TooltipTrigger>
           <TooltipContent>

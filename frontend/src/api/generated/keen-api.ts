@@ -46,7 +46,7 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * Returns the running daemon version, service status, and health status for every configured outbound. For urltest outbounds, includes per-child probe results, latencies, circuit breaker states, and the currently selected outbound. Other outbound types are always reported as healthy.
+ * Returns the running daemon version, service status, and resolver/config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
 
  * @summary Service health and outbound status
  */

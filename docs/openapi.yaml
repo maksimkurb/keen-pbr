@@ -13,10 +13,9 @@ paths:
     get:
       summary: Service health and outbound status
       description: >
-        Returns the running daemon version, service status, and health status
-        for every configured outbound. For urltest outbounds, includes per-child
-        probe results, latencies, circuit breaker states, and the currently
-        selected outbound. Other outbound types are always reported as healthy.
+        Returns the running daemon version, service status, and resolver/config
+        summary for the daemon. Outbound runtime diagnostics are exposed via
+        `/api/runtime/outbounds`.
       operationId: getHealthService
       responses:
         "200":
@@ -873,76 +872,9 @@ components:
         domains:
           type: integer
 
-    # -------------------------------------------------------------------------
-    # /api/health/service
-    # -------------------------------------------------------------------------
-
-    HealthChild:
-      type: object
-      required: [tag, success, latency_ms]
-      properties:
-        tag:
-          type: string
-          description: Child outbound tag.
-          example: "vpn0"
-        success:
-          type: boolean
-          description: Whether the last probe succeeded.
-          example: true
-        latency_ms:
-          type: integer
-          description: Round-trip latency of the last probe in milliseconds.
-          example: 42
-        error:
-          type: string
-          description: Error message from the last failed probe. Omitted on success.
-          example: "connection refused"
-        circuit_breaker:
-          type: string
-          enum: [closed, open, half_open]
-          description: >
-            Current circuit breaker state for this child.
-            - closed: healthy, traffic passes through
-            - open: failed, traffic blocked during cooldown
-            - half_open: testing recovery with limited probes
-          example: "closed"
-
-    HealthEntry:
-      type: object
-      required: [tag, type, status]
-      properties:
-        tag:
-          type: string
-          description: Outbound tag.
-          example: "auto-select"
-        type:
-          type: string
-          enum: [interface, table, blackhole, ignore, urltest]
-          example: "urltest"
-        status:
-          type: string
-          enum: [healthy, degraded, unknown]
-          description: >
-            - healthy: outbound is functioning (for urltest: a child is selected)
-            - degraded: urltest has no selected outbound
-            - unknown: urltest state not yet initialized
-          example: "healthy"
-        selected_outbound:
-          type: string
-          description: >
-            Currently selected child outbound tag. Present only for urltest
-            outbounds.
-          example: "vpn0"
-        children:
-          type: array
-          description: >
-            Per-child probe results. Present only for urltest outbounds.
-          items:
-            $ref: "#/components/schemas/HealthChild"
-
     HealthResponse:
       type: object
-      required: [version, status, config_is_draft, outbounds]
+      required: [version, status, config_is_draft]
       properties:
         version:
           type: string
@@ -972,10 +904,6 @@ components:
             Whether a newer configuration has been staged in memory but not yet
             persisted and applied.
           example: false
-        outbounds:
-          type: array
-          items:
-            $ref: "#/components/schemas/HealthEntry"
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds
@@ -1014,6 +942,10 @@ components:
           example: "tun0"
         status:
           $ref: "#/components/schemas/RuntimeInterfaceStatus"
+        latency_ms:
+          type: integer
+          description: Optional probe latency in milliseconds for runtime entries backed by urltest data.
+          example: 42
         detail:
           type: string
           description: Optional runtime detail explaining degradation or mismatch.

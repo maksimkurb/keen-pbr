@@ -46,27 +46,30 @@ export function RuntimeOutboundDetails({
   runtimeState,
   t,
   variant = "list",
+  fallbackLabel,
+  fallbackTone = "unknown",
 }: {
   runtimeState?: RuntimeOutboundState
   t: TranslateFn
   variant?: "tree" | "list"
+  fallbackLabel?: string
+  fallbackTone?: OutboundInterfaceStatusItem["tone"]
 }) {
   if (!runtimeState) {
     return null
   }
 
-  if (runtimeState.type !== "interface" && runtimeState.type !== "urltest") {
-    return null
-  }
-
-  const items = runtimeState.interfaces.map((interfaceState, index) =>
-    mapRuntimeInterfaceToItem(
-      interfaceState,
-      runtimeState.type,
-      index === runtimeState.interfaces.length - 1,
-      t
-    )
-  )
+  const items =
+    runtimeState.type === "interface" || runtimeState.type === "urltest"
+      ? runtimeState.interfaces.map((interfaceState, index) =>
+          mapRuntimeInterfaceToItem(
+            interfaceState,
+            runtimeState.type,
+            index === runtimeState.interfaces.length - 1,
+            t
+          )
+        )
+      : getRuntimeFallbackItems(fallbackLabel, fallbackTone)
 
   if (items.length === 0) {
     return null
@@ -74,7 +77,6 @@ export function RuntimeOutboundDetails({
 
   return (
     <OutboundInterfaceStatusList
-      activeLabel={t("overview.outbounds.inUse")}
       items={items}
       variant={variant}
     />
@@ -87,22 +89,49 @@ function mapRuntimeInterfaceToItem(
   isLast: boolean,
   t: TranslateFn
 ): OutboundInterfaceStatusItem {
+  const hasInterfaceName = Boolean(interfaceState.interface_name?.trim().length)
   const name =
-    interfaceState.interface_name?.trim().length
-      ? interfaceState.interface_name
-      : interfaceState.outbound_tag
+    parentType === "urltest"
+      ? interfaceState.outbound_tag
+      : hasInterfaceName
+        ? interfaceState.interface_name!
+        : interfaceState.outbound_tag
+  const secondaryLabel =
+    parentType === "urltest" &&
+    hasInterfaceName &&
+    interfaceState.interface_name !== interfaceState.outbound_tag
+      ? `(${interfaceState.interface_name})`
+      : undefined
 
   return {
     name,
     tone: getInterfaceTone(interfaceState.status),
     active: interfaceState.status === "active",
     isLast,
-    secondaryLabel:
-      parentType === "urltest" && interfaceState.outbound_tag !== name
-        ? interfaceState.outbound_tag
+    latency:
+      typeof interfaceState.latency_ms === "number"
+        ? `${interfaceState.latency_ms} ms`
         : undefined,
+    secondaryLabel,
     stateLabel: t(`runtime.interfaceStatus.${interfaceState.status}`),
   }
+}
+
+function getRuntimeFallbackItems(
+  fallbackLabel?: string,
+  fallbackTone: OutboundInterfaceStatusItem["tone"] = "unknown"
+): OutboundInterfaceStatusItem[] {
+  if (!fallbackLabel) {
+    return []
+  }
+
+  return [
+    {
+      name: fallbackLabel,
+      tone: fallbackTone,
+      isLast: true,
+    },
+  ]
 }
 
 function getInterfaceTone(

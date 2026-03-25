@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge"
 
 export type OutboundInterfaceStatusItem = {
   name: string
-  tone: "healthy" | "degraded" | "unknown"
+  tone: "healthy" | "degraded" | "unknown" | "info"
   latency?: string
   stateLabel?: string
   active?: boolean
@@ -12,18 +12,15 @@ export type OutboundInterfaceStatusItem = {
 
 export function OutboundInterfaceStatusList({
   items,
-  activeLabel,
   variant = "tree",
 }: {
   items: OutboundInterfaceStatusItem[]
-  activeLabel?: string
   variant?: "tree" | "list"
 }) {
   return (
     <div className={variant === "list" ? "space-y-1.5" : undefined}>
       {items.map((item, index) => (
         <OutboundInterfaceStatusRow
-          activeLabel={activeLabel}
           item={item}
           key={`${item.name}-${index}`}
           variant={variant}
@@ -35,11 +32,9 @@ export function OutboundInterfaceStatusList({
 
 function OutboundInterfaceStatusRow({
   item,
-  activeLabel,
   variant,
 }: {
   item: OutboundInterfaceStatusItem
-  activeLabel?: string
   variant: "tree" | "list"
 }) {
   return (
@@ -55,6 +50,8 @@ function OutboundInterfaceStatusRow({
         className={`relative ml-2 inline-flex size-2 rounded-full ${
           item.tone === "healthy"
             ? "bg-success"
+            : item.tone === "info"
+              ? "bg-sky-500"
             : item.tone === "degraded"
               ? "bg-destructive"
               : "bg-warning"
@@ -76,6 +73,8 @@ function OutboundInterfaceStatusRow({
                 ? "success"
                 : item.tone === "healthy"
                   ? "secondary"
+                  : item.tone === "info"
+                    ? "outline"
                   : item.tone === "degraded"
                     ? "destructive"
                     : "outline"
@@ -83,11 +82,6 @@ function OutboundInterfaceStatusRow({
           >
             {item.stateLabel}
           </Badge>
-        </span>
-      ) : null}
-      {item.active && activeLabel ? (
-        <span className="ml-2">
-          <Badge variant="outline">{activeLabel}</Badge>
         </span>
       ) : null}
     </div>

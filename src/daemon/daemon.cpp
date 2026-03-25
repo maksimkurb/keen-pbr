@@ -994,17 +994,6 @@ void Daemon::setup_api() {
                 resolver_type);
         },
         [this]() {
-            return config_.outbounds.value_or(std::vector<Outbound>{});
-        },
-        [this](const std::string& tag) -> std::optional<UrltestState> {
-            if (!urltest_manager_) return std::nullopt;
-            try {
-                return urltest_manager_->get_state(tag);
-            } catch (const std::out_of_range&) {
-                return std::nullopt;
-            }
-        },
-        [this]() {
             return routing_health_checker_->check();
         },
         [this]() {

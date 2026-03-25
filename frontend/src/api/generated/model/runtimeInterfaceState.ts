@@ -13,6 +13,8 @@ export interface RuntimeInterfaceState {
   /** Interface name when the candidate resolves to an interface outbound. */
   interface_name?: string;
   status: RuntimeInterfaceStatus;
+  /** Optional probe latency in milliseconds for runtime entries backed by urltest data. */
+  latency_ms?: number;
   /** Optional runtime detail explaining degradation or mismatch. */
   detail?: string;
 }

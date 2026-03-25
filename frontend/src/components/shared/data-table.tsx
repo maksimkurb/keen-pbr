@@ -58,15 +58,15 @@ export function DataTable({
                   className={
                     cellIndex === lastColumnIndex
                       ? compact
-                        ? "w-px whitespace-nowrap px-2 py-1.5 text-right align-top"
-                        : "w-px whitespace-nowrap p-3 text-right align-top"
+                        ? "w-px whitespace-nowrap px-2 py-1.5 text-right align-middle"
+                        : "w-px whitespace-nowrap p-3 text-right align-middle"
                       : narrowColumnSet.has(cellIndex)
                         ? compact
-                          ? "w-px whitespace-nowrap px-2 py-1.5 align-top"
-                          : "w-px whitespace-nowrap p-3 align-top"
+                          ? "w-px whitespace-nowrap px-2 py-1.5 align-middle"
+                          : "w-px whitespace-nowrap p-3 align-middle"
                       : compact
-                        ? "whitespace-normal px-2 py-1.5 align-top"
-                        : "whitespace-normal p-3 align-top"
+                        ? "whitespace-normal px-2 py-1.5 align-middle"
+                        : "whitespace-normal p-3 align-middle"
                   }
                   key={cellIndex}
                 >

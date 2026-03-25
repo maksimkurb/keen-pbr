@@ -292,7 +292,6 @@ namespace api {
 
     struct HealthResponse {
         bool config_is_draft;
-        std::vector<HealthEntry> outbounds;
         std::optional<std::string> resolver_config_hash;
         std::optional<std::string> resolver_config_hash_actual;
         HealthResponseStatus status;
@@ -398,6 +397,7 @@ namespace api {
     struct RuntimeInterfaceState {
         std::optional<std::string> detail;
         std::optional<std::string> interface_name;
+        std::optional<int64_t> latency_ms;
         std::string outbound_tag;
         RuntimeInterfaceStatusEnum status;
     };
@@ -1033,7 +1033,6 @@ namespace api {
 
     inline void from_json(const json & j, HealthResponse& x) {
         x.config_is_draft = j.at("config_is_draft").get<bool>();
-        x.outbounds = j.at("outbounds").get<std::vector<HealthEntry>>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
         x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
         x.status = j.at("status").get<HealthResponseStatus>();
@@ -1043,7 +1042,6 @@ namespace api {
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
         j["config_is_draft"] = x.config_is_draft;
-        j["outbounds"] = x.outbounds;
         j["resolver_config_hash"] = x.resolver_config_hash;
         j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
         j["status"] = x.status;
@@ -1240,6 +1238,7 @@ namespace api {
     inline void from_json(const json & j, RuntimeInterfaceState& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interface_name = get_stack_optional<std::string>(j, "interface_name");
+        x.latency_ms = get_stack_optional<int64_t>(j, "latency_ms");
         x.outbound_tag = j.at("outbound_tag").get<std::string>();
         x.status = j.at("status").get<RuntimeInterfaceStatusEnum>();
     }
@@ -1248,6 +1247,7 @@ namespace api {
         j = json::object();
         j["detail"] = x.detail;
         j["interface_name"] = x.interface_name;
+        j["latency_ms"] = x.latency_ms;
         j["outbound_tag"] = x.outbound_tag;
         j["status"] = x.status;
     }

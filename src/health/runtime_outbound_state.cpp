@@ -330,8 +330,11 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
 
         if (urltest_state.has_value()) {
             const auto result_it = urltest_state->last_results.find(child->tag);
-            if (result_it != urltest_state->last_results.end() && !result_it->second.error.empty()) {
-                interface_state.detail = result_it->second.error;
+            if (result_it != urltest_state->last_results.end()) {
+                interface_state.latency_ms = static_cast<int64_t>(result_it->second.latency_ms);
+                if (!result_it->second.error.empty()) {
+                    interface_state.detail = result_it->second.error;
+                }
             }
         }
 

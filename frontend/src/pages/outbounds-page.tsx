@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -114,6 +114,7 @@ export function OutboundsPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/outbounds/create")}>
+            <Plus className="mr-1 h-4 w-4" />
             {t("pages.outbounds.actions.new")}
           </Button>
         }
@@ -168,6 +169,8 @@ export function OutboundsPage() {
               {outbound.summary}
             </span>,
             <RuntimeOutboundDetails
+              fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
+              fallbackTone={getRuntimeFallbackTone(outbound)}
               key={`${outbound.id}-runtime`}
               runtimeState={outbound.runtimeState}
               t={t}
@@ -235,6 +238,35 @@ function getOutboundSummary(
   }
 
   return t("common.noneShort")
+}
+
+function getRuntimeFallbackLabel(
+  outbound: Outbound,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | undefined {
+  if (outbound.type === "table" && typeof outbound.table === "number") {
+    return t("runtime.fallback.table", { value: outbound.table })
+  }
+
+  if (outbound.type === "blackhole") {
+    return t("runtime.fallback.blackhole")
+  }
+
+  return undefined
+}
+
+function getRuntimeFallbackTone(
+  outbound: Outbound
+): "info" | "unknown" | undefined {
+  if (outbound.type === "table") {
+    return "info"
+  }
+
+  if (outbound.type === "blackhole") {
+    return "unknown"
+  }
+
+  return undefined
 }
 
 function validateUrltestGroupReferences(
