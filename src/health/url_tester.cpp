@@ -1,6 +1,7 @@
 #include "url_tester.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <curl/curl.h>
 #include <sys/socket.h>
 #include <thread>
@@ -10,6 +11,7 @@ namespace keen_pbr3 {
 // Discard response body
 static size_t discard_callback(char* /*ptr*/, size_t size, size_t nmemb,
                                void* /*userdata*/) {
+    if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
     return size * nmemb;
 }
 
@@ -23,13 +25,7 @@ static int sockopt_callback(void* clientp, curl_socket_t curlfd,
     return CURL_SOCKOPT_OK;
 }
 
-URLTester::URLTester() {
-    static bool curl_initialized = [] {
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-        return true;
-    }();
-    (void)curl_initialized;
-}
+URLTester::URLTester() {}
 
 URLTester::~URLTester() = default;
 

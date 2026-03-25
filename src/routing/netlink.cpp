@@ -123,11 +123,9 @@ struct NetlinkManager::Impl {
     }
 };
 
-NetlinkManager::NetlinkManager() : impl_(new Impl()) {}
+NetlinkManager::NetlinkManager() : impl_(std::make_unique<Impl>()) {}
 
-NetlinkManager::~NetlinkManager() {
-    delete impl_;
-}
+NetlinkManager::~NetlinkManager() = default;
 
 void NetlinkManager::add_route(const RouteSpec& spec) {
     std::lock_guard<std::mutex> lock(mutex_);
