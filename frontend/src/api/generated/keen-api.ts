@@ -763,7 +763,7 @@ export function useGetHealthRouting<TData = Awaited<ReturnType<typeof getHealthR
 
 
 /**
- * Returns the daemon's current outbound runtime state derived from the live routing tables, urltest runtime selection, and current interface reachability. Use this to distinguish the currently active interface from interfaces that are merely available.
+ * Returns the daemon's current outbound runtime state derived from the live routing tables, urltest runtime selection, and current interface reachability. Use this to distinguish the currently active interface from interfaces that are merely on standby as backups.
 
  * @summary Live outbound and interface runtime state
  */

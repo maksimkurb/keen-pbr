@@ -25,6 +25,8 @@ export const enTranslation = {
         },
       },
       runtime: {
+        healthy: "Healthy",
+        notHealthy: "Not healthy",
         activeOutbound: "Active outbound {{value}}",
         activeInterface: "Active {{value}}",
         outboundStatus: {
@@ -35,7 +37,7 @@ export const enTranslation = {
         },
         interfaceStatus: {
           active: "Active",
-          available: "Available",
+          backup: "Backup",
           degraded: "Degraded",
           unavailable: "Unavailable",
           unknown: "Unknown",

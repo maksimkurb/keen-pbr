@@ -14,10 +14,6 @@ export interface RuntimeOutboundState {
   tag: string;
   type: RuntimeOutboundStateType;
   status: RuntimeOutboundStatus;
-  /** Effective active outbound tag at runtime. */
-  active_outbound_tag?: string;
-  /** Active interface derived from the live service state. */
-  active_interface_name?: string;
   /** Optional runtime detail for mismatches or degraded state. */
   detail?: string;
   /** Candidate interfaces or live interface paths for this outbound. */

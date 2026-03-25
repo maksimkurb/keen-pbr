@@ -1,126 +1,123 @@
 import type { RuntimeInterfaceState, RuntimeOutboundState } from "@/api/generated/model"
+import {
+  OutboundInterfaceStatusList,
+  type OutboundInterfaceStatusItem,
+} from "@/components/shared/outbound-interface-status-list"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
 
-export function RuntimeOutboundStateSummary({
+export function RuntimeOutboundEntry({
   runtimeState,
+  title,
   t,
-  compact = false,
 }: {
   runtimeState?: RuntimeOutboundState
+  title?: string
   t: TranslateFn
-  compact?: boolean
 }) {
   if (!runtimeState) {
-    return (
-      <span className="text-sm text-muted-foreground">
-        {t("common.noneShort")}
-      </span>
-    )
+    return title ? <div className="font-medium">{title}</div> : null
   }
 
+  const supportsDiagnostics =
+    runtimeState.type === "interface" || runtimeState.type === "urltest"
+
   return (
-    <div className={cn("space-y-2", compact ? "max-w-sm" : "max-w-md")}>
+    <div className={cn("max-w-md")}>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={getOutboundStatusVariant(runtimeState.status)}>
-          {t(`runtime.outboundStatus.${runtimeState.status}`)}
-        </Badge>
-        {runtimeState.active_outbound_tag ? (
-          <Badge size="xs" variant="outline">
-            {t("runtime.activeOutbound", {
-              value: runtimeState.active_outbound_tag,
-            })}
-          </Badge>
-        ) : null}
-        {runtimeState.active_interface_name ? (
-          <Badge size="xs" variant="outline">
-            {t("runtime.activeInterface", {
-              value: runtimeState.active_interface_name,
-            })}
+        {title ? <div className="font-medium">{title}</div> : null}
+        {supportsDiagnostics ? (
+          <Badge
+            variant={runtimeState.status === "healthy" ? "success" : "warning"}
+          >
+            {runtimeState.status === "healthy"
+              ? t("runtime.healthy")
+              : t("runtime.notHealthy")}
           </Badge>
         ) : null}
       </div>
-
-      {runtimeState.interfaces.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {runtimeState.interfaces.map((interfaceState) => (
-            <InterfaceStatusBadge
-              interfaceState={interfaceState}
-              key={`${runtimeState.tag}-${interfaceState.outbound_tag}`}
-              t={t}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {runtimeState.detail ? (
-        <div className="text-xs text-muted-foreground">{runtimeState.detail}</div>
-      ) : null}
     </div>
   )
 }
 
-export function InterfaceStatusBadge({
-  interfaceState,
+export function RuntimeOutboundDetails({
+  runtimeState,
   t,
+  variant = "list",
 }: {
-  interfaceState: RuntimeInterfaceState
+  runtimeState?: RuntimeOutboundState
   t: TranslateFn
+  variant?: "tree" | "list"
 }) {
-  const label =
+  if (!runtimeState) {
+    return null
+  }
+
+  if (runtimeState.type !== "interface" && runtimeState.type !== "urltest") {
+    return null
+  }
+
+  const items = runtimeState.interfaces.map((interfaceState, index) =>
+    mapRuntimeInterfaceToItem(
+      interfaceState,
+      runtimeState.type,
+      index === runtimeState.interfaces.length - 1,
+      t
+    )
+  )
+
+  if (items.length === 0) {
+    return null
+  }
+
+  return (
+    <OutboundInterfaceStatusList
+      activeLabel={t("overview.outbounds.inUse")}
+      items={items}
+      variant={variant}
+    />
+  )
+}
+
+function mapRuntimeInterfaceToItem(
+  interfaceState: RuntimeInterfaceState,
+  parentType: RuntimeOutboundState["type"],
+  isLast: boolean,
+  t: TranslateFn
+): OutboundInterfaceStatusItem {
+  const name =
     interfaceState.interface_name?.trim().length
       ? interfaceState.interface_name
       : interfaceState.outbound_tag
 
-  const tone = getInterfaceStatusVariant(interfaceState.status)
-  const statusLabel = t(`runtime.interfaceStatus.${interfaceState.status}`)
-
-  return (
-    <div className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-xs">
-      <Badge size="xs" variant={tone}>
-        {statusLabel}
-      </Badge>
-      <span className="font-medium text-foreground">{label}</span>
-      {interfaceState.outbound_tag !== label ? (
-        <span className="text-muted-foreground">{interfaceState.outbound_tag}</span>
-      ) : null}
-      {interfaceState.detail ? (
-        <span className="text-muted-foreground">{interfaceState.detail}</span>
-      ) : null}
-    </div>
-  )
-}
-
-function getOutboundStatusVariant(
-  status: RuntimeOutboundState["status"]
-): "success" | "warning" | "destructive" | "outline" {
-  switch (status) {
-    case "healthy":
-      return "success"
-    case "degraded":
-      return "warning"
-    case "unavailable":
-      return "destructive"
-    case "unknown":
-      return "outline"
+  return {
+    name,
+    tone: getInterfaceTone(interfaceState.status),
+    active: interfaceState.status === "active",
+    isLast,
+    secondaryLabel:
+      parentType === "urltest" && interfaceState.outbound_tag !== name
+        ? interfaceState.outbound_tag
+        : undefined,
+    stateLabel: t(`runtime.interfaceStatus.${interfaceState.status}`),
   }
 }
 
-function getInterfaceStatusVariant(
+function getInterfaceTone(
   status: RuntimeInterfaceState["status"]
-): "success" | "secondary" | "warning" | "destructive" | "outline" {
+): "healthy" | "degraded" | "unknown" {
   switch (status) {
     case "active":
-      return "success"
-    case "available":
-      return "secondary"
+      return "healthy"
+    case "backup":
+      return "healthy"
     case "degraded":
-      return "warning"
+      return "degraded"
     case "unavailable":
-      return "destructive"
+      return "degraded"
     case "unknown":
-      return "outline"
+      return "unknown"
   }
 }

@@ -17,7 +17,10 @@ import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
-import { RuntimeOutboundStateSummary } from "@/components/shared/runtime-outbound-state"
+import {
+  RuntimeOutboundDetails,
+  RuntimeOutboundEntry,
+} from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -149,9 +152,12 @@ export function OutboundsPage() {
             t("pages.outbounds.headers.actions"),
           ]}
           rows={outboundItems.map((outbound) => [
-            <div className="font-medium" key={`${outbound.id}-tag`}>
-              {outbound.tag}
-            </div>,
+            <RuntimeOutboundEntry
+              key={`${outbound.id}-tag`}
+              runtimeState={outbound.runtimeState}
+              title={outbound.tag}
+              t={t}
+            />,
             <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
               {outbound.type}
             </Badge>,
@@ -161,11 +167,11 @@ export function OutboundsPage() {
             >
               {outbound.summary}
             </span>,
-            <RuntimeOutboundStateSummary
-              compact
+            <RuntimeOutboundDetails
               key={`${outbound.id}-runtime`}
               runtimeState={outbound.runtimeState}
               t={t}
+              variant="list"
             />,
             <ActionButtons
               actions={[

@@ -7,7 +7,7 @@
  */
 
 /**
- * - active: interface is currently selected by the live service state - available: interface is reachable and can be selected - degraded: interface exists but recent checks failed - unavailable: interface cannot currently be used - unknown: runtime state could not be determined
+ * - active: interface is currently selected by the live service state - backup: interface is reachable and ready to take over if needed - degraded: interface exists but recent checks failed - unavailable: interface cannot currently be used - unknown: runtime state could not be determined
 
  */
 export type RuntimeInterfaceStatus = typeof RuntimeInterfaceStatus[keyof typeof RuntimeInterfaceStatus];
@@ -15,7 +15,7 @@ export type RuntimeInterfaceStatus = typeof RuntimeInterfaceStatus[keyof typeof 
 
 export const RuntimeInterfaceStatus = {
   active: 'active',
-  available: 'available',
+  backup: 'backup',
   degraded: 'degraded',
   unavailable: 'unavailable',
   unknown: 'unknown',

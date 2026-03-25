@@ -13,10 +13,9 @@ import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
-import { RuntimeOutboundStateSummary } from "@/components/shared/runtime-outbound-state"
+import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage, reorderRules } from "@/pages/routing-rules-utils"
 
@@ -159,9 +158,9 @@ export function RoutingRulesPage() {
             t("pages.routingRules.headers.order"),
             t("pages.routingRules.headers.criteria"),
             t("pages.routingRules.headers.outbound"),
-            t("pages.routingRules.headers.runtime"),
             t("pages.routingRules.headers.actions"),
           ]}
+          narrowColumns={[0]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
@@ -182,15 +181,13 @@ export function RoutingRulesPage() {
                 </li>
               ))}
             </ul>,
-            <Badge key={`${row.id}-outbound`} variant="outline">
-              {row.outbound}
-            </Badge>,
-            <RuntimeOutboundStateSummary
-              compact
-              key={`${row.id}-runtime`}
-              runtimeState={row.runtimeState}
-              t={t}
-            />,
+            <div key={`${row.id}-outbound`}>
+              <RuntimeOutboundEntry
+                runtimeState={row.runtimeState}
+                title={row.outbound}
+                t={t}
+              />
+            </div>,
             <ActionButtons
               actions={[
                 {

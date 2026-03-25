@@ -26,6 +26,8 @@ export const ruTranslation = {
         },
       },
       runtime: {
+        healthy: "Исправен",
+        notHealthy: "Неисправен",
         activeOutbound: "Активный outbound {{value}}",
         activeInterface: "Активный {{value}}",
         outboundStatus: {
@@ -36,7 +38,7 @@ export const ruTranslation = {
         },
         interfaceStatus: {
           active: "Активен",
-          available: "Доступен",
+          backup: "Резервный",
           degraded: "Деградирован",
           unavailable: "Недоступен",
           unknown: "Неизвестно",

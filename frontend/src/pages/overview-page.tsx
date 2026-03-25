@@ -26,9 +26,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import type {
+  RuntimeInterfaceStatus,
+  RuntimeOutboundState,
+} from "@/api/generated/model"
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
+import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
 import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
@@ -74,11 +79,17 @@ export function OverviewPage() {
 
     return serviceHealth.outbounds.map((outbound) => {
       const configuredOutbound = findConfiguredOutbound(loadedConfig, outbound.tag)
+      const runtimeState = mapHealthEntryToRuntimeState(outbound)
       const tagCell = outbound.children?.length ? (
-        <UrltestTagTree
-          children={outbound.children}
-          selectedOutbound={outbound.selected_outbound}
-        />
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-medium">{t("overview.outbounds.urltestTitle")}</div>
+            <Badge size="xs" variant="outline">
+              urltest
+            </Badge>
+          </div>
+          <RuntimeOutboundDetails runtimeState={runtimeState} t={t} variant="tree" />
+        </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <span>{outbound.tag}</span>
@@ -426,105 +437,24 @@ function StatusBadge({
   return <Badge variant="success">{children}</Badge>
 }
 
-function UrltestTagTree({
-  children,
-  selectedOutbound,
-}: {
-  children: Array<{
-    tag: string
-    success: boolean
-    latency_ms: number
-  }>
-  selectedOutbound?: string
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="font-medium">{t("overview.outbounds.urltestTitle")}</div>
-        <Badge size="xs" variant="outline">
-          urltest
-        </Badge>
-      </div>
-      <div>
-        {children.map((child, index) => (
-          <UrltestOutboundRow
-            key={child.tag}
-            active={child.tag === selectedOutbound}
-            isLast={index === children.length - 1}
-            latency={
-              typeof child.latency_ms === "number"
-                ? `${child.latency_ms} ms`
-                : "-"
-            }
-            name={child.tag}
-            state={child.success ? "healthy" : "degraded"}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function UrltestOutboundRow({
-  name,
-  latency,
-  state,
-  active = false,
-  isLast = false,
-}: {
-  name: string
-  latency: string
-  state: "healthy" | "degraded"
-  active?: boolean
-  isLast?: boolean
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="ml-1 flex flex-wrap items-center text-base md:text-sm">
-      <TreeConnector isLast={isLast} />
-      <span
-        className={`relative ml-2 inline-flex size-2 rounded-full ${
-          state === "healthy" ? "bg-success" : "bg-destructive"
-        }`}
-      />
-      <span className="ml-2 font-medium">{name}</span>
-      <span className="ml-2 text-muted-foreground">{latency}</span>
-      {active ? (
-        <span className="ml-2">
-          <Badge variant="outline">{t("overview.outbounds.inUse")}</Badge>
-        </span>
-      ) : null}
-    </div>
-  )
-}
-
-function TreeConnector({ isLast }: { isLast: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="mr-0.5 h-full shrink-0 self-stretch"
-      preserveAspectRatio="none"
-      viewBox="0 0 16 24"
-      width="16"
-    >
-      {isLast ? (
-        <path
-          d="M2 0V12H14"
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.3"
-          strokeWidth="1"
-        />
-      ) : (
-        <path
-          d="M2 0V24M2 12H14"
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.3"
-          strokeWidth="1"
-        />
-      )}
-    </svg>
-  )
+function mapHealthEntryToRuntimeState(
+  outbound: HealthEntry
+): RuntimeOutboundState {
+  return {
+    tag: outbound.tag,
+    type: outbound.type,
+    status: outbound.status === "healthy" ? "healthy" : "degraded",
+    interfaces:
+      outbound.children?.map((child) => ({
+        outbound_tag: child.tag,
+        interface_name: child.tag,
+        status: (
+          child.tag === outbound.selected_outbound
+            ? "active"
+            : child.success
+              ? "backup"
+              : "degraded"
+        ) as RuntimeInterfaceStatus,
+      })) ?? [],
+  }
 }

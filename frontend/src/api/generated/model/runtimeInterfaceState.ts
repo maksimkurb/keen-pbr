@@ -13,8 +13,6 @@ export interface RuntimeInterfaceState {
   /** Interface name when the candidate resolves to an interface outbound. */
   interface_name?: string;
   status: RuntimeInterfaceStatus;
-  /** Whether this interface is the currently active one. */
-  is_active?: boolean;
   /** Optional runtime detail explaining degradation or mismatch. */
   detail?: string;
 }

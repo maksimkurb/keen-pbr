@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes0OtO36 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes7DNysf data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -393,12 +393,11 @@ namespace api {
         std::vector<std::string> warnings;
     };
 
-    enum class RuntimeInterfaceStatusEnum : int { ACTIVE, AVAILABLE, DEGRADED, UNAVAILABLE, UNKNOWN };
+    enum class RuntimeInterfaceStatusEnum : int { ACTIVE, BACKUP, DEGRADED, UNAVAILABLE, UNKNOWN };
 
     struct RuntimeInterfaceState {
         std::optional<std::string> detail;
         std::optional<std::string> interface_name;
-        std::optional<bool> is_active;
         std::string outbound_tag;
         RuntimeInterfaceStatusEnum status;
     };
@@ -406,8 +405,6 @@ namespace api {
     enum class RuntimeOutboundStatusEnum : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
 
     struct RuntimeOutboundStateElement {
-        std::optional<std::string> active_interface_name;
-        std::optional<std::string> active_outbound_tag;
         std::optional<std::string> detail;
         std::vector<RuntimeInterfaceState> interfaces;
         RuntimeOutboundStatusEnum status;
@@ -419,7 +416,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypes0OtO36 {
+    struct KeenPbrTypes7DNysf {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -597,8 +594,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes0OtO36 & x);
-    void to_json(json & j, const KeenPbrTypes0OtO36 & x);
+    void from_json(const json & j, KeenPbrTypes7DNysf & x);
+    void to_json(json & j, const KeenPbrTypes7DNysf & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1243,7 +1240,6 @@ namespace api {
     inline void from_json(const json & j, RuntimeInterfaceState& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interface_name = get_stack_optional<std::string>(j, "interface_name");
-        x.is_active = get_stack_optional<bool>(j, "is_active");
         x.outbound_tag = j.at("outbound_tag").get<std::string>();
         x.status = j.at("status").get<RuntimeInterfaceStatusEnum>();
     }
@@ -1252,14 +1248,11 @@ namespace api {
         j = json::object();
         j["detail"] = x.detail;
         j["interface_name"] = x.interface_name;
-        j["is_active"] = x.is_active;
         j["outbound_tag"] = x.outbound_tag;
         j["status"] = x.status;
     }
 
     inline void from_json(const json & j, RuntimeOutboundStateElement& x) {
-        x.active_interface_name = get_stack_optional<std::string>(j, "active_interface_name");
-        x.active_outbound_tag = get_stack_optional<std::string>(j, "active_outbound_tag");
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interfaces = j.at("interfaces").get<std::vector<RuntimeInterfaceState>>();
         x.status = j.at("status").get<RuntimeOutboundStatusEnum>();
@@ -1269,8 +1262,6 @@ namespace api {
 
     inline void to_json(json & j, const RuntimeOutboundStateElement & x) {
         j = json::object();
-        j["active_interface_name"] = x.active_interface_name;
-        j["active_outbound_tag"] = x.active_outbound_tag;
         j["detail"] = x.detail;
         j["interfaces"] = x.interfaces;
         j["status"] = x.status;
@@ -1287,7 +1278,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes0OtO36& x) {
+    inline void from_json(const json & j, KeenPbrTypes7DNysf& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1335,7 +1326,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes0OtO36 & x) {
+    inline void to_json(json & j, const KeenPbrTypes7DNysf & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1548,7 +1539,7 @@ namespace api {
 
     inline void from_json(const json & j, RuntimeInterfaceStatusEnum & x) {
         if (j == "active") x = RuntimeInterfaceStatusEnum::ACTIVE;
-        else if (j == "available") x = RuntimeInterfaceStatusEnum::AVAILABLE;
+        else if (j == "backup") x = RuntimeInterfaceStatusEnum::BACKUP;
         else if (j == "degraded") x = RuntimeInterfaceStatusEnum::DEGRADED;
         else if (j == "unavailable") x = RuntimeInterfaceStatusEnum::UNAVAILABLE;
         else if (j == "unknown") x = RuntimeInterfaceStatusEnum::UNKNOWN;
@@ -1558,7 +1549,7 @@ namespace api {
     inline void to_json(json & j, const RuntimeInterfaceStatusEnum & x) {
         switch (x) {
             case RuntimeInterfaceStatusEnum::ACTIVE: j = "active"; break;
-            case RuntimeInterfaceStatusEnum::AVAILABLE: j = "available"; break;
+            case RuntimeInterfaceStatusEnum::BACKUP: j = "backup"; break;
             case RuntimeInterfaceStatusEnum::DEGRADED: j = "degraded"; break;
             case RuntimeInterfaceStatusEnum::UNAVAILABLE: j = "unavailable"; break;
             case RuntimeInterfaceStatusEnum::UNKNOWN: j = "unknown"; break;

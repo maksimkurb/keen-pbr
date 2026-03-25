@@ -128,7 +128,7 @@ api::RuntimeInterfaceStatusEnum map_urltest_child_status(
     }
 
     if (!urltest_state.has_value()) {
-        return api::RuntimeInterfaceStatusEnum::AVAILABLE;
+        return api::RuntimeInterfaceStatusEnum::BACKUP;
     }
 
     const auto result_it = urltest_state->last_results.find(child.tag);
@@ -146,7 +146,7 @@ api::RuntimeInterfaceStatusEnum map_urltest_child_status(
     }
 
     if (result_it->second.success) {
-        return api::RuntimeInterfaceStatusEnum::AVAILABLE;
+        return api::RuntimeInterfaceStatusEnum::BACKUP;
     }
 
     return api::RuntimeInterfaceStatusEnum::DEGRADED;
@@ -160,22 +160,22 @@ api::RuntimeOutboundStatusEnum derive_overall_status(
         return api::RuntimeOutboundStatusEnum::HEALTHY;
     }
 
-    bool has_available = false;
+    bool has_backup = false;
     bool has_degraded = false;
 
     for (const auto& interface_state : interfaces) {
-        if (interface_state.status == api::RuntimeInterfaceStatusEnum::AVAILABLE) {
-            has_available = true;
+        if (interface_state.status == api::RuntimeInterfaceStatusEnum::BACKUP) {
+            has_backup = true;
         } else if (interface_state.status == api::RuntimeInterfaceStatusEnum::DEGRADED) {
             has_degraded = true;
         }
     }
 
-    if (has_live_route && (has_available || has_degraded)) {
+    if (has_live_route && (has_backup || has_degraded)) {
         return api::RuntimeOutboundStatusEnum::DEGRADED;
     }
 
-    if (has_available) {
+    if (has_backup) {
         return api::RuntimeOutboundStatusEnum::DEGRADED;
     }
 
@@ -243,11 +243,10 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Config& co
     interface_state.interface_name = outbound.interface;
     const bool reachable = is_interface_outbound_reachable(outbound, netlink);
     const bool active = primary_route != nullptr && route_matches_outbound(*primary_route, outbound);
-    interface_state.is_active = active;
     interface_state.status = active
         ? api::RuntimeInterfaceStatusEnum::ACTIVE
         : reachable
-            ? api::RuntimeInterfaceStatusEnum::AVAILABLE
+            ? api::RuntimeInterfaceStatusEnum::BACKUP
             : api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
 
     if (!reachable) {
@@ -257,10 +256,6 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Config& co
     }
 
     state.interfaces = std::vector<api::RuntimeInterfaceState>{interface_state};
-    if (active) {
-        state.active_outbound_tag = outbound.tag;
-        state.active_interface_name = outbound.interface;
-    }
     state.status = derive_overall_status(state.interfaces, active, primary_route != nullptr);
     return state;
 }
@@ -278,18 +273,6 @@ api::RuntimeOutboundStateElement build_table_outbound_state(const Config& config
         routes = netlink.dump_routes_in_table(*table_id);
     }
     const DumpedRoute* primary_route = find_primary_default_route(routes);
-    if (primary_route != nullptr) {
-        api::RuntimeInterfaceState interface_state;
-        interface_state.outbound_tag = outbound.tag;
-        interface_state.interface_name = primary_route->interface;
-        interface_state.is_active = primary_route->interface.has_value();
-        interface_state.status = primary_route->interface.has_value()
-            ? api::RuntimeInterfaceStatusEnum::ACTIVE
-            : api::RuntimeInterfaceStatusEnum::UNKNOWN;
-        state.interfaces = std::vector<api::RuntimeInterfaceState>{interface_state};
-        state.active_outbound_tag = outbound.tag;
-        state.active_interface_name = primary_route->interface;
-    }
 
     state.status = primary_route != nullptr
         ? api::RuntimeOutboundStatusEnum::HEALTHY
@@ -327,21 +310,6 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
         }
     }
 
-    if (!live_active_child_tag.empty()) {
-        state.active_outbound_tag = live_active_child_tag;
-    } else if (urltest_state.has_value() && !urltest_state->selected_outbound.empty()) {
-        state.active_outbound_tag = urltest_state->selected_outbound;
-    }
-
-    if (primary_route != nullptr && primary_route->interface.has_value()) {
-        state.active_interface_name = primary_route->interface;
-    } else if (!live_active_child_tag.empty()) {
-        const Outbound* active_child = find_outbound(all_outbounds, live_active_child_tag);
-        if (active_child && active_child->interface.has_value()) {
-            state.active_interface_name = active_child->interface;
-        }
-    }
-
     std::vector<api::RuntimeInterfaceState> interfaces;
     interfaces.reserve(children.size());
 
@@ -358,7 +326,6 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
                 ? is_interface_outbound_reachable(*child, netlink)
                 : false;
         const bool is_active = !live_active_child_tag.empty() && live_active_child_tag == child->tag;
-        interface_state.is_active = is_active;
         interface_state.status = map_urltest_child_status(*child, reachable, is_active, urltest_state);
 
         if (urltest_state.has_value()) {

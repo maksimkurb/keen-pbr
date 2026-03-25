@@ -172,7 +172,7 @@ paths:
         Returns the daemon's current outbound runtime state derived from the
         live routing tables, urltest runtime selection, and current interface
         reachability. Use this to distinguish the currently active interface
-        from interfaces that are merely available.
+        from interfaces that are merely on standby as backups.
       operationId: getRuntimeOutbounds
       responses:
         "200":
@@ -983,10 +983,10 @@ components:
 
     RuntimeInterfaceStatus:
       type: string
-      enum: [active, available, degraded, unavailable, unknown]
+      enum: [active, backup, degraded, unavailable, unknown]
       description: >
         - active: interface is currently selected by the live service state
-        - available: interface is reachable and can be selected
+        - backup: interface is reachable and ready to take over if needed
         - degraded: interface exists but recent checks failed
         - unavailable: interface cannot currently be used
         - unknown: runtime state could not be determined
@@ -1014,10 +1014,6 @@ components:
           example: "tun0"
         status:
           $ref: "#/components/schemas/RuntimeInterfaceStatus"
-        is_active:
-          type: boolean
-          description: Whether this interface is the currently active one.
-          example: true
         detail:
           type: string
           description: Optional runtime detail explaining degradation or mismatch.
@@ -1037,14 +1033,6 @@ components:
           example: "urltest"
         status:
           $ref: "#/components/schemas/RuntimeOutboundStatus"
-        active_outbound_tag:
-          type: string
-          description: Effective active outbound tag at runtime.
-          example: "vpn0"
-        active_interface_name:
-          type: string
-          description: Active interface derived from the live service state.
-          example: "tun0"
         detail:
           type: string
           description: Optional runtime detail for mismatches or degraded state.

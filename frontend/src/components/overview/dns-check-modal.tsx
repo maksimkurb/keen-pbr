@@ -139,6 +139,10 @@ function CommandCopyField({ command }: { command: string }) {
     "idle"
   )
 
+  useEffect(() => {
+    setCopyFeedback("idle")
+  }, [command])
+
   return (
     <InputGroup>
       <InputGroupAddon>
@@ -157,16 +161,14 @@ function CommandCopyField({ command }: { command: string }) {
       />
       <InputGroupAddon align="inline-end">
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <InputGroupButton
-                aria-label={t("overview.dnsCheck.modal.copyAria")}
-                onClick={() => void copyCommand(command, setCopyFeedback)}
-                size="icon-xs"
-              />
-            }
-          >
-            <Copy />
+          <TooltipTrigger render={<InputGroupButton size="icon-xs" />}>
+            <InputGroupButton
+              aria-label={t("overview.dnsCheck.modal.copyAria")}
+              onClick={() => void copyCommand(command, setCopyFeedback)}
+              size="icon-xs"
+            >
+              <Copy />
+            </InputGroupButton>
           </TooltipTrigger>
           <TooltipContent>
             {copyFeedback === "copied"
