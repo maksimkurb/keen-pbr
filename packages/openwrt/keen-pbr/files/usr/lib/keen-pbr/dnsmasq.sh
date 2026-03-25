@@ -3,7 +3,7 @@
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
 PACKAGE_NAME="keen-pbr"
-DNSMASQ_FILE="/var/run/${PACKAGE_NAME}.dnsmasq"
+DNSMASQ_FILE="/tmp/${PACKAGE_NAME}.dnsmasq"
 
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
@@ -80,12 +80,19 @@ configure_dnsmasq() {
     mkdir -p "${DNSMASQ_FILE%/*}"
     tmp_file="${DNSMASQ_FILE}.tmp"
 
-    if ! generate_dnsmasq_config >"$tmp_file"; then
-        rm -f "$tmp_file"
-        return 1
-    fi
+    if [ -f "$DNSMASQ_FILE" ]; then
+        # Preserve inode so procd jail addnmount bind mounts keep seeing updates on reload.
+        if ! generate_dnsmasq_config >"$DNSMASQ_FILE"; then
+            return 1
+        fi
+    else
+        if ! generate_dnsmasq_config >"$tmp_file"; then
+            rm -f "$tmp_file"
+            return 1
+        fi
 
-    mv "$tmp_file" "$DNSMASQ_FILE"
+        mv "$tmp_file" "$DNSMASQ_FILE"
+    fi
 
     for section in $(dnsmasq_sections); do
         dnsmasq_instance_setup "$section" || true
