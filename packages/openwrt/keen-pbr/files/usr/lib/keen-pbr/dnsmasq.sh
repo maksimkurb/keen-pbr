@@ -3,7 +3,8 @@
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
 PACKAGE_NAME="keen-pbr"
-DNSMASQ_FILE="/tmp/${PACKAGE_NAME}.dnsmasq"
+EXTRACONF_BEGIN="# ${PACKAGE_NAME} begin"
+EXTRACONF_END="# ${PACKAGE_NAME} end"
 
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
@@ -13,8 +14,9 @@ resolver_type() {
     fi
 }
 
-generate_dnsmasq_config() {
-    "$KEEN_PBR_BIN" --config "$CONFIG_PATH" generate-resolver-config "$(resolver_type)"
+conf_script_line() {
+    printf 'conf-script=%s --config %s generate-resolver-config %s' \
+        "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
 }
 
 uci_add_list_if_new() {
@@ -32,19 +34,46 @@ uci_add_list_if_new() {
     uci -q add_list "${package}.${config}.${option}=${value}"
 }
 
-dnsmasq_instance_get_confdir() {
+strip_keen_pbr_block() {
+    awk -v begin="$EXTRACONF_BEGIN" -v end="$EXTRACONF_END" '
+        $0 == begin { skip = 1; next }
+        $0 == end { skip = 0; next }
+        !skip { print }
+    '
+}
+
+set_dnsmasq_extraconftext() {
     local section="$1"
-    local cfg cfg_file
+    local current cleaned block updated
 
-    cfg="$(uci -q show "dhcp.${section}" | awk -F'[.=]' 'NR==1{print $2}')"
-    [ -n "$cfg" ] || return 1
+    current="$(uci -q get "dhcp.${section}.extraconftext")"
+    cleaned="$(printf '%s\n' "$current" | strip_keen_pbr_block)"
+    block="${EXTRACONF_BEGIN}
+$(conf_script_line)
+${EXTRACONF_END}"
 
-    cfg_file="$(ubus call service list '{"name":"dnsmasq"}' 2>/dev/null |
-        jsonfilter -e "@.dnsmasq.instances.${cfg}.command" |
-        awk '{gsub(/\\\//,"/");gsub(/[][",]/,"");for(i=1;i<=NF;i++)if($i=="-C"){print $(i+1);exit}}')"
+    if [ -n "$cleaned" ]; then
+        updated="${cleaned}
+${block}"
+    else
+        updated="${block}"
+    fi
 
-    [ -n "$cfg_file" ] && [ -f "$cfg_file" ] || return 1
-    awk -F= '/^conf-dir=/{print $2; exit}' "$cfg_file"
+    uci -q set "dhcp.${section}.extraconftext=${updated}"
+}
+
+clear_dnsmasq_extraconftext() {
+    local section="$1"
+    local current cleaned
+
+    current="$(uci -q get "dhcp.${section}.extraconftext")"
+    cleaned="$(printf '%s\n' "$current" | strip_keen_pbr_block)"
+
+    if [ -n "$cleaned" ]; then
+        uci -q set "dhcp.${section}.extraconftext=${cleaned}"
+    else
+        uci -q delete "dhcp.${section}.extraconftext"
+    fi
 }
 
 dnsmasq_sections() {
@@ -53,46 +82,22 @@ dnsmasq_sections() {
 
 dnsmasq_instance_setup() {
     local section="$1"
-    local confdir
 
-    confdir="$(dnsmasq_instance_get_confdir "$section")"
-    [ -n "$confdir" ] || return 1
-
-    mkdir -p "$confdir"
-    uci_add_list_if_new dhcp "$section" addnmount "$DNSMASQ_FILE"
-    ln -sf "$DNSMASQ_FILE" "${confdir}/${PACKAGE_NAME}"
-    chmod 660 "${confdir}/${PACKAGE_NAME}" 2>/dev/null || true
-    chown -h root:dnsmasq "${confdir}/${PACKAGE_NAME}" 2>/dev/null || true
+    uci_add_list_if_new dhcp "$section" addnmount "$KEEN_PBR_BIN"
+    uci_add_list_if_new dhcp "$section" addnmount "$CONFIG_PATH"
+    set_dnsmasq_extraconftext "$section"
 }
 
 dnsmasq_instance_cleanup() {
     local section="$1"
-    local confdir
 
-    confdir="$(dnsmasq_instance_get_confdir "$section")"
-    [ -n "$confdir" ] && rm -f "${confdir}/${PACKAGE_NAME}"
-    uci -q del_list "dhcp.${section}.addnmount=${DNSMASQ_FILE}"
+    uci -q del_list "dhcp.${section}.addnmount=${KEEN_PBR_BIN}"
+    uci -q del_list "dhcp.${section}.addnmount=${CONFIG_PATH}"
+    clear_dnsmasq_extraconftext "$section"
 }
 
 configure_dnsmasq() {
-    local section tmp_file
-
-    mkdir -p "${DNSMASQ_FILE%/*}"
-    tmp_file="${DNSMASQ_FILE}.tmp"
-
-    if [ -f "$DNSMASQ_FILE" ]; then
-        # Preserve inode so procd jail addnmount bind mounts keep seeing updates on reload.
-        if ! generate_dnsmasq_config >"$DNSMASQ_FILE"; then
-            return 1
-        fi
-    else
-        if ! generate_dnsmasq_config >"$tmp_file"; then
-            rm -f "$tmp_file"
-            return 1
-        fi
-
-        mv "$tmp_file" "$DNSMASQ_FILE"
-    fi
+    local section
 
     for section in $(dnsmasq_sections); do
         dnsmasq_instance_setup "$section" || true
@@ -109,7 +114,6 @@ restore_dnsmasq() {
     done
 
     uci -q commit dhcp || true
-    rm -f "$DNSMASQ_FILE"
 }
 
 reload_dnsmasq() {
