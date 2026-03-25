@@ -141,10 +141,6 @@ function CommandCopyField({ command }: { command: string }) {
   const resetTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    setCopyFeedback("idle")
-  }, [command])
-
-  useEffect(() => {
     if (copyFeedback !== "copied") {
       return
     }

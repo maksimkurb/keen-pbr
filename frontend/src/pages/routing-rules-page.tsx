@@ -38,10 +38,13 @@ export function RoutingRulesPage() {
       refetchIntervalInBackground: false,
     },
   })
-  const runtimeOutbounds =
-    runtimeOutboundsQuery.data?.status === 200
-      ? runtimeOutboundsQuery.data.data.outbounds
-      : []
+  const runtimeOutbounds = useMemo(
+    () =>
+      runtimeOutboundsQuery.data?.status === 200
+        ? runtimeOutboundsQuery.data.data.outbounds
+        : [],
+    [runtimeOutboundsQuery.data]
+  )
   const runtimeOutboundByTag = useMemo(
     () =>
       new Map(
