@@ -14,13 +14,22 @@ HttpError::HttpError(const std::string& message, long status_code)
 
 long HttpError::status_code() const noexcept { return status_code_; }
 
-// write callback for libcurl
+// write callback for libcurl — enforces an in-flight size cap so that a
+// server streaming chunked data without Content-Length cannot exhaust RAM.
+struct WriteContext {
+    std::string* body;
+    size_t max_size;
+};
+
 static size_t write_callback(char* ptr, size_t size, size_t nmemb,
                              void* userdata) {
     if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
-    auto* body = static_cast<std::string*>(userdata);
+    auto* ctx = static_cast<WriteContext*>(userdata);
     size_t total = size * nmemb;
-    body->append(ptr, total);
+    if (ctx->body->size() + total > ctx->max_size) {
+        return 0; // returning 0 causes CURLE_WRITE_ERROR, aborting the transfer
+    }
+    ctx->body->append(ptr, total);
     return total;
 }
 
@@ -89,6 +98,10 @@ void HttpClient::set_fwmark(uint32_t mark) {
     fwmark_ = mark;
 }
 
+void HttpClient::set_max_response_size(size_t bytes) {
+    max_response_size_ = bytes;
+}
+
 static int sockopt_cb(void* userdata, curl_socket_t fd, curlsocktype) {
     uint32_t mark = *static_cast<uint32_t*>(userdata);
     if (mark != 0) {
@@ -104,14 +117,17 @@ std::string HttpClient::download(const std::string& url) {
     }
 
     std::string body;
+    WriteContext write_ctx{&body, max_response_size_};
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, static_cast<long>(timeout_.count()));
     curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
+                     static_cast<curl_off_t>(max_response_size_));
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
     curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
 
@@ -143,10 +159,11 @@ ConditionalDownloadResult HttpClient::download_conditional(
 
     ConditionalDownloadResult result;
     HeaderCapture headers;
+    WriteContext write_ctx{&result.body, max_response_size_};
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result.body);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headers);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT,
@@ -154,6 +171,8 @@ ConditionalDownloadResult HttpClient::download_conditional(
     curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
+                     static_cast<curl_off_t>(max_response_size_));
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
     curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
 
