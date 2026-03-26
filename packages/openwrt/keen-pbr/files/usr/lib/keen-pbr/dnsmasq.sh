@@ -1,7 +1,10 @@
 #!/bin/sh
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
+KEEN_PBR_DIR="/usr/lib/keen-pbr"
+CONFIG_DIR="/etc/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
+CACHE_DIR="/var/cache/keen-pbr"
 PACKAGE_NAME="keen-pbr"
 EXTRACONF_BEGIN="# ${PACKAGE_NAME} begin"
 EXTRACONF_END="# ${PACKAGE_NAME} end"
@@ -83,15 +86,20 @@ dnsmasq_sections() {
 dnsmasq_instance_setup() {
     local section="$1"
 
+    uci_add_list_if_new dhcp "$section" addnmount "$KEEN_PBR_DIR"
     uci_add_list_if_new dhcp "$section" addnmount "$KEEN_PBR_BIN"
-    uci_add_list_if_new dhcp "$section" addnmount "$CONFIG_PATH"
+    uci_add_list_if_new dhcp "$section" addnmount "$CONFIG_DIR"
+    uci_add_list_if_new dhcp "$section" addnmount "$CACHE_DIR"
     set_dnsmasq_extraconftext "$section"
 }
 
 dnsmasq_instance_cleanup() {
     local section="$1"
 
+    uci -q del_list "dhcp.${section}.addnmount=${KEEN_PBR_DIR}"
     uci -q del_list "dhcp.${section}.addnmount=${KEEN_PBR_BIN}"
+    uci -q del_list "dhcp.${section}.addnmount=${CONFIG_DIR}"
+    uci -q del_list "dhcp.${section}.addnmount=${CACHE_DIR}"
     uci -q del_list "dhcp.${section}.addnmount=${CONFIG_PATH}"
     clear_dnsmasq_extraconftext "$section"
 }
@@ -117,7 +125,7 @@ restore_dnsmasq() {
 }
 
 reload_dnsmasq() {
-    /etc/init.d/dnsmasq reload 2>/dev/null || /etc/init.d/dnsmasq restart 2>/dev/null || true
+    /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
 
 case "$1" in
