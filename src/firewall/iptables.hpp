@@ -53,9 +53,6 @@ public:
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
 
-    // Execute a shell command and return exit code
-    static int exec_cmd(const std::string& cmd);
-
     // Describes a set to be created via 'ipset restore'.
     struct PendingSet {
         std::string name;

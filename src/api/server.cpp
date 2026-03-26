@@ -55,11 +55,20 @@ std::string get_mime_type_for_path(const std::filesystem::path& path) {
 }
 
 bool read_file(const std::filesystem::path& path, std::string& output) {
+    constexpr std::uintmax_t kMaxStaticFileSize = 32 * 1024 * 1024; // 32 MiB
+
+    std::error_code ec;
+    auto file_size = std::filesystem::file_size(path, ec);
+    if (ec || file_size > kMaxStaticFileSize) {
+        return false;
+    }
+
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return false;
     }
-    output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    output.resize(static_cast<size_t>(file_size));
+    file.read(output.data(), static_cast<std::streamsize>(file_size));
     return !file.bad();
 }
 
@@ -117,6 +126,7 @@ struct ApiServer::Impl {
     std::atomic<bool> listen_failed{false};
     std::atomic<bool> listen_finished{false};
     std::mutex state_mutex;
+    std::condition_variable startup_cv;
     std::string listen_error_message;
 };
 
@@ -332,15 +342,23 @@ void ApiServer::start() {
                 impl_->listen_error_message = std::move(error_message);
             }
         }
+        impl_->startup_cv.notify_all();
     });
 
-    constexpr auto startup_timeout = std::chrono::seconds(3);
-    const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
-    while (!impl_->server.is_running() &&
-           !impl_->listen_failed.load(std::memory_order_acquire) &&
-           !impl_->listen_finished.load(std::memory_order_acquire) &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // Wait for the server to start or fail.  The CV is notified on
+    // failure/finish; on success is_running() flips inside the blocking
+    // listen(), so we use short CV waits to detect both paths promptly.
+    {
+        constexpr auto startup_timeout = std::chrono::seconds(3);
+        constexpr auto poll_interval = std::chrono::milliseconds(50);
+        const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
+        std::unique_lock<std::mutex> lock(impl_->state_mutex);
+        while (!impl_->server.is_running() &&
+               !impl_->listen_failed.load(std::memory_order_acquire) &&
+               !impl_->listen_finished.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < deadline) {
+            impl_->startup_cv.wait_for(lock, poll_interval);
+        }
     }
 
     if (impl_->server.is_running()) {

@@ -161,11 +161,23 @@ ConditionalDownloadResult HttpClient::download_conditional(
     struct curl_slist* req_headers = nullptr;
     if (!if_none_match.empty()) {
         std::string h = "If-None-Match: " + if_none_match;
+        struct curl_slist* prev = req_headers;
         req_headers = curl_slist_append(req_headers, h.c_str());
+        if (!req_headers) {
+            curl_slist_free_all(prev);
+            curl_easy_cleanup(curl);
+            throw HttpError("Failed to allocate HTTP request header");
+        }
     }
     if (!if_modified_since.empty()) {
         std::string h = "If-Modified-Since: " + if_modified_since;
+        struct curl_slist* prev = req_headers;
         req_headers = curl_slist_append(req_headers, h.c_str());
+        if (!req_headers) {
+            curl_slist_free_all(prev);
+            curl_easy_cleanup(curl);
+            throw HttpError("Failed to allocate HTTP request header");
+        }
     }
     if (req_headers) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_headers);

@@ -158,6 +158,7 @@ private:
     std::vector<FdEntry> fd_entries_;
     mutable std::mutex fd_entries_mutex_;
 
+    int pid_file_fd_{-1};
     int control_fd_{-1};
     std::vector<std::function<void()>> control_tasks_;
     std::mutex control_tasks_mutex_;

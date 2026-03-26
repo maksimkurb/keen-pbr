@@ -24,9 +24,7 @@ IptablesFirewall::~IptablesFirewall() {
     }
 }
 
-int IptablesFirewall::exec_cmd(const std::string& cmd) {
-    return std::system(cmd.c_str());
-}
+// exec_cmd (std::system) removed — use safe_exec() to prevent shell injection.
 
 void IptablesFirewall::create_ipset(const std::string& set_name, int family,
                                      uint32_t timeout) {
@@ -279,26 +277,26 @@ void IptablesFirewall::cleanup() {
     // Remove jump rules, flush and delete custom chain for IPv4
     if (chain_v4_created_) {
         log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
-        exec_cmd(keen_pbr3::format("iptables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(keen_pbr3::format("iptables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(keen_pbr3::format("iptables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
+        safe_exec({"iptables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, true);
+        safe_exec({"iptables", "-t", "mangle", "-F", CHAIN_NAME}, true);
+        safe_exec({"iptables", "-t", "mangle", "-X", CHAIN_NAME}, true);
         chain_v4_created_ = false;
     }
 
     // Same for IPv6
     if (chain_v6_created_) {
         log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
-        exec_cmd(keen_pbr3::format("ip6tables -t mangle -D PREROUTING -j {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(keen_pbr3::format("ip6tables -t mangle -F {} 2>/dev/null", CHAIN_NAME));
-        exec_cmd(keen_pbr3::format("ip6tables -t mangle -X {} 2>/dev/null", CHAIN_NAME));
+        safe_exec({"ip6tables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, true);
+        safe_exec({"ip6tables", "-t", "mangle", "-F", CHAIN_NAME}, true);
+        safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME}, true);
         chain_v6_created_ = false;
     }
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
         log.verbose("iptables cleanup: destroying ipset {}", name);
-        exec_cmd(keen_pbr3::format("ipset flush {} 2>/dev/null", name));
-        exec_cmd(keen_pbr3::format("ipset destroy {} 2>/dev/null", name));
+        safe_exec({"ipset", "flush", name}, true);
+        safe_exec({"ipset", "destroy", name}, true);
     }
     created_sets_.clear();
 

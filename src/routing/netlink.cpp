@@ -1,5 +1,6 @@
 #include "netlink.hpp"
 
+#include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 
 #include <arpa/inet.h>
@@ -302,8 +303,12 @@ void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
                 throw NetlinkError(std::string("Failed to delete route during flush: ") +
                                    nl_geterror(delete_err));
             }
+        } catch (const std::exception& e) {
+            Logger::instance().warn("flush_routes_in_table: failed to delete route in table {}: {}",
+                                    table_id, e.what());
         } catch (...) {
-            // Best effort: continue flushing remaining routes in this table.
+            Logger::instance().warn("flush_routes_in_table: failed to delete route in table {} (unknown error)",
+                                    table_id);
         }
     }
 }
