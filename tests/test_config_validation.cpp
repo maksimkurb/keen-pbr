@@ -261,6 +261,24 @@ TEST_CASE("strict enforcement: daemon default parses") {
     CHECK(cfg.daemon->strict_enforcement.value_or(false));
 }
 
+TEST_CASE("daemon max_file_size_bytes: parses and is returned") {
+    std::string json = R"({"daemon":{"max_file_size_bytes":123456}})";
+    auto cfg = parse_test_config(json);
+    REQUIRE(cfg.daemon.has_value());
+    CHECK(cfg.daemon->max_file_size_bytes.value_or(0) == 123456);
+    CHECK(max_file_size_bytes(cfg) == 123456);
+}
+
+TEST_CASE("daemon max_file_size_bytes: default is 8 MiB") {
+    auto cfg = parse_test_config(R"({})");
+    CHECK(max_file_size_bytes(cfg) == 8 * 1024 * 1024);
+}
+
+TEST_CASE("daemon max_file_size_bytes: zero is rejected") {
+    CHECK_THROWS_AS(parse_test_config(R"({"daemon":{"max_file_size_bytes":0}})"),
+                    ConfigValidationError);
+}
+
 TEST_CASE("strict enforcement: outbound override parses") {
     std::string json = R"({
         "outbounds":[

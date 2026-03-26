@@ -273,6 +273,8 @@ Config parse_config(const std::string& json_str) {
         parsed_json, "fwmark", "mask", "fwmark.mask", issues);
     validate_optional_integer_field(
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
     validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
@@ -292,6 +294,12 @@ Config parse_config(const std::string& json_str) {
 
 void validate_config(const Config& cfg) {
     std::vector<ConfigValidationIssue> issues;
+
+    if (cfg.daemon && cfg.daemon->max_file_size_bytes.has_value() &&
+        *cfg.daemon->max_file_size_bytes <= 0) {
+        add_issue(issues, "daemon.max_file_size_bytes",
+                  "daemon.max_file_size_bytes must be greater than 0");
+    }
 
     if (cfg.lists_autoupdate) {
         const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
@@ -545,6 +553,13 @@ void validate_config(const Config& cfg) {
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
     }
+}
+
+size_t max_file_size_bytes(const Config& config) {
+    const auto bytes = config.daemon.value_or(DaemonConfig{})
+                           .max_file_size_bytes.value_or(
+                               static_cast<int64_t>(kDefaultMaxFileSizeBytes));
+    return static_cast<size_t>(bytes);
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

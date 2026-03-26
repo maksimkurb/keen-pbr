@@ -36,7 +36,7 @@ public:
     void set_timeout(std::chrono::seconds timeout);
     void set_user_agent(const std::string& user_agent);
     void set_fwmark(uint32_t mark);          // 0 = disabled
-    void set_max_response_size(size_t bytes); // default: 64 MiB
+    void set_max_response_size(size_t bytes); // default: 8 MiB
 
     std::string download(const std::string& url);
 
@@ -49,7 +49,7 @@ private:
     std::chrono::seconds timeout_{30};
     std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
     uint32_t fwmark_{0};
-    size_t max_response_size_{64 * 1024 * 1024}; // 64 MiB
+    size_t max_response_size_{8 * 1024 * 1024}; // 8 MiB
 };
 
 } // namespace keen_pbr3

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../api/generated/api_types.hpp"
+#include "../config/config.hpp"
 #include "../http/http_client.hpp"
 
 #include <cstdint>
@@ -14,13 +15,17 @@ using CacheMetadata = api::CacheMetadata;
 
 class CacheManager {
 public:
-    explicit CacheManager(const std::filesystem::path& cache_dir);
+    explicit CacheManager(const std::filesystem::path& cache_dir,
+                          size_t max_file_size_bytes = kDefaultMaxFileSizeBytes);
 
     // Create cache directory if it doesn't exist.
     void ensure_dir();
 
     // Set SO_MARK for subsequent downloads (0 = disabled, uses default routing).
     void set_fwmark(uint32_t mark);
+
+    // Set maximum allowed size for downloaded remote content.
+    void set_max_file_size(size_t bytes);
 
     // Download a list from URL using conditional requests (ETag/If-Modified-Since).
     // Returns true if content was updated, false if 304 Not Modified.
