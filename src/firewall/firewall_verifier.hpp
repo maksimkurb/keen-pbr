@@ -17,6 +17,11 @@ using CommandRunner = std::function<std::string(const std::vector<std::string>& 
 
 // Run a command and capture its stdout output.
 // Returns the captured output, or empty string on error.
+constexpr size_t DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES = 262144;
+
+void set_firewall_verifier_capture_max_bytes(size_t max_bytes);
+size_t get_firewall_verifier_capture_max_bytes();
+
 std::string run_command_capture(const std::vector<std::string>& args);
 
 // Abstract interface for verifying live firewall state against expected configuration.

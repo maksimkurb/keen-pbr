@@ -2,6 +2,7 @@
 
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
+#include "../firewall/firewall_verifier.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
@@ -481,6 +482,9 @@ void print_overall_summary(const RoutingHealthReport& report,
 } // namespace
 
 int run_status_command(const Config& config, const std::string& config_path) {
+    const int64_t verify_max_bytes = config.daemon.value_or(DaemonConfig{})
+        .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
+    set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 

@@ -273,6 +273,9 @@ Config parse_config(const std::string& json_str) {
         parsed_json, "fwmark", "mask", "fwmark.mask", issues);
     validate_optional_integer_field(
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "firewall_verify_max_bytes",
+        "daemon.firewall_verify_max_bytes", issues);
     validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
@@ -292,6 +295,12 @@ Config parse_config(const std::string& json_str) {
 
 void validate_config(const Config& cfg) {
     std::vector<ConfigValidationIssue> issues;
+
+    if (cfg.daemon && cfg.daemon->firewall_verify_max_bytes.has_value() &&
+        *cfg.daemon->firewall_verify_max_bytes < 0) {
+        add_issue(issues, "daemon.firewall_verify_max_bytes",
+                  "daemon.firewall_verify_max_bytes must be >= 0");
+    }
 
     if (cfg.lists_autoupdate) {
         const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
