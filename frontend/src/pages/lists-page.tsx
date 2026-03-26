@@ -35,7 +35,6 @@ type ListTableRow = {
   draft: ListDraft
   locationLabel: string
   locationIcon?: "external"
-  typeVariant?: "default" | "secondary" | "outline"
   rule: string
   stats: {
     totalHosts: number
@@ -156,7 +155,7 @@ export function ListsPage() {
                 {list.locationLabel}
               </div>
             </div>,
-            <Badge key={`${list.id}-type`} variant={list.typeVariant}>
+            <Badge key={`${list.id}-type`} variant="outline">
               {getListSourceLabel(list.draft, t)}
             </Badge>,
             <StatsDisplay
@@ -219,11 +218,6 @@ function getTableRowsFromListMap(
       locationLabel:
         listConfig.file || listConfig.url || t("pages.lists.location.inline"),
       locationIcon: listConfig.url ? "external" : undefined,
-      typeVariant: listConfig.url
-        ? "default"
-        : listConfig.file
-          ? "secondary"
-          : "outline",
       rule: t("pages.lists.rule.configured"),
       stats: {
         totalHosts: domains.length + ipCidrs.length,

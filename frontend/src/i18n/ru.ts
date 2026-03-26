@@ -344,6 +344,7 @@ export const ruTranslation = {
             addressHint:
               "IP-адрес сервера, напр. `1.1.1.1` или `[2606:4700::1111]:53`.",
             detour: "Outbound",
+            detourEmpty: "Не выбрано",
             detourPlaceholder: "Необязательный тег outbound",
             detourHint:
               "Необязательно: отправлять DNS-запросы к этому серверу через конкретный outbound (напр. VPN).",

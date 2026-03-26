@@ -31,7 +31,6 @@ type OutboundItem = {
   id: string
   tag: string
   type: Outbound["type"]
-  typeVariant?: "default" | "outline" | "secondary"
   summary: string
   runtimeState?: RuntimeOutboundState
 }
@@ -159,7 +158,7 @@ export function OutboundsPage() {
               title={outbound.tag}
               t={t}
             />,
-            <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
+            <Badge key={`${outbound.id}-type`} variant="outline">
               {outbound.type}
             </Badge>,
             <span
@@ -208,7 +207,6 @@ function mapOutboundToItem(
     tag: outbound.tag,
     type: outbound.type,
     summary: getOutboundSummary(outbound, t),
-    typeVariant: outbound.type === "interface" ? "outline" : undefined,
     runtimeState,
   }
 }
