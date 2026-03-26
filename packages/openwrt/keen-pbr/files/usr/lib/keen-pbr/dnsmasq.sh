@@ -94,6 +94,15 @@ restore_dnsmasq() {
     uci -q commit dhcp || true
 }
 
+cleanup_dnsmasq() {
+    local section confdir
+
+    for section in $(dnsmasq_sections); do
+        confdir="$(dnsmasq_confdir "$section")"
+        rm -f "${confdir}/${CONFFILE}"
+    done
+}
+
 reload_dnsmasq() {
     /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
@@ -102,6 +111,9 @@ case "$1" in
     configure)
         configure_dnsmasq
         ;;
+    cleanup)
+        cleanup_dnsmasq
+        ;;
     restore)
         restore_dnsmasq
         ;;
@@ -109,7 +121,7 @@ case "$1" in
         reload_dnsmasq
         ;;
     *)
-        echo "Usage: $0 {configure|restore|reload}" >&2
+        echo "Usage: $0 {configure|cleanup|restore|reload}" >&2
         exit 1
         ;;
 esac
