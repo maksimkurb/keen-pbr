@@ -391,6 +391,7 @@ void Daemon::run() {
 
     update_resolver_config_hash();
     update_resolver_config_hash_actual();
+    schedule_resolver_config_hash_actual_refresh();
 
     setup_dns_probe();
 
@@ -838,6 +839,18 @@ void Daemon::update_resolver_config_hash_actual() {
     }
 }
 
+void Daemon::schedule_resolver_config_hash_actual_refresh() {
+    if (resolver_config_hash_actual_task_id_ >= 0) {
+        scheduler_->cancel(resolver_config_hash_actual_task_id_);
+    }
+    resolver_config_hash_actual_task_id_ = scheduler_->schedule_repeating(
+        std::chrono::seconds{300},
+        [this]() {
+            std::unique_lock<std::shared_mutex> lock(state_mutex_);
+            update_resolver_config_hash_actual();
+        });
+}
+
 void Daemon::apply_config(Config config) {
     validate_config(config);
 
@@ -847,6 +860,10 @@ void Daemon::apply_config(Config config) {
     if (lists_autoupdate_task_id_ >= 0) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
+    }
+    if (resolver_config_hash_actual_task_id_ >= 0) {
+        scheduler_->cancel(resolver_config_hash_actual_task_id_);
+        resolver_config_hash_actual_task_id_ = -1;
     }
 
     // Apply new config and fwmarks early so routing is available for downloads
@@ -886,12 +903,15 @@ void Daemon::apply_config(Config config) {
 
     // Recompute resolver config hash after reload
     update_resolver_config_hash();
-    update_resolver_config_hash_actual();
 
     // Recreate DNS test listener with the new config
     setup_dns_probe();
 
+    // Reload dnsmasq with the new resolver config, then query the actual hash
+    // once dnsmasq is back up.
     run_system_resolver_hook_reload();
+    update_resolver_config_hash_actual();
+    schedule_resolver_config_hash_actual_refresh();
 }
 
 
