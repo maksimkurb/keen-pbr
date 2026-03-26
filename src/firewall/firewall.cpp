@@ -1,8 +1,6 @@
 #include "firewall.hpp"
+#include "../util/safe_exec.hpp"
 
-#include <cstdlib>
-#include <array>
-#include <cstdio>
 #include <string>
 
 namespace keen_pbr3 {
@@ -11,10 +9,7 @@ namespace {
 
 // Check if a command exists and is executable.
 bool command_exists(const char* cmd) {
-    std::string check = "command -v ";
-    check += cmd;
-    check += " >/dev/null 2>&1";
-    return std::system(check.c_str()) == 0;
+    return safe_exec({"which", cmd}, /*suppress_output=*/true) == 0;
 }
 
 } // anonymous namespace

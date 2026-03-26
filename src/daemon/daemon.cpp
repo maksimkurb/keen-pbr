@@ -267,7 +267,7 @@ void Daemon::handle_signal() {
     switch (info.ssi_signo) {
     case SIGTERM:
     case SIGINT:
-        running_ = false;
+        running_.store(false, std::memory_order_release);
         break;
     case SIGUSR1:
         handle_sigusr1();
@@ -400,14 +400,14 @@ void Daemon::run() {
     log.info("Daemon running. PID: {}", getpid());
 
     // --- Event loop ---
-    running_ = true;
+    running_.store(true, std::memory_order_release);
     event_loop_thread_id_ = std::this_thread::get_id();
     event_loop_active_.store(true, std::memory_order_release);
 
     constexpr int MAX_EVENTS = 16;
     struct epoll_event events[MAX_EVENTS];
 
-    while (running_) {
+    while (running_.load(std::memory_order_acquire)) {
         int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
         if (nfds < 0) {
             if (errno == EINTR) {
@@ -473,11 +473,11 @@ void Daemon::run() {
 }
 
 void Daemon::stop() {
-    running_ = false;
+    running_.store(false, std::memory_order_release);
 }
 
 bool Daemon::running() const {
-    return running_;
+    return running_.load(std::memory_order_acquire);
 }
 
 void Daemon::write_pid_file() {
