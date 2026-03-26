@@ -1,13 +1,16 @@
 #!/bin/sh
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
-KEEN_PBR_DIR="/usr/lib/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
 CACHE_DIR="/var/cache/keen-pbr"
 PACKAGE_NAME="keen-pbr"
+CONFFILE="${PACKAGE_NAME}.conf"
 EXTRACONF_BEGIN="# ${PACKAGE_NAME} begin"
 EXTRACONF_END="# ${PACKAGE_NAME} end"
+
+# Paths to bind-mount read-only into the dnsmasq procd jail
+JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
 
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
@@ -45,26 +48,6 @@ strip_keen_pbr_block() {
     '
 }
 
-set_dnsmasq_extraconftext() {
-    local section="$1"
-    local current cleaned block updated
-
-    current="$(uci -q get "dhcp.${section}.extraconftext")"
-    cleaned="$(printf '%s\n' "$current" | strip_keen_pbr_block)"
-    block="${EXTRACONF_BEGIN}
-$(conf_script_line)
-${EXTRACONF_END}"
-
-    if [ -n "$cleaned" ]; then
-        updated="${cleaned}
-${block}"
-    else
-        updated="${block}"
-    fi
-
-    uci -q set "dhcp.${section}.extraconftext=${updated}"
-}
-
 clear_dnsmasq_extraconftext() {
     local section="$1"
     local current cleaned
@@ -83,25 +66,41 @@ dnsmasq_sections() {
     uci -q show dhcp | sed -n 's/^dhcp\.\([^.=][^.=]*\)=dnsmasq$/\1/p'
 }
 
+dnsmasq_confdir() {
+    local section="$1"
+    local confdir
+    confdir="$(uci -q get "dhcp.${section}.confdir")"
+    printf '%s' "${confdir:-/tmp/dnsmasq.${section}.d}"
+}
+
 dnsmasq_instance_setup() {
     local section="$1"
+    local path confdir
 
-    uci_add_list_if_new dhcp "$section" addnmount "$KEEN_PBR_DIR"
-    uci_add_list_if_new dhcp "$section" addnmount "$KEEN_PBR_BIN"
-    uci_add_list_if_new dhcp "$section" addnmount "$CONFIG_DIR"
-    uci_add_list_if_new dhcp "$section" addnmount "$CACHE_DIR"
-    set_dnsmasq_extraconftext "$section"
+    for path in $JAIL_MOUNTS; do
+        uci_add_list_if_new dhcp "$section" addnmount "$path"
+    done
+
+    confdir="$(dnsmasq_confdir "$section")"
+    mkdir -p "$confdir"
+    printf '%s\n' "$(conf_script_line)" > "${confdir}/${CONFFILE}"
 }
 
 dnsmasq_instance_cleanup() {
     local section="$1"
+    local path confdir
 
-    uci -q del_list "dhcp.${section}.addnmount=${KEEN_PBR_DIR}"
-    uci -q del_list "dhcp.${section}.addnmount=${KEEN_PBR_BIN}"
-    uci -q del_list "dhcp.${section}.addnmount=${CONFIG_DIR}"
-    uci -q del_list "dhcp.${section}.addnmount=${CACHE_DIR}"
+    for path in $JAIL_MOUNTS; do
+        uci -q del_list "dhcp.${section}.addnmount=${path}"
+    done
+    # Legacy cleanup for versions that mounted CONFIG_PATH or KEEN_PBR_DIR
     uci -q del_list "dhcp.${section}.addnmount=${CONFIG_PATH}"
+    uci -q del_list "dhcp.${section}.addnmount=/usr/lib/keen-pbr"
+    # Legacy cleanup for versions that used extraconftext
     clear_dnsmasq_extraconftext "$section"
+
+    confdir="$(dnsmasq_confdir "$section")"
+    rm -f "${confdir}/${CONFFILE}"
 }
 
 configure_dnsmasq() {
