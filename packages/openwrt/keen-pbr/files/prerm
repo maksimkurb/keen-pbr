@@ -4,5 +4,6 @@
 
 /etc/init.d/keen-pbr stop || true
 /etc/init.d/keen-pbr disable || true
+/usr/lib/keen-pbr/dnsmasq.sh restore || true
 
 exit 0

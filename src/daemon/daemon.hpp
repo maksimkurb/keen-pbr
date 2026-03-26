@@ -140,9 +140,13 @@ private:
     void update_resolver_config_hash();
     // Query resolver TXT record and update resolver_config_hash_actual_.
     void update_resolver_config_hash_actual();
+    // Schedule (or reschedule) the 5-minute periodic refresh of resolver_config_hash_actual_.
+    void schedule_resolver_config_hash_actual_refresh();
 
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
+    // Periodic refresh task for the actual resolver config hash (5-minute TTL).
+    int resolver_config_hash_actual_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};

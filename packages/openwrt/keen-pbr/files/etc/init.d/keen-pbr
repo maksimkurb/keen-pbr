@@ -39,7 +39,7 @@ start_service() {
 
 stop_service() {
     if [ -x "$HELPER" ]; then
-        "$HELPER" restore || true
+        "$HELPER" cleanup || true
         "$HELPER" reload || true
     fi
 }
