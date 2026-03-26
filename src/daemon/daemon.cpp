@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -13,6 +14,7 @@
 #include <shared_mutex>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
+#include <sys/file.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -485,14 +487,27 @@ void Daemon::write_pid_file() {
     const auto pid_file = config_.daemon.value_or(DaemonConfig{}).pid_file.value_or("");
     if (pid_file.empty()) return;
     std::filesystem::create_directories(std::filesystem::path(pid_file).parent_path());
-    std::ofstream ofs(pid_file);
-    if (!ofs.is_open()) {
-        throw DaemonError("Cannot write PID file: " + pid_file);
+
+    int fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        throw DaemonError("Cannot open PID file: " + pid_file + ": " + std::strerror(errno));
     }
-    ofs << getpid() << "\n";
+    if (flock(fd, LOCK_EX | LOCK_NB) < 0) {
+        close(fd);
+        if (errno == EWOULDBLOCK) {
+            throw DaemonError("Another instance is already running (PID file locked): " + pid_file);
+        }
+        throw DaemonError("Cannot lock PID file: " + pid_file + ": " + std::strerror(errno));
+    }
+    dprintf(fd, "%d\n", getpid());
+    pid_file_fd_ = fd;
 }
 
 void Daemon::remove_pid_file() {
+    if (pid_file_fd_ >= 0) {
+        close(pid_file_fd_);
+        pid_file_fd_ = -1;
+    }
     const auto pid_file = config_.daemon.value_or(DaemonConfig{}).pid_file.value_or("");
     if (!pid_file.empty()) {
         std::filesystem::remove(pid_file);

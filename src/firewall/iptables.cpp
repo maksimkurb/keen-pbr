@@ -22,7 +22,6 @@ IptablesFirewall::~IptablesFirewall() {
     }
 }
 
-
 void IptablesFirewall::create_ipset(const std::string& set_name, int family,
                                      uint32_t timeout) {
     PendingSet ps;
