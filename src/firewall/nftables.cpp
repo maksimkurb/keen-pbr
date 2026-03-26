@@ -4,12 +4,10 @@
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
 
-#include <cstdio>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <sys/socket.h>
-#include <sys/wait.h>
 
 namespace keen_pbr3 {
 
@@ -341,17 +339,7 @@ void NftablesFirewall::apply() {
     Logger::instance().verbose("nft json:\n{}", json_str);
 
     // Apply atomically via nft -j -f -
-    FILE* pipe = popen("nft -j -f -", "w");
-    if (!pipe) {
-        throw FirewallError("Failed to open pipe to 'nft -j -f -'");
-    }
-
-    if (std::fwrite(json_str.data(), 1, json_str.size(), pipe) != json_str.size()) {
-        pclose(pipe);
-        throw FirewallError("Failed to write nft JSON to pipe");
-    }
-
-    int status = pclose(pipe);
+    int status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
     if (status != 0) {
         throw FirewallError(keen_pbr3::format("nft -j -f - exited with status {}", status));
     }
@@ -366,7 +354,7 @@ void NftablesFirewall::apply() {
 void NftablesFirewall::cleanup() {
     if (table_created_) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
-        std::system(keen_pbr3::format("nft delete table inet {} 2>/dev/null", TABLE_NAME).c_str());
+        safe_exec({"nft", "delete", "table", "inet", std::string(TABLE_NAME)}, /*suppress_output=*/true);
         table_created_ = false;
     }
 

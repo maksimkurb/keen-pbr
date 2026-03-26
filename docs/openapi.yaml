@@ -13,10 +13,9 @@ paths:
     get:
       summary: Service health and outbound status
       description: >
-        Returns the running daemon version, service status, and health status
-        for every configured outbound. For urltest outbounds, includes per-child
-        probe results, latencies, circuit breaker states, and the currently
-        selected outbound. Other outbound types are always reported as healthy.
+        Returns the running daemon version, service status, and resolver/config
+        summary for the daemon. Outbound runtime diagnostics are exposed via
+        `/api/runtime/outbounds`.
       operationId: getHealthService
       responses:
         "200":
@@ -164,6 +163,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoutingHealthErrorResponse"
+
+  /api/runtime/outbounds:
+    get:
+      summary: Live outbound and interface runtime state
+      description: >
+        Returns the daemon's current outbound runtime state derived from the
+        live routing tables, urltest runtime selection, and current interface
+        reachability. Use this to distinguish the currently active interface
+        from interfaces that are merely on standby as backups.
+      operationId: getRuntimeOutbounds
+      responses:
+        "200":
+          description: Live outbound/interface runtime state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeOutboundsResponse"
 
   /api/dns/test:
     get:
@@ -856,76 +872,9 @@ components:
         domains:
           type: integer
 
-    # -------------------------------------------------------------------------
-    # /api/health/service
-    # -------------------------------------------------------------------------
-
-    HealthChild:
-      type: object
-      required: [tag, success, latency_ms]
-      properties:
-        tag:
-          type: string
-          description: Child outbound tag.
-          example: "vpn0"
-        success:
-          type: boolean
-          description: Whether the last probe succeeded.
-          example: true
-        latency_ms:
-          type: integer
-          description: Round-trip latency of the last probe in milliseconds.
-          example: 42
-        error:
-          type: string
-          description: Error message from the last failed probe. Omitted on success.
-          example: "connection refused"
-        circuit_breaker:
-          type: string
-          enum: [closed, open, half_open]
-          description: >
-            Current circuit breaker state for this child.
-            - closed: healthy, traffic passes through
-            - open: failed, traffic blocked during cooldown
-            - half_open: testing recovery with limited probes
-          example: "closed"
-
-    HealthEntry:
-      type: object
-      required: [tag, type, status]
-      properties:
-        tag:
-          type: string
-          description: Outbound tag.
-          example: "auto-select"
-        type:
-          type: string
-          enum: [interface, table, blackhole, ignore, urltest]
-          example: "urltest"
-        status:
-          type: string
-          enum: [healthy, degraded, unknown]
-          description: >
-            - healthy: outbound is functioning (for urltest: a child is selected)
-            - degraded: urltest has no selected outbound
-            - unknown: urltest state not yet initialized
-          example: "healthy"
-        selected_outbound:
-          type: string
-          description: >
-            Currently selected child outbound tag. Present only for urltest
-            outbounds.
-          example: "vpn0"
-        children:
-          type: array
-          description: >
-            Per-child probe results. Present only for urltest outbounds.
-          items:
-            $ref: "#/components/schemas/HealthChild"
-
     HealthResponse:
       type: object
-      required: [version, status, config_is_draft, outbounds]
+      required: [version, status, config_is_draft]
       properties:
         version:
           type: string
@@ -955,10 +904,85 @@ components:
             Whether a newer configuration has been staged in memory but not yet
             persisted and applied.
           example: false
+
+    # -------------------------------------------------------------------------
+    # /api/runtime/outbounds
+    # -------------------------------------------------------------------------
+
+    RuntimeInterfaceStatus:
+      type: string
+      enum: [active, backup, degraded, unavailable, unknown]
+      description: >
+        - active: interface is currently selected by the live service state
+        - backup: interface is reachable and ready to take over if needed
+        - degraded: interface exists but recent checks failed
+        - unavailable: interface cannot currently be used
+        - unknown: runtime state could not be determined
+
+    RuntimeOutboundStatus:
+      type: string
+      enum: [healthy, degraded, unavailable, unknown]
+      description: >
+        - healthy: outbound has an active live interface/path
+        - degraded: outbound has partial availability or live/runtime mismatch
+        - unavailable: outbound currently has no usable interface/path
+        - unknown: runtime state is not applicable or cannot be determined
+
+    RuntimeInterfaceState:
+      type: object
+      required: [outbound_tag, status]
+      properties:
+        outbound_tag:
+          type: string
+          description: Configured child outbound tag for this interface candidate.
+          example: "vpn0"
+        interface_name:
+          type: string
+          description: Interface name when the candidate resolves to an interface outbound.
+          example: "tun0"
+        status:
+          $ref: "#/components/schemas/RuntimeInterfaceStatus"
+        latency_ms:
+          type: integer
+          description: Optional probe latency in milliseconds for runtime entries backed by urltest data.
+          example: 42
+        detail:
+          type: string
+          description: Optional runtime detail explaining degradation or mismatch.
+          example: "live route selection differs from urltest manager selection"
+
+    RuntimeOutboundState:
+      type: object
+      required: [tag, type, status, interfaces]
+      properties:
+        tag:
+          type: string
+          description: Configured outbound tag.
+          example: "auto-select"
+        type:
+          type: string
+          enum: [interface, table, blackhole, ignore, urltest]
+          example: "urltest"
+        status:
+          $ref: "#/components/schemas/RuntimeOutboundStatus"
+        detail:
+          type: string
+          description: Optional runtime detail for mismatches or degraded state.
+          example: "live route selection differs from urltest manager selection"
+        interfaces:
+          type: array
+          description: Candidate interfaces or live interface paths for this outbound.
+          items:
+            $ref: "#/components/schemas/RuntimeInterfaceState"
+
+    RuntimeOutboundsResponse:
+      type: object
+      required: [outbounds]
+      properties:
         outbounds:
           type: array
           items:
-            $ref: "#/components/schemas/HealthEntry"
+            $ref: "#/components/schemas/RuntimeOutboundState"
 
     # -------------------------------------------------------------------------
     # /api/reload

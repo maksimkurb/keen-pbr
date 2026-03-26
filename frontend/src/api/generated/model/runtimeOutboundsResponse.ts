@@ -5,13 +5,8 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { RuntimeOutboundState } from './runtimeOutboundState';
 
-export interface CacheMetadata {
-  etag?: string;
-  last_modified?: string;
-  url?: string;
-  download_time?: string;
-  ips?: number;
-  cidrs?: number;
-  domains?: number;
+export interface RuntimeOutboundsResponse {
+  outbounds: RuntimeOutboundState[];
 }

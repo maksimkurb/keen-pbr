@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react"
+import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
@@ -106,6 +106,7 @@ export function ListsPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/lists/create")}>
+            <Plus className="mr-1 h-4 w-4" />
             {t("pages.lists.actions.new")}
           </Button>
         }

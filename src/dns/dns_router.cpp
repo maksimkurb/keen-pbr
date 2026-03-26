@@ -7,17 +7,18 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
     : fallback_tag_(dns_config.fallback.value_or("")) {
     // Parse all DNS server definitions into DnsServerConfig
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
-        const std::string server_type = server.type.value_or("static");
         std::string resolved_address;
-        if (server_type == "keenetic") {
+        const auto server_type = server.type.value_or(api::DnsServerType::STATIC);
+
+        if (server_type == api::DnsServerType::KEENETIC) {
             resolved_address = resolve_keenetic_dns_address();
-        } else if (server_type == "static") {
+        } else if (server_type == api::DnsServerType::STATIC) {
             if (!server.address.has_value()) {
                 throw DnsError("DNS server '" + server.tag + "' is missing address");
             }
             resolved_address = *server.address;
         } else {
-            throw DnsError("DNS server '" + server.tag + "' has unsupported type: " + server_type);
+            throw DnsError("DNS server '" + server.tag + "' has unsupported type");
         }
         servers_.emplace(
             server.tag,

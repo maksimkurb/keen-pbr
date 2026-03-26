@@ -1,5 +1,6 @@
 BUILD_DIR := cmake-build
 DIST_DIR := dist
+ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
@@ -9,6 +10,7 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
         frontend-build \
+        frontend-api-generate \
         test \
         generate \
         cross-setup cross-build cross-deploy \
@@ -32,6 +34,9 @@ frontend-build: ## Build frontend assets with bun
 	cd frontend && \
 	TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun install --frozen-lockfile && \
 	KEEN_PBR_FRONTEND_OUT_DIR=/tmp/keen-pbr-frontend-dist TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun run build
+
+frontend-api-generate: ## Regenerate frontend API client using the Orval version pinned in frontend/package.json
+	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts
 
 generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (requires Node.js)
 	bash scripts/generate_api_types.sh

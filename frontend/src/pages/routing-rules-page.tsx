@@ -1,20 +1,21 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { RouteRule } from "@/api/generated/model/routeRule"
 import { usePostConfigMutation } from "@/api/mutations"
-import { useGetConfig } from "@/api/queries"
+import type { RuntimeOutboundState } from "@/api/generated/model"
+import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
+import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage, reorderRules } from "@/pages/routing-rules-utils"
 
@@ -31,10 +32,31 @@ export function RoutingRulesPage() {
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
   const routeRules = loadedConfig?.route?.rules ?? []
-
-  const tableRows = routeRules.map((rule: RouteRule, index: number) =>
-    getRouteRuleRow(rule, index, t)
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
+  const runtimeOutbounds = useMemo(
+    () =>
+      runtimeOutboundsQuery.data?.status === 200
+        ? runtimeOutboundsQuery.data.data.outbounds
+        : [],
+    [runtimeOutboundsQuery.data]
   )
+  const runtimeOutboundByTag = useMemo(
+    () =>
+      new Map(
+        runtimeOutbounds.map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+      ),
+    [runtimeOutbounds]
+  )
+
+  const tableRows = routeRules.map((rule: RouteRule, index: number) => {
+    const runtimeState = runtimeOutboundByTag.get(rule.outbound)
+    return getRouteRuleRow(rule, index, t, runtimeState)
+  })
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -141,6 +163,7 @@ export function RoutingRulesPage() {
             t("pages.routingRules.headers.outbound"),
             t("pages.routingRules.headers.actions"),
           ]}
+          narrowColumns={[0]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
@@ -161,9 +184,13 @@ export function RoutingRulesPage() {
                 </li>
               ))}
             </ul>,
-            <Badge key={`${row.id}-outbound`} variant="outline">
-              {row.outbound}
-            </Badge>,
+            <div key={`${row.id}-outbound`}>
+              <RuntimeOutboundEntry
+                runtimeState={row.runtimeState}
+                title={row.outbound}
+                t={t}
+              />
+            </div>,
             <ActionButtons
               actions={[
                 {
@@ -199,7 +226,8 @@ export function RoutingRulesPage() {
 function getRouteRuleRow(
   rule: RouteRule,
   index: number,
-  t: (key: string) => string
+  t: (key: string) => string,
+  runtimeState?: RuntimeOutboundState
 ) {
   const conditions = [
     {
@@ -241,5 +269,6 @@ function getRouteRuleRow(
     order: index + 1,
     conditions,
     outbound: rule.outbound,
+    runtimeState,
   }
 }

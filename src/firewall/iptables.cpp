@@ -4,13 +4,11 @@
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
 
-#include <cstdio>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
-#include <sys/wait.h>
 
 namespace keen_pbr3 {
 
@@ -23,8 +21,6 @@ IptablesFirewall::~IptablesFirewall() {
         // Best-effort cleanup in destructor
     }
 }
-
-// exec_cmd (std::system) removed — use safe_exec() to prevent shell injection.
 
 void IptablesFirewall::create_ipset(const std::string& set_name, int family,
                                      uint32_t timeout) {
@@ -106,19 +102,11 @@ std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
     return std::make_unique<IpsetRestoreVisitor>(buf, set_name);
 }
 
-static void pipe_to_cmd(const std::string& cmd, const std::string& input) {
-    Logger::instance().verbose("{} script:\n{}", cmd, input);
-    FILE* pipe = popen(cmd.c_str(), "w");
-    if (!pipe) {
-        throw FirewallError(keen_pbr3::format("Failed to open pipe to '{}'", cmd));
-    }
-    if (std::fwrite(input.data(), 1, input.size(), pipe) != input.size()) {
-        pclose(pipe);
-        throw FirewallError(keen_pbr3::format("Failed to write to pipe for '{}'", cmd));
-    }
-    int status = pclose(pipe);
+static void pipe_to_cmd(const std::vector<std::string>& args, const std::string& input) {
+    Logger::instance().verbose("{} script:\n{}", args[0], input);
+    int status = safe_exec_pipe_stdin(args, input);
     if (status != 0) {
-        throw FirewallError(keen_pbr3::format("{} exited with status {}", cmd, status));
+        throw FirewallError(keen_pbr3::format("{} exited with status {}", args[0], status));
     }
 }
 
@@ -243,7 +231,7 @@ void IptablesFirewall::apply() {
             }
         }
         if (!ipset_script.empty()) {
-            pipe_to_cmd("ipset restore -exist", ipset_script);
+            pipe_to_cmd({"ipset", "restore", "-exist"}, ipset_script);
         }
     }
 
@@ -257,11 +245,11 @@ void IptablesFirewall::apply() {
     }
 
     if (has_v4) {
-        pipe_to_cmd("iptables-restore --noflush", build_ipt_script(false, pending_rules_));
+        pipe_to_cmd({"iptables-restore", "--noflush"}, build_ipt_script(false, pending_rules_));
         chain_v4_created_ = true;
     }
     if (has_v6) {
-        pipe_to_cmd("ip6tables-restore --noflush", build_ipt_script(true, pending_rules_));
+        pipe_to_cmd({"ip6tables-restore", "--noflush"}, build_ipt_script(true, pending_rules_));
         chain_v6_created_ = true;
     }
 
@@ -277,26 +265,26 @@ void IptablesFirewall::cleanup() {
     // Remove jump rules, flush and delete custom chain for IPv4
     if (chain_v4_created_) {
         log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
-        safe_exec({"iptables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, true);
-        safe_exec({"iptables", "-t", "mangle", "-F", CHAIN_NAME}, true);
-        safe_exec({"iptables", "-t", "mangle", "-X", CHAIN_NAME}, true);
+        safe_exec({"iptables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, /*suppress_output=*/true);
+        safe_exec({"iptables", "-t", "mangle", "-F", CHAIN_NAME}, /*suppress_output=*/true);
+        safe_exec({"iptables", "-t", "mangle", "-X", CHAIN_NAME}, /*suppress_output=*/true);
         chain_v4_created_ = false;
     }
 
     // Same for IPv6
     if (chain_v6_created_) {
         log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
-        safe_exec({"ip6tables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, true);
-        safe_exec({"ip6tables", "-t", "mangle", "-F", CHAIN_NAME}, true);
-        safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME}, true);
+        safe_exec({"ip6tables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, /*suppress_output=*/true);
+        safe_exec({"ip6tables", "-t", "mangle", "-F", CHAIN_NAME}, /*suppress_output=*/true);
+        safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME}, /*suppress_output=*/true);
         chain_v6_created_ = false;
     }
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
         log.verbose("iptables cleanup: destroying ipset {}", name);
-        safe_exec({"ipset", "flush", name}, true);
-        safe_exec({"ipset", "destroy", name}, true);
+        safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
+        safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
     }
     created_sets_.clear();
 

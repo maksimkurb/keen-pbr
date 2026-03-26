@@ -34,6 +34,7 @@
 #include "../routing/urltest_manager.hpp"
 #include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
+#include "../health/runtime_outbound_state.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
@@ -269,7 +270,7 @@ void Daemon::handle_signal() {
     switch (info.ssi_signo) {
     case SIGTERM:
     case SIGINT:
-        running_ = false;
+        running_.store(false, std::memory_order_release);
         break;
     case SIGUSR1:
         handle_sigusr1();
@@ -402,14 +403,14 @@ void Daemon::run() {
     log.info("Daemon running. PID: {}", getpid());
 
     // --- Event loop ---
-    running_ = true;
+    running_.store(true, std::memory_order_release);
     event_loop_thread_id_ = std::this_thread::get_id();
     event_loop_active_.store(true, std::memory_order_release);
 
     constexpr int MAX_EVENTS = 16;
     struct epoll_event events[MAX_EVENTS];
 
-    while (running_) {
+    while (running_.load(std::memory_order_acquire)) {
         int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
         if (nfds < 0) {
             if (errno == EINTR) {
@@ -475,11 +476,11 @@ void Daemon::run() {
 }
 
 void Daemon::stop() {
-    running_ = false;
+    running_.store(false, std::memory_order_release);
 }
 
 bool Daemon::running() const {
-    return running_;
+    return running_.load(std::memory_order_acquire);
 }
 
 void Daemon::write_pid_file() {
@@ -1008,18 +1009,23 @@ void Daemon::setup_api() {
                 resolver_type);
         },
         [this]() {
-            return config_.outbounds.value_or(std::vector<Outbound>{});
-        },
-        [this](const std::string& tag) -> std::optional<UrltestState> {
-            if (!urltest_manager_) return std::nullopt;
-            try {
-                return urltest_manager_->get_state(tag);
-            } catch (const std::out_of_range&) {
-                return std::nullopt;
-            }
+            return routing_health_checker_->check();
         },
         [this]() {
-            return routing_health_checker_->check();
+            return build_runtime_outbounds_response(
+                config_,
+                firewall_state_,
+                netlink_,
+                [this](const std::string& tag) -> std::optional<UrltestState> {
+                    if (!urltest_manager_) {
+                        return std::nullopt;
+                    }
+                    try {
+                        return urltest_manager_->get_state(tag);
+                    } catch (const std::out_of_range&) {
+                        return std::nullopt;
+                    }
+                });
         },
         [this]() {
             return resolver_config_hash_;

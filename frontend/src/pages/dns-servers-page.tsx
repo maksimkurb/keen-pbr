@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
@@ -83,6 +83,7 @@ export function DnsServersPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/dns-servers/create")}>
+            <Plus className="mr-1 h-4 w-4" />
             {t("pages.dnsServers.actions.add")}
           </Button>
         }
