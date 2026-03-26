@@ -11,8 +11,8 @@
 
 namespace keen_pbr3 {
 
-// Type alias for a function that runs a shell command and returns its stdout output.
-// Default implementation uses popen(). Can be injected for testing.
+// Type alias for a function that runs a command and returns its stdout output.
+// Default implementation uses fork()+execvp(). Can be injected for testing.
 using CommandRunner = std::function<std::string(const std::string& cmd)>;
 
 // Run a shell command and capture its stdout output.

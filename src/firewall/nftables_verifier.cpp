@@ -167,7 +167,7 @@ NftablesFirewallVerifier::NftablesFirewallVerifier(CommandRunner runner)
     : runner_(std::move(runner)) {}
 
 FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
-    const std::string nft_out = runner_("nft -j list ruleset 2>/dev/null");
+    const std::string nft_out = runner_("nft -j list ruleset");
     const auto state = parse_nft_json(nft_out);
 
     FirewallChainCheck result;
@@ -191,7 +191,7 @@ FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
 
 std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
     const std::vector<RuleState>& expected) {
-    const std::string nft_out = runner_("nft -j list ruleset 2>/dev/null");
+    const std::string nft_out = runner_("nft -j list ruleset");
     const auto state = parse_nft_json(nft_out);
 
     // Build lookup: set_name -> ParsedNftRule
