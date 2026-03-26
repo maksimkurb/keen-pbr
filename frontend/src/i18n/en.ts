@@ -335,6 +335,7 @@ export const enTranslation = {
             addressHint:
               "The server's IP address, e.g. `1.1.1.1` or `[2606:4700::1111]:53`.",
             detour: "Outbound",
+            detourEmpty: "Not selected",
             detourPlaceholder: "Optional outbound tag",
             detourHint:
               "Optional: send DNS queries for this server through a specific outbound (e.g. a VPN).",
