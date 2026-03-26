@@ -24,6 +24,29 @@ export const enTranslation = {
           removeItem: "Remove {{item}}",
         },
       },
+      runtime: {
+        healthy: "Healthy",
+        notHealthy: "Not healthy",
+        activeOutbound: "Active outbound {{value}}",
+        activeInterface: "Active {{value}}",
+        outboundStatus: {
+          healthy: "Healthy",
+          degraded: "Degraded",
+          unavailable: "Unavailable",
+          unknown: "Unknown",
+        },
+        interfaceStatus: {
+          active: "Active",
+          backup: "Backup",
+          degraded: "Degraded",
+          unavailable: "Unavailable",
+          unknown: "Unknown",
+        },
+        fallback: {
+          table: "Routing table {{value}}",
+          blackhole: "Block all incoming traffic",
+        },
+      },
       language: {
         selectorAria: "Language selector",
         english: "English",
@@ -179,9 +202,9 @@ export const enTranslation = {
           },
           status: {
             disabled: "Built-in DNS probe is disabled in config.",
-            browserSuccess: "Browser DNS lookup reached the test server.",
+            browserSuccess: "DNS request from the browser reached dnsmasq.",
             manualProbeSuccess:
-              "Manual device DNS lookup reached the test server.",
+              "DNS request from the device reached dnsmasq.",
             browserProbeFail:
               "Browser request completed, but the DNS probe did not see the lookup.",
             sseUnavailable:
@@ -191,7 +214,7 @@ export const enTranslation = {
             sseFail: "Live DNS event stream is not connected.",
             browserChecking: "Checking browser DNS path...",
             browserUnknown: "Browser DNS status is not known yet.",
-            manualSuccess: "Manual device test reached the DNS probe.",
+            manualSuccess: "DNS request from the device reached dnsmasq.",
             manualWaiting: "Waiting for your manual nslookup command...",
             manualIncomplete: "Manual device test has not completed yet.",
           },
@@ -270,7 +293,7 @@ export const enTranslation = {
           title: "DNS Servers",
           description: "Upstream DNS servers used for domain name resolution.",
           actions: {
-            add: "Add server",
+            add: "Add DNS server",
           },
           empty: {
             title: "No DNS servers yet",
@@ -332,7 +355,7 @@ export const enTranslation = {
           title: "Routing rules",
           description:
             "Rules that decide which outbound handles matching traffic. Evaluated top to bottom.",
-          actions: { addRule: "Add rule" },
+          actions: { addRule: "Add routing rule" },
           messages: {
             saved: "Routing rules staged. Apply config to persist them.",
           },
@@ -345,6 +368,7 @@ export const enTranslation = {
             order: "Order",
             criteria: "Match",
             outbound: "Outbound",
+            runtime: "Runtime",
             actions: "Actions",
           },
           criteriaLabels: {
@@ -416,7 +440,7 @@ export const enTranslation = {
         outbounds: {
           title: "Outbounds",
           description: "Your configured outbounds and urltest groups.",
-          actions: { new: "New outbound" },
+          actions: { new: "Add outbound" },
           empty: {
             title: "No outbounds yet",
             description: "Add an outbound to start building routing behavior.",
@@ -425,6 +449,7 @@ export const enTranslation = {
             tag: "Name",
             type: "Type",
             summary: "Details",
+            runtime: "Runtime",
             actions: "Actions",
           },
           summary: {

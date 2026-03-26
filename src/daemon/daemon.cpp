@@ -32,6 +32,7 @@
 #include "../routing/urltest_manager.hpp"
 #include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
+#include "../health/runtime_outbound_state.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
@@ -993,18 +994,23 @@ void Daemon::setup_api() {
                 resolver_type);
         },
         [this]() {
-            return config_.outbounds.value_or(std::vector<Outbound>{});
-        },
-        [this](const std::string& tag) -> std::optional<UrltestState> {
-            if (!urltest_manager_) return std::nullopt;
-            try {
-                return urltest_manager_->get_state(tag);
-            } catch (const std::out_of_range&) {
-                return std::nullopt;
-            }
+            return routing_health_checker_->check();
         },
         [this]() {
-            return routing_health_checker_->check();
+            return build_runtime_outbounds_response(
+                config_,
+                firewall_state_,
+                netlink_,
+                [this](const std::string& tag) -> std::optional<UrltestState> {
+                    if (!urltest_manager_) {
+                        return std::nullopt;
+                    }
+                    try {
+                        return urltest_manager_->get_state(tag);
+                    } catch (const std::out_of_range&) {
+                        return std::nullopt;
+                    }
+                });
         },
         [this]() {
             return resolver_config_hash_;

@@ -7,8 +7,13 @@ import {
 } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
-import type { ConfigObject, HealthEntry, Outbound } from "@/api/generated/model"
-import { useGetConfig, useGetHealthRouting, useGetHealthService } from "@/api/queries"
+import type { Outbound, RuntimeOutboundState } from "@/api/generated/model"
+import {
+  useGetConfig,
+  useGetHealthRouting,
+  useGetHealthService,
+  useGetRuntimeOutbounds,
+} from "@/api/queries"
 import { usePostReloadMutation } from "@/api/mutations"
 import { selectConfig } from "@/api/selectors"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +34,7 @@ import {
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
+import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
 import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
@@ -50,6 +56,12 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
+    query: {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    },
+  })
 
   const postReloadMutation = usePostReloadMutation()
 
@@ -62,26 +74,60 @@ export function OverviewPage() {
     routingHealthQuery.data?.status === 200
       ? routingHealthQuery.data.data
       : undefined
+  const runtimeOutbounds = useMemo(
+    () =>
+      runtimeOutboundsQuery.data?.status === 200
+        ? runtimeOutboundsQuery.data.data.outbounds
+        : [],
+    [runtimeOutboundsQuery.data]
+  )
+  const runtimeOutboundByTag = useMemo(
+    () =>
+      new Map(
+        runtimeOutbounds.map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+      ),
+    [runtimeOutbounds]
+  )
   const hasResolverHashMismatch =
     Boolean(serviceHealth?.resolver_config_hash) &&
     Boolean(serviceHealth?.resolver_config_hash_actual) &&
     serviceHealth?.resolver_config_hash !== serviceHealth?.resolver_config_hash_actual
 
   const outboundRows = useMemo(() => {
-    if (!serviceHealth) {
+    const configuredOutbounds = loadedConfig?.outbounds ?? []
+    if (configuredOutbounds.length === 0) {
       return []
     }
 
-    return serviceHealth.outbounds.map((outbound) => {
-      const configuredOutbound = findConfiguredOutbound(loadedConfig, outbound.tag)
-      const tagCell = outbound.children?.length ? (
-        <UrltestTagTree
-          children={outbound.children}
-          selectedOutbound={outbound.selected_outbound}
+    return configuredOutbounds.map((outbound) => {
+      const runtimeState = runtimeOutboundByTag.get(outbound.tag)
+      const detailContent = runtimeState ? (
+        <RuntimeOutboundDetails
+          fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
+          fallbackTone={getRuntimeFallbackTone(outbound)}
+          runtimeState={runtimeState}
+          t={t}
+          variant="tree"
         />
+      ) : null
+      const tagCell =
+        outbound.type === "urltest" || outbound.type === "interface" || detailContent ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-medium">
+              {outbound.type === "urltest"
+                ? t("overview.outbounds.urltestTitle")
+                : outbound.tag}
+            </div>
+            <Badge size="xs" variant="outline">
+              {outbound.type}
+            </Badge>
+          </div>
+          {detailContent}
+        </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <span>{outbound.tag}</span>
+          <div className="font-medium">{outbound.tag}</div>
           <Badge size="xs" variant="outline">
             {outbound.type}
           </Badge>
@@ -90,20 +136,15 @@ export function OverviewPage() {
 
       return [
         tagCell,
-        <OutboundDestinationCell
-          key={`${outbound.tag}-destination`}
-          configuredOutbound={configuredOutbound}
-          outbound={outbound}
-        />,
         <StatusBadge
           key={`${outbound.tag}-status`}
-          tone={mapHealthTone(outbound.status)}
+          tone={mapRuntimeHealthTone(runtimeState?.status)}
         >
-          {outbound.status}
+          {runtimeState?.status ?? "unknown"}
         </StatusBadge>,
       ]
     })
-  }, [loadedConfig, serviceHealth])
+  }, [loadedConfig, runtimeOutboundByTag, t])
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
@@ -116,8 +157,8 @@ export function OverviewPage() {
         title={t("nav.items.systemMonitor")}
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard className="col-span-2 lg:col-span-1" title={t("overview.service.title")}>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SectionCard title={t("overview.service.title")}>
           {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
 
           {serviceHealthQuery.isError ? (
@@ -189,18 +230,17 @@ export function OverviewPage() {
 
         <DnsCheckWidget
           dnsProbeEnabled={Boolean(loadedConfig?.dns?.dns_test_server)}
-          dnsServers={loadedConfig?.dns?.servers ?? []}
         />
       </div>
 
       <SectionCard title={t("overview.outbounds.title")}>
-        {serviceHealthQuery.isLoading ? <TableSkeleton /> : null}
-        {serviceHealthQuery.isError ? (
+        {configQuery.isLoading ? <TableSkeleton /> : null}
+        {configQuery.isError || runtimeOutboundsQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
             <AlertDescription>{t("overview.outbounds.loadError")}</AlertDescription>
           </Alert>
         ) : null}
-        {serviceHealth && outboundRows.length === 0 ? (
+        {!configQuery.isLoading && outboundRows.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
               <EmptyTitle>{t("overview.outbounds.emptyTitle")}</EmptyTitle>
@@ -215,7 +255,6 @@ export function OverviewPage() {
             compact
             headers={[
               t("overview.outbounds.headers.tag"),
-              t("overview.outbounds.headers.destination"),
               t("overview.outbounds.headers.status"),
             ]}
             rows={outboundRows}
@@ -324,64 +363,6 @@ function DisabledActionButton({
   )
 }
 
-function OutboundDestinationCell({
-  outbound,
-  configuredOutbound,
-}: {
-  outbound: HealthEntry
-  configuredOutbound?: Outbound
-}) {
-  const { t } = useTranslation()
-  return (
-    <span className="text-sm">
-      {formatOutboundDestination(outbound, configuredOutbound, t)}
-    </span>
-  )
-}
-
-function formatOutboundDestination(
-  outbound: HealthEntry,
-  configuredOutbound: Outbound | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string
-) {
-  if (outbound.type === "interface") {
-    const interfaceName = configuredOutbound?.interface ?? outbound.tag
-    const gateway = configuredOutbound?.gateway
-
-    return gateway
-      ? t("overview.outbounds.destination.interfaceWithGateway", {
-          name: interfaceName,
-          gateway,
-        })
-      : t("overview.outbounds.destination.interface", { name: interfaceName })
-  }
-
-  if (outbound.type === "table") {
-    if (typeof configuredOutbound?.table === "number") {
-      return t("overview.outbounds.destination.table", {
-        value: configuredOutbound.table,
-      })
-    }
-
-    return t("overview.outbounds.destination.table", { value: outbound.tag })
-  }
-
-  if (outbound.type === "urltest") {
-    return t("overview.outbounds.destination.outbound", {
-      name: outbound.selected_outbound ?? "-",
-    })
-  }
-
-  return t("overview.outbounds.destination.outbound", { name: outbound.tag })
-}
-
-function findConfiguredOutbound(
-  config: ConfigObject | undefined,
-  tag: string
-) {
-  return config?.outbounds?.find((outbound) => outbound.tag === tag)
-}
-
 function mapServiceStatusTone(
   status: string
 ): "healthy" | "warning" | "degraded" {
@@ -396,18 +377,6 @@ function mapServiceStatusTone(
   return "degraded"
 }
 
-function mapHealthTone(status: string): "healthy" | "warning" | "degraded" {
-  if (status === "healthy") {
-    return "healthy"
-  }
-
-  if (status === "unknown") {
-    return "warning"
-  }
-
-  return "degraded"
-}
-
 function StatusBadge({
   tone,
   children,
@@ -415,116 +384,61 @@ function StatusBadge({
   tone: "healthy" | "warning" | "degraded"
   children: string
 }) {
-  if (tone === "warning") {
-    return <Badge variant="warning">{children}</Badge>
-  }
-
-  if (tone === "degraded") {
-    return <Badge variant="destructive">{children}</Badge>
-  }
-
-  return <Badge variant="success">{children}</Badge>
-}
-
-function UrltestTagTree({
-  children,
-  selectedOutbound,
-}: {
-  children: Array<{
-    tag: string
-    success: boolean
-    latency_ms: number
-  }>
-  selectedOutbound?: string
-}) {
-  const { t } = useTranslation()
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="font-medium">{t("overview.outbounds.urltestTitle")}</div>
-        <Badge size="xs" variant="outline">
-          urltest
-        </Badge>
-      </div>
-      <div>
-        {children.map((child, index) => (
-          <UrltestOutboundRow
-            key={child.tag}
-            active={child.tag === selectedOutbound}
-            isLast={index === children.length - 1}
-            latency={
-              typeof child.latency_ms === "number"
-                ? `${child.latency_ms} ms`
-                : "-"
-            }
-            name={child.tag}
-            state={child.success ? "healthy" : "degraded"}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function UrltestOutboundRow({
-  name,
-  latency,
-  state,
-  active = false,
-  isLast = false,
-}: {
-  name: string
-  latency: string
-  state: "healthy" | "degraded"
-  active?: boolean
-  isLast?: boolean
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="ml-1 flex flex-wrap items-center text-base md:text-sm">
-      <TreeConnector isLast={isLast} />
-      <span
-        className={`relative ml-2 inline-flex size-2 rounded-full ${
-          state === "healthy" ? "bg-success" : "bg-destructive"
-        }`}
-      />
-      <span className="ml-2 font-medium">{name}</span>
-      <span className="ml-2 text-muted-foreground">{latency}</span>
-      {active ? (
-        <span className="ml-2">
-          <Badge variant="outline">{t("overview.outbounds.inUse")}</Badge>
-        </span>
-      ) : null}
-    </div>
-  )
-}
-
-function TreeConnector({ isLast }: { isLast: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="mr-0.5 h-full shrink-0 self-stretch"
-      preserveAspectRatio="none"
-      viewBox="0 0 16 24"
-      width="16"
+    <Badge
+      size="xs"
+      variant={
+        tone === "warning"
+          ? "warning"
+          : tone === "degraded"
+            ? "destructive"
+            : "success"
+      }
     >
-      {isLast ? (
-        <path
-          d="M2 0V12H14"
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.3"
-          strokeWidth="1"
-        />
-      ) : (
-        <path
-          d="M2 0V24M2 12H14"
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.3"
-          strokeWidth="1"
-        />
-      )}
-    </svg>
+      {children}
+    </Badge>
   )
+}
+
+function mapRuntimeHealthTone(
+  status: RuntimeOutboundState["status"] | undefined
+): "healthy" | "warning" | "degraded" {
+  if (status === "healthy") {
+    return "healthy"
+  }
+
+  if (status === "unknown" || status === undefined) {
+    return "warning"
+  }
+
+  return "degraded"
+}
+
+function getRuntimeFallbackLabel(
+  outbound: Outbound,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | undefined {
+  if (outbound.type === "table" && typeof outbound.table === "number") {
+    return t("runtime.fallback.table", { value: outbound.table })
+  }
+
+  if (outbound.type === "blackhole") {
+    return t("runtime.fallback.blackhole")
+  }
+
+  return undefined
+}
+
+function getRuntimeFallbackTone(
+  outbound: Outbound
+): "info" | "unknown" | undefined {
+  if (outbound.type === "table") {
+    return "info"
+  }
+
+  if (outbound.type === "blackhole") {
+    return "unknown"
+  }
+
+  return undefined
 }

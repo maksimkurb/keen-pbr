@@ -25,7 +25,7 @@ import { sanitizeRoutingTarget } from "./sanitize-routing-target"
 
 export function RoutingTestPanel() {
   const { t } = useTranslation()
-  const [testTarget, setTestTarget] = useState("example.com")
+  const [testTarget, setTestTarget] = useState("")
   const [routingInputError, setRoutingInputError] = useState<string | null>(
     null
   )
@@ -76,7 +76,7 @@ export function RoutingTestPanel() {
           <InputGroupAddon align="inline-end">
             <InputGroupButton
               className="whitespace-nowrap"
-              disabled={routingTestMutation.isPending || !testTarget.trim()}
+              disabled={routingTestMutation.isPending}
               type="submit"
               variant="default"
             >

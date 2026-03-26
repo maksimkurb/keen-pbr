@@ -2,21 +2,15 @@ import { AlertCircle, CheckCircle2, Loader2, RefreshCw, SquareTerminal } from "l
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import type { DnsServer } from "@/api/generated/model"
 import { useDnsCheck } from "@/hooks/use-dns-check"
-import { ButtonGroup } from "@/components/shared/button-group"
 import { SectionCard } from "@/components/shared/section-card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 
 import { DnsCheckModal } from "./dns-check-modal"
 
 export function DnsCheckWidget({
-  dnsServers,
   dnsProbeEnabled,
 }: {
-  dnsServers: DnsServer[]
   dnsProbeEnabled: boolean
 }) {
   const { t } = useTranslation()
@@ -60,68 +54,35 @@ export function DnsCheckWidget({
         }
         title={t("overview.dnsCheck.card.title")}
       >
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="flex-1 space-y-3">
-            <div className="text-sm font-medium text-muted-foreground">
-              {t("overview.dnsCheck.card.configuredServers")}
-            </div>
-            {dnsServers.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                {t("overview.dnsCheck.card.noServers")}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {dnsServers.map((server) => (
-                  <div
-                    className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2"
-                    key={server.tag}
-                  >
-                    <Badge variant="outline">{server.tag}</Badge>
-                    <span className="font-mono text-xs text-muted-foreground md:text-sm">
-                      {server.address}
-                    </span>
-                    {server.detour ? (
-                      <span className="text-xs text-muted-foreground">
-                        {t("overview.dnsCheck.card.via", { detour: server.detour })}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="space-y-4">
+          <div className="flex min-h-20 items-center rounded-lg border border-border/60 bg-background/60 px-4 py-3">
+            <DnsStatusSummary disabled={isDisabled} status={status} />
           </div>
 
-          <Separator className="hidden h-auto self-stretch md:block" orientation="vertical" />
-          <Separator className="md:hidden" orientation="horizontal" />
-
-          <div className="flex flex-1 flex-col justify-between gap-4">
-            <DnsStatusSummary disabled={isDisabled} status={status} />
-
-            <ButtonGroup className="mt-auto [&>[data-slot=button]]:flex-1">
-              <Button
-                disabled={isChecking || isDisabled}
-                onClick={() => {
-                  reset()
-                  startCheck(true)
-                }}
-                size="sm"
-                variant="outline"
-              >
-                <RefreshCw className="h-4 w-4" />
-                {isChecking
-                  ? t("overview.dnsCheck.card.checking")
-                  : t("overview.dnsCheck.card.runAgain")}
-              </Button>
-              <Button
-                disabled={isDisabled}
-                onClick={() => setShowPcCheckDialog(true)}
-                size="sm"
-                variant="outline"
-              >
-                <SquareTerminal className="h-4 w-4" />
-                {t("overview.dnsCheck.card.testFromPc")}
-              </Button>
-            </ButtonGroup>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              disabled={isChecking || isDisabled}
+              onClick={() => {
+                reset()
+                startCheck(true)
+              }}
+              size="sm"
+              variant="outline"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {isChecking
+                ? t("overview.dnsCheck.card.checking")
+                : t("overview.dnsCheck.card.runAgain")}
+            </Button>
+            <Button
+              disabled={isDisabled}
+              onClick={() => setShowPcCheckDialog(true)}
+              size="sm"
+              variant="outline"
+            >
+              <SquareTerminal className="h-4 w-4" />
+              {t("overview.dnsCheck.card.testFromPc")}
+            </Button>
           </div>
         </div>
       </SectionCard>
@@ -165,8 +126,8 @@ function DnsStatusSummary({
     case "idle":
     case "checking":
       return (
-        <div className="flex min-h-24 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex w-full items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )
   }
@@ -185,10 +146,10 @@ function DnsStatusMessage({
     <div
       className={
         tone === "success"
-          ? "flex items-center gap-2 text-emerald-700 dark:text-emerald-300"
+          ? "flex w-full items-center gap-2 text-emerald-700 dark:text-emerald-300"
           : tone === "error"
-            ? "flex items-center gap-2 text-destructive"
-            : "flex items-center gap-2 text-muted-foreground"
+            ? "flex w-full items-center gap-2 text-destructive"
+            : "flex w-full items-center gap-2 text-muted-foreground"
       }
     >
       {icon}

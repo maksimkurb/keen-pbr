@@ -65,6 +65,8 @@ type UrltestGroup = {
   outbounds: string[]
 }
 
+let nextUrltestGroupId = 1
+
 type OutboundFieldName =
   | "tag"
   | "type"
@@ -854,9 +856,15 @@ function getInitialUrltestGroups(outbounds: string) {
 
 function createUrltestGroup(outbounds: string[]): UrltestGroup {
   return {
-    id: crypto.randomUUID(),
+    id: createClientId(),
     outbounds,
   }
+}
+
+function createClientId(): string {
+  const id = nextUrltestGroupId
+  nextUrltestGroupId += 1
+  return `urltest-group-${id}`
 }
 
 function moveGroup(groups: UrltestGroup[], fromIndex: number, toIndex: number) {

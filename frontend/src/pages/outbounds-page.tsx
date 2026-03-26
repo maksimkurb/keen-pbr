@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -8,14 +8,19 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
+import {
+  RuntimeOutboundDetails,
+  RuntimeOutboundEntry,
+} from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +33,7 @@ type OutboundItem = {
   type: Outbound["type"]
   typeVariant?: "default" | "outline" | "secondary"
   summary: string
+  runtimeState?: RuntimeOutboundState
 }
 
 export function OutboundsPage() {
@@ -35,13 +41,25 @@ export function OutboundsPage() {
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
   const loadedConfig = selectConfig(configQuery.data)
   const [mutationErrorMessage, setMutationErrorMessage] = useState<
     string | null
   >(null)
 
+  const runtimeOutboundByTag = new Map(
+    (runtimeOutboundsQuery.data?.status === 200
+      ? runtimeOutboundsQuery.data.data.outbounds
+      : []
+    ).map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+  )
   const outboundItems = selectOutbounds(loadedConfig).map((outbound) =>
-    mapOutboundToItem(outbound, t)
+    mapOutboundToItem(outbound, runtimeOutboundByTag.get(outbound.tag), t)
   )
 
   const postConfigMutation = usePostConfigMutation({
@@ -55,6 +73,9 @@ export function OutboundsPage() {
           }),
           queryClient.invalidateQueries({
             queryKey: queryKeys.healthRouting(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.runtimeOutbounds(),
           }),
         ])
       },
@@ -93,6 +114,7 @@ export function OutboundsPage() {
       <PageHeader
         actions={
           <Button onClick={() => navigate("/outbounds/create")}>
+            <Plus className="mr-1 h-4 w-4" />
             {t("pages.outbounds.actions.new")}
           </Button>
         }
@@ -127,12 +149,16 @@ export function OutboundsPage() {
             t("pages.outbounds.headers.tag"),
             t("pages.outbounds.headers.type"),
             t("pages.outbounds.headers.summary"),
+            t("pages.outbounds.headers.runtime"),
             t("pages.outbounds.headers.actions"),
           ]}
           rows={outboundItems.map((outbound) => [
-            <div className="font-medium" key={`${outbound.id}-tag`}>
-              {outbound.tag}
-            </div>,
+            <RuntimeOutboundEntry
+              key={`${outbound.id}-tag`}
+              runtimeState={outbound.runtimeState}
+              title={outbound.tag}
+              t={t}
+            />,
             <Badge key={`${outbound.id}-type`} variant={outbound.typeVariant}>
               {outbound.type}
             </Badge>,
@@ -142,6 +168,14 @@ export function OutboundsPage() {
             >
               {outbound.summary}
             </span>,
+            <RuntimeOutboundDetails
+              fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
+              fallbackTone={getRuntimeFallbackTone(outbound)}
+              key={`${outbound.id}-runtime`}
+              runtimeState={outbound.runtimeState}
+              t={t}
+              variant="list"
+            />,
             <ActionButtons
               actions={[
                 {
@@ -166,6 +200,7 @@ export function OutboundsPage() {
 
 function mapOutboundToItem(
   outbound: Outbound,
+  runtimeState: RuntimeOutboundState | undefined,
   t: (key: string, options?: Record<string, unknown>) => string
 ): OutboundItem {
   return {
@@ -174,6 +209,7 @@ function mapOutboundToItem(
     type: outbound.type,
     summary: getOutboundSummary(outbound, t),
     typeVariant: outbound.type === "interface" ? "outline" : undefined,
+    runtimeState,
   }
 }
 
@@ -202,6 +238,35 @@ function getOutboundSummary(
   }
 
   return t("common.noneShort")
+}
+
+function getRuntimeFallbackLabel(
+  outbound: Outbound,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | undefined {
+  if (outbound.type === "table" && typeof outbound.table === "number") {
+    return t("runtime.fallback.table", { value: outbound.table })
+  }
+
+  if (outbound.type === "blackhole") {
+    return t("runtime.fallback.blackhole")
+  }
+
+  return undefined
+}
+
+function getRuntimeFallbackTone(
+  outbound: Outbound
+): "info" | "unknown" | undefined {
+  if (outbound.type === "table") {
+    return "info"
+  }
+
+  if (outbound.type === "blackhole") {
+    return "unknown"
+  }
+
+  return undefined
 }
 
 function validateUrltestGroupReferences(

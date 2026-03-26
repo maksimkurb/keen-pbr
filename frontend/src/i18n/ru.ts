@@ -25,6 +25,29 @@ export const ruTranslation = {
           removeItem: "Удалить {{item}}",
         },
       },
+      runtime: {
+        healthy: "Исправен",
+        notHealthy: "Неисправен",
+        activeOutbound: "Активный outbound {{value}}",
+        activeInterface: "Активный {{value}}",
+        outboundStatus: {
+          healthy: "Исправен",
+          degraded: "Деградирован",
+          unavailable: "Недоступен",
+          unknown: "Неизвестно",
+        },
+        interfaceStatus: {
+          active: "Активен",
+          backup: "Резервный",
+          degraded: "Деградирован",
+          unavailable: "Недоступен",
+          unknown: "Неизвестно",
+        },
+        fallback: {
+          table: "Таблица маршрутизации {{value}}",
+          blackhole: "Блокировать весь входящий трафик",
+        },
+      },
       language: {
         selectorAria: "Выбор языка",
         english: "Английский",
@@ -183,9 +206,9 @@ export const ruTranslation = {
           },
           status: {
             disabled: "Встроенный DNS-пробник отключён в конфиге.",
-            browserSuccess: "DNS-запрос из браузера достиг тестового сервера.",
+            browserSuccess: "DNS-запрос из браузера достиг dnsmasq.",
             manualProbeSuccess:
-              "Ручной DNS-запрос с устройства достиг тестового сервера.",
+              "DNS-запрос от устройства достиг dnsmasq.",
             browserProbeFail:
               "Запрос браузера завершился, но DNS-пробник не увидел lookup.",
             sseUnavailable:
@@ -195,7 +218,7 @@ export const ruTranslation = {
             sseFail: "Поток событий DNS в реальном времени не подключён.",
             browserChecking: "Проверяем DNS-путь браузера...",
             browserUnknown: "Статус DNS в браузере пока неизвестен.",
-            manualSuccess: "Ручной тест устройства достиг DNS-пробника.",
+            manualSuccess: "DNS-запрос от устройства достиг dnsmasq.",
             manualWaiting: "Ожидание вашей ручной команды nslookup...",
             manualIncomplete: "Ручной тест устройства ещё не завершён.",
           },
@@ -277,7 +300,7 @@ export const ruTranslation = {
           description:
             "Upstream DNS-серверы для разрешения доменных имён.",
           actions: {
-            add: "Добавить сервер",
+            add: "Добавить DNS-сервер",
           },
           empty: {
             title: "DNS-серверов пока нет",
@@ -341,7 +364,7 @@ export const ruTranslation = {
           title: "Правила маршрутизации",
           description:
             "Правила, определяющие, какой outbound обрабатывает подходящий трафик. Проверяются сверху вниз.",
-          actions: { addRule: "Добавить правило" },
+          actions: { addRule: "Добавить правило маршрутизации" },
           messages: {
             saved:
               "Правила маршрутизации сохранены в черновик. Примените конфиг, чтобы записать их.",
@@ -355,6 +378,7 @@ export const ruTranslation = {
             order: "Порядок",
             criteria: "Условие",
             outbound: "Outbound",
+            runtime: "Состояние",
             actions: "Действия",
           },
           criteriaLabels: {
@@ -428,7 +452,7 @@ export const ruTranslation = {
           title: "Интерфейсы / выходы",
           description:
             "Настроенные outbounds и группы urltest.",
-          actions: { new: "Новый outbound" },
+          actions: { new: "Добавить outbound" },
           empty: {
             title: "Outbounds пока нет",
             description:
@@ -438,6 +462,7 @@ export const ruTranslation = {
             tag: "Название",
             type: "Тип",
             summary: "Детали",
+            runtime: "Состояние",
             actions: "Действия",
           },
           summary: {

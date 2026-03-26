@@ -240,7 +240,7 @@ function ChainStateBadge({
   children: ReactNode
 }) {
   return (
-    <Badge variant={isHealthy ? "success" : "warning"}>{children}</Badge>
+    <Badge size="xs" variant={isHealthy ? "success" : "warning"}>{children}</Badge>
   )
 }
 
@@ -412,13 +412,18 @@ function StatusBadge({
   tone: StatusTone
   children: string
 }) {
-  if (tone === "warning") {
-    return <Badge variant="warning">{children}</Badge>
-  }
-
-  if (tone === "degraded") {
-    return <Badge variant="destructive">{children}</Badge>
-  }
-
-  return <Badge variant="success">{children}</Badge>
+  return (
+    <Badge
+      size="xs"
+      variant={
+        tone === "warning"
+          ? "warning"
+          : tone === "degraded"
+            ? "destructive"
+            : "success"
+      }
+    >
+      {children}
+    </Badge>
+  )
 }
