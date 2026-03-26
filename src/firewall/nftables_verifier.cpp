@@ -166,9 +166,16 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
 NftablesFirewallVerifier::NftablesFirewallVerifier(CommandRunner runner)
     : runner_(std::move(runner)) {}
 
+const ParsedNftablesState& NftablesFirewallVerifier::get_state() const {
+    if (!cached_state_.has_value()) {
+        const std::string nft_out = runner_({"nft", "-j", "list", "table", "inet", TABLE_NAME});
+        cached_state_ = parse_nft_json(nft_out);
+    }
+    return *cached_state_;
+}
+
 FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
-    const std::string nft_out = runner_("nft -j list ruleset");
-    const auto state = parse_nft_json(nft_out);
+    const auto& state = get_state();
 
     FirewallChainCheck result;
     result.chain_present = state.has_prerouting_chain;
@@ -191,8 +198,7 @@ FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
 
 std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
     const std::vector<RuleState>& expected) {
-    const std::string nft_out = runner_("nft -j list ruleset");
-    const auto state = parse_nft_json(nft_out);
+    const auto& state = get_state();
 
     // Build lookup: set_name -> ParsedNftRule
     std::map<std::string, ParsedNftRule> rule_map;
