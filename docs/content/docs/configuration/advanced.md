@@ -7,18 +7,24 @@ This page covers the remaining top-level configuration keys: `daemon`, `api`, `f
 
 ## daemon
 
-Controls the PID file path and cache directory.
+Controls the PID file path, cache directory, and global routing behaviour.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `pid_file` | string | — | Path to write the PID file |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
+| `strict_enforcement` | boolean | `false` | Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. |
+| `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
+| `firewall_verify_max_bytes` | integer | `262144` | Maximum stdout bytes captured per firewall verification command (`0` = unlimited) |
 
 ```json
 {
   "daemon": {
     "pid_file": "/var/run/keen-pbr.pid",
-    "cache_dir": "/var/cache/keen-pbr"
+    "cache_dir": "/var/cache/keen-pbr",
+    "strict_enforcement": false,
+    "max_file_size_bytes": 8388608,
+    "firewall_verify_max_bytes": 262144
   }
 }
 ```
