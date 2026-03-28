@@ -1,5 +1,7 @@
 #include "list_parser.hpp"
 
+#include <arpa/inet.h>
+
 #include <algorithm>
 #include <charconv>
 
@@ -35,28 +37,14 @@ bool ListParser::is_ipv4(std::string_view s) {
 
 bool ListParser::is_ipv6(std::string_view s) {
     if (s.empty()) return false;
-    // Basic IPv6 validation: must contain at least one colon and only hex digits, colons, and dots (for mapped v4)
-    if (s.find(':') == std::string_view::npos) return false;
-    // Reject if contains slash (that's CIDR)
+    // Reject CIDR suffixes and scoped zone IDs. This parser classifies plain IPs;
+    // CIDR is handled separately and zone IDs are not supported downstream.
     if (s.find('/') != std::string_view::npos) return false;
+    if (s.find('%') != std::string_view::npos) return false;
 
-    int colons = 0;
-    bool has_double_colon = false;
-    for (size_t i = 0; i < s.size(); ++i) {
-        char c = s[i];
-        if (c == ':') {
-            ++colons;
-            if (i + 1 < s.size() && s[i + 1] == ':') {
-                if (has_double_colon) return false; // only one :: allowed
-                has_double_colon = true;
-            }
-        } else if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-                     (c >= 'A' && c <= 'F') || c == '.')) {
-            return false;
-        }
-    }
-    // Must have at least 1 colon, max 7 (or fewer with ::)
-    return colons >= 1 && colons <= 7;
+    std::string ip(s);
+    in6_addr parsed{};
+    return inet_pton(AF_INET6, ip.c_str(), &parsed) == 1;
 }
 
 bool ListParser::is_cidr_v4(std::string_view s) {

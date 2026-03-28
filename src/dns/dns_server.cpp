@@ -1,5 +1,7 @@
 #include "dns_server.hpp"
 
+#include <arpa/inet.h>
+
 #include <charconv>
 #include <cstdint>
 
@@ -29,27 +31,12 @@ bool is_valid_ipv4(const std::string& addr) {
 bool is_valid_ipv6(const std::string& addr) {
     if (addr.empty()) return false;
 
-    // Must contain at least one colon
-    if (addr.find(':') == std::string::npos) return false;
+    // Scoped IPv6 zone IDs ("%eth0", "%1") are intentionally rejected here.
+    // The rest of the codebase treats addresses as plain numeric literals.
+    if (addr.find('%') != std::string::npos) return false;
 
-    // Check for valid characters
-    for (char c : addr) {
-        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-              (c >= 'A' && c <= 'F') || c == ':' || c == '.')) {
-            return false;
-        }
-    }
-
-    // Basic structure: groups separated by colons, :: allowed once
-    int double_colon_count = 0;
-    size_t pos = 0;
-    while ((pos = addr.find("::", pos)) != std::string::npos) {
-        ++double_colon_count;
-        pos += 2;
-    }
-    if (double_colon_count > 1) return false;
-
-    return true;
+    in6_addr parsed{};
+    return inet_pton(AF_INET6, addr.c_str(), &parsed) == 1;
 }
 
 bool is_valid_ip(const std::string& addr) {
