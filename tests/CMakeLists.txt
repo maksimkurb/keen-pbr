@@ -10,6 +10,7 @@ add_executable(keen-pbr-tests
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
   test_list_set_usage.cpp
+  test_http_client.cpp
   test_config_validation.cpp
   test_routing_state.cpp
   test_system_resolver_hook.cpp

@@ -236,6 +236,13 @@ components:
             cannot be confirmed reachable.
           default: false
           example: true
+        max_file_size_bytes:
+          type: integer
+          description: >
+            Maximum allowed size in bytes for downloaded remote content such as URL-backed
+            lists. Defaults to 8 MiB.
+          default: 8388608
+          example: 8388608
 
     ApiConfig:
       type: object
@@ -644,6 +651,7 @@ components:
           cache_dir: "/var/cache/keen-pbr"
           firewall_verify_max_bytes: 262144
           strict_enforcement: true
+          max_file_size_bytes: 8388608
         api:
           enabled: true
           listen: "127.0.0.1:8080"

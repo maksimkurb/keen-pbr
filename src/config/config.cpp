@@ -276,6 +276,8 @@ Config parse_config(const std::string& json_str) {
     validate_optional_integer_field(
         parsed_json, "daemon", "firewall_verify_max_bytes",
         "daemon.firewall_verify_max_bytes", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
     validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
@@ -300,6 +302,12 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->firewall_verify_max_bytes < 0) {
         add_issue(issues, "daemon.firewall_verify_max_bytes",
                   "daemon.firewall_verify_max_bytes must be >= 0");
+    }
+
+    if (cfg.daemon && cfg.daemon->max_file_size_bytes.has_value() &&
+        *cfg.daemon->max_file_size_bytes <= 0) {
+        add_issue(issues, "daemon.max_file_size_bytes",
+                  "daemon.max_file_size_bytes must be greater than 0");
     }
 
     if (cfg.lists_autoupdate) {
@@ -554,6 +562,13 @@ void validate_config(const Config& cfg) {
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
     }
+}
+
+size_t max_file_size_bytes(const Config& config) {
+    const auto bytes = config.daemon.value_or(DaemonConfig{})
+                           .max_file_size_bytes.value_or(
+                               static_cast<int64_t>(kDefaultMaxFileSizeBytes));
+    return static_cast<size_t>(bytes);
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

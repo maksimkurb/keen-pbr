@@ -75,7 +75,8 @@ Daemon::Daemon(Config config,
     : config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
-    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"))
+    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"),
+             max_file_size_bytes(config_))
     , firewall_(create_firewall("auto"))
     , netlink_()
     , route_table_(netlink_)
