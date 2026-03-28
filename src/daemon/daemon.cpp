@@ -1208,6 +1208,17 @@ void Daemon::setup_dns_probe() {
         }
     });
 
+    add_fd(dns_probe_server_->tcp_idle_timer_fd(), EPOLLIN, [this](uint32_t events) {
+        if (!(events & EPOLLIN) || !dns_probe_server_) {
+            return;
+        }
+        for (int client_fd : dns_probe_server_->handle_tcp_idle_timeout()) {
+            dns_probe_server_->remove_tcp_client(client_fd);
+            remove_fd(client_fd);
+            close(client_fd);
+        }
+    });
+
     Logger::instance().info("DNS test server listening on {}", settings.listen);
 }
 
