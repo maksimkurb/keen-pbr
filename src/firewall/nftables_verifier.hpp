@@ -4,12 +4,13 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace keen_pbr3 {
 
-// A single parsed rule from nft -j list ruleset output (within KeenPbrTable/prerouting chain).
+// A single parsed rule from nft -j list table inet KeenPbrTable output (within KeenPbrTable/prerouting chain).
 struct ParsedNftRule {
     std::string set_name;  // Named set referenced in the match expression (without '@' prefix)
     bool is_mark{false};   // true if rule has a mangle/meta mark action
@@ -18,7 +19,7 @@ struct ParsedNftRule {
     bool ipv6{false};      // true if the payload protocol is ip6
 };
 
-// Parsed state of the KeenPbrTable from nft -j list ruleset output.
+// Parsed state of the KeenPbrTable from nft -j list table inet KeenPbrTable output.
 struct ParsedNftablesState {
     bool has_table{false};              // inet KeenPbrTable table was found
     bool has_prerouting_chain{false};   // prerouting chain in KeenPbrTable was found
@@ -26,7 +27,7 @@ struct ParsedNftablesState {
     std::vector<ParsedNftRule> rules;   // rules in the prerouting chain
 };
 
-// Parse the stdout of `nft -j list ruleset`.
+// Parse the stdout of `nft -j list table inet KeenPbrTable`.
 // Returns the parsed state of KeenPbrTable.
 // On any JSON parse error or invalid input, returns a default (empty) state.
 ParsedNftablesState parse_nft_json(const std::string& json_output);
@@ -47,7 +48,10 @@ private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
 
+    const ParsedNftablesState& get_state() const;
+
     CommandRunner runner_;
+    mutable std::optional<ParsedNftablesState> cached_state_;
 };
 
 // Factory function called from firewall_verifier.cpp

@@ -250,7 +250,7 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
         "-A PREROUTING -j KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     IptablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -274,7 +274,7 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {
         ":KeenPbrTable - [0:0]\n"
         "-A PREROUTING -j KeenPbrTable\n";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     IptablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -293,7 +293,7 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: fwmark mismatch") {
         ":KeenPbrTable - [0:0]\n"
         "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     IptablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -314,7 +314,7 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
         ":KeenPbrTable - [0:0]\n"
         "-A KeenPbrTable -m set --match-set blacklist dst -j DROP\n";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     IptablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -329,7 +329,7 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check") {
     const std::string canned = "";
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     IptablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -363,7 +363,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule ok") {
         ]
     })";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     NftablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -388,7 +388,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule missing") {
         ]
     })";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     NftablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -420,7 +420,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: drop rule ok") {
         ]
     })";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     NftablesFirewallVerifier verifier(runner);
 
     RuleState rs;
@@ -451,7 +451,7 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: fwmark mismatch") {
         ]
     })";
 
-    auto runner = [&canned](const std::string&) -> std::string { return canned; };
+    auto runner = [&canned](const std::vector<std::string>&) -> std::string { return canned; };
     NftablesFirewallVerifier verifier(runner);
 
     RuleState rs;
