@@ -10,6 +10,8 @@ CONFFILE="${PACKAGE_NAME}.conf"
 # Paths to bind-mount read-only into the dnsmasq procd jail
 JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
 
+[ -r /lib/functions.sh ] && . /lib/functions.sh
+
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
         echo "dnsmasq-nftset"
@@ -39,7 +41,13 @@ uci_add_list_if_new() {
 }
 
 dnsmasq_sections() {
-    uci -q show dhcp | sed -n 's/^dhcp\.\([^.=][^.=]*\)=dnsmasq$/\1/p'
+    local section section_type
+
+    config_load dhcp
+    for section in $CONFIG_SECTIONS; do
+        config_get section_type "$section" TYPE
+        [ "$section_type" = "dnsmasq" ] && printf '%s\n' "$section"
+    done
 }
 
 dnsmasq_confdir() {
