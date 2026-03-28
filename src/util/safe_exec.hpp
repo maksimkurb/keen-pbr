@@ -60,7 +60,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
     argv.push_back(nullptr);
 
     int pipefd[2];
-    if (pipe(pipefd) == -1) return -1;
+    if (pipe2(pipefd, O_CLOEXEC) == -1) return -1;
 
     const pid_t pid = fork();
     if (pid == -1) {
@@ -114,7 +114,7 @@ inline std::string safe_exec_capture(const std::vector<std::string>& args,
     argv.push_back(nullptr);
 
     int pipefd[2];
-    if (pipe(pipefd) == -1) return {};
+    if (pipe2(pipefd, O_CLOEXEC) == -1) return {};
 
     const pid_t pid = fork();
     if (pid == -1) {
