@@ -1,5 +1,6 @@
 #include "iptables.hpp"
 #include "ipset_restore_pipe.hpp"
+#include "port_spec_util.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
@@ -120,21 +121,6 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
     }
 }
 
-// Convert a port spec token to iptables format.
-// "443" → "443", "8000-9000" → "8000:9000" (iptables uses colon for range)
-static std::string port_token_to_ipt(const std::string& token) {
-    auto dash = token.find('-');
-    if (dash != std::string::npos) {
-        return token.substr(0, dash) + ":" + token.substr(dash + 1);
-    }
-    return token;
-}
-
-// Returns true if port_spec is a comma-separated list (contains ',').
-static bool is_port_list(const std::string& port_spec) {
-    return port_spec.find(',') != std::string::npos;
-}
-
 std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto,
                                                          const std::string& src_port,
                                                          const std::string& dst_port,
@@ -153,8 +139,10 @@ std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto
 
     bool has_src = !src_port.empty();
     bool has_dst = !dst_port.empty();
-    bool src_list = has_src && is_port_list(src_port);
-    bool dst_list = has_dst && is_port_list(dst_port);
+    bool src_list = has_src && classify_port_spec(src_port) == PortSpecKind::List;
+    bool dst_list = has_dst && classify_port_spec(dst_port) == PortSpecKind::List;
+    std::string normalized_src = has_src ? normalize_port_spec_for_iptables(src_port) : "";
+    std::string normalized_dst = has_dst ? normalize_port_spec_for_iptables(dst_port) : "";
 
     // Use -m multiport when: both ports present, or either is a comma list
     if (has_src || has_dst) {
@@ -162,17 +150,17 @@ std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto
             // When negation differs between src and dst, emit separate -m multiport clauses
             // (iptables cannot mix negated and non-negated flags in one multiport call).
             if (has_src && has_dst && negate_src_port != negate_dst_port) {
-                frag += " -m multiport" + std::string(negate_src_port ? " !" : "") + " --sports " + src_port;
-                frag += " -m multiport" + std::string(negate_dst_port ? " !" : "") + " --dports " + dst_port;
+                frag += " -m multiport" + std::string(negate_src_port ? " !" : "") + " --sports " + normalized_src;
+                frag += " -m multiport" + std::string(negate_dst_port ? " !" : "") + " --dports " + normalized_dst;
             } else {
                 frag += " -m multiport";
-                if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sports " + src_port;
-                if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dports " + dst_port;
+                if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sports " + normalized_src;
+                if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dports " + normalized_dst;
             }
         } else {
             // Single port or range, single direction — use --sport/--dport
-            if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sport " + port_token_to_ipt(src_port);
-            if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dport " + port_token_to_ipt(dst_port);
+            if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sport " + normalized_src;
+            if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dport " + normalized_dst;
         }
     }
 

@@ -230,7 +230,7 @@ TEST_CASE("build_proto_port_fragment: tcp + port list → multiport") {
 
 TEST_CASE("build_proto_port_fragment: src_port + dest_port → multiport") {
   auto frag = T::build_proto_port_fragment("tcp", "1024-65535", "80");
-  CHECK(frag == " -p tcp -m multiport --sports 1024-65535 --dports 80");
+  CHECK(frag == " -p tcp -m multiport --sports 1024:65535 --dports 80");
 }
 
 TEST_CASE("build_proto_port_fragment: proto only, no ports") {
@@ -368,7 +368,7 @@ TEST_CASE(
     "build_proto_port_fragment: both ports negated → single multiport clause") {
   auto frag =
       T::build_proto_port_fragment("tcp", "1024-65535", "80", true, true);
-  CHECK(frag == " -p tcp -m multiport ! --sports 1024-65535 ! --dports 80");
+  CHECK(frag == " -p tcp -m multiport ! --sports 1024:65535 ! --dports 80");
 }
 
 TEST_CASE(
