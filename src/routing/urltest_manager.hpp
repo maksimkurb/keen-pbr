@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <map>
+#include <shared_mutex>
 #include <string>
 
 namespace keen_pbr3 {
@@ -47,25 +48,31 @@ public:
     // Returns empty string if not registered or no outbound selected.
     std::string get_selected(const std::string& urltest_tag) const;
 
-    // Get const reference to state for API/status reporting.
+    // Get a snapshot of state for API/status reporting.
     // Throws std::out_of_range if tag not found.
-    const UrltestState& get_state(const std::string& urltest_tag) const;
+    UrltestState get_state(const std::string& urltest_tag) const;
 
     // Unregister all urltest outbounds and cancel their scheduled tasks.
     void clear();
 
 private:
     // Run URL tests for all child outbounds of the given urltest and update selection.
+    // Acquires unique_lock on mutex_.
     void run_tests(const std::string& tag);
+
+    // Internal implementation of run_tests; caller must already hold unique_lock on mutex_.
+    void run_tests_locked(const std::string& tag);
 
     // Select the best outbound using weighted group algorithm with tolerance.
     // Returns empty string if all outbounds are circuit-broken (blackhole fallback).
+    // Caller must hold at least a shared_lock on mutex_.
     std::string select_outbound(const std::string& tag);
 
     URLTester& tester_;
     const OutboundMarkMap& marks_;
     Scheduler& scheduler_;
     UrltestChangeCallback on_change_;
+    mutable std::shared_mutex mutex_;
     std::map<std::string, UrltestState> states_;
 };
 

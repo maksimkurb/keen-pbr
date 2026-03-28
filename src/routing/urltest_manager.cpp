@@ -20,6 +20,8 @@ UrltestManager::~UrltestManager() {
 }
 
 void UrltestManager::register_urltest(const Outbound& ut) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+
     UrltestState state;
     state.config = ut;
 
@@ -41,18 +43,20 @@ void UrltestManager::register_urltest(const Outbound& ut) {
 
     states_.emplace(ut.tag, std::move(state));
 
-    // Run initial test immediately
-    run_tests(ut.tag);
+    // Run initial test immediately (lock already held)
+    run_tests_locked(ut.tag);
 }
 
 void UrltestManager::trigger_immediate_test(const std::string& urltest_tag) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     auto it = states_.find(urltest_tag);
     if (it != states_.end()) {
-        run_tests(urltest_tag);
+        run_tests_locked(urltest_tag);
     }
 }
 
 std::string UrltestManager::get_selected(const std::string& urltest_tag) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     auto it = states_.find(urltest_tag);
     if (it == states_.end()) {
         return "";
@@ -60,11 +64,13 @@ std::string UrltestManager::get_selected(const std::string& urltest_tag) const {
     return it->second.selected_outbound;
 }
 
-const UrltestState& UrltestManager::get_state(const std::string& urltest_tag) const {
+UrltestState UrltestManager::get_state(const std::string& urltest_tag) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     return states_.at(urltest_tag);
 }
 
 void UrltestManager::clear() {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     for (auto& [tag, state] : states_) {
         if (state.scheduler_task_id >= 0) {
             scheduler_.cancel(state.scheduler_task_id);
@@ -74,6 +80,11 @@ void UrltestManager::clear() {
 }
 
 void UrltestManager::run_tests(const std::string& tag) {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    run_tests_locked(tag);
+}
+
+void UrltestManager::run_tests_locked(const std::string& tag) {
     auto it = states_.find(tag);
     if (it == states_.end()) return;
 
