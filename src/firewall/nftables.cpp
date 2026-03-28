@@ -1,5 +1,6 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
+#include "port_spec_util.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
@@ -122,27 +123,43 @@ std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
 // "8000-9000" → {"range": [8000, 9000]}
 // "80,443"    → {"set": [80, 443]}
 static nlohmann::json port_spec_to_nft_rhs(const std::string& spec) {
-    if (spec.find(',') != std::string::npos) {
+    PortSpecKind kind = classify_port_spec(spec);
+    if (kind == PortSpecKind::List) {
         nlohmann::json arr = nlohmann::json::array();
-        std::string token;
-        for (char c : spec) {
-            if (c == ',') {
-                arr.push_back(std::stoi(token));
-                token.clear();
+        for (const auto& token : split_port_spec_tokens(spec)) {
+            PortSpecKind token_kind = classify_port_spec(token);
+            if (token_kind == PortSpecKind::Range) {
+                int lo = 0;
+                int hi = 0;
+                if (!parse_port_range(token, lo, hi)) {
+                    throw std::invalid_argument(keen_pbr3::format("Invalid port token '{}' in port spec '{}'", token, spec));
+                }
+                arr.push_back({{"range", nlohmann::json::array({lo, hi})}});
             } else {
-                token += c;
+                int port = 0;
+                if (!parse_port_value(token, port)) {
+                    throw std::invalid_argument(keen_pbr3::format("Invalid port token '{}' in port spec '{}'", token, spec));
+                }
+                arr.push_back(port);
             }
         }
-        if (!token.empty()) arr.push_back(std::stoi(token));
         return {{"set", arr}};
     }
-    auto dash = spec.find('-');
-    if (dash != std::string::npos) {
-        int lo = std::stoi(spec.substr(0, dash));
-        int hi = std::stoi(spec.substr(dash + 1));
+
+    if (kind == PortSpecKind::Range) {
+        int lo = 0;
+        int hi = 0;
+        if (!parse_port_range(spec, lo, hi)) {
+            throw std::invalid_argument(keen_pbr3::format("Invalid port range '{}'", spec));
+        }
         return {{"range", nlohmann::json::array({lo, hi})}};
     }
-    return std::stoi(spec);
+
+    int port = 0;
+    if (!parse_port_value(spec, port)) {
+        throw std::invalid_argument(keen_pbr3::format("Invalid port '{}'", spec));
+    }
+    return port;
 }
 
 // --- Private static helpers ---

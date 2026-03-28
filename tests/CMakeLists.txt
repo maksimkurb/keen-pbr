@@ -14,11 +14,13 @@ add_executable(keen-pbr-tests
   test_config_validation.cpp
   test_routing_state.cpp
   test_system_resolver_hook.cpp
+  test_port_spec_util.cpp
   ../src/config/config.cpp
   ../src/config/routing_state.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp
   ../src/firewall/iptables.cpp
