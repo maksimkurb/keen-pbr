@@ -7,14 +7,14 @@ Written in C++17, designed for embedded targets (MIPS, ARM, AArch64, x86_64) wit
 ## Features
 
 - **Selective routing** — route traffic through specific interfaces based on IP/CIDR/domain lists
-- **Multiple outbound types** — interface (with optional gateway), routing table, blackhole
+- **Multiple outbound types** — interface (with optional gateway), routing table, blackhole, ignore, urltest (auto-select by latency)
 - **Failover chains** — ordered list of outbounds; first healthy one wins
 - **Health monitoring** — ICMP ping-based checks with circuit breaker to prevent oscillation
 - **Dual firewall backend** — auto-detects iptables/ipset or nftables
 - **DNS integration** — generates dnsmasq config for domain-based routing via ipsets
 - **Remote lists** — download IP/domain lists from URLs with disk caching for offline startup
-- **REST API** (optional, compile-time) — status, health, and reload endpoints
-- **Signal handling** — `SIGUSR1` triggers immediate list reload; `SIGTERM`/`SIGINT` for graceful shutdown
+- **REST API** (optional, compile-time) — service health, routing verification, config management, routing test, DNS test, and reload endpoints
+- **Signal handling** — `SIGHUP` triggers full reload (re-download lists, re-apply rules); `SIGUSR1` re-verifies routing tables and triggers URL tests; `SIGTERM`/`SIGINT` for graceful shutdown
 
 ## Prerequisites
 
@@ -216,15 +216,10 @@ keen-pbr reads a JSON config file whose default path is set at build time (`/etc
         "outbound": "vpn"
       },
       {
-        "list": ["blocked-sites"],
-        "outbounds": ["vpn", "wan"]
-      },
-      {
         "list": ["local-list"],
-        "action": "skip"
+        "outbound": "direct"
       }
-    ],
-    "fallback": "wan"
+    ]
   },
   "dns": {
     "servers": [
@@ -275,13 +270,11 @@ List files (remote or local) contain one entry per line. Supported entry types:
 
 ### Route rules
 
-Each route rule matches traffic against one or more lists and takes an action:
+Each route rule matches traffic against one or more lists and routes it through the specified outbound:
 
-- **Single outbound** (`"outbound": "tag"`) — route to the specified outbound
-- **Failover chain** (`"outbounds": ["tag1", "tag2"]`) — try outbounds in order, use first healthy one
-- **Skip** (`"action": "skip"`) — skip this rule, continue to next
+- `"outbound": "tag"` — route matched traffic to the named outbound
 
-Rules are evaluated in order; first match wins. Unmatched traffic uses the `fallback` outbound.
+Rules are evaluated in order; first match wins.
 
 ## Usage
 
@@ -303,7 +296,8 @@ keen-pbr [options]
 
 | Signal | Effect |
 |---|---|
-| `SIGUSR1` | Trigger immediate list reload |
+| `SIGHUP` | Full reload: re-download lists, re-apply firewall and routing rules |
+| `SIGUSR1` | Re-verify routing tables and trigger immediate URL tests |
 | `SIGTERM` / `SIGINT` | Graceful shutdown (cleanup routes, firewall, PID file) |
 
 ### REST API endpoints
@@ -312,9 +306,15 @@ Available when built with `WITH_API=ON` and not disabled with `--no-api`:
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/status` | Daemon status, loaded lists, active outbounds |
-| `GET` | `/api/health` | Health check results for all outbounds |
-| `POST` | `/api/reload` | Trigger list re-download and re-apply |
+| `GET` | `/api/health/service` | Daemon version, status, and resolver config summary |
+| `GET` | `/api/health/routing` | Verify live kernel routing and firewall state |
+| `GET` | `/api/runtime/outbounds` | Live outbound and interface runtime state |
+| `POST` | `/api/reload` | Trigger async full reload (re-download lists, re-apply rules) |
+| `GET` | `/api/config` | Get current config (with draft indicator) |
+| `POST` | `/api/config` | Validate and stage config in memory (no write, no reload) |
+| `POST` | `/api/config/save` | Persist staged config to disk and apply it |
+| `POST` | `/api/routing/test` | Test routing for an IP address or domain name |
+| `GET` | `/api/dns/test` | Stream live DNS test queries as Server-Sent Events |
 
 ### Running on the router
 

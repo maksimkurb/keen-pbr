@@ -9,7 +9,7 @@ All endpoints are served at the configured `api.listen` address (default `127.0.
 
 ## GET /api/health/service
 
-Returns the running daemon version, overall status, and health information for every configured outbound. For `urltest` outbounds, includes per-child probe results, latencies, circuit breaker states, and the currently selected outbound.
+Returns the running daemon version, service status, and resolver configuration summary.
 
 ```bash
 curl http://127.0.0.1:8080/api/health/service
@@ -22,47 +22,14 @@ curl http://127.0.0.1:8080/api/health/service
   "version": "3.0.0",
   "status": "running",
   "resolver_config_hash": "a3f7c1d9e2b84560abcdef1234567890",
-  "outbounds": [
-    {
-      "tag": "vpn",
-      "type": "interface",
-      "status": "healthy"
-    },
-    {
-      "tag": "auto-select",
-      "type": "urltest",
-      "status": "healthy",
-      "selected_outbound": "vpn",
-      "children": [
-        {
-          "tag": "vpn",
-          "success": true,
-          "latency_ms": 42,
-          "circuit_breaker": "closed"
-        },
-        {
-          "tag": "wan",
-          "success": true,
-          "latency_ms": 5,
-          "circuit_breaker": "closed"
-        }
-      ]
-    }
-  ]
+  "resolver_config_hash_actual": "a3f7c1d9e2b84560abcdef1234567890",
+  "config_is_draft": false
 }
 ```
 
-**Outbound status values:**
-- `healthy` — outbound is functioning (for urltest: a child is selected)
-- `degraded` — urltest has no selected outbound
-- `unknown` — urltest state not yet initialized
+`resolver_config_hash` is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. `resolver_config_hash_actual` reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.
 
-**Circuit breaker states:**
-- `closed` — healthy, traffic passes through
-- `open` — failed, blocked during cooldown
-- `half_open` — testing recovery with limited probes
-
-`resolver_config_hash` is an MD5 hex digest of the current domain-to-ipset mapping. Use it to verify the dnsmasq config is up to date.
+For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
 
 ---
 
@@ -87,7 +54,7 @@ curl -X POST http://127.0.0.1:8080/api/reload
 
 ## GET /api/config
 
-Returns the raw contents of the current configuration file as JSON.
+Returns the current configuration together with a flag indicating whether it is a staged in-memory draft.
 
 ```bash
 curl http://127.0.0.1:8080/api/config
@@ -97,13 +64,18 @@ curl http://127.0.0.1:8080/api/config
 
 ```json
 {
-  "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
-  "api": { "enabled": true, "listen": "127.0.0.1:8080" },
-  "outbounds": [...],
-  "lists": {...},
-  "route": {...}
+  "config": {
+    "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
+    "api": { "enabled": true, "listen": "127.0.0.1:8080" },
+    "outbounds": [],
+    "lists": {},
+    "route": {}
+  },
+  "is_draft": false
 }
 ```
+
+`is_draft` is `true` when a config has been staged via `POST /api/config` but not yet saved to disk.
 
 ### Error Response (500)
 
@@ -117,7 +89,7 @@ curl http://127.0.0.1:8080/api/config
 
 ## POST /api/config
 
-Validates the provided JSON body as a config file, writes it atomically, then triggers a full reload.
+Validates the provided JSON body as a config file and stages it in daemon memory. The config is **not** written to disk and the service is **not** reloaded. Use `POST /api/config/save` to persist and apply.
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/config \
@@ -130,15 +102,115 @@ curl -X POST http://127.0.0.1:8080/api/config \
 ```json
 {
   "status": "ok",
-  "message": "Config updated and reload triggered"
+  "message": "Config staged in memory"
 }
 ```
 
-### Error Response (500)
+### Error Response (400 — validation error)
 
 ```json
 {
-  "error": "Validation or write error message"
+  "error": "Validation failed",
+  "validation_errors": [
+    { "path": "outbounds.vpn.interface", "message": "interface is required" }
+  ]
+}
+```
+
+---
+
+## POST /api/config/save
+
+Persists the currently staged in-memory config to disk, then applies it with a full service reload.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/config/save
+```
+
+### Response
+
+```json
+{
+  "status": "ok",
+  "message": "Config saved and applied",
+  "saved": true,
+  "applied": true,
+  "rolled_back": false
+}
+```
+
+### Error Response (400 — no staged config)
+
+```json
+{
+  "error": "No staged config to save",
+  "saved": false,
+  "applied": false,
+  "rolled_back": false
+}
+```
+
+---
+
+## GET /api/runtime/outbounds
+
+Returns the daemon's current outbound runtime state: live urltest selection, interface reachability, and circuit breaker status.
+
+```bash
+curl http://127.0.0.1:8080/api/runtime/outbounds
+```
+
+### Response
+
+```json
+{
+  "outbounds": [
+    {
+      "tag": "vpn",
+      "type": "interface",
+      "status": "healthy",
+      "interfaces": [
+        { "name": "tun0", "status": "up" }
+      ]
+    },
+    {
+      "tag": "auto-select",
+      "type": "urltest",
+      "status": "healthy",
+      "selected_outbound": "vpn"
+    }
+  ]
+}
+```
+
+---
+
+## POST /api/routing/test
+
+Resolves the target (if a domain), scans configured route rules against cached list data to determine the expected outbound, and queries the live kernel firewall sets to determine the actual outbound. Useful for diagnosing routing mismatches without restarting the daemon.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/routing/test \
+  -H "Content-Type: application/json" \
+  -d '{"target": "example.com"}'
+```
+
+### Response
+
+```json
+{
+  "target": "example.com",
+  "is_domain": true,
+  "resolved_ips": ["93.184.216.34"],
+  "results": [
+    {
+      "ip": "93.184.216.34",
+      "expected_outbound": "vpn",
+      "actual_outbound": "vpn",
+      "ok": true,
+      "list_match": { "list": "my-domains", "via": "domain" }
+    }
+  ]
 }
 ```
 
@@ -222,9 +294,7 @@ curl http://127.0.0.1:8080/api/health/routing
 
 ## GET /api/dns/test
 
-Streams DNS probe query names as Server-Sent Events. The connection receives
-`HELLO` immediately, then one event for each DNS name queried against
-`dns.test_server` while the SSE connection is open.
+Streams DNS queries observed by the built-in `dns.test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
 
 ```bash
 curl -N http://127.0.0.1:8080/api/dns/test
@@ -233,10 +303,10 @@ curl -N http://127.0.0.1:8080/api/dns/test
 ### Stream Example
 
 ```text
-data: HELLO
+data: {"type":"HELLO"}
 
-data: example.com
+data: {"type":"DNS","domain":"example.com","source_ip":"192.168.1.10","ecs":"203.0.113.0/24"}
 
-data: connectivity-check.local
+data: {"type":"DNS","domain":"connectivity-check.local","source_ip":"192.168.1.11","ecs":null}
 
 ```
