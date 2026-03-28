@@ -178,12 +178,12 @@ void Daemon::enqueue_control_task(std::function<void()> task,
     }
 
     if (!event_loop_active_.load(std::memory_order_acquire) ||
-        event_loop_thread_id_ == std::thread::id{}) {
+        event_loop_thread_id_.load(std::memory_order_relaxed) == std::thread::id{}) {
         task();
         return;
     }
 
-    if (event_loop_thread_id_ == std::this_thread::get_id()) {
+    if (event_loop_thread_id_.load(std::memory_order_relaxed) == std::this_thread::get_id()) {
         task();
         return;
     }
@@ -411,7 +411,7 @@ void Daemon::run() {
 
     // --- Event loop ---
     running_.store(true, std::memory_order_release);
-    event_loop_thread_id_ = std::this_thread::get_id();
+    event_loop_thread_id_.store(std::this_thread::get_id(), std::memory_order_relaxed);
     event_loop_active_.store(true, std::memory_order_release);
 
     constexpr int MAX_EVENTS = 16;
@@ -456,7 +456,7 @@ void Daemon::run() {
     }
 
     event_loop_active_.store(false, std::memory_order_release);
-    event_loop_thread_id_ = std::thread::id{};
+    event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
 
     // --- Shutdown sequence ---
     log.info("Shutting down...");
