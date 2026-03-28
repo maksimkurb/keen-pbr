@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/timerfd.h>
 #include <unistd.h>
 
 #include "../log/logger.hpp"
@@ -26,6 +27,8 @@ constexpr uint16_t DNS_FLAG_RD = 0x0100;
 constexpr uint16_t DNS_EDNS_OPTION_ECS = 8;
 constexpr size_t kMaxTcpClients = 16;
 constexpr size_t kMaxTcpBufferSize = 16384;
+constexpr std::chrono::seconds kTcpClientIdleTimeout{15};
+constexpr std::chrono::seconds kTcpIdleSweepInterval{1};
 
 bool is_valid_ipv4(const std::string& ip) {
     struct in_addr addr {};
@@ -89,6 +92,22 @@ int create_bound_socket(int type, const DnsProbeServerSettings& settings) {
         close(fd);
         throw;
     }
+}
+
+int create_periodic_timerfd(std::chrono::seconds interval) {
+    int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+    if (fd < 0) {
+        throw DnsError("timerfd_create failed: " + std::string(strerror(errno)));
+    }
+
+    itimerspec spec {};
+    spec.it_value.tv_sec = interval.count();
+    spec.it_interval.tv_sec = interval.count();
+    if (timerfd_settime(fd, 0, &spec, nullptr) < 0) {
+        close(fd);
+        throw DnsError("timerfd_settime failed: " + std::string(strerror(errno)));
+    }
+    return fd;
 }
 
 void append_u16(std::vector<uint8_t>& out, uint16_t value) {
@@ -408,8 +427,10 @@ DnsProbeServer::DnsProbeServer(const DnsProbeServerSettings& settings,
     udp_fd_ = create_bound_socket(SOCK_DGRAM, settings_);
     try {
         tcp_fd_ = create_bound_socket(SOCK_STREAM, settings_);
+        tcp_idle_timer_fd_ = create_periodic_timerfd(kTcpIdleSweepInterval);
     } catch (...) {
         close_fd(udp_fd_);
+        close_fd(tcp_fd_);
         throw;
     }
 }
@@ -422,12 +443,14 @@ DnsProbeServer::~DnsProbeServer() {
     tcp_clients_.clear();
     close_fd(udp_fd_);
     close_fd(tcp_fd_);
+    close_fd(tcp_idle_timer_fd_);
 }
 
 std::vector<int> DnsProbeServer::all_fds() const {
     std::vector<int> fds;
     if (udp_fd_ >= 0) fds.push_back(udp_fd_);
     if (tcp_fd_ >= 0) fds.push_back(tcp_fd_);
+    if (tcp_idle_timer_fd_ >= 0) fds.push_back(tcp_idle_timer_fd_);
     for (const auto& [fd, _] : tcp_clients_) {
         (void)_;
         fds.push_back(fd);
@@ -444,7 +467,9 @@ std::vector<int> DnsProbeServer::accept_tcp_clients() {
                 close(client_fd);
                 break;
             }
-            tcp_clients_.emplace(client_fd, TcpClientState{});
+            auto state = TcpClientState{};
+            state.last_activity = std::chrono::steady_clock::now();
+            tcp_clients_.emplace(client_fd, std::move(state));
             accepted.push_back(client_fd);
             continue;
         }
@@ -533,6 +558,7 @@ bool DnsProbeServer::handle_tcp_client_readable(int fd) {
         uint8_t buf[1024];
         ssize_t n = recv(fd, buf, sizeof(buf), 0);
         if (n > 0) {
+            state.last_activity = std::chrono::steady_clock::now();
             state.buffer.insert(state.buffer.end(), buf, buf + n);
             if (state.buffer.size() > kMaxTcpBufferSize) {
                 Logger::instance().warn("DNS test server TCP buffer exceeded limit, closing connection");
@@ -567,6 +593,45 @@ bool DnsProbeServer::handle_tcp_client_readable(int fd) {
         Logger::instance().warn("DNS test server TCP recv failed: {}", strerror(errno));
         return false;
     }
+}
+
+std::vector<int> DnsProbeServer::handle_tcp_idle_timeout() {
+    if (tcp_idle_timer_fd_ < 0) {
+        return {};
+    }
+
+    while (true) {
+        uint64_t expirations = 0;
+        ssize_t n = read(tcp_idle_timer_fd_, &expirations, sizeof(expirations));
+        if (n == static_cast<ssize_t>(sizeof(expirations))) {
+            continue;
+        }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            break;
+        }
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        if (n < 0) {
+            Logger::instance().warn("DNS test server TCP idle timer read failed: {}", strerror(errno));
+        }
+        break;
+    }
+
+    std::vector<int> expired_clients;
+    const auto now = std::chrono::steady_clock::now();
+    for (const auto& [fd, state] : tcp_clients_) {
+        if (now - state.last_activity >= kTcpClientIdleTimeout) {
+            expired_clients.push_back(fd);
+        }
+    }
+    if (!expired_clients.empty()) {
+        Logger::instance().warn(
+            "DNS test server closing {} idle TCP client(s) after {}s timeout",
+            expired_clients.size(),
+            kTcpClientIdleTimeout.count());
+    }
+    return expired_clients;
 }
 
 void DnsProbeServer::remove_tcp_client(int fd) {

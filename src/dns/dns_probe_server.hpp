@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <chrono>
 #include <functional>
 #include <map>
 #include <optional>
@@ -61,11 +62,13 @@ public:
 
     int udp_fd() const { return udp_fd_; }
     int tcp_fd() const { return tcp_fd_; }
+    int tcp_idle_timer_fd() const { return tcp_idle_timer_fd_; }
     std::vector<int> all_fds() const;
 
     std::vector<int> accept_tcp_clients();
     bool handle_udp_readable();
     bool handle_tcp_client_readable(int fd);
+    std::vector<int> handle_tcp_idle_timeout();
     void remove_tcp_client(int fd);
 
 private:
@@ -73,6 +76,7 @@ private:
         std::vector<uint8_t> buffer;
         uint16_t expected_size{0};
         bool have_size{false};
+        std::chrono::steady_clock::time_point last_activity{};
     };
 
     bool handle_udp_packet(const uint8_t* data, size_t len,
@@ -85,6 +89,7 @@ private:
     QueryCallback on_query_;
     int udp_fd_{-1};
     int tcp_fd_{-1};
+    int tcp_idle_timer_fd_{-1};
     std::map<int, TcpClientState> tcp_clients_;
 };
 
