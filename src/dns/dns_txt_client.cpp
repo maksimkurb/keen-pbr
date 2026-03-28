@@ -6,8 +6,11 @@
 #include <arpa/nameser.h>
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <netinet/in.h>
 #include <resolv.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "dns_server.hpp"
 
@@ -92,38 +95,82 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         return std::nullopt;
     }
 
-    struct __res_state resolver_state {};
-    if (res_ninit(&resolver_state) != 0) {
-        if (error_out) *error_out = "res_init failed";
+    sockaddr_in resolver_addr {};
+    resolver_addr.sin_family = AF_INET;
+    resolver_addr.sin_port = htons(parsed_server.port);
+    if (inet_pton(AF_INET, parsed_server.ip.c_str(), &resolver_addr.sin_addr) != 1) {
+        if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
         return std::nullopt;
     }
-    const auto close_resolver = [&resolver_state]() { res_nclose(&resolver_state); };
 
-    resolver_state.nscount = 1;
-    resolver_state.retry = 1;
-    resolver_state.retrans = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
-    resolver_state.nsaddr_list[0].sin_family = AF_INET;
-    resolver_state.nsaddr_list[0].sin_port = htons(parsed_server.port);
-    if (inet_pton(AF_INET, parsed_server.ip.c_str(), &resolver_state.nsaddr_list[0].sin_addr) != 1) {
-        if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
-        close_resolver();
+    std::array<unsigned char, NS_PACKETSZ * 2> query {};
+    const int query_len = res_mkquery(ns_o_query,
+                                      domain.c_str(),
+                                      ns_c_in,
+                                      ns_t_txt,
+                                      nullptr,
+                                      0,
+                                      nullptr,
+                                      query.data(),
+                                      static_cast<int>(query.size()));
+    if (query_len < 0) {
+        if (error_out) *error_out = "Failed to build DNS TXT query";
+        return std::nullopt;
+    }
+
+    const int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd < 0) {
+        if (error_out) *error_out = "Failed to create DNS socket";
+        return std::nullopt;
+    }
+    const auto close_socket = [socket_fd]() { close(socket_fd); };
+
+    const auto timeout_ms = std::max<int64_t>(1, timeout.count());
+    timeval socket_timeout {};
+    socket_timeout.tv_sec = static_cast<time_t>(timeout_ms / 1000);
+    socket_timeout.tv_usec = static_cast<suseconds_t>((timeout_ms % 1000) * 1000);
+
+    if (setsockopt(socket_fd,
+                   SOL_SOCKET,
+                   SO_SNDTIMEO,
+                   &socket_timeout,
+                   sizeof(socket_timeout)) != 0 ||
+        setsockopt(socket_fd,
+                   SOL_SOCKET,
+                   SO_RCVTIMEO,
+                   &socket_timeout,
+                   sizeof(socket_timeout)) != 0) {
+        if (error_out) *error_out = "Failed to configure DNS socket timeout";
+        close_socket();
+        return std::nullopt;
+    }
+
+    const ssize_t sent = sendto(socket_fd,
+                                query.data(),
+                                static_cast<size_t>(query_len),
+                                0,
+                                reinterpret_cast<const sockaddr*>(&resolver_addr),
+                                sizeof(resolver_addr));
+    if (sent != query_len) {
+        if (error_out) *error_out = "Failed to send DNS TXT query";
+        close_socket();
         return std::nullopt;
     }
 
     std::array<unsigned char, NS_PACKETSZ * 8> response {};
-    const int response_len = res_nquery(&resolver_state,
-                                        domain.c_str(),
-                                        ns_c_in,
-                                        ns_t_txt,
-                                        response.data(),
-                                        static_cast<int>(response.size()));
-    close_resolver();
-    if (response_len < 0) {
+    const ssize_t response_len = recvfrom(socket_fd,
+                                          response.data(),
+                                          response.size(),
+                                          0,
+                                          nullptr,
+                                          nullptr);
+    close_socket();
+    if (response_len <= 0) {
         if (error_out) *error_out = "DNS TXT query failed";
         return std::nullopt;
     }
 
-    return parse_first_txt_answer(response.data(), response_len, error_out);
+    return parse_first_txt_answer(response.data(), static_cast<int>(response_len), error_out);
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {
