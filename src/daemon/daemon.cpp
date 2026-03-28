@@ -27,6 +27,7 @@
 #include "../dns/dns_server.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "../firewall/firewall.hpp"
+#include "../firewall/firewall_verifier.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"
@@ -97,6 +98,10 @@ Daemon::Daemon(Config config,
 
     setup_signals();
     setup_control_channel();
+
+    const int64_t verify_max_bytes = config_.daemon.value_or(DaemonConfig{})
+        .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
+    set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
 
     // Set outbound marks in firewall state
     firewall_state_.set_outbound_marks(outbound_marks_);

@@ -222,6 +222,12 @@ components:
           description: Directory for cached list data.
           default: "/var/cache/keen-pbr"
           example: "/var/cache/keen-pbr"
+        firewall_verify_max_bytes:
+          type: integer
+          minimum: 0
+          description: Max stdout bytes captured per firewall verification command (0 = unlimited).
+          default: 262144
+          example: 262144
         strict_enforcement:
           type: boolean
           description: >
@@ -636,6 +642,7 @@ components:
         daemon:
           pid_file: "/var/run/keen-pbr.pid"
           cache_dir: "/var/cache/keen-pbr"
+          firewall_verify_max_bytes: 262144
           strict_enforcement: true
         api:
           enabled: true

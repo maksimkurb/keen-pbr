@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
-import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
+import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
@@ -15,6 +15,7 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
+import { OutboundSelect } from "@/components/shared/outbound-select"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -48,7 +49,7 @@ export function DnsServerUpsertPage({
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
-  const config = getConfigData(configQuery.data)
+  const config = selectConfig(configQuery.data)
   const dnsServers = config?.dns?.servers ?? []
 
   const existingServer =
@@ -282,15 +283,14 @@ function DnsServerForm({
         <form.Field name="detour">
           {(field) => (
             <Field>
-              <FieldLabel htmlFor="dns-server-detour">
-                {t("pages.dnsServerUpsert.fields.detour")}
-              </FieldLabel>
+              <FieldLabel>{t("pages.dnsServerUpsert.fields.detour")}</FieldLabel>
               <FieldContent>
-                <Input
-                  id="dns-server-detour"
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder={t("pages.dnsServerUpsert.fields.detourPlaceholder")}
+                <OutboundSelect
+                  allowEmpty
+                  emptyLabel={t("pages.dnsServerUpsert.fields.detourEmpty")}
+                  onValueChange={field.handleChange}
+                  outbounds={config?.outbounds ?? []}
+                  placeholder={t("pages.routingRuleUpsert.fields.selectOutbound")}
                   value={field.state.value}
                 />
                 <FieldHint description={t("pages.dnsServerUpsert.fields.detourHint")} />
@@ -436,14 +436,6 @@ function isValidPort(value?: string) {
 
   const port = Number(value)
   return port >= 1 && port <= 65535
-}
-
-function getConfigData(response: getConfigResponse | undefined) {
-  if (!response || response.status !== 200) {
-    return undefined
-  }
-
-  return response.data.config
 }
 
 function resolveDnsServerFieldPath(path: string, tag: string) {

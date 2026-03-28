@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cerrno>
+#include <signal.h>
 #include <fcntl.h>
 #include <string>
 #include <sys/wait.h>
@@ -101,7 +102,8 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
 // Execute a command with arguments and capture its stdout output.
 // Returns the captured output string. Returns empty string on failure.
 inline std::string safe_exec_capture(const std::vector<std::string>& args,
-                                     bool suppress_stderr = false) {
+                                     bool suppress_stderr = false,
+                                     size_t max_bytes = 0) {
     if (args.empty()) return {};
 
     std::vector<const char*> argv;
@@ -145,6 +147,13 @@ inline std::string safe_exec_capture(const std::vector<std::string>& args,
         const ssize_t n = read(pipefd[0], buf, sizeof(buf));
         if (n > 0) {
             result.append(buf, static_cast<size_t>(n));
+            if (max_bytes > 0 && result.size() > max_bytes) {
+                close(pipefd[0]);
+                kill(pid, SIGTERM);
+                int status = 0;
+                waitpid(pid, &status, 0);
+                return {};
+            }
         } else if (n == 0) {
             break;
         } else {
