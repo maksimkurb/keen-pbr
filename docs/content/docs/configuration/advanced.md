@@ -51,14 +51,14 @@ Controls the firewall mark range used to tag packets for policy routing.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `start` | integer | `65536` | First fwmark value to assign to outbounds (`0x00010000`) |
-| `mask` | integer | `16711680` | Fwmark bitmask (`0x00FF0000`) |
+| `start` | string | `"0x00010000"` | First fwmark value to assign to outbounds |
+| `mask` | string | `"0x00FF0000"` | Fwmark bitmask |
 
 ```json
 {
   "fwmark": {
-    "start": 65536,
-    "mask": 16711680
+    "start": "0x00010000",
+    "mask": "0x00FF0000"
   }
 }
 ```

@@ -430,11 +430,16 @@ TEST_CASE("iproute.table_start: non-integer value is rejected") {
 TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
     const std::string json = R"({
         "fwmark": {
-            "mask": 4294901761
+            "mask": "0xFFFF0001"
         }
     })";
 
     CHECK_THROWS_AS(parse_test_config(json), ConfigValidationError);
+}
+
+TEST_CASE("fwmark start and mask: non-string values are rejected during config parsing") {
+    CHECK_THROWS_AS(parse_test_config(R"({"fwmark":{"start":65536}})"), ConfigValidationError);
+    CHECK_THROWS_AS(parse_test_config(R"({"fwmark":{"mask":16711680}})"), ConfigValidationError);
 }
 
 TEST_CASE("config parsing returns all collected validation errors") {
@@ -443,7 +448,7 @@ TEST_CASE("config parsing returns all collected validation errors") {
             "enabled": true
         },
         "fwmark": {
-            "mask": 4294901761
+            "mask": "0xFFFF0001"
         },
         "lists": {
             "bad-list": {}
@@ -494,4 +499,3 @@ TEST_CASE("daemon.firewall_verify_max_bytes: rejects non-integer value") {
 TEST_CASE("daemon.firewall_verify_max_bytes: rejects negative value") {
     CHECK_THROWS_AS(parse_test_config(R"({"daemon":{"firewall_verify_max_bytes":-1}})"), ConfigError);
 }
-

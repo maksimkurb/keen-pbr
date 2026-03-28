@@ -158,8 +158,8 @@ namespace api {
     };
 
     struct Fwmark {
-        std::optional<int64_t> mask;
-        std::optional<int64_t> start;
+        std::optional<std::string> mask;
+        std::optional<std::string> start;
     };
 
     struct Iproute {
@@ -770,8 +770,8 @@ namespace api {
     }
 
     inline void from_json(const json & j, Fwmark& x) {
-        x.mask = get_stack_optional<int64_t>(j, "mask");
-        x.start = get_stack_optional<int64_t>(j, "start");
+        x.mask = get_stack_optional<std::string>(j, "mask");
+        x.start = get_stack_optional<std::string>(j, "start");
     }
 
     inline void to_json(json & j, const Fwmark & x) {
