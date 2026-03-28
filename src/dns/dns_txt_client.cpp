@@ -6,7 +6,6 @@
 #include <arpa/nameser.h>
 #include <cctype>
 #include <cstdint>
-#include <mutex>
 #include <netinet/in.h>
 #include <resolv.h>
 
@@ -93,38 +92,32 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         return std::nullopt;
     }
 
-    static std::mutex resolver_mutex;
-    std::lock_guard<std::mutex> guard(resolver_mutex);
-
-    const struct __res_state saved_resolver_state = _res;
-    auto restore_state = [&saved_resolver_state]() {
-        _res = saved_resolver_state;
-    };
-
-    if (res_init() != 0) {
+    struct __res_state resolver_state {};
+    if (res_ninit(&resolver_state) != 0) {
         if (error_out) *error_out = "res_init failed";
-        restore_state();
         return std::nullopt;
     }
+    const auto close_resolver = [&resolver_state]() { res_nclose(&resolver_state); };
 
-    _res.nscount = 1;
-    _res.retry = 1;
-    _res.retrans = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
-    _res.nsaddr_list[0].sin_family = AF_INET;
-    _res.nsaddr_list[0].sin_port = htons(parsed_server.port);
-    if (inet_pton(AF_INET, parsed_server.ip.c_str(), &_res.nsaddr_list[0].sin_addr) != 1) {
+    resolver_state.nscount = 1;
+    resolver_state.retry = 1;
+    resolver_state.retrans = static_cast<int>(std::max<int64_t>(1, timeout.count() / 1000));
+    resolver_state.nsaddr_list[0].sin_family = AF_INET;
+    resolver_state.nsaddr_list[0].sin_port = htons(parsed_server.port);
+    if (inet_pton(AF_INET, parsed_server.ip.c_str(), &resolver_state.nsaddr_list[0].sin_addr) != 1) {
         if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
-        restore_state();
+        close_resolver();
         return std::nullopt;
     }
 
     std::array<unsigned char, NS_PACKETSZ * 8> response {};
-    const int response_len = res_query(domain.c_str(),
-                                       ns_c_in,
-                                       ns_t_txt,
-                                       response.data(),
-                                       static_cast<int>(response.size()));
-    restore_state();
+    const int response_len = res_nquery(&resolver_state,
+                                        domain.c_str(),
+                                        ns_c_in,
+                                        ns_t_txt,
+                                        response.data(),
+                                        static_cast<int>(response.size()));
+    close_resolver();
     if (response_len < 0) {
         if (error_out) *error_out = "DNS TXT query failed";
         return std::nullopt;
