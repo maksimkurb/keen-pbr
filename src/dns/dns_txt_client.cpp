@@ -22,6 +22,26 @@ bool is_hex_char(char c) {
     return std::isxdigit(static_cast<unsigned char>(c)) != 0;
 }
 
+class ScopedFd {
+public:
+    explicit ScopedFd(int fd)
+        : fd_(fd) {}
+
+    ScopedFd(const ScopedFd&) = delete;
+    ScopedFd& operator=(const ScopedFd&) = delete;
+
+    ~ScopedFd() {
+        if (fd_ >= 0) {
+            close(fd_);
+        }
+    }
+
+    int get() const { return fd_; }
+
+private:
+    int fd_ = -1;
+};
+
 std::string trim_copy(const std::string& s) {
     size_t begin = 0;
     while (begin < s.size() && std::isspace(static_cast<unsigned char>(s[begin])) != 0) {
@@ -123,7 +143,7 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         if (error_out) *error_out = "Failed to create DNS socket";
         return std::nullopt;
     }
-    const auto close_socket = [socket_fd]() { close(socket_fd); };
+    ScopedFd socket_guard(socket_fd);
 
     const auto timeout_ms = std::max<int64_t>(1, timeout.count());
     timeval socket_timeout {};
@@ -141,36 +161,45 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                    &socket_timeout,
                    sizeof(socket_timeout)) != 0) {
         if (error_out) *error_out = "Failed to configure DNS socket timeout";
-        close_socket();
-        return std::nullopt;
-    }
-
-    const ssize_t sent = sendto(socket_fd,
-                                query.data(),
-                                static_cast<size_t>(query_len),
-                                0,
-                                reinterpret_cast<const sockaddr*>(&resolver_addr),
-                                sizeof(resolver_addr));
-    if (sent != query_len) {
-        if (error_out) *error_out = "Failed to send DNS TXT query";
-        close_socket();
         return std::nullopt;
     }
 
     std::array<unsigned char, NS_PACKETSZ * 8> response {};
-    const ssize_t response_len = recvfrom(socket_fd,
-                                          response.data(),
-                                          response.size(),
-                                          0,
-                                          nullptr,
-                                          nullptr);
-    close_socket();
-    if (response_len <= 0) {
-        if (error_out) *error_out = "DNS TXT query failed";
-        return std::nullopt;
+    constexpr int kMaxAttempts = 2; // initial attempt + one retry.
+    for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
+        const ssize_t sent = sendto(socket_fd,
+                                    query.data(),
+                                    static_cast<size_t>(query_len),
+                                    0,
+                                    reinterpret_cast<const sockaddr*>(&resolver_addr),
+                                    sizeof(resolver_addr));
+        if (sent != static_cast<ssize_t>(query_len)) {
+            continue;
+        }
+
+        const ssize_t response_len = recvfrom(socket_fd,
+                                              response.data(),
+                                              response.size(),
+                                              0,
+                                              nullptr,
+                                              nullptr);
+        if (response_len <= 0) {
+            continue;
+        }
+
+        if (response_len >= NS_HFIXEDSZ) {
+            const auto* response_header = reinterpret_cast<const HEADER*>(response.data());
+            if (response_header->tc != 0) {
+                if (error_out) *error_out = "DNS TXT response truncated; TCP fallback is not implemented";
+                return std::nullopt;
+            }
+        }
+
+        return parse_first_txt_answer(response.data(), static_cast<int>(response_len), error_out);
     }
 
-    return parse_first_txt_answer(response.data(), static_cast<int>(response_len), error_out);
+    if (error_out) *error_out = "DNS TXT query failed";
+    return std::nullopt;
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {
