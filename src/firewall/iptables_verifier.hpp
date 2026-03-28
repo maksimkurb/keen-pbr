@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,7 +44,15 @@ public:
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
 
+    struct CachedState {
+        ParsedIptablesState v4;
+        ParsedIptablesState v6;
+    };
+
+    const CachedState& get_state() const;
+
     CommandRunner runner_;
+    mutable std::optional<CachedState> cached_state_;
 };
 
 // Factory function called from firewall_verifier.cpp
