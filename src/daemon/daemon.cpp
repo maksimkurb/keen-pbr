@@ -290,12 +290,12 @@ void Daemon::handle_signal() {
 }
 
 void Daemon::handle_sigusr1() {
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
     auto& log = Logger::instance();
     log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
 
     // Re-add static routing tables/ip rules in case they were lost
     try {
+        std::unique_lock<std::shared_mutex> lock(state_mutex_);
         route_table_.clear();
         policy_rules_.clear();
         setup_static_routing();
@@ -734,18 +734,21 @@ void Daemon::register_urltest_outbounds() {
     urltest_manager_ = std::make_unique<UrltestManager>(
         url_tester_, outbound_marks_, *scheduler_,
         [this](const std::string& urltest_tag, const std::string& new_child_tag) {
-            auto& log = Logger::instance();
-            log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
-            firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
-            try {
-                route_table_.clear();
-                policy_rules_.clear();
-                setup_static_routing();
-                apply_firewall();
-                log.info("Routing and firewall rebuilt after urltest change.");
-            } catch (const std::exception& e) {
-                log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
-            }
+            enqueue_control_task([this, urltest_tag, new_child_tag]() {
+                auto& log = Logger::instance();
+                std::unique_lock<std::shared_mutex> lock(state_mutex_);
+                log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
+                firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
+                try {
+                    route_table_.clear();
+                    policy_rules_.clear();
+                    setup_static_routing();
+                    apply_firewall();
+                    log.info("Routing and firewall rebuilt after urltest change.");
+                } catch (const std::exception& e) {
+                    log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
+                }
+            });
         });
 
     for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
