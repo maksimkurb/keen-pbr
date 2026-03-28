@@ -103,6 +103,37 @@ bool path_starts_with(const std::filesystem::path& path,
     return true;
 }
 
+bool is_safe_static_relative_path(const std::filesystem::path& path) {
+    if (path.empty() || path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
+        return false;
+    }
+
+    for (const auto& component : path) {
+        if (component == "..") {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool resolve_static_file_under_root(const std::filesystem::path& root,
+                                    const std::filesystem::path& path,
+                                    std::filesystem::path& resolved) {
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        return false;
+    }
+
+    ec.clear();
+    resolved = std::filesystem::canonical(path, ec);
+    if (ec || !path_starts_with(resolved, root)) {
+        return false;
+    }
+
+    return true;
+}
+
 bool is_regular_file_or_gzip(const std::filesystem::path& path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(path, ec)) {
@@ -237,12 +268,14 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             auto index_gzip_path = index_path;
             index_gzip_path += ".gz";
 
-            if (fs::is_regular_file(index_gzip_path)) {
-                return serve_file_response(res, index_gzip_path, index_path, true);
+            fs::path resolved_index_gzip;
+            if (resolve_static_file_under_root(root, index_gzip_path, resolved_index_gzip)) {
+                return serve_file_response(res, resolved_index_gzip, index_path, true);
             }
 
-            if (fs::is_regular_file(index_path)) {
-                return serve_file_response(res, index_path, index_path, false);
+            fs::path resolved_index;
+            if (resolve_static_file_under_root(root, index_path, resolved_index)) {
+                return serve_file_response(res, resolved_index, index_path, false);
             }
 
             return false;
@@ -255,12 +288,19 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             return;
         }
 
-        const fs::path relative =
-            req.path == "/" ? fs::path("index.html") : fs::path(req.path).relative_path();
+        const fs::path relative = (req.path == "/"
+                                       ? fs::path("index.html")
+                                       : fs::path(req.path).relative_path())
+                                      .lexically_normal();
+
+        if (!is_safe_static_relative_path(relative)) {
+            res.status = 400;
+            res.set_content(make_error_json("invalid path"), "application/json");
+            return;
+        }
 
         std::error_code ec;
-        ec.clear();
-        const fs::path requested = fs::weakly_canonical(root / relative, ec);
+        const fs::path requested = fs::absolute(root / relative, ec).lexically_normal();
         if (ec || !path_starts_with(requested, root)) {
             res.status = 400;
             res.set_content(make_error_json("invalid path"), "application/json");
@@ -270,8 +310,9 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         fs::path requested_gzip = requested;
         requested_gzip += ".gz";
 
-        if (fs::is_regular_file(requested_gzip)) {
-            if (serve_file_response(res, requested_gzip, requested, true)) {
+        fs::path resolved_gzip;
+        if (resolve_static_file_under_root(root, requested_gzip, resolved_gzip)) {
+            if (serve_file_response(res, resolved_gzip, requested, true)) {
                 return;
             }
             res.status = 500;
@@ -279,8 +320,9 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             return;
         }
 
-        if (fs::is_regular_file(requested)) {
-            if (serve_file_response(res, requested, requested, false)) {
+        fs::path resolved_requested;
+        if (resolve_static_file_under_root(root, requested, resolved_requested)) {
+            if (serve_file_response(res, resolved_requested, requested, false)) {
                 return;
             }
             res.status = 500;
