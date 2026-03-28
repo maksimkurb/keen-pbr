@@ -172,8 +172,7 @@ void populate_routing_state(const Config& cfg,
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     const uint32_t table_start = static_cast<uint32_t>(
         cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
-    const uint32_t fwmark_mask = static_cast<uint32_t>(
-        cfg.fwmark.value_or(FwmarkConfig{}).mask.value_or(0x00FF0000));
+    const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
 
     uint32_t table_offset = 0;
     for (const auto& ob : outbounds) {

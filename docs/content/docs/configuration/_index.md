@@ -110,8 +110,8 @@ The following is the full annotated example configuration:
   },
 
   "fwmark": {
-    "start": 65536,
-    "mask": 16711680
+    "start": "0x00010000",
+    "mask": "0x00FF0000"
   },
 
   "iproute": {

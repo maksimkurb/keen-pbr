@@ -583,16 +583,16 @@ components:
       type: object
       properties:
         start:
-          type: integer
-          description: First fwmark value to assign to outbounds.
-          default: 65536
-          example: 65536
+          type: string
+          description: First fwmark value to assign to outbounds as hex string.
+          default: "0x00010000"
+          example: "0x00010000"
         mask:
-          type: integer
+          type: string
           description: >
-            Fwmark bitmask. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
-          default: 16711680
-          example: 16711680
+            Fwmark bitmask as hex string. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
+          default: "0x00FF0000"
+          example: "0x00FF0000"
 
     IprouteConfig:
       type: object
@@ -714,8 +714,8 @@ components:
               server: "vpn-dns"
           fallback: "google-dns"
         fwmark:
-          start: 65536
-          mask: 16711680
+          start: "0x00010000"
+          mask: "0x00FF0000"
         iproute:
           table_start: 150
         lists_autoupdate:

@@ -83,10 +83,10 @@ Adjust to a non-conflicting range:
 ```json
 {
   "fwmark": {
-    "start": 131072,
-    "mask": 16711680
+    "start": "0x00020000",
+    "mask": "0x00FF0000"
   }
 }
 ```
 
-The `mask` must be exactly two adjacent hex nibbles. `16711680` = `0x00FF0000`, `131072` = `0x00020000`.
+The `mask` must be exactly two adjacent hex nibbles. Use hex strings such as `"0x00FF0000"` and `"0x00020000"`.

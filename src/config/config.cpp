@@ -44,6 +44,26 @@ void validate_optional_integer_field(const json& root,
     }
 }
 
+void validate_optional_hex_string_field(const json& root,
+                                        const char* parent_key,
+                                        const char* child_key,
+                                        const std::string& path,
+                                        std::vector<ConfigValidationIssue>& issues) {
+    const auto parent_it = root.find(parent_key);
+    if (parent_it == root.end() || !parent_it->is_object()) {
+        return;
+    }
+
+    const auto child_it = parent_it->find(child_key);
+    if (child_it == parent_it->end() || child_it->is_null()) {
+        return;
+    }
+
+    if (!child_it->is_string()) {
+        add_issue(issues, path, path + " must be a string in hex format (e.g. 0x00010000)");
+    }
+}
+
 std::string trim_copy(const std::string& value) {
     const auto begin = value.find_first_not_of(" \t\n\r\f\v");
     if (begin == std::string::npos) {
@@ -254,6 +274,50 @@ static void validate_fwmark_mask(uint32_t mask) {
     }
 }
 
+uint32_t parse_fwmark_hex_or_throw(const std::optional<std::string>& raw,
+                                   uint32_t default_value,
+                                   const std::string& path) {
+    if (!raw.has_value()) {
+        return default_value;
+    }
+
+    const std::string value = trim_copy(*raw);
+    if (value.empty()) {
+        throw ConfigError(path + " must not be empty");
+    }
+
+    if (value.size() < 3 || value[0] != '0' || (value[1] != 'x' && value[1] != 'X')) {
+        throw ConfigError(path + " must be a hexadecimal string with 0x prefix");
+    }
+
+    for (size_t i = 2; i < value.size(); ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(value[i]))) {
+            throw ConfigError(path + " must contain only hexadecimal digits");
+        }
+    }
+
+    unsigned long parsed = 0;
+    try {
+        parsed = std::stoul(value, nullptr, 16);
+    } catch (const std::exception&) {
+        throw ConfigError(path + " must be a valid 32-bit hexadecimal value");
+    }
+
+    if (parsed > std::numeric_limits<uint32_t>::max()) {
+        throw ConfigError(path + " must fit into 32 bits (max 0xFFFFFFFF)");
+    }
+
+    return static_cast<uint32_t>(parsed);
+}
+
+uint32_t parse_fwmark_start_or_throw(const FwmarkConfig& fwmark_cfg) {
+    return parse_fwmark_hex_or_throw(fwmark_cfg.start, 0x00010000, "fwmark.start");
+}
+
+uint32_t parse_fwmark_mask_or_throw(const FwmarkConfig& fwmark_cfg) {
+    return parse_fwmark_hex_or_throw(fwmark_cfg.mask, 0x00FF0000, "fwmark.mask");
+}
+
 Config parse_config(const std::string& json_str) {
     Config cfg;
     json parsed_json;
@@ -267,9 +331,9 @@ Config parse_config(const std::string& json_str) {
         });
     }
 
-    validate_optional_integer_field(
+    validate_optional_hex_string_field(
         parsed_json, "fwmark", "start", "fwmark.start", issues);
-    validate_optional_integer_field(
+    validate_optional_hex_string_field(
         parsed_json, "fwmark", "mask", "fwmark.mask", issues);
     validate_optional_integer_field(
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
@@ -430,19 +494,28 @@ void validate_config(const Config& cfg) {
         }
     }
 
-    const uint32_t fwmark_mask = static_cast<uint32_t>(
-        cfg.fwmark.value_or(FwmarkConfig{}).mask.value_or(0x00FF0000));
+    const FwmarkConfig fwmark_cfg = cfg.fwmark.value_or(FwmarkConfig{});
+    bool fwmark_start_valid = true;
+    try {
+        (void)parse_fwmark_start_or_throw(fwmark_cfg);
+    } catch (const ConfigError& e) {
+        fwmark_start_valid = false;
+        add_issue(issues, "fwmark.start", e.what());
+    }
+
+    uint32_t fwmark_mask = 0;
     bool fwmark_mask_valid = true;
     try {
+        fwmark_mask = parse_fwmark_mask_or_throw(fwmark_cfg);
         validate_fwmark_mask(fwmark_mask);
     } catch (const ConfigError& e) {
         fwmark_mask_valid = false;
         add_issue(issues, "fwmark.mask", e.what());
     }
 
-    if (fwmark_mask_valid) {
+    if (fwmark_start_valid && fwmark_mask_valid) {
         try {
-            (void)allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}), outbounds);
+            (void)allocate_outbound_marks(fwmark_cfg, outbounds);
         } catch (const ConfigError& e) {
             add_issue(issues, "outbounds", e.what());
         }
@@ -579,8 +652,8 @@ Config parse_and_validate_config(const std::string& json_str) {
 
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                                          const std::vector<Outbound>& outbounds) {
-    uint32_t mask  = static_cast<uint32_t>(fwmark_cfg.mask.value_or(0x00FF0000));
-    uint32_t start = static_cast<uint32_t>(fwmark_cfg.start.value_or(0x00010000));
+    uint32_t mask  = parse_fwmark_mask_or_throw(fwmark_cfg);
+    uint32_t start = parse_fwmark_start_or_throw(fwmark_cfg);
 
     validate_fwmark_mask(mask);
 
@@ -610,6 +683,16 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     }
 
     return mark_map;
+}
+
+uint32_t fwmark_start_value(const FwmarkConfig& fwmark_cfg) {
+    return parse_fwmark_start_or_throw(fwmark_cfg);
+}
+
+uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg) {
+    const uint32_t mask = parse_fwmark_mask_or_throw(fwmark_cfg);
+    validate_fwmark_mask(mask);
+    return mask;
 }
 
 } // namespace keen_pbr3

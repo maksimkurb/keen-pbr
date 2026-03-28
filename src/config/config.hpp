@@ -77,4 +77,7 @@ using OutboundMarkMap = std::map<std::string, uint32_t>;
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                                          const std::vector<Outbound>& outbounds);
 
+uint32_t fwmark_start_value(const FwmarkConfig& fwmark_cfg);
+uint32_t fwmark_mask_value(const FwmarkConfig& fwmark_cfg);
+
 } // namespace keen_pbr3

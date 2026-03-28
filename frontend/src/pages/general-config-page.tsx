@@ -589,8 +589,6 @@ function buildUpdatedConfig(
   config: ConfigObject,
   draft: SettingsDraft
 ): ConfigObject {
-  const fwmarkStart = parseStrictHexToNumber(draft.fwmarkStart)
-  const fwmarkMask = parseStrictHexToNumber(draft.fwmarkMask)
   const tableStart = parseStrictDecimalToNumber(draft.tableStart)
 
   return {
@@ -601,8 +599,8 @@ function buildUpdatedConfig(
     },
     fwmark: {
       ...config.fwmark,
-      start: toBackendIntegerValue(fwmarkStart, draft.fwmarkStart.trim()),
-      mask: toBackendIntegerValue(fwmarkMask, draft.fwmarkMask.trim()),
+      start: draft.fwmarkStart.trim(),
+      mask: draft.fwmarkMask.trim(),
     },
     iproute: {
       ...config.iproute,
@@ -616,12 +614,17 @@ function buildUpdatedConfig(
   }
 }
 
-function toHex32(value: number | undefined, fallback: string) {
-  if (!Number.isInteger(value)) {
+function toHex32(value: string | undefined, fallback: string) {
+  if (!value) {
     return fallback
   }
 
-  const normalized = ((value ?? 0) >>> 0).toString(16)
+  const trimmed = value.trim()
+  if (!/^0x[0-9a-fA-F]+$/.test(trimmed)) {
+    return fallback
+  }
+
+  const normalized = trimmed.slice(2).replace(/^0+/, "") || "0"
   return `0x${normalized.padStart(8, "0")}`
 }
 
@@ -631,15 +634,6 @@ function toStringInt(value: number | undefined, fallback: string) {
   }
 
   return String(value)
-}
-
-function parseStrictHexToNumber(value: string) {
-  const trimmed = value.trim()
-  if (!/^0x[0-9a-fA-F]+$/.test(trimmed)) {
-    return null
-  }
-
-  return Number.parseInt(trimmed.slice(2), 16)
 }
 
 function parseStrictDecimalToNumber(value: string) {
