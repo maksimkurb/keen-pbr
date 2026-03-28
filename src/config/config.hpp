@@ -57,11 +57,14 @@ using IprouteConfig        = api::Iproute;
 using ListsAutoupdateConfig = api::ListsAutoupdate;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
+constexpr size_t kDefaultMaxFileSizeBytes = 8 * 1024 * 1024; // 8 MiB
+
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
 void validate_config(const Config& config);
 Config parse_and_validate_config(const std::string& json_str);
+size_t max_file_size_bytes(const Config& config);
 
 // --- Fwmark allocation ---
 

@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
         if (opts.run_test_routing) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir);
+            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
             return keen_pbr3::run_test_routing_command(config, cache, opts.test_routing_target);
         }
 
@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
         if (opts.download_lists) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir);
+            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
             cache.ensure_dir();
             for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{})) {
                 if (!list_cfg.url.has_value()) {
@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
         if (opts.resolver_config_hash) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir);
+            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
             keen_pbr3::ListStreamer streamer(cache);
             const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
             const auto resolver_type = keen_pbr3::resolver_type_from_dns_config(dns_cfg);
@@ -318,7 +318,7 @@ int main(int argc, char* argv[]) {
         if (opts.generate_resolver_config) {
             const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
                                        .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir);
+            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
             cache.ensure_dir();
             // Download lists that aren't already cached
             const auto lists_map = config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});

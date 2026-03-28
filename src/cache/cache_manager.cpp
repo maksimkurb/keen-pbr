@@ -17,8 +17,11 @@ static std::string current_time_iso() {
     return buf;
 }
 
-CacheManager::CacheManager(const std::filesystem::path& cache_dir)
-    : cache_dir_(cache_dir) {}
+CacheManager::CacheManager(const std::filesystem::path& cache_dir,
+                           size_t max_file_size_bytes)
+    : cache_dir_(cache_dir) {
+    http_client_.set_max_response_size(max_file_size_bytes);
+}
 
 void CacheManager::ensure_dir() {
     std::filesystem::create_directories(cache_dir_);
@@ -28,7 +31,7 @@ void CacheManager::set_fwmark(uint32_t mark) {
     http_client_.set_fwmark(mark);
 }
 
-void CacheManager::set_max_response_size(size_t bytes) {
+void CacheManager::set_max_file_size(size_t bytes) {
     http_client_.set_max_response_size(bytes);
 }
 

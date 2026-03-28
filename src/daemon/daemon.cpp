@@ -75,7 +75,8 @@ Daemon::Daemon(Config config,
     : config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
-    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"))
+    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"),
+             max_file_size_bytes(config_))
     , firewall_(create_firewall("auto"))
     , netlink_()
     , route_table_(netlink_)
@@ -99,16 +100,9 @@ Daemon::Daemon(Config config,
     setup_signals();
     setup_control_channel();
 
-    const DaemonConfig& daemon_cfg = config_.daemon.value_or(DaemonConfig{});
-
-    const int64_t verify_max_bytes = daemon_cfg
+    const int64_t verify_max_bytes = config_.daemon.value_or(DaemonConfig{})
         .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
     set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
-
-    constexpr size_t DEFAULT_HTTP_MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8 MiB
-    const int64_t http_max_bytes = daemon_cfg
-        .http_max_response_bytes.value_or(static_cast<int64_t>(DEFAULT_HTTP_MAX_RESPONSE_BYTES));
-    cache_.set_max_response_size(static_cast<size_t>(http_max_bytes));
 
     // Set outbound marks in firewall state
     firewall_state_.set_outbound_marks(outbound_marks_);
