@@ -3,38 +3,9 @@
 #include "auth.hpp"
 
 #include <array>
-#include <crypt.h>
-#include <random>
+#include <bcrypt.h>
 
 namespace keen_pbr3 {
-
-namespace {
-
-constexpr std::array<char, 64> kBcryptAlphabet = {
-    '.', '/',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
-    'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
-    's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
-
-std::string generate_bcrypt_salt() {
-    std::random_device rd;
-    std::uniform_int_distribution<size_t> dist(0, kBcryptAlphabet.size() - 1);
-
-    std::string salt = "$2b$12$";
-    salt.reserve(29);
-    for (size_t i = 0; i < 22; ++i) {
-        salt.push_back(kBcryptAlphabet[dist(rd)]);
-    }
-    return salt;
-}
-
-bool looks_like_bcrypt_hash(const std::string& hash) {
-    return hash.size() >= 60 && hash.rfind("$2", 0) == 0;
-}
-
-} // namespace
 
 bool api_password_is_configured(const Config& config) {
     const auto creds = api_credentials_from_config(config);
@@ -74,22 +45,20 @@ bool bcrypt_hash_password(const std::string& password,
         return false;
     }
 
-    const std::string salt = generate_bcrypt_salt();
-    struct crypt_data data {};
-    data.initialized = 0;
-    const char* generated = crypt_r(password.c_str(), salt.c_str(), &data);
-    if (generated == nullptr) {
+    std::array<char, BCRYPT_HASHSIZE> salt{};
+    std::array<char, BCRYPT_HASHSIZE> hash{};
+
+    if (bcrypt_gensalt(12, salt.data()) != 0) {
+        error_out = "Failed to generate bcrypt salt";
+        return false;
+    }
+
+    if (bcrypt_hashpw(password.c_str(), salt.data(), hash.data()) != 0) {
         error_out = "Failed to generate bcrypt hash";
         return false;
     }
 
-    hash_out = generated;
-    if (!looks_like_bcrypt_hash(hash_out)) {
-        error_out = "Generated hash is not bcrypt";
-        hash_out.clear();
-        return false;
-    }
-
+    hash_out = hash.data();
     return true;
 }
 
@@ -99,14 +68,7 @@ bool bcrypt_verify_password(const std::string& password,
         return false;
     }
 
-    struct crypt_data data {};
-    data.initialized = 0;
-    const char* generated = crypt_r(password.c_str(), bcrypt_hash.c_str(), &data);
-    if (generated == nullptr) {
-        return false;
-    }
-
-    return bcrypt_hash == generated;
+    return bcrypt_checkpw(password.c_str(), bcrypt_hash.c_str()) == 0;
 }
 
 } // namespace keen_pbr3
