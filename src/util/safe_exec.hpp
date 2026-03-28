@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <string>
+#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -83,7 +84,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
     const char* data = input.data();
     size_t remaining = input.size();
     while (remaining > 0) {
-        const ssize_t written = write(pipefd[1], data, remaining);
+        const ssize_t written = send(pipefd[1], data, remaining, MSG_NOSIGNAL);
         if (written < 0) {
             if (errno == EINTR) continue;
             break;
