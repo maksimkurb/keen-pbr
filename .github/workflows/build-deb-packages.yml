@@ -1,0 +1,39 @@
+name: Build Debian packages
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ubuntu-amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            dpkg-dev \
+            file \
+            g++ \
+            libcurl4-openssl-dev \
+            libnl-3-dev \
+            libnl-route-3-dev \
+            pkg-config
+
+      - name: Build Debian packages
+        run: make deb
+
+      - name: Upload Debian artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: keen-pbr-deb-ubuntu-amd64
+          path: release_files/*.deb

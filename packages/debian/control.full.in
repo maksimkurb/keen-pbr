@@ -1,0 +1,13 @@
+Package: keen-pbr
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: @ARCHITECTURE@
+Maintainer: Maxim Kurbatov <maxim+keen-pbr@kurb.me>
+Depends: @DEPENDS@
+Installed-Size: @INSTALLED_SIZE@
+Homepage: https://github.com/maksimkurb/keen-pbr
+Description: Policy-based routing daemon with REST API and Web UI
+ keen-pbr routes traffic selectively by IPs, CIDRs, and domains.
+ This package includes the daemon, REST API, dnsmasq integration helper,
+ and bundled frontend assets.
