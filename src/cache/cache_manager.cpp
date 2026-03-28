@@ -55,11 +55,19 @@ bool CacheManager::download(const std::string& name, const std::string& url) {
         return false;
     }
 
-    std::filesystem::path path = cache_path(name);
+    std::filesystem::path final_path = cache_path(name);
+    std::filesystem::path final_meta = meta_path(name);
+    std::filesystem::path tmp_path = cache_dir_ / (name + ".txt.tmp");
+    std::filesystem::path tmp_meta = cache_dir_ / (name + ".meta.json.tmp");
+
     {
-        std::ofstream ofs(path, std::ios::binary);
+        std::ofstream ofs(tmp_path, std::ios::binary);
         if (!ofs) return false;
         ofs << result.body;
+        if (!ofs) {
+            std::filesystem::remove(tmp_path);
+            return false;
+        }
     }
 
     CacheMetadata meta;
@@ -67,7 +75,25 @@ bool CacheManager::download(const std::string& name, const std::string& url) {
     meta.last_modified = result.last_modified;
     meta.url = url;
     meta.download_time = current_time_iso();
-    save_metadata(name, meta);
+
+    {
+        std::ofstream ofs(tmp_meta);
+        if (!ofs) {
+            std::filesystem::remove(tmp_path);
+            return false;
+        }
+        ofs << nlohmann::json(meta).dump(2) << '\n';
+        if (!ofs) {
+            std::filesystem::remove(tmp_path);
+            std::filesystem::remove(tmp_meta);
+            return false;
+        }
+    }
+
+    // Rename body first: on crash here, old meta triggers a re-download (safe).
+    // Rename meta second: once both succeed the cache is fully consistent.
+    std::filesystem::rename(tmp_path, final_path);
+    std::filesystem::rename(tmp_meta, final_meta);
 
     return true;
 }
