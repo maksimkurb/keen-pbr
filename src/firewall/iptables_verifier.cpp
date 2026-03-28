@@ -88,12 +88,18 @@ ParsedIptablesState parse_iptables_save(const std::string& output, bool /*ipv6*/
 IptablesFirewallVerifier::IptablesFirewallVerifier(CommandRunner runner)
     : runner_(std::move(runner)) {}
 
-FirewallChainCheck IptablesFirewallVerifier::verify_chain() {
-    const std::string v4_out = runner_({"iptables-save", "-t", "mangle"});
-    const std::string v6_out = runner_({"ip6tables-save", "-t", "mangle"});
+const IptablesFirewallVerifier::CachedState& IptablesFirewallVerifier::get_state() const {
+    if (!cached_state_.has_value()) {
+        CachedState state;
+        state.v4 = parse_iptables_save(runner_({"iptables-save", "-t", "mangle"}), false);
+        state.v6 = parse_iptables_save(runner_({"ip6tables-save", "-t", "mangle"}), true);
+        cached_state_ = std::move(state);
+    }
+    return *cached_state_;
+}
 
-    const auto v4 = parse_iptables_save(v4_out, false);
-    const auto v6 = parse_iptables_save(v6_out, true);
+FirewallChainCheck IptablesFirewallVerifier::verify_chain() {
+    const auto& [v4, v6] = get_state();
 
     FirewallChainCheck result;
     result.chain_present = v4.has_keen_pbr_chain || v6.has_keen_pbr_chain;
@@ -115,11 +121,7 @@ FirewallChainCheck IptablesFirewallVerifier::verify_chain() {
 
 std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
     const std::vector<RuleState>& expected) {
-    const std::string v4_out = runner_({"iptables-save", "-t", "mangle"});
-    const std::string v6_out = runner_({"ip6tables-save", "-t", "mangle"});
-
-    const auto v4 = parse_iptables_save(v4_out, false);
-    const auto v6 = parse_iptables_save(v6_out, true);
+    const auto& [v4, v6] = get_state();
 
     // Build a combined lookup: set_name -> ParsedIptablesRule
     // v4 entries are inserted first; v6 entries only added if set_name not already present
