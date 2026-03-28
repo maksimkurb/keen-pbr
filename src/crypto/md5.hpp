@@ -93,17 +93,18 @@ struct MD5State {
         }
     }
 
-    std::array<uint8_t, 16> digest() {
+    std::array<uint8_t, 16> finalize() {
         // Padding
         uint8_t pad[64] = {};
         pad[0] = 0x80u;
         size_t pad_len = (buf_len < 56) ? (56u - buf_len) : (120u - buf_len);
+        const uint64_t message_bits = count;
         update(pad, pad_len);
 
         // Length
         uint8_t len_bytes[8];
         for (int i = 0; i < 8; ++i)
-            len_bytes[i] = uint8_t(count >> (i * 8));
+            len_bytes[i] = uint8_t(message_bits >> (i * 8));
         update(len_bytes, 8);
 
         std::array<uint8_t, 16> result;
@@ -114,6 +115,11 @@ struct MD5State {
             result[i+12] = uint8_t(d >> (i*8));
         }
         return result;
+    }
+
+    std::array<uint8_t, 16> digest() const {
+        MD5State copy = *this;
+        return copy.finalize();
     }
 };
 
