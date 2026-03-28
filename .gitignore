@@ -24,3 +24,4 @@ _deps/
 /**/__pycache__
 
 release_files/
+.codex
