@@ -211,6 +211,7 @@ std::string read_file(const std::string& path) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
+    signal(SIGPIPE, SIG_IGN);
     install_crash_handler();
 
     struct CurlGuard {
