@@ -117,6 +117,7 @@ namespace api {
     struct Daemon {
         std::optional<std::string> cache_dir;
         std::optional<int64_t> firewall_verify_max_bytes;
+        std::optional<int64_t> http_max_response_bytes;
         std::optional<std::string> pid_file;
         std::optional<bool> strict_enforcement;
     };
@@ -687,6 +688,7 @@ namespace api {
     inline void from_json(const json & j, Daemon& x) {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
+        x.http_max_response_bytes = get_stack_optional<int64_t>(j, "http_max_response_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
     }
@@ -695,6 +697,7 @@ namespace api {
         j = json::object();
         j["cache_dir"] = x.cache_dir;
         j["firewall_verify_max_bytes"] = x.firewall_verify_max_bytes;
+        j["http_max_response_bytes"] = x.http_max_response_bytes;
         j["pid_file"] = x.pid_file;
         j["strict_enforcement"] = x.strict_enforcement;
     }

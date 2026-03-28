@@ -22,6 +22,9 @@ public:
     // Set SO_MARK for subsequent downloads (0 = disabled, uses default routing).
     void set_fwmark(uint32_t mark);
 
+    // Cap the maximum response body size for list downloads.
+    void set_max_response_size(size_t bytes);
+
     // Download a list from URL using conditional requests (ETag/If-Modified-Since).
     // Returns true if content was updated, false if 304 Not Modified.
     // On failure, does not overwrite existing cache.

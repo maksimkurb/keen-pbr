@@ -99,9 +99,16 @@ Daemon::Daemon(Config config,
     setup_signals();
     setup_control_channel();
 
-    const int64_t verify_max_bytes = config_.daemon.value_or(DaemonConfig{})
+    const DaemonConfig& daemon_cfg = config_.daemon.value_or(DaemonConfig{});
+
+    const int64_t verify_max_bytes = daemon_cfg
         .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
     set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
+
+    constexpr size_t DEFAULT_HTTP_MAX_RESPONSE_BYTES = 8 * 1024 * 1024; // 8 MiB
+    const int64_t http_max_bytes = daemon_cfg
+        .http_max_response_bytes.value_or(static_cast<int64_t>(DEFAULT_HTTP_MAX_RESPONSE_BYTES));
+    cache_.set_max_response_size(static_cast<size_t>(http_max_bytes));
 
     // Set outbound marks in firewall state
     firewall_state_.set_outbound_marks(outbound_marks_);

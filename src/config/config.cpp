@@ -276,6 +276,9 @@ Config parse_config(const std::string& json_str) {
     validate_optional_integer_field(
         parsed_json, "daemon", "firewall_verify_max_bytes",
         "daemon.firewall_verify_max_bytes", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "http_max_response_bytes",
+        "daemon.http_max_response_bytes", issues);
     validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
@@ -300,6 +303,12 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->firewall_verify_max_bytes < 0) {
         add_issue(issues, "daemon.firewall_verify_max_bytes",
                   "daemon.firewall_verify_max_bytes must be >= 0");
+    }
+
+    if (cfg.daemon && cfg.daemon->http_max_response_bytes.has_value() &&
+        *cfg.daemon->http_max_response_bytes < 0) {
+        add_issue(issues, "daemon.http_max_response_bytes",
+                  "daemon.http_max_response_bytes must be >= 0");
     }
 
     if (cfg.lists_autoupdate) {

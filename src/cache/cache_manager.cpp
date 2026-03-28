@@ -28,6 +28,10 @@ void CacheManager::set_fwmark(uint32_t mark) {
     http_client_.set_fwmark(mark);
 }
 
+void CacheManager::set_max_response_size(size_t bytes) {
+    http_client_.set_max_response_size(bytes);
+}
+
 bool CacheManager::download(const std::string& name, const std::string& url) {
     CacheMetadata existing = load_metadata(name);
 
