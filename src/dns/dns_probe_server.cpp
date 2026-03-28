@@ -7,6 +7,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
@@ -29,6 +30,7 @@ constexpr size_t kMaxTcpClients = 16;
 constexpr size_t kMaxTcpBufferSize = 16384;
 constexpr std::chrono::seconds kTcpClientIdleTimeout{15};
 constexpr std::chrono::seconds kTcpIdleSweepInterval{1};
+constexpr int kTcpWriteWaitTimeoutMs = 1000;
 
 bool is_valid_ipv4(const std::string& ip) {
     struct in_addr addr {};
@@ -128,6 +130,26 @@ bool write_all(int fd, const uint8_t* data, size_t len) {
         ssize_t written = send(fd, data + offset, len - offset, MSG_NOSIGNAL);
         if (written > 0) {
             offset += static_cast<size_t>(written);
+            continue;
+        }
+        if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            pollfd pfd {};
+            pfd.fd = fd;
+            pfd.events = POLLOUT;
+            while (true) {
+                int ready = poll(&pfd, 1, kTcpWriteWaitTimeoutMs);
+                if (ready > 0) {
+                    break;
+                }
+                if (ready == 0) {
+                    errno = EAGAIN;
+                    return false;
+                }
+                if (errno == EINTR) {
+                    continue;
+                }
+                return false;
+            }
             continue;
         }
         if (written < 0 && errno == EINTR) {
