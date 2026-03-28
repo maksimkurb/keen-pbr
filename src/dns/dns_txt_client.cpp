@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <resolv.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "dns_server.hpp"
@@ -128,7 +129,7 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     const auto timeout_ms = std::max<int64_t>(1, timeout.count());
     timeval socket_timeout {};
     socket_timeout.tv_sec = static_cast<time_t>(timeout_ms / 1000);
-    socket_timeout.tv_usec = static_cast<suseconds_t>((timeout_ms % 1000) * 1000);
+    socket_timeout.tv_usec = static_cast<decltype(socket_timeout.tv_usec)>((timeout_ms % 1000) * 1000);
 
     if (setsockopt(socket_fd,
                    SOL_SOCKET,
