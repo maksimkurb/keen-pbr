@@ -256,6 +256,14 @@ components:
           description: Address and port for the HTTP API.
           default: "127.0.0.1:8080"
           example: "127.0.0.1:8080"
+        username:
+          type: string
+          description: Username used for API basic authentication.
+          example: "admin"
+        password:
+          type: string
+          description: Bcrypt hash used for API basic authentication.
+          example: "$2b$12$y7yHn0K7Ac2x1j4vUL4fVu8ehw66wGDv98f5Yx8XQ3EsEs0x6nA7u"
 
     RetryConfig:
       type: object
@@ -655,6 +663,8 @@ components:
         api:
           enabled: true
           listen: "127.0.0.1:8080"
+          username: "admin"
+          password: "$2b$12$y7yHn0K7Ac2x1j4vUL4fVu8ehw66wGDv98f5Yx8XQ3EsEs0x6nA7u"
         outbounds:
           - type: "interface"
             tag: "vpn"

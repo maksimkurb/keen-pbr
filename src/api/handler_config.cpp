@@ -2,6 +2,7 @@
 
 #include "handler_config.hpp"
 #include "generated/api_types.hpp"
+#include "auth.hpp"
 
 #include "../config/config.hpp"
 #include "../log/logger.hpp"
@@ -13,6 +14,7 @@
 #include <filesystem>
 #include <fcntl.h>
 #include <functional>
+#include <httplib.h>
 #include <stdexcept>
 #include <string>
 #include <shared_mutex>
@@ -151,6 +153,56 @@ std::string serialize_config_pretty(const Config& config) {
     return json.dump(1, '\t') + "\n";
 }
 
+
+std::string decode_base64(const std::string& input) {
+    static const std::string chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::string output;
+    int val = 0;
+    int bits = -8;
+    for (unsigned char c : input) {
+        if (c == '=') {
+            break;
+        }
+        const auto idx = chars.find(static_cast<char>(c));
+        if (idx == std::string::npos) {
+            return {};
+        }
+
+        val = (val << 6) + static_cast<int>(idx);
+        bits += 6;
+        if (bits >= 0) {
+            output.push_back(static_cast<char>((val >> bits) & 0xFF));
+            bits -= 8;
+        }
+    }
+
+    return output;
+}
+
+bool request_is_authenticated(const httplib::Request& req,
+                              const ApiCredentials& creds) {
+    const auto auth_header = req.get_header_value("Authorization");
+    if (auth_header.rfind("Basic ", 0) != 0) {
+        return false;
+    }
+
+    const std::string decoded = decode_base64(auth_header.substr(6));
+    const auto colon = decoded.find(':');
+    if (colon == std::string::npos) {
+        return false;
+    }
+
+    const std::string username = decoded.substr(0, colon);
+    const std::string password = decoded.substr(colon + 1);
+    if (username != creds.username) {
+        return false;
+    }
+
+    return bcrypt_verify_password(password, creds.password_hash);
+}
+
 } // namespace
 
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
@@ -158,7 +210,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
     server.get("/api/config", [&ctx]() -> std::string {
         std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
         nlohmann::json response = {
-            {"config", nlohmann::json(ctx.visible_config_fn())},
+            {"config", nlohmann::json(redact_api_credentials(ctx.visible_config_fn()))},
             {"is_draft", ctx.config_is_draft_fn()},
         };
         return response.dump();
@@ -190,6 +242,81 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         resp.message = "Config staged in memory";
         return nlohmann::json(resp).dump();
     });
+
+    // GET /api/auth/status - return whether API password is configured
+    server.get("/api/auth/status", [&ctx]() -> std::string {
+        nlohmann::json response = {
+            {"password_set", ctx.api_credentials_fn().has_value()},
+        };
+        return response.dump();
+    }, ApiServer::GuardPolicy::Skip);
+
+    // POST /api/auth/config - set API username/password
+    server.post("/api/auth/config", [&ctx](const httplib::Request& req, httplib::Response& res) {
+        nlohmann::json payload;
+        try {
+            payload = nlohmann::json::parse(req.body);
+        } catch (const nlohmann::json::parse_error& e) {
+            throw ApiError(std::string("Invalid JSON: ") + e.what(), 400);
+        }
+
+        const std::string username = payload.value("username", "");
+        const std::string password = payload.value("password", "");
+        if (username.empty() || password.empty()) {
+            throw ApiError("username and password are required", 400);
+        }
+
+        if (const auto current = ctx.api_credentials_fn(); current.has_value()) {
+            if (!request_is_authenticated(req, *current)) {
+                throw ApiError("Forbidden", 403, R"({"error":"Forbidden"})");
+            }
+        }
+
+        Config next_config;
+        {
+            std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
+            next_config = ctx.visible_config_fn();
+        }
+
+        if (!next_config.api.has_value()) {
+            next_config.api = ApiConfig{};
+        }
+
+        std::string bcrypt_hash;
+        std::string hash_error;
+        if (!bcrypt_hash_password(password, bcrypt_hash, hash_error)) {
+            throw ApiError(hash_error.empty() ? "Failed to hash password" : hash_error, 500);
+        }
+
+        next_config.api->username = username;
+        next_config.api->password = bcrypt_hash;
+
+        std::string formatted_config = serialize_config_pretty(next_config);
+        write_config_atomically(ctx.config_path, formatted_config);
+
+        ConfigApplyResult apply_result =
+            ctx.enqueue_apply_validated_config_fn(next_config, formatted_config);
+
+        if (!apply_result.error.empty()) {
+            nlohmann::json error_payload = {
+                {"error", std::string("Commit/apply failed: ") + apply_result.error},
+                {"saved", true},
+                {"applied", apply_result.applied},
+                {"rolled_back", apply_result.rolled_back},
+            };
+            throw ApiError("Commit/apply failed", 500, error_payload.dump());
+        }
+
+        nlohmann::json response = {
+            {"status", "ok"},
+            {"message", "API credentials updated"},
+            {"password_set", true},
+            {"applied", apply_result.applied},
+            {"rolled_back", apply_result.rolled_back},
+        };
+
+        res.set_content(response.dump(), "application/json");
+    }, ApiServer::GuardPolicy::Skip);
 
     // POST /api/config/save - dry-run check, persist staged config, apply immediately
     server.post("/api/config/save", [&ctx]() -> std::string {

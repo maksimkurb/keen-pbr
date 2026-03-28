@@ -1059,6 +1059,10 @@ void Daemon::setup_api() {
         [this]() {
             return resolver_config_hash_actual_;
         },
+        [this]() -> std::optional<ApiCredentials> {
+            std::shared_lock<std::shared_mutex> lock(state_mutex_);
+            return api_credentials_from_config(config_);
+        },
         config_op_mutex_,
         config_op_cv_,
         config_op_state_,

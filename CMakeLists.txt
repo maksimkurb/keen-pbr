@@ -29,6 +29,7 @@ find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_library(LIBRESOLV resolv)
+find_library(LIBCRYPT crypt)
 if(LIBRESOLV)
   message(STATUS "Found libresolv: ${LIBRESOLV}")
 else()
@@ -110,6 +111,7 @@ set(SOURCES
 if(WITH_API)
   list(APPEND SOURCES
     src/api/server.cpp
+    src/api/auth.cpp
     src/api/handlers.cpp
     src/api/sse_broadcaster.cpp
     src/api/handler_health_service.cpp
@@ -155,6 +157,9 @@ if(WITH_API)
   target_link_libraries(keen-pbr PRIVATE httplib::httplib)
   if(HTTPLIB_ANL_LIB)
     target_link_libraries(keen-pbr PRIVATE ${HTTPLIB_ANL_LIB})
+  endif()
+  if(LIBCRYPT)
+    target_link_libraries(keen-pbr PRIVATE ${LIBCRYPT})
   endif()
 endif()
 

@@ -6,6 +6,7 @@
 #include "../config/config.hpp"
 #include "../health/routing_health.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "auth.hpp"
 #include "sse_broadcaster.hpp"
 #include "server.hpp"
 
@@ -51,6 +52,8 @@ struct ApiContext {
     std::function<api::RuntimeOutboundsResponse()> runtime_outbounds_fn;
     std::function<std::string()> resolver_config_hash_fn;
     std::function<std::string()> resolver_config_hash_actual_fn;
+
+    std::function<std::optional<ApiCredentials>()> api_credentials_fn;
 
     // Global serialization for config operations.
     std::mutex& config_op_mutex;

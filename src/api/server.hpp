@@ -61,20 +61,32 @@ public:
     // Register route handlers before calling start().
     using RouteHandler = std::function<std::string()>;
     using BodyRouteHandler = std::function<std::string(const std::string& body)>;
+    using RequestRouteHandler = std::function<void(const httplib::Request&, httplib::Response&)>;
     using StreamRouteHandler = std::function<void(const httplib::Request&,
                                                   httplib::Response&)>;
+    using RequestGuard = std::function<void(const httplib::Request&, const std::string& path)>;
+
+    enum class GuardPolicy {
+        Enforce = 0,
+        Skip,
+    };
 
     // Register a GET handler that returns a JSON string.
-    void get(const std::string& path, RouteHandler handler);
+    void get(const std::string& path, RouteHandler handler, GuardPolicy policy = GuardPolicy::Enforce);
 
     // Register a POST handler that returns a JSON string.
-    void post(const std::string& path, RouteHandler handler);
+    void post(const std::string& path, RouteHandler handler, GuardPolicy policy = GuardPolicy::Enforce);
 
     // Register a POST handler that receives the request body and returns a JSON string.
-    void post(const std::string& path, BodyRouteHandler handler);
+    void post(const std::string& path, BodyRouteHandler handler, GuardPolicy policy = GuardPolicy::Enforce);
+
+    // Register a POST handler with full request/response access.
+    void post(const std::string& path, RequestRouteHandler handler, GuardPolicy policy = GuardPolicy::Enforce);
 
     // Register a GET handler that streams a non-JSON response.
-    void get_stream(const std::string& path, StreamRouteHandler handler);
+    void get_stream(const std::string& path, StreamRouteHandler handler, GuardPolicy policy = GuardPolicy::Enforce);
+
+    void set_request_guard(RequestGuard guard);
 
     // Register static file serving from frontend_root for non-/api routes.
     // Returns false if static serving could not be configured.

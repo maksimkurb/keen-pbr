@@ -93,6 +93,8 @@ namespace api {
     struct ApiConfig {
         std::optional<bool> enabled;
         std::optional<std::string> listen;
+        std::optional<std::string> password;
+        std::optional<std::string> username;
     };
 
     struct CacheMetadata {
@@ -641,12 +643,16 @@ namespace api {
     inline void from_json(const json & j, ApiConfig& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.listen = get_stack_optional<std::string>(j, "listen");
+        x.password = get_stack_optional<std::string>(j, "password");
+        x.username = get_stack_optional<std::string>(j, "username");
     }
 
     inline void to_json(json & j, const ApiConfig & x) {
         j = json::object();
         j["enabled"] = x.enabled;
         j["listen"] = x.listen;
+        j["password"] = x.password;
+        j["username"] = x.username;
     }
 
     inline void from_json(const json & j, CacheMetadata& x) {

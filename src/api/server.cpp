@@ -128,6 +128,7 @@ struct ApiServer::Impl {
     std::mutex state_mutex;
     std::condition_variable startup_cv;
     std::string listen_error_message;
+    RequestGuard guard;
 };
 
 ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
@@ -157,10 +158,13 @@ ApiServer::~ApiServer() {
     stop();
 }
 
-void ApiServer::get(const std::string& path, RouteHandler handler) {
-    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request&,
+void ApiServer::get(const std::string& path, RouteHandler handler, GuardPolicy policy) {
+    impl_->server.Get(path, [this, path, h = std::move(handler), policy](const httplib::Request& req,
                                                       httplib::Response& res) {
         try {
+            if (policy == GuardPolicy::Enforce && impl_->guard) {
+                impl_->guard(req, path);
+            }
             std::string body = h();
             res.set_content(body, "application/json");
         } catch (const ApiError& e) {
@@ -173,10 +177,13 @@ void ApiServer::get(const std::string& path, RouteHandler handler) {
     });
 }
 
-void ApiServer::post(const std::string& path, RouteHandler handler) {
-    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request&,
+void ApiServer::post(const std::string& path, RouteHandler handler, GuardPolicy policy) {
+    impl_->server.Post(path, [this, path, h = std::move(handler), policy](const httplib::Request& req,
                                                        httplib::Response& res) {
         try {
+            if (policy == GuardPolicy::Enforce && impl_->guard) {
+                impl_->guard(req, path);
+            }
             std::string body = h();
             res.set_content(body, "application/json");
         } catch (const ApiError& e) {
@@ -189,10 +196,13 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
     });
 }
 
-void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
-    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
+void ApiServer::post(const std::string& path, BodyRouteHandler handler, GuardPolicy policy) {
+    impl_->server.Post(path, [this, path, h = std::move(handler), policy](const httplib::Request& req,
                                                        httplib::Response& res) {
         try {
+            if (policy == GuardPolicy::Enforce && impl_->guard) {
+                impl_->guard(req, path);
+            }
             std::string result = h(req.body);
             res.set_content(result, "application/json");
         } catch (const ApiError& e) {
@@ -205,10 +215,32 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
     });
 }
 
-void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) {
-    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
+
+void ApiServer::post(const std::string& path, RequestRouteHandler handler, GuardPolicy policy) {
+    impl_->server.Post(path, [this, path, h = std::move(handler), policy](const httplib::Request& req,
+                                                       httplib::Response& res) {
+        try {
+            if (policy == GuardPolicy::Enforce && impl_->guard) {
+                impl_->guard(req, path);
+            }
+            h(req, res);
+        } catch (const ApiError& e) {
+            res.status = e.status();
+            res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(make_error_json(e.what()), "application/json");
+        }
+    });
+}
+
+void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler, GuardPolicy policy) {
+    impl_->server.Get(path, [this, path, h = std::move(handler), policy](const httplib::Request& req,
                                                       httplib::Response& res) {
         try {
+            if (policy == GuardPolicy::Enforce && impl_->guard) {
+                impl_->guard(req, path);
+            }
             h(req, res);
         } catch (const std::exception& e) {
             if (!res.status) {
@@ -219,6 +251,11 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
             }
         }
     });
+}
+
+
+void ApiServer::set_request_guard(RequestGuard guard) {
+    impl_->guard = std::move(guard);
 }
 
 bool ApiServer::register_static_root(const std::string& frontend_root) {

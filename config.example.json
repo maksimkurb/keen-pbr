@@ -7,7 +7,9 @@
 
   "api": {
     "enabled": true,
-    "listen": "127.0.0.1:8080"
+    "listen": "127.0.0.1:8080",
+    "username": "admin",
+    "password": "$2b$12$replace.with.bcrypt.hash.value..."
   },
 
   "outbounds": [
