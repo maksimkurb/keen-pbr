@@ -7,6 +7,7 @@ CONFIG_PATH="/opt/etc/keen-pbr/config.json"
 DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
 DNSMASQ_TMP_DIR="/tmp/dnsmasq.d"
 DNSMASQ_TMP_FILE="${DNSMASQ_TMP_DIR}/keen-pbr.conf"
+DNSMASQ_FALLBACK_FILE="/opt/etc/keen-pbr/dnsmasq-fallback.conf"
 BLOCK_START="# BEGIN keen-pbr managed block"
 BLOCK_END="# END keen-pbr managed block"
 BLOCK_LINE="conf-dir=/tmp/dnsmasq.d,*.conf"
@@ -44,6 +45,9 @@ remove_managed_block() {
 
 install_persistent() {
     mkdir -p "$DNSMASQ_TMP_DIR"
+    if [ -f "$DNSMASQ_FALLBACK_FILE" ] && [ ! -f "$DNSMASQ_TMP_FILE" ]; then
+        cp "$DNSMASQ_FALLBACK_FILE" "$DNSMASQ_TMP_FILE"
+    fi
 }
 
 ensure_runtime_prereqs() {
@@ -62,7 +66,11 @@ activate_dnsmasq() {
 }
 
 deactivate_dnsmasq() {
-    rm -f "$DNSMASQ_TMP_FILE"
+    if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
+        cp "$DNSMASQ_FALLBACK_FILE" "$DNSMASQ_TMP_FILE"
+    else
+        rm -f "$DNSMASQ_TMP_FILE"
+    fi
     restart_dnsmasq
 }
 

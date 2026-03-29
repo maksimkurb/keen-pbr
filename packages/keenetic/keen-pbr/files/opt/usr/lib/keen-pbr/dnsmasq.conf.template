@@ -38,7 +38,7 @@ localise-queries    # Return the "closest" IP if a host has multiple IPs
 log-async           # Non-blocking logging
 
 # --- Upstream Servers ---
-# Query servers in the order they appear
-strict-order
-server=1.1.1.1
-server=8.8.8.8
+
+# Configure upstream DNS servers in keen-pbr itself and in:
+#   /opt/etc/keen-pbr/dnsmasq-fallback.conf
+# The fallback file is used when keen-pbr is stopped or disabled.
