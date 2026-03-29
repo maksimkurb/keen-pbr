@@ -24,7 +24,7 @@ clear-on-reload
 log-async
 
 # --- Upstream Servers ---
-#
-# Configure upstream DNS servers in keen-pbr itself.
-# If you need fallback resolvers while keen-pbr is stopped, configure them
-# separately in your own dnsmasq configuration.
+
+# Configure upstream DNS servers in keen-pbr itself and in:
+#   /etc/keen-pbr/dnsmasq-fallback.conf
+# The fallback file is used when keen-pbr is stopped or disabled.

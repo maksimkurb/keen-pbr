@@ -25,6 +25,10 @@ conf_script_line() {
         "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
 }
 
+fallback_conf_line() {
+    printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
+}
+
 append_managed_block() {
     mkdir -p "$(dirname "$DNSMASQ_CONF")"
     touch "$DNSMASQ_CONF"
@@ -46,7 +50,7 @@ remove_managed_block() {
 install_persistent() {
     mkdir -p "$DNSMASQ_TMP_DIR"
     if [ -f "$DNSMASQ_FALLBACK_FILE" ] && [ ! -f "$DNSMASQ_TMP_FILE" ]; then
-        cp "$DNSMASQ_FALLBACK_FILE" "$DNSMASQ_TMP_FILE"
+        fallback_conf_line > "$DNSMASQ_TMP_FILE"
     fi
 }
 
@@ -67,7 +71,7 @@ activate_dnsmasq() {
 
 deactivate_dnsmasq() {
     if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        cp "$DNSMASQ_FALLBACK_FILE" "$DNSMASQ_TMP_FILE"
+        fallback_conf_line > "$DNSMASQ_TMP_FILE"
     else
         rm -f "$DNSMASQ_TMP_FILE"
     fi
@@ -95,6 +99,22 @@ restart_dnsmasq() {
     killall dnsmasq 2>/dev/null || true
 }
 
+print_help() {
+    cat <<EOF
+Usage: $0 <command>
+
+Commands:
+  install-persistent     Seed fallback dnsmasq config and install persistent integration.
+  ensure-runtime-prereqs Create runtime directories and ensure dnsmasq includes the managed conf-dir.
+  activate               Switch dnsmasq to keen-pbr dynamic resolver config and restart dnsmasq.
+  deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
+  uninstall-persistent   Remove persistent integration and helper-managed runtime config.
+  restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
+  reload                 Alias for restart-dnsmasq; used by the system resolver hook.
+  help                   Show this help text.
+EOF
+}
+
 case "$1" in
     install-persistent)
         install_persistent
@@ -114,17 +134,14 @@ case "$1" in
     restart-dnsmasq)
         restart_dnsmasq
         ;;
-    configure)
-        activate_dnsmasq
-        ;;
-    restore)
-        uninstall_persistent
-        ;;
     reload)
         restart_dnsmasq
         ;;
+    help|-h|--help)
+        print_help
+        ;;
     *)
-        echo "Usage: $0 {install-persistent|ensure-runtime-prereqs|activate|deactivate|uninstall-persistent|restart-dnsmasq}" >&2
+        print_help >&2
         exit 1
         ;;
 esac

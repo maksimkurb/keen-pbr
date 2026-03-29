@@ -28,6 +28,10 @@ conf_script_line() {
         "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
 }
 
+fallback_conf_line() {
+    printf 'conf-file=%s' "$DNSMASQ_FALLBACK_FILE"
+}
+
 uci_add_list_if_new() {
     local package="$1"
     local config="$2"
@@ -143,7 +147,7 @@ write_fallback_conf_for_section() {
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
     if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        cp "$DNSMASQ_FALLBACK_FILE" "${confdir}/${CONFFILE}"
+        printf '%s\n' "$(fallback_conf_line)" > "${confdir}/${CONFFILE}"
     else
         rm -f "${confdir}/${CONFFILE}"
     fi
@@ -234,6 +238,22 @@ restart_dnsmasq() {
     /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
 
+print_help() {
+    cat <<EOF
+Usage: $0 <command>
+
+Commands:
+  install-persistent     Seed fallback dnsmasq config and install persistent integration.
+  ensure-runtime-prereqs Ensure dnsmasq jail/runtime prerequisites are configured.
+  activate               Switch dnsmasq to keen-pbr dynamic resolver config and restart dnsmasq.
+  deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
+  uninstall-persistent   Remove persistent integration and helper-managed runtime config.
+  restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
+  reload                 Alias for restart-dnsmasq; used by the system resolver hook.
+  help                   Show this help text.
+EOF
+}
+
 case "$1" in
     install-persistent)
         install_persistent
@@ -253,20 +273,14 @@ case "$1" in
     restart-dnsmasq)
         restart_dnsmasq
         ;;
-    configure)
-        activate_dnsmasq
-        ;;
-    cleanup)
-        deactivate_dnsmasq
-        ;;
-    restore)
-        uninstall_persistent
-        ;;
     reload)
         restart_dnsmasq
         ;;
+    help|-h|--help)
+        print_help
+        ;;
     *)
-        echo "Usage: $0 {install-persistent|ensure-runtime-prereqs|activate|deactivate|uninstall-persistent|restart-dnsmasq}" >&2
+        print_help >&2
         exit 1
         ;;
 esac

@@ -1,2 +1,3 @@
 /etc/keen-pbr/config.json
+/etc/keen-pbr/dnsmasq-fallback.conf
 /etc/keen-pbr/local.lst
