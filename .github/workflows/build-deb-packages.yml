@@ -3,6 +3,7 @@ name: Build Debian packages
 on:
   push:
     branches: ['**']
+    tags: ["v-*"]
   workflow_dispatch:
 
 jobs:
@@ -20,14 +21,20 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            build-essential \
             cmake \
+            debhelper \
             dpkg-dev \
             file \
             g++ \
             libcurl4-openssl-dev \
+            libfmt-dev \
             libnl-3-dev \
             libnl-route-3-dev \
-            pkg-config
+            ninja-build \
+            nlohmann-json3-dev \
+            pkg-config \
+            rsync
 
       - name: Build Debian packages
         run: make deb
@@ -37,3 +44,9 @@ jobs:
         with:
           name: keen-pbr-deb-ubuntu-amd64
           path: release_files/*.deb
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v-')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.deb
