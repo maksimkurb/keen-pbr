@@ -7,78 +7,25 @@
 
   "outbounds": [
     {
-      "type": "interface",
-      "tag": "vpn",
-      "interface": "tun0",
-      "gateway": "10.8.0.1",
-      "strict_enforcement": true
-    },
-    {
-      "type": "interface",
-      "tag": "wan",
-      "interface": "eth0",
-      "gateway": "192.168.1.1"
-    },
-    {
       "type": "table",
-      "tag": "custom-table",
-      "table": 200
+      "tag": "wan",
+      "table": 254
     },
     {
       "type": "blackhole",
       "tag": "block"
-    },
-    {
-      "type": "ignore",
-      "tag": "direct"
-    },
-    {
-      "type": "urltest",
-      "tag": "auto-select",
-      "url": "https://www.gstatic.com/generate_204",
-      "interval_ms": 180000,
-      "tolerance_ms": 100,
-      "outbound_groups": [
-        {
-          "weight": 1,
-          "outbounds": ["vpn"]
-        },
-        {
-          "weight": 2,
-          "outbounds": ["wan"]
-        }
-      ],
-      "retry": {
-        "attempts": 3,
-        "interval_ms": 1000
-      },
-      "circuit_breaker": {
-        "failure_threshold": 5,
-        "success_threshold": 2,
-        "timeout_ms": 30000,
-        "half_open_max_requests": 1
-      }
     }
   ],
 
   "lists": {
-    "my-domains": {
+    "local_list": {
       "domains": [
-        "example.com",
-        "*.example.org"
-      ]
-    },
-    "my-ips": {
+        "example.com"
+      ],
       "ip_cidrs": [
         "93.184.216.34",
         "10.0.0.0/8"
       ]
-    },
-    "remote-list": {
-      "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
-    },
-    "local-list": {
-      "file": "./my-list.txt"
     }
   },
 
@@ -89,30 +36,16 @@
       "address": "127.0.0.1"
     },
     "dns_test_server": {
-      "listen": "127.0.0.88:53"
+      "listen": "127.0.0.88:12153"
     },
     "servers": [
       {
-        "tag": "vpn-dns",
-        "type": "static",
-        "address": "10.8.0.1"
-      },
-      {
-        "tag": "google-dns",
-        "address": "8.8.8.8"
-      },
-      {
-        "tag": "keenetic-dns",
-        "type": "keenetic"
+        "tag": "quad9",
+        "address": "9.9.9.9"
       }
     ],
-    "rules": [
-      {
-        "list": ["my-domains", "remote-list"],
-        "server": "vpn-dns"
-      }
-    ],
-    "fallback": "google-dns"
+    "rules": [],
+    "fallback": "quad9"
   },
 
   "fwmark": {
@@ -124,68 +57,8 @@
     "table_start": 150
   },
 
-  "lists_autoupdate": {
-    "enabled": true,
-    "cron": "0 4 * * *"
-  },
-
   "route": {
-    "rules": [
-      {
-        "list": ["my-domains", "my-ips", "remote-list"],
-        "outbound": "vpn"
-      },
-      {
-        "list": ["local-list"],
-        "outbound": "auto-select"
-      },
-      {
-        "list": ["my-ips"],
-        "src_addr": "192.168.10.0/24",
-        "outbound": "vpn"
-      },
-      {
-        "list": ["my-domains"],
-        "src_addr": "192.168.20.0/24,192.168.30.0/24",
-        "proto": "tcp",
-        "dest_port": "443",
-        "outbound": "vpn"
-      },
-      {
-        "list": ["my-ips"],
-        "dest_addr": "10.0.0.0/8",
-        "outbound": "vpn"
-      },
-      {
-        "list": ["my-domains"],
-        "src_addr": "192.168.10.0/24",
-        "dest_addr": "8.8.8.0/24",
-        "proto": "udp",
-        "src_port": "1024-65535",
-        "dest_port": "53",
-        "outbound": "vpn"
-      },
-
-      {
-        "_comment": "Negate src_addr: route VPN traffic from ALL sources except the local LAN",
-        "list": ["my-ips"],
-        "src_addr": "!192.168.1.0/24",
-        "outbound": "vpn"
-      },
-      {
-        "_comment": "Negate dest_port: route all TCP traffic to this list EXCEPT port 443 (let HTTPS go direct)",
-        "list": ["my-domains"],
-        "proto": "tcp",
-        "dest_port": "!443",
-        "outbound": "vpn"
-      },
-      {
-        "_comment": "Negate dest_addr: block all traffic in list NOT going to the trusted subnet",
-        "list": ["my-ips"],
-        "dest_addr": "!10.0.0.0/8,172.16.0.0/12",
-        "outbound": "block"
-      }
-    ],
+    "rules": [],
     "fallback": "wan"
   }
 }

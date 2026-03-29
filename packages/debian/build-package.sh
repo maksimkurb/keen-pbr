@@ -79,6 +79,7 @@ esac
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
+files_dir="${script_dir}/files"
 
 build_dir="$(cd "$build_dir" && pwd)"
 output_dir="$(mkdir -p "$output_dir" && cd "$output_dir" && pwd)"
@@ -113,8 +114,8 @@ install -d \
   "${pkg_root}/var/cache/keen-pbr"
 
 install -m 0755 "${build_dir}/keen-pbr" "${pkg_root}/usr/sbin/keen-pbr"
-install -m 0755 "${script_dir}/dnsmasq.sh" "${pkg_root}/usr/lib/keen-pbr/dnsmasq.sh"
-install -m 0644 "${script_dir}/keen-pbr.service" "${pkg_root}/lib/systemd/system/keen-pbr.service"
+install -m 0755 "${files_dir}/usr/lib/keen-pbr/dnsmasq.sh" "${pkg_root}/usr/lib/keen-pbr/dnsmasq.sh"
+install -m 0644 "${files_dir}/lib/systemd/system/keen-pbr.service" "${pkg_root}/lib/systemd/system/keen-pbr.service"
 install -m 0644 "${repo_root}/packages/common/${config_template}" "${pkg_root}/etc/keen-pbr/config.json"
 install -m 0644 "${repo_root}/packages/common/local.lst" "${pkg_root}/etc/keen-pbr/local.lst"
 
@@ -124,9 +125,9 @@ if [[ "$include_frontend" -eq 1 ]]; then
   chmod -R a=rX,u+w "${pkg_root}/usr/share/keen-pbr/frontend"
 fi
 
-install -m 0755 "${script_dir}/postinst" "${pkg_debian_dir}/postinst"
-install -m 0755 "${script_dir}/prerm" "${pkg_debian_dir}/prerm"
-install -m 0755 "${script_dir}/postrm" "${pkg_debian_dir}/postrm"
+install -m 0755 "${files_dir}/DEBIAN/postinst" "${pkg_debian_dir}/postinst"
+install -m 0755 "${files_dir}/DEBIAN/prerm" "${pkg_debian_dir}/prerm"
+install -m 0755 "${files_dir}/DEBIAN/postrm" "${pkg_debian_dir}/postrm"
 
 cat > "${pkg_debian_dir}/conffiles" <<'EOF'
 /etc/keen-pbr/config.json

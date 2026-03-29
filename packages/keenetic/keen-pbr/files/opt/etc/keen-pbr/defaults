@@ -1,3 +1,3 @@
 KEEN_PBR="/opt/usr/bin/keen-pbr"
 CONFIG="/opt/etc/keen-pbr/config.json"
-DNSMASQ_HELPER="/opt/etc/keen-pbr/dnsmasq.sh"
+DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"

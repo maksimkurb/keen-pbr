@@ -1,0 +1,20 @@
+[Unit]
+Description=keen-pbr policy-based routing daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/lib/keen-pbr/dnsmasq.sh configure
+ExecStartPre=/usr/lib/keen-pbr/dnsmasq.sh reload
+ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json service
+ExecReload=/usr/lib/keen-pbr/dnsmasq.sh configure
+ExecReload=/usr/lib/keen-pbr/dnsmasq.sh reload
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=/usr/lib/keen-pbr/dnsmasq.sh restore
+ExecStopPost=/usr/lib/keen-pbr/dnsmasq.sh reload
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

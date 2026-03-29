@@ -19,6 +19,7 @@ else
 fi
 
 mkdir -p /opt/etc/dnsmasq.d
+mkdir -p /opt/usr/lib/keen-pbr
 
 if [ ! -e "$DNSMASQ_CONF" ] && [ -f "$DNSMASQ_TEMPLATE" ]; then
     cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"

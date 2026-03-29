@@ -3,9 +3,9 @@
 echo "Stopping keen-pbr service..."
 /opt/etc/init.d/S80keen-pbr stop || true
 
-if [ -x /opt/etc/keen-pbr/dnsmasq.sh ]; then
-    /opt/etc/keen-pbr/dnsmasq.sh restore || true
-    /opt/etc/keen-pbr/dnsmasq.sh reload || true
+if [ -x /opt/usr/lib/keen-pbr/dnsmasq.sh ]; then
+    /opt/usr/lib/keen-pbr/dnsmasq.sh restore || true
+    /opt/usr/lib/keen-pbr/dnsmasq.sh reload || true
 else
     rm -f /opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
     rm -f /etc/dnsmasq.d/keen-pbr.conf
