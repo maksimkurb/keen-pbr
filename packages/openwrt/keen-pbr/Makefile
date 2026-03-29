@@ -98,10 +98,6 @@ define Package/keen-pbr/prerm
 $(file <$(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/prerm)
 endef
 
-define Package/keen-pbr/postrm
-$(file <$(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/postrm)
-endef
-
 #
 # keen-pbr-headless blocks
 #
@@ -147,10 +143,6 @@ endef
 
 define Package/keen-pbr-headless/prerm
 $(file <$(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/prerm)
-endef
-
-define Package/keen-pbr-headless/postrm
-$(file <$(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/postrm)
 endef
 
 $(eval $(call BuildPackage,keen-pbr))

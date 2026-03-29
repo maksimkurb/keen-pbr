@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/ash
 
-set -eu
+set -e
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
@@ -57,7 +57,7 @@ dnsmasq_sections() {
 dnsmasq_confdir() {
     local section="$1"
     local confdir
-    confdir="$(uci -q get "dhcp.${section}.confdir")"
+    config_get confdir "$section" confdir
     printf '%s' "${confdir:-/tmp/dnsmasq.${section}.d}"
 }
 

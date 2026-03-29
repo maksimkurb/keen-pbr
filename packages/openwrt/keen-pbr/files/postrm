@@ -1,5 +1,0 @@
-#!/bin/sh
-
-[ -n "$IPKG_INSTROOT" ] && exit 0
-
-exit 0

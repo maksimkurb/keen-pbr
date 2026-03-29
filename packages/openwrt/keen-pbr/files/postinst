@@ -1,7 +1,5 @@
 #!/bin/sh
 
-[ -n "$IPKG_INSTROOT" ] && exit 0
-
 /usr/lib/keen-pbr/dnsmasq.sh install-persistent || true
 /etc/init.d/keen-pbr enable || true
 /etc/init.d/keen-pbr start || true
