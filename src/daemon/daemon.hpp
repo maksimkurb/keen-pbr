@@ -88,6 +88,14 @@ public:
     void enqueue_control_command(std::function<void()> command,
                                  bool wait_for_completion = false);
 
+    // Post a task to the event loop, always deferred to the next iteration.
+    // Unlike enqueue_control_task, never executes inline even when called from
+    // the event loop thread. Safe to call while holding any lock — the posted
+    // task only runs after the current event-loop iteration completes and all
+    // caller locks have been released. Use this for callbacks that acquire
+    // state_mutex_ to prevent re-entrant lock acquisition.
+    void post_control_task(std::function<void()> task);
+
     // Run the daemon lifecycle: startup, event loop, shutdown.
     void run();
 
