@@ -8,6 +8,43 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+std::string format_nft_read_failure(const std::string& subject,
+                                    const CommandResult& result) {
+    if (result.truncated) {
+        return keen_pbr3::format(
+            "nft verification output exceeded capture limit while reading {}",
+            subject);
+    }
+    if (result.exit_code == 127) {
+        return keen_pbr3::format("nft command not found while reading {}", subject);
+    }
+    return {};
+}
+
+std::optional<std::string> validate_nft_json_root(const std::string& json_output,
+                                                  const std::string& subject) {
+    if (json_output.empty()) {
+        return keen_pbr3::format("nft returned empty JSON while reading {}", subject);
+    }
+
+    try {
+        const auto j = nlohmann::json::parse(json_output);
+        if (!j.contains("nftables") || !j["nftables"].is_array()) {
+            return keen_pbr3::format(
+                "failed to parse nftables JSON while reading {}", subject);
+        }
+    } catch (...) {
+        return keen_pbr3::format(
+            "failed to parse nftables JSON while reading {}", subject);
+    }
+
+    return std::nullopt;
+}
+
+} // namespace
+
 // ---------------------------------------------------------------------------
 // parse_nft_json
 // ---------------------------------------------------------------------------
@@ -166,22 +203,74 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
 NftablesFirewallVerifier::NftablesFirewallVerifier(CommandRunner runner)
     : runner_(std::move(runner)) {}
 
-const ParsedNftablesState& NftablesFirewallVerifier::get_state() const {
+const NftablesFirewallVerifier::CachedState& NftablesFirewallVerifier::get_state() const {
     if (!cached_state_.has_value()) {
-        const std::string nft_out = runner_({"nft", "-j", "list", "table", "inet", TABLE_NAME});
-        cached_state_ = parse_nft_json(nft_out);
+        CachedState cached;
+
+        const auto chain_result = runner_(
+            {"nft", "-j", "list", "chain", "inet", TABLE_NAME, CHAIN_NAME});
+        if (const auto error = format_nft_read_failure("prerouting chain", chain_result);
+            !error.empty()) {
+            cached.error = error;
+            cached_state_ = std::move(cached);
+            return *cached_state_;
+        }
+
+        if (chain_result.exit_code != 0) {
+            const auto table_result = runner_(
+                {"nft", "-j", "-t", "list", "table", "inet", TABLE_NAME});
+            if (const auto table_error = format_nft_read_failure("KeenPbrTable table",
+                                                                 table_result);
+                !table_error.empty()) {
+                cached.error = table_error;
+                cached_state_ = std::move(cached);
+                return *cached_state_;
+            }
+
+            if (table_result.exit_code != 0) {
+                cached_state_ = std::move(cached);
+                return *cached_state_;
+            }
+
+            if (const auto parse_error =
+                    validate_nft_json_root(table_result.stdout_output, "KeenPbrTable table")) {
+                cached.error = *parse_error;
+                cached_state_ = std::move(cached);
+                return *cached_state_;
+            }
+
+            cached.state = parse_nft_json(table_result.stdout_output);
+            cached.state.has_table = true;
+            cached_state_ = std::move(cached);
+            return *cached_state_;
+        }
+
+        if (const auto parse_error =
+                validate_nft_json_root(chain_result.stdout_output, "prerouting chain")) {
+            cached.error = *parse_error;
+            cached_state_ = std::move(cached);
+            return *cached_state_;
+        }
+
+        cached.state = parse_nft_json(chain_result.stdout_output);
+        cached.state.has_table = true;
+        cached.state.has_prerouting_chain = true;
+        cached_state_ = std::move(cached);
     }
     return *cached_state_;
 }
 
 FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
-    const auto& state = get_state();
+    const auto& cached = get_state();
+    const auto& state = cached.state;
 
     FirewallChainCheck result;
     result.chain_present = state.has_prerouting_chain;
     result.prerouting_hook_present = state.has_prerouting_hook;
 
-    if (!state.has_table) {
+    if (!cached.error.empty()) {
+        result.detail = cached.error;
+    } else if (!state.has_table) {
         result.detail = keen_pbr3::format("{} table not found in nftables", TABLE_NAME);
     } else if (!result.chain_present) {
         result.detail = keen_pbr3::format("{} chain not found in {} table",
@@ -198,7 +287,8 @@ FirewallChainCheck NftablesFirewallVerifier::verify_chain() {
 
 std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
     const std::vector<RuleState>& expected) {
-    const auto& state = get_state();
+    const auto& cached = get_state();
+    const auto& state = cached.state;
 
     // Build lookup: set_name -> ParsedNftRule
     std::map<std::string, ParsedNftRule> rule_map;
@@ -222,6 +312,13 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                 check.expected_fwmark = rs.fwmark;
             } else {
                 check.action = "drop";
+            }
+
+            if (!cached.error.empty()) {
+                check.status = CheckStatus::missing;
+                check.detail = cached.error;
+                checks.push_back(std::move(check));
+                continue;
             }
 
             auto it = rule_map.find(set_name);

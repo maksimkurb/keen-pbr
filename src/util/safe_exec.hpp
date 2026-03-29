@@ -10,6 +10,12 @@
 
 namespace keen_pbr3 {
 
+struct ExecCaptureResult {
+    std::string stdout_output;
+    int exit_code{-1};
+    bool truncated{false};
+};
+
 // Execute a command with arguments directly via fork()+execvp(), bypassing
 // the shell entirely. This prevents shell injection attacks.
 // Returns the process exit code (0-255), or -1 on fork/exec failure.
@@ -100,11 +106,12 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
 }
 
 // Execute a command with arguments and capture its stdout output.
-// Returns the captured output string. Returns empty string on failure.
-inline std::string safe_exec_capture(const std::vector<std::string>& args,
-                                     bool suppress_stderr = false,
-                                     size_t max_bytes = 0) {
-    if (args.empty()) return {};
+// Returns stdout, exit status and whether capture exceeded max_bytes.
+inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
+                                           bool suppress_stderr = false,
+                                           size_t max_bytes = 0) {
+    ExecCaptureResult result;
+    if (args.empty()) return result;
 
     std::vector<const char*> argv;
     argv.reserve(args.size() + 1);
@@ -114,13 +121,13 @@ inline std::string safe_exec_capture(const std::vector<std::string>& args,
     argv.push_back(nullptr);
 
     int pipefd[2];
-    if (pipe2(pipefd, O_CLOEXEC) == -1) return {};
+    if (pipe2(pipefd, O_CLOEXEC) == -1) return result;
 
     const pid_t pid = fork();
     if (pid == -1) {
         close(pipefd[0]);
         close(pipefd[1]);
-        return {};
+        return result;
     }
 
     if (pid == 0) {
@@ -141,18 +148,21 @@ inline std::string safe_exec_capture(const std::vector<std::string>& args,
 
     // Parent: read captured output, then wait
     close(pipefd[1]);
-    std::string result;
     char buf[4096];
     while (true) {
         const ssize_t n = read(pipefd[0], buf, sizeof(buf));
         if (n > 0) {
-            result.append(buf, static_cast<size_t>(n));
-            if (max_bytes > 0 && result.size() > max_bytes) {
+            result.stdout_output.append(buf, static_cast<size_t>(n));
+            if (max_bytes > 0 && result.stdout_output.size() > max_bytes) {
+                result.truncated = true;
                 close(pipefd[0]);
                 kill(pid, SIGTERM);
                 int status = 0;
                 waitpid(pid, &status, 0);
-                return {};
+                if (WIFEXITED(status)) {
+                    result.exit_code = WEXITSTATUS(status);
+                }
+                return result;
             }
         } else if (n == 0) {
             break;
@@ -164,7 +174,9 @@ inline std::string safe_exec_capture(const std::vector<std::string>& args,
     close(pipefd[0]);
 
     int status = 0;
-    waitpid(pid, &status, 0);
+    if (waitpid(pid, &status, 0) != -1 && WIFEXITED(status)) {
+        result.exit_code = WEXITSTATUS(status);
+    }
     return result;
 }
 

@@ -27,8 +27,8 @@ struct ParsedNftablesState {
     std::vector<ParsedNftRule> rules;   // rules in the prerouting chain
 };
 
-// Parse the stdout of `nft -j list table inet KeenPbrTable`.
-// Returns the parsed state of KeenPbrTable.
+// Parse nft JSON from `nft -j list chain ...` or `nft -j list table ...`.
+// Returns the parsed state of KeenPbrTable entries present in the document.
 // On any JSON parse error or invalid input, returns a default (empty) state.
 ParsedNftablesState parse_nft_json(const std::string& json_output);
 
@@ -48,10 +48,15 @@ private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
 
-    const ParsedNftablesState& get_state() const;
+    struct CachedState {
+        ParsedNftablesState state;
+        std::string error;
+    };
+
+    const CachedState& get_state() const;
 
     CommandRunner runner_;
-    mutable std::optional<ParsedNftablesState> cached_state_;
+    mutable std::optional<CachedState> cached_state_;
 };
 
 // Factory function called from firewall_verifier.cpp
