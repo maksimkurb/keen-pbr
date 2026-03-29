@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 project(keen-pbr VERSION 3.0.0 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "17")
   message(FATAL_ERROR "keen-pbr requires CMAKE_CXX_STANDARD=17.")
 endif()
@@ -19,9 +21,9 @@ add_link_options(-rdynamic)
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
-set(KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json" CACHE STRING
+set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
-set(KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend" CACHE STRING
+set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
   "Default frontend static root served by API (SPA assets)")
 
 # Dependencies
@@ -164,7 +166,19 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
   target_link_libraries(keen-pbr PRIVATE stdc++fs)
 endif()
 
-install(TARGETS keen-pbr DESTINATION bin)
+install(TARGETS keen-pbr RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+if(WITH_API)
+  set(KEEN_PBR_PACKAGED_CONFIG "${CMAKE_SOURCE_DIR}/packages/common/config.full.example.json")
+else()
+  set(KEEN_PBR_PACKAGED_CONFIG "${CMAKE_SOURCE_DIR}/packages/common/config.headless.example.json")
+endif()
+
+install(FILES ${KEEN_PBR_PACKAGED_CONFIG}
+  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/keen-pbr
+  RENAME config.json)
+install(FILES ${CMAKE_SOURCE_DIR}/packages/common/local.lst
+  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/keen-pbr)
 
 # Unit tests (optional, requires doctest submodule)
 option(BUILD_TESTS "Build unit tests" OFF)

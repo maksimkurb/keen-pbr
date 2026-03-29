@@ -13,6 +13,8 @@ KEEN_PBR_SRC ?= /home/me/keen-pbr-src
 KEEN_PBR_FRONTEND_DIST ?= $(KEEN_PBR_SRC)/frontend/dist
 KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.full.example.json
 KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.headless.example.json
+KEEN_PBR_CMAKE_INSTALL_BINDIR ?= sbin
+KEEN_PBR_STAGED_BINDIR ?= usr/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
 
 #
 # Common blocks
@@ -34,6 +36,7 @@ endef
 
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
+	-DCMAKE_INSTALL_BINDIR:PATH=$(KEEN_PBR_CMAKE_INSTALL_BINDIR) \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 
 ifneq ($(BUILD_VARIANT),headless)
@@ -75,7 +78,7 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/usr/lib/keen-pbr
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_DIR) $(1)/usr/share/keen-pbr/frontend
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/keen-pbr $(1)/usr/sbin/keen-pbr
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/usr/sbin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/init.d/keen-pbr $(1)/etc/init.d/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/iface/70-keen-pbr $(1)/etc/hotplug.d/iface/70-keen-pbr
@@ -128,7 +131,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_DIR) $(1)/etc/keen-pbr
 	$(INSTALL_DIR) $(1)/usr/lib/keen-pbr
 	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/keen-pbr $(1)/usr/sbin/keen-pbr
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr $(1)/usr/sbin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/init.d/keen-pbr $(1)/etc/init.d/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/firewall/70-keen-pbr $(1)/etc/hotplug.d/firewall/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/iface/70-keen-pbr $(1)/etc/hotplug.d/iface/70-keen-pbr
