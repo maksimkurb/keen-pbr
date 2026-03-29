@@ -1,0 +1,6 @@
+debian/tmp/usr/bin/keen-pbr usr/sbin/
+packages/debian/files/usr/lib/keen-pbr/dnsmasq.sh usr/lib/keen-pbr/
+packages/debian/files/usr/lib/keen-pbr/dnsmasq.conf.template usr/lib/keen-pbr/
+packages/debian/files/lib/systemd/system/keen-pbr.service lib/systemd/system/
+packages/common/config.full.example.json etc/keen-pbr/config.json
+packages/common/local.lst etc/keen-pbr/local.lst

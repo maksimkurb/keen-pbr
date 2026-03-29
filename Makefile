@@ -2,25 +2,21 @@ BUILD_DIR := cmake-build
 DIST_DIR := dist
 ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
 KEEN_PBR_VERSION := $(shell sed -n 's/^#define KEEN_PBR3_VERSION_STRING "\([^"]*\)"/\1/p' include/keen-pbr/version.hpp | head -1)
-DEB_BUILD_DIR_BASE := build/debian
-DEB_FULL_BUILD_DIR := cmake-build-deb-full
-DEB_HEADLESS_BUILD_DIR := cmake-build-deb-headless
 DEB_OUTPUT_DIR := release_files
 DEB_FRONTEND_DIST := /tmp/keen-pbr-frontend-dist
-DEB_ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || echo amd64)
+DEB_FULL_SRC_DIR := build/debian-src-full
+DEB_HEADLESS_SRC_DIR := build/debian-src-headless
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
 CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
-DEB_FULL_SETUP_STAMP := $(DEB_FULL_BUILD_DIR)/.stamp-setup
-DEB_HEADLESS_SETUP_STAMP := $(DEB_HEADLESS_BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
         frontend-build \
         frontend-api-generate \
-        deb deb-packages deb-full deb-headless deb-build-full deb-build-headless \
+        deb deb-packages deb-full deb-headless deb-prepare-full deb-prepare-headless \
         test \
         generate \
         cross-setup cross-build cross-deploy \
@@ -39,24 +35,33 @@ setup: $(SETUP_STAMP) ## Configure CMake
 build: $(SETUP_STAMP) ## Compile the project
 	cmake --build $(BUILD_DIR)
 
-$(DEB_FULL_SETUP_STAMP): CMakeLists.txt
-	cmake -S . -B $(DEB_FULL_BUILD_DIR) $(CMAKE_CXX_FLAGS) \
-		-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
-		-DKEEN_PBR_FRONTEND_ROOT:STRING=/usr/share/keen-pbr/frontend \
-		-DWITH_API=ON
-	@touch $@
+deb-prepare-full: ## Prepare Debian full source tree with debian/ packaging
+	rm -rf $(DEB_FULL_SRC_DIR)
+	mkdir -p $(DEB_FULL_SRC_DIR)
+	rsync -a --delete \
+		--exclude='.git' \
+		--exclude='frontend/node_modules' \
+		--exclude='frontend/dist' \
+		--exclude='build' \
+		--exclude='cmake-build*' \
+		./ $(DEB_FULL_SRC_DIR)/
+	rm -rf $(DEB_FULL_SRC_DIR)/debian
+	cp -a packages/debian/full/debian $(DEB_FULL_SRC_DIR)/debian
+	sed -i '1s/(.*)/($(KEEN_PBR_VERSION)-1)/' $(DEB_FULL_SRC_DIR)/debian/changelog
 
-$(DEB_HEADLESS_SETUP_STAMP): CMakeLists.txt
-	cmake -S . -B $(DEB_HEADLESS_BUILD_DIR) $(CMAKE_CXX_FLAGS) \
-		-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
-		-DWITH_API=OFF
-	@touch $@
-
-deb-build-full: $(DEB_FULL_SETUP_STAMP) ## Compile the Debian full binary
-	cmake --build $(DEB_FULL_BUILD_DIR)
-
-deb-build-headless: $(DEB_HEADLESS_SETUP_STAMP) ## Compile the Debian headless binary
-	cmake --build $(DEB_HEADLESS_BUILD_DIR)
+deb-prepare-headless: ## Prepare Debian headless source tree with debian/ packaging
+	rm -rf $(DEB_HEADLESS_SRC_DIR)
+	mkdir -p $(DEB_HEADLESS_SRC_DIR)
+	rsync -a --delete \
+		--exclude='.git' \
+		--exclude='frontend/node_modules' \
+		--exclude='frontend/dist' \
+		--exclude='build' \
+		--exclude='cmake-build*' \
+		./ $(DEB_HEADLESS_SRC_DIR)/
+	rm -rf $(DEB_HEADLESS_SRC_DIR)/debian
+	cp -a packages/debian/headless/debian $(DEB_HEADLESS_SRC_DIR)/debian
+	sed -i '1s/(.*)/($(KEEN_PBR_VERSION)-1)/' $(DEB_HEADLESS_SRC_DIR)/debian/changelog
 
 frontend-build: ## Build frontend assets with bun
 	mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache /tmp/keen-pbr-frontend-dist
@@ -75,31 +80,22 @@ test: ## Build and run unit tests (doctest)
 	cmake --build $(BUILD_DIR) --target keen-pbr-tests
 	$(BUILD_DIR)/tests/keen-pbr-tests
 
-deb-full: frontend-build deb-build-full ## Build the Debian full .deb package
-	mkdir -p $(DEB_OUTPUT_DIR) $(DEB_BUILD_DIR_BASE)
-	bash packages/debian/build-package.sh \
-		--variant full \
-		--build-dir $(DEB_FULL_BUILD_DIR) \
-		--frontend-dist $(DEB_FRONTEND_DIST) \
-		--output-dir $(DEB_OUTPUT_DIR) \
-		--version $(KEEN_PBR_VERSION) \
-		--arch $(DEB_ARCH)
+deb-full: frontend-build deb-prepare-full ## Build the Debian full .deb package
+	mkdir -p $(DEB_OUTPUT_DIR)
+	cd $(DEB_FULL_SRC_DIR) && KEEN_PBR_FRONTEND_DIST=$(abspath $(DEB_FRONTEND_DIST)) dpkg-buildpackage -b -us -uc
+	find build -maxdepth 1 -type f -name 'keen-pbr_*_*.deb' -exec cp -t $(DEB_OUTPUT_DIR) {} +
 
-deb-headless: deb-build-headless ## Build the Debian headless .deb package
-	mkdir -p $(DEB_OUTPUT_DIR) $(DEB_BUILD_DIR_BASE)
-	bash packages/debian/build-package.sh \
-		--variant headless \
-		--build-dir $(DEB_HEADLESS_BUILD_DIR) \
-		--output-dir $(DEB_OUTPUT_DIR) \
-		--version $(KEEN_PBR_VERSION) \
-		--arch $(DEB_ARCH)
+deb-headless: deb-prepare-headless ## Build the Debian headless .deb package
+	mkdir -p $(DEB_OUTPUT_DIR)
+	cd $(DEB_HEADLESS_SRC_DIR) && dpkg-buildpackage -b -us -uc
+	find build -maxdepth 1 -type f -name 'keen-pbr-headless_*_*.deb' -exec cp -t $(DEB_OUTPUT_DIR) {} +
 
 deb-packages: deb-full deb-headless ## Build both Debian .deb packages
 
 deb: deb-packages ## Build Debian .deb packages
 
 clean: ## Remove build artifacts
-	rm -rf $(BUILD_DIR) $(DEB_FULL_BUILD_DIR) $(DEB_HEADLESS_BUILD_DIR) $(DEB_BUILD_DIR_BASE)
+	rm -rf $(BUILD_DIR) $(DEB_FULL_SRC_DIR) $(DEB_HEADLESS_SRC_DIR)
 
 distclean: clean ## Remove build and dist directories
 	rm -rf $(DIST_DIR)

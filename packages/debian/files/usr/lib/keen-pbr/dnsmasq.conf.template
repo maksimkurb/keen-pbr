@@ -1,0 +1,30 @@
+# --- Execution Environment ---
+user=dnsmasq
+pid-file=/run/dnsmasq/dnsmasq.pid
+port=53
+
+# --- LAN Accessibility ---
+bind-interfaces
+listen-address=127.0.0.1
+
+# --- DNS Hardening & Protection ---
+domain-needed
+bogus-priv
+stop-dns-rebind
+rebind-localhost-ok
+
+# --- Performance & Logic ---
+cache-size=0
+dns-forward-max=5096
+min-port=4096
+
+no-resolv
+no-poll
+clear-on-reload
+log-async
+
+# --- Upstream Servers ---
+#
+# Configure upstream DNS servers in keen-pbr itself.
+# If you need fallback resolvers while keen-pbr is stopped, configure them
+# separately in your own dnsmasq configuration.

@@ -1,0 +1,16 @@
+Source: keen-pbr-headless
+Section: net
+Priority: optional
+Maintainer: Maxim Kurbatov <maxim+keen-pbr@kurb.me>
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, g++, ninja-build, libcurl4-openssl-dev | libcurl4-gnutls-dev, libnl-3-dev, libnl-route-3-dev, libfmt-dev, nlohmann-json3-dev
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/maksimkurb/keen-pbr
+
+Package: keen-pbr-headless
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, dnsmasq
+Description: Policy-based routing daemon without REST API and Web UI
+ keen-pbr routes traffic selectively by IPs, CIDRs, and domains.
+ This package installs the daemon and helper scripts without the REST API
+ or frontend assets.

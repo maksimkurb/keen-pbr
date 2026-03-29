@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
+		-DKEEN_PBR_FRONTEND_ROOT:STRING=/usr/share/keen-pbr/frontend \
+		-DWITH_API=ON
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	dh_auto_install
+	test -n "$(KEEN_PBR_FRONTEND_DIST)"
+	test -d "$(KEEN_PBR_FRONTEND_DIST)"
+	install -d debian/keen-pbr/usr/share/keen-pbr/frontend
+	cp -a "$(KEEN_PBR_FRONTEND_DIST)/." debian/keen-pbr/usr/share/keen-pbr/frontend/
+	chmod -R a=rX,u+w debian/keen-pbr/usr/share/keen-pbr/frontend
+	install -d debian/keen-pbr/var/cache/keen-pbr

@@ -1,12 +1,15 @@
-Package: keen-pbr
-Version: @VERSION@
+Source: keen-pbr
 Section: net
 Priority: optional
-Architecture: @ARCHITECTURE@
 Maintainer: Maxim Kurbatov <maxim+keen-pbr@kurb.me>
-Depends: @DEPENDS@
-Installed-Size: @INSTALLED_SIZE@
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, g++, ninja-build, libcurl4-openssl-dev | libcurl4-gnutls-dev, libnl-3-dev, libnl-route-3-dev, libfmt-dev, nlohmann-json3-dev
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
 Homepage: https://github.com/maksimkurb/keen-pbr
+
+Package: keen-pbr
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, dnsmasq
 Description: Policy-based routing daemon with REST API and Web UI
  keen-pbr routes traffic selectively by IPs, CIDRs, and domains.
  This package includes the daemon, REST API, dnsmasq integration helper,

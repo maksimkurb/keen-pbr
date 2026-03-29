@@ -4,9 +4,12 @@ set -eu
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
-DNSMASQ_PERSISTENT_FILE="/etc/dnsmasq.d/keen-pbr-tmpdir.conf"
+DNSMASQ_CONF="/etc/dnsmasq.conf"
 DNSMASQ_TMP_DIR="/tmp/dnsmasq.d"
 DNSMASQ_TMP_FILE="${DNSMASQ_TMP_DIR}/keen-pbr.conf"
+BLOCK_START="# BEGIN keen-pbr managed block"
+BLOCK_END="# END keen-pbr managed block"
+BLOCK_LINE="conf-dir=/tmp/dnsmasq.d,*.conf"
 
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
@@ -21,13 +24,35 @@ conf_script_line() {
         "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
 }
 
+append_managed_block() {
+    mkdir -p "$(dirname "$DNSMASQ_CONF")"
+    touch "$DNSMASQ_CONF"
+    if [ -s "$DNSMASQ_CONF" ]; then
+        printf '\n' >> "$DNSMASQ_CONF"
+    fi
+    printf '%s\n%s\n%s\n' "$BLOCK_START" "$BLOCK_LINE" "$BLOCK_END" >> "$DNSMASQ_CONF"
+}
+
+remove_managed_block() {
+    [ -f "$DNSMASQ_CONF" ] || return 0
+    awk -v start="$BLOCK_START" -v end="$BLOCK_END" '
+        $0 == start { skip = 1; next }
+        $0 == end { skip = 0; next }
+        !skip { print }
+    ' "$DNSMASQ_CONF" > "${DNSMASQ_CONF}.tmp" && mv "${DNSMASQ_CONF}.tmp" "$DNSMASQ_CONF"
+}
+
 install_persistent() {
-    mkdir -p "$(dirname "$DNSMASQ_PERSISTENT_FILE")"
-    printf '%s\n' "conf-dir=${DNSMASQ_TMP_DIR},*.conf" > "$DNSMASQ_PERSISTENT_FILE"
+    mkdir -p "$DNSMASQ_TMP_DIR"
 }
 
 ensure_runtime_prereqs() {
     install_persistent
+    touch "$DNSMASQ_CONF"
+    if ! grep -Fqx "$BLOCK_LINE" "$DNSMASQ_CONF"; then
+        remove_managed_block
+        append_managed_block
+    fi
 }
 
 activate_dnsmasq() {
@@ -42,7 +67,8 @@ deactivate_dnsmasq() {
 }
 
 uninstall_persistent() {
-    rm -f "$DNSMASQ_PERSISTENT_FILE"
+    remove_managed_block
+    rm -f /etc/dnsmasq.d/keen-pbr-tmpdir.conf
     rm -f "$DNSMASQ_TMP_FILE"
 }
 
