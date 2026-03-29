@@ -1,20 +1,23 @@
-name: Release OpenWrt packages
+name: Reusable OpenWrt packages
 
 on:
-  push:
-    tags: ["v-*"]
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      openwrt_version:
-        description: 'OpenWrt release (e.g. 24.10.4)'
+      build_scope:
         required: true
-        default: '24.10.4'
+        type: string
+      openwrt_version:
+        required: false
+        type: string
+        default: "24.10.4"
       targets:
-        description: 'Targets filter (comma-separated, empty = all)'
         required: false
+        type: string
+        default: ""
       subtargets:
-        description: 'Subtargets filter (comma-separated, empty = all)'
         required: false
+        type: string
+        default: ""
 
 jobs:
   prepare-frontend:
@@ -34,14 +37,14 @@ jobs:
         run: bun run build
       - name: Keep only .gz frontend assets
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/frontend-dist-gz"
+          mkdir -p "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz"
           cd dist
-          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/frontend-dist-gz" \;
+          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz" \;
       - name: Upload frontend bundle
         uses: actions/upload-artifact@v6
         with:
-          name: frontend-dist-gz
-          path: frontend-dist-gz
+          name: openwrt-frontend-dist-gz
+          path: openwrt-frontend-dist-gz
 
   generate-config:
     runs-on: ubuntu-latest
@@ -55,16 +58,24 @@ jobs:
       - name: Generate matrix
         id: gen
         working-directory: src/.github/builder
+        env:
+          BUILD_SCOPE: ${{ inputs.build_scope }}
+          INPUT_TARGETS: ${{ inputs.targets }}
+          INPUT_SUBTARGETS: ${{ inputs.subtargets }}
+          OPENWRT_VERSION: ${{ inputs.openwrt_version }}
         run: |
-          python3 generate_build_matrix.py \
-            "${{ inputs.openwrt_version || '24.10.4' }}" \
-            "${{ inputs.targets }}" \
-            "${{ inputs.subtargets }}"
+          TARGETS="$INPUT_TARGETS"
+          SUBTARGETS="$INPUT_SUBTARGETS"
+          if [ "$BUILD_SCOPE" = "default" ]; then
+            TARGETS="mediatek"
+            SUBTARGETS="filogic"
+          fi
+          python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
 
   build:
     name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }} (${{ matrix.build_env.pkgarch }})"
     runs-on: ubuntu-latest
-    needs: [generate-config, prepare-frontend]
+    needs: [prepare-frontend, generate-config]
     strategy:
       fail-fast: false
       matrix:
@@ -77,13 +88,13 @@ jobs:
       - name: Download frontend bundle
         uses: actions/download-artifact@v8
         with:
-          name: frontend-dist-gz
-          path: frontend-dist-gz
+          name: openwrt-frontend-dist-gz
+          path: openwrt-frontend-dist-gz
       - name: Stage frontend dist
         run: |
           rm -rf "$GITHUB_WORKSPACE/src/frontend/dist"
           mkdir -p "$GITHUB_WORKSPACE/src/frontend/dist"
-          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
+          cp -a "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
       - name: Cache SDK
         id: cache
         uses: actions/cache@v5
@@ -109,6 +120,7 @@ jobs:
         run: |
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
           cp -r src/packages/openwrt/keen-pbr "$SDK_DIR/package/"
+          cp src/version.mk "$SDK_DIR/package/keen-pbr/version.mk"
           cd "$SDK_DIR"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
@@ -117,11 +129,10 @@ jobs:
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
       - name: Collect artifacts
         run: |
+          . "$GITHUB_WORKSPACE/src/version.mk"
+          VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
           mkdir -p release_files
-          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' src/packages/openwrt/keen-pbr/Makefile | head -1)
-          PKG_RELEASE=$(sed -n 's/^PKG_RELEASE:=//p' src/packages/openwrt/keen-pbr/Makefile | head -1)
-          VERSION_RELEASE="${PKG_VERSION}-${PKG_RELEASE}"
           ARCH_PREFIX="${{ matrix.build_env.target }}_${{ matrix.build_env.subtarget }}"
           find "$SDK_DIR/bin" -type f \( -name "keen-pbr_*.ipk" -o -name "keen-pbr_*.apk" \) | while read -r f; do
             EXT="${f##*.}"
@@ -144,13 +155,7 @@ jobs:
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: "keen-pbr-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}"
+          name: packages-openwrt-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           path: |
-            release_files/*.ipk
-            release_files/*.apk
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
             release_files/*.ipk
             release_files/*.apk

@@ -1,13 +1,15 @@
-name: Release Keenetic packages
+name: Reusable Keenetic packages
 
 on:
-  push:
-    tags: ["v-*"]
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      build_scope:
+        required: true
+        type: string
       configs:
-        description: 'Config filter (comma-separated, empty = all)'
         required: false
+        type: string
+        default: ""
 
 jobs:
   prepare-frontend:
@@ -17,6 +19,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -24,14 +28,14 @@ jobs:
         run: bun run build
       - name: Keep only .gz frontend assets
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/frontend-dist-gz"
+          mkdir -p "$GITHUB_WORKSPACE/keenetic-frontend-dist-gz"
           cd dist
-          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/frontend-dist-gz" \;
+          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/keenetic-frontend-dist-gz" \;
       - name: Upload frontend bundle
         uses: actions/upload-artifact@v6
         with:
-          name: frontend-dist-gz
-          path: frontend-dist-gz
+          name: keenetic-frontend-dist-gz
+          path: keenetic-frontend-dist-gz
 
   generate-config:
     runs-on: ubuntu-latest
@@ -41,6 +45,7 @@ jobs:
       - name: Generate config matrix
         id: gen
         env:
+          BUILD_SCOPE: ${{ inputs.build_scope }}
           CONFIGS_INPUT: ${{ inputs.configs }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
@@ -55,9 +60,13 @@ jobs:
               "armv7-3.2.config",
           ]
 
+          build_scope = os.environ["BUILD_SCOPE"]
           raw = os.environ.get("CONFIGS_INPUT", "")
-          selected = [item.strip() for item in raw.split(",") if item.strip()]
-          builds = [cfg for cfg in all_configs if cfg in selected] if selected else all_configs
+          if build_scope == "default":
+              builds = ["mipsel-3.4.config"]
+          else:
+              selected = [item.strip() for item in raw.split(",") if item.strip()]
+              builds = [cfg for cfg in all_configs if cfg in selected] if selected else all_configs
 
           matrix = []
           for config in builds:
@@ -74,7 +83,7 @@ jobs:
   build:
     name: "${{ matrix.build_env.config_name }}"
     runs-on: ubuntu-latest
-    needs: [generate-config, prepare-frontend]
+    needs: [prepare-frontend, generate-config]
     strategy:
       fail-fast: false
       matrix:
@@ -89,28 +98,29 @@ jobs:
       - name: Download frontend bundle
         uses: actions/download-artifact@v8
         with:
-          name: frontend-dist-gz
-          path: frontend-dist-gz
+          name: keenetic-frontend-dist-gz
+          path: keenetic-frontend-dist-gz
       - name: Stage frontend dist
         run: |
           rm -rf "$GITHUB_WORKSPACE/frontend/dist"
           mkdir -p "$GITHUB_WORKSPACE/frontend/dist"
-          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/frontend/dist/"
+          cp -a "$GITHUB_WORKSPACE/keenetic-frontend-dist-gz"/. "$GITHUB_WORKSPACE/frontend/dist/"
       - name: Build package
         working-directory: /home/me/Entware
         run: |
           printf '\nsrc-link keenPbr %s/packages/keenetic\n' "$GITHUB_WORKSPACE" >> feeds.conf
           ./scripts/feeds update keenPbr
           ./scripts/feeds install -p keenPbr keen-pbr
+          FEED_PKG_DIR=$(find package -type d -path '*/keen-pbr' | grep '/package/feeds/' | head -1)
+          cp "$GITHUB_WORKSPACE/version.mk" "$FEED_PKG_DIR/version.mk"
           cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
         run: |
+          . "$GITHUB_WORKSPACE/version.mk"
+          VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
           mkdir -p release_files
-          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
-          PKG_RELEASE=$(sed -n 's/^PKG_RELEASE:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
-          VERSION_RELEASE="${PKG_VERSION}-${PKG_RELEASE}"
           find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r f; do
             cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
@@ -120,9 +130,5 @@ jobs:
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: "keen-pbr-keenetic-${{ matrix.build_env.config_name }}"
+          name: packages-keenetic-${{ matrix.build_env.config_name }}
           path: release_files/*.ipk
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release_files/*.ipk

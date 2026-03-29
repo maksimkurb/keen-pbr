@@ -13,6 +13,8 @@ if (( job_count < 1 )); then
 fi
 
 mkdir -p "$RELEASE_DIR"
+. "${REPO_ROOT}/version.mk"
+version_release="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
 
 echo "[keenetic] Building frontend with bun..."
 mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache
@@ -30,6 +32,8 @@ grep -Fqx "src-link keenPbr ${REPO_ROOT}/packages/keenetic" feeds.conf || \
 
 ./scripts/feeds update keenPbr
 ./scripts/feeds install -p keenPbr keen-pbr
+feed_pkg_dir="$(find /home/me/Entware/package -type d -path '*/keen-pbr' | grep '/package/feeds/' | head -1)"
+cp "${REPO_ROOT}/version.mk" "${feed_pkg_dir}/version.mk"
 
 touch .config
 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -44,13 +48,12 @@ make defconfig
 make package/keen-pbr/clean
 make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
-pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/keenetic/keen-pbr/Makefile" | head -1)"
 find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r file; do
-  cp "$file" "${RELEASE_DIR}/keen-pbr_${pkg_version}_keenetic_${KEENETIC_ARCH}.ipk"
+  cp "$file" "${RELEASE_DIR}/keen-pbr_${version_release}_keenetic_${KEENETIC_ARCH}.ipk"
 done
 
 if [[ "${BUILD_HEADLESS,,}" == "true" ]]; then
   find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r file; do
-    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${pkg_version}_keenetic_${KEENETIC_ARCH}.ipk"
+    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${version_release}_keenetic_${KEENETIC_ARCH}.ipk"
   done
 fi

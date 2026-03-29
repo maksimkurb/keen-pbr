@@ -1,7 +1,9 @@
+include version.mk
+
 BUILD_DIR := cmake-build
 DIST_DIR := dist
 ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
-KEEN_PBR_VERSION := $(shell sed -n 's/^#define KEEN_PBR3_VERSION_STRING "\([^"]*\)"/\1/p' include/keen-pbr/version.hpp | head -1)
+KEEN_PBR_VERSION_RELEASE := $(KEEN_PBR_VERSION)-$(KEEN_PBR_RELEASE)
 DEB_OUTPUT_DIR := release_files
 DEB_FRONTEND_DIST := /tmp/keen-pbr-frontend-dist
 DEB_FULL_SRC_DIR := build/debian-src-full
@@ -26,7 +28,7 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 
 all: build ## Build for host (native)
 
-$(SETUP_STAMP): CMakeLists.txt
+$(SETUP_STAMP): CMakeLists.txt version.mk include/keen-pbr/version.hpp.in
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS)
 	@touch $@
 
@@ -44,10 +46,10 @@ deb-prepare-full: ## Prepare Debian full source tree with debian/ packaging
 		--exclude='frontend/dist' \
 		--exclude='build' \
 		--exclude='cmake-build*' \
-		./ $(DEB_FULL_SRC_DIR)/
+	./ $(DEB_FULL_SRC_DIR)/
 	rm -rf $(DEB_FULL_SRC_DIR)/debian
 	cp -a packages/debian/full/debian $(DEB_FULL_SRC_DIR)/debian
-	sed -i '1s/(.*)/($(KEEN_PBR_VERSION)-1)/' $(DEB_FULL_SRC_DIR)/debian/changelog
+	sed -i '1s/(.*)/($(KEEN_PBR_VERSION_RELEASE))/' $(DEB_FULL_SRC_DIR)/debian/changelog
 
 deb-prepare-headless: ## Prepare Debian headless source tree with debian/ packaging
 	rm -rf $(DEB_HEADLESS_SRC_DIR)
@@ -58,10 +60,10 @@ deb-prepare-headless: ## Prepare Debian headless source tree with debian/ packag
 		--exclude='frontend/dist' \
 		--exclude='build' \
 		--exclude='cmake-build*' \
-		./ $(DEB_HEADLESS_SRC_DIR)/
+	./ $(DEB_HEADLESS_SRC_DIR)/
 	rm -rf $(DEB_HEADLESS_SRC_DIR)/debian
 	cp -a packages/debian/headless/debian $(DEB_HEADLESS_SRC_DIR)/debian
-	sed -i '1s/(.*)/($(KEEN_PBR_VERSION)-1)/' $(DEB_HEADLESS_SRC_DIR)/debian/changelog
+	sed -i '1s/(.*)/($(KEEN_PBR_VERSION_RELEASE))/' $(DEB_HEADLESS_SRC_DIR)/debian/changelog
 
 frontend-build: ## Build frontend assets with bun
 	mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache /tmp/keen-pbr-frontend-dist

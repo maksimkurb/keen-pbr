@@ -1,0 +1,26 @@
+name: Build packages
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  openwrt:
+    uses: ./.github/workflows/reusable-openwrt-packages.yml
+    with:
+      build_scope: default
+      openwrt_version: "24.10.4"
+    secrets: inherit
+
+  keenetic:
+    uses: ./.github/workflows/reusable-keenetic-packages.yml
+    with:
+      build_scope: default
+    secrets: inherit
+
+  debian:
+    uses: ./.github/workflows/reusable-deb-packages.yml
+    with:
+      build_scope: default
+    secrets: inherit

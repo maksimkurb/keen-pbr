@@ -14,6 +14,8 @@ if (( job_count < 1 )); then
 fi
 
 mkdir -p "$RELEASE_DIR"
+. "${REPO_ROOT}/version.mk"
+version_release="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
 cd "${SDK_DIR}"
 
 if [[ ! -d "${SDK_DIR}" ]] || [[ ! -f .stamp-prepared ]]; then
@@ -38,19 +40,23 @@ find "${FRONTEND_OUT_DIR}" -type f ! -name '*.gz' -delete
 cd "${SDK_DIR}"
 rm -rf package/keen-pbr
 cp -r "${REPO_ROOT}/packages/openwrt/keen-pbr" package/
+cp "${REPO_ROOT}/version.mk" package/keen-pbr/version.mk
 
 make package/keen-pbr/clean
 make package/keen-pbr/compile V=s "-j${job_count}" KEEN_PBR_SRC="${REPO_ROOT}" KEEN_PBR_FRONTEND_DIST="${FRONTEND_OUT_DIR}"
 
-pkg_version="$(sed -n 's/^PKG_VERSION:=//p' "${REPO_ROOT}/packages/openwrt/keen-pbr/Makefile" | head -1)"
 find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr_*.ipk' -o -name 'keen-pbr_*.apk' \) | while read -r file; do
   ext="${file##*.}"
-  cp "$file" "${RELEASE_DIR}/keen-pbr_${pkg_version}_openwrt_${OPENWRT_VERSION}_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}.${ext}"
+  basename="$(basename "$file")"
+  pkg_arch="$(printf '%s\n' "$basename" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')"
+  cp "$file" "${RELEASE_DIR}/keen-pbr_${version_release}_openwrt_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}_${pkg_arch}.${ext}"
 done
 
 if [[ "${BUILD_HEADLESS,,}" == "true" ]]; then
   find "${SDK_DIR}/bin" -type f \( -name 'keen-pbr-headless_*.ipk' -o -name 'keen-pbr-headless_*.apk' \) | while read -r file; do
     ext="${file##*.}"
-    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${pkg_version}_openwrt_${OPENWRT_VERSION}_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}.${ext}"
+    basename="$(basename "$file")"
+    pkg_arch="$(printf '%s\n' "$basename" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')"
+    cp "$file" "${RELEASE_DIR}/keen-pbr-headless_${version_release}_openwrt_${OPENWRT_TARGET}_${OPENWRT_SUBTARGET}_${pkg_arch}.${ext}"
   done
 fi

@@ -1,0 +1,50 @@
+name: Release packages
+
+on:
+  push:
+    tags: ["v-*"]
+
+permissions:
+  contents: write
+
+jobs:
+  openwrt:
+    uses: ./.github/workflows/reusable-openwrt-packages.yml
+    with:
+      build_scope: full
+      openwrt_version: "24.10.4"
+    secrets: inherit
+
+  keenetic:
+    uses: ./.github/workflows/reusable-keenetic-packages.yml
+    with:
+      build_scope: full
+    secrets: inherit
+
+  debian:
+    uses: ./.github/workflows/reusable-deb-packages.yml
+    with:
+      build_scope: full
+    secrets: inherit
+
+  draft-release:
+    name: Draft GitHub release
+    runs-on: ubuntu-latest
+    needs: [openwrt, keenetic, debian]
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          path: release_files
+          merge-multiple: true
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          overwrite_files: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release_files/*
