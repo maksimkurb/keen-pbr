@@ -6,6 +6,7 @@ KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
 CACHE_DIR="/var/cache/keen-pbr"
+DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
 PACKAGE_NAME="keen-pbr"
 CONFFILE="${PACKAGE_NAME}.conf"
 
@@ -95,6 +96,19 @@ write_temp_conf_for_section() {
     printf '%s\n' "$(conf_script_line)" > "${confdir}/${CONFFILE}"
 }
 
+write_fallback_conf_for_section() {
+    local section="$1"
+    local confdir
+
+    confdir="$(dnsmasq_confdir "$section")"
+    mkdir -p "$confdir"
+    if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
+        cp "$DNSMASQ_FALLBACK_FILE" "${confdir}/${CONFFILE}"
+    else
+        rm -f "${confdir}/${CONFFILE}"
+    fi
+}
+
 remove_temp_conf_for_section() {
     local section="$1"
     local confdir
@@ -108,6 +122,7 @@ install_persistent() {
     local changed=1
 
     for section in $(dnsmasq_sections); do
+        write_fallback_conf_for_section "$section" || true
         if install_mounts_for_section "$section"; then
             changed=0
         fi
@@ -136,7 +151,7 @@ deactivate_dnsmasq() {
     local section
 
     for section in $(dnsmasq_sections); do
-        remove_temp_conf_for_section "$section" || true
+        write_fallback_conf_for_section "$section" || true
     done
 
     restart_dnsmasq

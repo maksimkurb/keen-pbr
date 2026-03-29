@@ -63,6 +63,7 @@ endef
 
 define Package/keen-pbr/conffiles
 /etc/keen-pbr/config.json
+/etc/keen-pbr/dnsmasq-fallback.conf
 /etc/keen-pbr/local.lst
 endef
 
@@ -82,6 +83,7 @@ define Package/keen-pbr/install
 	$(CP) $(PKG_BUILD_DIR)/frontend/dist/. $(1)/usr/share/keen-pbr/frontend/
 	chmod -R a=rX,u+w $(1)/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/etc/keen-pbr/config.json
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 endef
 
@@ -115,6 +117,7 @@ endef
 
 define Package/keen-pbr-headless/conffiles
 /etc/keen-pbr/config.json
+/etc/keen-pbr/dnsmasq-fallback.conf
 /etc/keen-pbr/local.lst
 endef
 
@@ -131,6 +134,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/hotplug.d/iface/70-keen-pbr $(1)/etc/hotplug.d/iface/70-keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/usr/lib/keen-pbr/dnsmasq.sh $(1)/usr/lib/keen-pbr/dnsmasq.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/etc/keen-pbr/config.json
+	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
 endef
 
