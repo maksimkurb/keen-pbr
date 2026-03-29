@@ -91,8 +91,10 @@ IptablesFirewallVerifier::IptablesFirewallVerifier(CommandRunner runner)
 const IptablesFirewallVerifier::CachedState& IptablesFirewallVerifier::get_state() const {
     if (!cached_state_.has_value()) {
         CachedState state;
-        state.v4 = parse_iptables_save(runner_({"iptables-save", "-t", "mangle"}), false);
-        state.v6 = parse_iptables_save(runner_({"ip6tables-save", "-t", "mangle"}), true);
+        state.v4 = parse_iptables_save(
+            runner_({"iptables-save", "-t", "mangle"}).stdout_output, false);
+        state.v6 = parse_iptables_save(
+            runner_({"ip6tables-save", "-t", "mangle"}).stdout_output, true);
         cached_state_ = std::move(state);
     }
     return *cached_state_;
