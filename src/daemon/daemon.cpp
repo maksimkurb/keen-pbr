@@ -778,10 +778,11 @@ void Daemon::register_urltest_outbounds() {
 
     for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
         if (ob.type == OutboundType::URLTEST) {
-            // register_urltest() runs the initial test and returns the selection.
-            // Apply it directly — state_mutex_ is already held by apply_config(),
-            // so we must not go through the on_change_ / enqueue_control_task path.
-            auto initial = urltest_manager_->register_urltest(ob);
+            urltest_manager_->register_urltest(ob);
+            // Read the initial selection that register_urltest() computed and
+            // seed firewall_state_ so the apply_firewall() call that follows
+            // builds the correct rules immediately, without a deferred rebuild.
+            const auto initial = urltest_manager_->get_selected(ob.tag);
             if (!initial.empty()) {
                 firewall_state_.set_urltest_selection(ob.tag, initial);
             }
