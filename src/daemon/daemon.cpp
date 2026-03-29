@@ -215,6 +215,27 @@ void Daemon::enqueue_control_task(std::function<void()> task,
 }
 
 
+void Daemon::post_control_task(std::function<void()> task) {
+    if (!task) return;
+
+    // If the event loop has not started yet (startup path), run inline — there
+    // is no event loop to defer to and no reentrancy is possible.
+    if (!event_loop_active_.load(std::memory_order_acquire) ||
+        event_loop_thread_id_.load(std::memory_order_relaxed) == std::thread::id{}) {
+        task();
+        return;
+    }
+
+    // Always queue, even when called from the event loop thread.
+    // This guarantees the task runs after the current iteration finishes and
+    // any locks held by the caller have been released.
+    {
+        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
+        control_tasks_.push_back(std::move(task));
+    }
+    wake_control_loop();
+}
+
 void Daemon::enqueue_control_command(std::function<void()> command,
                                      bool wait_for_completion) {
     enqueue_control_task(std::move(command), wait_for_completion);
@@ -734,7 +755,11 @@ void Daemon::register_urltest_outbounds() {
     urltest_manager_ = std::make_unique<UrltestManager>(
         url_tester_, outbound_marks_, *scheduler_,
         [this](const std::string& urltest_tag, const std::string& new_child_tag) {
-            enqueue_control_task([this, urltest_tag, new_child_tag]() {
+            // Use post_control_task (always deferred, never inline) so this callback
+            // is safe to invoke from any context, including while holding state_mutex_.
+            // The task acquires state_mutex_ and rebuilds routing/firewall only after
+            // the current event-loop iteration completes and all caller locks are free.
+            post_control_task([this, urltest_tag, new_child_tag]() {
                 auto& log = Logger::instance();
                 std::unique_lock<std::shared_mutex> lock(state_mutex_);
                 log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
@@ -754,6 +779,13 @@ void Daemon::register_urltest_outbounds() {
     for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
         if (ob.type == OutboundType::URLTEST) {
             urltest_manager_->register_urltest(ob);
+            // Read the initial selection that register_urltest() computed and
+            // seed firewall_state_ so the apply_firewall() call that follows
+            // builds the correct rules immediately, without a deferred rebuild.
+            const auto initial = urltest_manager_->get_selected(ob.tag);
+            if (!initial.empty()) {
+                firewall_state_.set_urltest_selection(ob.tag, initial);
+            }
         }
     }
 }
@@ -1046,14 +1078,8 @@ void Daemon::setup_api() {
                 firewall_state_,
                 netlink_,
                 [this](const std::string& tag) -> std::optional<UrltestState> {
-                    if (!urltest_manager_) {
-                        return std::nullopt;
-                    }
-                    try {
-                        return urltest_manager_->get_state(tag);
-                    } catch (const std::out_of_range&) {
-                        return std::nullopt;
-                    }
+                    if (!urltest_manager_) return std::nullopt;
+                    return urltest_manager_->get_state(tag);
                 });
         },
         [this]() {
