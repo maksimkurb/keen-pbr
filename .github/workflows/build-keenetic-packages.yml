@@ -63,11 +63,13 @@ jobs:
         run: |
           mkdir -p release_files
           PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
+          PKG_RELEASE=$(sed -n 's/^PKG_RELEASE:=//p' packages/keenetic/keen-pbr/Makefile | head -1)
+          VERSION_RELEASE="${PKG_VERSION}-${PKG_RELEASE}"
           find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r f; do
-            cp "$f" "release_files/keen-pbr_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
+            cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_keenetic_mipsel-3.4.ipk"
           done
           find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r f; do
-            cp "$f" "release_files/keen-pbr-headless_${PKG_VERSION}_keenetic_mipsel-3.4.ipk"
+            cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_keenetic_mipsel-3.4.ipk"
           done
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6

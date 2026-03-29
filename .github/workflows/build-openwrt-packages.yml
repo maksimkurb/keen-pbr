@@ -88,12 +88,29 @@ jobs:
           cp ../src/packages/openwrt/packages.config .config
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
+      - name: Collect artifacts
+        run: |
+          SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
+          mkdir -p release_files
+          PKG_VERSION=$(sed -n 's/^PKG_VERSION:=//p' src/packages/openwrt/keen-pbr/Makefile | head -1)
+          PKG_RELEASE=$(sed -n 's/^PKG_RELEASE:=//p' src/packages/openwrt/keen-pbr/Makefile | head -1)
+          VERSION_RELEASE="${PKG_VERSION}-${PKG_RELEASE}"
+          find "$SDK_DIR/bin" -type f \( -name "keen-pbr_*.ipk" -o -name "keen-pbr_*.apk" \) | while read -r f; do
+            EXT="${f##*.}"
+            BASENAME=$(basename "$f")
+            PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
+            cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_openwrt_mediatek_filogic_${PKG_ARCH}.${EXT}"
+          done
+          find "$SDK_DIR/bin" -type f \( -name "keen-pbr-headless_*.ipk" -o -name "keen-pbr-headless_*.apk" \) | while read -r f; do
+            EXT="${f##*.}"
+            BASENAME=$(basename "$f")
+            PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
+            cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_mediatek_filogic_${PKG_ARCH}.${EXT}"
+          done
       - name: Upload validation artifacts
         uses: actions/upload-artifact@v6
         with:
           name: keen-pbr-validate
           path: |
-            openwrt-sdk-*/bin/**/keen-pbr_*.ipk
-            openwrt-sdk-*/bin/**/keen-pbr_*.apk
-            openwrt-sdk-*/bin/**/keen-pbr-headless_*.ipk
-            openwrt-sdk-*/bin/**/keen-pbr-headless_*.apk
+            release_files/*.ipk
+            release_files/*.apk

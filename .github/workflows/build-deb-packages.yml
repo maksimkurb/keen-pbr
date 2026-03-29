@@ -39,6 +39,19 @@ jobs:
       - name: Build Debian packages
         run: make deb
 
+      - name: Collect artifacts
+        run: |
+          mkdir -p normalized_files
+          find release_files -maxdepth 1 -type f -name '*.deb' | while read -r f; do
+            BASENAME=$(basename "$f")
+            PKG_NAME="${BASENAME%%_*}"
+            VERSION_RELEASE=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_([^_]+)_.+$/\1/')
+            DPKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_([^.]+)\.deb$/\1/')
+            cp "$f" "normalized_files/${PKG_NAME}_${VERSION_RELEASE}_debian_${DPKG_ARCH}.deb"
+          done
+          rm -f release_files/*.deb
+          cp normalized_files/*.deb release_files/
+
       - name: Upload Debian artifacts
         uses: actions/upload-artifact@v6
         with:
