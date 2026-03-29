@@ -1,0 +1,44 @@
+# --- Execution Environment ---
+user=nobody
+pid-file=/run/dnsmasq/dnsmasq.pid
+port=53
+
+# --- LAN Accessibility (Dynamic) ---
+# Listen on all available interfaces
+# (This allows LAN access even if you don't know the interface names)
+# bind-dynamic is more flexible than bind-interfaces for moving targets
+bind-dynamic
+
+# Only answer queries from subnets directly 
+# connected to the router (your LANs, VPNs, etc.)
+# This prevents your router from responding to DNS queries from the WAN.
+local-service
+
+# Explicitly ensure we answer the router itself
+listen-address=127.0.0.1
+
+# --- DNS Hardening & Protection ---
+domain-needed       # Don't forward plain names (e.g. "workstation")
+bogus-priv          # Don't forward reverse lookups for private ranges
+stop-dns-rebind     # Reject upstream responses containing private IPs
+rebind-localhost-ok # Allow 127.0.0.1 responses for local services
+
+# --- Performance & Logic ---
+# Caching: set to 0 to ensure 'keenetic-pbr' ipsets are always updated.
+# Change to 1000 or more if you prefer speed over routing accuracy.
+cache-size=0
+dns-forward-max=5096
+min-port=4096
+
+no-resolv           # Ignore /etc/resolv.conf
+no-poll             # Don't poll /etc/resolv.conf for changes
+clear-on-reload     # Clear cache on restart
+expand-hosts        # Append domain to hostnames from /etc/hosts
+localise-queries    # Return the "closest" IP if a host has multiple IPs
+log-async           # Non-blocking logging
+
+# --- Upstream Servers ---
+# Query servers in the order they appear
+strict-order
+server=1.1.1.1
+server=8.8.8.8

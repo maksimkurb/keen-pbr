@@ -79,10 +79,9 @@ define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/opt/bin/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf $(1)/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq.conf.template $(1)/opt/etc/keen-pbr/dnsmasq.conf.template
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.conf.template $(1)/opt/usr/lib/keen-pbr/dnsmasq.conf.template
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
@@ -136,10 +135,9 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_DIR) $(1)/opt/usr/lib/keen-pbr
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/opt/bin/keen-pbr $(1)/opt/usr/bin/keen-pbr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/init.d/S80keen-pbr $(1)/opt/etc/init.d/S80keen-pbr
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf $(1)/opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/defaults $(1)/opt/etc/keen-pbr/defaults
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.sh $(1)/opt/usr/lib/keen-pbr/dnsmasq.sh
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/dnsmasq.conf.template $(1)/opt/etc/keen-pbr/dnsmasq.conf.template
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/usr/lib/keen-pbr/dnsmasq.conf.template $(1)/opt/usr/lib/keen-pbr/dnsmasq.conf.template
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh

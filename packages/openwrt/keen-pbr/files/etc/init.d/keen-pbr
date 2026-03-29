@@ -6,11 +6,11 @@ STOP=10
 
 if type extra_command >/dev/null 2>&1; then
     extra_command "reapply_firewall" "Send SIGUSR1 to the running service"
-    extra_command "reapply_dnsmasq_config" "Regenerate keen-pbr dnsmasq config and reload dnsmasq"
+    extra_command "reapply_dnsmasq_config" "Regenerate keen-pbr dnsmasq config and restart dnsmasq"
 else
     EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config"
     EXTRA_HELP="        reapply_firewall        Send SIGUSR1 to the running service
-        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and reload dnsmasq"
+        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and restart dnsmasq"
 fi
 
 PROG=/usr/sbin/keen-pbr
@@ -25,8 +25,8 @@ start_service() {
     mkdir -p /var/cache/keen-pbr
 
     if [ -x "$HELPER" ]; then
-        "$HELPER" configure || return 1
-        "$HELPER" reload || true
+        "$HELPER" ensure-runtime-prereqs || return 1
+        "$HELPER" activate || return 1
     fi
 
     procd_open_instance
@@ -39,8 +39,7 @@ start_service() {
 
 stop_service() {
     if [ -x "$HELPER" ]; then
-        "$HELPER" cleanup || true
-        "$HELPER" reload || true
+        "$HELPER" deactivate || true
     fi
 }
 
@@ -59,7 +58,7 @@ reapply_firewall() {
 
 reapply_dnsmasq_config() {
     if [ -x "$HELPER" ]; then
-        "$HELPER" configure || return 1
-        "$HELPER" reload || true
+        "$HELPER" ensure-runtime-prereqs || return 1
+        "$HELPER" activate || return 1
     fi
 }

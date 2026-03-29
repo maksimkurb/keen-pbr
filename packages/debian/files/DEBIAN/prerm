@@ -4,13 +4,14 @@ set -e
 
 DNSMASQ_HELPER="/usr/lib/keen-pbr/dnsmasq.sh"
 
-if [ -x "$DNSMASQ_HELPER" ]; then
-    "$DNSMASQ_HELPER" restore || true
-    "$DNSMASQ_HELPER" reload || true
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop keen-pbr >/dev/null 2>&1 || true
+    systemctl disable keen-pbr >/dev/null 2>&1 || true
 fi
 
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload >/dev/null 2>&1 || true
+if [ -x "$DNSMASQ_HELPER" ]; then
+    "$DNSMASQ_HELPER" uninstall-persistent || true
+    "$DNSMASQ_HELPER" restart-dnsmasq || true
 fi
 
 exit 0

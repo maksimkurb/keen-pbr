@@ -9,8 +9,12 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 if [ -x "$DNSMASQ_HELPER" ]; then
-    "$DNSMASQ_HELPER" configure || true
-    "$DNSMASQ_HELPER" reload || true
+    "$DNSMASQ_HELPER" install-persistent || true
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable keen-pbr >/dev/null 2>&1 || true
+    systemctl start keen-pbr >/dev/null 2>&1 || true
 fi
 
 exit 0

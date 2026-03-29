@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -eu
+
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
@@ -32,12 +34,13 @@ uci_add_list_if_new() {
     local value="$4"
     local current item
 
-    current="$(uci -q get "${package}.${config}.${option}")"
+    current="$(uci -q get "${package}.${config}.${option}" || true)"
     for item in $current; do
-        [ "$item" = "$value" ] && return 0
+        [ "$item" = "$value" ] && return 1
     done
 
     uci -q add_list "${package}.${config}.${option}=${value}"
+    return 0
 }
 
 dnsmasq_sections() {
@@ -57,79 +60,141 @@ dnsmasq_confdir() {
     printf '%s' "${confdir:-/tmp/dnsmasq.${section}.d}"
 }
 
-dnsmasq_instance_setup() {
+install_mounts_for_section() {
     local section="$1"
-    local path confdir
+    local path
+    local changed=1
 
     for path in $JAIL_MOUNTS; do
-        uci_add_list_if_new dhcp "$section" addnmount "$path"
+        if uci_add_list_if_new dhcp "$section" addnmount "$path"; then
+            changed=0
+        fi
     done
+    return "$changed"
+}
+
+remove_mounts_for_section() {
+    local section="$1"
+    local path
+    local changed=1
+
+    for path in $JAIL_MOUNTS; do
+        if uci -q del_list "dhcp.${section}.addnmount=${path}"; then
+            changed=0
+        fi
+    done
+    return "$changed"
+}
+
+write_temp_conf_for_section() {
+    local section="$1"
+    local confdir
 
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
     printf '%s\n' "$(conf_script_line)" > "${confdir}/${CONFFILE}"
 }
 
-dnsmasq_instance_cleanup() {
+remove_temp_conf_for_section() {
     local section="$1"
-    local path confdir
-
-    for path in $JAIL_MOUNTS; do
-        uci -q del_list "dhcp.${section}.addnmount=${path}"
-    done
+    local confdir
 
     confdir="$(dnsmasq_confdir "$section")"
     rm -f "${confdir}/${CONFFILE}"
 }
 
-configure_dnsmasq() {
+install_persistent() {
+    local section
+    local changed=1
+
+    for section in $(dnsmasq_sections); do
+        if install_mounts_for_section "$section"; then
+            changed=0
+        fi
+    done
+
+    if [ "$changed" -eq 0 ]; then
+        uci -q commit dhcp || true
+    fi
+}
+
+ensure_runtime_prereqs() {
+    install_persistent
+}
+
+activate_dnsmasq() {
     local section
 
     for section in $(dnsmasq_sections); do
-        dnsmasq_instance_setup "$section" || true
+        write_temp_conf_for_section "$section" || true
     done
 
-    uci -q commit dhcp || true
+    restart_dnsmasq
 }
 
-restore_dnsmasq() {
+deactivate_dnsmasq() {
     local section
 
     for section in $(dnsmasq_sections); do
-        dnsmasq_instance_cleanup "$section" || true
+        remove_temp_conf_for_section "$section" || true
     done
 
-    uci -q commit dhcp || true
+    restart_dnsmasq
 }
 
-cleanup_dnsmasq() {
-    local section confdir
+uninstall_persistent() {
+    local section
+    local changed=1
 
     for section in $(dnsmasq_sections); do
-        confdir="$(dnsmasq_confdir "$section")"
-        rm -f "${confdir}/${CONFFILE}"
+        remove_temp_conf_for_section "$section" || true
+        if remove_mounts_for_section "$section"; then
+            changed=0
+        fi
     done
+
+    if [ "$changed" -eq 0 ]; then
+        uci -q commit dhcp || true
+    fi
 }
 
-reload_dnsmasq() {
+restart_dnsmasq() {
     /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
 
 case "$1" in
+    install-persistent)
+        install_persistent
+        ;;
+    ensure-runtime-prereqs)
+        ensure_runtime_prereqs
+        ;;
+    activate)
+        activate_dnsmasq
+        ;;
+    deactivate)
+        deactivate_dnsmasq
+        ;;
+    uninstall-persistent)
+        uninstall_persistent
+        ;;
+    restart-dnsmasq)
+        restart_dnsmasq
+        ;;
     configure)
-        configure_dnsmasq
+        activate_dnsmasq
         ;;
     cleanup)
-        cleanup_dnsmasq
+        deactivate_dnsmasq
         ;;
     restore)
-        restore_dnsmasq
+        uninstall_persistent
         ;;
     reload)
-        reload_dnsmasq
+        restart_dnsmasq
         ;;
     *)
-        echo "Usage: $0 {configure|cleanup|restore|reload}" >&2
+        echo "Usage: $0 {install-persistent|ensure-runtime-prereqs|activate|deactivate|uninstall-persistent|restart-dnsmasq}" >&2
         exit 1
         ;;
 esac

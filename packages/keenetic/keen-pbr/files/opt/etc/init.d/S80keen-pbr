@@ -43,11 +43,15 @@ prepare_start() {
 
 prepare_stop() {
     enable_hwnat
+    if [ -x "$DNSMASQ_HELPER" ]; then
+        "$DNSMASQ_HELPER" deactivate || true
+    fi
 }
 
 reapply_dnsmasq_config() {
     if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" reload || true
+        "$DNSMASQ_HELPER" ensure-runtime-prereqs || return 1
+        "$DNSMASQ_HELPER" activate || return 1
     fi
 }
 

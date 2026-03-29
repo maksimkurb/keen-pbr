@@ -1,2 +1,0 @@
-# Default dnsmasq configuration for keen-pbr integration.
-conf-dir=/opt/etc/dnsmasq.d

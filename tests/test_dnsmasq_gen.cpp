@@ -239,7 +239,23 @@ TEST_CASE("generate-resolver-config includes dns probe server directive when ena
     DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
     const std::string output = run_generate(gen);
 
+    CHECK(output.find("rebind-domain-ok=keen.pbr\n") != std::string::npos);
     CHECK(output.find("server=/check.keen.pbr/127.0.0.88#53\n") != std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config blocks firefox doh canary domain") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("address=/use-application-dns.net/\n") != std::string::npos);
 }
 
 TEST_CASE("generate-resolver-config omits dns probe server directive when disabled") {
@@ -254,6 +270,7 @@ TEST_CASE("generate-resolver-config omits dns probe server directive when disabl
     DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
     const std::string output = run_generate(gen);
 
+    CHECK(output.find("rebind-domain-ok=keen.pbr\n") == std::string::npos);
     CHECK(output.find("server=/check.keen.pbr/") == std::string::npos);
 }
 
