@@ -87,6 +87,46 @@ remove_mounts_for_section() {
     return "$changed"
 }
 
+backup_list_option_for_section() {
+    local section="$1"
+    local option="$2"
+    local backup_option="$3"
+    local values value
+    local changed=1
+
+    values="$(uci -q get "dhcp.${section}.${option}" || true)"
+    [ -n "$values" ] || return 1
+
+    uci -q delete "dhcp.${section}.${backup_option}" || true
+    for value in $values; do
+        uci -q add_list "dhcp.${section}.${backup_option}=${value}"
+    done
+    uci -q delete "dhcp.${section}.${option}" || true
+    changed=0
+
+    return "$changed"
+}
+
+restore_list_option_for_section() {
+    local section="$1"
+    local option="$2"
+    local backup_option="$3"
+    local values value
+    local changed=1
+
+    values="$(uci -q get "dhcp.${section}.${backup_option}" || true)"
+    [ -n "$values" ] || return 1
+
+    uci -q delete "dhcp.${section}.${option}" || true
+    for value in $values; do
+        uci -q add_list "dhcp.${section}.${option}=${value}"
+    done
+    uci -q delete "dhcp.${section}.${backup_option}" || true
+    changed=0
+
+    return "$changed"
+}
+
 write_temp_conf_for_section() {
     local section="$1"
     local confdir
@@ -123,6 +163,9 @@ install_persistent() {
 
     for section in $(dnsmasq_sections); do
         write_fallback_conf_for_section "$section" || true
+        if backup_list_option_for_section "$section" server kpbr_server; then
+            changed=0
+        fi
         if install_mounts_for_section "$section"; then
             changed=0
         fi
@@ -134,7 +177,18 @@ install_persistent() {
 }
 
 ensure_runtime_prereqs() {
-    install_persistent
+    local section
+    local changed=1
+
+    for section in $(dnsmasq_sections); do
+        if install_mounts_for_section "$section"; then
+            changed=0
+        fi
+    done
+
+    if [ "$changed" -eq 0 ]; then
+        uci -q commit dhcp || true
+    fi
 }
 
 activate_dnsmasq() {
@@ -163,6 +217,9 @@ uninstall_persistent() {
 
     for section in $(dnsmasq_sections); do
         remove_temp_conf_for_section "$section" || true
+        if restore_list_option_for_section "$section" server kpbr_server; then
+            changed=0
+        fi
         if remove_mounts_for_section "$section"; then
             changed=0
         fi
