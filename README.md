@@ -53,6 +53,28 @@ make setup    # cmake -S . -B cmake-build
 make build    # cmake --build cmake-build
 ```
 
+### Debian/Ubuntu packages (`amd64`)
+
+Build native Debian packages from the repo root:
+
+```bash
+make deb            # Build both keen-pbr and keen-pbr-headless .deb packages
+make deb-full       # Build the full package with REST API and frontend
+make deb-headless   # Build the headless package without API/frontend
+```
+
+Artifacts are written to `release_files/`:
+
+- `release_files/keen-pbr_<version>_amd64.deb`
+- `release_files/keen-pbr-headless_<version>_amd64.deb`
+
+The Debian packaging flow:
+
+- builds the frontend with `bun` for the full package
+- compiles dedicated native binaries with Debian install paths under `/etc/keen-pbr` and `/usr/share/keen-pbr/frontend`
+- installs a `systemd` unit at `/lib/systemd/system/keen-pbr.service`
+- does not auto-enable or auto-start the service during package installation
+
 ### Build options
 
 | Option | Type | Default | Description |

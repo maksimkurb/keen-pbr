@@ -5,9 +5,12 @@ scripts/ralph
 build/
 buildDir/
 cmake-build/
+cmake-build-deb-full/
+cmake-build-deb-headless/
 cmake-build-aarch64/
 cross-toolchain/
 dist/
+build/debian/
 
 # CMake
 CMakeCache.txt

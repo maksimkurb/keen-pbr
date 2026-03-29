@@ -3,7 +3,8 @@
 NDM_IFLAYER="/opt/etc/ndm/iflayerchanged.d/50-keen-pbr-routing.sh"
 NDM_IFSTATE="/opt/etc/ndm/ifstatechanged.d/50-keen-pbr-routing.sh"
 DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
-DNSMASQ_TEMPLATE="/opt/etc/keen-pbr/dnsmasq.conf.template"
+DNSMASQ_TEMPLATE="/opt/usr/lib/keen-pbr/dnsmasq.conf.template"
+DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
 
 echo "keen-pbr-headless installation"
 echo "--------------------------------"
@@ -19,9 +20,20 @@ else
 fi
 
 mkdir -p /opt/etc/dnsmasq.d
+mkdir -p /opt/usr/lib/keen-pbr
 
-if [ ! -e "$DNSMASQ_CONF" ] && [ -f "$DNSMASQ_TEMPLATE" ]; then
-    cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
+if [ -t 0 ] && [ -t 1 ] && [ -f "$DNSMASQ_TEMPLATE" ]; then
+    printf "Replace %s with recommended keen-pbr dnsmasq defaults? [y/N]: " "$DNSMASQ_CONF"
+    read answer || answer=""
+    case "$answer" in
+        y|Y|yes|YES)
+            cp "$DNSMASQ_TEMPLATE" "$DNSMASQ_CONF"
+            ;;
+    esac
+fi
+
+if [ -x "$DNSMASQ_HELPER" ]; then
+    "$DNSMASQ_HELPER" install-persistent || true
 fi
 
 echo ""
