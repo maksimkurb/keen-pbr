@@ -1,0 +1,39 @@
+# Package repository layout
+
+This project publishes package feeds to the `repository` branch, which is served via GitHub Pages.
+
+## Channels
+
+- `stable`: release/tag builds.
+- `unstable`: non-release builds from `main`.
+- `dev/<branch>`: non-release builds from other branches.
+
+## Directory structure
+
+```text
+<root>/stable/keenetic/<keenetic_version>/<arch>
+<root>/stable/openwrt/<openwrt_version>/<arch>
+<root>/stable/debian/<debian_version>/<arch>
+
+<root>/unstable/keenetic/<keenetic_version>/<arch>
+<root>/unstable/openwrt/<openwrt_version>/<arch>
+<root>/unstable/debian/<debian_version>/<arch>
+
+<root>/dev/<branch>/keenetic/<keenetic_version>/<arch>
+<root>/dev/<branch>/openwrt/<openwrt_version>/<arch>
+<root>/dev/<branch>/debian/<debian_version>/<arch>
+```
+
+Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
+
+## Version semantics
+
+- `keenetic_version`: currently `current` (reserved for future compatibility).
+- `openwrt_version`: explicit OpenWrt release line (for example `24.10.4`, `23.05.5`).
+- `debian_version`: explicit Debian release line (currently `bookworm`).
+
+## GitHub Actions
+
+- `.github/workflows/ci-packages.yml`: builds package artifacts on branch pushes and publishes to `unstable` or `dev/<branch>`.
+- `.github/workflows/release-packages.yml`: builds release artifacts on tags and publishes to `stable`.
+- `.github/workflows/reusable-publish-repository.yml`: normalizes artifacts and copies them into the layout above on the `repository` branch.

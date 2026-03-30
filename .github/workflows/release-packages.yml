@@ -35,10 +35,14 @@ jobs:
 
   openwrt:
     needs: [prepare-frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt_version: ["24.10.4", "23.05.5"]
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       build_scope: full
-      openwrt_version: "24.10.4"
+      openwrt_version: ${{ matrix.openwrt_version }}
       frontend_artifact_name: frontend-dist-gz
     secrets: inherit
 
@@ -57,6 +61,14 @@ jobs:
       build_scope: full
       frontend_artifact_name: frontend-dist-gz
     secrets: inherit
+
+  publish-repository:
+    needs: [openwrt, keenetic, debian]
+    uses: ./.github/workflows/reusable-publish-repository.yml
+    with:
+      repository_prefix: stable
+      keenetic_version: current
+      debian_version: bookworm
 
   draft-release:
     name: Draft GitHub release

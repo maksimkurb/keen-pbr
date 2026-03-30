@@ -1,0 +1,112 @@
+name: Reusable repository publisher
+
+on:
+  workflow_call:
+    inputs:
+      repository_prefix:
+        required: true
+        type: string
+      keenetic_version:
+        required: false
+        type: string
+        default: "current"
+      debian_version:
+        required: false
+        type: string
+        default: "bookworm"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          path: release_files
+          merge-multiple: true
+
+      - name: Checkout repository branch
+        uses: actions/checkout@v6
+        with:
+          ref: repository
+          path: site
+
+      - name: Publish package tree
+        env:
+          REPOSITORY_PREFIX: ${{ inputs.repository_prefix }}
+          KEENETIC_VERSION: ${{ inputs.keenetic_version }}
+          DEBIAN_VERSION: ${{ inputs.debian_version }}
+        run: |
+          set -euo pipefail
+
+          sanitize_segment() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._/-]+#-#g; s#/#-#g; s#-+#-#g; s#(^-+|-+$)##g'
+          }
+
+          PREFIX=$(sanitize_segment "$REPOSITORY_PREFIX")
+          ROOT_DIR="$GITHUB_WORKSPACE/site/$PREFIX"
+
+          mkdir -p "$ROOT_DIR"
+
+          find "$GITHUB_WORKSPACE/release_files" -type f \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' \) | while read -r f; do
+            base=$(basename "$f")
+
+            case "$base" in
+              *_openwrt_*.ipk|*_openwrt_*.apk)
+                # <pkg>_<version-release>_openwrt_<openwrt-version>_<target>_<subtarget>_<pkgarch>.<ext>
+                rest="${base#*_openwrt_}"
+                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
+                pkg_arch_ext=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
+                pkg_arch="${pkg_arch_ext%.*}"
+                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
+                ;;
+
+              *_keenetic_*.ipk)
+                # <pkg>_<version-release>_keenetic_<config>.ipk
+                config_ext="${base#*_keenetic_}"
+                config_name="${config_ext%.ipk}"
+                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
+                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
+                ;;
+
+              *_debian_*.deb)
+                # <pkg>_<version-release>_debian_<dpkg-arch>.deb
+                pkg_arch_ext="${base#*_debian_}"
+                pkg_arch="${pkg_arch_ext%.deb}"
+                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
+                ;;
+
+              *)
+                echo "Skip unknown artifact format: $base"
+                continue
+                ;;
+            esac
+
+            mkdir -p "$dest"
+            cp "$f" "$dest/$base"
+          done
+
+      - name: Commit and push repository changes
+        working-directory: site
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No repository updates to publish"
+            exit 0
+          fi
+
+          git add .
+          if git diff --cached --quiet; then
+            echo "No staged repository changes"
+            exit 0
+          fi
+
+          git commit -m "publish repository tree for ${GITHUB_SHA}"
+          git push origin repository

@@ -120,7 +120,7 @@ jobs:
               BASENAME=$(basename "$f")
               PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
             fi
-            cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_openwrt_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
+            cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
           find "$SDK_DIR/bin" -type f \( -name "keen-pbr-headless_*.ipk" -o -name "keen-pbr-headless_*.apk" \) | while read -r f; do
             EXT="${f##*.}"
@@ -129,12 +129,12 @@ jobs:
               BASENAME=$(basename "$f")
               PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
             fi
-            cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
+            cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: packages-openwrt-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          name: packages-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           path: |
             release_files/*.ipk
             release_files/*.apk
