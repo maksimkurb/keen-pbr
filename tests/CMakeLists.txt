@@ -51,6 +51,7 @@ set_target_properties(keen-pbr-tests PROPERTIES
 target_compile_definitions(keen-pbr-tests PRIVATE KEEN_PBR3_TESTING)
 
 target_include_directories(keen-pbr-tests PRIVATE
+  ${KEEN_PBR_GENERATED_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/third_party/doctest
