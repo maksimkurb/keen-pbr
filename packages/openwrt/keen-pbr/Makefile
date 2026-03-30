@@ -1,8 +1,7 @@
 include $(TOPDIR)/rules.mk
 
-include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
-
 KEEN_PBR_SRC ?= /home/me/keen-pbr-src
+include $(KEEN_PBR_SRC)/version.mk
 PKG_NAME:=keen-pbr
 PKG_VERSION:=$(KEEN_PBR_VERSION)
 PKG_RELEASE:=$(KEEN_PBR_RELEASE)
@@ -58,6 +57,7 @@ define Package/keen-pbr
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
+  VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
   DEPENDS:=+libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=full
 endef
@@ -108,6 +108,7 @@ define Package/keen-pbr-headless
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
+  VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
   DEPENDS:=+libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=headless
 endef

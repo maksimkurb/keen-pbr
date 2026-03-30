@@ -50,7 +50,14 @@ set_target_properties(keen-pbr-tests PROPERTIES
 
 target_compile_definitions(keen-pbr-tests PRIVATE KEEN_PBR3_TESTING)
 
+# Reuse include paths from the main target so generated headers such as
+# <keen-pbr/version.hpp> are always visible to tests.
 target_include_directories(keen-pbr-tests PRIVATE
+  $<TARGET_PROPERTY:keen-pbr,INCLUDE_DIRECTORIES>
+)
+
+target_include_directories(keen-pbr-tests PRIVATE
+  ${KEEN_PBR_GENERATED_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/third_party/doctest
