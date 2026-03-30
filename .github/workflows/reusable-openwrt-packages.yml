@@ -18,33 +18,12 @@ on:
         required: false
         type: string
         default: ""
+      frontend_artifact_name:
+        required: false
+        type: string
+        default: "frontend-dist-gz"
 
 jobs:
-  prepare-frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/frontend
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: src
-          submodules: recursive
-      - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Build frontend
-        run: bun run build
-      - name: Keep only .gz frontend assets
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz"
-          cd dist
-          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz" \;
-      - name: Upload frontend bundle
-        uses: actions/upload-artifact@v6
-        with:
-          name: openwrt-frontend-dist-gz
-          path: openwrt-frontend-dist-gz
 
   generate-config:
     runs-on: ubuntu-latest
@@ -73,9 +52,9 @@ jobs:
           python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
 
   build:
-    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }} (${{ matrix.build_env.pkgarch }})"
+    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
-    needs: [prepare-frontend, generate-config]
+    needs: [generate-config]
     strategy:
       fail-fast: false
       matrix:
@@ -88,13 +67,13 @@ jobs:
       - name: Download frontend bundle
         uses: actions/download-artifact@v8
         with:
-          name: openwrt-frontend-dist-gz
-          path: openwrt-frontend-dist-gz
+          name: ${{ inputs.frontend_artifact_name }}
+          path: frontend-dist-gz
       - name: Stage frontend dist
         run: |
           rm -rf "$GITHUB_WORKSPACE/src/frontend/dist"
           mkdir -p "$GITHUB_WORKSPACE/src/frontend/dist"
-          cp -a "$GITHUB_WORKSPACE/openwrt-frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
+          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/src/frontend/dist/"
       - name: Cache SDK
         id: cache
         uses: actions/cache@v5
