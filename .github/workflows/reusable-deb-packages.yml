@@ -48,7 +48,7 @@ jobs:
             pkg-config \
             rsync
       - name: Build Debian packages
-        run: make deb
+        run: KEEN_PBR_FRONTEND_DIST="$GITHUB_WORKSPACE/frontend/dist" make deb
       - name: Collect artifacts
         run: |
           mkdir -p normalized_files

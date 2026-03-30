@@ -85,8 +85,12 @@ test: ## Build and run unit tests (doctest)
 deb-full: deb-prepare-full ## Build the Debian full .deb package
 	mkdir -p $(DEB_OUTPUT_DIR)
 	FRONTEND_DIST="$(abspath $(DEB_FRONTEND_DIST))"; \
-	if [ -n "$$(find frontend/dist -type f -name '*.gz' -print -quit 2>/dev/null)" ]; then \
-		FRONTEND_DIST="$(abspath frontend/dist)"; \
+	if [ -n "$(KEEN_PBR_FRONTEND_DIST)" ]; then \
+		FRONTEND_DIST="$(abspath $(KEEN_PBR_FRONTEND_DIST))"; \
+		if [ ! -d "$$FRONTEND_DIST" ]; then \
+			echo "ERROR: KEEN_PBR_FRONTEND_DIST is set but directory does not exist: $$FRONTEND_DIST"; \
+			exit 1; \
+		fi; \
 	else \
 		$(MAKE) frontend-build; \
 	fi; \
