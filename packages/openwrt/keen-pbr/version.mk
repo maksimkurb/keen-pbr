@@ -1,2 +1,2 @@
-version_mk_dir := $(dir $(lastword $(MAKEFILE_LIST)))
-include $(version_mk_dir)../../../version.mk
+KEEN_PBR_VERSION ?= 3.0.0
+KEEN_PBR_RELEASE ?= 1
