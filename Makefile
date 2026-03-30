@@ -82,9 +82,15 @@ test: ## Build and run unit tests (doctest)
 	cmake --build $(BUILD_DIR) --target keen-pbr-tests
 	$(BUILD_DIR)/tests/keen-pbr-tests
 
-deb-full: frontend-build deb-prepare-full ## Build the Debian full .deb package
+deb-full: deb-prepare-full ## Build the Debian full .deb package
 	mkdir -p $(DEB_OUTPUT_DIR)
-	cd $(DEB_FULL_SRC_DIR) && KEEN_PBR_FRONTEND_DIST=$(abspath $(DEB_FRONTEND_DIST)) dpkg-buildpackage -b -us -uc
+	FRONTEND_DIST="$(abspath $(DEB_FRONTEND_DIST))"; \
+	if [ -n "$$(find frontend/dist -type f -name '*.gz' -print -quit 2>/dev/null)" ]; then \
+		FRONTEND_DIST="$(abspath frontend/dist)"; \
+	else \
+		$(MAKE) frontend-build; \
+	fi; \
+	cd $(DEB_FULL_SRC_DIR) && KEEN_PBR_FRONTEND_DIST="$$FRONTEND_DIST" dpkg-buildpackage -b -us -uc
 	find build -maxdepth 1 -type f -name 'keen-pbr_*_*.deb' -exec cp -t $(DEB_OUTPUT_DIR) {} +
 
 deb-headless: deb-prepare-headless ## Build the Debian headless .deb package
