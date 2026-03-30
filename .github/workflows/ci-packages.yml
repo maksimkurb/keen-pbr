@@ -49,7 +49,9 @@ jobs:
     secrets: inherit
 
   debian:
+    needs: [prepare-frontend]
     uses: ./.github/workflows/reusable-deb-packages.yml
     with:
       build_scope: default
+      frontend_artifact_name: frontend-dist-gz
     secrets: inherit
