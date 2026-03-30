@@ -1,2 +1,1 @@
-KEEN_PBR_VERSION:=3.0.0
-KEEN_PBR_RELEASE:=1
+include $(KEEN_PBR_SRC)/version.mk
