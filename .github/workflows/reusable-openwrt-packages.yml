@@ -131,6 +131,18 @@ jobs:
             fi
             cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
+          APK_BIN=$(find "$SDK_DIR" -type f -path '*/staging_dir/host/bin/apk' | head -1 || true)
+          if [ -n "$APK_BIN" ]; then
+            for PKG_ARCH in $(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" -printf '%f\n' | sed -E 's/^.*_openwrt_[^_]+_[^_]+_[^_]+_(.+)\.apk$/\1/' | sort -u); do
+              mapfile -t ARCH_APKS < <(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
+              if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
+                (
+                  cd release_files
+                  "$APK_BIN" mkndx --allow-untrusted --output "packages_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.adb" "${ARCH_APKS[@]}"
+                )
+              fi
+            done
+          fi
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -138,3 +150,4 @@ jobs:
           path: |
             release_files/*.ipk
             release_files/*.apk
+            release_files/*.adb
