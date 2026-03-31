@@ -26,7 +26,15 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev apt-utils opkg-utils
+          sudo apt-get install -y dpkg-dev apt-utils curl
+
+      - name: Fetch OpenWrt ipkg index tool
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/openwrt-tools"
+          curl -fsSL "https://raw.githubusercontent.com/openwrt/openwrt/da9eee7c5565a24657910fa827e72acda05d26bf/scripts/ipkg-make-index.sh" \
+            -o "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh"
+          chmod +x "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh"
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
@@ -128,7 +136,7 @@ jobs:
           for dir in "${ipk_dirs[@]}"; do
             (
               cd "$dir"
-              opkg-make-index . > Packages
+              "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh" . > Packages
               gzip -n9c Packages > Packages.gz
             )
           done
