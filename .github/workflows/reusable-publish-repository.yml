@@ -22,19 +22,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v6
+        with:
+          path: src
+
       - name: Install repository index tools
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev apt-utils curl
-
-      - name: Fetch OpenWrt ipkg index tool
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/openwrt-tools"
-          curl -fsSL "https://raw.githubusercontent.com/openwrt/openwrt/da9eee7c5565a24657910fa827e72acda05d26bf/scripts/ipkg-make-index.sh" \
-            -o "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh"
-          chmod +x "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh"
+          sudo apt-get install -y dpkg-dev apt-utils python3
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
@@ -136,8 +133,7 @@ jobs:
           for dir in "${ipk_dirs[@]}"; do
             (
               cd "$dir"
-              "$RUNNER_TEMP/openwrt-tools/ipkg-make-index.sh" . > Packages
-              gzip -n9c Packages > Packages.gz
+              python3 "$GITHUB_WORKSPACE/src/scripts/ipk-make-index.py" .
             )
           done
 
