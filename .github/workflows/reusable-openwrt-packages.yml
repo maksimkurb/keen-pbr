@@ -46,8 +46,8 @@ jobs:
           TARGETS="$INPUT_TARGETS"
           SUBTARGETS="$INPUT_SUBTARGETS"
           if [ "$BUILD_SCOPE" = "default" ]; then
-            TARGETS="mediatek"
-            SUBTARGETS="filogic"
+            TARGETS="x86"
+            SUBTARGETS="64"
           fi
           python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
 

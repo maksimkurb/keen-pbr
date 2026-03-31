@@ -44,12 +44,34 @@ jobs:
           set -euo pipefail
 
           sanitize_segment() {
-            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._/-]+#-#g; s#/#-#g; s#-+#-#g; s#(^-+|-+$)##g'
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#-+#-#g; s#(^-+|-+$)##g'
           }
 
-          PREFIX=$(sanitize_segment "$REPOSITORY_PREFIX")
-          ROOT_DIR="$GITHUB_WORKSPACE/site/$PREFIX"
+          sanitize_path() {
+            local raw="$1"
+            local out=""
+            local IFS='/'
+            read -ra parts <<< "$raw"
+            for part in "${parts[@]}"; do
+              [ -z "$part" ] && continue
+              part=$(sanitize_segment "$part")
+              [ -z "$part" ] && continue
+              if [ -z "$out" ]; then
+                out="$part"
+              else
+                out="$out/$part"
+              fi
+            done
+            printf '%s' "$out"
+          }
 
+          PREFIX=$(sanitize_path "$REPOSITORY_PREFIX")
+          if [ -z "$PREFIX" ]; then
+            echo "repository_prefix resolved to an empty path"
+            exit 1
+          fi
+
+          ROOT_DIR="$GITHUB_WORKSPACE/site/$PREFIX"
           mkdir -p "$ROOT_DIR"
 
           find "$GITHUB_WORKSPACE/release_files" -type f \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' \) | while read -r f; do
@@ -97,14 +119,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No repository updates to publish"
-            exit 0
-          fi
-
           git add .
           if git diff --cached --quiet; then
-            echo "No staged repository changes"
+            echo "No repository updates to publish"
             exit 0
           fi
 
