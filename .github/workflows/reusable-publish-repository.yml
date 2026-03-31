@@ -28,6 +28,7 @@ jobs:
           pattern: packages-*
           path: release_files
           merge-multiple: true
+          if-no-files-found: warn
 
       - name: Checkout repository branch
         uses: actions/checkout@v6

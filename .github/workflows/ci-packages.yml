@@ -33,14 +33,10 @@ jobs:
 
   openwrt:
     needs: [prepare-frontend]
-    strategy:
-      fail-fast: false
-      matrix:
-        openwrt_version: ["24.10.4", "23.05.5"]
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       build_scope: default
-      openwrt_version: ${{ matrix.openwrt_version }}
+      openwrt_version: "24.10.4"
       frontend_artifact_name: frontend-dist-gz
     secrets: inherit
 
@@ -62,7 +58,7 @@ jobs:
 
   publish-repository:
     needs: [openwrt, keenetic, debian]
-    if: startsWith(github.ref, 'refs/heads/')
+    if: always() && startsWith(github.ref, 'refs/heads/')
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
       repository_prefix: ${{ github.ref_name == 'main' && 'unstable' || format('dev/{0}', github.ref_name) }}
