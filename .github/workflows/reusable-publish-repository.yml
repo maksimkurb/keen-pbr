@@ -22,6 +22,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Install repository index tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils opkg-utils
+
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
@@ -111,6 +117,31 @@ jobs:
 
             mkdir -p "$dest"
             cp "$f" "$dest/$base"
+          done
+
+      - name: Generate repository index files
+        run: |
+          set -euo pipefail
+
+          # Generate OpenWrt/Keenetic opkg feed metadata.
+          mapfile -t ipk_dirs < <(find "$GITHUB_WORKSPACE/site" -type f -name '*.ipk' -printf '%h\n' | sort -u)
+          for dir in "${ipk_dirs[@]}"; do
+            (
+              cd "$dir"
+              opkg-make-index . > Packages
+              gzip -n9c Packages > Packages.gz
+            )
+          done
+
+          # Generate Debian flat-repo metadata so `deb <url> ./` can work.
+          mapfile -t deb_dirs < <(find "$GITHUB_WORKSPACE/site" -type f -name '*.deb' -printf '%h\n' | sort -u)
+          for dir in "${deb_dirs[@]}"; do
+            (
+              cd "$dir"
+              dpkg-scanpackages --multiversion . /dev/null > Packages
+              gzip -n9c Packages > Packages.gz
+              apt-ftparchive release . > Release
+            )
           done
 
       - name: Commit and push repository changes

@@ -37,3 +37,10 @@ Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 - `.github/workflows/ci-packages.yml`: builds package artifacts on branch pushes and publishes to `unstable` or `dev/<branch>`.
 - `.github/workflows/release-packages.yml`: builds release artifacts on tags and publishes to `stable`.
 - `.github/workflows/reusable-publish-repository.yml`: normalizes artifacts and copies them into the layout above on the `repository` branch.
+
+## Generated repository metadata
+
+During publish, repository metadata files are generated in each per-arch leaf folder:
+
+- for `.ipk` feeds: `Packages`, `Packages.gz`
+- for `.deb` feeds: `Packages`, `Packages.gz`, `Release`
