@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        openwrt_version: ["24.10.4", "23.05.5"]
+        openwrt_version: ["24.10.4", "25.12"]
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       build_scope: full

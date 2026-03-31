@@ -99,10 +99,10 @@ def generate(path: Path) -> None:
             fields["SHA256sum"] = file_sha256(ipk_path)
             for key in ("Filename", "Size", "SHA256sum"):
                 manifest_fh.write(f"\n{key}: {fields[key]}")
-            manifest_fh.write(f"\n{description}\n")
+            manifest_fh.write(f"\n{description}\n\n")
 
             packages_fh.write("\n".join([f"{k}: {v}" for k, v in fields.items()]))
-            packages_fh.write(f"\n{description}\n")
+            packages_fh.write(f"\n{description}\n\n")
 
     with gzip.open(path / "Packages.gz", "wb") as gz_fh, packages_index.open("rb") as pkg_fh:
         gz_fh.write(pkg_fh.read())

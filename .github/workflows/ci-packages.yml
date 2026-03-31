@@ -33,10 +33,14 @@ jobs:
 
   openwrt:
     needs: [prepare-frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt_version: ["24.10.4", "25.12"]
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       build_scope: default
-      openwrt_version: "24.10.4"
+      openwrt_version: ${{ matrix.openwrt_version }}
       frontend_artifact_name: frontend-dist-gz
     secrets: inherit
 

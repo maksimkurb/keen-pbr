@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev apt-utils python3
+          sudo apt-get install -y dpkg-dev apt-utils python3 usign
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
@@ -135,6 +135,8 @@ jobs:
           done
 
       - name: Generate repository index files
+        env:
+          PACKAGE_FEED_SIGN_KEY: ${{ secrets.PACKAGE_FEED_SIGN_KEY }}
         run: |
           set -euo pipefail
 
@@ -146,6 +148,22 @@ jobs:
               python3 "$GITHUB_WORKSPACE/src/scripts/ipk-make-index.py" .
             )
           done
+
+          if [ -n "${PACKAGE_FEED_SIGN_KEY:-}" ]; then
+            if ! command -v usign >/dev/null 2>&1; then
+              echo "usign is required for package feed signing but is not available"
+              exit 1
+            fi
+            SIGN_KEY_FILE="$RUNNER_TEMP/package-feed.sec"
+            printf '%s\n' "$PACKAGE_FEED_SIGN_KEY" > "$SIGN_KEY_FILE"
+            chmod 600 "$SIGN_KEY_FILE"
+            for dir in "${ipk_dirs[@]}"; do
+              (
+                cd "$dir"
+                usign -S -m Packages -s "$SIGN_KEY_FILE"
+              )
+            done
+          fi
 
           # Generate Debian flat-repo metadata so `deb <url> ./` can work.
           mapfile -t deb_dirs < <(find "$GITHUB_WORKSPACE/site" -type f -name '*.deb' -printf '%h\n' | sort -u)
