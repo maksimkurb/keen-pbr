@@ -144,6 +144,16 @@ jobs:
           # Build OpenWrt ipk repository indexes per package architecture.
           IPKG_INDEXER="$SDK_DIR/scripts/ipkg-make-index.sh"
           if [ -x "$IPKG_INDEXER" ]; then
+            if ! command -v sha256 >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+              TMP_BIN="$GITHUB_WORKSPACE/.tmp-bin"
+              mkdir -p "$TMP_BIN"
+              cat > "$TMP_BIN/sha256" <<'EOF'
+#!/usr/bin/env bash
+sha256sum "$1" | awk '{print $1}'
+EOF
+              chmod +x "$TMP_BIN/sha256"
+              export PATH="$TMP_BIN:$PATH"
+            fi
             for PKG_ARCH in $(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.ipk" -printf '%f\n' | sed -E 's/^.*_openwrt_[^_]+_[^_]+_[^_]+_(.+)\.ipk$/\1/' | sort -u); do
               mapfile -t ARCH_IPKS < <(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.ipk" -printf '%f\n' | sort)
               if [ "${#ARCH_IPKS[@]}" -gt 0 ]; then
