@@ -8,10 +8,18 @@ on:
 jobs:
   prepare-frontend:
     runs-on: ubuntu-latest
+    outputs:
+      target_root: ${{ steps.target.outputs.target_root }}
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+      - name: Derive repository target root
+        id: target
+        run: |
+          set -euo pipefail
+          target_root="${GITHUB_REF_NAME//\//_}"
+          echo "target_root=$target_root" >> "$GITHUB_OUTPUT"
       - uses: oven-sh/setup-bun@v2
       - name: Build frontend
         run: make frontend-build
@@ -56,8 +64,8 @@ jobs:
     secrets: inherit
 
   publish-repository:
-    needs: [openwrt, keenetic, debian]
+    needs: [prepare-frontend, openwrt, keenetic, debian]
     if: always() && startsWith(github.ref, 'refs/heads/')
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
-      target_root: ${{ replace(github.ref_name, '/', '_') }}
+      target_root: ${{ needs.prepare-frontend.outputs.target_root }}
