@@ -51,6 +51,8 @@ jobs:
         run: KEEN_PBR_FRONTEND_DIST="$GITHUB_WORKSPACE/frontend/dist" make deb
       - name: Collect artifacts
         run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           mkdir -p normalized_files
           find release_files -maxdepth 1 -type f -name '*.deb' | while read -r f; do
             BASENAME=$(basename "$f")
@@ -61,8 +63,30 @@ jobs:
           done
           rm -f release_files/*.deb
           cp normalized_files/*.deb release_files/
+
+          # Build Debian flat-repo metadata per architecture in build environment.
+          for DPKG_ARCH in $(find release_files -maxdepth 1 -type f -name '*_debian_*.deb' -printf '%f\n' | sed -E 's/^.*_debian_([^.]+)\.deb$/\1/' | sort -u); do
+            TMP_DIR="release_files/deb-index-${DPKG_ARCH}"
+            rm -rf "$TMP_DIR"
+            mkdir -p "$TMP_DIR"
+            find release_files -maxdepth 1 -type f -name "*_debian_${DPKG_ARCH}.deb" -exec cp {} "$TMP_DIR/" \;
+            (
+              cd "$TMP_DIR"
+              dpkg-scanpackages --multiversion . /dev/null > Packages
+              gzip -n9c Packages > Packages.gz
+              apt-ftparchive release . > Release
+            )
+            cp "$TMP_DIR/Packages" "release_files/Packages_debian_${DPKG_ARCH}"
+            cp "$TMP_DIR/Packages.gz" "release_files/Packages_debian_${DPKG_ARCH}.gz"
+            cp "$TMP_DIR/Release" "release_files/Release_debian_${DPKG_ARCH}"
+            rm -rf "$TMP_DIR"
+          done
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
           name: packages-debian-amd64
-          path: release_files/*.deb
+          path: |
+            release_files/*.deb
+            release_files/Packages_debian_*
+            release_files/Packages_debian_*.gz
+            release_files/Release_debian_*

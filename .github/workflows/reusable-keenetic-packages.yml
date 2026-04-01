@@ -96,7 +96,10 @@ jobs:
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
+        shell: bash
         run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           . "$GITHUB_WORKSPACE/version.mk"
           VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
           mkdir -p release_files
@@ -106,8 +109,24 @@ jobs:
           find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r f; do
             cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_keenetic_${{ matrix.build_env.config_name }}.ipk"
           done
+
+          # Build Keenetic ipk repository indexes in the build environment.
+          TMP_DIR="release_files/index-${{ matrix.build_env.config_name }}"
+          rm -rf "$TMP_DIR"
+          mkdir -p "$TMP_DIR"
+          cp release_files/*_keenetic_${{ matrix.build_env.config_name }}.ipk "$TMP_DIR/"
+          (
+            cd "$TMP_DIR"
+            python3 "$GITHUB_WORKSPACE/scripts/ipk-make-index.py" .
+          )
+          cp "$TMP_DIR/Packages" "release_files/Packages_keenetic_${{ matrix.build_env.config_name }}"
+          cp "$TMP_DIR/Packages.gz" "release_files/Packages_keenetic_${{ matrix.build_env.config_name }}.gz"
+          rm -rf "$TMP_DIR"
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
           name: packages-keenetic-${{ matrix.build_env.config_name }}
-          path: release_files/*.ipk
+          path: |
+            release_files/*.ipk
+            release_files/Packages_keenetic_*
+            release_files/Packages_keenetic_*.gz

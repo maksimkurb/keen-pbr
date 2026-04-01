@@ -68,51 +68,63 @@ def main():
         print(f"OpenWrt release not found: {version_url}", file=sys.stderr)
         sys.exit(1)
 
-    builds = []
-
-    for target in parse_links(index_data):
-        if filter_targets and target not in filter_targets:
-            continue
-
-        target_data = fetch_safe(f"{version_url}{target}/")
-        if not target_data:
-            continue
-
-        for subtarget in parse_links(target_data):
-            if filter_subtargets and subtarget not in filter_subtargets:
+    def collect_builds(target_filter, subtarget_filter):
+        result = []
+        for target in parse_links(index_data):
+            if target_filter and target not in target_filter:
                 continue
 
-            subtarget_url = f"{version_url}{target}/{subtarget}/"
-            subtarget_data = fetch_safe(subtarget_url)
-            if not subtarget_data:
+            target_data = fetch_safe(f"{version_url}{target}/")
+            if not target_data:
                 continue
 
-            hrefs = LinkParser()
-            hrefs.feed(subtarget_data)
-            href_list = hrefs.hrefs
+            for subtarget in parse_links(target_data):
+                if subtarget_filter and subtarget not in subtarget_filter:
+                    continue
 
-            sdk_file = next((href for href in href_list if re.match(r"openwrt-sdk-.*\.tar\.zst$", href)), None)
-            if not sdk_file:
-                continue
+                subtarget_url = f"{version_url}{target}/{subtarget}/"
+                subtarget_data = fetch_safe(subtarget_url)
+                if not subtarget_data:
+                    continue
 
-            pkgarch = ""
-            manifest_file = next((href for href in href_list if re.match(r"Packages\.manifest$", href)), None)
-            if manifest_file:
-                manifest = fetch_safe(f"{subtarget_url}{manifest_file}")
-                if manifest:
-                    match = re.search(r"Architecture: (\S+)", manifest)
-                    if match:
-                        pkgarch = match.group(1)
+                hrefs = LinkParser()
+                hrefs.feed(subtarget_data)
+                href_list = hrefs.hrefs
 
-            builds.append(
-                {
-                    "tag": version,
-                    "target": target,
-                    "subtarget": subtarget,
-                    "pkgarch": pkgarch,
-                    "sdk_file": sdk_file,
-                }
-            )
+                sdk_file = next((href for href in href_list if re.match(r"openwrt-sdk-.*\.tar\.zst$", href)), None)
+                if not sdk_file:
+                    continue
+
+                pkgarch = ""
+                manifest_file = next((href for href in href_list if re.match(r"Packages\.manifest$", href)), None)
+                if manifest_file:
+                    manifest = fetch_safe(f"{subtarget_url}{manifest_file}")
+                    if manifest:
+                        match = re.search(r"Architecture: (\S+)", manifest)
+                        if match:
+                            pkgarch = match.group(1)
+
+                result.append(
+                    {
+                        "tag": version,
+                        "target": target,
+                        "subtarget": subtarget,
+                        "pkgarch": pkgarch,
+                        "sdk_file": sdk_file,
+                    }
+                )
+        return result
+
+    builds = collect_builds(filter_targets, filter_subtargets)
+    if not builds and (filter_targets or filter_subtargets):
+        print(
+            "No builds found for filtered targets/subtargets; retrying without target filters.",
+            file=sys.stderr,
+        )
+        builds = collect_builds([], [])
+    if not builds:
+        print(f"No OpenWrt build targets discovered for release {version}", file=sys.stderr)
+        sys.exit(1)
 
     set_output("job-config", json.dumps(builds))
     print(f"Generated {len(builds)} build targets")
