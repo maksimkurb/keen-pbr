@@ -52,6 +52,7 @@ jobs:
       - name: Collect artifacts
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           mkdir -p normalized_files
           find release_files -maxdepth 1 -type f -name '*.deb' | while read -r f; do
             BASENAME=$(basename "$f")

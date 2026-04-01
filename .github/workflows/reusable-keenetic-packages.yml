@@ -99,6 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           . "$GITHUB_WORKSPACE/version.mk"
           VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
           mkdir -p release_files
