@@ -31,15 +31,17 @@ jobs:
         with:
           ref: repository
           fetch-depth: 1
+          path: repo
 
       - name: Publish package tree
         run: |
           make -C "$GITHUB_WORKSPACE/src" build-repository \
-            REPO_DIR="$GITHUB_WORKSPACE" \
+            REPO_DIR="$GITHUB_WORKSPACE/repo" \
             REPO_TARGET_ROOT="${{ inputs.target_root }}" \
             REPO_SLUG="${{ github.repository }}"
 
       - name: Commit and push repository changes
+        working-directory: repo
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
