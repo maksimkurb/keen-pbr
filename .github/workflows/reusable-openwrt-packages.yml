@@ -107,9 +107,6 @@ jobs:
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE/src"
       - name: Collect artifacts
-        env:
-          APK_SIGN_PRIVATE_KEY: ${{ secrets.PACKAGE_FEED_APK_SIGN_KEY }}
-          APK_SIGN_PUBLIC_KEY: ${{ secrets.PACKAGE_FEED_APK_PUBKEY }}
         run: |
           set -euo pipefail
           . "$GITHUB_WORKSPACE/src/version.mk"
@@ -141,30 +138,23 @@ jobs:
             fi
             cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
-          APK_BIN=$(find "$SDK_DIR" -type f -path '*/staging_dir/host/bin/apk' | head -1 || true)
-          if [ -n "$APK_BIN" ]; then
-            SIGN_ARGS=()
-            if [ -n "${APK_SIGN_PRIVATE_KEY:-}" ]; then
-              KEY_DIR="$GITHUB_WORKSPACE/apk-signing-keys"
-              mkdir -p "$KEY_DIR"
-              KEY_FILE="$KEY_DIR/packages.sec"
-              printf '%s\n' "$APK_SIGN_PRIVATE_KEY" > "$KEY_FILE"
-              chmod 600 "$KEY_FILE"
-              SIGN_ARGS+=(--keys-dir "$KEY_DIR" --sign "$KEY_FILE")
-
-              if [ -n "${APK_SIGN_PUBLIC_KEY:-}" ]; then
-                printf '%s\n' "$APK_SIGN_PUBLIC_KEY" > "$KEY_DIR/packages.pub"
-              fi
-            fi
+          APK_BIN="$SDK_DIR/staging_dir/host/bin/apk"
+          if [ ! -x "$APK_BIN" ]; then
+            echo "No OpenWrt host apk tool found at $APK_BIN; skipping .adb generation."
+            exit 0
+          fi
+          if find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" | grep -q .; then
             for PKG_ARCH in $(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" -printf '%f\n' | sed -E 's/^.*_openwrt_[^_]+_[^_]+_[^_]+_(.+)\.apk$/\1/' | sort -u); do
               mapfile -t ARCH_APKS < <(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
               if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
                 (
                   cd release_files
-                  "$APK_BIN" mkndx "${SIGN_ARGS[@]}" --allow-untrusted --output "packages_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.adb" "${ARCH_APKS[@]}"
+                  "$APK_BIN" mkndx --allow-untrusted --output "packages_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.adb" "${ARCH_APKS[@]}"
                 )
               fi
             done
+          else
+            echo "No .apk artifacts found for this build; skipping .adb generation."
           fi
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
