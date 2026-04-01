@@ -4,23 +4,25 @@
 #   REPO_DIR          — path to the repository root; MUST be supplied (no default)
 #                       Typically a git worktree checked out to the 'repository' branch:
 #                         git worktree add /tmp/keen-pbr-repo repository
-#   REPO_PREFIX       — channel prefix inside the repo, e.g. "local", "unstable", "stable"
-#   KEENETIC_VERSION  — Keenetic channel subdirectory, e.g. "current"
-#   DEBIAN_VERSION    — Debian distribution name, e.g. "bookworm"
+#   REPO_TARGET_ROOT  — target root inside the repository branch,
+#                       e.g. "stable" or "feature_unify_packaging"
+#   REPO_SLUG         — GitHub repository slug, e.g. "owner/repo"
 
-REPO_PREFIX      ?= local
-KEENETIC_VERSION ?= current
-DEBIAN_VERSION   ?= bookworm
+REPO_TARGET_ROOT ?= local
 
 .PHONY: build-repository
 
-build-repository: ## Assemble repository tree from build/packages/ into REPO_DIR/REPO_PREFIX/
+build-repository: ## Replace REPO_DIR/REPO_TARGET_ROOT/ with build/packages/{openwrt,keenetic,debian}
 	@test -n "$(REPO_DIR)" || { \
 	  echo "ERROR: REPO_DIR is required."; \
 	  echo "  Set up a worktree first:  git worktree add /tmp/keen-pbr-repo repository"; \
 	  echo "  Then run:                 make build-repository REPO_DIR=/tmp/keen-pbr-repo"; \
 	  exit 1; \
 	}
+	@test -n "$(REPO_SLUG)" || { \
+	  echo "ERROR: REPO_SLUG is required."; \
+	  echo "  Example: make build-repository REPO_DIR=/tmp/keen-pbr-repo REPO_SLUG=owner/repo"; \
+	  exit 1; \
+	}
 	bash build_scripts/build-repository.sh \
-	  build/packages "$(REPO_DIR)" "$(REPO_PREFIX)" \
-	  "$(KEENETIC_VERSION)" "$(DEBIAN_VERSION)"
+	  build/packages "$(REPO_DIR)" "$(REPO_TARGET_ROOT)" "$(REPO_SLUG)"

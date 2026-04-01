@@ -3,17 +3,9 @@ name: Reusable repository publisher
 on:
   workflow_call:
     inputs:
-      repository_prefix:
+      target_root:
         required: true
         type: string
-      keenetic_version:
-        required: false
-        type: string
-        default: "current"
-      debian_version:
-        required: false
-        type: string
-        default: "bookworm"
 
 permissions:
   contents: write
@@ -24,31 +16,30 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
+        with:
+          path: src
 
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
           pattern: packages-*
-          path: build/packages
+          path: src/build/packages
           merge-multiple: true
-          if-no-files-found: warn
 
       - name: Checkout repository branch
         uses: actions/checkout@v6
         with:
           ref: repository
-          path: site
+          fetch-depth: 1
 
       - name: Publish package tree
         run: |
-          make build-repository \
-            REPO_DIR="$GITHUB_WORKSPACE/site" \
-            REPO_PREFIX="${{ inputs.repository_prefix }}" \
-            KEENETIC_VERSION="${{ inputs.keenetic_version }}" \
-            DEBIAN_VERSION="${{ inputs.debian_version }}"
+          make -C "$GITHUB_WORKSPACE/src" build-repository \
+            REPO_DIR="$GITHUB_WORKSPACE" \
+            REPO_TARGET_ROOT="${{ inputs.target_root }}" \
+            REPO_SLUG="${{ github.repository }}"
 
       - name: Commit and push repository changes
-        working-directory: site
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -61,4 +52,4 @@ jobs:
           fi
 
           git commit -m "publish repository tree for ${GITHUB_SHA}"
-          git push origin repository
+          git push origin HEAD:repository

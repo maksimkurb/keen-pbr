@@ -60,6 +60,4 @@ jobs:
     if: always() && startsWith(github.ref, 'refs/heads/')
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
-      repository_prefix: ${{ github.ref_name == 'main' && 'unstable' || format('dev/{0}', github.ref_name) }}
-      keenetic_version: current
-      debian_version: bookworm
+      target_root: ${{ replace(github.ref_name, '/', '_') }}

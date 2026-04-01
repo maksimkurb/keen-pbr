@@ -55,10 +55,16 @@ make build    # cmake --build cmake-build
 
 ### Debian/Ubuntu packages (`amd64`)
 
-Build native Debian packages from the repo root:
+Build Debian packages from the repo root:
 
 ```bash
-make deb-packages   # Build Debian packages in Docker
+make deb-packages
+
+# explicit Debian release directory label inside build/packages/
+make deb-packages DEBIAN_VERSION=bookworm
+
+# rebuild the reusable Debian builder image explicitly
+make debian-builder-image
 ```
 
 Artifacts are written to `build/packages/`.
@@ -95,6 +101,10 @@ Build a Keenetic/Entware package:
 
 ```bash
 make keenetic-packages KEENETIC_CONFIG=mipsel-3.4
+
+# other supported Entware configs
+make keenetic-packages KEENETIC_CONFIG=aarch64-3.10
+make keenetic-packages KEENETIC_CONFIG=armv7-3.2
 ```
 
 Parameters:
@@ -138,6 +148,12 @@ Or with an explicit release:
 
 ```bash
 make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+
+# another common example
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=rockchip OPENWRT_SUBTARGET=armv8
+
+# rebuild the reusable OpenWrt builder image explicitly
+make openwrt-builder-image
 ```
 
 Parameters:

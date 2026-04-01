@@ -61,9 +61,7 @@ jobs:
     needs: [openwrt, keenetic, debian]
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
-      repository_prefix: stable
-      keenetic_version: current
-      debian_version: bookworm
+      target_root: stable
 
   draft-release:
     name: Draft GitHub release
