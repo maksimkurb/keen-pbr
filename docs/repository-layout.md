@@ -42,7 +42,7 @@ Package format folders (`opkg`, `ipk`, `apk`, `deb`) are intentionally omitted.
 
 During publish, repository metadata files are generated in each per-arch leaf folder:
 
-- for `.ipk` feeds: `Packages`, `Packages.gz` (and `Packages.sig` when signing key is configured)
+- for `.ipk` feeds: `Packages`, `Packages.gz`
 - for `.apk` feeds: `packages.adb` (signed when APK signing key is configured)
 - for `.deb` feeds: `Packages`, `Packages.gz`, `Release`
 
