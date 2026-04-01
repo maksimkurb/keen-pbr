@@ -5,32 +5,30 @@ RUN apt-get update && \
       bash \
       build-essential \
       ca-certificates \
-      clang \
+      cmake \
       curl \
-      flex \
-      bison \
-      g++ \
-      gawk \
-      gcc-multilib \
-      g++-multilib \
-      gettext \
-      git \
-      libncurses5-dev \
-      libssl-dev \
-      python3 \
-      python3-setuptools \
-      python3-pyelftools \
-      rsync \
-      swig \
-      unzip \
+      debhelper \
+      dpkg-dev \
       file \
-      wget \
+      g++ \
+      git \
+      libcurl4-openssl-dev \
+      libfmt-dev \
+      libnl-3-dev \
+      libnl-route-3-dev \
+      ninja-build \
+      nlohmann-json3-dev \
+      pkg-config \
+      rsync \
+      unzip \
       xz-utils \
-      zlib1g-dev \
-      zstd && \
+      zstd \
+      apt-utils && \
     rm -rf /var/lib/apt/lists/*
 
 ENV BUN_INSTALL=/root/.bun
 ENV PATH=${BUN_INSTALL}/bin:${PATH}
 
 RUN curl -fsSL https://bun.sh/install | bash
+
+WORKDIR /workspace

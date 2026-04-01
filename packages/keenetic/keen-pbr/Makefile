@@ -1,7 +1,12 @@
 include $(TOPDIR)/rules.mk
 
-KEEN_PBR_SRC ?= /home/me/keen-pbr-src
-include $(KEEN_PBR_SRC)/version.mk
+KEEN_PBR_PACKAGE_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+KEEN_PBR_SRC ?= $(abspath $(KEEN_PBR_PACKAGE_DIR)/../../..)
+KEEN_PBR_VERSION_FILE := $(firstword $(wildcard \
+	$(KEEN_PBR_PACKAGE_DIR)/version.mk \
+	$(KEEN_PBR_SRC)/version.mk \
+	$(KEEN_PBR_PACKAGE_DIR)/../../../version.mk))
+include $(KEEN_PBR_VERSION_FILE)
 PKG_NAME:=keen-pbr
 PKG_VERSION:=$(KEEN_PBR_VERSION)
 PKG_RELEASE:=$(KEEN_PBR_RELEASE)

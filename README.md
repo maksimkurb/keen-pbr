@@ -58,15 +58,13 @@ make build    # cmake --build cmake-build
 Build native Debian packages from the repo root:
 
 ```bash
-make deb            # Build both keen-pbr and keen-pbr-headless .deb packages
-make deb-full       # Build the full package with REST API and frontend
-make deb-headless   # Build the headless package without API/frontend
+make deb-packages   # Build Debian packages in Docker
 ```
 
-Artifacts are written to `release_files/`:
+Artifacts are written to `build/packages/`.
 
-- `release_files/keen-pbr_<version>_amd64.deb`
-- `release_files/keen-pbr-headless_<version>_amd64.deb`
+- `build/packages/keen-pbr_<version>_debian_amd64.deb`
+- `build/packages/keen-pbr-headless_<version>_debian_amd64.deb`
 
 The Debian packaging flow:
 
@@ -89,25 +87,23 @@ cmake -S . -B cmake-build -DWITH_API=OFF
 
 ### Router package builds (Docker)
 
-For router package builds, use the Docker-backed `Makefile` targets. These mirror the GitHub Actions flows and keep a persistent builder container per target so repeat builds reuse the existing SDK / Entware workspace instead of rebuilding it from scratch.
-
-Built artifacts are copied into `release_files/`.
+For router package builds, use the Docker-backed `Makefile` targets. These mirror the GitHub Actions flows and write normalized artifacts into `build/packages/`.
 
 #### Keenetic package build
 
 Build a Keenetic/Entware package:
 
 ```bash
-make KEENETIC_ARCH=mipsel-3.4 docker-build-keenetic
+make keenetic-packages KEENETIC_CONFIG=mipsel-3.4
 ```
 
 Parameters:
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `KEENETIC_ARCH` | yes | `mipsel-3.4` | Entware builder architecture tag. |
+| `KEENETIC_CONFIG` | yes | `mipsel-3.4` | Entware builder architecture tag. |
 
-Supported `KEENETIC_ARCH` values:
+Supported `KEENETIC_CONFIG` values:
 
 - `aarch64-3.10`
 - `mips-3.4`
@@ -117,17 +113,9 @@ Supported `KEENETIC_ARCH` values:
 
 Behavior:
 
-- Builds `docker/Dockerfile.keenetic-builder`
-- Creates a persistent container named `keen-pbr-keenetic-<arch>` on first run
-- Mounts the repo into the container at `/src`
-- Reuses the same container on later runs and recompiles only the `keen-pbr` package
-- Copies the resulting `.ipk` into `release_files/keen-pbr_<version>_keenetic_<arch>.ipk`
-
-Cleanup:
-
-```bash
-make KEENETIC_ARCH=mipsel-3.4 docker-clean-keenetic
-```
+- Uses the prebuilt `ghcr.io/maksimkurb/entware-builder:<config>` image
+- Mounts the repo into the container at `/workspace`
+- Builds and collects artifacts into `build/packages/`
 
 #### OpenWrt package build
 
@@ -143,13 +131,13 @@ make list-openwrt-targets OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 Build an OpenWrt package:
 
 ```bash
-make OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-build-openwrt
+make openwrt-packages OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 ```
 
 Or with an explicit release:
 
 ```bash
-make OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-build-openwrt
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 ```
 
 Parameters:
@@ -163,23 +151,15 @@ Parameters:
 Behavior:
 
 - Builds `docker/Dockerfile.openwrt-builder`
-- Creates a persistent container named `keen-pbr-openwrt-<version>-<target>-<subtarget>` on first run
-- Mounts the repo into the container at `/src`
-- Downloads and extracts the matching OpenWrt SDK inside the persistent container on first run
-- Reuses that same container and SDK on later runs, rebuilding only the `keen-pbr` package
-- Copies the resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.<ext>`
-
-Cleanup:
-
-```bash
-make OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-clean-openwrt
-```
+- Mounts the repo into the container at `/workspace`
+- Downloads and extracts the matching OpenWrt SDK into the mounted SDK cache on first run
+- Reuses the SDK cache on later runs
+- Copies the resulting `.ipk` / `.apk` artifacts into `build/packages/`
 
 #### Notes
 
-- Build containers are stopped after each build, not removed.
-- If you change the Dockerfile for a builder image, remove the existing container first so it can be recreated from the new image.
-- The repo is mounted into `/src`, so changes to package scripts or source files are picked up on the next build without rebuilding the container itself.
+- The repo is bind-mounted into `/workspace`, so source and packaging-script changes are picked up on the next build.
+- OpenWrt SDK contents are cached outside the container and reused across runs.
 
 ## Configuration
 
@@ -342,7 +322,7 @@ Available when built with `WITH_API=ON` and not disabled with `--no-api`:
 
 ```bash
 # Copy the built package to the router
-scp release_files/keen-pbr_<version>_keenetic_<arch>.ipk root@router:/tmp/
+scp build/packages/keen-pbr_<version>_keenetic_<arch>.ipk root@router:/tmp/
 
 # Install it
 opkg install /tmp/keen-pbr_<version>_keenetic_<arch>.ipk

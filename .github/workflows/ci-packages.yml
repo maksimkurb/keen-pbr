@@ -8,28 +8,23 @@ on:
 jobs:
   prepare-frontend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
       - uses: oven-sh/setup-bun@v2
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
       - name: Build frontend
-        run: bun run build
-      - name: Keep only .gz frontend assets
+        run: make frontend-build
+      - name: Prepare frontend artifact
         run: |
-          mkdir -p "$GITHUB_WORKSPACE/frontend-dist-gz"
-          cd dist
-          find . -type f -name '*.gz' -exec cp --parents {} "$GITHUB_WORKSPACE/frontend-dist-gz" \;
+          rm -rf "$GITHUB_WORKSPACE/frontend-artifact"
+          mkdir -p "$GITHUB_WORKSPACE/frontend-artifact"
+          cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact"/
       - name: Upload frontend bundle
         uses: actions/upload-artifact@v6
         with:
-          name: frontend-dist-gz
-          path: frontend-dist-gz
+          name: frontend-dist
+          path: frontend-artifact
 
   openwrt:
     needs: [prepare-frontend]
@@ -41,7 +36,7 @@ jobs:
     with:
       build_scope: default
       openwrt_version: ${{ matrix.openwrt_version }}
-      frontend_artifact_name: frontend-dist-gz
+      frontend_artifact_name: frontend-dist
     secrets: inherit
 
   keenetic:
@@ -49,7 +44,7 @@ jobs:
     uses: ./.github/workflows/reusable-keenetic-packages.yml
     with:
       build_scope: default
-      frontend_artifact_name: frontend-dist-gz
+      frontend_artifact_name: frontend-dist
     secrets: inherit
 
   debian:
@@ -57,7 +52,7 @@ jobs:
     uses: ./.github/workflows/reusable-deb-packages.yml
     with:
       build_scope: default
-      frontend_artifact_name: frontend-dist-gz
+      frontend_artifact_name: frontend-dist
     secrets: inherit
 
   publish-repository:

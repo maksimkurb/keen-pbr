@@ -1,13 +1,9 @@
 include version.mk
 
-BUILD_DIR := cmake-build
-DIST_DIR := dist
+BUILD_DIR := build/cmake
+DIST_DIR := build/dist
 ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
 KEEN_PBR_VERSION_RELEASE := $(KEEN_PBR_VERSION)-$(KEEN_PBR_RELEASE)
-DEB_OUTPUT_DIR := release_files
-DEB_FRONTEND_DIST := /tmp/keen-pbr-frontend-dist
-DEB_FULL_SRC_DIR := build/debian-src-full
-DEB_HEADLESS_SRC_DIR := build/debian-src-headless
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
 CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
@@ -18,7 +14,6 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 .PHONY: all build clean distclean setup \
         frontend-build \
         frontend-api-generate \
-        deb deb-packages deb-full deb-headless deb-prepare-full deb-prepare-headless \
         test \
         generate \
         cross-setup cross-build cross-deploy \
@@ -37,86 +32,32 @@ setup: $(SETUP_STAMP) ## Configure CMake
 build: $(SETUP_STAMP) ## Compile the project
 	cmake --build $(BUILD_DIR)
 
-deb-prepare-full: ## Prepare Debian full source tree with debian/ packaging
-	rm -rf $(DEB_FULL_SRC_DIR)
-	mkdir -p $(DEB_FULL_SRC_DIR)
-	rsync -a --delete \
-		--exclude='.git' \
-		--exclude='frontend/node_modules' \
-		--exclude='frontend/dist' \
-		--exclude='build' \
-		--exclude='cmake-build*' \
-	./ $(DEB_FULL_SRC_DIR)/
-	rm -rf $(DEB_FULL_SRC_DIR)/debian
-	cp -a packages/debian/full/debian $(DEB_FULL_SRC_DIR)/debian
-	sed -i '1s/(.*)/($(KEEN_PBR_VERSION_RELEASE))/' $(DEB_FULL_SRC_DIR)/debian/changelog
-
-deb-prepare-headless: ## Prepare Debian headless source tree with debian/ packaging
-	rm -rf $(DEB_HEADLESS_SRC_DIR)
-	mkdir -p $(DEB_HEADLESS_SRC_DIR)
-	rsync -a --delete \
-		--exclude='.git' \
-		--exclude='frontend/node_modules' \
-		--exclude='frontend/dist' \
-		--exclude='build' \
-		--exclude='cmake-build*' \
-	./ $(DEB_HEADLESS_SRC_DIR)/
-	rm -rf $(DEB_HEADLESS_SRC_DIR)/debian
-	cp -a packages/debian/headless/debian $(DEB_HEADLESS_SRC_DIR)/debian
-	sed -i '1s/(.*)/($(KEEN_PBR_VERSION_RELEASE))/' $(DEB_HEADLESS_SRC_DIR)/debian/changelog
-
 frontend-build: ## Build frontend assets with bun
-	mkdir -p /tmp/keen-pbr-bun-tmp /tmp/keen-pbr-bun-cache /tmp/keen-pbr-frontend-dist
-	cd frontend && \
-	TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun install --frozen-lockfile && \
-	KEEN_PBR_FRONTEND_OUT_DIR=/tmp/keen-pbr-frontend-dist TMPDIR=/tmp/keen-pbr-bun-tmp TEMP=/tmp/keen-pbr-bun-tmp TMP=/tmp/keen-pbr-bun-tmp BUN_INSTALL_CACHE_DIR=/tmp/keen-pbr-bun-cache bun run build
+	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)"
 
 frontend-api-generate: ## Regenerate frontend API client using the Orval version pinned in frontend/package.json
 	cd frontend && bunx --bun orval@$(ORVAL_VERSION) --config ./orval.config.ts
 
 generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (requires Node.js)
-	bash scripts/generate_api_types.sh
+	bash build_scripts/generate_api_types.sh
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS) -DBUILD_TESTS=ON
 	cmake --build $(BUILD_DIR) --target keen-pbr-tests
 	$(BUILD_DIR)/tests/keen-pbr-tests
 
-deb-full: deb-prepare-full ## Build the Debian full .deb package
-	mkdir -p $(DEB_OUTPUT_DIR)
-	FRONTEND_DIST="$(abspath $(DEB_FRONTEND_DIST))"; \
-	if [ -n "$(KEEN_PBR_FRONTEND_DIST)" ]; then \
-		FRONTEND_DIST="$(abspath $(KEEN_PBR_FRONTEND_DIST))"; \
-		if [ ! -d "$$FRONTEND_DIST" ]; then \
-			echo "ERROR: KEEN_PBR_FRONTEND_DIST is set but directory does not exist: $$FRONTEND_DIST"; \
-			exit 1; \
-		fi; \
-	else \
-		$(MAKE) frontend-build; \
-	fi; \
-	cd $(DEB_FULL_SRC_DIR) && KEEN_PBR_FRONTEND_DIST="$$FRONTEND_DIST" dpkg-buildpackage -b -us -uc
-	find build -maxdepth 1 -type f -name 'keen-pbr_*_*.deb' -exec cp -t $(DEB_OUTPUT_DIR) {} +
+clean: ## Remove compiled artifacts
+	rm -rf build/cmake build/cmake-aarch64 build/cross-toolchain build/dist \
+	       build/debian-src-full build/debian-src-headless build/packages
 
-deb-headless: deb-prepare-headless ## Build the Debian headless .deb package
-	mkdir -p $(DEB_OUTPUT_DIR)
-	cd $(DEB_HEADLESS_SRC_DIR) && dpkg-buildpackage -b -us -uc
-	find build -maxdepth 1 -type f -name 'keen-pbr-headless_*_*.deb' -exec cp -t $(DEB_OUTPUT_DIR) {} +
-
-deb-packages: deb-full deb-headless ## Build both Debian .deb packages
-
-deb: deb-packages ## Build Debian .deb packages
-
-clean: ## Remove build artifacts
-	rm -rf $(BUILD_DIR) $(DEB_FULL_SRC_DIR) $(DEB_HEADLESS_SRC_DIR)
-
-distclean: clean ## Remove build and dist directories
-	rm -rf $(DIST_DIR)
+distclean: ## Remove all build artifacts including downloaded SDKs
+	rm -rf build/
 
 ## Cross-compilation for aarch64_cortex-a53 + deploy ##########################
 
-CROSS_TOOLCHAIN_DIR   := cross-toolchain
+CROSS_TOOLCHAIN_DIR   := build/cross-toolchain
 CROSS_TOOLCHAIN_STAMP := $(CROSS_TOOLCHAIN_DIR)/.stamp-extracted
-CROSS_BUILD_DIR       := cmake-build-aarch64
+CROSS_BUILD_DIR       := build/cmake-aarch64
 CROSS_BIN             := $(DIST_DIR)/keen-pbr-aarch64
 CROSS_DEBUG_BIN       := $(DIST_DIR)/keen-pbr-aarch64.debug
 CROSS_OBJCOPY         := $(shell ls $(CROSS_TOOLCHAIN_DIR)/toolchain-*/bin/aarch64-openwrt-linux-musl-objcopy 2>/dev/null | head -1)
@@ -170,6 +111,10 @@ cross-deploy: cross-build ## Cross-compile and upload binary to router via SFTP 
 	@echo "Done."
 
 -include docker/build.mk
+-include build_scripts/openwrt.mk
+-include build_scripts/keenetic.mk
+-include build_scripts/debian.mk
+-include build_scripts/repository.mk
 
 ## Help ########################################################################
 

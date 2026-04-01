@@ -68,25 +68,23 @@ cmake -S . -B cmake-build -DWITH_API=OFF
 
 ## Router Package Builds
 
-For router targets, use the Docker-backed package build targets from the root `Makefile`. They mirror the GitHub Actions workflows and keep a persistent builder container per target, so repeat builds reuse the existing SDK / Entware workspace instead of rebuilding it from scratch.
-
-Built artifacts are copied into `release_files/`.
+For router targets, use the Docker-backed package build targets from the root `Makefile`. They mirror the GitHub Actions workflows and write normalized artifacts into `build/packages/`.
 
 ### Keenetic / Entware
 
 Build a Keenetic package:
 
 ```bash
-make KEENETIC_ARCH=mipsel-3.4 docker-build-keenetic
+make keenetic-packages KEENETIC_CONFIG=mipsel-3.4
 ```
 
 Parameters:
 
 | Variable | Required | Example | Description |
 |---|---|---|---|
-| `KEENETIC_ARCH` | yes | `mipsel-3.4` | Entware builder architecture tag. |
+| `KEENETIC_CONFIG` | yes | `mipsel-3.4` | Entware builder architecture tag. |
 
-Supported `KEENETIC_ARCH` values:
+Supported `KEENETIC_CONFIG` values:
 
 - `aarch64-3.10`
 - `mips-3.4`
@@ -96,18 +94,9 @@ Supported `KEENETIC_ARCH` values:
 
 Behavior:
 
-- Builds `docker/Dockerfile.keenetic-builder`
-- Creates a persistent container named `keen-pbr-keenetic-<arch>` on first run
-- Mounts the repo into the container at `/src`
-- Reuses that same container on later runs
-- Rebuilds only the `keen-pbr` package
-- Copies the resulting `.ipk` into `release_files/keen-pbr_<version>_keenetic_<arch>.ipk`
-
-Cleanup:
-
-```bash
-make KEENETIC_ARCH=mipsel-3.4 docker-clean-keenetic
-```
+- Uses the prebuilt `ghcr.io/maksimkurb/entware-builder:<config>` image
+- Mounts the repo into the container at `/workspace`
+- Builds and collects artifacts into `build/packages/`
 
 ### OpenWrt
 
@@ -123,13 +112,13 @@ make list-openwrt-targets OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 Build an OpenWrt package:
 
 ```bash
-make OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-build-openwrt
+make openwrt-packages OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 ```
 
 Or with an explicit release:
 
 ```bash
-make OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-build-openwrt
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
 ```
 
 Parameters:
@@ -143,24 +132,15 @@ Parameters:
 Behavior:
 
 - Builds `docker/Dockerfile.openwrt-builder`
-- Creates a persistent container named `keen-pbr-openwrt-<version>-<target>-<subtarget>` on first run
-- Mounts the repo into the container at `/src`
-- Downloads and extracts the matching OpenWrt SDK inside the persistent container on first run
-- Reuses that same container and SDK on later runs
-- Rebuilds only the `keen-pbr` package
-- Copies resulting `.ipk` / `.apk` artifacts into `release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.<ext>`
-
-Cleanup:
-
-```bash
-make OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic docker-clean-openwrt
-```
+- Mounts the repo into the container at `/workspace`
+- Downloads and extracts the matching OpenWrt SDK into the mounted SDK cache on first run
+- Reuses the SDK cache on later runs
+- Copies resulting `.ipk` / `.apk` artifacts into `build/packages/`
 
 ### Notes
 
-- Build containers are stopped after each build, not removed.
-- If you change a builder Dockerfile, remove the existing container before rebuilding so it can be recreated from the updated image.
-- The repo is mounted into `/src`, so source and packaging-script edits are picked up on the next build without recreating the container.
+- The repo is bind-mounted into `/workspace`, so source and packaging-script edits are picked up on the next build.
+- OpenWrt SDK contents are cached outside the container and reused across runs.
 
 ## Deployment to Router
 
@@ -168,12 +148,12 @@ Copy a built package and a config file to your router:
 
 ```bash
 # Keenetic example
-scp release_files/keen-pbr_<version>_keenetic_<arch>.ipk root@192.168.1.1:/tmp/
+scp build/packages/keen-pbr_<version>_keenetic_<arch>.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_keenetic_<arch>.ipk
 scp config.json root@192.168.1.1:/opt/etc/keen-pbr/config.json
 
 # OpenWRT example
-scp release_files/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk root@192.168.1.1:/tmp/
+scp build/packages/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk root@192.168.1.1:/tmp/
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>.ipk
 scp config.json root@192.168.1.1:/etc/keen-pbr/config.json
 ```

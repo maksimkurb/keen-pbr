@@ -3,14 +3,7 @@ prd.json
 progress.txt
 scripts/ralph
 build/
-buildDir/
-cmake-build/
-cmake-build-deb-full/
-cmake-build-deb-headless/
-cmake-build-aarch64/
-cross-toolchain/
-dist/
-build/debian/
+.codex
 
 # CMake
 CMakeCache.txt
@@ -25,6 +18,3 @@ _deps/
 !cmake/*.cmake
 .clangd
 /**/__pycache__
-
-release_files/
-.codex

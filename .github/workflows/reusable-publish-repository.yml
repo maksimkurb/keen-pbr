@@ -22,11 +22,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
           pattern: packages-*
-          path: release_files
+          path: build/packages
           merge-multiple: true
           if-no-files-found: warn
 
@@ -37,135 +40,12 @@ jobs:
           path: site
 
       - name: Publish package tree
-        env:
-          REPOSITORY_PREFIX: ${{ inputs.repository_prefix }}
-          KEENETIC_VERSION: ${{ inputs.keenetic_version }}
-          DEBIAN_VERSION: ${{ inputs.debian_version }}
         run: |
-          set -euo pipefail
-
-          sanitize_segment() {
-            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#-+#-#g; s#(^-+|-+$)##g'
-          }
-
-          sanitize_path() {
-            local raw="$1"
-            local out=""
-            local IFS='/'
-            read -ra parts <<< "$raw"
-            for part in "${parts[@]}"; do
-              [ -z "$part" ] && continue
-              part=$(sanitize_segment "$part")
-              [ -z "$part" ] && continue
-              if [ -z "$out" ]; then
-                out="$part"
-              else
-                out="$out/$part"
-              fi
-            done
-            printf '%s' "$out"
-          }
-
-          PREFIX=$(sanitize_path "$REPOSITORY_PREFIX")
-          if [ -z "$PREFIX" ]; then
-            echo "repository_prefix resolved to an empty path"
-            exit 1
-          fi
-
-          ROOT_DIR="$GITHUB_WORKSPACE/site/$PREFIX"
-          mkdir -p "$ROOT_DIR"
-
-          find "$GITHUB_WORKSPACE/release_files" -type f \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' -o -name '*.adb' -o -name 'Packages_openwrt_*' -o -name 'Packages_keenetic_*' -o -name 'Packages_debian_*' -o -name 'Release_debian_*' \) | while read -r f; do
-            base=$(basename "$f")
-            output_name="$base"
-
-            case "$base" in
-              *_openwrt_*.ipk|*_openwrt_*.apk)
-                # <pkg>_<version-release>_openwrt_<openwrt-version>_<target>_<subtarget>_<pkgarch>.<ext>
-                rest="${base#*_openwrt_}"
-                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
-                pkg_arch_ext=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
-                pkg_arch="${pkg_arch_ext%.*}"
-                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
-                ;;
-              packages_openwrt_*.adb)
-                # packages_openwrt_<openwrt-version>_<target>_<subtarget>_<pkgarch>.adb
-                rest="${base#packages_openwrt_}"
-                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
-                pkg_arch_ext=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
-                pkg_arch="${pkg_arch_ext%.adb}"
-                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
-                output_name="packages.adb"
-                ;;
-              Packages_openwrt_*.gz)
-                rest="${base#Packages_openwrt_}"
-                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
-                pkg_arch_ext=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
-                pkg_arch="${pkg_arch_ext%.gz}"
-                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages.gz"
-                ;;
-              Packages_openwrt_*)
-                rest="${base#Packages_openwrt_}"
-                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
-                pkg_arch=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
-                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages"
-                ;;
-
-              *_keenetic_*.ipk)
-                # <pkg>_<version-release>_keenetic_<config>.ipk
-                config_ext="${base#*_keenetic_}"
-                config_name="${config_ext%.ipk}"
-                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
-                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
-                ;;
-              Packages_keenetic_*.gz)
-                config_ext="${base#Packages_keenetic_}"
-                config_name="${config_ext%.gz}"
-                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
-                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages.gz"
-                ;;
-              Packages_keenetic_*)
-                config_name="${base#Packages_keenetic_}"
-                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
-                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages"
-                ;;
-
-              *_debian_*.deb)
-                # <pkg>_<version-release>_debian_<dpkg-arch>.deb
-                pkg_arch_ext="${base#*_debian_}"
-                pkg_arch="${pkg_arch_ext%.deb}"
-                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
-                ;;
-              Packages_debian_*.gz)
-                pkg_arch_ext="${base#Packages_debian_}"
-                pkg_arch="${pkg_arch_ext%.gz}"
-                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages.gz"
-                ;;
-              Packages_debian_*)
-                pkg_arch="${base#Packages_debian_}"
-                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
-                output_name="Packages"
-                ;;
-              Release_debian_*)
-                pkg_arch="${base#Release_debian_}"
-                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
-                output_name="Release"
-                ;;
-
-              *)
-                echo "Skip unknown artifact format: $base"
-                continue
-                ;;
-            esac
-
-            mkdir -p "$dest"
-            cp "$f" "$dest/$output_name"
-          done
+          make build-repository \
+            REPO_DIR="$GITHUB_WORKSPACE/site" \
+            REPO_PREFIX="${{ inputs.repository_prefix }}" \
+            KEENETIC_VERSION="${{ inputs.keenetic_version }}" \
+            DEBIAN_VERSION="${{ inputs.debian_version }}"
 
       - name: Commit and push repository changes
         working-directory: site

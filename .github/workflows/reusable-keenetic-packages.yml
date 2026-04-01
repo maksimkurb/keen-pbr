@@ -13,7 +13,7 @@ on:
       frontend_artifact_name:
         required: false
         type: string
-        default: "frontend-dist-gz"
+        default: "frontend-dist"
 
 jobs:
   generate-config:
@@ -67,9 +67,6 @@ jobs:
       fail-fast: false
       matrix:
         build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
-    container:
-      image: ghcr.io/maksimkurb/entware-builder:${{ matrix.build_env.config_name }}
-      options: --user root
     steps:
       - uses: actions/checkout@v6
         with:
@@ -78,55 +75,17 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.frontend_artifact_name }}
-          path: frontend-dist-gz
+          path: frontend-artifact
       - name: Stage frontend dist
         run: |
           rm -rf "$GITHUB_WORKSPACE/frontend/dist"
           mkdir -p "$GITHUB_WORKSPACE/frontend/dist"
-          cp -a "$GITHUB_WORKSPACE/frontend-dist-gz"/. "$GITHUB_WORKSPACE/frontend/dist/"
-      - name: Build package
-        working-directory: /home/me/Entware
+          cp -a "$GITHUB_WORKSPACE/frontend-artifact"/. "$GITHUB_WORKSPACE/frontend/dist/"
+      - name: Build packages
         run: |
-          printf '\nsrc-link keenPbr %s/packages/keenetic\n' "$GITHUB_WORKSPACE" >> feeds.conf
-          ./scripts/feeds update keenPbr
-          ./scripts/feeds install -p keenPbr keen-pbr
-          FEED_PKG_DIR=$(find package -type d -path '*/keen-pbr' | grep '/package/feeds/' | head -1)
-          cp "$GITHUB_WORKSPACE/version.mk" "$FEED_PKG_DIR/version.mk"
-          cat "$GITHUB_WORKSPACE/packages/keenetic/packages.config" >> .config
-          make defconfig
-          make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
-      - name: Collect artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          . "$GITHUB_WORKSPACE/version.mk"
-          VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
-          mkdir -p release_files
-          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' | while read -r f; do
-            cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_keenetic_${{ matrix.build_env.config_name }}.ipk"
-          done
-          find /home/me/Entware/bin -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r f; do
-            cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_keenetic_${{ matrix.build_env.config_name }}.ipk"
-          done
-
-          # Build Keenetic ipk repository indexes in the build environment.
-          TMP_DIR="release_files/index-${{ matrix.build_env.config_name }}"
-          rm -rf "$TMP_DIR"
-          mkdir -p "$TMP_DIR"
-          cp release_files/*_keenetic_${{ matrix.build_env.config_name }}.ipk "$TMP_DIR/"
-          (
-            cd "$TMP_DIR"
-            python3 "$GITHUB_WORKSPACE/scripts/ipk-make-index.py" .
-          )
-          cp "$TMP_DIR/Packages" "release_files/Packages_keenetic_${{ matrix.build_env.config_name }}"
-          cp "$TMP_DIR/Packages.gz" "release_files/Packages_keenetic_${{ matrix.build_env.config_name }}.gz"
-          rm -rf "$TMP_DIR"
+          make keenetic-packages KEENETIC_CONFIG="${{ matrix.build_env.config_name }}"
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
           name: packages-keenetic-${{ matrix.build_env.config_name }}
-          path: |
-            release_files/*.ipk
-            release_files/Packages_keenetic_*
-            release_files/Packages_keenetic_*.gz
+          path: build/packages/keenetic
