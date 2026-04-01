@@ -23,8 +23,37 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: packages-*
-          path: src/build/packages
-          merge-multiple: true
+          path: downloaded-artifacts
+
+      - name: Show downloaded artifact tree
+        run: |
+          if command -v tree >/dev/null 2>&1; then
+            tree downloaded-artifacts
+          else
+            find downloaded-artifacts -print | sort
+          fi
+
+      - name: Normalize downloaded package artifacts
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/src/build/packages"
+          mkdir -p "$GITHUB_WORKSPACE/src/build/packages/openwrt" \
+                   "$GITHUB_WORKSPACE/src/build/packages/keenetic" \
+                   "$GITHUB_WORKSPACE/src/build/packages/debian"
+
+          shopt -s nullglob
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-openwrt-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/openwrt"/
+          done
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-keenetic-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/keenetic"/
+          done
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-debian-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/debian"/
+          done
 
       - name: Checkout repository branch
         uses: actions/checkout@v6
