@@ -96,6 +96,7 @@ jobs:
           make defconfig
           make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$GITHUB_WORKSPACE"
       - name: Collect artifacts
+        shell: bash
         run: |
           set -euo pipefail
           . "$GITHUB_WORKSPACE/version.mk"

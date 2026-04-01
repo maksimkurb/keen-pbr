@@ -109,9 +109,11 @@ jobs:
       - name: Collect artifacts
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           . "$GITHUB_WORKSPACE/src/version.mk"
           VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
+          SDK_DIR=$(realpath "$SDK_DIR")
           mkdir -p release_files
           ARCH_PREFIX="${{ matrix.build_env.target }}_${{ matrix.build_env.subtarget }}"
           find "$SDK_DIR/bin" -type f \( -name "keen-pbr_*.ipk" -o -name "keen-pbr-*.apk" \) | while read -r f; do
