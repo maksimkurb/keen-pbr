@@ -138,12 +138,39 @@ jobs:
             fi
             cp "$f" "release_files/keen-pbr-headless_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
+
+          # Build OpenWrt ipk repository indexes per package architecture.
+          IPKG_INDEXER="$SDK_DIR/scripts/ipkg-make-index.sh"
+          if [ -x "$IPKG_INDEXER" ]; then
+            for PKG_ARCH in $(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.ipk" -printf '%f\n' | sed -E 's/^.*_openwrt_[^_]+_[^_]+_[^_]+_(.+)\.ipk$/\1/' | sort -u); do
+              mapfile -t ARCH_IPKS < <(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.ipk" -printf '%f\n' | sort)
+              if [ "${#ARCH_IPKS[@]}" -gt 0 ]; then
+                TMP_DIR="release_files/ipk-index-${PKG_ARCH}"
+                rm -rf "$TMP_DIR"
+                mkdir -p "$TMP_DIR"
+                for f in "${ARCH_IPKS[@]}"; do
+                  cp "release_files/$f" "$TMP_DIR/"
+                done
+                (
+                  cd "$TMP_DIR"
+                  "$IPKG_INDEXER" . > Packages
+                  gzip -n9c Packages > Packages.gz
+                )
+                cp "$TMP_DIR/Packages" "release_files/Packages_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}"
+                cp "$TMP_DIR/Packages.gz" "release_files/Packages_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.gz"
+                rm -rf "$TMP_DIR"
+              fi
+            done
+          else
+            echo "No ipkg indexer found at $IPKG_INDEXER; skipping OpenWrt Packages index generation."
+          fi
+
           APK_BIN="$SDK_DIR/staging_dir/host/bin/apk"
           if [ ! -x "$APK_BIN" ]; then
             echo "No OpenWrt host apk tool found at $APK_BIN; skipping .adb generation."
-            exit 0
+            APK_BIN=""
           fi
-          if find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" | grep -q .; then
+          if [ -n "$APK_BIN" ] && find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" | grep -q .; then
             for PKG_ARCH in $(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_*.apk" -printf '%f\n' | sed -E 's/^.*_openwrt_[^_]+_[^_]+_[^_]+_(.+)\.apk$/\1/' | sort -u); do
               mapfile -t ARCH_APKS < <(find release_files -maxdepth 1 -type f -name "keen-pbr*_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
               if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
@@ -163,4 +190,6 @@ jobs:
           path: |
             release_files/*.ipk
             release_files/*.apk
+            release_files/Packages_openwrt_*
+            release_files/Packages_openwrt_*.gz
             release_files/*.adb

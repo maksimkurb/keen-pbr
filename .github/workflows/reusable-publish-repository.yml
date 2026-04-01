@@ -22,17 +22,6 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source branch
-        uses: actions/checkout@v6
-        with:
-          path: src
-
-      - name: Install repository index tools
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y dpkg-dev apt-utils python3
-
       - name: Download package artifacts
         uses: actions/download-artifact@v8
         with:
@@ -86,7 +75,7 @@ jobs:
           ROOT_DIR="$GITHUB_WORKSPACE/site/$PREFIX"
           mkdir -p "$ROOT_DIR"
 
-          find "$GITHUB_WORKSPACE/release_files" -type f \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' -o -name '*.adb' \) | while read -r f; do
+          find "$GITHUB_WORKSPACE/release_files" -type f \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' -o -name '*.adb' -o -name 'Packages_openwrt_*' -o -name 'Packages_keenetic_*' -o -name 'Packages_debian_*' -o -name 'Release_debian_*' \) | while read -r f; do
             base=$(basename "$f")
             output_name="$base"
 
@@ -108,6 +97,21 @@ jobs:
                 dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
                 output_name="packages.adb"
                 ;;
+              Packages_openwrt_*.gz)
+                rest="${base#Packages_openwrt_}"
+                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
+                pkg_arch_ext=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
+                pkg_arch="${pkg_arch_ext%.gz}"
+                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages.gz"
+                ;;
+              Packages_openwrt_*)
+                rest="${base#Packages_openwrt_}"
+                owrt_version=$(printf '%s' "$rest" | cut -d'_' -f1)
+                pkg_arch=$(printf '%s' "$rest" | awk -F'_' '{print $NF}')
+                dest="$ROOT_DIR/openwrt/$(sanitize_segment "$owrt_version")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages"
+                ;;
 
               *_keenetic_*.ipk)
                 # <pkg>_<version-release>_keenetic_<config>.ipk
@@ -116,12 +120,41 @@ jobs:
                 pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
                 dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
                 ;;
+              Packages_keenetic_*.gz)
+                config_ext="${base#Packages_keenetic_}"
+                config_name="${config_ext%.gz}"
+                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
+                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages.gz"
+                ;;
+              Packages_keenetic_*)
+                config_name="${base#Packages_keenetic_}"
+                pkg_arch=$(printf '%s' "$config_name" | cut -d'-' -f1)
+                dest="$ROOT_DIR/keenetic/$(sanitize_segment "$KEENETIC_VERSION")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages"
+                ;;
 
               *_debian_*.deb)
                 # <pkg>_<version-release>_debian_<dpkg-arch>.deb
                 pkg_arch_ext="${base#*_debian_}"
                 pkg_arch="${pkg_arch_ext%.deb}"
                 dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
+                ;;
+              Packages_debian_*.gz)
+                pkg_arch_ext="${base#Packages_debian_}"
+                pkg_arch="${pkg_arch_ext%.gz}"
+                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages.gz"
+                ;;
+              Packages_debian_*)
+                pkg_arch="${base#Packages_debian_}"
+                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
+                output_name="Packages"
+                ;;
+              Release_debian_*)
+                pkg_arch="${base#Release_debian_}"
+                dest="$ROOT_DIR/debian/$(sanitize_segment "$DEBIAN_VERSION")/$(sanitize_segment "$pkg_arch")"
+                output_name="Release"
                 ;;
 
               *)
@@ -132,30 +165,6 @@ jobs:
 
             mkdir -p "$dest"
             cp "$f" "$dest/$output_name"
-          done
-
-      - name: Generate repository index files
-        run: |
-          set -euo pipefail
-
-          # Generate OpenWrt/Keenetic opkg feed metadata.
-          mapfile -t ipk_dirs < <(find "$GITHUB_WORKSPACE/site" -type f -name '*.ipk' -printf '%h\n' | sort -u)
-          for dir in "${ipk_dirs[@]}"; do
-            (
-              cd "$dir"
-              python3 "$GITHUB_WORKSPACE/src/scripts/ipk-make-index.py" .
-            )
-          done
-
-          # Generate Debian flat-repo metadata so `deb <url> ./` can work.
-          mapfile -t deb_dirs < <(find "$GITHUB_WORKSPACE/site" -type f -name '*.deb' -printf '%h\n' | sort -u)
-          for dir in "${deb_dirs[@]}"; do
-            (
-              cd "$dir"
-              dpkg-scanpackages --multiversion . /dev/null > Packages
-              gzip -n9c Packages > Packages.gz
-              apt-ftparchive release . > Release
-            )
           done
 
       - name: Commit and push repository changes
