@@ -117,19 +117,25 @@ jobs:
           SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1)
           mkdir -p release_files
           ARCH_PREFIX="${{ matrix.build_env.target }}_${{ matrix.build_env.subtarget }}"
-          find "$SDK_DIR/bin" -type f \( -name "keen-pbr_*.ipk" -o -name "keen-pbr_*.apk" \) | while read -r f; do
+          find "$SDK_DIR/bin" -type f \( -name "keen-pbr_*.ipk" -o -name "keen-pbr-*.apk" \) | while read -r f; do
             EXT="${f##*.}"
             PKG_ARCH="${{ matrix.build_env.pkgarch }}"
             if [ -z "$PKG_ARCH" ]; then
+              PKG_ARCH=$(printf '%s\n' "$f" | sed -E 's#^.*/bin/packages/([^/]+)/.*$#\1#')
+            fi
+            if [ -z "$PKG_ARCH" ] || [ "$PKG_ARCH" = "$f" ]; then
               BASENAME=$(basename "$f")
               PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
             fi
             cp "$f" "release_files/keen-pbr_${VERSION_RELEASE}_openwrt_${{ matrix.build_env.tag }}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
           done
-          find "$SDK_DIR/bin" -type f \( -name "keen-pbr-headless_*.ipk" -o -name "keen-pbr-headless_*.apk" \) | while read -r f; do
+          find "$SDK_DIR/bin" -type f \( -name "keen-pbr-headless_*.ipk" -o -name "keen-pbr-headless-*.apk" \) | while read -r f; do
             EXT="${f##*.}"
             PKG_ARCH="${{ matrix.build_env.pkgarch }}"
             if [ -z "$PKG_ARCH" ]; then
+              PKG_ARCH=$(printf '%s\n' "$f" | sed -E 's#^.*/bin/packages/([^/]+)/.*$#\1#')
+            fi
+            if [ -z "$PKG_ARCH" ] || [ "$PKG_ARCH" = "$f" ]; then
               BASENAME=$(basename "$f")
               PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
             fi
