@@ -31,6 +31,8 @@ openwrt-packages: ## Build OpenWrt packages inside Docker container (SDK cached 
 	fi
 	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)" build/packages
 	docker run --rm \
+	  -e OPENWRT_USIGN_PRIVATE_KEY \
+	  -e OPENWRT_APK_PRIVATE_KEY \
 	  -v "$(abspath .):/workspace" \
 	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \

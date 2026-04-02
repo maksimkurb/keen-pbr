@@ -12,6 +12,7 @@ RUN apt-get update && \
       file \
       g++ \
       git \
+      gnupg \
       libcurl4-openssl-dev \
       libfmt-dev \
       libnl-3-dev \

@@ -22,6 +22,7 @@ TAG="${4:?}"
 TARGET="${5:?}"
 SUBTARGET="${6:?}"
 FIXED_PKGARCH="${7:-}"
+APK_SIGNING_MARKER="$RELEASE_DIR/openwrt/.apk-signed"
 
 . "$WORKSPACE/version.mk"
 VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
@@ -55,6 +56,7 @@ _copy_pkg "keen-pbr-headless"
 # ── IPK: generate Packages index per architecture ────────────────────────────
 
 IPKG_INDEXER="$SDK_DIR/scripts/ipkg-make-index.sh"
+USIGN_BIN="$SDK_DIR/staging_dir/host/bin/usign"
 if [ -x "$IPKG_INDEXER" ]; then
     # Provide sha256 shim if only sha256sum is available (Linux default)
     if ! command -v sha256 >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
@@ -79,11 +81,29 @@ EOF
             done
             (
                 cd "$TMP_DIR"
-                "$IPKG_INDEXER" . > Packages
+                "$IPKG_INDEXER" . > Packages.manifest
+                grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' \
+                    Packages.manifest > Packages
                 gzip -n9c Packages > Packages.gz
+                if [ -n "${OPENWRT_USIGN_PRIVATE_KEY:-}" ]; then
+                    if [ ! -x "$USIGN_BIN" ]; then
+                        echo "[collect-openwrt] No usign found at $USIGN_BIN; skipping Packages signature."
+                    else
+                        key_file="$(mktemp)"
+                        printf '%s\n' "$OPENWRT_USIGN_PRIVATE_KEY" > "$key_file"
+                        "$USIGN_BIN" -S -m Packages -s "$key_file" -x Packages.sig
+                        rm -f "$key_file"
+                    fi
+                fi
             )
             cp "$TMP_DIR/Packages"    "$ARCH_DIR/Packages"
+            cp "$TMP_DIR/Packages.manifest" "$ARCH_DIR/Packages.manifest"
             cp "$TMP_DIR/Packages.gz" "$ARCH_DIR/Packages.gz"
+            if [ -f "$TMP_DIR/Packages.sig" ]; then
+                cp "$TMP_DIR/Packages.sig" "$ARCH_DIR/Packages.sig"
+            else
+                rm -f "$ARCH_DIR/Packages.sig"
+            fi
             rm -rf "$TMP_DIR"
         fi
     done
@@ -101,6 +121,7 @@ fi
 
 if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
         -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_*.apk" 2>/dev/null | grep -q .; then
+    rm -f "$APK_SIGNING_MARKER"
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d | sort); do
         PKG_ARCH=$(basename "$ARCH_DIR")
         mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
@@ -108,12 +129,24 @@ if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
         if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
             (
                 cd "$ARCH_DIR"
-                "$APK_BIN" mkndx --allow-untrusted \
-                    --output "packages.adb" \
-                    "${ARCH_APKS[@]}"
+                if [ -n "${OPENWRT_APK_PRIVATE_KEY:-}" ]; then
+                    key_file="$(mktemp)"
+                    printf '%s\n' "$OPENWRT_APK_PRIVATE_KEY" > "$key_file"
+                    "$APK_BIN" mkndx --allow-untrusted \
+                        --sign "$key_file" \
+                        --output "packages.adb" \
+                        "${ARCH_APKS[@]}"
+                    rm -f "$key_file"
+                    : > "$APK_SIGNING_MARKER"
+                else
+                    "$APK_BIN" mkndx --allow-untrusted \
+                        --output "packages.adb" \
+                        "${ARCH_APKS[@]}"
+                fi
             )
         fi
     done
 else
     echo "[collect-openwrt] No .apk artifacts found; skipping .adb generation."
+    rm -f "$APK_SIGNING_MARKER"
 fi

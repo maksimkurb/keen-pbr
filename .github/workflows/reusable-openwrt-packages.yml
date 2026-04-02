@@ -53,6 +53,7 @@ jobs:
   build:
     name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
+    environment: package-builder
     needs: [generate-config]
     strategy:
       fail-fast: false
@@ -84,6 +85,9 @@ jobs:
           path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
       - name: Build packages
+        env:
+          OPENWRT_USIGN_PRIVATE_KEY: ${{ secrets.OPENWRT_USIGN_PRIVATE_KEY }}
+          OPENWRT_APK_PRIVATE_KEY: ${{ secrets.OPENWRT_APK_PRIVATE_KEY }}
         run: |
           make openwrt-packages \
             OPENWRT_VERSION="${{ matrix.build_env.tag }}" \
