@@ -67,7 +67,6 @@ export function DnsRulesPage() {
     },
   })
 
-  const isPending = postConfigMutation.isPending
   const rules = loadedConfig?.dns?.rules ?? []
 
   const handleFallbackChange = (fallback: string[]) => {
