@@ -1,0 +1,86 @@
+name: Reusable repository publisher
+
+on:
+  workflow_call:
+    inputs:
+      target_root:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          path: src
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          path: downloaded-artifacts
+
+      - name: Show downloaded artifact tree
+        run: |
+          if command -v tree >/dev/null 2>&1; then
+            tree downloaded-artifacts
+          else
+            find downloaded-artifacts -print | sort
+          fi
+
+      - name: Normalize downloaded package artifacts
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/src/build/packages"
+          mkdir -p "$GITHUB_WORKSPACE/src/build/packages/openwrt" \
+                   "$GITHUB_WORKSPACE/src/build/packages/keenetic" \
+                   "$GITHUB_WORKSPACE/src/build/packages/debian"
+
+          shopt -s nullglob
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-openwrt-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/openwrt"/
+          done
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-keenetic-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/keenetic"/
+          done
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-debian-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/debian"/
+          done
+
+      - name: Checkout repository branch
+        uses: actions/checkout@v6
+        with:
+          ref: repository
+          fetch-depth: 1
+          path: repo
+
+      - name: Publish package tree
+        run: |
+          make -C "$GITHUB_WORKSPACE/src" build-repository \
+            REPO_DIR="$GITHUB_WORKSPACE/repo" \
+            REPO_TARGET_ROOT="${{ inputs.target_root }}" \
+            REPO_SLUG="${{ github.repository }}"
+
+      - name: Commit and push repository changes
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          if git diff --cached --quiet; then
+            echo "No repository updates to publish"
+            exit 0
+          fi
+
+          git commit -m "publish repository tree for ${GITHUB_SHA}"
+          git push origin HEAD:repository

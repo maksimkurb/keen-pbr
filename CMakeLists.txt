@@ -1,5 +1,29 @@
 cmake_minimum_required(VERSION 3.14)
-project(keen-pbr VERSION 3.0.0 LANGUAGES CXX)
+
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/version.mk" KEEN_PBR_VERSION_LINES
+  REGEX "^KEEN_PBR_(VERSION|RELEASE)=")
+
+foreach(line IN LISTS KEEN_PBR_VERSION_LINES)
+  if(line MATCHES "^KEEN_PBR_VERSION=([0-9]+\\.[0-9]+\\.[0-9]+)$")
+    set(KEEN_PBR_VERSION "${CMAKE_MATCH_1}")
+  elseif(line MATCHES "^KEEN_PBR_RELEASE=([0-9]+)$")
+    set(KEEN_PBR_RELEASE "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+
+if(NOT DEFINED KEEN_PBR_VERSION OR NOT DEFINED KEEN_PBR_RELEASE)
+  message(FATAL_ERROR "Failed to read KEEN_PBR_VERSION/KEEN_PBR_RELEASE from version.mk")
+endif()
+
+if(NOT KEEN_PBR_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+  message(FATAL_ERROR "KEEN_PBR_VERSION must use semantic version format X.Y.Z")
+endif()
+
+set(KEEN_PBR_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(KEEN_PBR_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(KEEN_PBR_VERSION_PATCH "${CMAKE_MATCH_3}")
+
+project(keen-pbr VERSION ${KEEN_PBR_VERSION} LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
@@ -126,6 +150,13 @@ if(WITH_API)
   )
 endif()
 
+set(KEEN_PBR_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/keen-pbr/version.hpp.in"
+  "${KEEN_PBR_GENERATED_INCLUDE_DIR}/keen-pbr/version.hpp"
+  @ONLY
+)
+
 # Executable
 add_executable(keen-pbr ${SOURCES})
 set_target_properties(keen-pbr PROPERTIES
@@ -133,7 +164,10 @@ set_target_properties(keen-pbr PROPERTIES
   CXX_STANDARD_REQUIRED YES
   CXX_EXTENSIONS NO
 )
-target_include_directories(keen-pbr PRIVATE include)
+target_include_directories(keen-pbr PRIVATE
+  "${KEEN_PBR_GENERATED_INCLUDE_DIR}"
+  include
+)
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"

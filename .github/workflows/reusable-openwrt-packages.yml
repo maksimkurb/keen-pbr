@@ -1,0 +1,106 @@
+name: Reusable OpenWrt packages
+
+on:
+  workflow_call:
+    inputs:
+      build_scope:
+        required: true
+        type: string
+      openwrt_version:
+        required: false
+        type: string
+        default: "24.10.4"
+      targets:
+        required: false
+        type: string
+        default: ""
+      subtargets:
+        required: false
+        type: string
+        default: ""
+      frontend_artifact_name:
+        required: false
+        type: string
+        default: "frontend-dist"
+
+jobs:
+
+  generate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      job-config: ${{ steps.gen.outputs.job-config }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Generate matrix
+        id: gen
+        working-directory: .github/builder
+        env:
+          BUILD_SCOPE: ${{ inputs.build_scope }}
+          INPUT_TARGETS: ${{ inputs.targets }}
+          INPUT_SUBTARGETS: ${{ inputs.subtargets }}
+          OPENWRT_VERSION: ${{ inputs.openwrt_version }}
+        run: |
+          TARGETS="$INPUT_TARGETS"
+          SUBTARGETS="$INPUT_SUBTARGETS"
+          if [ "$BUILD_SCOPE" = "default" ]; then
+            TARGETS="mediatek"
+            SUBTARGETS="filogic"
+          fi
+          python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
+
+  build:
+    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
+    runs-on: ubuntu-latest
+    needs: [generate-config]
+    strategy:
+      fail-fast: false
+      matrix:
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: docker/setup-buildx-action@v4
+      - name: Download frontend bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.frontend_artifact_name }}
+          path: frontend-artifact
+      - name: Stage frontend dist
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/frontend/dist"
+          mkdir -p "$GITHUB_WORKSPACE/frontend/dist"
+          cp -a "$GITHUB_WORKSPACE/frontend-artifact"/. "$GITHUB_WORKSPACE/frontend/dist/"
+      - name: Cache OpenWrt image layers
+        uses: actions/cache@v5
+        with:
+          path: /tmp/.buildx-cache-openwrt
+          key: buildx-openwrt-${{ hashFiles('docker/Dockerfile.openwrt-builder') }}
+      - name: Cache SDK
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+      - name: Build packages
+        run: |
+          make openwrt-packages \
+            OPENWRT_VERSION="${{ matrix.build_env.tag }}" \
+            OPENWRT_TARGET="${{ matrix.build_env.target }}" \
+            OPENWRT_SUBTARGET="${{ matrix.build_env.subtarget }}" \
+            OPENWRT_SDK_CACHE_DIR="${RUNNER_TEMP}/openwrt-sdk" \
+            OPENWRT_DOCKER_CACHE_FROM="/tmp/.buildx-cache-openwrt" \
+            OPENWRT_DOCKER_CACHE_TO="/tmp/.buildx-cache-openwrt-new"
+      - name: Persist OpenWrt image cache
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache-openwrt
+          if [ -d /tmp/.buildx-cache-openwrt-new ]; then
+            mv /tmp/.buildx-cache-openwrt-new /tmp/.buildx-cache-openwrt
+          fi
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: packages-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          path: build/packages/openwrt

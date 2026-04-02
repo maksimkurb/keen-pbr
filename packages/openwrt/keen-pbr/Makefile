@@ -1,15 +1,21 @@
 include $(TOPDIR)/rules.mk
 
+KEEN_PBR_PACKAGE_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+KEEN_PBR_SRC ?= $(abspath $(KEEN_PBR_PACKAGE_DIR)/../../..)
+KEEN_PBR_VERSION_FILE := $(firstword $(wildcard \
+	$(KEEN_PBR_PACKAGE_DIR)/version.mk \
+	$(KEEN_PBR_SRC)/version.mk \
+	$(KEEN_PBR_PACKAGE_DIR)/../../../version.mk))
+include $(KEEN_PBR_VERSION_FILE)
 PKG_NAME:=keen-pbr
-PKG_VERSION:=3.0.0
-PKG_RELEASE:=1
+PKG_VERSION:=$(KEEN_PBR_VERSION)
+PKG_RELEASE:=$(KEEN_PBR_RELEASE)
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
 
 PKG_BUILD_DIR=$(BUILD_DIR)/$(PKG_NAME)$(if $(BUILD_VARIANT),-$(BUILD_VARIANT))/$(PKG_NAME)-$(PKG_VERSION)
 
-KEEN_PBR_SRC ?= /home/me/keen-pbr-src
 KEEN_PBR_FRONTEND_DIST ?= $(KEEN_PBR_SRC)/frontend/dist
 KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.full.example.json
 KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.headless.example.json
@@ -56,6 +62,7 @@ define Package/keen-pbr
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
+  VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
   DEPENDS:=+libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=full
 endef
@@ -106,6 +113,7 @@ define Package/keen-pbr-headless
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
+  VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
   DEPENDS:=+libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
   VARIANT:=headless
 endef

@@ -1,0 +1,86 @@
+name: Release packages
+
+on:
+  push:
+    tags: ["v-*"]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: oven-sh/setup-bun@v2
+      - name: Build frontend
+        run: make frontend-build
+      - name: Prepare frontend artifact
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/frontend-artifact"
+          mkdir -p "$GITHUB_WORKSPACE/frontend-artifact"
+          cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact"/
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist
+          path: frontend-artifact
+
+  openwrt:
+    needs: [prepare-frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt_version: ["24.10.4", "25.12.2"]
+    uses: ./.github/workflows/reusable-openwrt-packages.yml
+    with:
+      build_scope: full
+      openwrt_version: ${{ matrix.openwrt_version }}
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  keenetic:
+    needs: [prepare-frontend]
+    uses: ./.github/workflows/reusable-keenetic-packages.yml
+    with:
+      build_scope: full
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  debian:
+    needs: [prepare-frontend]
+    uses: ./.github/workflows/reusable-deb-packages.yml
+    with:
+      build_scope: full
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  publish-repository:
+    needs: [openwrt, keenetic, debian]
+    uses: ./.github/workflows/reusable-publish-repository.yml
+    with:
+      target_root: stable
+
+  draft-release:
+    name: Draft GitHub release
+    runs-on: ubuntu-latest
+    needs: [openwrt, keenetic, debian]
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          path: release_files
+          merge-multiple: true
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          overwrite_files: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release_files/*

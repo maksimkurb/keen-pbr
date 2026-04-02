@@ -84,7 +84,7 @@ content = content.replace(
 );
 
 // Add generation comment at the top
-const header = '// Generated from docs/openapi.yaml via scripts/generate_api_types.sh\n' +
+const header = '// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh\n' +
                '// Run \"make generate\" to regenerate (requires Node.js).\n\n';
 content = header + content;
 

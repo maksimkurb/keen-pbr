@@ -1,0 +1,71 @@
+name: Build packages
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  prepare-frontend:
+    runs-on: ubuntu-latest
+    outputs:
+      target_root: ${{ steps.target.outputs.target_root }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Derive repository target root
+        id: target
+        run: |
+          set -euo pipefail
+          target_root="${GITHUB_REF_NAME//\//_}"
+          echo "target_root=$target_root" >> "$GITHUB_OUTPUT"
+      - uses: oven-sh/setup-bun@v2
+      - name: Build frontend
+        run: make frontend-build
+      - name: Prepare frontend artifact
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/frontend-artifact"
+          mkdir -p "$GITHUB_WORKSPACE/frontend-artifact"
+          cp -a "$GITHUB_WORKSPACE/frontend/dist"/. "$GITHUB_WORKSPACE/frontend-artifact"/
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist
+          path: frontend-artifact
+
+  openwrt:
+    needs: [prepare-frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt_version: ["24.10.4", "25.12.2"]
+    uses: ./.github/workflows/reusable-openwrt-packages.yml
+    with:
+      build_scope: default
+      openwrt_version: ${{ matrix.openwrt_version }}
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  keenetic:
+    needs: [prepare-frontend]
+    uses: ./.github/workflows/reusable-keenetic-packages.yml
+    with:
+      build_scope: default
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  debian:
+    needs: [prepare-frontend]
+    uses: ./.github/workflows/reusable-deb-packages.yml
+    with:
+      build_scope: default
+      frontend_artifact_name: frontend-dist
+    secrets: inherit
+
+  publish-repository:
+    needs: [prepare-frontend, openwrt, keenetic, debian]
+    if: always() && startsWith(github.ref, 'refs/heads/')
+    uses: ./.github/workflows/reusable-publish-repository.yml
+    with:
+      target_root: ${{ needs.prepare-frontend.outputs.target_root }}

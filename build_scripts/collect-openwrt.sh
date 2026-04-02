@@ -1,0 +1,119 @@
+#!/bin/bash
+# collect-openwrt.sh — Rename compiled OpenWrt packages and generate repository indexes.
+#
+# Usage: scripts/collect-openwrt.sh \
+#          <workspace-dir> <sdk-dir> <release-dir> \
+#          <tag> <target> <subtarget> [pkgarch]
+#
+# <workspace-dir>  Root of the keen-pbr source tree (contains version.mk)
+# <sdk-dir>        Extracted OpenWrt SDK directory (built packages are in sdk-dir/bin/)
+# <release-dir>    Directory where repository-layout artifacts are written (created if absent)
+# <tag>            OpenWrt version string, e.g. "24.10.4"
+# <target>         OpenWrt target, e.g. "mediatek"
+# <subtarget>      OpenWrt subtarget, e.g. "filogic"
+# [pkgarch]        Optional explicit package architecture; auto-detected from path if empty
+
+set -euo pipefail
+
+WORKSPACE="${1:?Usage: $0 <workspace-dir> <sdk-dir> <release-dir> <tag> <target> <subtarget> [pkgarch]}"
+SDK_DIR="${2:?}"
+RELEASE_DIR="${3:?}"
+TAG="${4:?}"
+TARGET="${5:?}"
+SUBTARGET="${6:?}"
+FIXED_PKGARCH="${7:-}"
+
+. "$WORKSPACE/version.mk"
+VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
+
+mkdir -p "$RELEASE_DIR"
+ARCH_PREFIX="${TARGET}_${SUBTARGET}"
+
+# ── Copy and rename packages ──────────────────────────────────────────────────
+
+_copy_pkg() {
+    local name_prefix="$1"  # "keen-pbr" or "keen-pbr-headless"
+    find "$SDK_DIR/bin" -type f \( -name "${name_prefix}_*.ipk" -o -name "${name_prefix}-*.apk" \) | while read -r f; do
+        EXT="${f##*.}"
+        PKG_ARCH="$FIXED_PKGARCH"
+        if [ -z "$PKG_ARCH" ]; then
+            PKG_ARCH=$(printf '%s\n' "$f" | sed -E 's#^.*/bin/packages/([^/]+)/.*$#\1#')
+        fi
+        if [ -z "$PKG_ARCH" ] || [ "$PKG_ARCH" = "$f" ]; then
+            BASENAME=$(basename "$f")
+            PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
+        fi
+        DEST_DIR="$RELEASE_DIR/openwrt/${TAG}/${PKG_ARCH}"
+        mkdir -p "$DEST_DIR"
+        cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
+    done
+}
+
+_copy_pkg "keen-pbr"
+_copy_pkg "keen-pbr-headless"
+
+# ── IPK: generate Packages index per architecture ────────────────────────────
+
+IPKG_INDEXER="$SDK_DIR/scripts/ipkg-make-index.sh"
+if [ -x "$IPKG_INDEXER" ]; then
+    # Provide sha256 shim if only sha256sum is available (Linux default)
+    if ! command -v sha256 >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+        TMP_BIN=$(mktemp -d)
+        trap 'rm -rf "$TMP_BIN"' EXIT
+        cat > "$TMP_BIN/sha256" <<'EOF'
+#!/usr/bin/env bash
+sha256sum "$1" | awk '{print $1}'
+EOF
+        chmod +x "$TMP_BIN/sha256"
+        export PATH="$TMP_BIN:$PATH"
+    fi
+
+    for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
+        PKG_ARCH=$(basename "$ARCH_DIR")
+        mapfile -t ARCH_IPKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
+            -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.ipk" -printf '%f\n' | sort)
+        if [ "${#ARCH_IPKS[@]}" -gt 0 ]; then
+            TMP_DIR=$(mktemp -d)
+            for f in "${ARCH_IPKS[@]}"; do
+                cp "$ARCH_DIR/$f" "$TMP_DIR/"
+            done
+            (
+                cd "$TMP_DIR"
+                "$IPKG_INDEXER" . > Packages
+                gzip -n9c Packages > Packages.gz
+            )
+            cp "$TMP_DIR/Packages"    "$ARCH_DIR/Packages"
+            cp "$TMP_DIR/Packages.gz" "$ARCH_DIR/Packages.gz"
+            rm -rf "$TMP_DIR"
+        fi
+    done
+else
+    echo "[collect-openwrt] No ipkg indexer found at $IPKG_INDEXER; skipping IPK index generation."
+fi
+
+# ── APK: generate .adb index per architecture ────────────────────────────────
+
+APK_BIN="$SDK_DIR/staging_dir/host/bin/apk"
+if [ ! -x "$APK_BIN" ]; then
+    echo "[collect-openwrt] No OpenWrt host apk tool found at $APK_BIN; skipping .adb generation."
+    APK_BIN=""
+fi
+
+if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
+        -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_*.apk" 2>/dev/null | grep -q .; then
+    for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d | sort); do
+        PKG_ARCH=$(basename "$ARCH_DIR")
+        mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
+            -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
+        if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
+            (
+                cd "$ARCH_DIR"
+                "$APK_BIN" mkndx --allow-untrusted \
+                    --output "packages.adb" \
+                    "${ARCH_APKS[@]}"
+            )
+        fi
+    done
+else
+    echo "[collect-openwrt] No .apk artifacts found; skipping .adb generation."
+fi
