@@ -5,6 +5,7 @@
 #include <cctype>
 #include <iomanip>
 #include <limits>
+#include <set>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
@@ -533,7 +534,9 @@ void validate_config(const Config& cfg) {
 
     if (cfg.dns.has_value()) {
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
+        std::set<std::string> dns_server_tags;
         for (const auto& srv : dns_servers) {
+            dns_server_tags.insert(srv.tag);
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
 
             if (srv_type == api::DnsServerType::KEENETIC) {
@@ -586,6 +589,32 @@ void validate_config(const Config& cfg) {
                     "dns.servers." + srv.tag + ".detour",
                     "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
                         + dtag + "\"");
+            }
+        }
+
+        if (cfg.dns->fallback.has_value()) {
+            std::set<std::string> seen_fallback_tags;
+            for (size_t i = 0; i < cfg.dns->fallback->size(); ++i) {
+                const std::string& fallback_tag = (*cfg.dns->fallback)[i];
+                const std::string path = "dns.fallback." + std::to_string(i);
+
+                if (fallback_tag.empty()) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) + "] must not be empty");
+                    continue;
+                }
+
+                if (!seen_fallback_tags.insert(fallback_tag).second) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) +
+                                  "] duplicates DNS server tag \"" + fallback_tag + "\"");
+                }
+
+                if (dns_server_tags.find(fallback_tag) == dns_server_tags.end()) {
+                    add_issue(issues, path,
+                              "dns.fallback[" + std::to_string(i) +
+                                  "] references unknown DNS server tag \"" + fallback_tag + "\"");
+                }
             }
         }
 

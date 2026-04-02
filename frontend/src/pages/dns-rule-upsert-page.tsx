@@ -152,7 +152,7 @@ export function DnsRuleUpsertPage({
       postConfigMutation.mutate({
         data: buildUpdatedConfigWithRules(
           loadedConfig,
-          loadedConfig.dns?.fallback ?? "",
+          loadedConfig.dns?.fallback ?? [],
           nextRules
         ),
       })

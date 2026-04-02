@@ -39,7 +39,8 @@ export function DnsServersPage() {
     const dnsConfig = config.dns
     const allRules = dnsConfig?.rules ?? []
     const matchingRules = allRules.filter((rule) => rule.server === serverTag)
-    const usesFallback = dnsConfig?.fallback === serverTag
+    const fallbackServers = dnsConfig?.fallback ?? []
+    const usesFallback = fallbackServers.includes(serverTag)
 
     let shouldCleanupReferences = false
     if (matchingRules.length > 0 || usesFallback) {
@@ -63,7 +64,9 @@ export function DnsServersPage() {
       ? allRules.filter((rule) => rule.server !== serverTag)
       : allRules
     const nextFallback =
-      shouldCleanupReferences && usesFallback ? undefined : dnsConfig?.fallback
+      shouldCleanupReferences && usesFallback
+        ? fallbackServers.filter((tag) => tag !== serverTag)
+        : fallbackServers
 
     const updatedConfig = {
       ...config,

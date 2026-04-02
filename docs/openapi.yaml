@@ -512,9 +512,11 @@ components:
           items:
             $ref: "#/components/schemas/DnsRule"
         fallback:
-          type: string
-          description: DNS server tag to use when no rule matches.
-          example: "google-dns"
+          type: array
+          description: Ordered DNS server tags to use when no rule matches.
+          items:
+            type: string
+          example: ["google-dns", "quad9"]
         dns_test_server:
           $ref: "#/components/schemas/DnsTestServer"
         system_resolver:
@@ -712,7 +714,7 @@ components:
           rules:
             - list: ["my-domains", "remote-list"]
               server: "vpn-dns"
-          fallback: "google-dns"
+          fallback: ["google-dns", "quad9"]
         fwmark:
           start: "0x00010000"
           mask: "0x00FF0000"

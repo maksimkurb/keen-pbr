@@ -594,19 +594,22 @@ export const enTranslation = {
           },
           validation: {
             invalidFallback:
-              "Fallback server must reference an existing server tag.",
+              "Primary DNS servers must reference existing server tags.",
             invalidFallbackChange:
               "Cannot change fallback while DNS rules are invalid.",
             invalidResult:
               "Cannot save because resulting DNS rules are invalid.",
           },
           fallback: {
-            title: "Fallback",
-            description: "The DNS server to use when no rule matches.",
-            field: "Fallback server tag",
-            placeholder: "Select a DNS server",
-            group: "DNS servers",
+            title: "Primary DNS servers",
+            description:
+              "The ordered DNS servers dnsmasq should use when no DNS rule matches.",
+            add: "Add primary DNS server",
+            placeholderTitle: "No primary DNS servers selected",
+            placeholderDescription:
+              "Add one or more DNS servers. The order is preserved and used in generated dnsmasq config.",
             noneDefined: "No DNS servers defined in config.dns.servers.",
+            noneAvailable: "All DNS servers are already selected.",
           },
           empty: {
             title: "No DNS rules yet",

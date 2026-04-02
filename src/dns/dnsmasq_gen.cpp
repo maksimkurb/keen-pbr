@@ -125,6 +125,18 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
         out << "server=/" << kDnsProbeZone << "/" << parsed.ip << "#" << parsed.port << "\n\n";
     }
 
+    for (const DnsServerConfig* server : dns_registry_.fallback_servers()) {
+        std::string server_addr = server->resolved_ip;
+        if (server->port != 53) {
+            server_addr += "#" + std::to_string(server->port);
+        }
+        out << "server=" << server_addr << "\n";
+    }
+
+    if (dns_config_.fallback.has_value() && !dns_config_.fallback->empty()) {
+        out << "\n";
+    }
+
     // Collect all list names referenced in route rules that need ipset population.
     std::set<std::string> ipset_lists;
     for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {

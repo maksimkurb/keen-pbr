@@ -106,7 +106,7 @@ The following is the full annotated example configuration:
     "rules": [
       { "list": ["my-domains", "remote-list"], "server": "vpn-dns" }
     ],
-    "fallback": "google-dns"
+    "fallback": ["google-dns", "quad9"]
   },
 
   "fwmark": {

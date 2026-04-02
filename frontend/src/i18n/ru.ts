@@ -609,20 +609,22 @@ export const ruTranslation = {
           },
           validation: {
             invalidFallback:
-              "Fallback-сервер должен ссылаться на существующий тег сервера.",
+              "Основные DNS сервера должны ссылаться на существующие теги серверов.",
             invalidFallbackChange:
               "Нельзя изменить fallback, пока DNS-правила невалидны.",
             invalidResult:
               "Нельзя сохранить, потому что итоговые DNS-правила невалидны.",
           },
           fallback: {
-            title: "Основной DNS-сервер",
+            title: "Основные DNS сервера",
             description:
-              "DNS-сервер, используемый, когда ни одно правило не подходит.",
-            field: "Тег DNS сервера по умолчанию",
-            placeholder: "Выберите DNS-сервер",
-            group: "DNS-серверы",
+              "Упорядоченный список DNS-серверов, которые dnsmasq использует, когда ни одно DNS-правило не подходит.",
+            add: "Добавить основной DNS сервер",
+            placeholderTitle: "Основные DNS сервера не выбраны",
+            placeholderDescription:
+              "Добавьте один или несколько DNS-серверов. Их порядок сохраняется и используется в сгенерированном конфиге dnsmasq.",
             noneDefined: "В config.dns.servers не определены DNS-серверы.",
+            noneAvailable: "Все DNS-серверы уже выбраны.",
           },
           empty: {
             title: "DNS-правил пока нет",

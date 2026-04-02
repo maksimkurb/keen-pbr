@@ -13,8 +13,8 @@ import type { DnsTestServer } from './dnsTestServer';
 export interface DnsConfig {
   servers?: DnsServer[];
   rules?: DnsRule[];
-  /** DNS server tag to use when no rule matches. */
-  fallback?: string;
+  /** Ordered DNS server tags to use when no rule matches. */
+  fallback?: string[];
   dns_test_server?: DnsTestServer;
   system_resolver?: DnsSystemResolver;
 }

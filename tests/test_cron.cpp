@@ -13,6 +13,15 @@ Config parse_test_config(const std::string& json_str) {
     if (!cfg.dns.has_value()) {
         cfg.dns = DnsConfig{};
     }
+    if (!cfg.dns->servers.has_value()) {
+        DnsServer fallback_server;
+        fallback_server.tag = "default-dns";
+        fallback_server.address = "127.0.0.1";
+        cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+    }
+    if (!cfg.dns->fallback.has_value()) {
+        cfg.dns->fallback = std::vector<std::string>{"default-dns"};
+    }
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
         resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
