@@ -75,13 +75,13 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
     echo "## OpenWrt"
     if find "$ROOT_DIR/openwrt" -mindepth 2 -maxdepth 2 -type d >/dev/null 2>&1; then
         echo
-        echo "Open `/etc/opkg/customfeeds.conf` and add one of these lines:"
+        printf 'Open `%s` and add one of these lines:\n' '/etc/opkg/customfeeds.conf'
         echo
         find "$ROOT_DIR/openwrt" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
             rel_path="${arch_dir#$ROOT_DIR/}"
             version_dir="$(basename "$(dirname "$arch_dir")")"
             arch_name="$(basename "$arch_dir")"
-            printf -- "- `%s`: `src/gz keen-pbr %s/%s`\n" "$version_dir / $arch_name" "$RAW_BASE_URL" "$rel_path"
+            printf -- '- `%s`: `src/gz keen-pbr %s/%s`\n' "$version_dir / $arch_name" "$RAW_BASE_URL" "$rel_path"
         done
         echo
         echo "Then run:"
@@ -99,13 +99,13 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
     echo "## Keenetic Entware"
     if find "$ROOT_DIR/keenetic" -mindepth 2 -maxdepth 2 -type d >/dev/null 2>&1; then
         echo
-        echo "Open `/opt/etc/opkg/customfeeds.conf` and add one of these lines:"
+        printf 'Open `%s` and add one of these lines:\n' '/opt/etc/opkg/customfeeds.conf'
         echo
         find "$ROOT_DIR/keenetic" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
             rel_path="${arch_dir#$ROOT_DIR/}"
             version_dir="$(basename "$(dirname "$arch_dir")")"
             arch_name="$(basename "$arch_dir")"
-            printf -- "- `%s / %s`: `src/gz keen-pbr %s/%s`\n" "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
+            printf -- '- `%s / %s`: `src/gz keen-pbr %s/%s`\n' "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
         done
         echo
         echo "Then run:"
@@ -123,13 +123,13 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
     echo "## Debian"
     if find "$ROOT_DIR/debian" -mindepth 2 -maxdepth 2 -type d >/dev/null 2>&1; then
         echo
-        echo "Open `/etc/apt/sources.list.d/keen-pbr.list` and add one of these lines:"
+        printf 'Open `%s` and add one of these lines:\n' '/etc/apt/sources.list.d/keen-pbr.list'
         echo
         find "$ROOT_DIR/debian" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
             rel_path="${arch_dir#$ROOT_DIR/}"
             version_dir="$(basename "$(dirname "$arch_dir")")"
             arch_name="$(basename "$arch_dir")"
-            printf -- "- `%s / %s`: `deb [trusted=yes] %s/%s ./`\n" "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
+            printf -- '- `%s / %s`: `deb [trusted=yes] %s/%s ./`\n' "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
         done
         echo
         echo "Then run:"
