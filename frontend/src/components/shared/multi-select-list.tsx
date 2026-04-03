@@ -71,7 +71,7 @@ export function MultiSelectList({
       value={selectValue}
     >
       <SelectTrigger
-        className="w-full sm:w-auto sm:min-w-52"
+        className="w-full sm:w-auto sm:min-w-52 data-placeholder:text-foreground disabled:data-placeholder:text-muted-foreground"
         disabled={availableOptions.length === 0}
         size="sm"
       >
@@ -101,7 +101,7 @@ export function MultiSelectList({
       {value.length ? (
         <div className="space-y-2 rounded-xl border border-border p-3">
           {value.map((item, index) => (
-            <InputGroup key={`${item}-${index}`}>
+            <InputGroup key={`${item}-${index}`} className="cursor-default">
               <InputGroupAddon className="w-full justify-start text-foreground">
                 {item}
               </InputGroupAddon>
