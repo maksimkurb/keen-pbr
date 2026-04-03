@@ -22,13 +22,27 @@ OPENWRT_DOCKER_CACHE_TO   ?=
 
 _OPENWRT_SDK_INSTANCE := sdk-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 
-.PHONY: openwrt-packages openwrt-builder-image list-openwrt-targets
+.PHONY: openwrt-sdk-prepare openwrt-packages openwrt-builder-image list-openwrt-targets
 
-openwrt-packages: ## Build OpenWrt packages inside Docker container (SDK cached on host)
-	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
+openwrt-sdk-prepare: ## Download and prepare the OpenWrt SDK inside Docker (SDK cached on host)
+	@echo "[openwrt-sdk-prepare] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
 	@if ! docker image inspect "$(OPENWRT_DOCKER_IMAGE)" >/dev/null 2>&1; then \
 	  $(MAKE) openwrt-builder-image; \
 	fi
+	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)"
+	docker run --rm \
+	  -v "$(abspath .):/workspace" \
+	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
+	  "$(OPENWRT_DOCKER_IMAGE)" \
+	  bash -c 'set -e; \
+	    umask 022; \
+	    bash /workspace/build_scripts/openwrt-sdk-setup.sh \
+	      "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" \
+	      "$(OPENWRT_SDK_DIR)"; \
+	    chmod -R u+rwX,go+rX "$(OPENWRT_SDK_DIR)"'
+
+openwrt-packages: openwrt-sdk-prepare ## Build OpenWrt packages inside Docker container (SDK cached on host)
+	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
 	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)" build/packages
 	docker run --rm \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
@@ -37,9 +51,6 @@ openwrt-packages: ## Build OpenWrt packages inside Docker container (SDK cached 
 	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \
 	  bash -c 'set -e; \
-	    bash /workspace/build_scripts/openwrt-sdk-setup.sh \
-	      "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" \
-	      "$(OPENWRT_SDK_DIR)"; \
 	    _SDK=$$(find "$(OPENWRT_SDK_DIR)" -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1); \
 	    test -n "$$_SDK" || { echo "ERROR: OpenWrt SDK not found in $(OPENWRT_SDK_DIR)"; exit 1; }; \
 	    bash /workspace/build_scripts/build-openwrt-package.sh /workspace "$$_SDK"; \

@@ -79,11 +79,28 @@ jobs:
         with:
           path: /tmp/.buildx-cache-openwrt
           key: buildx-openwrt-${{ hashFiles('docker/Dockerfile.openwrt-builder') }}
-      - name: Cache SDK
-        uses: actions/cache@v5
+      - name: Restore SDK cache
+        id: cache-sdk-restore
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+      - name: Prepare SDK
+        if: steps.cache-sdk-restore.outputs.cache-hit != 'true'
+        run: |
+          make openwrt-sdk-prepare \
+            OPENWRT_VERSION="${{ matrix.build_env.tag }}" \
+            OPENWRT_TARGET="${{ matrix.build_env.target }}" \
+            OPENWRT_SUBTARGET="${{ matrix.build_env.subtarget }}" \
+            OPENWRT_SDK_CACHE_DIR="${RUNNER_TEMP}/openwrt-sdk" \
+            OPENWRT_DOCKER_CACHE_FROM="/tmp/.buildx-cache-openwrt" \
+            OPENWRT_DOCKER_CACHE_TO="/tmp/.buildx-cache-openwrt-new"
+      - name: Save SDK cache
+        if: steps.cache-sdk-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          key: ${{ steps.cache-sdk-restore.outputs.cache-primary-key }}
       - name: Build packages
         env:
           OPENWRT_USIGN_PRIVATE_KEY: ${{ secrets.OPENWRT_USIGN_PRIVATE_KEY }}
