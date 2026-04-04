@@ -7,7 +7,7 @@
 
   "api": {
     "enabled": true,
-    "listen": "127.0.0.1:12121"
+    "listen": "0.0.0.0:12121"
   },
 
   "outbounds": [
