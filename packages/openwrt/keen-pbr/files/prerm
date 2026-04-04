@@ -4,4 +4,13 @@
 /etc/init.d/keen-pbr disable || true
 /usr/lib/keen-pbr/dnsmasq.sh uninstall-persistent || true
 
+cat <<'EOF'
+keen-pbr has restored the dnsmasq configuration.
+If internet access stopped working after package removal, restore upstream DNS manually with UCI.
+Example:
+  uci add_list dhcp.@dnsmasq[0].server='8.8.8.8'
+  uci commit dhcp
+  /etc/init.d/dnsmasq restart
+EOF
+
 exit 0
