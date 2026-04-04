@@ -373,6 +373,84 @@ void Daemon::run_system_resolver_hook_reload() {
     log.info("System resolver reload hook complete: {}", command);
 }
 
+bool Daemon::routing_runtime_active() const {
+    std::shared_lock<std::shared_mutex> lock(state_mutex_);
+    return routing_runtime_active_;
+}
+
+void Daemon::stop_routing_runtime() {
+    auto& log = Logger::instance();
+    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+    if (!routing_runtime_active_) {
+        return;
+    }
+
+    if (urltest_manager_) {
+        urltest_manager_->clear();
+    }
+    route_table_.clear();
+    policy_rules_.clear();
+    firewall_->cleanup();
+
+    if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
+        const auto& hook = config_.dns->system_resolver->hook;
+        if (!hook.empty()) {
+            const int exit_code = hook_command_executor_({hook, "deactivate"});
+            if (exit_code != 0) {
+                throw DaemonError("System resolver deactivate hook failed with exit code " +
+                                  std::to_string(exit_code));
+            }
+        }
+    }
+
+    routing_runtime_active_ = false;
+    update_resolver_config_hash_actual();
+    log.info("Routing runtime stopped.");
+}
+
+void Daemon::start_routing_runtime() {
+    auto& log = Logger::instance();
+    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+    if (routing_runtime_active_) {
+        return;
+    }
+
+    setup_static_routing();
+    register_urltest_outbounds();
+    apply_firewall();
+
+    if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
+        const auto& hook = config_.dns->system_resolver->hook;
+        if (!hook.empty()) {
+            int exit_code = hook_command_executor_({hook, "ensure-runtime-prereqs"});
+            if (exit_code != 0) {
+                throw DaemonError("System resolver ensure-runtime-prereqs hook failed with exit code " +
+                                  std::to_string(exit_code));
+            }
+            exit_code = hook_command_executor_({hook, "activate"});
+            if (exit_code != 0) {
+                throw DaemonError("System resolver activate hook failed with exit code " +
+                                  std::to_string(exit_code));
+            }
+        }
+    }
+
+    routing_runtime_active_ = true;
+    update_resolver_config_hash_actual();
+    log.info("Routing runtime started.");
+}
+
+void Daemon::restart_routing_runtime() {
+    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+    if (!routing_runtime_active_) {
+        throw DaemonError("Routing runtime is stopped");
+    }
+    lock.unlock();
+
+    stop_routing_runtime();
+    start_routing_runtime();
+}
+
 void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
     enqueue_control_task([this, fd, events, cb = std::move(cb)]() mutable {
         struct epoll_event ev{};
@@ -1088,6 +1166,9 @@ void Daemon::setup_api() {
         [this]() {
             return resolver_config_hash_actual_;
         },
+        [this]() {
+            return routing_runtime_active();
+        },
         config_op_mutex_,
         config_op_cv_,
         config_op_state_,
@@ -1130,6 +1211,36 @@ void Daemon::setup_api() {
                 config_op_cv_.notify_all();
             }, true);
             return result;
+        },
+        [this]() {
+            enqueue_control_task([this]() {
+                try {
+                    start_routing_runtime();
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Start routing runtime task failed: {}", e.what());
+                    throw;
+                }
+            }, true);
+        },
+        [this]() {
+            enqueue_control_task([this]() {
+                try {
+                    stop_routing_runtime();
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Stop routing runtime task failed: {}", e.what());
+                    throw;
+                }
+            }, true);
+        },
+        [this]() {
+            enqueue_control_task([this]() {
+                try {
+                    restart_routing_runtime();
+                } catch (const std::exception& e) {
+                    Logger::instance().error("Restart routing runtime task failed: {}", e.what());
+                    throw;
+                }
+            }, true);
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);

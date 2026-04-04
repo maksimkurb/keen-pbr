@@ -42,10 +42,11 @@ paths:
 
   /api/service/start:
     post:
-      summary: Start keen-pbr service
+      summary: Start routing runtime
       description: >
-        Starts the keen-pbr service and runs dnsmasq registration hooks to
-        activate the managed resolver config.
+        Applies keen-pbr routing/firewall runtime state and runs dnsmasq
+        registration hooks to activate the managed resolver config without
+        stopping the API process.
       operationId: postServiceStart
       responses:
         "200":
@@ -57,10 +58,11 @@ paths:
 
   /api/service/stop:
     post:
-      summary: Stop keen-pbr service
+      summary: Stop routing runtime
       description: >
-        Stops the keen-pbr service and runs dnsmasq deactivation hooks to load
-        fallback resolver config.
+        Removes keen-pbr routing/firewall runtime state and runs dnsmasq
+        deactivation hooks to load fallback resolver config while keeping the
+        API process running.
       operationId: postServiceStop
       responses:
         "200":
@@ -72,10 +74,10 @@ paths:
 
   /api/service/restart:
     post:
-      summary: Restart keen-pbr service
+      summary: Restart routing runtime
       description: >
-        Restarts the keen-pbr service and re-applies dnsmasq registration hooks
-        for the managed resolver config.
+        Re-applies keen-pbr routing/firewall runtime state and dnsmasq
+        registration hooks for the managed resolver config.
       operationId: postServiceRestart
       responses:
         "200":
@@ -944,7 +946,7 @@ components:
           example: "3.0.0"
         status:
           type: string
-          enum: [running]
+          enum: [running, stopped]
           example: "running"
         resolver_config_hash:
           type: string

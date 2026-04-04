@@ -95,6 +95,8 @@ export function OverviewPage() {
     Boolean(serviceHealth?.resolver_config_hash) &&
     Boolean(serviceHealth?.resolver_config_hash_actual) &&
     serviceHealth?.resolver_config_hash !== serviceHealth?.resolver_config_hash_actual
+  const hasServiceHealth = Boolean(serviceHealth)
+  const isServiceRunning = serviceHealth?.status === "running"
 
   const outboundRows = useMemo(() => {
     const configuredOutbounds = loadedConfig?.outbounds ?? []
@@ -208,7 +210,7 @@ export function OverviewPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending}
+                  disabled={serviceActionPending || !hasServiceHealth || isServiceRunning}
                   onClick={() => postServiceStartMutation.mutate()}
                 >
                   <Play className="mr-1 h-3 w-3" />
@@ -217,7 +219,7 @@ export function OverviewPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending}
+                  disabled={serviceActionPending || !hasServiceHealth || !isServiceRunning}
                   onClick={() => postServiceStopMutation.mutate()}
                 >
                   <Square className="mr-1 h-3 w-3" />
@@ -226,7 +228,7 @@ export function OverviewPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending}
+                  disabled={serviceActionPending || !hasServiceHealth || !isServiceRunning}
                   onClick={() => postServiceRestartMutation.mutate()}
                 >
                   <RotateCw className="mr-1 h-3 w-3" />
