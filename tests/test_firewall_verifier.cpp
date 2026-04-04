@@ -33,43 +33,40 @@ bool matches_args(const std::vector<std::string>& actual,
 } // namespace
 
 // =============================================================================
-// parse_iptables_save tests
+// parse_iptables_s tests
 // =============================================================================
 
-TEST_CASE("parse_iptables_save: empty string") {
-    auto state = parse_iptables_save("");
+TEST_CASE("parse_iptables_s: empty string") {
+    auto state = parse_iptables_s("");
     CHECK_FALSE(state.has_keen_pbr_chain);
     CHECK_FALSE(state.has_prerouting_jump);
     CHECK(state.rules.empty());
 }
 
-TEST_CASE("parse_iptables_save: chain declaration only, no jump") {
+TEST_CASE("parse_iptables_s: chain declaration only, no jump") {
     const std::string input =
-        "*mangle\n"
-        ":KeenPbrTable - [0:0]\n"
-        "COMMIT\n";
-    auto state = parse_iptables_save(input);
+        "-N KeenPbrTable\n";
+    auto state = parse_iptables_s(input);
     CHECK(state.has_keen_pbr_chain);
     CHECK_FALSE(state.has_prerouting_jump);
     CHECK(state.rules.empty());
 }
 
-TEST_CASE("parse_iptables_save: prerouting jump present") {
+TEST_CASE("parse_iptables_s: prerouting jump present") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
         "-A PREROUTING -j KeenPbrTable\n";
-    auto state = parse_iptables_save(input);
-    CHECK(state.has_keen_pbr_chain);
+    auto state = parse_iptables_s(input);
+    CHECK_FALSE(state.has_keen_pbr_chain);
     CHECK(state.has_prerouting_jump);
     CHECK(state.rules.empty());
 }
 
-TEST_CASE("parse_iptables_save: mark rule with decimal fwmark") {
+TEST_CASE("parse_iptables_s: mark rule with decimal fwmark") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
+        "-N KeenPbrTable\n"
         "-A PREROUTING -j KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 65536\n";
-    auto state = parse_iptables_save(input);
+    auto state = parse_iptables_s(input);
     CHECK(state.has_keen_pbr_chain);
     CHECK(state.has_prerouting_jump);
     REQUIRE(state.rules.size() == 1);
@@ -79,35 +76,59 @@ TEST_CASE("parse_iptables_save: mark rule with decimal fwmark") {
     CHECK(state.rules[0].fwmark == 65536u);
 }
 
-TEST_CASE("parse_iptables_save: mark rule with hex fwmark") {
+TEST_CASE("parse_iptables_s: mark rule with hex fwmark") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
+        "-N KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x10000\n";
-    auto state = parse_iptables_save(input);
+    auto state = parse_iptables_s(input);
     REQUIRE(state.rules.size() == 1);
     CHECK(state.rules[0].is_mark);
     CHECK(state.rules[0].fwmark == 0x10000u);
 }
 
-TEST_CASE("parse_iptables_save: drop rule") {
+TEST_CASE("parse_iptables_s: mark rule with full-width xmark") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xffffffff\n";
+    auto state = parse_iptables_s(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].is_mark);
+    CHECK(state.rules[0].mark_is_exact);
+    CHECK(state.rules[0].fwmark == 0x20000u);
+    CHECK(state.rules[0].xmark_mask == 0xFFFFFFFFu);
+}
+
+TEST_CASE("parse_iptables_s: mark rule with partial xmark mask") {
+    const std::string input =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xff0000\n";
+    auto state = parse_iptables_s(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].is_mark);
+    CHECK_FALSE(state.rules[0].mark_is_exact);
+    CHECK(state.rules[0].fwmark == 0x20000u);
+    CHECK(state.rules[0].xmark_mask == 0x00FF0000u);
+}
+
+TEST_CASE("parse_iptables_s: drop rule") {
+    const std::string input =
+        "-N KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set blacklist dst -j DROP\n";
-    auto state = parse_iptables_save(input);
+    auto state = parse_iptables_s(input);
     REQUIRE(state.rules.size() == 1);
     CHECK(state.rules[0].set_name == "blacklist");
     CHECK(state.rules[0].is_drop);
     CHECK_FALSE(state.rules[0].is_mark);
 }
 
-TEST_CASE("parse_iptables_save: multiple rules parsed in order") {
+TEST_CASE("parse_iptables_s: multiple rules parsed in order") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
+        "-N KeenPbrTable\n"
         "-A PREROUTING -j KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 1\n"
         "-A KeenPbrTable -m set --match-set set2 dst -j DROP\n"
         "-A KeenPbrTable -m set --match-set set3 dst -j MARK --set-mark 2\n";
-    auto state = parse_iptables_save(input);
+    auto state = parse_iptables_s(input);
     CHECK(state.has_keen_pbr_chain);
     CHECK(state.has_prerouting_jump);
     REQUIRE(state.rules.size() == 3);
@@ -121,16 +142,16 @@ TEST_CASE("parse_iptables_save: multiple rules parsed in order") {
     CHECK(state.rules[2].fwmark == 2u);
 }
 
-TEST_CASE("parse_iptables_save: ipv6=true produces same result") {
+TEST_CASE("parse_iptables_s: chain-only and prerouting outputs can be combined") {
     const std::string input =
-        ":KeenPbrTable - [0:0]\n"
+        "-N KeenPbrTable\n"
         "-A PREROUTING -j KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x20000\n";
-    auto state_v4 = parse_iptables_save(input, false);
-    auto state_v6 = parse_iptables_save(input, true);
-    CHECK(state_v4.has_keen_pbr_chain == state_v6.has_keen_pbr_chain);
-    CHECK(state_v4.has_prerouting_jump == state_v6.has_prerouting_jump);
-    CHECK(state_v4.rules.size() == state_v6.rules.size());
+    auto state = parse_iptables_s(input);
+    CHECK(state.has_keen_pbr_chain);
+    CHECK(state.has_prerouting_jump);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].fwmark == 0x20000u);
 }
 
 // =============================================================================
@@ -268,13 +289,21 @@ TEST_CASE("parse_nft_json: wrong table name returns empty state") {
 // =============================================================================
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
-    const std::string canned =
-        ":KeenPbrTable - [0:0]\n"
-        "-A PREROUTING -j KeenPbrTable\n"
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
+    const std::string prerouting =
+        "-P PREROUTING ACCEPT\n"
+        "-A PREROUTING -j KeenPbrTable\n";
 
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [&chain_rules, &prerouting](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result(prerouting);
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -295,12 +324,18 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {
-    const std::string canned =
-        ":KeenPbrTable - [0:0]\n"
+    const std::string prerouting =
+        "-P PREROUTING ACCEPT\n"
         "-A PREROUTING -j KeenPbrTable\n";
 
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [&prerouting](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result("-N KeenPbrTable\n");
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result(prerouting);
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -316,12 +351,18 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: fwmark mismatch") {
-    const std::string canned =
-        ":KeenPbrTable - [0:0]\n"
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-mark 65536\n";
 
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -338,13 +379,108 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: fwmark mismatch") {
     CHECK(*checks[0].actual_fwmark == 65536u);
 }
 
+TEST_CASE("IptablesFirewallVerifier::verify_rules: full-width xmark is accepted") {
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xffffffff\n";
+
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"set1"};
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 0x20000u;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+    CHECK(checks[0].actual_fwmark.has_value());
+    CHECK(*checks[0].actual_fwmark == 0x20000u);
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_rules: full-width xmark mismatch reports actual fwmark") {
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x30000/0xffffffff\n";
+
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"set1"};
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 0x20000u;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::mismatch);
+    CHECK(checks[0].actual_fwmark.has_value());
+    CHECK(*checks[0].actual_fwmark == 0x30000u);
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_rules: partial xmark mask reports mismatch") {
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xff0000\n";
+
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"set1"};
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 0x20000u;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::mismatch);
+    CHECK(checks[0].actual_fwmark.has_value());
+    CHECK(*checks[0].actual_fwmark == 0x20000u);
+    CHECK(checks[0].detail ==
+          "live rule uses partial xmark mask: got 0x20000/0xff0000, expected exact mark 0x20000");
+}
+
 TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
-    const std::string canned =
-        ":KeenPbrTable - [0:0]\n"
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
         "-A KeenPbrTable -m set --match-set blacklist dst -j DROP\n";
 
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -359,9 +495,14 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check") {
-    const std::string canned = "";
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result("-N KeenPbrTable\n");
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -375,14 +516,14 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check")
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_chain: scaffold without rules is healthy") {
-    const std::string canned =
-        "*mangle\n"
-        ":KeenPbrTable - [0:0]\n"
-        "-A PREROUTING -j KeenPbrTable\n"
-        "COMMIT\n";
-
-    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
-        return command_result(canned);
+    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result("-N KeenPbrTable\n");
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
     };
     IptablesFirewallVerifier verifier(runner);
 
@@ -390,6 +531,42 @@ TEST_CASE("IptablesFirewallVerifier::verify_chain: scaffold without rules is hea
     CHECK(check.chain_present);
     CHECK(check.prerouting_hook_present);
     CHECK(check.detail == "ok");
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_chain: missing chain with prerouting present is degraded") {
+    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result({}, 1);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    const auto check = verifier.verify_chain();
+    CHECK_FALSE(check.chain_present);
+    CHECK(check.prerouting_hook_present);
+    CHECK(check.detail == "KeenPbrTable chain not found in iptables or ip6tables mangle table");
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_chain: chain without prerouting jump is degraded") {
+    auto runner = [](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result("-N KeenPbrTable\n");
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-P PREROUTING ACCEPT\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    const auto check = verifier.verify_chain();
+    CHECK(check.chain_present);
+    CHECK_FALSE(check.prerouting_hook_present);
+    CHECK(check.detail == "KeenPbrTable chain exists but PREROUTING jump not found");
 }
 
 // =============================================================================

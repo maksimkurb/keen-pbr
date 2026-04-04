@@ -17,8 +17,8 @@ include $(INCLUDE_DIR)/cmake.mk
 PKG_BUILD_DIR=$(BUILD_DIR)/$(PKG_NAME)$(if $(BUILD_VARIANT),-$(BUILD_VARIANT))/$(PKG_NAME)-$(PKG_VERSION)
 
 KEEN_PBR_FRONTEND_DIST ?= $(KEEN_PBR_SRC)/frontend/dist
-KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.full.example.json
-KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.headless.example.json
+KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.full.example.json
+KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json
 KEEN_PBR_CMAKE_INSTALL_BINDIR ?= usr/bin
 KEEN_PBR_STAGED_BINDIR ?= opt/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
 

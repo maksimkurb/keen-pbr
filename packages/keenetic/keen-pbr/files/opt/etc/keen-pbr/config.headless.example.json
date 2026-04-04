@@ -1,0 +1,64 @@
+{
+  "daemon": {
+    "pid_file": "/tmp/keen-pbr.pid",
+    "cache_dir": "/opt/var/cache/keen-pbr",
+    "strict_enforcement": false
+  },
+
+  "outbounds": [
+    {
+      "type": "table",
+      "tag": "wan",
+      "table": 254
+    },
+    {
+      "type": "blackhole",
+      "tag": "block"
+    }
+  ],
+
+  "lists": {
+    "local_list": {
+      "domains": [
+        "example.com"
+      ],
+      "ip_cidrs": [
+        "93.184.216.34",
+        "10.0.0.0/8"
+      ]
+    }
+  },
+
+  "dns": {
+    "system_resolver": {
+      "type": "dnsmasq-ipset",
+      "hook": "/opt/usr/lib/keen-pbr/dnsmasq.sh",
+      "address": "127.0.0.1"
+    },
+    "dns_test_server": {
+      "listen": "127.0.0.88:12153"
+    },
+    "servers": [
+      {
+        "tag": "quad9",
+        "address": "9.9.9.9"
+      }
+    ],
+    "rules": [],
+    "fallback": ["quad9"]
+  },
+
+  "fwmark": {
+    "start": "0x00010000",
+    "mask": "0x00FF0000"
+  },
+
+  "iproute": {
+    "table_start": 150
+  },
+
+  "route": {
+    "rules": [],
+    "fallback": "wan"
+  }
+}
