@@ -237,15 +237,41 @@ async function copyCommand(
   command: string,
   setCopyFeedback: (value: "idle" | "copied" | "failed") => void
 ) {
-  if (!navigator.clipboard?.writeText) {
-    setCopyFeedback("failed")
-    return
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(command)
+      setCopyFeedback("copied")
+      return
+    }
+  } catch {
+    // Fall back to `execCommand("copy")` on insecure origins where the Clipboard API is unavailable.
   }
 
-  try {
-    await navigator.clipboard.writeText(command)
+  if (copyCommandWithExec(command)) {
     setCopyFeedback("copied")
-  } catch {
+  } else {
     setCopyFeedback("failed")
+  }
+}
+
+function copyCommandWithExec(command: string) {
+  const textarea = document.createElement("textarea")
+  textarea.value = command
+  textarea.setAttribute("readonly", "")
+  textarea.style.position = "fixed"
+  textarea.style.top = "0"
+  textarea.style.left = "0"
+  textarea.style.opacity = "0"
+
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+
+  try {
+    return document.execCommand("copy")
+  } catch {
+    return false
+  } finally {
+    document.body.removeChild(textarea)
   }
 }
