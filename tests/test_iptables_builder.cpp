@@ -205,6 +205,15 @@ TEST_CASE("build_ipt_script: multiple rules appear in order") {
   CHECK(pos_first < pos_second);
 }
 
+TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
+  auto s = T::build_ipt_script(false, {});
+  CHECK(s.find("*mangle\n") != std::string::npos);
+  CHECK(s.find(":KeenPbrTable - [0:0]\n") != std::string::npos);
+  CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable ") == std::string::npos);
+  CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n-A PREROUTING -j KeenPbrTable\nCOMMIT\n");
+}
+
 // =============================================================================
 // build_proto_port_fragment tests
 // =============================================================================

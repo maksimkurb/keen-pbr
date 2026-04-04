@@ -223,10 +223,11 @@ void IptablesFirewall::apply() {
         }
     }
 
-    // Phase 2: iptables rules via iptables-restore / ip6tables-restore
-    // Collect rules by protocol
-    bool has_v4 = false;
-    bool has_v6 = false;
+    // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
+    // Always materialize the KeenPbrTable scaffold for both protocols so
+    // diagnostics can verify chain/jump presence even when no rules are needed.
+    bool has_v4 = true;
+    bool has_v6 = true;
     for (const auto& pr : pending_rules_) {
         if (pr.ipv6) has_v6 = true;
         else has_v4 = true;

@@ -10,24 +10,26 @@
 
 namespace keen_pbr3 {
 
-// A single parsed rule from iptables-save -t mangle output (within KeenPbrTable chain).
+// A single parsed rule from `iptables -t mangle -S` output (within KeenPbrTable chain).
 struct ParsedIptablesRule {
     std::string set_name;  // IP set name from --match-set
-    bool is_mark{false};   // true if -j MARK --set-mark
+    bool is_mark{false};   // true if -j MARK --set-mark / --set-xmark
     bool is_drop{false};   // true if -j DROP
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
+    bool mark_is_exact{true};      // false for partial-mask --set-xmark rules
+    uint32_t xmark_mask{0xFFFFFFFF}; // parsed mask for --set-xmark
 };
 
-// Parsed state of the KeenPbrTable chain from iptables-save -t mangle output.
+// Parsed state of the KeenPbrTable chain from `iptables -t mangle -S` output.
 struct ParsedIptablesState {
-    bool has_keen_pbr_chain{false};        // :KeenPbrTable line was found
+    bool has_keen_pbr_chain{false};        // -N KeenPbrTable line was found
     bool has_prerouting_jump{false};       // -A PREROUTING -j KeenPbrTable was found
     std::vector<ParsedIptablesRule> rules; // rules found in KeenPbrTable chain
 };
 
-// Parse the stdout of `iptables-save -t mangle` (or ip6tables-save -t mangle).
+// Parse the stdout of `iptables -t mangle -S <chain>` / `ip6tables -t mangle -S <chain>`.
 // Returns the parsed state of the KeenPbrTable chain.
-ParsedIptablesState parse_iptables_save(const std::string& output, bool ipv6 = false);
+ParsedIptablesState parse_iptables_s(const std::string& output);
 
 // FirewallVerifier implementation for the iptables/ip6tables backend.
 class IptablesFirewallVerifier : public FirewallVerifier {
