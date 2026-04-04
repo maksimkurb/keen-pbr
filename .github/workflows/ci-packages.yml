@@ -69,3 +69,4 @@ jobs:
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
       target_root: ${{ needs.prepare-frontend.outputs.target_root }}
+    secrets: inherit

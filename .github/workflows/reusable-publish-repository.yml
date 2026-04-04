@@ -13,6 +13,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: package-builder
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
@@ -55,32 +56,74 @@ jobs:
             cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/debian"/
           done
 
-      - name: Checkout branch "website"
-        uses: actions/checkout@v6
-        with:
-          ref: website
-          fetch-depth: 1
-          path: website
+      - name: Normalize publish target root
+        id: normalized-target-root
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sanitize_segment() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#-+#-#g; s#(^-+|-+$)##g'
+          }
+
+          sanitize_path() {
+            local raw="$1"
+            local out=""
+            local part=""
+            local IFS='/'
+            read -ra parts <<< "$raw"
+            for part in "${parts[@]}"; do
+              [ -z "$part" ] && continue
+              part="$(sanitize_segment "$part")"
+              [ -z "$part" ] && continue
+              if [ -z "$out" ]; then
+                out="$part"
+              else
+                out="$out/$part"
+              fi
+            done
+            printf '%s' "$out"
+          }
+
+          normalized_target_root="$(sanitize_path "${{ inputs.target_root }}")"
+          if [ -z "$normalized_target_root" ]; then
+            echo "target_root resolved to an empty path" >&2
+            exit 1
+          fi
+
+          echo "value=$normalized_target_root" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout publish repository
+        env:
+          PUBLISH_REPOSITORY_TOKEN: ${{ secrets.publish_repository_token || secrets.PUBLISH_REPOSITORY_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${PUBLISH_REPOSITORY_TOKEN:?publish_repository_token or PUBLISH_REPOSITORY_TOKEN secret is required}"
+          git clone --branch main --depth=1 --filter=blob:none --sparse \
+            "https://x-access-token:${PUBLISH_REPOSITORY_TOKEN}@github.com/maksimkurb/keen-pbr-repository.git" \
+            "$GITHUB_WORKSPACE/publish"
+          git -C "$GITHUB_WORKSPACE/publish" sparse-checkout set \
+            "repository/${{ steps.normalized-target-root.outputs.value }}"
 
       - name: Publish package tree
         run: |
           make -C "$GITHUB_WORKSPACE/src" build-repository \
-            REPO_DIR="$GITHUB_WORKSPACE/website/repository" \
+            REPO_DIR="$GITHUB_WORKSPACE/publish/repository" \
             REPO_TARGET_ROOT="${{ inputs.target_root }}" \
-            REPO_SLUG="${{ github.repository }}"
+            REPO_BASE_PATH="repository"
 
       - name: Commit and push repository changes
-        working-directory: website
+        working-directory: publish
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .
+          git add repository
           if git diff --cached --quiet; then
             echo "No repository updates to publish"
             exit 0
           fi
 
           git commit -m "publish repository tree for ${GITHUB_SHA}"
-          git push origin HEAD:repository
+          git push origin HEAD:main
