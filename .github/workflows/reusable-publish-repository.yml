@@ -108,9 +108,8 @@ jobs:
       - name: Publish package tree
         run: |
           make -C "$GITHUB_WORKSPACE/src" build-repository \
-            REPO_DIR="$GITHUB_WORKSPACE/publish/repository" \
-            REPO_TARGET_ROOT="${{ inputs.target_root }}" \
-            REPO_BASE_PATH="repository"
+            REPO_DIR="$GITHUB_WORKSPACE/publish" \
+            REPO_TARGET_ROOT="repository/${{ steps.normalized-target-root.outputs.value }}"
 
       - name: Commit and push repository changes
         working-directory: publish
