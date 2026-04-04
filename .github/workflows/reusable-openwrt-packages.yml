@@ -22,6 +22,10 @@ on:
         required: false
         type: string
         default: "frontend-dist"
+      use_signing_secrets:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
 
@@ -51,9 +55,8 @@ jobs:
           python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
 
   build:
-    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
+    name: "build: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
-    environment: package-builder
     needs: [generate-config]
     strategy:
       fail-fast: false
@@ -102,9 +105,6 @@ jobs:
           path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           key: ${{ steps.cache-sdk-restore.outputs.cache-primary-key }}
       - name: Build packages
-        env:
-          OPENWRT_USIGN_PRIVATE_KEY: ${{ secrets.OPENWRT_USIGN_PRIVATE_KEY }}
-          OPENWRT_APK_PRIVATE_KEY: ${{ secrets.OPENWRT_APK_PRIVATE_KEY }}
         run: |
           make openwrt-packages \
             OPENWRT_VERSION="${{ matrix.build_env.tag }}" \
@@ -120,6 +120,60 @@ jobs:
           if [ -d /tmp/.buildx-cache-openwrt-new ]; then
             mv /tmp/.buildx-cache-openwrt-new /tmp/.buildx-cache-openwrt
           fi
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: staging-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          path: build/packages/openwrt
+
+  sign:
+    if: ${{ inputs.use_signing_secrets }}
+    name: "sign: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
+    runs-on: ubuntu-latest
+    environment: package-builder
+    needs: [generate-config, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        build_env: ${{ fromJson(needs.generate-config.outputs.job-config) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: docker/setup-buildx-action@v4
+      - name: Restore SDK cache
+        id: cache-sdk-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          key: sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+      - name: Prepare SDK
+        if: steps.cache-sdk-restore.outputs.cache-hit != 'true'
+        run: |
+          make openwrt-sdk-prepare \
+            OPENWRT_VERSION="${{ matrix.build_env.tag }}" \
+            OPENWRT_TARGET="${{ matrix.build_env.target }}" \
+            OPENWRT_SUBTARGET="${{ matrix.build_env.subtarget }}" \
+            OPENWRT_SDK_CACHE_DIR="${RUNNER_TEMP}/openwrt-sdk" \
+            OPENWRT_DOCKER_CACHE_FROM="/tmp/.buildx-cache-openwrt" \
+            OPENWRT_DOCKER_CACHE_TO="/tmp/.buildx-cache-openwrt-new"
+      - name: Download unsigned package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: staging-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          path: build/packages/openwrt
+      - name: Sign packages
+        env:
+          OPENWRT_USIGN_PRIVATE_KEY: ${{ secrets.OPENWRT_USIGN_PRIVATE_KEY }}
+          OPENWRT_APK_PRIVATE_KEY: ${{ secrets.OPENWRT_APK_PRIVATE_KEY }}
+        run: |
+          sdk_root="${RUNNER_TEMP}/openwrt-sdk/sdk-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}"
+          sdk_dir="$(find "$sdk_root" -maxdepth 1 -name 'openwrt-sdk-*' -type d | head -1)"
+          test -n "$sdk_dir" || { echo "OpenWrt SDK not found in $sdk_root" >&2; exit 1; }
+          bash ./build_scripts/sign-openwrt-repository.sh \
+            "$sdk_dir" \
+            "$GITHUB_WORKSPACE/build/packages" \
+            "${{ matrix.build_env.tag }}"
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:

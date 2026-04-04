@@ -19,7 +19,6 @@ deb-packages: ## Build Debian packages inside Docker container
 	fi
 	mkdir -p build/packages
 	docker run --rm \
-	  -e DEBIAN_GPG_PRIVATE_KEY \
 	  -v "$(abspath .):/workspace" \
 	  "$(DEBIAN_DOCKER_IMAGE)" \
 	  bash -c 'set -e; \

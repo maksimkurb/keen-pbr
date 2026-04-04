@@ -17,7 +17,6 @@ set -euo pipefail
 RELEASE_DIR="${1:?Usage: $0 <release-dir> <repo-dir> <target-root>}"
 REPO_DIR="${2:?}"
 TARGET_ROOT_INPUT="${3:?}"
-REPO_BASE_PATH="${REPO_BASE_PATH:-}"
 REPO_PUBLIC_BASE_URL="${REPO_PUBLIC_BASE_URL:-https://repo.keen-pbr.fyi}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -47,16 +46,6 @@ print_markdown_table_header() {
     local third_column="$1"
     printf '| Version | Architecture | %s |\n' "$third_column"
     echo '| --- | --- | --- |'
-}
-
-strip_repository_root_prefix() {
-    local path="$1"
-    path="${path#/}"
-    case "$path" in
-        repository) path="" ;;
-        repository/*) path="${path#repository/}" ;;
-    esac
-    printf '%s' "$path"
 }
 
 TARGET_ROOT=$(sanitize_path "$TARGET_ROOT_INPUT")
@@ -116,11 +105,7 @@ fi
 
 find "$ROOT_DIR" -type f \( -name '.apk-signed' -o -name '.signed' \) -delete
 
-PUBLIC_BASE_PATH="$(strip_repository_root_prefix "$REPO_BASE_PATH")"
 RAW_BASE_URL="$REPO_PUBLIC_BASE_URL"
-if [ -n "$PUBLIC_BASE_PATH" ]; then
-    RAW_BASE_URL="$RAW_BASE_URL/$PUBLIC_BASE_PATH"
-fi
 RAW_BASE_URL="$RAW_BASE_URL/$TARGET_ROOT"
 INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
 
