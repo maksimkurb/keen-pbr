@@ -37,8 +37,8 @@ public:
         const std::string& set_name) override;
 
     // Atomically apply all pending ipsets (via ipset restore) and rules
-    // (via iptables-restore / ip6tables-restore), then create the PREROUTING
-    // jump if not already present.
+    // (via iptables-restore / ip6tables-restore), always materializing the
+    // KeenPbrTable chain scaffold and PREROUTING jump for diagnostics.
     void apply() override;
     // Destroy all buffered ipsets (ipset destroy) and flush/delete the
     // KeenPbrTable chain from both iptables and ip6tables mangle tables.

@@ -1,6 +1,6 @@
 # --- Execution Environment ---
 user=nobody
-pid-file=/run/dnsmasq/dnsmasq.pid
+pid-file=/tmp/dnsmasq.pid
 port=53
 
 # --- LAN Accessibility (Dynamic) ---
@@ -13,9 +13,6 @@ bind-dynamic
 # connected to the router (your LANs, VPNs, etc.)
 # This prevents your router from responding to DNS queries from the WAN.
 local-service
-
-# Explicitly ensure we answer the router itself
-listen-address=127.0.0.1
 
 # --- DNS Hardening & Protection ---
 domain-needed       # Don't forward plain names (e.g. "workstation")
@@ -33,9 +30,15 @@ min-port=4096
 no-resolv           # Ignore /etc/resolv.conf
 no-poll             # Don't poll /etc/resolv.conf for changes
 clear-on-reload     # Clear cache on restart
-expand-hosts        # Append domain to hostnames from /etc/hosts
 localise-queries    # Return the "closest" IP if a host has multiple IPs
 log-async           # Non-blocking logging
+
+# --- Static DNS records ---
+
+# Keenetic ezcfg0 interface (for local access to the router)
+# IP address is the same as on the router's ezcfg0 interface
+address=/my.keenetic.net/my.netcraze.net/78.47.125.180
+address=/my.keenetic.net/my.netcraze.net/2001:2:7847:1251:feee:ed78:4712:5180
 
 # --- Upstream Servers ---
 

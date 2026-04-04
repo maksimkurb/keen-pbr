@@ -16,6 +16,12 @@ struct ExecCaptureResult {
     bool truncated{false};
 };
 
+inline void reset_child_signal_mask() {
+    sigset_t empty_mask;
+    sigemptyset(&empty_mask);
+    sigprocmask(SIG_SETMASK, &empty_mask, nullptr);
+}
+
 // Execute a command with arguments directly via fork()+execvp(), bypassing
 // the shell entirely. This prevents shell injection attacks.
 // Returns the process exit code (0-255), or -1 on fork/exec failure.
@@ -34,6 +40,7 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
 
     if (pid == 0) {
         // Child process
+        reset_child_signal_mask();
         if (suppress_output) {
             const int devnull = open("/dev/null", O_WRONLY);
             if (devnull >= 0) {
@@ -77,6 +84,7 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
 
     if (pid == 0) {
         // Child: read end becomes stdin
+        reset_child_signal_mask();
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
@@ -132,6 +140,7 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
 
     if (pid == 0) {
         // Child: write end becomes stdout
+        reset_child_signal_mask();
         close(pipefd[0]);
         dup2(pipefd[1], STDOUT_FILENO);
         if (suppress_stderr) {

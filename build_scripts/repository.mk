@@ -6,7 +6,8 @@
 #                         git worktree add /tmp/keen-pbr-repo repository
 #   REPO_TARGET_ROOT  — target root inside the repository branch,
 #                       e.g. "stable" or "feature_unify_packaging"
-#   REPO_SLUG         — GitHub repository slug, e.g. "owner/repo"
+#   REPO_PUBLIC_BASE_URL — public base URL for generated repository links
+#                          (default: "https://repo.keen-pbr.fyi")
 
 REPO_TARGET_ROOT ?= local
 
@@ -19,10 +20,6 @@ build-repository: ## Replace REPO_DIR/REPO_TARGET_ROOT/ with build/packages/{ope
 	  echo "  Then run:                 make build-repository REPO_DIR=/tmp/keen-pbr-repo"; \
 	  exit 1; \
 	}
-	@test -n "$(REPO_SLUG)" || { \
-	  echo "ERROR: REPO_SLUG is required."; \
-	  echo "  Example: make build-repository REPO_DIR=/tmp/keen-pbr-repo REPO_SLUG=owner/repo"; \
-	  exit 1; \
-	}
+	REPO_PUBLIC_BASE_URL="$(REPO_PUBLIC_BASE_URL)" \
 	bash build_scripts/build-repository.sh \
-	  build/packages "$(REPO_DIR)" "$(REPO_TARGET_ROOT)" "$(REPO_SLUG)"
+	  build/packages "$(REPO_DIR)" "$(REPO_TARGET_ROOT)"

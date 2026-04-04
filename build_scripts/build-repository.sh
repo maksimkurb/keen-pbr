@@ -2,7 +2,7 @@
 # build-repository.sh — Assemble a versioned package repository tree.
 #
 # Usage: scripts/build-repository.sh \
-#          <release-dir> <repo-dir> <target-root> <repo-slug>
+#          <release-dir> <repo-dir> <target-root>
 #
 # Replaces <repo-dir>/<target-root>/ with the structured package tree from
 # <release-dir>, following the layout described in docs/repository-layout.md.
@@ -11,14 +11,13 @@
 # <repo-dir>          Root of the repository tree (git worktree or plain directory)
 # <target-root>       Destination root inside the repository branch,
 #                     e.g. "stable" or "feature_unify_packaging"
-# <repo-slug>         GitHub repository slug, e.g. "owner/repo"
 
 set -euo pipefail
 
-RELEASE_DIR="${1:?Usage: $0 <release-dir> <repo-dir> <target-root> <repo-slug>}"
+RELEASE_DIR="${1:?Usage: $0 <release-dir> <repo-dir> <target-root>}"
 REPO_DIR="${2:?}"
 TARGET_ROOT_INPUT="${3:?}"
-REPO_SLUG="${4:?}"
+REPO_PUBLIC_BASE_URL="${REPO_PUBLIC_BASE_URL:-https://repo.keen-pbr.fyi}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 sanitize_segment() {
@@ -41,6 +40,12 @@ sanitize_path() {
         fi
     done
     printf '%s' "$out"
+}
+
+print_markdown_table_header() {
+    local third_column="$1"
+    printf '| Version | Architecture | %s |\n' "$third_column"
+    echo '| --- | --- | --- |'
 }
 
 TARGET_ROOT=$(sanitize_path "$TARGET_ROOT_INPUT")
@@ -100,7 +105,8 @@ fi
 
 find "$ROOT_DIR" -type f \( -name '.apk-signed' -o -name '.signed' \) -delete
 
-RAW_BASE_URL="https://raw.githubusercontent.com/$REPO_SLUG/repository/$TARGET_ROOT"
+RAW_BASE_URL="$REPO_PUBLIC_BASE_URL"
+RAW_BASE_URL="$RAW_BASE_URL/$TARGET_ROOT"
 INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
 
 {
@@ -130,12 +136,13 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
             fi
             printf 'Open `%s` and add one of these lines:\n' '/etc/opkg/customfeeds.conf'
             echo
+            print_markdown_table_header "Feed line"
             find "$ROOT_DIR/openwrt" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
                 [ -f "$arch_dir/Packages.gz" ] || continue
                 rel_path="${arch_dir#$ROOT_DIR/}"
                 version_dir="$(basename "$(dirname "$arch_dir")")"
                 arch_name="$(basename "$arch_dir")"
-                printf -- '- `%s`: `src/gz keen-pbr %s/%s`\n' "$version_dir / $arch_name" "$RAW_BASE_URL" "$rel_path"
+                printf '| `%s` | `%s` | `%s` |\n' "$version_dir" "$arch_name" "src/gz keen-pbr $RAW_BASE_URL/$rel_path"
             done
             echo
             echo "Then run:"
@@ -160,12 +167,13 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
             fi
             echo "Add one of these repository URLs:"
             echo
+            print_markdown_table_header "Repository URL"
             find "$ROOT_DIR/openwrt" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
                 [ -f "$arch_dir/packages.adb" ] || continue
                 rel_path="${arch_dir#$ROOT_DIR/}"
                 version_dir="$(basename "$(dirname "$arch_dir")")"
                 arch_name="$(basename "$arch_dir")"
-                printf -- '- `%s`: `%s/%s/packages.adb`\n' "$version_dir / $arch_name" "$RAW_BASE_URL" "$rel_path"
+                printf '| `%s` | `%s` | `%s` |\n' "$version_dir" "$arch_name" "$RAW_BASE_URL/$rel_path/packages.adb"
             done
             echo
             echo "Then run:"
@@ -187,11 +195,12 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
         echo
         printf 'Open `%s` and add one of these lines:\n' '/opt/etc/opkg/customfeeds.conf'
         echo
+        print_markdown_table_header "Feed line"
         find "$ROOT_DIR/keenetic" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
             rel_path="${arch_dir#$ROOT_DIR/}"
             version_dir="$(basename "$(dirname "$arch_dir")")"
             arch_name="$(basename "$arch_dir")"
-            printf -- '- `%s / %s`: `src/gz keen-pbr %s/%s`\n' "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
+            printf '| `%s` | `%s` | `%s` |\n' "$version_dir" "$arch_name" "src/gz keen-pbr $RAW_BASE_URL/$rel_path"
         done
         echo
         echo "Then run:"
@@ -220,14 +229,15 @@ INSTRUCTIONS_FILE="$ROOT_DIR/README.md"
         fi
         printf 'Open `%s` and add one of these lines:\n' '/etc/apt/sources.list.d/keen-pbr.list'
         echo
+        print_markdown_table_header "Source line"
         find "$ROOT_DIR/debian" -mindepth 2 -maxdepth 2 -type d | sort | while read -r arch_dir; do
             rel_path="${arch_dir#$ROOT_DIR/}"
             version_dir="$(basename "$(dirname "$arch_dir")")"
             arch_name="$(basename "$arch_dir")"
             if [ "$DEBIAN_HAS_SIG" -eq 1 ] && [ -f "$ROOT_DIR/keys/debian-repo.asc" ]; then
-                printf -- '- `%s / %s`: `deb [signed-by=/usr/share/keyrings/keen-pbr-archive-keyring.asc] %s/%s ./`\n' "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
+                printf '| `%s` | `%s` | `%s` |\n' "$version_dir" "$arch_name" "deb [signed-by=/usr/share/keyrings/keen-pbr-archive-keyring.asc] $RAW_BASE_URL/$rel_path ./"
             else
-                printf -- '- `%s / %s`: `deb [trusted=yes] %s/%s ./`\n' "$version_dir" "$arch_name" "$RAW_BASE_URL" "$rel_path"
+                printf '| `%s` | `%s` | `%s` |\n' "$version_dir" "$arch_name" "deb [trusted=yes] $RAW_BASE_URL/$rel_path ./"
             fi
         done
         echo

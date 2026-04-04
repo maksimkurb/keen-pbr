@@ -62,6 +62,7 @@ jobs:
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
       target_root: stable
+    secrets: inherit
 
   draft-release:
     name: Draft GitHub release

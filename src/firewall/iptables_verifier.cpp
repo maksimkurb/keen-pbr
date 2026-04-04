@@ -9,16 +9,28 @@
 namespace keen_pbr3 {
 
 // ---------------------------------------------------------------------------
-// parse_iptables_save
+// parse_iptables_s
 // ---------------------------------------------------------------------------
 
-ParsedIptablesState parse_iptables_save(const std::string& output, bool /*ipv6*/) {
+namespace {
+
+std::optional<uint32_t> parse_u32(const std::string& input) {
+    try {
+        return static_cast<uint32_t>(std::stoul(input, nullptr, 0));
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+} // namespace
+
+ParsedIptablesState parse_iptables_s(const std::string& output) {
     ParsedIptablesState state;
 
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
 
-    // Prefix for chain declaration in iptables-save output
-    const std::string chain_decl = std::string(":") + CHAIN_NAME;
+    // Prefix for chain declaration in `iptables -S` output
+    const std::string chain_decl = std::string("-N ") + CHAIN_NAME;
     // Prefix for PREROUTING jump rule
     const std::string prerouting_jump =
         std::string("-A PREROUTING -j ") + CHAIN_NAME;
@@ -30,9 +42,8 @@ ParsedIptablesState parse_iptables_save(const std::string& output, bool /*ipv6*/
     std::string line;
 
     while (std::getline(stream, line)) {
-        // Chain declaration: ":KeenPbrTable - [0:0]"
-        if (line.rfind(chain_decl, 0) == 0 &&
-            (line.size() == chain_decl.size() || line[chain_decl.size()] == ' ')) {
+        // Chain declaration: "-N KeenPbrTable"
+        if (line == chain_decl) {
             state.has_keen_pbr_chain = true;
             continue;
         }
@@ -64,12 +75,23 @@ ParsedIptablesState parse_iptables_save(const std::string& output, bool /*ipv6*/
                 rule.is_drop = true;
             } else if (action_part.rfind("MARK --set-mark ", 0) == 0) {
                 rule.is_mark = true;
-                std::string mark_str = action_part.substr(16); // len("MARK --set-mark ") == 16
-                try {
-                    rule.fwmark = static_cast<uint32_t>(std::stoul(mark_str, nullptr, 0));
-                } catch (...) {
-                    continue;
-                }
+                const std::string mark_str = action_part.substr(16); // len("MARK --set-mark ") == 16
+                const auto mark = parse_u32(mark_str);
+                if (!mark.has_value()) continue;
+                rule.fwmark = *mark;
+            } else if (action_part.rfind("MARK --set-xmark ", 0) == 0) {
+                const std::string xmark_str = action_part.substr(17); // len("MARK --set-xmark ") == 17
+                const size_t slash_pos = xmark_str.find('/');
+                if (slash_pos == std::string::npos) continue;
+
+                const auto mark = parse_u32(xmark_str.substr(0, slash_pos));
+                const auto mask = parse_u32(xmark_str.substr(slash_pos + 1));
+                if (!mark.has_value() || !mask.has_value()) continue;
+
+                rule.is_mark = true;
+                rule.fwmark = *mark;
+                rule.xmark_mask = *mask;
+                rule.mark_is_exact = (*mask == 0xFFFFFFFFu);
             } else {
                 continue; // unknown action
             }
@@ -91,10 +113,33 @@ IptablesFirewallVerifier::IptablesFirewallVerifier(CommandRunner runner)
 const IptablesFirewallVerifier::CachedState& IptablesFirewallVerifier::get_state() const {
     if (!cached_state_.has_value()) {
         CachedState state;
-        state.v4 = parse_iptables_save(
-            runner_({"iptables-save", "-t", "mangle"}).stdout_output, false);
-        state.v6 = parse_iptables_save(
-            runner_({"ip6tables-save", "-t", "mangle"}).stdout_output, true);
+
+        auto read_state = [this](const std::vector<std::string>& chain_args,
+                                 const std::vector<std::string>& prerouting_args) {
+            std::string combined;
+
+            const auto chain_result = runner_(chain_args);
+            if (chain_result.exit_code == 0) {
+                combined += chain_result.stdout_output;
+                if (!combined.empty() && combined.back() != '\n') {
+                    combined.push_back('\n');
+                }
+            }
+
+            const auto prerouting_result = runner_(prerouting_args);
+            if (prerouting_result.exit_code == 0) {
+                combined += prerouting_result.stdout_output;
+            }
+
+            return parse_iptables_s(combined);
+        };
+
+        state.v4 = read_state(
+            {"iptables", "-t", "mangle", "-S", CHAIN_NAME},
+            {"iptables", "-t", "mangle", "-S", "PREROUTING"});
+        state.v6 = read_state(
+            {"ip6tables", "-t", "mangle", "-S", CHAIN_NAME},
+            {"ip6tables", "-t", "mangle", "-S", "PREROUTING"});
         cached_state_ = std::move(state);
     }
     return *cached_state_;
@@ -163,7 +208,12 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
                 if (rs.action_type == RuleActionType::Mark) {
                     if (parsed.is_mark) {
                         check.actual_fwmark = parsed.fwmark;
-                        if (parsed.fwmark == rs.fwmark) {
+                        if (!parsed.mark_is_exact) {
+                            check.status = CheckStatus::mismatch;
+                            check.detail = keen_pbr3::format(
+                                "live rule uses partial xmark mask: got {:#x}/{:#x}, expected exact mark {:#x}",
+                                parsed.fwmark, parsed.xmark_mask, rs.fwmark);
+                        } else if (parsed.fwmark == rs.fwmark) {
                             check.status = CheckStatus::ok;
                             check.detail = "ok";
                         } else {

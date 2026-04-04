@@ -14,6 +14,7 @@ add_executable(keen-pbr-tests
   test_config_validation.cpp
   test_routing_state.cpp
   test_system_resolver_hook.cpp
+  test_safe_exec.cpp
   test_port_spec_util.cpp
   ../src/config/config.cpp
   ../src/config/routing_state.cpp
