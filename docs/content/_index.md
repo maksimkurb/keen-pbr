@@ -4,16 +4,6 @@ layout: hextra-home
 toc: false
 ---
 
-{{< hextra/hero-badge >}}
-  <div class="hx:w-2 hx:h-2 hx:rounded-full hx:bg-primary-400"></div>
-  <span>Free, open source</span>
-  {{< icon name="arrow-circle-right" attributes="height=14" >}}
-{{< /hextra/hero-badge >}}
-
-<div class="hx:mt-6 hx:mb-2 hx:flex hx:justify-center">
-  <img src="/logo.svg" alt="keen-pbr logo" width="120" height="120" style="border-radius:16px;" />
-</div>
-
 <div class="hx:mt-4 hx:mb-6">
 {{< hextra/hero-headline >}}
   Policy-based routing&nbsp;<br class="hx:sm:block hx:hidden" />for Linux routers
@@ -116,7 +106,162 @@ toc: false
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Web Interface</h3>
 <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.</p>
 <div style="flex:1;position:relative;overflow:hidden;border-radius:12px 0 0 0;margin:16px -24px -24px 0;min-height:120px;">
-<img src="https://picsum.photos/seed/keen-pbr-webui/600/400" alt="Web interface screenshot" style="width:120%;max-width:none;height:auto;display:block;border-radius:10px 0 0 0;border-top:1.5px solid rgba(139,92,246,0.3);border-left:1.5px solid rgba(139,92,246,0.3);transform:translate(8%, 8%);box-shadow:-4px -4px 24px rgba(139,92,246,0.12);" />
+
+<style>
+  .kpbr-ui-mock {
+    --kpbr-window-border: rgba(139, 92, 246, 0.3);
+    --kpbr-window-shadow: -4px -4px 24px rgba(139, 92, 246, 0.12);
+    --kpbr-window-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98));
+    --kpbr-chrome-bg: rgba(255, 255, 255, 0.8);
+    --kpbr-divider: rgba(148, 163, 184, 0.2);
+    --kpbr-sidebar-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.85));
+    --kpbr-main-bg: radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 34%), linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.98));
+    --kpbr-text: #0f172a;
+    --kpbr-muted: #64748b;
+    --kpbr-chip-bg: rgba(139, 92, 246, 0.08);
+    --kpbr-chip-text: #6d28d9;
+    --kpbr-card-bg: rgba(255, 255, 255, 0.8);
+    --kpbr-card-bg-soft: rgba(255, 255, 255, 0.78);
+    --kpbr-card-bg-strong: rgba(255, 255, 255, 0.82);
+    --kpbr-card-border: rgba(148, 163, 184, 0.18);
+    --kpbr-input-bg: #ffffff;
+    --kpbr-line: rgba(148, 163, 184, 0.18);
+    --kpbr-line-active: rgba(59, 130, 246, 0.16);
+    --kpbr-green-soft: rgba(16, 185, 129, 0.12);
+    --kpbr-green-soft-2: rgba(16, 185, 129, 0.1);
+    --kpbr-green-soft-3: rgba(16, 185, 129, 0.07);
+    --kpbr-green-soft-4: rgba(16, 185, 129, 0.18);
+    --kpbr-green-soft-5: rgba(16, 185, 129, 0.14);
+    --kpbr-green-text: #059669;
+    --kpbr-green-solid: #10b981;
+    --kpbr-blue-grad: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.04));
+    --kpbr-blue-row: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(255, 255, 255, 0));
+    --kpbr-amber-row: linear-gradient(90deg, rgba(245, 158, 11, 0.14), rgba(255, 255, 255, 0));
+    --kpbr-amber-soft: rgba(245, 158, 11, 0.16);
+  }
+
+  .dark .kpbr-ui-mock,
+  [data-theme="dark"] .kpbr-ui-mock {
+    --kpbr-window-border: rgba(167, 139, 250, 0.35);
+    --kpbr-window-shadow: -6px -6px 28px rgba(15, 23, 42, 0.45);
+    --kpbr-window-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+    --kpbr-chrome-bg: rgba(15, 23, 42, 0.88);
+    --kpbr-divider: rgba(71, 85, 105, 0.45);
+    --kpbr-sidebar-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(17, 24, 39, 0.88));
+    --kpbr-main-bg: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 34%), linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(2, 6, 23, 0.98));
+    --kpbr-text: #e5e7eb;
+    --kpbr-muted: #94a3b8;
+    --kpbr-chip-bg: rgba(139, 92, 246, 0.18);
+    --kpbr-chip-text: #ddd6fe;
+    --kpbr-card-bg: rgba(30, 41, 59, 0.82);
+    --kpbr-card-bg-soft: rgba(30, 41, 59, 0.76);
+    --kpbr-card-bg-strong: rgba(30, 41, 59, 0.86);
+    --kpbr-card-border: rgba(71, 85, 105, 0.5);
+    --kpbr-input-bg: rgba(15, 23, 42, 0.78);
+    --kpbr-line: rgba(71, 85, 105, 0.52);
+    --kpbr-line-active: rgba(96, 165, 250, 0.28);
+    --kpbr-green-soft: rgba(16, 185, 129, 0.2);
+    --kpbr-green-soft-2: rgba(16, 185, 129, 0.16);
+    --kpbr-green-soft-3: rgba(16, 185, 129, 0.14);
+    --kpbr-green-soft-4: rgba(16, 185, 129, 0.24);
+    --kpbr-green-soft-5: rgba(16, 185, 129, 0.2);
+    --kpbr-green-text: #6ee7b7;
+    --kpbr-green-solid: #34d399;
+    --kpbr-blue-grad: linear-gradient(90deg, rgba(96, 165, 250, 0.22), rgba(96, 165, 250, 0.06));
+    --kpbr-blue-row: linear-gradient(90deg, rgba(96, 165, 250, 0.24), rgba(15, 23, 42, 0));
+    --kpbr-amber-row: linear-gradient(90deg, rgba(251, 191, 36, 0.24), rgba(15, 23, 42, 0));
+    --kpbr-amber-soft: rgba(251, 191, 36, 0.22);
+  }
+</style>
+
+<div class="kpbr-ui-mock" style="width:120%;max-width:none;transform:translate(5%, 5%);transform-origin:bottom left;">
+  <div style="border-radius:14px 0 0 0;border-top:1.5px solid var(--kpbr-window-border);border-left:1.5px solid var(--kpbr-window-border);box-shadow:var(--kpbr-window-shadow);background:var(--kpbr-window-bg);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--kpbr-divider);background:var(--kpbr-chrome-bg);">
+      <span style="width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block;"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#fbbf24;display:inline-block;"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;"></span>
+      <div style="margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--kpbr-chip-bg);font-size:10px;font-weight:600;color:var(--kpbr-chip-text);">keen-pbr.local</div>
+    </div>
+    <div style="display:grid;grid-template-columns:102px 1fr;min-height:164px;">
+      <div style="padding:12px 10px;background:var(--kpbr-sidebar-bg);border-right:1px solid var(--kpbr-card-border);">
+        <div style="display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;margin-bottom:12px;">
+          <img src="/logo.svg" alt="keen-pbr logo" style="width:28px;height:28px;border-radius:8px;display:block;" />
+          <div style="min-width:0;">
+            <div style="font-size:10px;font-weight:700;line-height:1.05;color:var(--kpbr-text);white-space:nowrap;">keen-pbr</div>
+            <div style="font-size:7px;color:var(--kpbr-muted);margin-top:3px;line-height:1.15;">Get packets sorted</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:6px;">
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line-active);width:70%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:84%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:58%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:76%;"></div>
+        </div>
+        <div style="margin-top:22px;height:34px;border-radius:10px;background:var(--kpbr-input-bg);border:1px solid var(--kpbr-card-border);"></div>
+      </div>
+      <div style="padding:14px 14px 12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--kpbr-main-bg);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:18px;font-weight:700;line-height:1.1;color:var(--kpbr-text);">Dashboard</div>
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-top:4px;">Service health, DNS checks and active routes</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="padding:3px 7px;border-radius:999px;background:var(--kpbr-green-soft);color:var(--kpbr-green-text);font-size:9px;font-weight:700;">running</span>
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--kpbr-green-solid);box-shadow:0 0 0 4px var(--kpbr-green-soft);display:inline-block;"></span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:10px;">
+          <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg);padding:10px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-bottom:8px;">Core service</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+              <div style="flex:1;height:28px;border-radius:9px;background:var(--kpbr-blue-grad);"></div>
+              <div style="width:54px;height:28px;border-radius:9px;background:var(--kpbr-green-soft-2);"></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <div style="height:22px;flex:1;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+              <div style="height:22px;width:22px;border-radius:8px;background:var(--kpbr-chip-bg);"></div>
+              <div style="height:22px;width:22px;border-radius:8px;background:var(--kpbr-line-active);"></div>
+            </div>
+          </div>
+          <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg-soft);padding:10px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-bottom:10px;">DNS check</div>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;background:var(--kpbr-green-soft-3);margin-bottom:8px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:1.5px solid var(--kpbr-green-solid);display:inline-block;position:relative;flex-shrink:0;">
+                <span style="position:absolute;left:4px;top:4px;width:6px;height:3px;border-left:1.5px solid var(--kpbr-green-solid);border-bottom:1.5px solid var(--kpbr-green-solid);transform:rotate(-45deg);"></span>
+              </span>
+              <div style="height:8px;flex:1;border-radius:999px;background:var(--kpbr-green-soft-4);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div style="height:20px;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+              <div style="height:20px;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg-strong);padding:10px 10px 8px 10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);">Outbounds health</div>
+            <div style="height:8px;width:46px;border-radius:999px;background:var(--kpbr-line);"></div>
+          </div>
+          <div style="display:grid;gap:6px;">
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:var(--kpbr-blue-row);"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-green-soft-5);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:var(--kpbr-amber-row);"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-amber-soft);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:linear-gradient(90deg, var(--kpbr-green-soft), rgba(255, 255, 255, 0));"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-green-soft-5);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div>
 </div>
 </div>
