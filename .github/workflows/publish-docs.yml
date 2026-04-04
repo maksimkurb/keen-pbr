@@ -1,0 +1,38 @@
+name: Publish docs to gh-pages
+
+on:
+  push:
+    branches:
+      - main
+      - dev-3.0
+    paths:
+      - 'docs/**'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-docs:
+    name: Build and publish docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+
+      - name: Build docs
+        run: hugo --source docs --destination ../site
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./site
+          force_orphan: true
