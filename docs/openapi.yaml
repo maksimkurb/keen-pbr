@@ -40,6 +40,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReloadResponse"
 
+  /api/service/start:
+    post:
+      summary: Start keen-pbr service
+      description: >
+        Starts the keen-pbr service and runs dnsmasq registration hooks to
+        activate the managed resolver config.
+      operationId: postServiceStart
+      responses:
+        "200":
+          description: Service start requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
+  /api/service/stop:
+    post:
+      summary: Stop keen-pbr service
+      description: >
+        Stops the keen-pbr service and runs dnsmasq deactivation hooks to load
+        fallback resolver config.
+      operationId: postServiceStop
+      responses:
+        "200":
+          description: Service stop requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
+  /api/service/restart:
+    post:
+      summary: Restart keen-pbr service
+      description: >
+        Restarts the keen-pbr service and re-applies dnsmasq registration hooks
+        for the managed resolver config.
+      operationId: postServiceRestart
+      responses:
+        "200":
+          description: Service restart requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
   /api/config:
     get:
       summary: Get current config state

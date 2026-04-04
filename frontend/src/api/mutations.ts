@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import {
   postConfig,
@@ -15,6 +15,7 @@ import {
   invalidationKeysAfterConfigSaveMutation,
   invalidationKeysAfterReloadMutation,
 } from "@/api/query-keys"
+import { apiFetch } from "@/api/client"
 
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
 type UsePostConfigSaveOptions = Parameters<typeof usePostConfigSave>[0]
@@ -93,3 +94,23 @@ export const usePostReloadMutation = (options?: UsePostReloadOptions) => {
 }
 
 export const usePostRoutingTestMutation = (options?: UsePostRoutingTestOptions) => usePostRoutingTest(options)
+
+type ServiceAction = "start" | "stop" | "restart"
+
+const postServiceAction = (action: ServiceAction) =>
+  apiFetch(`/api/service/${action}`, {
+    method: "POST",
+  })
+
+export const usePostServiceActionMutation = (action: ServiceAction) => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => postServiceAction(action),
+    onSuccess: async () => {
+      for (const queryKey of invalidationKeysAfterReloadMutation) {
+        await queryClient.invalidateQueries({ queryKey })
+      }
+    },
+  })
+}

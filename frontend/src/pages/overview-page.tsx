@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Play,
@@ -14,7 +14,7 @@ import {
   useGetHealthService,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
-import { usePostReloadMutation } from "@/api/mutations"
+import { usePostReloadMutation, usePostServiceActionMutation } from "@/api/mutations"
 import { selectConfig } from "@/api/selectors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,11 +26,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
@@ -64,6 +59,14 @@ export function OverviewPage() {
   })
 
   const postReloadMutation = usePostReloadMutation()
+  const postServiceStartMutation = usePostServiceActionMutation("start")
+  const postServiceStopMutation = usePostServiceActionMutation("stop")
+  const postServiceRestartMutation = usePostServiceActionMutation("restart")
+  const serviceActionPending =
+    postReloadMutation.isPending ||
+    postServiceStartMutation.isPending ||
+    postServiceStopMutation.isPending ||
+    postServiceRestartMutation.isPending
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
@@ -202,22 +205,37 @@ export function OverviewPage() {
               </div>
 
               <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
-                <DisabledActionButton
-                  icon={<Play className="mr-1 h-3 w-3" />}
-                  label={t("overview.service.actions.start")}
-                />
-                <DisabledActionButton
-                  icon={<Square className="mr-1 h-3 w-3" />}
-                  label={t("overview.service.actions.stop")}
-                />
-                <DisabledActionButton
-                  icon={<RotateCw className="mr-1 h-3 w-3" />}
-                  label={t("overview.service.actions.restart")}
-                />
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={postReloadMutation.isPending}
+                  disabled={serviceActionPending}
+                  onClick={() => postServiceStartMutation.mutate()}
+                >
+                  <Play className="mr-1 h-3 w-3" />
+                  {t("overview.service.actions.start")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={serviceActionPending}
+                  onClick={() => postServiceStopMutation.mutate()}
+                >
+                  <Square className="mr-1 h-3 w-3" />
+                  {t("overview.service.actions.stop")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={serviceActionPending}
+                  onClick={() => postServiceRestartMutation.mutate()}
+                >
+                  <RotateCw className="mr-1 h-3 w-3" />
+                  {t("overview.service.actions.restart")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={serviceActionPending}
                   onClick={() => postReloadMutation.mutate()}
                 >
                   <RotateCw className="mr-1 h-3 w-3" />
@@ -335,31 +353,6 @@ function getRoutingHealthErrorMessage(
 
   return (
     getApiErrorMessage(error as ApiError | null) || t("overview.routing.loadError")
-  )
-}
-
-function DisabledActionButton({
-  label,
-  icon,
-}: {
-  label: string
-  icon: ReactNode
-}) {
-  const { t } = useTranslation()
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span tabIndex={0}>
-            <Button disabled size="sm" variant="outline">
-              {icon}
-              {label}
-            </Button>
-          </span>
-        }
-      />
-      <TooltipContent>{t("overview.service.unsupportedActionReason")}</TooltipContent>
-    </Tooltip>
   )
 }
 

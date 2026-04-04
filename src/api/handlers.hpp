@@ -73,6 +73,9 @@ struct ApiContext {
 // Register all API endpoint handlers on the given ApiServer.
 //   GET  /api/health/service  - daemon version/status + resolver/config summary
 //   POST /api/reload          - trigger list re-download and re-apply
+//   POST /api/service/start   - start service and activate dnsmasq hook
+//   POST /api/service/stop    - stop service and deactivate dnsmasq hook
+//   POST /api/service/restart - restart service and activate dnsmasq hook
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/save     - persist staged config and reload
