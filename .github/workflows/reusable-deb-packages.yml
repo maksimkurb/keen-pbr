@@ -10,12 +10,15 @@ on:
         required: false
         type: string
         default: "frontend-dist"
+      use_signing_secrets:
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
     name: ubuntu-amd64
     runs-on: ubuntu-latest
-    environment: package-builder
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,9 +39,7 @@ jobs:
         with:
           path: /tmp/.buildx-cache-debian
           key: buildx-debian-${{ hashFiles('docker/Dockerfile.debian-builder') }}
-      - name: Build and collect Debian packages
-        env:
-          DEBIAN_GPG_PRIVATE_KEY: ${{ secrets.DEBIAN_GPG_PRIVATE_KEY }}
+      - name: Build Debian packages
         run: |
           make deb-packages \
             DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian" \
@@ -50,6 +51,33 @@ jobs:
           if [ -d /tmp/.buildx-cache-debian-new ]; then
             mv /tmp/.buildx-cache-debian-new /tmp/.buildx-cache-debian
           fi
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: staging-debian-amd64
+          path: build/packages/debian
+
+  sign:
+    if: ${{ inputs.use_signing_secrets }}
+    name: ubuntu-amd64
+    runs-on: ubuntu-latest
+    environment: package-builder
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Download unsigned package artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: staging-debian-amd64
+          path: build/packages/debian
+      - name: Sign Debian repository metadata
+        env:
+          DEBIAN_GPG_PRIVATE_KEY: ${{ secrets.DEBIAN_GPG_PRIVATE_KEY }}
+        run: |
+          bash ./build_scripts/sign-debian-repository.sh \
+            "$GITHUB_WORKSPACE/build/packages"
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
