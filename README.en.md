@@ -105,7 +105,7 @@ For domain-based routing, `dnsmasq` is used. Each time local network clients mak
 2. Install opkg repository in the system
    ```bash
    mkdir -p /opt/etc/opkg
-   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr" > /opt/etc/opkg/keen-pbr.conf
+   echo "src/gz keen-pbr https://repo.keen-pbr.fyi/legacy-keen-pbr-2.x" > /opt/etc/opkg/keen-pbr.conf
    ```
    Supported architectures: `mips`, `mipsel`, `aarch64`.
 

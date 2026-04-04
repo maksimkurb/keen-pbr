@@ -141,7 +141,7 @@ Telegram-чат проекта: https://t.me/keen_pbr
 2. Установите opkg-репозиторий в систему
    ```bash
    mkdir -p /opt/etc/opkg
-   echo "src/gz keen-pbr https://maksimkurb.github.io/keen-pbr" > /opt/etc/opkg/keen-pbr.conf
+   echo "src/gz keen-pbr https://repo.keen-pbr.fyi/legacy-keen-pbr-2.x" > /opt/etc/opkg/keen-pbr.conf
    ```
    Поддерживаемые архитектуры: `mips`, `mipsel`, `aarch64`.
  
