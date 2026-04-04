@@ -13,9 +13,9 @@ paths:
     get:
       summary: Service health and outbound status
       description: >
-        Returns the running daemon version, service status, and resolver/config
-        summary for the daemon. Outbound runtime diagnostics are exposed via
-        `/api/runtime/outbounds`.
+        Returns the running daemon version, routing runtime status, and
+        resolver/config summary for the daemon. Outbound runtime diagnostics
+        are exposed via `/api/runtime/outbounds`.
       operationId: getHealthService
       responses:
         "200":
@@ -25,16 +25,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
 
-  /api/reload:
+  /api/service/start:
     post:
-      summary: Trigger reload
+      summary: Start routing runtime
       description: >
-        Triggers an asynchronous full reload: re-downloads all configured lists
-        and re-applies firewall and routing rules.
-      operationId: postReload
+        Applies keen-pbr routing/firewall runtime state and runs dnsmasq
+        registration hooks to activate the managed resolver config without
+        stopping the API process.
+      operationId: postServiceStart
       responses:
         "200":
-          description: Reload triggered successfully
+          description: Service start requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
+  /api/service/stop:
+    post:
+      summary: Stop routing runtime
+      description: >
+        Removes keen-pbr routing/firewall runtime state and runs dnsmasq
+        deactivation hooks to load fallback resolver config while keeping the
+        API process running.
+      operationId: postServiceStop
+      responses:
+        "200":
+          description: Service stop requested successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadResponse"
+
+  /api/service/restart:
+    post:
+      summary: Restart routing runtime
+      description: >
+        Re-applies keen-pbr routing/firewall runtime state and dnsmasq
+        registration hooks for the managed resolver config.
+      operationId: postServiceRestart
+      responses:
+        "200":
+          description: Service restart requested successfully
           content:
             application/json:
               schema:
@@ -64,7 +96,8 @@ paths:
       summary: Stage config in memory
       description: >
         Validates the provided JSON body as a config file and stages it in
-        daemon memory without writing it to disk or reloading the service.
+        daemon memory without writing it to disk or applying it to the routing
+        runtime.
       operationId: postConfig
       requestBody:
         required: true
@@ -94,20 +127,26 @@ paths:
 
   /api/config/save:
     post:
-      summary: Save staged config
+      summary: Apply staged config
       description: >
         Persists the currently staged in-memory config to disk and then applies
-        it with a full service reload.
+        it to the routing runtime.
       operationId: postConfigSave
       responses:
         "200":
-          description: Config saved and reload triggered
+          description: Config saved and applied successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConfigUpdateResponse"
+        "400":
+          description: No staged config or validation/dry-run failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
-          description: No staged config or save/apply error
+          description: Save/apply error
           content:
             application/json:
               schema:
@@ -899,7 +938,7 @@ components:
           example: "3.0.0"
         status:
           type: string
-          enum: [running]
+          enum: [running, stopped]
           example: "running"
         resolver_config_hash:
           type: string
@@ -1002,7 +1041,7 @@ components:
             $ref: "#/components/schemas/RuntimeOutboundState"
 
     # -------------------------------------------------------------------------
-    # /api/reload
+    # /api/service/*
     # -------------------------------------------------------------------------
 
     ReloadResponse:
@@ -1015,7 +1054,7 @@ components:
           example: "ok"
         message:
           type: string
-          example: "Reload triggered"
+          example: "Routing runtime restarted"
 
     # -------------------------------------------------------------------------
     # /api/config

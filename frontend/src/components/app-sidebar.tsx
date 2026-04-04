@@ -81,7 +81,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         <SidebarMenuHeader isMobile={isMobile} onMenuClick={toggleSidebar} />
       </SidebarHeader>
       <SidebarContent>
-        {!isMobile ? <WarningBanner className="mx-2 mt-2 mb-0 w-auto" compact /> : null}
+        {!isMobile ? <WarningBanner className="mx-2 mt-2 mb-0 w-auto" /> : null}
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter className={isMobile ? "border-t px-4 py-3" : "border-t"}>

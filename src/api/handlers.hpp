@@ -51,6 +51,7 @@ struct ApiContext {
     std::function<api::RuntimeOutboundsResponse()> runtime_outbounds_fn;
     std::function<std::string()> resolver_config_hash_fn;
     std::function<std::string()> resolver_config_hash_actual_fn;
+    std::function<bool()> service_running_fn;
 
     // Global serialization for config operations.
     std::mutex& config_op_mutex;
@@ -58,8 +59,10 @@ struct ApiContext {
     std::atomic<ConfigOperationState>& config_op_state;
 
     // Callbacks that mutate daemon runtime state from event loop.
-    std::function<void()> enqueue_reload_fn;
     std::function<ConfigApplyResult(Config, std::string)> enqueue_apply_validated_config_fn;
+    std::function<void()> enqueue_service_start_fn;
+    std::function<void()> enqueue_service_stop_fn;
+    std::function<void()> enqueue_service_restart_fn;
 
     Config visible_config() const {
         return visible_config_fn();
@@ -72,10 +75,12 @@ struct ApiContext {
 
 // Register all API endpoint handlers on the given ApiServer.
 //   GET  /api/health/service  - daemon version/status + resolver/config summary
-//   POST /api/reload          - trigger list re-download and re-apply
+//   POST /api/service/start   - start routing runtime and activate dnsmasq hook
+//   POST /api/service/stop    - stop routing runtime and deactivate dnsmasq hook
+//   POST /api/service/restart - restart routing runtime and activate dnsmasq hook
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
-//   POST /api/config/save     - persist staged config and reload
+//   POST /api/config/save     - persist staged config and apply it
 //   GET  /api/health/routing  - routing and firewall health verification
 //   GET  /api/runtime/outbounds - live outbound/interface runtime state
 //   POST /api/routing/test    - test expected/actual routing for an IP or domain

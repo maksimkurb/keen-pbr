@@ -11,7 +11,15 @@ export interface DaemonConfig {
   pid_file?: string;
   /** Directory for cached list data. */
   cache_dir?: string;
+  /**
+     * Max stdout bytes captured per firewall verification command (0 = unlimited).
+     * @minimum 0
+     */
+  firewall_verify_max_bytes?: number;
   /** Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable.
    */
   strict_enforcement?: boolean;
+  /** Maximum allowed size in bytes for downloaded remote content such as URL-backed lists. Defaults to 8 MiB.
+   */
+  max_file_size_bytes?: number;
 }

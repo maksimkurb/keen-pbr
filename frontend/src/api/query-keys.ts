@@ -20,14 +20,14 @@ export const invalidationKeysAfterConfigMutation = [
   queryKeys.runtimeOutbounds(),
 ] as const
 
-export const invalidationKeysAfterReloadMutation = [
+export const invalidationKeysAfterRuntimeActionMutation = [
   queryKeys.healthRouting(),
   queryKeys.healthService(),
   queryKeys.runtimeOutbounds(),
   queryKeys.config(),
 ] as const
 
-export const invalidationKeysAfterConfigSaveMutation = [
+export const invalidationKeysAfterApplyConfigMutation = [
   queryKeys.healthRouting(),
   queryKeys.healthService(),
   queryKeys.runtimeOutbounds(),

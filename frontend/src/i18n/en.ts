@@ -80,43 +80,38 @@ export const enTranslation = {
         openMenu: "Open menu",
       },
       warning: {
-        compact: {
-          draftPending: "Configuration draft pending save.",
-          saving: "Saving...",
+        draftChanged: "Configuration was changed. Save it to disk to apply it.",
+        actions: {
+          applying: "Applying...",
           apply: "Apply",
-          resolverStale: "dnsmasq config is stale; reload required.",
-          reloading: "Reloading...",
-          reload: "Reload",
+          restarting: "Restarting...",
+          restart: "Restart",
+        },
+        compact: {
+          resolverStale: "dnsmasq config is stale.",
         },
         full: {
           unsavedTitle: "Configuration is unsaved",
-          unsavedDescription:
-            "Configuration has been staged in memory. Save and apply it to persist it to disk and reload the service.",
-          applying: "Applying...",
-          applyConfig: "Apply config",
           staleTitle: "dnsmasq is using a stale resolver config",
           staleDescription:
-            "The expected resolver hash ({{expected}}…) doesn't match dnsmasq's active hash ({{actual}}…). Reload keen-pbr to regenerate and apply the current resolver configuration.",
-          reloading: "Reloading...",
-          reloadService: "Reload service",
+            "The expected resolver hash ({{expected}}…) doesn't match dnsmasq's active hash ({{actual}}…).",
         },
       },
       overview: {
         pageDescription:
-          "Overview of keen-pbr service health and active outbounds",
-        service: {
-          title: "keen-pbr",
-          loadError: "Failed to load service health.",
-          unsupportedActionReason: "Not available in current API",
+          "Overview of routing runtime, config state, and active outbounds",
+        runtime: {
+          title: "Routing runtime",
+          description: "Control policy-based routing.",
+          loadError: "Failed to load routing runtime state.",
           version: "Version",
-          status: "Service status",
+          status: "Routing status",
           dnsmasqGood: "dnsmasq good",
           dnsmasqStale: "dnsmasq restart required",
           actions: {
             start: "Start",
             stop: "Stop",
             restart: "Restart",
-            reload: "Reload",
           },
         },
         outbounds: {
@@ -142,7 +137,8 @@ export const enTranslation = {
           title: "Diagnostics",
           loadError: "Unable to load routing checks.",
           emptyTitle: "No routing checks reported yet",
-          emptyDescription: "Routing checks will appear after the next reload.",
+          emptyDescription:
+            "Routing checks will appear after the next apply or runtime restart.",
           showHealthyEntries: "Show healthy entries too",
           allHealthyTitle: "Everything is good",
           allHealthyDescription: "No failing routing health entries right now.",
@@ -203,8 +199,7 @@ export const enTranslation = {
           status: {
             disabled: "Built-in DNS probe is disabled in config.",
             browserSuccess: "DNS request from the browser reached dnsmasq.",
-            manualProbeSuccess:
-              "DNS request from the device reached dnsmasq.",
+            manualProbeSuccess: "DNS request from the device reached dnsmasq.",
             browserProbeFail:
               "Browser request completed, but the DNS probe did not see the lookup.",
             sseUnavailable:
@@ -248,7 +243,7 @@ export const enTranslation = {
           title: "Settings",
           description:
             "Global defaults that apply to all your outbounds and rules.",
-          saved: "Settings staged. Apply config to persist them.",
+          saved: "Settings staged. Apply new config to persist them.",
           general: {
             title: "General",
             description: "Default behavior for all outbounds.",
@@ -324,8 +319,7 @@ export const enTranslation = {
           back: "Back to DNS servers",
           description:
             "This server will be available in your DNS rules and as a fallback.",
-          cardDescription:
-            "Configure server address and optional detour outbound.",
+          cardDescription: "Configure server address and optional detour outbound.",
           editCardTitle: "Edit {{tag}}",
           fields: {
             tag: "Name",
@@ -358,7 +352,7 @@ export const enTranslation = {
             "Rules that decide which outbound handles matching traffic. Evaluated top to bottom.",
           actions: { addRule: "Add routing rule" },
           messages: {
-            saved: "Routing rules staged. Apply config to persist them.",
+            saved: "Routing rules staged. Apply new config to persist them.",
           },
           empty: {
             title: "No routing rules yet",
@@ -389,7 +383,7 @@ export const enTranslation = {
           cardDescription:
             "Choose lists and outbound, then optionally narrow by protocol, ports, and addresses.",
           messages: {
-            saved: "Routing rule staged. Apply config to persist it.",
+            saved: "Routing rule staged. Apply new config to persist it.",
           },
           missing: {
             cardDescription: "The requested routing rule could not be found.",
@@ -473,8 +467,7 @@ export const enTranslation = {
           missing: {
             cardDescription: "The requested outbound could not be found.",
             cardTitle: "Missing outbound",
-            description:
-              "Return to the outbounds table and choose a valid entry.",
+            description: "Return to the outbounds table and choose a valid entry.",
             back: "Back to outbounds",
           },
           actions: { create: "Create outbound", save: "Save outbound" },
@@ -501,16 +494,13 @@ export const enTranslation = {
             description:
               "Set the egress interface and optional gateway for this outbound.",
             interface: "Interface",
-            interfaceHint:
-              "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
+            interfaceHint: "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
             gateway: "Gateway",
-            gatewayHint:
-              "Optional gateway IP for this outbound.",
+            gatewayHint: "Optional gateway IP for this outbound.",
           },
           table: {
             title: "Routing table settings",
-            description:
-              "Map this outbound to an existing kernel routing table.",
+            description: "Map this outbound to an existing kernel routing table.",
             field: "Table ID",
             hint: "Kernel routing table ID for this outbound.",
           },
@@ -560,11 +550,9 @@ export const enTranslation = {
             description:
               "Prevents excessive probing when an interface or probe URL is persistently unavailable.",
             failures: "Failures before open",
-            failuresHint:
-              "Open the circuit after this many consecutive failures.",
+            failuresHint: "Open the circuit after this many consecutive failures.",
             successes: "Successes to close",
-            successesHint:
-              "Successful probes required to close the circuit again.",
+            successesHint: "Successful probes required to close the circuit again.",
             timeout: "Open timeout (ms)",
             timeoutHint:
               "How long the circuit stays open before half-open probing begins (in ms).",
@@ -587,18 +575,18 @@ export const enTranslation = {
         },
         dnsRules: {
           title: "DNS Rules",
-          description: "Control which DNS server is used for domains in your lists.",
+          description:
+            "Control which DNS server is used for domains in your lists.",
           actions: { add: "Add DNS rule" },
           messages: {
-            saved: "DNS configuration staged. Apply config to persist it.",
+            saved: "DNS configuration staged. Apply new config to persist it.",
           },
           validation: {
             invalidFallback:
               "Primary DNS servers must reference existing server tags.",
             invalidFallbackChange:
               "Cannot change fallback while DNS rules are invalid.",
-            invalidResult:
-              "Cannot save because resulting DNS rules are invalid.",
+            invalidResult: "Cannot save because resulting DNS rules are invalid.",
           },
           fallback: {
             title: "Primary DNS servers",
@@ -628,7 +616,7 @@ export const enTranslation = {
           description:
             "This rule defines which DNS server to use for domains in a specific list.",
           cardDescription: "Set the list names and DNS server for this rule.",
-          messages: { saved: "DNS rule staged. Apply config to persist it." },
+          messages: { saved: "DNS rule staged. Apply new config to persist it." },
           validation: {
             notFound: "The requested DNS rule was not found.",
             fixErrors: "Fix validation errors before saving.",
@@ -706,8 +694,8 @@ export const enTranslation = {
           cardDescription:
             "Review the list source, TTL, and matching entries before saving.",
           messages: {
-            created: "List staged. Apply config to persist it.",
-            updated: "List changes staged. Apply config to persist them.",
+            created: "List staged. Apply new config to persist it.",
+            updated: "List changes staged. Apply new config to persist them.",
           },
           missing: {
             cardDescription: "The requested list could not be found.",
@@ -741,8 +729,7 @@ export const enTranslation = {
             file: {
               button: "File on device",
               title: "Local file",
-              description:
-                "Read list entries from a file available on the router.",
+              description: "Read list entries from a file available on the router.",
             },
             inline: {
               button: "Domains / IPs",
@@ -752,8 +739,7 @@ export const enTranslation = {
           },
           fields: {
             name: "Name",
-            nameHint:
-              "Stable identifier used in rules and references.",
+            nameHint: "Stable identifier used in rules and references.",
             ttlMs: "IP cache duration (ms)",
             ttlMsHint:
               "How long to keep resolved IPs in the ipset. `0` = no timeout.",

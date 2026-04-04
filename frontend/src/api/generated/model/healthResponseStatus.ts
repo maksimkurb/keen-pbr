@@ -11,4 +11,5 @@ export type HealthResponseStatus = typeof HealthResponseStatus[keyof typeof Heal
 
 export const HealthResponseStatus = {
   running: 'running',
+  stopped: 'stopped',
 } as const;

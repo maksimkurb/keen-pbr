@@ -9,7 +9,7 @@ All endpoints are served at the configured `api.listen` address (default `127.0.
 
 ## GET /api/health/service
 
-Returns the running daemon version, service status, and resolver configuration summary.
+Returns the running daemon version, routing runtime status, and resolver configuration summary.
 
 ```bash
 curl http://127.0.0.1:8080/api/health/service
@@ -30,25 +30,6 @@ curl http://127.0.0.1:8080/api/health/service
 `resolver_config_hash` is an MD5 hex digest of the expected domain-to-ipset mapping derived from the current config. `resolver_config_hash_actual` reflects the hash of the config that was last applied to the running system resolver. When these two values differ, the dnsmasq config may be out of date.
 
 For live outbound runtime state (health, latency, circuit breaker) use `GET /api/runtime/outbounds`.
-
----
-
-## POST /api/reload
-
-Triggers an asynchronous full reload: re-downloads all configured lists and re-applies firewall and routing rules.
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/reload
-```
-
-### Response
-
-```json
-{
-  "status": "ok",
-  "message": "Reload triggered"
-}
-```
 
 ---
 
@@ -89,7 +70,7 @@ curl http://127.0.0.1:8080/api/config
 
 ## POST /api/config
 
-Validates the provided JSON body as a config file and stages it in daemon memory. The config is **not** written to disk and the service is **not** reloaded. Use `POST /api/config/save` to persist and apply.
+Validates the provided JSON body as a config file and stages it in daemon memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/config \
@@ -121,7 +102,7 @@ curl -X POST http://127.0.0.1:8080/api/config \
 
 ## POST /api/config/save
 
-Persists the currently staged in-memory config to disk, then applies it with a full service reload.
+Persists the currently staged in-memory config to disk, then applies it to the routing runtime.
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/config/save

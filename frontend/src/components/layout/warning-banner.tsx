@@ -1,27 +1,18 @@
+import { SaveIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { useGetHealthService, useGetConfig } from "@/api/queries"
 import {
-  usePostConfigSaveMutation,
-  usePostReloadMutation,
+  useApplyConfigMutation,
+  usePostServiceActionMutation,
+  useRoutingControlPendingState,
 } from "@/api/mutations"
 import { selectConfigIsDraft } from "@/api/selectors"
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-export function WarningBanner({
-  compact = false,
-  className,
-}: {
-  compact?: boolean
-  className?: string
-}) {
+export function WarningBanner({ className }: { className?: string }) {
   const { t } = useTranslation()
   const configQuery = useGetConfig()
   const healthQuery = useGetHealthService({
@@ -30,8 +21,10 @@ export function WarningBanner({
       refetchIntervalInBackground: false,
     },
   })
-  const postConfigSaveMutation = usePostConfigSaveMutation()
-  const postReloadMutation = usePostReloadMutation()
+  const applyConfigMutation = useApplyConfigMutation()
+  const restartRoutingMutation = usePostServiceActionMutation("restart")
+  const { anyPending, applyPending, restartPending } =
+    useRoutingControlPendingState()
 
   const serviceHealth =
     healthQuery.data?.status === 200 ? healthQuery.data.data : null
@@ -43,95 +36,46 @@ export function WarningBanner({
     Boolean(expectedResolverHash) &&
     Boolean(actualResolverHash) &&
     expectedResolverHash !== actualResolverHash
+  const isServiceRunning = serviceHealth?.status === "running"
 
   if (!isDraft && !hasResolverHashMismatch) {
     return null
   }
 
-  if (compact) {
-    return (
-      <div className={cn("space-y-2", className)}>
-        {isDraft ? (
-          <Alert variant="warning">
-            <AlertTitle>{t("warning.compact.draftPending")}</AlertTitle>
-            <Button
-              disabled={postConfigSaveMutation.isPending}
-              onClick={() => postConfigSaveMutation.mutate()}
-              size="xs"
-              variant="outline"
-              className="mt-2"
-            >
-              {postConfigSaveMutation.isPending
-                ? t("warning.compact.saving")
-                : t("warning.compact.apply")}
-            </Button>
-          </Alert>
-        ) : null}
-
-        {hasResolverHashMismatch ? (
-          <Alert variant="warning">
-            <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
-            <Button
-              disabled={postReloadMutation.isPending}
-              onClick={() => postReloadMutation.mutate()}
-              size="xs"
-              variant="outline"
-              className="mt-2"
-            >
-              {postReloadMutation.isPending
-                ? t("warning.compact.reloading")
-                : t("warning.compact.reload")}
-            </Button>
-          </Alert>
-        ) : null}
-      </div>
-    )
-  }
-
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2", className)}>
       {isDraft ? (
-        <Alert className="border-warning/50 bg-warning/5 text-warning-foreground">
-          <AlertTitle>{t("warning.full.unsavedTitle")}</AlertTitle>
-          <AlertDescription>
-            {t("warning.full.unsavedDescription")}
-          </AlertDescription>
-          <AlertAction>
-            <Button
-              disabled={postConfigSaveMutation.isPending}
-              onClick={() => postConfigSaveMutation.mutate()}
-              size="sm"
-              variant="outline"
-            >
-              {postConfigSaveMutation.isPending
-                ? t("warning.full.applying")
-                : t("warning.full.applyConfig")}
-            </Button>
-          </AlertAction>
+        <Alert variant="warning">
+          <AlertDescription>{t("warning.draftChanged")}</AlertDescription>
+          <Button
+            disabled={anyPending}
+            onClick={() => applyConfigMutation.mutate()}
+            size="xs"
+            variant="outline"
+            className="mt-2"
+          >
+            <SaveIcon className="mr-1 h-3 w-3" />
+            {applyPending
+              ? t("warning.actions.applying")
+              : t("warning.actions.apply")}
+          </Button>
         </Alert>
       ) : null}
 
       {hasResolverHashMismatch ? (
-        <Alert className="border-warning/50 bg-warning/5 text-warning-foreground">
-          <AlertTitle>{t("warning.full.staleTitle")}</AlertTitle>
-          <AlertDescription>
-            {t("warning.full.staleDescription", {
-              expected: expectedResolverHash?.slice(0, 10),
-              actual: actualResolverHash?.slice(0, 10),
-            })}
-          </AlertDescription>
-          <AlertAction>
-            <Button
-              disabled={postReloadMutation.isPending}
-              onClick={() => postReloadMutation.mutate()}
-              size="sm"
-              variant="outline"
-            >
-              {postReloadMutation.isPending
-                ? t("warning.full.reloading")
-                : t("warning.full.reloadService")}
-            </Button>
-          </AlertAction>
+        <Alert variant="warning">
+          <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
+          <Button
+            disabled={anyPending || !serviceHealth || !isServiceRunning}
+            onClick={() => restartRoutingMutation.mutate()}
+            size="xs"
+            variant="outline"
+            className="mt-2"
+          >
+            {restartPending
+              ? t("warning.actions.restarting")
+              : t("warning.actions.restart")}
+          </Button>
         </Alert>
       ) : null}
     </div>

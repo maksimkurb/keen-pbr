@@ -1,27 +1,29 @@
-import { useQueryClient } from "@tanstack/react-query"
+import {
+  useIsMutating,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import {
   postConfig,
   postConfigSave,
-  postReload,
   postRoutingTest,
   usePostConfig,
   usePostConfigSave,
-  usePostReload,
   usePostRoutingTest,
 } from "@/api/generated/keen-api"
 import {
+  invalidationKeysAfterApplyConfigMutation,
   invalidationKeysAfterConfigMutation,
-  invalidationKeysAfterConfigSaveMutation,
-  invalidationKeysAfterReloadMutation,
+  invalidationKeysAfterRuntimeActionMutation,
 } from "@/api/query-keys"
+import { apiFetch } from "@/api/client"
 
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
 type UsePostConfigSaveOptions = Parameters<typeof usePostConfigSave>[0]
-type UsePostReloadOptions = Parameters<typeof usePostReload>[0]
 type UsePostRoutingTestOptions = Parameters<typeof usePostRoutingTest>[0]
 
-export { postConfig, postConfigSave, postReload, postRoutingTest }
+export { postConfig, postConfigSave, postRoutingTest }
 
 export const usePostConfigMutation = (options?: UsePostConfigOptions) => {
   const queryClient = useQueryClient()
@@ -46,7 +48,7 @@ export const usePostConfigMutation = (options?: UsePostConfigOptions) => {
   })
 }
 
-export const usePostConfigSaveMutation = (options?: UsePostConfigSaveOptions) => {
+export const useApplyConfigMutation = (options?: UsePostConfigSaveOptions) => {
   const queryClient = useQueryClient()
 
   return usePostConfigSave({
@@ -54,7 +56,7 @@ export const usePostConfigSaveMutation = (options?: UsePostConfigSaveOptions) =>
     mutation: {
       ...options?.mutation,
       onSuccess: async (data, variables, onMutateResult, context) => {
-        for (const queryKey of invalidationKeysAfterConfigSaveMutation) {
+        for (const queryKey of invalidationKeysAfterApplyConfigMutation) {
           await queryClient.invalidateQueries({ queryKey })
         }
 
@@ -69,27 +71,47 @@ export const usePostConfigSaveMutation = (options?: UsePostConfigSaveOptions) =>
   })
 }
 
-export const usePostReloadMutation = (options?: UsePostReloadOptions) => {
+export const usePostRoutingTestMutation = (
+  options?: UsePostRoutingTestOptions
+) => usePostRoutingTest(options)
+
+type ServiceAction = "start" | "stop" | "restart"
+const serviceActionMutationKey = (action: ServiceAction) =>
+  ["serviceAction", action] as const
+
+const postServiceAction = (action: ServiceAction) =>
+  apiFetch(`/api/service/${action}`, {
+    method: "POST",
+  })
+
+export const usePostServiceActionMutation = (action: ServiceAction) => {
   const queryClient = useQueryClient()
 
-  return usePostReload({
-    ...options,
-    mutation: {
-      ...options?.mutation,
-      onSuccess: async (data, variables, onMutateResult, context) => {
-        for (const queryKey of invalidationKeysAfterReloadMutation) {
-          await queryClient.invalidateQueries({ queryKey })
-        }
-
-        await options?.mutation?.onSuccess?.(
-          data,
-          variables,
-          onMutateResult,
-          context
-        )
-      },
+  return useMutation({
+    mutationKey: serviceActionMutationKey(action),
+    mutationFn: () => postServiceAction(action),
+    onSuccess: async () => {
+      for (const queryKey of invalidationKeysAfterRuntimeActionMutation) {
+        await queryClient.invalidateQueries({ queryKey })
+      }
     },
   })
 }
 
-export const usePostRoutingTestMutation = (options?: UsePostRoutingTestOptions) => usePostRoutingTest(options)
+export const useRoutingControlPendingState = () => {
+  const applyPending = useIsMutating({ mutationKey: ["postConfigSave"] }) > 0
+  const startPending =
+    useIsMutating({ mutationKey: serviceActionMutationKey("start") }) > 0
+  const stopPending =
+    useIsMutating({ mutationKey: serviceActionMutationKey("stop") }) > 0
+  const restartPending =
+    useIsMutating({ mutationKey: serviceActionMutationKey("restart") }) > 0
+
+  return {
+    applyPending,
+    startPending,
+    stopPending,
+    restartPending,
+    anyPending: applyPending || startPending || stopPending || restartPending,
+  }
+}

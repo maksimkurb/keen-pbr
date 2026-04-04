@@ -290,7 +290,7 @@ namespace api {
         OutboundType type;
     };
 
-    enum class HealthResponseStatus : int { RUNNING };
+    enum class HealthResponseStatus : int { RUNNING, STOPPED };
 
     struct HealthResponse {
         bool config_is_draft;
@@ -1491,12 +1491,14 @@ namespace api {
 
     inline void from_json(const json & j, HealthResponseStatus & x) {
         if (j == "running") x = HealthResponseStatus::RUNNING;
+        else if (j == "stopped") x = HealthResponseStatus::STOPPED;
         else { throw std::runtime_error("Input JSON does not conform to schema!"); }
     }
 
     inline void to_json(json & j, const HealthResponseStatus & x) {
         switch (x) {
             case HealthResponseStatus::RUNNING: j = "running"; break;
+            case HealthResponseStatus::STOPPED: j = "stopped"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"HealthResponseStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }

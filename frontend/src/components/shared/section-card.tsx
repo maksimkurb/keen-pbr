@@ -15,12 +15,14 @@ export function SectionCard({
   action,
   description,
   className,
+  contentClassName,
 }: {
   title: string
   children: ReactNode
   action?: ReactNode
   description?: ReactNode
   className?: string
+  contentClassName?: string
 }) {
   return (
     <Card className={cn(className)}>
@@ -28,12 +30,16 @@ export function SectionCard({
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <CardTitle>{title}</CardTitle>
-            {description ? <CardDescription>{description}</CardDescription> : null}
+            {description ? (
+              <CardDescription>{description}</CardDescription>
+            ) : null}
           </div>
           {action}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">{children}</CardContent>
+      <CardContent className={cn("space-y-3", contentClassName)}>
+        {children}
+      </CardContent>
     </Card>
   )
 }

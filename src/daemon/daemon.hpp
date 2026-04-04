@@ -125,6 +125,10 @@ private:
     void apply_config(Config config);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
+    void start_routing_runtime();
+    void stop_routing_runtime();
+    void restart_routing_runtime();
+    bool routing_runtime_active() const;
     void run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
     void refresh_lists_and_maybe_reload();
@@ -210,6 +214,7 @@ private:
 
     std::unique_ptr<class DnsProbeServer> dns_probe_server_;
     HookCommandExecutor hook_command_executor_;
+    bool routing_runtime_active_{true};
 };
 
 } // namespace keen_pbr3

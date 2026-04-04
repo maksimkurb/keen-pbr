@@ -53,7 +53,7 @@ The `urltest` outbound is `degraded` when no child has been successfully selecte
 1. Check keen-pbr logs for HTTP errors when downloading the list.
 2. Verify the URL is reachable from the router: `curl -I <url>`.
 3. Check `lists_autoupdate.cron` — ensure the schedule is correct.
-4. Trigger a manual reload to test: `curl -X POST http://127.0.0.1:8080/api/reload`
+4. Trigger a manual reload to test: `kill -HUP $(cat /var/run/keen-pbr.pid)`
 5. Check that `daemon.cache_dir` is writable; failed writes prevent caching.
 
 ## Port/address filter rules not matching
