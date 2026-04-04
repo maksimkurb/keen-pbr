@@ -18,3 +18,5 @@ _deps/
 !cmake/*.cmake
 .clangd
 /**/__pycache__
+cmake-build/
+cmake-build-*/

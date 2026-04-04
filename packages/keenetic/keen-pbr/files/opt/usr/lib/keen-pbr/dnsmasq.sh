@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eu
+set -e
 
 KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
 CONFIG_PATH="/opt/etc/keen-pbr/config.json"
@@ -111,12 +111,7 @@ restart_dnsmasq() {
         return 0
     fi
 
-    if command -v service >/dev/null 2>&1; then
-        service dnsmasq restart 2>/dev/null || true
-        return 0
-    fi
-
-    killall dnsmasq 2>/dev/null || true
+    return 1
 }
 
 print_help() {

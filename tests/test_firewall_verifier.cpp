@@ -374,6 +374,24 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check")
     CHECK(checks.empty());
 }
 
+TEST_CASE("IptablesFirewallVerifier::verify_chain: scaffold without rules is healthy") {
+    const std::string canned =
+        "*mangle\n"
+        ":KeenPbrTable - [0:0]\n"
+        "-A PREROUTING -j KeenPbrTable\n"
+        "COMMIT\n";
+
+    auto runner = [&canned](const std::vector<std::string>&) -> CommandResult {
+        return command_result(canned);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    const auto check = verifier.verify_chain();
+    CHECK(check.chain_present);
+    CHECK(check.prerouting_hook_present);
+    CHECK(check.detail == "ok");
+}
+
 // =============================================================================
 // NftablesFirewallVerifier::verify_rules with injected CommandRunner
 // =============================================================================
