@@ -24,7 +24,7 @@ export function getRuleDraft(rule?: {
 
 export function buildUpdatedConfigWithRules(
   config: ConfigObject,
-  fallback: string,
+  fallback: string[],
   rules: DnsRuleDraft[]
 ): ConfigObject {
   return {

@@ -50,7 +50,7 @@
       }
     ],
     "rules": [],
-    "fallback": "quad9"
+    "fallback": ["quad9"]
   },
 
   "fwmark": {

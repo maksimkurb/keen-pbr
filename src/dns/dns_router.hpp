@@ -17,12 +17,12 @@ public:
     // Get a server config by tag. Returns nullptr if not found.
     const DnsServerConfig* get_server(const std::string& tag) const;
 
-    // Get the fallback server config.
-    const DnsServerConfig& fallback() const;
+    // Get fallback server configs in configured order.
+    std::vector<const DnsServerConfig*> fallback_servers() const;
 
 private:
     std::map<std::string, DnsServerConfig> servers_;
-    std::string fallback_tag_;
+    std::vector<std::string> fallback_tags_;
 };
 
 } // namespace keen_pbr3

@@ -62,6 +62,7 @@ jobs:
   build:
     name: "${{ matrix.build_env.config_name }}"
     runs-on: ubuntu-latest
+    environment: package-builder
     needs: [generate-config]
     strategy:
       fail-fast: false

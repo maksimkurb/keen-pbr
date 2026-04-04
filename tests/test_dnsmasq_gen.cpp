@@ -32,7 +32,7 @@ static DnsConfig make_empty_dns_cfg() {
     srv.tag     = "default";
     srv.address = "127.0.0.1";
     DnsConfig cfg;
-    cfg.fallback = "default";
+    cfg.fallback = std::vector<std::string>{"default"};
     cfg.servers  = std::vector<DnsServer>{srv};
     return cfg;
 }
@@ -48,7 +48,7 @@ static DnsConfig make_dns_cfg(const std::string& list_name,
     rule.list   = std::vector<std::string>{list_name};
     rule.server = server_tag;
     DnsConfig cfg;
-    cfg.fallback = server_tag;
+    cfg.fallback = std::vector<std::string>{server_tag};
     cfg.servers  = std::vector<DnsServer>{srv};
     cfg.rules    = std::vector<DnsRule>{rule};
     return cfg;
@@ -224,6 +224,67 @@ TEST_CASE("server= directive has no #port suffix for default port 53") {
     CHECK(output.find("#53") == std::string::npos);
 }
 
+TEST_CASE("generate-resolver-config includes fallback server directives in configured order") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    DnsServer primary;
+    primary.tag = "primary";
+    primary.address = "1.1.1.1";
+    DnsServer backup;
+    backup.tag = "backup";
+    backup.address = "9.9.9.9:5353";
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{primary, backup};
+    dns_cfg.fallback = std::vector<std::string>{"primary", "backup"};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    const auto primary_pos = output.find("server=1.1.1.1\n");
+    const auto backup_pos = output.find("server=9.9.9.9#5353\n");
+
+    CHECK(primary_pos != std::string::npos);
+    CHECK(backup_pos != std::string::npos);
+    CHECK(primary_pos < backup_pos);
+}
+
+TEST_CASE("hash changes when fallback list order changes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    DnsServer primary;
+    primary.tag = "primary";
+    primary.address = "1.1.1.1";
+    DnsServer backup;
+    backup.tag = "backup";
+    backup.address = "9.9.9.9";
+
+    DnsConfig dns_cfg1;
+    dns_cfg1.servers = std::vector<DnsServer>{primary, backup};
+    dns_cfg1.fallback = std::vector<std::string>{"primary", "backup"};
+
+    DnsConfig dns_cfg2;
+    dns_cfg2.servers = std::vector<DnsServer>{primary, backup};
+    dns_cfg2.fallback = std::vector<std::string>{"backup", "primary"};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg1(dns_cfg1);
+    DnsServerRegistry reg2(dns_cfg2);
+    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
+    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
+
+    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
+}
+
 TEST_CASE("generate-resolver-config includes dns probe server directive when enabled") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
@@ -341,11 +402,11 @@ TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
                                ResolverType::DNSMASQ_IPSET);
     const std::string ipset_output = run_generate(ipset_gen);
     CHECK(ipset_output.find("ipset=") == std::string::npos);
-    CHECK(ipset_output.find("server=") == std::string::npos);
+    CHECK(ipset_output.find("server=/") == std::string::npos);
 
     DnsmasqGenerator nftset_gen(reg, streamer, route_cfg, dns_cfg, lists,
                                 ResolverType::DNSMASQ_NFTSET);
     const std::string nftset_output = run_generate(nftset_gen);
     CHECK(nftset_output.find("nftset=") == std::string::npos);
-    CHECK(nftset_output.find("server=") == std::string::npos);
+    CHECK(nftset_output.find("server=/") == std::string::npos);
 }

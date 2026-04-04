@@ -1,4 +1,4 @@
-import { ListPlus, Plus, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, ListPlus, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -29,6 +29,7 @@ export function MultiSelectList({
   emptyMessage,
   placeholderTitle,
   placeholderDescription,
+  allowReorder = false,
 }: {
   options: string[]
   unavailable?: string[]
@@ -39,6 +40,7 @@ export function MultiSelectList({
   groupLabel?: string
   placeholderTitle?: string
   placeholderDescription?: string
+  allowReorder?: boolean
 }) {
   const { t } = useTranslation()
   const [selectValue, setSelectValue] = useState("")
@@ -69,7 +71,7 @@ export function MultiSelectList({
       value={selectValue}
     >
       <SelectTrigger
-        className="w-full sm:w-auto sm:min-w-52"
+        className="w-full sm:w-auto sm:min-w-52 data-placeholder:text-foreground disabled:data-placeholder:text-muted-foreground"
         disabled={availableOptions.length === 0}
         size="sm"
       >
@@ -99,7 +101,7 @@ export function MultiSelectList({
       {value.length ? (
         <div className="space-y-2 rounded-xl border border-border p-3">
           {value.map((item, index) => (
-            <InputGroup key={`${item}-${index}`}>
+            <InputGroup key={`${item}-${index}`} className="cursor-default">
               <InputGroupAddon className="w-full justify-start text-foreground">
                 {item}
               </InputGroupAddon>
@@ -107,11 +109,53 @@ export function MultiSelectList({
                 <InputGroupButton
                   aria-label={t("common.multiSelectList.removeItem", { item })}
                   className="text-destructive hover:text-destructive"
-                  onClick={() => onChange(value.filter((current) => current !== item))}
+                  onClick={() =>
+                    onChange(value.filter((_, currentIndex) => currentIndex !== index))
+                  }
                   size="icon-xs"
                 >
                   <Trash2 className="h-4 w-4" />
                 </InputGroupButton>
+                {allowReorder ? (
+                  <>
+                    <InputGroupButton
+                      aria-label={t("common.moveUp")}
+                      disabled={index === 0}
+                      onClick={() => {
+                        if (index === 0) {
+                          return
+                        }
+                        const nextValue = [...value]
+                        ;[nextValue[index - 1], nextValue[index]] = [
+                          nextValue[index],
+                          nextValue[index - 1],
+                        ]
+                        onChange(nextValue)
+                      }}
+                      size="icon-xs"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </InputGroupButton>
+                    <InputGroupButton
+                      aria-label={t("common.moveDown")}
+                      disabled={index === value.length - 1}
+                      onClick={() => {
+                        if (index === value.length - 1) {
+                          return
+                        }
+                        const nextValue = [...value]
+                        ;[nextValue[index], nextValue[index + 1]] = [
+                          nextValue[index + 1],
+                          nextValue[index],
+                        ]
+                        onChange(nextValue)
+                      }}
+                      size="icon-xs"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </InputGroupButton>
+                  </>
+                ) : null}
               </InputGroupAddon>
             </InputGroup>
           ))}

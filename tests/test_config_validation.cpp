@@ -15,6 +15,15 @@ Config parse_test_config(const std::string& json_str) {
     if (!cfg.dns.has_value()) {
         cfg.dns = DnsConfig{};
     }
+    if (!cfg.dns->servers.has_value()) {
+        DnsServer fallback_server;
+        fallback_server.tag = "default-dns";
+        fallback_server.address = "127.0.0.1";
+        cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+    }
+    if (!cfg.dns->fallback.has_value()) {
+        cfg.dns->fallback = std::vector<std::string>{"default-dns"};
+    }
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
         resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
@@ -131,13 +140,13 @@ static const std::string kDnsDetourBase = R"({
 
 TEST_CASE("dns detour: valid interface outbound") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
-        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"vpn"}]}})";
+        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"vpn"}],"fallback":["vpn-dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: valid table outbound") {
     std::string json = R"({"outbounds":[{"tag":"tbl","type":"table","table":100}],
-        "dns":{"servers":[{"tag":"tbl-dns","address":"10.8.0.2","detour":"tbl"}]}})";
+        "dns":{"servers":[{"tag":"tbl-dns","address":"10.8.0.2","detour":"tbl"}],"fallback":["tbl-dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
@@ -145,30 +154,30 @@ TEST_CASE("dns detour: valid urltest outbound") {
     std::string json = R"({"outbounds":[
         {"tag":"vpn","type":"interface","interface":"wg0"},
         {"tag":"ut","type":"urltest","url":"http://example.com","outbound_groups":[{"outbounds":["vpn"]}]}
-    ],"dns":{"servers":[{"tag":"ut-dns","address":"10.8.0.3","detour":"ut"}]}})";
+    ],"dns":{"servers":[{"tag":"ut-dns","address":"10.8.0.3","detour":"ut"}],"fallback":["ut-dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: unknown outbound tag is rejected") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
-        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"nonexistent"}]}})";
+        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"nonexistent"}],"fallback":["vpn-dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: blackhole outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"bh","type":"blackhole"}],
-        "dns":{"servers":[{"tag":"bh-dns","address":"10.8.0.1","detour":"bh"}]}})";
+        "dns":{"servers":[{"tag":"bh-dns","address":"10.8.0.1","detour":"bh"}],"fallback":["bh-dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: ignore outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"ig","type":"ignore"}],
-        "dns":{"servers":[{"tag":"ig-dns","address":"10.8.0.1","detour":"ig"}]}})";
+        "dns":{"servers":[{"tag":"ig-dns","address":"10.8.0.1","detour":"ig"}],"fallback":["ig-dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: no detour field is accepted") {
-    std::string json = R"({"dns":{"servers":[{"tag":"plain-dns","address":"8.8.8.8"}]}})";
+    std::string json = R"({"dns":{"servers":[{"tag":"plain-dns","address":"8.8.8.8"}],"fallback":["plain-dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
@@ -207,6 +216,8 @@ TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
 TEST_CASE("config validation: accepts system_resolver") {
     auto cfg = parse_test_config(R"({
         "dns": {
+            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "fallback": ["plain-dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
                 "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
@@ -223,7 +234,8 @@ TEST_CASE("config validation: rejects missing system_resolver") {
         "dns": {
             "servers": [
                 {"tag":"plain-dns","address":"8.8.8.8"}
-            ]
+            ],
+            "fallback": ["plain-dns"]
         }
     })");
 
@@ -237,10 +249,80 @@ TEST_CASE("config validation: rejects missing system_resolver") {
     }
 }
 
+TEST_CASE("config validation: allows missing fallback") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "system_resolver": {
+                "type": "dnsmasq-nftset",
+                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_NOTHROW(validate_config(cfg));
+}
+
+TEST_CASE("config validation: allows empty fallback array") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "fallback": [],
+            "system_resolver": {
+                "type": "dnsmasq-nftset",
+                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_NOTHROW(validate_config(cfg));
+}
+
+TEST_CASE("config validation: rejects unknown fallback tag") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "fallback": ["missing-dns"],
+            "system_resolver": {
+                "type": "dnsmasq-nftset",
+                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
+}
+
+TEST_CASE("config validation: rejects duplicate fallback tag") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "fallback": ["plain-dns", "plain-dns"],
+            "system_resolver": {
+                "type": "dnsmasq-nftset",
+                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_THROWS_AS(validate_config(cfg), ConfigValidationError);
+}
+
 TEST_CASE("config validation: collects empty system_resolver fields") {
     Config cfg;
     cfg.dns = DnsConfig{};
-    cfg.dns->system_resolver = api::SystemResolver{};
+    DnsServer fallback_server;
+    fallback_server.tag = "default-dns";
+    fallback_server.address = "127.0.0.1";
+    cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+    cfg.dns->fallback = std::vector<std::string>{"default-dns"};
+    api::SystemResolver resolver{};
+    resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+    cfg.dns->system_resolver = resolver;
 
     try {
         validate_config(cfg);

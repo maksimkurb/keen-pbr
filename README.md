@@ -265,7 +265,7 @@ keen-pbr reads a JSON config file whose default path is set at build time (`/etc
         "server": "vpn-dns"
       }
     ],
-    "fallback": "local-dns"
+    "fallback": ["local-dns"]
   }
 }
 ```

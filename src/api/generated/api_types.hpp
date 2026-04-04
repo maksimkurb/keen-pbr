@@ -151,7 +151,7 @@ namespace api {
 
     struct Dns {
         std::optional<DnsTestServer> dns_test_server;
-        std::optional<std::string> fallback;
+        std::optional<std::vector<std::string>> fallback;
         std::optional<std::vector<DnsRuleElement>> rules;
         std::optional<std::vector<DnsServerElement>> servers;
         std::optional<SystemResolver> system_resolver;
@@ -754,7 +754,7 @@ namespace api {
 
     inline void from_json(const json & j, Dns& x) {
         x.dns_test_server = get_stack_optional<DnsTestServer>(j, "dns_test_server");
-        x.fallback = get_stack_optional<std::string>(j, "fallback");
+        x.fallback = get_stack_optional<std::vector<std::string>>(j, "fallback");
         x.rules = get_stack_optional<std::vector<DnsRuleElement>>(j, "rules");
         x.servers = get_stack_optional<std::vector<DnsServerElement>>(j, "servers");
         x.system_resolver = get_stack_optional<SystemResolver>(j, "system_resolver");

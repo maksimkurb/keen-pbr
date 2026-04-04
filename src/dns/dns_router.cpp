@@ -4,7 +4,7 @@
 namespace keen_pbr3 {
 
 DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
-    : fallback_tag_(dns_config.fallback.value_or("")) {
+    : fallback_tags_(dns_config.fallback.value_or(std::vector<std::string>{})) {
     // Parse all DNS server definitions into DnsServerConfig
     for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
         std::string resolved_address;
@@ -25,9 +25,11 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
             parse_dns_server(server.tag, resolved_address, server.detour));
     }
 
-    // Validate that fallback server tag exists
-    if (servers_.find(fallback_tag_) == servers_.end()) {
-        throw DnsError("DNS fallback server tag not found: '" + fallback_tag_ + "'");
+    // Validate that fallback server tags exist
+    for (const auto& fallback_tag : fallback_tags_) {
+        if (servers_.find(fallback_tag) == servers_.end()) {
+            throw DnsError("DNS fallback server tag not found: '" + fallback_tag + "'");
+        }
     }
 
     // Validate that all rule server tags exist
@@ -46,8 +48,13 @@ const DnsServerConfig* DnsServerRegistry::get_server(const std::string& tag) con
     return &it->second;
 }
 
-const DnsServerConfig& DnsServerRegistry::fallback() const {
-    return servers_.at(fallback_tag_);
+std::vector<const DnsServerConfig*> DnsServerRegistry::fallback_servers() const {
+    std::vector<const DnsServerConfig*> fallback_servers;
+    fallback_servers.reserve(fallback_tags_.size());
+    for (const auto& fallback_tag : fallback_tags_) {
+        fallback_servers.push_back(&servers_.at(fallback_tag));
+    }
+    return fallback_servers;
 }
 
 } // namespace keen_pbr3

@@ -15,7 +15,7 @@ keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists 
     },
     "servers": [...],
     "rules": [...],
-    "fallback": "google-dns"
+    "fallback": ["google-dns", "quad9"]
   }
 }
 ```
@@ -24,7 +24,7 @@ keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists 
 |---|---|---|
 | `servers` | array | DNS server definitions |
 | `rules` | array | Rules mapping lists to DNS servers |
-| `fallback` | string | DNS server tag for queries that match no rule |
+| `fallback` | array of string | Ordered DNS server tags for queries that match no rule |
 | `test_server` | object | Optional built-in DNS probe listener for connectivity checks |
 
 ## System Resolver
@@ -151,7 +151,7 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 
 ## dnsmasq Integration
 
-keen-pbr provides the `generate-resolver-config` subcommand that prints `server=` and `ipset=`/`nftset=` directives to stdout for every domain in the configured lists.
+keen-pbr provides the `generate-resolver-config` subcommand that prints global fallback `server=` directives plus per-list `server=` and `ipset=`/`nftset=` directives to stdout.
 
 Two resolver types are supported:
 
@@ -205,7 +205,7 @@ If the two values differ, dnsmasq has not picked up the latest configuration —
         "server": "vpn-dns"
       }
     ],
-    "fallback": "google-dns"
+    "fallback": ["google-dns", "quad9"]
   }
 }
 ```

@@ -20,21 +20,13 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
+import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { getApiErrorMessage } from "@/lib/api-errors"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   buildUpdatedConfigWithRules,
   getRuleDraft,
@@ -75,19 +67,14 @@ export function DnsRulesPage() {
     },
   })
 
-  const isPending = postConfigMutation.isPending
   const rules = loadedConfig?.dns?.rules ?? []
 
-  const handleFallbackChange = (fallback: string | null) => {
+  const handleFallbackChange = (fallback: string[]) => {
     if (!loadedConfig) {
       return
     }
 
-    if (!fallback) {
-      return
-    }
-
-    if (!serverTags.includes(fallback)) {
+    if (fallback.some((tag) => !serverTags.includes(tag))) {
       toast.error(t("pages.dnsRules.validation.invalidFallback"))
       return
     }
@@ -122,7 +109,7 @@ export function DnsRulesPage() {
     postConfigMutation.mutate({
       data: buildUpdatedConfigWithRules(
         loadedConfig,
-        loadedConfig.dns?.fallback ?? "",
+        loadedConfig.dns?.fallback ?? [],
         nextDraftRules
       ),
     })
@@ -156,25 +143,18 @@ export function DnsRulesPage() {
             <Field>
               <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
               <FieldContent>
-                <Select
-                  disabled={isPending || !loadedConfig}
-                  onValueChange={handleFallbackChange}
-                  value={loadedConfig?.dns?.fallback ?? ""}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("pages.dnsRules.fallback.placeholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>{t("pages.dnsRules.fallback.group")}</SelectLabel>
-                      {serverTags.map((serverTag) => (
-                        <SelectItem key={serverTag} value={serverTag}>
-                          {serverTag}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <MultiSelectList
+                  addLabel={t("pages.dnsRules.fallback.add")}
+                  allowReorder
+                  emptyMessage={t("pages.dnsRules.fallback.noneAvailable")}
+                  onChange={handleFallbackChange}
+                  options={serverTags}
+                  placeholderDescription={t(
+                    "pages.dnsRules.fallback.placeholderDescription"
+                  )}
+                  placeholderTitle={t("pages.dnsRules.fallback.placeholderTitle")}
+                  value={loadedConfig?.dns?.fallback ?? []}
+                />
                 <FieldHint
                   description={
                     serverTags.length === 0 ? (

@@ -15,6 +15,7 @@ jobs:
   build:
     name: ubuntu-amd64
     runs-on: ubuntu-latest
+    environment: package-builder
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,6 +37,8 @@ jobs:
           path: /tmp/.buildx-cache-debian
           key: buildx-debian-${{ hashFiles('docker/Dockerfile.debian-builder') }}
       - name: Build and collect Debian packages
+        env:
+          DEBIAN_GPG_PRIVATE_KEY: ${{ secrets.DEBIAN_GPG_PRIVATE_KEY }}
         run: |
           make deb-packages \
             DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian" \
