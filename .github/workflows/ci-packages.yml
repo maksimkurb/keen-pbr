@@ -25,17 +25,19 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           REF: ${{ github.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_HEAD_REPO_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           set -euo pipefail
 
-          target_root="${REF_NAME//\//_}"
+          target_root="$REF_NAME"
           use_signing_secrets=false
           allow_publish=false
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
             target_root="pr/$PR_NUMBER"
             if [ "$PR_HEAD_REPO_FULL_NAME" = "$REPOSITORY" ]; then
+              target_root="$PR_HEAD_REF"
               use_signing_secrets=true
               allow_publish=true
             fi
