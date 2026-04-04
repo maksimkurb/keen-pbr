@@ -324,12 +324,14 @@ Available when built with `WITH_API=ON` and not disabled with `--no-api`:
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health/service` | Daemon version, status, and resolver config summary |
+| `GET` | `/api/health/service` | Daemon version, routing runtime status, and resolver config summary |
 | `GET` | `/api/health/routing` | Verify live kernel routing and firewall state |
 | `GET` | `/api/runtime/outbounds` | Live outbound and interface runtime state |
-| `POST` | `/api/reload` | Trigger async full reload (re-download lists, re-apply rules) |
+| `POST` | `/api/service/start` | Start the routing runtime |
+| `POST` | `/api/service/stop` | Stop the routing runtime |
+| `POST` | `/api/service/restart` | Restart the routing runtime |
 | `GET` | `/api/config` | Get current config (with draft indicator) |
-| `POST` | `/api/config` | Validate and stage config in memory (no write, no reload) |
+| `POST` | `/api/config` | Validate and stage config in memory (no write, no apply) |
 | `POST` | `/api/config/save` | Persist staged config to disk and apply it |
 | `POST` | `/api/routing/test` | Test routing for an IP address or domain name |
 | `GET` | `/api/dns/test` | Stream live DNS test queries as Server-Sent Events |

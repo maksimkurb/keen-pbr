@@ -117,4 +117,3 @@ The `cron` field is validated even when `enabled` is `false`.
 
 You can also trigger a manual refresh at any time:
 - Send `SIGHUP` to the daemon process: `kill -HUP $(cat /var/run/keen-pbr.pid)`
-- Call `POST /api/reload`

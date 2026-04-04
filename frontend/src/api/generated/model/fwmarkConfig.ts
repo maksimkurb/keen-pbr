@@ -7,9 +7,9 @@
  */
 
 export interface FwmarkConfig {
-  /** First fwmark value to assign to outbounds. */
+  /** First fwmark value to assign to outbounds as hex string. */
   start?: string;
-  /** Fwmark bitmask. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
+  /** Fwmark bitmask as hex string. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
    */
   mask?: string;
 }

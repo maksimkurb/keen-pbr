@@ -1,10 +1,6 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import {
-  Play,
-  RotateCw,
-  Square,
-} from "lucide-react"
+import { Play, RotateCw, Square } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
 import type { Outbound, RuntimeOutboundState } from "@/api/generated/model"
@@ -14,8 +10,12 @@ import {
   useGetHealthService,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
-import { usePostReloadMutation, usePostServiceActionMutation } from "@/api/mutations"
+import {
+  usePostServiceActionMutation,
+  useRoutingControlPendingState,
+} from "@/api/mutations"
 import { selectConfig } from "@/api/selectors"
+import { WarningBanner } from "@/components/layout/warning-banner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -58,15 +58,10 @@ export function OverviewPage() {
     },
   })
 
-  const postReloadMutation = usePostReloadMutation()
   const postServiceStartMutation = usePostServiceActionMutation("start")
   const postServiceStopMutation = usePostServiceActionMutation("stop")
   const postServiceRestartMutation = usePostServiceActionMutation("restart")
-  const serviceActionPending =
-    postReloadMutation.isPending ||
-    postServiceStartMutation.isPending ||
-    postServiceStopMutation.isPending ||
-    postServiceRestartMutation.isPending
+  const { anyPending: actionPending } = useRoutingControlPendingState()
 
   const serviceHealth =
     serviceHealthQuery.data?.status === 200
@@ -87,14 +82,18 @@ export function OverviewPage() {
   const runtimeOutboundByTag = useMemo(
     () =>
       new Map(
-        runtimeOutbounds.map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+        runtimeOutbounds.map((runtimeOutbound) => [
+          runtimeOutbound.tag,
+          runtimeOutbound,
+        ])
       ),
     [runtimeOutbounds]
   )
   const hasResolverHashMismatch =
     Boolean(serviceHealth?.resolver_config_hash) &&
     Boolean(serviceHealth?.resolver_config_hash_actual) &&
-    serviceHealth?.resolver_config_hash !== serviceHealth?.resolver_config_hash_actual
+    serviceHealth?.resolver_config_hash !==
+      serviceHealth?.resolver_config_hash_actual
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
 
@@ -116,28 +115,30 @@ export function OverviewPage() {
         />
       ) : null
       const tagCell =
-        outbound.type === "urltest" || outbound.type === "interface" || detailContent ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="font-medium">
-              {outbound.type === "urltest"
-                ? t("overview.outbounds.urltestTitle")
-                : outbound.tag}
+        outbound.type === "urltest" ||
+        outbound.type === "interface" ||
+        detailContent ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="font-medium">
+                {outbound.type === "urltest"
+                  ? t("overview.outbounds.urltestTitle")
+                  : outbound.tag}
+              </div>
+              <Badge size="xs" variant="outline">
+                {outbound.type}
+              </Badge>
             </div>
+            {detailContent}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-medium">{outbound.tag}</div>
             <Badge size="xs" variant="outline">
               {outbound.type}
             </Badge>
           </div>
-          {detailContent}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="font-medium">{outbound.tag}</div>
-          <Badge size="xs" variant="outline">
-            {outbound.type}
-          </Badge>
-        </div>
-      )
+        )
 
       return [
         tagCell,
@@ -163,23 +164,28 @@ export function OverviewPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <SectionCard title={t("overview.service.title")}>
+        <SectionCard
+          className="h-full"
+          contentClassName="flex flex-1 flex-col"
+          title={t("overview.runtime.title")}
+          description={t("overview.runtime.description")}
+        >
           {serviceHealthQuery.isLoading ? <ServiceSummarySkeleton /> : null}
 
           {serviceHealthQuery.isError ? (
             <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
               <AlertDescription>
-                {t("overview.service.loadError")}
+                {t("overview.runtime.loadError")}
               </AlertDescription>
             </Alert>
           ) : null}
 
           {serviceHealth ? (
-            <>
+            <div className="flex h-full flex-1 flex-col">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
-                    {t("overview.service.version")}
+                    {t("overview.runtime.version")}
                   </div>
                   <div className="text-lg font-semibold">
                     {serviceHealth.version}
@@ -187,7 +193,7 @@ export function OverviewPage() {
                 </div>
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
-                    {t("overview.service.status")}
+                    {t("overview.runtime.status")}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
@@ -197,54 +203,55 @@ export function OverviewPage() {
                     </StatusBadge>
                     {hasResolverHashMismatch ? (
                       <StatusBadge tone="warning">
-                        {t("overview.service.dnsmasqStale")}
+                        {t("overview.runtime.dnsmasqStale")}
                       </StatusBadge>
-                    ) : <StatusBadge tone="healthy">
-                        {t("overview.service.dnsmasqGood")}
-                      </StatusBadge>}
+                    ) : (
+                      <StatusBadge tone="healthy">
+                        {t("overview.runtime.dnsmasqGood")}
+                      </StatusBadge>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <ButtonGroup className="mt-2 [&>[data-slot=button]]:flex-1">
+              <WarningBanner className="my-2" />
+
+              <ButtonGroup className="mt-auto [&>[data-slot=button]]:flex-1">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending || !hasServiceHealth || isServiceRunning}
+                  disabled={
+                    actionPending || !hasServiceHealth || isServiceRunning
+                  }
                   onClick={() => postServiceStartMutation.mutate()}
                 >
                   <Play className="mr-1 h-3 w-3" />
-                  {t("overview.service.actions.start")}
+                  {t("overview.runtime.actions.start")}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending || !hasServiceHealth || !isServiceRunning}
+                  disabled={
+                    actionPending || !hasServiceHealth || !isServiceRunning
+                  }
                   onClick={() => postServiceStopMutation.mutate()}
                 >
                   <Square className="mr-1 h-3 w-3" />
-                  {t("overview.service.actions.stop")}
+                  {t("overview.runtime.actions.stop")}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={serviceActionPending || !hasServiceHealth || !isServiceRunning}
+                  disabled={
+                    actionPending || !hasServiceHealth || !isServiceRunning
+                  }
                   onClick={() => postServiceRestartMutation.mutate()}
                 >
                   <RotateCw className="mr-1 h-3 w-3" />
-                  {t("overview.service.actions.restart")}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={serviceActionPending}
-                  onClick={() => postReloadMutation.mutate()}
-                >
-                  <RotateCw className="mr-1 h-3 w-3" />
-                  {t("overview.service.actions.reload")}
+                  {t("overview.runtime.actions.restart")}
                 </Button>
               </ButtonGroup>
-            </>
+            </div>
           ) : null}
         </SectionCard>
 
@@ -257,7 +264,9 @@ export function OverviewPage() {
         {configQuery.isLoading ? <TableSkeleton /> : null}
         {configQuery.isError || runtimeOutboundsQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>{t("overview.outbounds.loadError")}</AlertDescription>
+            <AlertDescription>
+              {t("overview.outbounds.loadError")}
+            </AlertDescription>
           </Alert>
         ) : null}
         {!configQuery.isLoading && outboundRows.length === 0 ? (
@@ -354,7 +363,8 @@ function getRoutingHealthErrorMessage(
   }
 
   return (
-    getApiErrorMessage(error as ApiError | null) || t("overview.routing.loadError")
+    getApiErrorMessage(error as ApiError | null) ||
+    t("overview.routing.loadError")
   )
 }
 

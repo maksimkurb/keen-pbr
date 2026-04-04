@@ -13,9 +13,9 @@ paths:
     get:
       summary: Service health and outbound status
       description: >
-        Returns the running daemon version, service status, and resolver/config
-        summary for the daemon. Outbound runtime diagnostics are exposed via
-        `/api/runtime/outbounds`.
+        Returns the running daemon version, routing runtime status, and
+        resolver/config summary for the daemon. Outbound runtime diagnostics
+        are exposed via `/api/runtime/outbounds`.
       operationId: getHealthService
       responses:
         "200":
@@ -24,21 +24,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
-
-  /api/reload:
-    post:
-      summary: Trigger reload
-      description: >
-        Triggers an asynchronous full reload: re-downloads all configured lists
-        and re-applies firewall and routing rules.
-      operationId: postReload
-      responses:
-        "200":
-          description: Reload triggered successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReloadResponse"
 
   /api/service/start:
     post:
@@ -111,7 +96,8 @@ paths:
       summary: Stage config in memory
       description: >
         Validates the provided JSON body as a config file and stages it in
-        daemon memory without writing it to disk or reloading the service.
+        daemon memory without writing it to disk or applying it to the routing
+        runtime.
       operationId: postConfig
       requestBody:
         required: true
@@ -141,20 +127,26 @@ paths:
 
   /api/config/save:
     post:
-      summary: Save staged config
+      summary: Apply staged config
       description: >
         Persists the currently staged in-memory config to disk and then applies
-        it with a full service reload.
+        it to the routing runtime.
       operationId: postConfigSave
       responses:
         "200":
-          description: Config saved and reload triggered
+          description: Config saved and applied successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConfigUpdateResponse"
+        "400":
+          description: No staged config or validation/dry-run failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
-          description: No staged config or save/apply error
+          description: Save/apply error
           content:
             application/json:
               schema:
@@ -1049,7 +1041,7 @@ components:
             $ref: "#/components/schemas/RuntimeOutboundState"
 
     # -------------------------------------------------------------------------
-    # /api/reload
+    # /api/service/*
     # -------------------------------------------------------------------------
 
     ReloadResponse:
@@ -1062,7 +1054,7 @@ components:
           example: "ok"
         message:
           type: string
-          example: "Reload triggered"
+          example: "Routing runtime restarted"
 
     # -------------------------------------------------------------------------
     # /api/config

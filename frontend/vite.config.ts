@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     proxy: {
       "/api": {
-        target: "http://192.168.55.1:12121",
+        target: process.env.ROUTER_URL || "http://192.168.55.1:12121",
         changeOrigin: true,
       },
     },

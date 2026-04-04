@@ -31,8 +31,11 @@ See [Endpoints](endpoints/) for full documentation of all available endpoints.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/health/service` | Daemon version, status, and outbound health |
-| `POST` | `/api/reload` | Trigger async reload |
+| `GET` | `/api/health/service` | Daemon version, routing runtime status, and outbound health |
+| `POST` | `/api/service/start` | Start the routing runtime |
+| `POST` | `/api/service/stop` | Stop the routing runtime |
+| `POST` | `/api/service/restart` | Restart the routing runtime |
 | `GET` | `/api/config` | Get current config as JSON |
-| `POST` | `/api/config` | Validate, write, and reload config |
+| `POST` | `/api/config` | Validate and stage config in memory |
+| `POST` | `/api/config/save` | Persist and apply the staged config |
 | `GET` | `/api/health/routing` | Live kernel routing/firewall verification |

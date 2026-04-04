@@ -1172,20 +1172,6 @@ void Daemon::setup_api() {
         config_op_mutex_,
         config_op_cv_,
         config_op_state_,
-        [this]() {
-            enqueue_control_task([this]() {
-                try {
-                    reload_from_disk();
-                } catch (const std::exception& e) {
-                    Logger::instance().error("Reload task failed: {}", e.what());
-                }
-                {
-                    std::lock_guard<std::mutex> op_lock(config_op_mutex_);
-                    config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
-                }
-                config_op_cv_.notify_all();
-            });
-        },
         [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
             ConfigApplyResult result;
             enqueue_control_task([this, &result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {

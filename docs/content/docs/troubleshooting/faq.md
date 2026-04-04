@@ -9,17 +9,13 @@ keen-pbr auto-detects the firewall backend at startup. It uses nftables if avail
 
 ## How do I reload lists without restarting the daemon?
 
-Two options:
+Use `SIGHUP`:
 
 ```bash
-# Via signal
 kill -HUP $(cat /var/run/keen-pbr.pid)
-
-# Via API
-curl -X POST http://127.0.0.1:8080/api/reload
 ```
 
-Both trigger a full reload: re-downloads all remote lists and re-applies firewall and routing rules.
+This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules.
 
 {{< callout type="info" >}}
 `SIGUSR1` is different — it re-verifies routing tables and triggers immediate URL tests, but does **not** re-download lists.

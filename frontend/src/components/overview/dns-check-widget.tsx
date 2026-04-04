@@ -1,4 +1,10 @@
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, SquareTerminal } from "lucide-react"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  SquareTerminal,
+} from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -47,6 +53,7 @@ export function DnsCheckWidget({
     <>
       <SectionCard
         className={cardClassName}
+        contentClassName="flex flex-1 flex-col"
         description={
           isDisabled
             ? t("overview.dnsCheck.card.disabledDescription")
@@ -54,12 +61,12 @@ export function DnsCheckWidget({
         }
         title={t("overview.dnsCheck.card.title")}
       >
-        <div className="space-y-4">
+        <div className="flex h-full flex-1 flex-col space-y-4">
           <div className="flex min-h-20 items-center rounded-lg border border-border/60 bg-background/60 px-4 py-3">
             <DnsStatusSummary disabled={isDisabled} status={status} />
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="mt-auto grid gap-2 sm:grid-cols-2">
             <Button
               disabled={isChecking || isDisabled}
               onClick={() => {
@@ -116,13 +123,37 @@ function DnsStatusSummary({
 
   switch (status) {
     case "success":
-      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text={t("overview.dnsCheck.status.browserSuccess")} tone="success" />
+      return (
+        <DnsStatusMessage
+          icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+          text={t("overview.dnsCheck.status.browserSuccess")}
+          tone="success"
+        />
+      )
     case "pc-success":
-      return <DnsStatusMessage icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />} text={t("overview.dnsCheck.status.manualProbeSuccess")} tone="success" />
+      return (
+        <DnsStatusMessage
+          icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+          text={t("overview.dnsCheck.status.manualProbeSuccess")}
+          tone="success"
+        />
+      )
     case "browser-fail":
-      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text={t("overview.dnsCheck.status.browserProbeFail")} tone="error" />
+      return (
+        <DnsStatusMessage
+          icon={<AlertCircle className="h-5 w-5 text-destructive" />}
+          text={t("overview.dnsCheck.status.browserProbeFail")}
+          tone="error"
+        />
+      )
     case "sse-fail":
-      return <DnsStatusMessage icon={<AlertCircle className="h-5 w-5 text-destructive" />} text={t("overview.dnsCheck.status.sseUnavailable")} tone="error" />
+      return (
+        <DnsStatusMessage
+          icon={<AlertCircle className="h-5 w-5 text-destructive" />}
+          text={t("overview.dnsCheck.status.sseUnavailable")}
+          tone="error"
+        />
+      )
     case "idle":
     case "checking":
       return (

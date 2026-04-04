@@ -46,7 +46,7 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * Returns the running daemon version, service status, and resolver/config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
+ * Returns the running daemon version, routing runtime status, and resolver/config summary for the daemon. Outbound runtime diagnostics are exposed via `/api/runtime/outbounds`.
 
  * @summary Service health and outbound status
  */
@@ -159,33 +159,33 @@ export function useGetHealthService<TData = Awaited<ReturnType<typeof getHealthS
 
 
 /**
- * Triggers an asynchronous full reload: re-downloads all configured lists and re-applies firewall and routing rules.
+ * Applies keen-pbr routing/firewall runtime state and runs dnsmasq registration hooks to activate the managed resolver config without stopping the API process.
 
- * @summary Trigger reload
+ * @summary Start routing runtime
  */
-export type postReloadResponse200 = {
+export type postServiceStartResponse200 = {
   data: ReloadResponse
   status: 200
 }
 
-export type postReloadResponseSuccess = (postReloadResponse200) & {
+export type postServiceStartResponseSuccess = (postServiceStartResponse200) & {
   headers: Headers;
 };
 ;
 
-export type postReloadResponse = (postReloadResponseSuccess)
+export type postServiceStartResponse = (postServiceStartResponseSuccess)
 
-export const getPostReloadUrl = () => {
-
-
+export const getPostServiceStartUrl = () => {
 
 
-  return `/api/reload`
+
+
+  return `/api/service/start`
 }
 
-export const postReload = async ( options?: RequestInit): Promise<postReloadResponse> => {
+export const postServiceStart = async ( options?: RequestInit): Promise<postServiceStartResponse> => {
 
-  return apiFetch<postReloadResponse>(getPostReloadUrl(),
+  return apiFetch<postServiceStartResponse>(getPostServiceStartUrl(),
   {
     ...options,
     method: 'POST'
@@ -197,11 +197,11 @@ export const postReload = async ( options?: RequestInit): Promise<postReloadResp
 
 
 
-export const getPostReloadMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postReload>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof postReload>>, TError,void, TContext> => {
+export const getPostServiceStartMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext> => {
 
-const mutationKey = ['postReload'];
+const mutationKey = ['postServiceStart'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -211,10 +211,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postReload>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postServiceStart>>, void> = () => {
 
 
-          return  postReload(requestOptions)
+          return  postServiceStart(requestOptions)
         }
 
 
@@ -224,22 +224,190 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PostReloadMutationResult = NonNullable<Awaited<ReturnType<typeof postReload>>>
+    export type PostServiceStartMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceStart>>>
 
-    export type PostReloadMutationError = unknown
+    export type PostServiceStartMutationError = unknown
 
     /**
- * @summary Trigger reload
+ * @summary Start routing runtime
  */
-export const usePostReload = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postReload>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+export const usePostServiceStart = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postReload>>,
+        Awaited<ReturnType<typeof postServiceStart>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getPostReloadMutationOptions(options), queryClient);
+      return useMutation(getPostServiceStartMutationOptions(options), queryClient);
+    }
+
+/**
+ * Removes keen-pbr routing/firewall runtime state and runs dnsmasq deactivation hooks to load fallback resolver config while keeping the API process running.
+
+ * @summary Stop routing runtime
+ */
+export type postServiceStopResponse200 = {
+  data: ReloadResponse
+  status: 200
+}
+
+export type postServiceStopResponseSuccess = (postServiceStopResponse200) & {
+  headers: Headers;
+};
+;
+
+export type postServiceStopResponse = (postServiceStopResponseSuccess)
+
+export const getPostServiceStopUrl = () => {
+
+
+
+
+  return `/api/service/stop`
+}
+
+export const postServiceStop = async ( options?: RequestInit): Promise<postServiceStopResponse> => {
+
+  return apiFetch<postServiceStopResponse>(getPostServiceStopUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPostServiceStopMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext> => {
+
+const mutationKey = ['postServiceStop'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postServiceStop>>, void> = () => {
+
+
+          return  postServiceStop(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostServiceStopMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceStop>>>
+
+    export type PostServiceStopMutationError = unknown
+
+    /**
+ * @summary Stop routing runtime
+ */
+export const usePostServiceStop = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceStop>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postServiceStop>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostServiceStopMutationOptions(options), queryClient);
+    }
+
+/**
+ * Re-applies keen-pbr routing/firewall runtime state and dnsmasq registration hooks for the managed resolver config.
+
+ * @summary Restart routing runtime
+ */
+export type postServiceRestartResponse200 = {
+  data: ReloadResponse
+  status: 200
+}
+
+export type postServiceRestartResponseSuccess = (postServiceRestartResponse200) & {
+  headers: Headers;
+};
+;
+
+export type postServiceRestartResponse = (postServiceRestartResponseSuccess)
+
+export const getPostServiceRestartUrl = () => {
+
+
+
+
+  return `/api/service/restart`
+}
+
+export const postServiceRestart = async ( options?: RequestInit): Promise<postServiceRestartResponse> => {
+
+  return apiFetch<postServiceRestartResponse>(getPostServiceRestartUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPostServiceRestartMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext> => {
+
+const mutationKey = ['postServiceRestart'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postServiceRestart>>, void> = () => {
+
+
+          return  postServiceRestart(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostServiceRestartMutationResult = NonNullable<Awaited<ReturnType<typeof postServiceRestart>>>
+
+    export type PostServiceRestartMutationError = unknown
+
+    /**
+ * @summary Restart routing runtime
+ */
+export const usePostServiceRestart = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServiceRestart>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postServiceRestart>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPostServiceRestartMutationOptions(options), queryClient);
     }
 
 /**
@@ -363,7 +531,7 @@ export function useGetConfig<TData = Awaited<ReturnType<typeof getConfig>>, TErr
 
 
 /**
- * Validates the provided JSON body as a config file and stages it in daemon memory without writing it to disk or reloading the service.
+ * Validates the provided JSON body as a config file and stages it in daemon memory without writing it to disk or applying it to the routing runtime.
 
  * @summary Stage config in memory
  */
@@ -460,13 +628,18 @@ export const usePostConfig = <TError = ErrorResponse,
     }
 
 /**
- * Persists the currently staged in-memory config to disk and then applies it with a full service reload.
+ * Persists the currently staged in-memory config to disk and then applies it to the routing runtime.
 
- * @summary Save staged config
+ * @summary Apply staged config
  */
 export type postConfigSaveResponse200 = {
   data: ConfigUpdateResponse
   status: 200
+}
+
+export type postConfigSaveResponse400 = {
+  data: ErrorResponse
+  status: 400
 }
 
 export type postConfigSaveResponse500 = {
@@ -477,7 +650,7 @@ export type postConfigSaveResponse500 = {
 export type postConfigSaveResponseSuccess = (postConfigSaveResponse200) & {
   headers: Headers;
 };
-export type postConfigSaveResponseError = (postConfigSaveResponse500) & {
+export type postConfigSaveResponseError = (postConfigSaveResponse400 | postConfigSaveResponse500) & {
   headers: Headers;
 };
 
@@ -537,7 +710,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PostConfigSaveMutationError = ErrorResponse
 
     /**
- * @summary Save staged config
+ * @summary Apply staged config
  */
 export const usePostConfigSave = <TError = ErrorResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postConfigSave>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}

@@ -81,50 +81,46 @@ export const ruTranslation = {
         openMenu: "Открыть меню",
       },
       warning: {
-        compact: {
-          draftPending: "Есть черновик конфигурации, ожидающий сохранения.",
-          saving: "Сохранение...",
+        draftChanged:
+          "Конфигурация была изменена. Сохраните её на диск для применения.",
+        actions: {
+          applying: "Применение...",
           apply: "Применить",
-          resolverStale: "Конфиг dnsmasq устарел; требуется перезагрузка.",
-          reloading: "Перезагрузка...",
-          reload: "Перезагрузить",
+          restarting: "Перезапуск...",
+          restart: "Перезапустить",
+        },
+        compact: {
+          resolverStale: "Конфиг dnsmasq устарел.",
         },
         full: {
           unsavedTitle: "Конфигурация не сохранена",
-          unsavedDescription:
-            "Конфигурация загружена в память. Сохраните и примените её, чтобы записать на диск и перезагрузить сервис.",
-          applying: "Применение...",
-          applyConfig: "Применить конфиг",
           staleTitle: "dnsmasq использует устаревший конфиг резолвера",
           staleDescription:
-            "Ожидаемый хеш резолвера ({{expected}}…) не совпадает с активным хешем dnsmasq ({{actual}}…). Перезагрузите keen-pbr, чтобы пересобрать и применить текущую конфигурацию резолвера.",
-          reloading: "Перезагрузка...",
-          reloadService: "Перезагрузить сервис",
+            "Ожидаемый хеш резолвера ({{expected}}…) не совпадает с активным хешем dnsmasq ({{actual}}…).",
         },
       },
       overview: {
-        pageDescription: "Обзор состояния keen-pbr и активных outbounds",
-        service: {
-          title: "keen-pbr",
-          loadError: "Не удалось загрузить состояние сервиса.",
-          unsupportedActionReason: "Недоступно в текущем API",
+        pageDescription:
+          "Обзор состояния маршрутизации, конфигурации и активных outbounds",
+        runtime: {
+          title: "Маршрутизация",
+          description: "Управление policy-based routing.",
+          loadError: "Не удалось загрузить состояние маршрутизации.",
           version: "Версия",
-          status: "Статус сервиса",
+          status: "Статус маршрутизации",
           dnsmasqGood: "dnsmasq в порядке",
           dnsmasqStale: "dnsmasq требуется перезапуск",
           actions: {
             start: "Запустить",
             stop: "Остановить",
             restart: "Перезапустить",
-            reload: "Перезагрузить",
           },
         },
         outbounds: {
           title: "Состояние выходов",
           loadError: "Не удалось загрузить состояние выходов.",
           emptyTitle: "Выходы не настроены",
-          emptyDescription:
-            "Добавьте выходы, чтобы увидеть проверки состояния.",
+          emptyDescription: "Добавьте выходы, чтобы увидеть проверки состояния.",
           inUse: "Используется",
           urltestTitle: "urltest",
           headers: {
@@ -144,7 +140,7 @@ export const ruTranslation = {
           loadError: "Не удалось загрузить проверки маршрутизации.",
           emptyTitle: "Проверки маршрутизации ещё не появились",
           emptyDescription:
-            "Проверки маршрутизации появятся после следующей перезагрузки.",
+            "Проверки маршрутизации появятся после следующего применения или перезапуска маршрутизации.",
           showHealthyEntries: "Показать и здоровые записи",
           allHealthyTitle: "Всё в порядке",
           allHealthyDescription:
@@ -207,8 +203,7 @@ export const ruTranslation = {
           status: {
             disabled: "Встроенный DNS-пробник отключён в конфиге.",
             browserSuccess: "DNS-запрос из браузера достиг dnsmasq.",
-            manualProbeSuccess:
-              "DNS-запрос от устройства достиг dnsmasq.",
+            manualProbeSuccess: "DNS-запрос от устройства достиг dnsmasq.",
             browserProbeFail:
               "Запрос браузера завершился, но DNS-пробник не увидел lookup.",
             sseUnavailable:
@@ -254,7 +249,7 @@ export const ruTranslation = {
           description:
             "Глобальные настройки, действующие на все outbounds и правила.",
           saved:
-            "Настройки сохранены в черновик. Примените конфиг, чтобы записать их.",
+            "Настройки сохранены в черновик. Примените новый конфиг, чтобы записать их.",
           general: {
             title: "Общие",
             description: "Поведение по умолчанию для всех outbounds.",
@@ -297,8 +292,7 @@ export const ruTranslation = {
         },
         dnsServers: {
           title: "DNS-серверы",
-          description:
-            "Upstream DNS-серверы для разрешения доменных имён.",
+          description: "Upstream DNS-серверы для разрешения доменных имён.",
           actions: {
             add: "Добавить DNS-сервер",
           },
@@ -330,15 +324,13 @@ export const ruTranslation = {
           missingDescription:
             "Вернитесь к таблице DNS-серверов и выберите корректную запись.",
           back: "Назад к DNS-серверам",
-          description:
-            "Этот сервер будет доступен в DNS-правилах и как fallback.",
+          description: "Этот сервер будет доступен в DNS-правилах и как fallback.",
           cardDescription:
             "Настройте адрес сервера и необязательный detour outbound.",
           editCardTitle: "Изменить {{tag}}",
           fields: {
             tag: "Название",
-            tagHint:
-              "Короткое название сервера для использования в DNS-правилах.",
+            tagHint: "Короткое название сервера для использования в DNS-правилах.",
             address: "Адрес",
             addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
             addressHint:
@@ -368,7 +360,7 @@ export const ruTranslation = {
           actions: { addRule: "Добавить правило маршрутизации" },
           messages: {
             saved:
-              "Правила маршрутизации сохранены в черновик. Примените конфиг, чтобы записать их.",
+              "Правила маршрутизации сохранены в черновик. Примените новый конфиг, чтобы записать их.",
           },
           empty: {
             title: "Правил маршрутизации пока нет",
@@ -400,7 +392,7 @@ export const ruTranslation = {
             "Выберите списки и outbound, затем при необходимости сузьте правило по протоколу, портам и адресам.",
           messages: {
             saved:
-              "Правило маршрутизации сохранено в черновик. Примените конфиг, чтобы записать его.",
+              "Правило маршрутизации сохранено в черновик. Примените новый конфиг, чтобы записать его.",
           },
           missing: {
             cardDescription: "Запрошенное правило маршрутизации не найдено.",
@@ -424,7 +416,8 @@ export const ruTranslation = {
             any: "Любой",
             anyLower: "любой",
             protocol: "Протокол",
-            protoHint: "Фильтр по протоколу (TCP, UDP и т.д.). Оставьте пустым для «любого».",
+            protoHint:
+              "Фильтр по протоколу (TCP, UDP и т.д.). Оставьте пустым для «любого».",
             sourcePort: "Исходный порт",
             destinationPort: "Порт назначения",
             sourcePortHint:
@@ -451,8 +444,7 @@ export const ruTranslation = {
         },
         outbounds: {
           title: "Интерфейсы / выходы",
-          description:
-            "Настроенные outbounds и группы urltest.",
+          description: "Настроенные outbounds и группы urltest.",
           actions: { new: "Добавить outbound" },
           empty: {
             title: "Outbounds пока нет",
@@ -517,8 +509,7 @@ export const ruTranslation = {
             interfaceHint:
               "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
             gateway: "Шлюз",
-            gatewayHint:
-              "Необязательный IP-адрес шлюза для этого outbound.",
+            gatewayHint: "Необязательный IP-адрес шлюза для этого outbound.",
           },
           table: {
             title: "Настройки таблицы маршрутизации",
@@ -576,8 +567,7 @@ export const ruTranslation = {
             failuresHint:
               "Открыть circuit после такого числа последовательных сбоев.",
             successes: "Успехов до закрытия",
-            successesHint:
-              "Число успешных проверок для закрытия circuit.",
+            successesHint: "Число успешных проверок для закрытия circuit.",
             timeout: "Таймаут открытия (мс)",
             timeoutHint:
               "Как долго circuit остаётся открытым до начала half-open проверок (в мс).",
@@ -605,7 +595,7 @@ export const ruTranslation = {
           actions: { add: "Добавить DNS-правило" },
           messages: {
             saved:
-              "Конфигурация DNS сохранена в черновик. Примените конфиг, чтобы записать её.",
+              "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
           },
           validation: {
             invalidFallback:
@@ -642,19 +632,16 @@ export const ruTranslation = {
           editTitle: "Изменить DNS-правило",
           description:
             "Это правило определяет, какой DNS-сервер использовать для доменов из конкретного списка.",
-          cardDescription:
-            "Укажите имена списков и DNS-сервер для этого правила.",
+          cardDescription: "Укажите имена списков и DNS-сервер для этого правила.",
           messages: {
             saved:
-              "DNS-правило сохранено в черновик. Примените конфиг, чтобы записать его.",
+              "DNS-правило сохранено в черновик. Примените новый конфиг, чтобы записать его.",
           },
           validation: {
             notFound: "Запрошенное DNS-правило не найдено.",
             fixErrors: "Исправьте ошибки валидации перед сохранением.",
-            serverRequired:
-              "Правило должно ссылаться на существующий DNS-сервер.",
-            listsRequired:
-              "Правило должно содержать хотя бы одно имя списка.",
+            serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
+            listsRequired: "Правило должно содержать хотя бы одно имя списка.",
             unknownLists: "Неизвестные имена списков: {{lists}}",
             duplicate: "Дублирующееся правило.",
           },
@@ -728,9 +715,9 @@ export const ruTranslation = {
             "Проверьте источник списка, TTL и содержимое перед сохранением.",
           messages: {
             created:
-              "Список сохранён в черновик. Примените конфиг, чтобы записать его.",
+              "Список сохранён в черновик. Примените новый конфиг, чтобы записать его.",
             updated:
-              "Изменения списка сохранены в черновик. Примените конфиг, чтобы записать их.",
+              "Изменения списка сохранены в черновик. Примените новый конфиг, чтобы записать их.",
           },
           missing: {
             cardDescription: "Запрошенный список не найден.",
@@ -746,8 +733,7 @@ export const ruTranslation = {
           },
           common: {
             title: "Параметры списка",
-            description:
-              "Задайте идентификатор списка перед выбором источника.",
+            description: "Задайте идентификатор списка перед выбором источника.",
           },
           sourceSwitcher: {
             title: "Тип источника",
@@ -766,20 +752,17 @@ export const ruTranslation = {
             file: {
               button: "Файл на устройстве",
               title: "Локальный файл",
-              description:
-                "Читает записи списка из файла, доступного на роутере.",
+              description: "Читает записи списка из файла, доступного на роутере.",
             },
             inline: {
               button: "Домены / IP",
               title: "Домены / IP",
-              description:
-                "Позволяет указать домены и IP-адреса прямо в конфиге.",
+              description: "Позволяет указать домены и IP-адреса прямо в конфиге.",
             },
           },
           fields: {
             name: "Имя",
-            nameHint:
-              "Стабильный идентификатор для использования в правилах.",
+            nameHint: "Стабильный идентификатор для использования в правилах.",
             ttlMs: "Время жизни IP-кэша (мс)",
             ttlMsHint:
               "Как долго хранить разрешённые IP в ipset. `0` = без таймаута.",
