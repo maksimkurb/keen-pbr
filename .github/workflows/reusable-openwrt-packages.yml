@@ -55,7 +55,7 @@ jobs:
           python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
 
   build:
-    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
+    name: "build: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
     needs: [generate-config]
     strategy:
@@ -128,7 +128,7 @@ jobs:
 
   sign:
     if: ${{ inputs.use_signing_secrets }}
-    name: "${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
+    name: "sign: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
     environment: package-builder
     needs: [generate-config, build]

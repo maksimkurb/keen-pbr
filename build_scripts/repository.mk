@@ -6,8 +6,7 @@
 #                         git worktree add /tmp/keen-pbr-repo repository
 #   REPO_TARGET_ROOT  — target root inside the repository branch,
 #                       e.g. "stable" or "feature_unify_packaging"
-#   REPO_BASE_PATH    — optional publish-path prefix; if it starts with
-#                       "repository/", that prefix is omitted from public URLs
+#   REPO_BASE_PATH    — optional publish-path prefix included in public URLs
 #   REPO_PUBLIC_BASE_URL — public base URL for generated repository links
 #                          (default: "https://repo.keen-pbr.fyi")
 

@@ -60,7 +60,7 @@ jobs:
           PY
 
   build:
-    name: "${{ matrix.build_env.config_name }}"
+    name: "build: ${{ matrix.build_env.config_name }}"
     runs-on: ubuntu-latest
     needs: [generate-config]
     strategy:

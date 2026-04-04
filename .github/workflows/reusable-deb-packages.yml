@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    name: ubuntu-amd64
+    name: "build: ubuntu-amd64"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -59,7 +59,7 @@ jobs:
 
   sign:
     if: ${{ inputs.use_signing_secrets }}
-    name: ubuntu-amd64
+    name: "sign: ubuntu-amd64"
     runs-on: ubuntu-latest
     environment: package-builder
     needs: [build]

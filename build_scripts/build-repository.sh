@@ -49,16 +49,6 @@ print_markdown_table_header() {
     echo '| --- | --- | --- |'
 }
 
-strip_repository_root_prefix() {
-    local path="$1"
-    path="${path#/}"
-    case "$path" in
-        repository) path="" ;;
-        repository/*) path="${path#repository/}" ;;
-    esac
-    printf '%s' "$path"
-}
-
 TARGET_ROOT=$(sanitize_path "$TARGET_ROOT_INPUT")
 if [ -z "$TARGET_ROOT" ]; then
     echo "[build-repository] ERROR: target root resolved to an empty path" >&2
@@ -116,7 +106,7 @@ fi
 
 find "$ROOT_DIR" -type f \( -name '.apk-signed' -o -name '.signed' \) -delete
 
-PUBLIC_BASE_PATH="$(strip_repository_root_prefix "$REPO_BASE_PATH")"
+PUBLIC_BASE_PATH="$(sanitize_path "$REPO_BASE_PATH")"
 RAW_BASE_URL="$REPO_PUBLIC_BASE_URL"
 if [ -n "$PUBLIC_BASE_PATH" ]; then
     RAW_BASE_URL="$RAW_BASE_URL/$PUBLIC_BASE_PATH"
