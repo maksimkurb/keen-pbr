@@ -55,22 +55,22 @@ jobs:
             cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/debian"/
           done
 
-      - name: Checkout repository branch
+      - name: Checkout branch "website"
         uses: actions/checkout@v6
         with:
-          ref: repository
+          ref: website
           fetch-depth: 1
-          path: repo
+          path: website
 
       - name: Publish package tree
         run: |
           make -C "$GITHUB_WORKSPACE/src" build-repository \
-            REPO_DIR="$GITHUB_WORKSPACE/repo" \
+            REPO_DIR="$GITHUB_WORKSPACE/website/repository" \
             REPO_TARGET_ROOT="${{ inputs.target_root }}" \
             REPO_SLUG="${{ github.repository }}"
 
       - name: Commit and push repository changes
-        working-directory: repo
+        working-directory: website
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
