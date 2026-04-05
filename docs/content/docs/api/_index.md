@@ -18,12 +18,12 @@ The API is available when:
 {
   "api": {
     "enabled": true,
-    "listen": "127.0.0.1:8080"
+    "listen": "0.0.0.0:12121"
   }
 }
 ```
 
-The default listen address is `127.0.0.1:8080`. To expose the API on all interfaces, use `0.0.0.0:8080`.
+The default listen address is `0.0.0.0:12121`.
 
 ## Endpoints
 

@@ -1404,7 +1404,7 @@ void Daemon::setup_api() {
         Logger::instance().info("Frontend static root: {}", frontend_root.string());
     }
 
-    const std::string listen_addr = config_.api->listen.value_or("0.0.0.0:8080");
+    const std::string listen_addr = config_.api->listen.value_or("0.0.0.0:12121");
     Logger::instance().info("Starting REST API on {}", listen_addr);
     try {
         api_server_->start();

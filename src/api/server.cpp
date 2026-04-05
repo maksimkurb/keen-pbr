@@ -163,7 +163,7 @@ struct ApiServer::Impl {
 
 ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
     // Parse "host:port" from config.listen
-    const std::string listen = config.listen.value_or("0.0.0.0:8080");
+    const std::string listen = config.listen.value_or("0.0.0.0:12121");
     auto colon = listen.rfind(':');
     if (colon == std::string::npos) {
         throw ApiError("Invalid listen address: " + listen +
