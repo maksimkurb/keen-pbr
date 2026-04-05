@@ -35,6 +35,7 @@ See [Endpoints](endpoints/) for full documentation of all available endpoints.
 | `POST` | `/api/service/start` | Start the routing runtime |
 | `POST` | `/api/service/stop` | Stop the routing runtime |
 | `POST` | `/api/service/restart` | Restart the routing runtime |
+| `POST` | `/api/lists/refresh` | Refresh one URL-backed list (or all URL-backed lists) and reload runtime if relevant data changed |
 | `GET` | `/api/config` | Get current config as JSON |
 | `POST` | `/api/config` | Validate and stage config in memory |
 | `POST` | `/api/config/save` | Persist and apply the staged config |
