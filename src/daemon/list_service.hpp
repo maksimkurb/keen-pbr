@@ -5,8 +5,22 @@
 
 #include <mutex>
 #include <set>
+#include <vector>
 
 namespace keen_pbr3 {
+
+struct RemoteListsRefreshResult {
+    std::vector<std::string> changed_lists;
+    std::vector<std::string> relevant_changed_lists;
+
+    bool any_changed() const {
+        return !changed_lists.empty();
+    }
+
+    bool any_relevant_changed() const {
+        return !relevant_changed_lists.empty();
+    }
+};
 
 class ListService {
 public:
@@ -17,15 +31,17 @@ public:
     const CacheManager& cache_manager() const;
 
     void download_uncached(const Config& config, const OutboundMarkMap& outbound_marks);
-    bool refresh_remote_lists(const Config& config,
-                              const OutboundMarkMap& outbound_marks,
-                              const std::set<std::string>* relevant_lists = nullptr);
+    RemoteListsRefreshResult refresh_remote_lists(
+        const Config& config,
+        const OutboundMarkMap& outbound_marks,
+        const std::set<std::string>* relevant_lists = nullptr);
 
 private:
-    bool download_remote_lists(const Config& config,
-                               const OutboundMarkMap& outbound_marks,
-                               bool only_uncached,
-                               const std::set<std::string>* relevant_lists);
+    RemoteListsRefreshResult download_remote_lists(
+        const Config& config,
+        const OutboundMarkMap& outbound_marks,
+        bool only_uncached,
+        const std::set<std::string>* relevant_lists);
 
     mutable std::mutex mutex_;
     CacheManager cache_manager_;

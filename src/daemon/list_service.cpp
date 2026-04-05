@@ -22,17 +22,19 @@ void ListService::download_uncached(const Config& config,
     (void)download_remote_lists(config, outbound_marks, true, nullptr);
 }
 
-bool ListService::refresh_remote_lists(const Config& config,
-                                       const OutboundMarkMap& outbound_marks,
-                                       const std::set<std::string>* relevant_lists) {
+RemoteListsRefreshResult ListService::refresh_remote_lists(
+    const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::set<std::string>* relevant_lists) {
     return download_remote_lists(config, outbound_marks, false, relevant_lists);
 }
 
-bool ListService::download_remote_lists(const Config& config,
-                                        const OutboundMarkMap& outbound_marks,
-                                        bool only_uncached,
-                                        const std::set<std::string>* relevant_lists) {
-    bool any_relevant_changed = false;
+RemoteListsRefreshResult ListService::download_remote_lists(
+    const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    bool only_uncached,
+    const std::set<std::string>* relevant_lists) {
+    RemoteListsRefreshResult result;
 
     for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, ListConfig>{})) {
         if (!list_cfg.url.has_value()) {
@@ -65,12 +67,17 @@ bool ListService::download_remote_lists(const Config& config,
             *list_cfg.url,
             CacheDownloadOptions{fwmark});
 
-        if (changed && relevant_lists && relevant_lists->count(name) > 0) {
-            any_relevant_changed = true;
+        if (!changed) {
+            continue;
+        }
+
+        result.changed_lists.push_back(name);
+        if (relevant_lists && relevant_lists->count(name) > 0) {
+            result.relevant_changed_lists.push_back(name);
         }
     }
 
-    return any_relevant_changed;
+    return result;
 }
 
 } // namespace keen_pbr3

@@ -51,6 +51,25 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+std::string format_list_names(const std::vector<std::string>& list_names) {
+    if (list_names.empty()) {
+        return "(none)";
+    }
+
+    std::ostringstream out;
+    for (size_t i = 0; i < list_names.size(); ++i) {
+        if (i != 0) {
+            out << ", ";
+        }
+        out << list_names[i];
+    }
+    return out.str();
+}
+
+} // namespace
+
 // Helper to get tag from an outbound
 std::string get_outbound_tag(const Outbound& ob) {
     return ob.tag;
@@ -844,8 +863,8 @@ void Daemon::schedule_lists_autoupdate() {
     if (!config_.lists_autoupdate->enabled.value_or(false)) return;
     const auto& expr = config_.lists_autoupdate->cron.value_or("");
     auto next = cron_next(expr);
-    auto delay = std::chrono::duration_cast<std::chrono::seconds>(
-        next - std::chrono::system_clock::now());
+    const auto now = std::chrono::system_clock::now();
+    auto delay = std::chrono::ceil<std::chrono::seconds>(next - now);
     if (delay.count() < 1) delay = std::chrono::seconds{1};
     lists_autoupdate_task_id_ = scheduler_->schedule_oneshot(delay, [this]() {
         refresh_lists_and_maybe_reload();
@@ -857,17 +876,21 @@ void Daemon::refresh_lists_and_maybe_reload() {
     auto& log = Logger::instance();
     log.info("Lists autoupdate: checking for updated lists");
 
-    // Build set of lists referenced by any route rule
-    std::set<std::string> route_lists;
+    // Build set of lists that affect firewall or generated resolver config.
+    std::set<std::string> relevant_lists;
     for (const auto& rule : config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
         for (const auto& ln : rule.list)
-            route_lists.insert(ln);
+            relevant_lists.insert(ln);
+    for (const auto& rule : config_.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{}))
+        for (const auto& ln : rule.list)
+            relevant_lists.insert(ln);
 
-    const bool any_relevant_changed =
-        list_service_.refresh_remote_lists(config_, outbound_marks_, &route_lists);
+    const auto refresh_result =
+        list_service_.refresh_remote_lists(config_, outbound_marks_, &relevant_lists);
 
-    if (any_relevant_changed) {
-        log.info("Lists autoupdate: relevant list(s) changed, triggering reload");
+    if (refresh_result.any_relevant_changed()) {
+        log.info("Lists autoupdate: relevant list(s) changed ({}), triggering reload",
+                 format_list_names(refresh_result.relevant_changed_lists));
         try { reload_from_disk(); }
         catch (const std::exception& e) {
             log.error("Lists autoupdate: reload failed: {}", e.what());
@@ -876,7 +899,12 @@ void Daemon::refresh_lists_and_maybe_reload() {
         return;
     }
 
-    log.info("Lists autoupdate: no relevant changes");
+    if (refresh_result.any_changed()) {
+        log.info("Lists autoupdate: updated list(s) did not affect runtime config: {}",
+                 format_list_names(refresh_result.changed_lists));
+    } else {
+        log.info("Lists autoupdate: no list updates");
+    }
     schedule_lists_autoupdate();
 }
 
