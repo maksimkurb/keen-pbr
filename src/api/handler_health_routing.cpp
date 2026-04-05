@@ -4,7 +4,6 @@
 #include "generated/api_types.hpp"
 
 #include <nlohmann/json.hpp>
-#include <stdexcept>
 
 #include "../health/routing_health_checker.hpp"
 
@@ -22,8 +21,7 @@ void register_health_routing_handler(ApiServer& server, ApiContext& ctx) {
             api::RoutingHealthErrorResponse err;
             err.error = e.what();
             err.overall = api::RoutingHealthErrorResponseOverall::ERROR;
-            // Re-throw so the server wrapper sets HTTP 500
-            throw std::runtime_error(nlohmann::json(err).dump());
+            throw ApiError("Routing health check failed", 500, nlohmann::json(err).dump());
         }
     });
 }
