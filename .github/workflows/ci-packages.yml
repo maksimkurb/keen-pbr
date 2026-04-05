@@ -2,7 +2,10 @@ name: Build packages
 
 on:
   push:
-    branches: ['**']
+    branches:
+      - 'main'
+      - 'dev'
+      - 'dev-*'
     paths:
       - 'build_scripts/**'
       - 'cmake/**'
@@ -18,10 +21,6 @@ on:
       - 'version.mk'
   pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 
 jobs:
   prepare-frontend:
