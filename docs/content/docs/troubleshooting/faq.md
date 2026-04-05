@@ -5,7 +5,7 @@ weight: 1
 
 ## What firewall backend will be used?
 
-keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels. You can override this at build time with the `firewall_backend` Meson option.
+keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
 
 ## How do I reload lists without restarting the daemon?
 
