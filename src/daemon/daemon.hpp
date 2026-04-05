@@ -9,6 +9,7 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -112,6 +113,7 @@ private:
     void setup_control_channel();
     void handle_control_commands();
     void wake_control_loop();
+    bool is_event_loop_thread() const;
 
     // Signal handlers
     void handle_sigusr1();
@@ -121,6 +123,10 @@ private:
     void setup_static_routing();
     void apply_firewall();
     void download_uncached_lists();
+    bool download_remote_lists(const Config& config,
+                               const OutboundMarkMap& outbound_marks,
+                               bool only_uncached,
+                               const std::set<std::string>* relevant_lists = nullptr);
     void register_urltest_outbounds();
     void apply_config(Config config);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);

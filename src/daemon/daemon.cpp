@@ -171,6 +171,10 @@ void Daemon::wake_control_loop() {
     }
 }
 
+bool Daemon::is_event_loop_thread() const {
+    return event_loop_thread_id_.load(std::memory_order_relaxed) == std::this_thread::get_id();
+}
+
 void Daemon::enqueue_control_task(std::function<void()> task,
                                   bool wait_for_completion) {
     if (!task) {
@@ -484,7 +488,10 @@ void Daemon::run() {
     write_pid_file();
 
     log.info("Loading lists...");
-    download_uncached_lists();
+    {
+        std::shared_lock<std::shared_mutex> lock(state_mutex_);
+        (void)download_remote_lists(config_, outbound_marks_, false);
+    }
 
     setup_static_routing();
     log.info("Static routing tables and ip rules installed.");
@@ -804,13 +811,22 @@ void Daemon::apply_firewall() {
 }
 
 void Daemon::download_uncached_lists() {
-    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        if (!list_cfg.url.has_value() || cache_.has_cache(name)) continue;
+    (void)download_remote_lists(config_, outbound_marks_, true);
+}
+
+bool Daemon::download_remote_lists(const Config& config,
+                                   const OutboundMarkMap& outbound_marks,
+                                   bool only_uncached,
+                                   const std::set<std::string>* relevant_lists) {
+    bool any_relevant_changed = false;
+    for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, ListConfig>{})) {
+        if (!list_cfg.url.has_value()) continue;
+        if (only_uncached && cache_.has_cache(name)) continue;
 
         uint32_t mark = 0;
         if (list_cfg.detour.has_value()) {
-            auto it = outbound_marks_.find(*list_cfg.detour);
-            if (it != outbound_marks_.end()) {
+            auto it = outbound_marks.find(*list_cfg.detour);
+            if (it != outbound_marks.end()) {
                 mark = it->second;
             } else {
                 Logger::instance().warn(
@@ -821,12 +837,16 @@ void Daemon::download_uncached_lists() {
         cache_.set_fwmark(mark);
 
         try {
-            cache_.download(name, *list_cfg.url);
+            const bool changed = cache_.download(name, *list_cfg.url);
+            if (changed && relevant_lists && relevant_lists->count(name) > 0) {
+                any_relevant_changed = true;
+            }
         } catch (const std::exception& e) {
             Logger::instance().warn("Failed to download list '{}': {}", name, e.what());
         }
     }
     cache_.set_fwmark(0);
+    return any_relevant_changed;
 }
 
 void Daemon::register_urltest_outbounds() {
@@ -886,26 +906,25 @@ void Daemon::refresh_lists_and_maybe_reload() {
     auto& log = Logger::instance();
     log.info("Lists autoupdate: checking for updated lists");
 
+    Config config_snapshot;
+    OutboundMarkMap marks_snapshot;
+    {
+        std::shared_lock<std::shared_mutex> lock(state_mutex_);
+        config_snapshot = config_;
+        marks_snapshot = outbound_marks_;
+    }
+
     // Build set of lists referenced by any route rule
     std::set<std::string> route_lists;
-    for (const auto& rule : config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
+    for (const auto& rule : config_snapshot.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
         for (const auto& ln : rule.list)
             route_lists.insert(ln);
 
-    bool any_relevant_changed = false;
-    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        if (!list_cfg.url.has_value()) continue;
-        try {
-            bool changed = cache_.download(name, *list_cfg.url);
-            if (changed) {
-                log.info("Lists autoupdate: list '{}' updated", name);
-                if (route_lists.count(name))
-                    any_relevant_changed = true;
-            }
-        } catch (const std::exception& e) {
-            log.warn("Lists autoupdate: failed to refresh list '{}': {}", name, e.what());
-        }
-    }
+    const bool any_relevant_changed = download_remote_lists(
+        config_snapshot,
+        marks_snapshot,
+        false,
+        &route_lists);
 
     if (any_relevant_changed) {
         log.info("Lists autoupdate: relevant list(s) changed, triggering reload");
@@ -986,66 +1005,81 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
 }
 
 void Daemon::apply_config(Config config) {
-    validate_config(config);
+    // Safety invariant:
+    // - During runtime, apply_config must run on the control/event-loop thread.
+    //   This guarantees scheduler fd mutations that internally enqueue control
+    //   commands cannot deadlock behind a concurrent event-loop callback.
+    // - Before the loop starts, inline startup apply is allowed.
+    if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
+        throw DaemonError("apply_config must run on the control/event-loop thread");
+    }
 
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+    validate_config(config);
+    OutboundMarkMap new_marks = allocate_outbound_marks(
+        config.fwmark.value_or(FwmarkConfig{}),
+        config.outbounds.value_or(std::vector<Outbound>{}));
 
     // Cancel any pending autoupdate task
-    if (lists_autoupdate_task_id_ >= 0) {
-        scheduler_->cancel(lists_autoupdate_task_id_);
-        lists_autoupdate_task_id_ = -1;
+    {
+        std::unique_lock<std::shared_mutex> lock(state_mutex_);
+        if (lists_autoupdate_task_id_ >= 0) {
+            scheduler_->cancel(lists_autoupdate_task_id_);
+            lists_autoupdate_task_id_ = -1;
+        }
+        if (resolver_config_hash_actual_task_id_ >= 0) {
+            scheduler_->cancel(resolver_config_hash_actual_task_id_);
+            resolver_config_hash_actual_task_id_ = -1;
+        }
+
+        // Apply new config and fwmarks early so routing is available for downloads
+        outbound_marks_ = new_marks;
+        config_ = config;
+        firewall_state_.set_outbound_marks(outbound_marks_);
+
+        // Install new routing tables/ip rules before downloading so fwmark-based
+        // detour routing works and general connectivity is preserved
+        setup_static_routing();
     }
-    if (resolver_config_hash_actual_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_task_id_);
-        resolver_config_hash_actual_task_id_ = -1;
+
+    // Refresh all remote lists now so SIGHUP/config reloads pick up latest content.
+    (void)download_remote_lists(config, new_marks, false);
+
+    {
+        std::unique_lock<std::shared_mutex> lock(state_mutex_);
+        // Tear down old state — no blocking I/O in this window
+        teardown_dns_probe();
+
+        if (urltest_manager_) {
+            urltest_manager_->clear();
+        }
+        route_table_.clear();
+        policy_rules_.clear();
+        firewall_->cleanup();
+
+        // Re-install routing cleanly after teardown
+        setup_static_routing();
+
+        // Re-register urltest outbounds
+        register_urltest_outbounds();
+
+        // Rebuild firewall rules
+        apply_firewall();
+
+        // Reschedule periodic list autoupdate
+        schedule_lists_autoupdate();
+
+        // Recompute resolver config hash after reload
+        update_resolver_config_hash();
+
+        // Recreate DNS test listener with the new config
+        setup_dns_probe();
+
+        // Reload dnsmasq with the new resolver config, then query the actual hash
+        // once dnsmasq is back up.
+        run_system_resolver_hook_reload();
+        update_resolver_config_hash_actual();
+        schedule_resolver_config_hash_actual_refresh();
     }
-
-    // Apply new config and fwmarks early so routing is available for downloads
-    outbound_marks_ = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
-                                             config.outbounds.value_or(std::vector<Outbound>{}));
-    config_ = std::move(config);
-    firewall_state_.set_outbound_marks(outbound_marks_);
-
-    // Install new routing tables/ip rules before downloading so fwmark-based
-    // detour routing works and general connectivity is preserved
-    setup_static_routing();
-
-    // Download any lists not yet cached (uses per-list detour fwmark if configured)
-    download_uncached_lists();
-
-    // Tear down old state — no blocking I/O in this window
-    teardown_dns_probe();
-
-    if (urltest_manager_) {
-        urltest_manager_->clear();
-    }
-    route_table_.clear();
-    policy_rules_.clear();
-    firewall_->cleanup();
-
-    // Re-install routing cleanly after teardown
-    setup_static_routing();
-
-    // Re-register urltest outbounds
-    register_urltest_outbounds();
-
-    // Rebuild firewall rules
-    apply_firewall();
-
-    // Reschedule periodic list autoupdate
-    schedule_lists_autoupdate();
-
-    // Recompute resolver config hash after reload
-    update_resolver_config_hash();
-
-    // Recreate DNS test listener with the new config
-    setup_dns_probe();
-
-    // Reload dnsmasq with the new resolver config, then query the actual hash
-    // once dnsmasq is back up.
-    run_system_resolver_hook_reload();
-    update_resolver_config_hash_actual();
-    schedule_resolver_config_hash_actual_refresh();
 }
 
 
