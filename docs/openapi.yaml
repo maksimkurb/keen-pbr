@@ -72,6 +72,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReloadResponse"
 
+  /api/lists/refresh:
+    post:
+      summary: Refresh remote URL lists
+      description: >
+        Refreshes one URL-backed list or all URL-backed lists from the active
+        daemon config. If a changed list is used by active routing or DNS rules
+        and the routing runtime is running, the runtime is rebuilt so the new
+        list contents take effect immediately.
+      operationId: postListsRefresh
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListRefreshRequest"
+      responses:
+        "200":
+          description: List refresh completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRefreshResponse"
+        "400":
+          description: Requested list exists but is not URL-backed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Requested list not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Draft config exists or another config/runtime operation is in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/config:
     get:
       summary: Get current config state
@@ -1056,6 +1097,56 @@ components:
           type: string
           example: "Routing runtime restarted"
 
+    ListRefreshRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >
+            Optional list name. When omitted, all URL-backed lists from the
+            active config are refreshed.
+          example: "apple"
+
+    ListRefreshState:
+      type: object
+      properties:
+        last_updated:
+          type: string
+          description: >
+            ISO-8601 timestamp of the last successful download or conditional
+            refresh attempt for a URL-backed list.
+          example: "2026-04-05T12:34:56Z"
+
+    ListRefreshResponse:
+      type: object
+      required: [status, message, refreshed_lists, changed_lists, reloaded]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: "ok"
+        message:
+          type: string
+          example: "Lists refreshed"
+        refreshed_lists:
+          type: array
+          items:
+            type: string
+          description: URL-backed lists that were refreshed.
+          example: ["apple", "google"]
+        changed_lists:
+          type: array
+          items:
+            type: string
+          description: Refreshed lists whose cached contents changed.
+          example: ["apple"]
+        reloaded:
+          type: boolean
+          description: >
+            Whether the running routing runtime was rebuilt because relevant
+            list contents changed while the runtime was active.
+          example: true
+
     # -------------------------------------------------------------------------
     # /api/config
     # -------------------------------------------------------------------------
@@ -1072,6 +1163,13 @@ components:
             Whether the returned config is a staged in-memory draft rather than
             the currently persisted config.
           example: false
+        list_refresh_state:
+          type: object
+          description: >
+            URL list refresh metadata keyed by list name. Present only for
+            URL-backed lists visible in the returned config.
+          additionalProperties:
+            $ref: "#/components/schemas/ListRefreshState"
 
     ConfigUpdateResponse:
       type: object

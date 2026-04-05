@@ -9,6 +9,7 @@ export function ActionButtons({
     label: string
     icon?: ReactNode
     variant?: "ghost" | "outline"
+    disabled?: boolean
     onClick?: () => void
   }>
 }) {
@@ -17,6 +18,7 @@ export function ActionButtons({
       {actions.map((action) => (
         <IconButtonWithTooltip
           key={action.label}
+          disabled={action.disabled}
           label={action.label}
           onClick={action.onClick}
           size="icon-sm"

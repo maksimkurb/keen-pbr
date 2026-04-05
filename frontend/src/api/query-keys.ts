@@ -33,3 +33,10 @@ export const invalidationKeysAfterApplyConfigMutation = [
   queryKeys.runtimeOutbounds(),
   queryKeys.config(),
 ] as const
+
+export const invalidationKeysAfterListRefreshMutation = [
+  queryKeys.healthRouting(),
+  queryKeys.healthService(),
+  queryKeys.runtimeOutbounds(),
+  queryKeys.config(),
+] as const

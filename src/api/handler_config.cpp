@@ -157,9 +157,11 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
     server.get("/api/config", [&ctx]() -> std::string {
         const Config visible_config = ctx.get_visible_config();
         const bool is_draft = ctx.config_is_draft();
+        const auto list_refresh_state = ctx.get_list_refresh_state_map(visible_config);
         nlohmann::json response = {
             {"config", nlohmann::json(visible_config)},
             {"is_draft", is_draft},
+            {"list_refresh_state", nlohmann::json(list_refresh_state)},
         };
         return response.dump();
     });

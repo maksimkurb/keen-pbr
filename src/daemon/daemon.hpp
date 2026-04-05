@@ -54,6 +54,11 @@ struct DaemonOptions {
     bool no_api{false};
 };
 
+struct ListsRefreshExecutionResult {
+    RemoteListsRefreshResult refresh_result;
+    bool reloaded{false};
+};
+
 // Helper to get tag from any outbound variant
 std::string get_outbound_tag(const Outbound& ob);
 
@@ -126,7 +131,7 @@ private:
     void apply_firewall();
     void download_uncached_lists();
     void register_urltest_outbounds();
-    void apply_config(Config config);
+    void apply_config(Config config, bool refresh_remote_lists = true);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
     void start_routing_runtime();
@@ -135,6 +140,8 @@ private:
     bool routing_runtime_active() const;
     void run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
+    ListsRefreshExecutionResult execute_remote_list_refresh(
+        const std::set<std::string>* target_lists = nullptr);
     void refresh_lists_and_maybe_reload();
 
     // PID file management

@@ -872,40 +872,48 @@ void Daemon::schedule_lists_autoupdate() {
     Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
 }
 
+ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
+    const std::set<std::string>* target_lists) {
+    auto& log = Logger::instance();
+    ListsRefreshExecutionResult result;
+    const auto relevant_lists = collect_relevant_list_names(config_);
+    result.refresh_result =
+        list_service_.refresh_remote_lists(config_, outbound_marks_, &relevant_lists, target_lists);
+
+    if (should_reload_runtime_after_list_refresh(routing_runtime_active_, result.refresh_result)) {
+        log.info("Lists refresh: relevant list(s) changed ({}), reloading runtime",
+                 format_list_names(result.refresh_result.relevant_changed_lists));
+        apply_config(config_, false);
+        result.reloaded = true;
+        return result;
+    }
+
+    if (result.refresh_result.any_relevant_changed()) {
+        log.info("Lists refresh: relevant list(s) changed ({}), but runtime is stopped",
+                 format_list_names(result.refresh_result.relevant_changed_lists));
+    } else if (result.refresh_result.any_changed()) {
+        log.info("Lists refresh: updated list(s) did not affect runtime config: {}",
+                 format_list_names(result.refresh_result.changed_lists));
+    } else {
+        log.info("Lists refresh: no list updates");
+    }
+
+    return result;
+}
+
 void Daemon::refresh_lists_and_maybe_reload() {
     auto& log = Logger::instance();
     log.info("Lists autoupdate: checking for updated lists");
 
-    // Build set of lists that affect firewall or generated resolver config.
-    std::set<std::string> relevant_lists;
-    for (const auto& rule : config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
-        for (const auto& ln : rule.list)
-            relevant_lists.insert(ln);
-    for (const auto& rule : config_.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{}))
-        for (const auto& ln : rule.list)
-            relevant_lists.insert(ln);
-
-    const auto refresh_result =
-        list_service_.refresh_remote_lists(config_, outbound_marks_, &relevant_lists);
-
-    if (refresh_result.any_relevant_changed()) {
-        log.info("Lists autoupdate: relevant list(s) changed ({}), triggering reload",
-                 format_list_names(refresh_result.relevant_changed_lists));
-        try { reload_from_disk(); }
-        catch (const std::exception& e) {
-            log.error("Lists autoupdate: reload failed: {}", e.what());
+    try {
+        const auto result = execute_remote_list_refresh();
+        if (!result.reloaded) {
+            schedule_lists_autoupdate();
         }
-        // reload_from_disk() calls schedule_lists_autoupdate() at its end
-        return;
+    } catch (const std::exception& e) {
+        log.error("Lists autoupdate failed: {}", e.what());
+        schedule_lists_autoupdate();
     }
-
-    if (refresh_result.any_changed()) {
-        log.info("Lists autoupdate: updated list(s) did not affect runtime config: {}",
-                 format_list_names(refresh_result.changed_lists));
-    } else {
-        log.info("Lists autoupdate: no list updates");
-    }
-    schedule_lists_autoupdate();
 }
 
 void Daemon::update_resolver_config_hash() {
@@ -1000,7 +1008,7 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
         });
 }
 
-void Daemon::apply_config(Config config) {
+void Daemon::apply_config(Config config, bool refresh_remote_lists) {
     // Safety invariant:
     // - During runtime, apply_config must run on the control/event-loop thread.
     //   This guarantees scheduler fd mutations that internally enqueue control
@@ -1034,8 +1042,10 @@ void Daemon::apply_config(Config config) {
     // detour routing works and general connectivity is preserved
     setup_static_routing();
 
-    // Refresh all remote lists now so SIGHUP/config reloads pick up latest content.
-    (void)list_service_.refresh_remote_lists(config, new_marks);
+    if (refresh_remote_lists) {
+        // Refresh all remote lists now so SIGHUP/config reloads pick up latest content.
+        (void)list_service_.refresh_remote_lists(config, new_marks);
+    }
 
     // Tear down old state — no blocking I/O in this window
     teardown_dns_probe();
@@ -1198,6 +1208,9 @@ void Daemon::setup_api() {
                     return it->second;
                 });
         },
+        [this](const Config& config) {
+            return build_list_refresh_state_map(config, list_service_.cache_manager());
+        },
         [this](const std::string& target) {
             const Config visible_config = config_store_.visible_config();
             return compute_test_routing(visible_config, list_service_.cache_manager(), target);
@@ -1211,21 +1224,21 @@ void Daemon::setup_api() {
         },
         finish_config_operation,
         [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
-            ConfigApplyResult result;
-            enqueue_control_task([this, &result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
+            auto result = std::make_shared<ConfigApplyResult>();
+            enqueue_control_task([this, result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
                 bool rolled_back = false;
                 try {
                     apply_config_with_rollback(config, rolled_back);
-                    result.applied = true;
-                    result.rolled_back = rolled_back;
+                    result->applied = true;
+                    result->rolled_back = rolled_back;
                     config_store_.clear_staged_if_matches(saved_config_json);
                 } catch (const std::exception& e) {
-                    result.error = e.what();
-                    result.rolled_back = rolled_back;
+                    result->error = e.what();
+                    result->rolled_back = rolled_back;
                     Logger::instance().error("Apply staged config task failed: {}", e.what());
                 }
             }, true);
-            return result;
+            return *result;
         },
         [this, finish_config_operation]() {
             std::unique_lock<std::mutex> lock(config_op_mutex_);
@@ -1307,6 +1320,66 @@ void Daemon::setup_api() {
             }
 
             finish_config_operation();
+        },
+        [this, finish_config_operation](std::optional<std::string> requested_name) {
+            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            if (config_store_.config_is_draft()) {
+                throw ApiError("List refresh is unavailable while a draft config is staged", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            lock.unlock();
+
+            auto operation_result = std::make_shared<ListRefreshOperationResult>();
+
+            try {
+                enqueue_control_task([this, operation_result, requested_name = std::move(requested_name)]() mutable {
+                    const auto target_selection =
+                        select_remote_list_targets(config_, requested_name);
+                    if (!target_selection.ok()) {
+                        switch (target_selection.error) {
+                            case RemoteListTargetSelectionError::NotFound:
+                                throw ApiError("Requested list was not found", 404);
+                            case RemoteListTargetSelectionError::NotRemote:
+                                throw ApiError("Requested list is not URL-backed", 400);
+                            case RemoteListTargetSelectionError::None:
+                                break;
+                        }
+                    }
+
+                    const std::set<std::string> target_lists(
+                        target_selection.list_names.begin(),
+                        target_selection.list_names.end());
+                    const auto execution_result =
+                        execute_remote_list_refresh(requested_name ? &target_lists : nullptr);
+
+                    operation_result->refreshed_lists = execution_result.refresh_result.refreshed_lists;
+                    operation_result->changed_lists = execution_result.refresh_result.changed_lists;
+                    operation_result->reloaded = execution_result.reloaded;
+
+                    if (!execution_result.refresh_result.any_refreshed()) {
+                        operation_result->message = "No URL-backed lists to refresh";
+                    } else if (!execution_result.refresh_result.any_changed()) {
+                        operation_result->message = "Lists refreshed; no updates found";
+                    } else if (execution_result.reloaded) {
+                        operation_result->message =
+                            "Lists refreshed and runtime reloaded";
+                    } else if (execution_result.refresh_result.any_relevant_changed()) {
+                        operation_result->message =
+                            "Lists refreshed; runtime is stopped so changes will apply on next start";
+                    } else {
+                        operation_result->message = "Lists refreshed";
+                    }
+                }, true);
+            } catch (...) {
+                finish_config_operation();
+                throw;
+            }
+
+            finish_config_operation();
+            return *operation_result;
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);

@@ -145,6 +145,7 @@ if(WITH_API)
     src/api/sse_broadcaster.cpp
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
+    src/api/handler_lists_refresh.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_runtime_outbounds.cpp

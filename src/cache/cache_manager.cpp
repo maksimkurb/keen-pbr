@@ -122,8 +122,22 @@ CacheMetadata CacheManager::load_metadata(const std::string& name) const {
 }
 
 void CacheManager::save_metadata(const std::string& name, const CacheMetadata& meta) {
-    std::ofstream ofs(meta_path(name));
-    if (ofs.is_open()) ofs << nlohmann::json(meta).dump(2) << '\n';
+    const std::filesystem::path final_meta = meta_path(name);
+    const std::filesystem::path tmp_meta = cache_dir_ / (name + ".meta.json.tmp");
+
+    {
+        std::ofstream ofs(tmp_meta);
+        if (!ofs) {
+            return;
+        }
+        ofs << nlohmann::json(meta).dump(2) << '\n';
+        if (!ofs) {
+            std::filesystem::remove(tmp_meta);
+            return;
+        }
+    }
+
+    std::filesystem::rename(tmp_meta, final_meta);
 }
 
 } // namespace keen_pbr3

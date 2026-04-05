@@ -652,6 +652,7 @@ export const enTranslation = {
           actions: {
             new: "Add list",
             update: "Update",
+            updateAll: "Update all",
           },
           empty: {
             title: "No lists yet",
@@ -673,9 +674,21 @@ export const enTranslation = {
           location: {
             inline: "Inline",
           },
+          refresh: {
+            draftBlocked:
+              "Apply or discard the staged draft before refreshing URL-backed lists.",
+            updateDisabled: "Apply or discard the staged draft before refreshing",
+          },
           rule: {
             configured: "Configured",
           },
+          messages: {
+            refreshedOne: "List refresh finished.",
+            refreshedAll: "Lists refresh finished.",
+          },
+          lastUpdated: "Last updated: {{value}}",
+          neverUpdated: "Never updated",
+          noStats: "-",
           source: {
             url: "URL",
             file: "File",

@@ -30,6 +30,8 @@ import type {
   ConfigUpdateResponse,
   ErrorResponse,
   HealthResponse,
+  ListRefreshRequest,
+  ListRefreshResponse,
   ReloadResponse,
   RoutingHealthErrorResponse,
   RoutingHealthResponse,
@@ -408,6 +410,108 @@ export const usePostServiceRestart = <TError = unknown,
         TContext
       > => {
       return useMutation(getPostServiceRestartMutationOptions(options), queryClient);
+    }
+
+/**
+ * Refreshes one URL-backed list or all URL-backed lists from the active daemon config. If a changed list is used by active routing or DNS rules and the routing runtime is running, the runtime is rebuilt so the new list contents take effect immediately.
+
+ * @summary Refresh remote URL lists
+ */
+export type postListsRefreshResponse200 = {
+  data: ListRefreshResponse
+  status: 200
+}
+
+export type postListsRefreshResponse400 = {
+  data: ErrorResponse
+  status: 400
+}
+
+export type postListsRefreshResponse404 = {
+  data: ErrorResponse
+  status: 404
+}
+
+export type postListsRefreshResponse409 = {
+  data: ErrorResponse
+  status: 409
+}
+
+export type postListsRefreshResponseSuccess = (postListsRefreshResponse200) & {
+  headers: Headers;
+};
+export type postListsRefreshResponseError = (postListsRefreshResponse400 | postListsRefreshResponse404 | postListsRefreshResponse409) & {
+  headers: Headers;
+};
+
+export type postListsRefreshResponse = (postListsRefreshResponseSuccess | postListsRefreshResponseError)
+
+export const getPostListsRefreshUrl = () => {
+
+
+
+
+  return `/api/lists/refresh`
+}
+
+export const postListsRefresh = async (listRefreshRequest?: ListRefreshRequest, options?: RequestInit): Promise<postListsRefreshResponse> => {
+
+  return apiFetch<postListsRefreshResponse>(getPostListsRefreshUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      listRefreshRequest,)
+  }
+);}
+
+
+
+
+export const getPostListsRefreshMutationOptions = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postListsRefresh>>, TError,{data: ListRefreshRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postListsRefresh>>, TError,{data: ListRefreshRequest}, TContext> => {
+
+const mutationKey = ['postListsRefresh'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postListsRefresh>>, {data: ListRefreshRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postListsRefresh(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostListsRefreshMutationResult = NonNullable<Awaited<ReturnType<typeof postListsRefresh>>>
+    export type PostListsRefreshMutationBody = ListRefreshRequest
+    export type PostListsRefreshMutationError = ErrorResponse
+
+    /**
+ * @summary Refresh remote URL lists
+ */
+export const usePostListsRefresh = <TError = ErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postListsRefresh>>, TError,{data: ListRefreshRequest}, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postListsRefresh>>,
+        TError,
+        {data: ListRefreshRequest},
+        TContext
+      > => {
+      return useMutation(getPostListsRefreshMutationOptions(options), queryClient);
     }
 
 /**

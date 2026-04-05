@@ -2,6 +2,8 @@
 
 #ifdef WITH_API
 
+#include "generated/api_types.hpp"
+
 #include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
 #include "../health/routing_health.hpp"
@@ -39,6 +41,13 @@ struct ServiceHealthState {
     bool config_is_draft{false};
 };
 
+struct ListRefreshOperationResult {
+    std::vector<std::string> refreshed_lists;
+    std::vector<std::string> changed_lists;
+    bool reloaded{false};
+    std::string message;
+};
+
 // Context struct holding thread-safe accessors to daemon runtime state.
 struct ApiContext {
     const std::string& config_path;
@@ -53,6 +62,8 @@ struct ApiContext {
     std::function<ServiceHealthState()> get_service_health_fn;
     std::function<RoutingHealthReport()> get_routing_health_fn;
     std::function<api::RuntimeOutboundsResponse()> get_runtime_outbounds_fn;
+    std::function<std::map<std::string, api::ListRefreshStateValue>(const Config&)>
+        get_list_refresh_state_map_fn;
     std::function<TestRoutingResult(const std::string&)> compute_test_routing_fn;
 
     std::function<void()> begin_save_operation_fn;
@@ -63,6 +74,7 @@ struct ApiContext {
     std::function<void()> start_runtime_fn;
     std::function<void()> stop_runtime_fn;
     std::function<void()> restart_runtime_fn;
+    std::function<ListRefreshOperationResult(std::optional<std::string>)> refresh_lists_fn;
 
     Config get_visible_config() const {
         return get_visible_config_fn();
@@ -100,6 +112,11 @@ struct ApiContext {
         return get_runtime_outbounds_fn();
     }
 
+    std::map<std::string, api::ListRefreshStateValue> get_list_refresh_state_map(
+        const Config& config) const {
+        return get_list_refresh_state_map_fn(config);
+    }
+
     TestRoutingResult compute_test_routing(const std::string& target) const {
         return compute_test_routing_fn(target);
     }
@@ -131,6 +148,11 @@ struct ApiContext {
     void restart_runtime() const {
         restart_runtime_fn();
     }
+
+    ListRefreshOperationResult refresh_lists(
+        const std::optional<std::string>& requested_name) const {
+        return refresh_lists_fn(requested_name);
+    }
 };
 
 // Register all API endpoint handlers on the given ApiServer.
@@ -138,6 +160,7 @@ struct ApiContext {
 //   POST /api/service/start   - start routing runtime and activate dnsmasq hook
 //   POST /api/service/stop    - stop routing runtime and deactivate dnsmasq hook
 //   POST /api/service/restart - restart routing runtime and activate dnsmasq hook
+//   POST /api/lists/refresh   - refresh one or all URL-backed lists
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/save     - persist staged config and apply it
