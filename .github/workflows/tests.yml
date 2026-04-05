@@ -2,13 +2,29 @@ name: Run tests
 
 on:
   push:
-    branches: ['**']
+    branches:
+      - 'main'
+      - 'dev'
+      - 'dev-*'
+    paths:
+      - 'build_scripts/**'
+      - 'cmake/**'
+      - 'docker/**'
+      - 'frontend/**'
+      - 'include/**'
+      - 'packages/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - 'Makefile'
+      - 'version.mk'
   pull_request:
   workflow_dispatch:
 
 jobs:
   test:
-    name: Native doctest
+    name: doctest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
