@@ -48,11 +48,6 @@ bool CacheManager::download(const std::string& name,
     }
 
     if (result.not_modified) {
-        CacheMetadata meta = existing;
-        if (!result.etag.empty()) meta.etag = result.etag;
-        if (!result.last_modified.empty()) meta.last_modified = result.last_modified;
-        meta.download_time = current_time_iso();
-        save_metadata(name, meta);
         return false;
     }
 
