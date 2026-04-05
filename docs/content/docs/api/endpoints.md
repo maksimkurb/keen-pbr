@@ -33,6 +33,71 @@ For live outbound runtime state (health, latency, circuit breaker) use `GET /api
 
 ---
 
+## POST /api/lists/refresh
+
+Refreshes remote URL-backed lists from the active daemon config.
+
+- If `name` is provided, only that URL-backed list is refreshed.
+- If `name` is omitted, all URL-backed lists are refreshed.
+- If refreshed data changed and affects active routing/DNS while the runtime is running, keen-pbr rebuilds runtime state so updates take effect immediately.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/lists/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"name":"apple"}'
+```
+
+Refresh all URL-backed lists:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/lists/refresh
+```
+
+### Request Body (optional)
+
+```json
+{
+  "name": "apple"
+}
+```
+
+- `name` *(optional string)*: List name to refresh. When omitted, all URL-backed lists from the active config are refreshed.
+
+### Response (200)
+
+```json
+{
+  "status": "ok",
+  "message": "Lists refreshed and runtime reloaded",
+  "refreshed_lists": ["apple", "google"],
+  "changed_lists": ["apple"],
+  "reloaded": true
+}
+```
+
+Success payload fields:
+
+- `refreshed_lists` *(array[string])*: URL-backed lists that were refreshed.
+- `changed_lists` *(array[string])*: Refreshed lists whose cached contents changed.
+- `reloaded` *(boolean)*: Whether the running routing runtime was rebuilt because relevant changed lists were in active use.
+
+### Status / Error Behavior
+
+- `200`: Refresh operation completed.
+- `400`: Requested list exists but is not URL-backed.
+- `404`: Requested list not found.
+- `409`: Refresh rejected because a staged draft exists or another config/runtime operation is already in progress.
+
+Error response body:
+
+```json
+{
+  "error": "human-readable message"
+}
+```
+
+---
+
 ## GET /api/config
 
 Returns the current configuration together with a flag indicating whether it is a staged in-memory draft.

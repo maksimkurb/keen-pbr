@@ -8,7 +8,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { useDnsCheck } from "@/hooks/use-dns-check"
+import { type DnsCheckStatus, useDnsCheck } from "@/hooks/use-dns-check"
 import { SectionCard } from "@/components/shared/section-card"
 import { Button } from "@/components/ui/button"
 
@@ -16,12 +16,18 @@ import { DnsCheckModal } from "./dns-check-modal"
 
 export function DnsCheckWidget({
   dnsProbeEnabled,
+  onStatusChange,
 }: {
   dnsProbeEnabled: boolean
+  onStatusChange?: (status: DnsCheckStatus) => void
 }) {
   const { t } = useTranslation()
   const [showPcCheckDialog, setShowPcCheckDialog] = useState(false)
   const { status, startCheck, reset } = useDnsCheck()
+
+  useEffect(() => {
+    onStatusChange?.(status)
+  }, [onStatusChange, status])
 
   useEffect(() => {
     if (!dnsProbeEnabled) {
