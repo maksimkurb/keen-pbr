@@ -84,27 +84,32 @@ The following is the full annotated example configuration:
   ],
 
   "lists": {
-    "my-domains": {
+    "my_domains": {
       "domains": ["example.com", "*.example.org"]
     },
-    "my-ips": {
+    "my_ips": {
       "ip_cidrs": ["93.184.216.34", "10.0.0.0/8"]
     },
-    "remote-list": {
+    "remote_list": {
       "url": "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
     },
-    "local-list": {
+    "local_list": {
       "file": "./my-list.txt"
     }
   },
 
   "dns": {
+    "system_resolver": {
+      "type": "dnsmasq-nftset",
+      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+      "address": "127.0.0.1"
+    },
     "servers": [
       { "tag": "vpn-dns", "address": "10.8.0.1" },
       { "tag": "google-dns", "address": "8.8.8.8" }
     ],
     "rules": [
-      { "list": ["my-domains", "remote-list"], "server": "vpn-dns" }
+      { "list": ["my_domains", "remote_list"], "server": "vpn-dns" }
     ],
     "fallback": ["google-dns", "quad9"]
   },
@@ -125,13 +130,17 @@ The following is the full annotated example configuration:
 
   "route": {
     "rules": [
-      { "list": ["my-domains", "my-ips", "remote-list"], "outbound": "vpn" },
-      { "list": ["local-list"], "outbound": "auto-select" }
+      { "list": ["my_domains", "my_ips", "remote_list"], "outbound": "vpn" },
+      { "list": ["local_list"], "outbound": "auto-select" }
     ],
     "fallback": "wan"
   }
 }
 ```
+
+{{< callout type="info" >}}
+List names must be 1-24 characters, use only `a-z`, `A-Z`, `0-9`, and `_`, and the first character must be a letter (`[a-zA-Z][a-zA-Z0-9_]{0,23}`).
+{{< /callout >}}
 
 ## Sections
 

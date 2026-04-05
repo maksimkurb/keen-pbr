@@ -30,14 +30,21 @@ Create `/etc/keen-pbr/config.json`:
     }
   ],
   "lists": {
-    "my-domains": {
+    "my_domains": {
       "domains": ["example.com", "*.example.org"]
+    }
+  },
+  "dns": {
+    "system_resolver": {
+      "type": "dnsmasq-nftset",
+      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+      "address": "127.0.0.1"
     }
   },
   "route": {
     "rules": [
       {
-        "list": ["my-domains"],
+        "list": ["my_domains"],
         "outbound": "vpn"
       }
     ],
@@ -48,8 +55,9 @@ Create `/etc/keen-pbr/config.json`:
 
 This config:
 - Defines two outbounds: `vpn` (tun0) and `wan` (eth0)
-- Creates a list `my-domains` with two inline domain entries
-- Routes all traffic matching `my-domains` through `vpn`
+- Creates a list `my_domains` with two inline domain entries
+- Configures `dns.system_resolver` for dnsmasq integration
+- Routes all traffic matching `my_domains` through `vpn`
 - Falls back to `wan` for everything else
 
 ## Run the Daemon
