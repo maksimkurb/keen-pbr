@@ -188,7 +188,7 @@ export const enTranslation = {
             trustWarning:
               "Please share this file only with people you trust.",
             hideListsOption:
-              "Hide list contents and list URLs (checkbox is off by default)",
+              "Hide list contents and list URLs",
             downloadAction: "Download diagnostics file",
           },
         },
