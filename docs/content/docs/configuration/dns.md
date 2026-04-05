@@ -10,7 +10,7 @@ keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists 
 ```json
 {
   "dns": {
-    "test_server": {
+    "dns_test_server": {
       "listen": "127.0.0.88:53"
     },
     "servers": [...],
@@ -25,7 +25,7 @@ keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists 
 | `servers` | array | DNS server definitions |
 | `rules` | array | Rules mapping lists to DNS servers |
 | `fallback` | array of string | Ordered DNS server tags for queries that match no rule |
-| `test_server` | object | Optional built-in DNS probe listener for connectivity checks |
+| `dns_test_server` | object | Optional built-in DNS probe listener for connectivity checks |
 
 ## System Resolver
 
@@ -44,7 +44,7 @@ daemon runtime.
 
 ## DNS Test Server
 
-`dns.test_server` enables a minimal DNS server inside keen-pbr. It listens on
+`dns.dns_test_server` enables a minimal DNS server inside keen-pbr. It listens on
 the configured IPv4 `host:port`, accepts both UDP and TCP DNS requests, logs
 the queried name, and always replies with one synthetic `A` record.
 
@@ -56,7 +56,7 @@ the queried name, and always replies with one synthetic `A` record.
 ```json
 {
   "dns": {
-    "test_server": {
+    "dns_test_server": {
       "listen": "127.0.0.88:53"
     }
   }
