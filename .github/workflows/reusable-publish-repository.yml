@@ -6,6 +6,16 @@ on:
       target_root:
         required: true
         type: string
+      source_ref_type:
+        required: true
+        type: string
+      source_ref_name:
+        required: true
+        type: string
+      source_pr_number:
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -102,10 +112,15 @@ jobs:
             "https://x-access-token:${PUBLISH_REPOSITORY_TOKEN}@github.com/maksimkurb/keen-pbr-repository.git" \
             "$GITHUB_WORKSPACE/publish"
           git -C "$GITHUB_WORKSPACE/publish" sparse-checkout set \
+            "assets" \
+            "keys" \
             "repository/${{ steps.normalized-target-root.outputs.value }}"
 
       - name: Publish package tree
         run: |
+          REPO_SOURCE_REF_TYPE="${{ inputs.source_ref_type }}" \
+          REPO_SOURCE_REF_NAME="${{ inputs.source_ref_name }}" \
+          REPO_SOURCE_PR_NUMBER="${{ inputs.source_pr_number }}" \
           make -C "$GITHUB_WORKSPACE/src" build-repository \
             REPO_DIR="$GITHUB_WORKSPACE/publish" \
             REPO_TARGET_ROOT="repository/${{ steps.normalized-target-root.outputs.value }}"
@@ -117,7 +132,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add repository
+          git add assets keys repository
           if git diff --cached --quiet; then
             echo "No repository updates to publish"
             exit 0
