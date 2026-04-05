@@ -1,9 +1,10 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Play, RotateCw, Square } from "lucide-react"
+import { Download, Play, RotateCw, Square } from "lucide-react"
 
 import type { ApiError } from "@/api/client"
 import type { Outbound, RuntimeOutboundState } from "@/api/generated/model"
+import type { DnsCheckStatus } from "@/hooks/use-dns-check"
 import {
   useGetConfig,
   useGetHealthRouting,
@@ -33,11 +34,14 @@ import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-sta
 import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
+import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
 export function OverviewPage() {
   const { t } = useTranslation()
+  const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
+  const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
   const serviceHealthQuery = useGetHealthService({
     query: {
       refetchInterval: 30_000,
@@ -96,6 +100,17 @@ export function OverviewPage() {
       serviceHealth?.resolver_config_hash_actual
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
+  const configIsDraft =
+    configQuery.data?.status === 200 ? configQuery.data.data.is_draft : false
+
+  const diagnosticsDownloadReady =
+    Boolean(loadedConfig) &&
+    Boolean(serviceHealth) &&
+    Boolean(routingHealth) &&
+    runtimeOutboundsQuery.data?.status === 200 &&
+    dnsCheckStatus !== "idle" &&
+    dnsCheckStatus !== "checking" &&
+    !configIsDraft
 
   const outboundRows = useMemo(() => {
     const configuredOutbounds = loadedConfig?.outbounds ?? []
@@ -257,6 +272,7 @@ export function OverviewPage() {
 
         <DnsCheckWidget
           dnsProbeEnabled={Boolean(loadedConfig?.dns?.dns_test_server)}
+          onStatusChange={setDnsCheckStatus}
         />
       </div>
 
@@ -291,7 +307,20 @@ export function OverviewPage() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title={t("overview.routing.title")}>
+      <SectionCard
+        title={t("overview.routing.title")}
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!diagnosticsDownloadReady}
+            onClick={() => setIsDiagnosticsDialogOpen(true)}
+          >
+            <Download className="h-4 w-4" />
+            {t("overview.diagnosticsDownload.button")}
+          </Button>
+        }
+      >
         {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
         {routingHealthQuery.isError ? (
           <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -320,6 +349,21 @@ export function OverviewPage() {
           <RoutingHealthCard routingHealth={routingHealth} />
         ) : null}
       </SectionCard>
+
+      {loadedConfig &&
+      serviceHealth &&
+      routingHealth &&
+      runtimeOutboundsQuery.data?.status === 200 ? (
+        <DiagnosticsDownloadDialog
+          config={loadedConfig}
+          dnsCheckStatus={dnsCheckStatus}
+          onOpenChange={setIsDiagnosticsDialogOpen}
+          open={isDiagnosticsDialogOpen}
+          routingHealth={routingHealth}
+          runtimeOutbounds={runtimeOutboundsQuery.data.data}
+          serviceHealth={serviceHealth}
+        />
+      ) : null}
 
       <RoutingTestPanel />
     </div>
