@@ -81,6 +81,10 @@ target_link_libraries(keen-pbr-tests PRIVATE
   fmt::fmt-header-only
 )
 
+if(LIBATOMIC)
+  target_link_libraries(keen-pbr-tests PRIVATE ${LIBATOMIC})
+endif()
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)
 endif()
