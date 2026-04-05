@@ -4,7 +4,6 @@
 
 #include "../api/generated/api_types.hpp"
 #include "../config/config.hpp"
-#include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/urltest_manager.hpp"
 
@@ -18,7 +17,6 @@ using UrltestStateLookupFn = std::function<std::optional<UrltestState>(const std
 
 api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
-    const FirewallState& firewall_state,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup);
 

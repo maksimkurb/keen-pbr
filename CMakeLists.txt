@@ -129,7 +129,10 @@ set(SOURCES
   src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
+  src/daemon/config_store.cpp
   src/daemon/daemon.cpp
+  src/daemon/list_service.cpp
+  src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/main.cpp

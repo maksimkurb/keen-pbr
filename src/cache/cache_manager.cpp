@@ -27,21 +27,22 @@ void CacheManager::ensure_dir() {
     std::filesystem::create_directories(cache_dir_);
 }
 
-void CacheManager::set_fwmark(uint32_t mark) {
-    http_client_.set_fwmark(mark);
-}
-
 void CacheManager::set_max_file_size(size_t bytes) {
     http_client_.set_max_response_size(bytes);
 }
 
-bool CacheManager::download(const std::string& name, const std::string& url) {
+bool CacheManager::download(const std::string& name,
+                            const std::string& url,
+                            const CacheDownloadOptions& options) {
     CacheMetadata existing = load_metadata(name);
 
     ConditionalDownloadResult result;
     try {
         result = http_client_.download_conditional(
-            url, existing.etag.value_or(""), existing.last_modified.value_or(""));
+            url,
+            existing.etag.value_or(""),
+            existing.last_modified.value_or(""),
+            HttpRequestOptions{options.fwmark});
     } catch (const std::exception&) {
         return false;
     }

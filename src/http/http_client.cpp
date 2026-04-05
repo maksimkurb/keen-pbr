@@ -94,10 +94,6 @@ void HttpClient::set_user_agent(const std::string& user_agent) {
     user_agent_ = user_agent;
 }
 
-void HttpClient::set_fwmark(uint32_t mark) {
-    fwmark_ = mark;
-}
-
 void HttpClient::set_max_response_size(size_t bytes) {
     max_response_size_ = bytes;
 }
@@ -110,7 +106,8 @@ static int sockopt_cb(void* userdata, curl_socket_t fd, curlsocktype) {
     return CURL_SOCKOPT_OK;
 }
 
-std::string HttpClient::download(const std::string& url) {
+std::string HttpClient::download(const std::string& url,
+                                 const HttpRequestOptions& options) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         throw HttpError("Failed to initialize curl handle");
@@ -118,6 +115,7 @@ std::string HttpClient::download(const std::string& url) {
 
     std::string body;
     WriteContext write_ctx{&body, max_response_size_};
+    uint32_t fwmark = options.fwmark;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
@@ -129,7 +127,7 @@ std::string HttpClient::download(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
                      static_cast<curl_off_t>(max_response_size_));
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark);
 
     CURLcode res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
@@ -151,7 +149,8 @@ std::string HttpClient::download(const std::string& url) {
 
 ConditionalDownloadResult HttpClient::download_conditional(
     const std::string& url, const std::string& if_none_match,
-    const std::string& if_modified_since) {
+    const std::string& if_modified_since,
+    const HttpRequestOptions& options) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         throw HttpError("Failed to initialize curl handle");
@@ -160,6 +159,7 @@ ConditionalDownloadResult HttpClient::download_conditional(
     ConditionalDownloadResult result;
     HeaderCapture headers;
     WriteContext write_ctx{&result.body, max_response_size_};
+    uint32_t fwmark = options.fwmark;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
@@ -174,7 +174,7 @@ ConditionalDownloadResult HttpClient::download_conditional(
     curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
                      static_cast<curl_off_t>(max_response_size_));
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark_);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark);
 
     // Set conditional request headers
     struct curl_slist* req_headers = nullptr;

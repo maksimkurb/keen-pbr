@@ -368,11 +368,8 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
 
 api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
-    const FirewallState& firewall_state,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup) {
-    (void)firewall_state;
-
     api::RuntimeOutboundsResponse response;
     const auto outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     response.outbounds.reserve(outbounds.size());

@@ -1,0 +1,35 @@
+#pragma once
+
+#include "../routing/firewall_state.hpp"
+#include "../routing/policy_rule.hpp"
+#include "../routing/route_table.hpp"
+#include "../routing/urltest_manager.hpp"
+
+#include <map>
+#include <shared_mutex>
+#include <string>
+#include <vector>
+
+namespace keen_pbr3 {
+
+struct RuntimeStateSnapshot {
+    FirewallState firewall_state;
+    std::vector<RouteSpec> route_specs;
+    std::vector<RuleSpec> policy_rule_specs;
+    std::map<std::string, UrltestState> urltest_states;
+    std::string resolver_config_hash;
+    std::string resolver_config_hash_actual;
+    bool routing_runtime_active{true};
+};
+
+class RuntimeStateStore {
+public:
+    RuntimeStateSnapshot snapshot() const;
+    void publish(RuntimeStateSnapshot snapshot);
+
+private:
+    mutable std::shared_mutex mutex_;
+    RuntimeStateSnapshot snapshot_;
+};
+
+} // namespace keen_pbr3

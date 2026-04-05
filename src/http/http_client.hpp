@@ -9,6 +9,10 @@
 
 namespace keen_pbr3 {
 
+struct HttpRequestOptions {
+    uint32_t fwmark{0};
+};
+
 class HttpError : public std::runtime_error {
 public:
     HttpError(const std::string& message, long status_code = 0);
@@ -35,20 +39,20 @@ public:
 
     void set_timeout(std::chrono::seconds timeout);
     void set_user_agent(const std::string& user_agent);
-    void set_fwmark(uint32_t mark);          // 0 = disabled
     void set_max_response_size(size_t bytes); // default: 8 MiB
 
-    std::string download(const std::string& url);
+    std::string download(const std::string& url,
+                         const HttpRequestOptions& options = {});
 
     ConditionalDownloadResult download_conditional(
         const std::string& url,
         const std::string& if_none_match = "",
-        const std::string& if_modified_since = "");
+        const std::string& if_modified_since = "",
+        const HttpRequestOptions& options = {});
 
 private:
     std::chrono::seconds timeout_{30};
     std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
-    uint32_t fwmark_{0};
     size_t max_response_size_{8 * 1024 * 1024}; // 8 MiB
 };
 

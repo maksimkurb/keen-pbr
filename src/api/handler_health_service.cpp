@@ -5,24 +5,21 @@
 
 #include <keen-pbr/version.hpp>
 #include <nlohmann/json.hpp>
-#include <shared_mutex>
 
 namespace keen_pbr3 {
 
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/health/service - daemon version/status + resolver/config summary
     server.get("/api/health/service", [&ctx]() -> std::string {
-        std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
+        const auto service_health = ctx.get_service_health();
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
-        resp.status = ctx.service_running_fn()
-            ? api::HealthResponseStatus::RUNNING
-            : api::HealthResponseStatus::STOPPED;
-        resp.resolver_config_hash = ctx.resolver_config_hash_fn();
-        resp.resolver_config_hash_actual = ctx.resolver_config_hash_actual_fn();
+        resp.status = service_health.status;
+        resp.resolver_config_hash = service_health.resolver_config_hash;
+        resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
 
         nlohmann::json response = resp;
-        response["config_is_draft"] = ctx.config_is_draft_fn();
+        response["config_is_draft"] = service_health.config_is_draft;
         return response.dump();
     });
 }

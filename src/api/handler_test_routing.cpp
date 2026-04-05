@@ -6,7 +6,6 @@
 
 #include <nlohmann/json.hpp>
 #include <stdexcept>
-#include <shared_mutex>
 
 namespace keen_pbr3 {
 
@@ -28,9 +27,7 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
                 nlohmann::json{{"error", std::string("invalid request: ") + e.what()}}.dump());
         }
 
-        std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
-        Config visible_config = ctx.visible_config_fn();
-        auto result = compute_test_routing(visible_config, ctx.cache_manager, req.target);
+        auto result = ctx.compute_test_routing(req.target);
 
         api::RoutingTestResponse resp;
         resp.target       = result.target;
