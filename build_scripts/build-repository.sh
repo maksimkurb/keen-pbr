@@ -66,8 +66,9 @@ generator_args=(
     --public-base-url "$REPO_PUBLIC_BASE_URL"
     --source-ref-type "$REPO_SOURCE_REF_TYPE"
     --source-ref-name "$REPO_SOURCE_REF_NAME"
-    --shared-assets-source "$SCRIPT_DIR/../repo/assets"
-    --shared-keys-source "$SCRIPT_DIR/../repo/keys"
+    --shared-assets-source "$SCRIPT_DIR/repository_assets"
+    --keys-manifest-source "$SCRIPT_DIR/repository-keys.json"
+    --keys-source-dir "$SCRIPT_DIR/../packages/keys"
 )
 
 if [ -n "$REPO_SOURCE_PR_NUMBER" ]; then

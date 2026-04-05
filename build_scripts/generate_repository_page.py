@@ -9,6 +9,11 @@ from urllib.parse import quote
 
 
 GITHUB_REPO_URL = "https://github.com/maksimkurb/keen-pbr"
+PUBLISHED_KEY_SOURCE_FILES = {
+    "debian_public.pem": "debian_public.pem",
+    "openwrt_apk_public.pem": "apk_public.pem",
+    "openwrt_opkg_public.key": "usign_public.key",
+}
 
 
 def fail(message: str) -> None:
@@ -27,8 +32,9 @@ def replace_tree(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination)
 
 
-def validate_keys_manifest(keys_dir: Path, public_base_url: str) -> None:
-    manifest_path = keys_dir / "keys.json"
+def copy_shared_keys(
+    manifest_path: Path, key_source_dir: Path, publish_keys_dir: Path, public_base_url: str
+) -> None:
     if not manifest_path.is_file():
         fail(f"missing keys manifest: {manifest_path}")
 
@@ -58,8 +64,24 @@ def validate_keys_manifest(keys_dir: Path, public_base_url: str) -> None:
         if not file_name or "/" in file_name:
             fail(f"manifest entry {key_name!r} must point to a direct child under /keys/: {key_url}")
 
-        if not (keys_dir / file_name).is_file():
-            fail(f"manifest entry {key_name!r} references a missing file: {file_name}")
+        source_name = PUBLISHED_KEY_SOURCE_FILES.get(file_name)
+        if source_name is None:
+            fail(
+                f"manifest entry {key_name!r} references unsupported published key file: {file_name}"
+            )
+
+        if not (key_source_dir / source_name).is_file():
+            fail(
+                f"manifest entry {key_name!r} references a missing source key file: {source_name}"
+            )
+
+    if publish_keys_dir.exists():
+        shutil.rmtree(publish_keys_dir)
+    publish_keys_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy2(manifest_path, publish_keys_dir / "keys.json")
+    for published_name, source_name in PUBLISHED_KEY_SOURCE_FILES.items():
+        shutil.copy2(key_source_dir / source_name, publish_keys_dir / published_name)
 
 
 def iter_arch_dirs(platform_dir: Path):
@@ -199,7 +221,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-ref-name", required=True)
     parser.add_argument("--source-pr-number", default="")
     parser.add_argument("--shared-assets-source", required=True)
-    parser.add_argument("--shared-keys-source", required=True)
+    parser.add_argument("--keys-manifest-source", required=True)
+    parser.add_argument("--keys-source-dir", required=True)
     return parser.parse_args()
 
 
@@ -209,13 +232,13 @@ def main() -> None:
     root_dir = Path(args.root_dir).resolve()
     repo_dir = Path(args.repo_dir).resolve()
     shared_assets_source = Path(args.shared_assets_source).resolve()
-    shared_keys_source = Path(args.shared_keys_source).resolve()
+    keys_manifest_source = Path(args.keys_manifest_source).resolve()
+    keys_source_dir = Path(args.keys_source_dir).resolve()
     public_base_url = args.public_base_url.rstrip("/")
     instructions_url = f"{public_base_url}/{args.target_root}/"
 
-    validate_keys_manifest(shared_keys_source, public_base_url)
     replace_tree(shared_assets_source, repo_dir / "assets")
-    replace_tree(shared_keys_source, repo_dir / "keys")
+    copy_shared_keys(keys_manifest_source, keys_source_dir, repo_dir / "keys", public_base_url)
 
     payload = {
         "baseUrl": f"{public_base_url}/{args.target_root}",
