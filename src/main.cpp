@@ -30,6 +30,7 @@
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "log/logger.hpp"
+#include "util/daemon_signals.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
@@ -353,6 +354,9 @@ int main(int argc, char* argv[]) {
             keen_pbr3::DaemonOptions daemon_opts;
             daemon_opts.no_api = opts.no_api;
 
+            // Block daemon-managed signals before constructing Daemon so any
+            // worker threads spawned during member initialization inherit the mask.
+            keen_pbr3::ScopedDaemonSignalMask daemon_signal_mask;
             keen_pbr3::Daemon daemon(std::move(config), opts.config_path, daemon_opts);
             daemon.run();
 

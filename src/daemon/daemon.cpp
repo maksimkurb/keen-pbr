@@ -35,6 +35,7 @@
 #include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
 #include "../health/runtime_outbound_state.hpp"
+#include "../util/daemon_signals.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
@@ -178,14 +179,8 @@ Daemon::~Daemon() {
         epoll_fd_ = -1;
     }
 
-    // Restore default signal disposition
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGHUP);
-    sigprocmask(SIG_UNBLOCK, &mask, nullptr);
+    // Restore the thread signal mask when the daemon is torn down.
+    unblock_daemon_signals_for_current_thread();
 }
 
 void Daemon::setup_control_channel() {
@@ -381,16 +376,8 @@ void Daemon::handle_control_commands() {
 
 void Daemon::setup_signals() {
     // Block SIGTERM, SIGINT, SIGUSR1, SIGHUP so they can be handled via signalfd
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGUSR1);
-    sigaddset(&mask, SIGHUP);
-
-    if (sigprocmask(SIG_BLOCK, &mask, nullptr) < 0) {
-        throw DaemonError("sigprocmask failed: " + std::string(strerror(errno)));
-    }
+    block_daemon_signals_for_current_thread();
+    sigset_t mask = daemon_signal_mask();
 
     // Create signalfd for the blocked signals
     signal_fd_ = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);

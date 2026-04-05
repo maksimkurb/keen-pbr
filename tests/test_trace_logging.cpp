@@ -3,6 +3,7 @@
 #include "../src/log/logger.hpp"
 #include "../src/log/trace.hpp"
 #include "../src/util/blocking_executor.hpp"
+#include "../src/util/daemon_signals.hpp"
 #include "../src/util/safe_exec.hpp"
 #include "../src/util/traced_mutex.hpp"
 
@@ -87,6 +88,20 @@ TEST_CASE("blocking executor rejects new tasks after shutdown") {
 
     auto future = executor.submit("late-submit", []() { return 7; });
     CHECK_THROWS(future.get());
+}
+
+TEST_CASE("blocking executor workers inherit daemon-managed signal mask") {
+    ScopedDaemonSignalMask signal_mask;
+    BlockingExecutor executor(1, 4);
+
+    auto future = executor.submit("signal-mask-check", []() {
+        return is_signal_blocked_for_current_thread(SIGTERM)
+            && is_signal_blocked_for_current_thread(SIGINT)
+            && is_signal_blocked_for_current_thread(SIGUSR1)
+            && is_signal_blocked_for_current_thread(SIGHUP);
+    });
+
+    CHECK(future.get());
 }
 
 TEST_CASE("traced mutex logs lock lifecycle and supports condition_variable_any") {
