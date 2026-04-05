@@ -3,7 +3,7 @@ title: Endpoints
 weight: 1
 ---
 
-All endpoints are served at the configured `api.listen` address (default `127.0.0.1:8080`).
+All endpoints are served at the configured `api.listen` address (default `0.0.0.0:12121`).
 
 ---
 
@@ -12,7 +12,7 @@ All endpoints are served at the configured `api.listen` address (default `127.0.
 Returns the running daemon version, routing runtime status, and resolver configuration summary.
 
 ```bash
-curl http://127.0.0.1:8080/api/health/service
+curl http://127.0.0.1:12121/api/health/service
 ```
 
 ### Response
@@ -38,7 +38,7 @@ For live outbound runtime state (health, latency, circuit breaker) use `GET /api
 Returns the current configuration together with a flag indicating whether it is a staged in-memory draft.
 
 ```bash
-curl http://127.0.0.1:8080/api/config
+curl http://127.0.0.1:12121/api/config
 ```
 
 ### Response
@@ -47,7 +47,7 @@ curl http://127.0.0.1:8080/api/config
 {
   "config": {
     "daemon": { "pid_file": "/var/run/keen-pbr.pid", "cache_dir": "/var/cache/keen-pbr" },
-    "api": { "enabled": true, "listen": "127.0.0.1:8080" },
+    "api": { "enabled": true, "listen": "127.0.0.1:12121" },
     "outbounds": [],
     "lists": {},
     "route": {}
@@ -73,7 +73,7 @@ curl http://127.0.0.1:8080/api/config
 Validates the provided JSON body as a config file and stages it in daemon memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/config \
+curl -X POST http://127.0.0.1:12121/api/config \
   -H "Content-Type: application/json" \
   -d @new-config.json
 ```
@@ -105,7 +105,7 @@ curl -X POST http://127.0.0.1:8080/api/config \
 Persists the currently staged in-memory config to disk, then applies it to the routing runtime.
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/config/save
+curl -X POST http://127.0.0.1:12121/api/config/save
 ```
 
 ### Response
@@ -138,7 +138,7 @@ curl -X POST http://127.0.0.1:8080/api/config/save
 Returns the daemon's current outbound runtime state: live urltest selection, interface reachability, and circuit breaker status.
 
 ```bash
-curl http://127.0.0.1:8080/api/runtime/outbounds
+curl http://127.0.0.1:12121/api/runtime/outbounds
 ```
 
 ### Response
@@ -171,7 +171,7 @@ curl http://127.0.0.1:8080/api/runtime/outbounds
 Resolves the target (if a domain), scans configured route rules against cached list data to determine the expected outbound, and queries the live kernel firewall sets to determine the actual outbound. Useful for diagnosing routing mismatches without restarting the daemon.
 
 ```bash
-curl -X POST http://127.0.0.1:8080/api/routing/test \
+curl -X POST http://127.0.0.1:12121/api/routing/test \
   -H "Content-Type: application/json" \
   -d '{"target": "example.com"}'
 ```
@@ -202,7 +202,7 @@ curl -X POST http://127.0.0.1:8080/api/routing/test \
 Verifies the live kernel routing and firewall state against the expected configuration. Checks that the firewall chain exists, all rules are present, route tables are populated, and policy rules are in place.
 
 ```bash
-curl http://127.0.0.1:8080/api/health/routing
+curl http://127.0.0.1:12121/api/health/routing
 ```
 
 ### Response
@@ -278,7 +278,7 @@ curl http://127.0.0.1:8080/api/health/routing
 Streams DNS queries observed by the built-in `dns.test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
 
 ```bash
-curl -N http://127.0.0.1:8080/api/dns/test
+curl -N http://127.0.0.1:12121/api/dns/test
 ```
 
 ### Stream Example

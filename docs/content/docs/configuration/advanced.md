@@ -38,13 +38,13 @@ Controls the embedded HTTP API server.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enabled` | boolean | `false` | Enable the HTTP API |
-| `listen` | string | `"127.0.0.1:8080"` | Address and port to listen on |
+| `listen` | string | `"0.0.0.0:12121"` | Address and port to listen on |
 
 ```json
 {
   "api": {
     "enabled": true,
-    "listen": "127.0.0.1:8080"
+    "listen": "0.0.0.0:12121"
   }
 }
 ```
