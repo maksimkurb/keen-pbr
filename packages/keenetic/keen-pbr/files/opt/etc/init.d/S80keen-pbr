@@ -6,6 +6,7 @@ ENABLED=yes
 PROCS=$(basename "$KEEN_PBR")
 ARGS="--config $CONFIG service"
 PREARGS=""
+POSTCMD=""
 DESC="keen-pbr"
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -38,7 +39,9 @@ signal_service() {
 
 prepare_start() {
     disable_hwnat
-    reapply_dnsmasq_config || true
+    if [ -x "$DNSMASQ_HELPER" ]; then
+        "$DNSMASQ_HELPER" ensure-runtime-prereqs || return 1
+    fi
 }
 
 prepare_stop() {
@@ -69,8 +72,9 @@ case "$1" in
         reapply_dnsmasq_config
         exit $?
         ;;
-    start|restart|restartall|check)
+    start|restart|restartall)
         prepare_start
+        POSTCMD="reapply_dnsmasq_config"
         ;;
     stop|kill)
         prepare_stop
