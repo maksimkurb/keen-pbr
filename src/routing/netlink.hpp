@@ -2,11 +2,12 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "../util/traced_mutex.hpp"
 
 namespace keen_pbr3 {
 
@@ -96,7 +97,7 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    mutable std::mutex mutex_;
+    mutable TracedMutex mutex_;
 };
 
 } // namespace keen_pbr3

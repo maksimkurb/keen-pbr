@@ -2,6 +2,9 @@
 
 #include "server.hpp"
 
+#include "../log/logger.hpp"
+#include "../log/trace.hpp"
+
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -89,6 +92,45 @@ bool serve_file_response(httplib::Response& res,
     return true;
 }
 
+std::int64_t request_duration_ms(std::chrono::steady_clock::time_point started_at) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at).count();
+}
+
+void log_request_start(const httplib::Request& req, const char* kind) {
+    Logger::instance().trace("http_request_start",
+                             "method={} path={} kind={}",
+                             req.method,
+                             req.path,
+                             kind);
+}
+
+void log_request_end(const httplib::Request& req,
+                     const char* kind,
+                     int status,
+                     std::chrono::steady_clock::time_point started_at) {
+    Logger::instance().trace("http_request_end",
+                             "method={} path={} kind={} status={} duration_ms={}",
+                             req.method,
+                             req.path,
+                             kind,
+                             status,
+                             request_duration_ms(started_at));
+}
+
+void log_request_error(const httplib::Request& req,
+                       const char* kind,
+                       const std::string& error,
+                       std::chrono::steady_clock::time_point started_at) {
+    Logger::instance().trace("http_request_error",
+                             "method={} path={} kind={} duration_ms={} error={}",
+                             req.method,
+                             req.path,
+                             kind,
+                             request_duration_ms(started_at),
+                             error);
+}
+
 bool path_starts_with(const std::filesystem::path& path,
                       const std::filesystem::path& prefix) {
     auto path_it = path.begin();
@@ -156,8 +198,8 @@ struct ApiServer::Impl {
     std::atomic<bool> is_listening{false};
     std::atomic<bool> listen_failed{false};
     std::atomic<bool> listen_finished{false};
-    std::mutex state_mutex;
-    std::condition_variable startup_cv;
+    TracedMutex state_mutex;
+    std::condition_variable_any startup_cv;
     std::string listen_error_message;
 };
 
@@ -189,33 +231,51 @@ ApiServer::~ApiServer() {
 }
 
 void ApiServer::get(const std::string& path, RouteHandler handler) {
-    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request&,
+    impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
                                                       httplib::Response& res) {
+        const auto trace_id = allocate_trace_id();
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        log_request_start(req, "api");
         try {
             std::string body = h();
             res.set_content(body, "application/json");
+            log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         }
     });
 }
 
 void ApiServer::post(const std::string& path, RouteHandler handler) {
-    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request&,
+    impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
                                                        httplib::Response& res) {
+        const auto trace_id = allocate_trace_id();
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        log_request_start(req, "api");
         try {
             std::string body = h();
             res.set_content(body, "application/json");
+            log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         }
     });
 }
@@ -223,15 +283,24 @@ void ApiServer::post(const std::string& path, RouteHandler handler) {
 void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
     impl_->server.Post(path, [h = std::move(handler)](const httplib::Request& req,
                                                        httplib::Response& res) {
+        const auto trace_id = allocate_trace_id();
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        log_request_start(req, "api");
         try {
             std::string result = h(req.body);
             res.set_content(result, "application/json");
+            log_request_end(req, "api", res.status == 0 ? 200 : res.status, started_at);
         } catch (const ApiError& e) {
             res.status = e.status();
             res.set_content(e.body().value_or(make_error_json(e.what())), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(make_error_json(e.what()), "application/json");
+            log_request_error(req, "api", e.what(), started_at);
+            log_request_end(req, "api", res.status, started_at);
         }
     });
 }
@@ -239,8 +308,13 @@ void ApiServer::post(const std::string& path, BodyRouteHandler handler) {
 void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) {
     impl_->server.Get(path, [h = std::move(handler)](const httplib::Request& req,
                                                       httplib::Response& res) {
+        const auto trace_id = allocate_trace_id();
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        log_request_start(req, "stream");
         try {
             h(req, res);
+            log_request_end(req, "stream", res.status == 0 ? 200 : res.status, started_at);
         } catch (const std::exception& e) {
             if (!res.status) {
                 res.status = 500;
@@ -248,6 +322,8 @@ void ApiServer::get_stream(const std::string& path, StreamRouteHandler handler) 
             if (res.body.empty()) {
                 res.set_content(make_error_json(e.what()), "application/json");
             }
+            log_request_error(req, "stream", e.what(), started_at);
+            log_request_end(req, "stream", res.status, started_at);
         }
     });
 }
@@ -263,6 +339,15 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
 
     impl_->server.Get(R"(/(.*))", [root](const httplib::Request& req,
                                           httplib::Response& res) {
+        const auto trace_id = allocate_trace_id();
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        log_request_start(req, "static");
+
+        auto finish = [&req, &res, started_at]() {
+            log_request_end(req, "static", res.status == 0 ? 200 : res.status, started_at);
+        };
+
         auto serve_index = [&res, &root]() -> bool {
             const fs::path index_path = root / "index.html";
             auto index_gzip_path = index_path;
@@ -285,6 +370,7 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         if (is_api_route) {
             res.status = 404;
             res.set_content(make_error_json("not found"), "application/json");
+            finish();
             return;
         }
 
@@ -296,6 +382,7 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         if (!is_safe_static_relative_path(relative)) {
             res.status = 400;
             res.set_content(make_error_json("invalid path"), "application/json");
+            finish();
             return;
         }
 
@@ -304,6 +391,7 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         if (ec || !path_starts_with(requested, root)) {
             res.status = 400;
             res.set_content(make_error_json("invalid path"), "application/json");
+            finish();
             return;
         }
 
@@ -313,29 +401,35 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         fs::path resolved_gzip;
         if (resolve_static_file_under_root(root, requested_gzip, resolved_gzip)) {
             if (serve_file_response(res, resolved_gzip, requested, true)) {
+                finish();
                 return;
             }
             res.status = 500;
             res.set_content(make_error_json("failed to read static file"), "application/json");
+            finish();
             return;
         }
 
         fs::path resolved_requested;
         if (resolve_static_file_under_root(root, requested, resolved_requested)) {
             if (serve_file_response(res, resolved_requested, requested, false)) {
+                finish();
                 return;
             }
             res.status = 500;
             res.set_content(make_error_json("failed to read static file"), "application/json");
+            finish();
             return;
         }
 
         if (serve_index()) {
+            finish();
             return;
         }
 
         res.status = 404;
         res.set_content(make_error_json("not found"), "application/json");
+        finish();
     });
 
     return true;
@@ -349,7 +443,7 @@ void ApiServer::start() {
     impl_->listen_failed.store(false, std::memory_order_release);
     impl_->listen_finished.store(false, std::memory_order_release);
     {
-        std::lock_guard<std::mutex> lock(impl_->state_mutex);
+        KPBR_LOCK_GUARD(impl_->state_mutex);
         impl_->listen_error_message.clear();
     }
 
@@ -379,7 +473,7 @@ void ApiServer::start() {
         impl_->is_listening.store(listen_ok, std::memory_order_release);
         impl_->listen_finished.store(true, std::memory_order_release);
         {
-            std::lock_guard<std::mutex> lock(impl_->state_mutex);
+            KPBR_UNIQUE_LOCK(lock, impl_->state_mutex);
             if (!error_message.empty()) {
                 impl_->listen_error_message = std::move(error_message);
             }
@@ -387,14 +481,11 @@ void ApiServer::start() {
         impl_->startup_cv.notify_all();
     });
 
-    // Wait for the server to start or fail.  The CV is notified on
-    // failure/finish; on success is_running() flips inside the blocking
-    // listen(), so we use short CV waits to detect both paths promptly.
     {
         constexpr auto startup_timeout = std::chrono::seconds(3);
         constexpr auto poll_interval = std::chrono::milliseconds(50);
         const auto deadline = std::chrono::steady_clock::now() + startup_timeout;
-        std::unique_lock<std::mutex> lock(impl_->state_mutex);
+        KPBR_UNIQUE_LOCK(lock, impl_->state_mutex);
         while (!impl_->server.is_running() &&
                !impl_->listen_failed.load(std::memory_order_acquire) &&
                !impl_->listen_finished.load(std::memory_order_acquire) &&
@@ -410,7 +501,7 @@ void ApiServer::start() {
 
     std::string diagnostic;
     {
-        std::lock_guard<std::mutex> lock(impl_->state_mutex);
+        KPBR_LOCK_GUARD(impl_->state_mutex);
         diagnostic = impl_->listen_error_message;
     }
     if (diagnostic.empty()) {

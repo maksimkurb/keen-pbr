@@ -1,5 +1,7 @@
 #include "url_tester.hpp"
 
+#include "../log/logger.hpp"
+
 #include <chrono>
 #include <cstdint>
 #include <curl/curl.h>
@@ -32,10 +34,23 @@ URLTester::~URLTester() = default;
 URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark,
                                    uint32_t timeout_ms) {
     URLTestResult result;
+    const auto started_at = std::chrono::steady_clock::now();
+    Logger::instance().trace("url_test_once_start",
+                             "url={} fwmark={} timeout_ms={}",
+                             url,
+                             fwmark,
+                             timeout_ms);
 
     CURL* curl = curl_easy_init();
     if (!curl) {
         result.error = "Failed to initialize curl handle";
+        Logger::instance().trace("url_test_once_error",
+                                 "url={} fwmark={} duration_ms={} error={}",
+                                 url,
+                                 fwmark,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count(),
+                                 result.error);
         return result;
     }
 
@@ -58,6 +73,13 @@ URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark,
     if (res != CURLE_OK) {
         result.error = curl_easy_strerror(res);
         curl_easy_cleanup(curl);
+        Logger::instance().trace("url_test_once_error",
+                                 "url={} fwmark={} duration_ms={} error={}",
+                                 url,
+                                 fwmark,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     end - started_at).count(),
+                                 result.error);
         return result;
     }
 
@@ -69,8 +91,23 @@ URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark,
         result.success = true;
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         result.latency_ms = static_cast<uint32_t>(ms.count());
+        Logger::instance().trace("url_test_once_end",
+                                 "url={} fwmark={} duration_ms={} latency_ms={} http_code={}",
+                                 url,
+                                 fwmark,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     end - started_at).count(),
+                                 result.latency_ms,
+                                 http_code);
     } else {
         result.error = "HTTP " + std::to_string(http_code);
+        Logger::instance().trace("url_test_once_error",
+                                 "url={} fwmark={} duration_ms={} error={}",
+                                 url,
+                                 fwmark,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     end - started_at).count(),
+                                 result.error);
     }
 
     return result;
@@ -80,24 +117,59 @@ URLTestResult URLTester::test(const std::string& url, uint32_t fwmark,
                               uint32_t timeout_ms, const RetryConfig& retry) {
     URLTestResult best;
     best.error = "No attempts made";
+    const auto total_started_at = std::chrono::steady_clock::now();
+    const auto attempts = static_cast<uint32_t>(retry.attempts.value_or(1));
+    Logger::instance().trace("url_test_start",
+                             "url={} fwmark={} timeout_ms={} attempts={}",
+                             url,
+                             fwmark,
+                             timeout_ms,
+                             attempts);
 
-    for (uint32_t attempt = 0; attempt < static_cast<uint32_t>(retry.attempts.value_or(1)); ++attempt) {
+    for (uint32_t attempt = 0; attempt < attempts; ++attempt) {
         if (attempt > 0) {
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(retry.interval_ms.value_or(1000)));
         }
 
+        Logger::instance().trace("url_test_attempt_start",
+                                 "url={} fwmark={} attempt={} attempts={}",
+                                 url,
+                                 fwmark,
+                                 attempt + 1,
+                                 attempts);
         auto result = test_once(url, fwmark, timeout_ms);
         if (result.success) {
             if (!best.success || result.latency_ms < best.latency_ms) {
                 best = result;
             }
+            Logger::instance().trace("url_test_end",
+                                     "url={} fwmark={} duration_ms={} success=true latency_ms={}",
+                                     url,
+                                     fwmark,
+                                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::steady_clock::now() - total_started_at).count(),
+                                     best.latency_ms);
             return best;
         }
 
         best.error = result.error;
+        Logger::instance().trace("url_test_attempt_end",
+                                 "url={} fwmark={} attempt={} attempts={} success=false error={}",
+                                 url,
+                                 fwmark,
+                                 attempt + 1,
+                                 attempts,
+                                 best.error);
     }
 
+    Logger::instance().trace("url_test_end",
+                             "url={} fwmark={} duration_ms={} success=false error={}",
+                             url,
+                             fwmark,
+                             std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - total_started_at).count(),
+                             best.error);
     return best;
 }
 

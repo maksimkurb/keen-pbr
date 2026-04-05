@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../util/traced_mutex.hpp"
 
 #include <optional>
-#include <shared_mutex>
 #include <string>
 #include <utility>
 
@@ -31,7 +31,7 @@ public:
     void clear_staged_if_matches(const std::string& staged_config_json);
 
 private:
-    mutable std::shared_mutex mutex_;
+    mutable TracedSharedMutex mutex_;
     Config active_config_;
     OutboundMarkMap active_outbound_marks_;
     std::optional<Config> staged_config_;

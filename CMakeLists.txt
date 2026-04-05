@@ -93,6 +93,7 @@ endif()
 # Sources
 set(SOURCES
   src/log/logger.cpp
+  src/log/trace.cpp
   src/http/http_client.cpp
   src/config/config.cpp
   src/config/routing_state.cpp
@@ -135,6 +136,8 @@ set(SOURCES
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
+  src/util/blocking_executor.cpp
+  src/util/traced_mutex.cpp
   src/main.cpp
 )
 

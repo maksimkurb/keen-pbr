@@ -68,6 +68,25 @@ std::string format_list_names(const std::vector<std::string>& list_names) {
     return out.str();
 }
 
+std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at).count();
+}
+
+#ifdef WITH_API
+const char* config_operation_state_name(ConfigOperationState state) {
+    switch (state) {
+    case ConfigOperationState::Idle:
+        return "idle";
+    case ConfigOperationState::Saving:
+        return "saving";
+    case ConfigOperationState::Reloading:
+        return "reloading";
+    }
+    return "unknown";
+}
+#endif
+
 } // namespace
 
 // Helper to get tag from an outbound
@@ -140,17 +159,23 @@ Daemon::Daemon(Config config,
 }
 
 Daemon::~Daemon() {
+    accept_posted_control_tasks_.store(false, std::memory_order_release);
+    blocking_executor_.shutdown();
+
     if (control_fd_ >= 0) {
         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, control_fd_, nullptr);
         close(control_fd_);
+        control_fd_ = -1;
     }
     if (signal_fd_ >= 0) {
         // Remove from epoll before closing
         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
         close(signal_fd_);
+        signal_fd_ = -1;
     }
     if (epoll_fd_ >= 0) {
         close(epoll_fd_);
+        epoll_fd_ = -1;
     }
 
     // Restore default signal disposition
@@ -190,19 +215,48 @@ bool Daemon::is_event_loop_thread() const {
 }
 
 void Daemon::enqueue_control_task(std::function<void()> task,
-                                  bool wait_for_completion) {
+                                  bool wait_for_completion,
+                                  const std::string& label) {
     if (!task) {
         return;
     }
 
+    const auto effective_label = label.empty() ? std::string("control-task") : label;
+    const TraceId trace_id = ensure_trace_id();
+    auto run_inline = [task = std::move(task), effective_label, trace_id]() mutable {
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        Logger::instance().trace("control_task_start", "label={} mode=inline", effective_label);
+        try {
+            task();
+            Logger::instance().trace("control_task_end",
+                                     "label={} mode=inline duration_ms={}",
+                                     effective_label,
+                                     steady_duration_ms(started_at));
+        } catch (const std::exception& e) {
+            Logger::instance().trace("control_task_error",
+                                     "label={} mode=inline duration_ms={} error={}",
+                                     effective_label,
+                                     steady_duration_ms(started_at),
+                                     e.what());
+            throw;
+        } catch (...) {
+            Logger::instance().trace("control_task_error",
+                                     "label={} mode=inline duration_ms={} error=unknown",
+                                     effective_label,
+                                     steady_duration_ms(started_at));
+            throw;
+        }
+    };
+
     if (!event_loop_active_.load(std::memory_order_acquire) ||
         event_loop_thread_id_.load(std::memory_order_relaxed) == std::thread::id{}) {
-        task();
+        run_inline();
         return;
     }
 
     if (event_loop_thread_id_.load(std::memory_order_relaxed) == std::this_thread::get_id()) {
-        task();
+        run_inline();
         return;
     }
 
@@ -210,53 +264,101 @@ void Daemon::enqueue_control_task(std::function<void()> task,
         auto done = std::make_shared<std::promise<void>>();
         auto fut = done->get_future();
         {
-            std::lock_guard<std::mutex> lock(control_tasks_mutex_);
-            control_tasks_.push_back([cmd = std::move(task), done]() mutable {
+            KPBR_LOCK_GUARD(control_tasks_mutex_);
+            control_tasks_.push_back(ControlTask{
+                .callback = [cmd = std::move(run_inline), done]() mutable {
                 try {
                     cmd();
                     done->set_value();
                 } catch (...) {
                     done->set_exception(std::current_exception());
                 }
+                },
+                .label = effective_label,
+                .trace_id = trace_id,
             });
         }
+        Logger::instance().trace("control_task_enqueue",
+                                 "label={} wait=true",
+                                 effective_label);
         wake_control_loop();
         fut.get();
         return;
     }
 
     {
-        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
-        control_tasks_.push_back(std::move(task));
+        KPBR_LOCK_GUARD(control_tasks_mutex_);
+        control_tasks_.push_back(ControlTask{
+            .callback = std::move(run_inline),
+            .label = effective_label,
+            .trace_id = trace_id,
+        });
     }
+    Logger::instance().trace("control_task_enqueue",
+                             "label={} wait=false",
+                             effective_label);
     wake_control_loop();
 }
 
 
-void Daemon::post_control_task(std::function<void()> task) {
+void Daemon::post_control_task(std::function<void()> task, const std::string& label) {
     if (!task) return;
-
-    // If the event loop has not started yet (startup path), run inline — there
-    // is no event loop to defer to and no reentrancy is possible.
-    if (!event_loop_active_.load(std::memory_order_acquire) ||
-        event_loop_thread_id_.load(std::memory_order_relaxed) == std::thread::id{}) {
-        task();
+    if (!accept_posted_control_tasks_.load(std::memory_order_acquire)) {
+        Logger::instance().trace("control_task_skip",
+                                 "label={} reason=posted_tasks_disabled",
+                                 label.empty() ? "post-control-task" : label);
         return;
     }
+
+    const auto effective_label = label.empty() ? std::string("post-control-task") : label;
+    const TraceId trace_id = ensure_trace_id();
+    auto traced_task = [task = std::move(task), effective_label, trace_id]() mutable {
+        ScopedTraceContext trace_scope(trace_id);
+        const auto started_at = std::chrono::steady_clock::now();
+        Logger::instance().trace("control_task_start", "label={} mode=posted", effective_label);
+        try {
+            task();
+            Logger::instance().trace("control_task_end",
+                                     "label={} mode=posted duration_ms={}",
+                                     effective_label,
+                                     steady_duration_ms(started_at));
+        } catch (const std::exception& e) {
+            Logger::instance().trace("control_task_error",
+                                     "label={} mode=posted duration_ms={} error={}",
+                                     effective_label,
+                                     steady_duration_ms(started_at),
+                                     e.what());
+            throw;
+        } catch (...) {
+            Logger::instance().trace("control_task_error",
+                                     "label={} mode=posted duration_ms={} error=unknown",
+                                     effective_label,
+                                     steady_duration_ms(started_at));
+            throw;
+        }
+    };
 
     // Always queue, even when called from the event loop thread.
     // This guarantees the task runs after the current iteration finishes and
     // any locks held by the caller have been released.
     {
-        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
-        control_tasks_.push_back(std::move(task));
+        KPBR_LOCK_GUARD(control_tasks_mutex_);
+        control_tasks_.push_back(ControlTask{
+            .callback = std::move(traced_task),
+            .label = effective_label,
+            .trace_id = trace_id,
+        });
     }
+    Logger::instance().trace("control_task_enqueue",
+                             "label={} wait=false mode=post",
+                             effective_label);
     wake_control_loop();
 }
 
 void Daemon::enqueue_control_command(std::function<void()> command,
-                                     bool wait_for_completion) {
-    enqueue_control_task(std::move(command), wait_for_completion);
+                                     bool wait_for_completion,
+                                     const std::string& label) {
+    enqueue_control_task(std::move(command), wait_for_completion, label);
 }
 void Daemon::handle_control_commands() {
     uint64_t counter = 0;
@@ -266,14 +368,14 @@ void Daemon::handle_control_commands() {
         throw DaemonError("eventfd read failed: " + std::string(strerror(errno)));
     }
 
-    std::vector<std::function<void()>> commands;
+    std::vector<ControlTask> commands;
     {
-        std::lock_guard<std::mutex> lock(control_tasks_mutex_);
+        KPBR_LOCK_GUARD(control_tasks_mutex_);
         commands.swap(control_tasks_);
     }
 
     for (auto& command : commands) {
-        command();
+        command.callback();
     }
 }
 
@@ -401,6 +503,8 @@ void Daemon::stop_routing_runtime() {
         return;
     }
 
+    runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
+
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
@@ -420,7 +524,7 @@ void Daemon::stop_routing_runtime() {
     }
 
     routing_runtime_active_ = false;
-    update_resolver_config_hash_actual();
+    refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
     log.info("Routing runtime stopped.");
 }
@@ -430,6 +534,8 @@ void Daemon::start_routing_runtime() {
     if (routing_runtime_active_) {
         return;
     }
+
+    runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
 
     setup_static_routing();
     register_urltest_outbounds();
@@ -452,7 +558,7 @@ void Daemon::start_routing_runtime() {
     }
 
     routing_runtime_active_ = true;
-    update_resolver_config_hash_actual();
+    refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
     log.info("Routing runtime started.");
 }
@@ -466,7 +572,11 @@ void Daemon::restart_routing_runtime() {
     start_routing_runtime();
 }
 
-void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
+void Daemon::add_fd(int fd,
+                    uint32_t events,
+                    FdCallback cb,
+                    bool wait_for_completion,
+                    const std::string& label) {
     enqueue_control_task([this, fd, events, cb = std::move(cb)]() mutable {
         struct epoll_event ev{};
         ev.events = events;
@@ -475,21 +585,23 @@ void Daemon::add_fd(int fd, uint32_t events, FdCallback cb) {
             throw DaemonError("epoll_ctl add fd failed: " + std::string(strerror(errno)));
         }
 
-        std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+        KPBR_LOCK_GUARD(fd_entries_mutex_);
         fd_entries_.push_back({fd, std::move(cb)});
-    }, true);
+    }, wait_for_completion, label.empty() ? "add-fd" : label);
 }
 
-void Daemon::remove_fd(int fd) {
+void Daemon::remove_fd(int fd,
+                       bool wait_for_completion,
+                       const std::string& label) {
     enqueue_control_task([this, fd]() {
         epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
 
-        std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+        KPBR_LOCK_GUARD(fd_entries_mutex_);
         fd_entries_.erase(
             std::remove_if(fd_entries_.begin(), fd_entries_.end(),
                            [fd](const FdEntry& e) { return e.fd == fd; }),
             fd_entries_.end());
-    }, true);
+    }, wait_for_completion, label.empty() ? "remove-fd" : label);
 }
 
 void Daemon::run() {
@@ -512,7 +624,7 @@ void Daemon::run() {
     schedule_lists_autoupdate();
 
     update_resolver_config_hash();
-    update_resolver_config_hash_actual();
+    refresh_resolver_config_hash_actual_async();
     schedule_resolver_config_hash_actual_refresh();
     publish_runtime_state();
 
@@ -528,6 +640,7 @@ void Daemon::run() {
     running_.store(true, std::memory_order_release);
     event_loop_thread_id_.store(std::this_thread::get_id(), std::memory_order_relaxed);
     event_loop_active_.store(true, std::memory_order_release);
+    accept_posted_control_tasks_.store(true, std::memory_order_release);
 
     constexpr int MAX_EVENTS = 16;
     struct epoll_event events[MAX_EVENTS];
@@ -556,7 +669,7 @@ void Daemon::run() {
             // Dispatch to registered fd callbacks
             FdCallback callback;
             {
-                std::lock_guard<std::mutex> lock(fd_entries_mutex_);
+                KPBR_LOCK_GUARD(fd_entries_mutex_);
                 for (auto& entry : fd_entries_) {
                     if (entry.fd == fd) {
                         callback = entry.callback;
@@ -572,6 +685,8 @@ void Daemon::run() {
 
     event_loop_active_.store(false, std::memory_order_release);
     event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
+    accept_posted_control_tasks_.store(false, std::memory_order_release);
+    blocking_executor_.shutdown();
 
     // --- Shutdown sequence ---
     log.info("Shutting down...");
@@ -824,8 +939,12 @@ void Daemon::download_uncached_lists() {
 }
 
 void Daemon::register_urltest_outbounds() {
+    const auto runtime_generation = runtime_generation_.load(std::memory_order_acquire);
     urltest_manager_ = std::make_unique<UrltestManager>(
-        url_tester_, outbound_marks_, *scheduler_,
+        url_tester_,
+        outbound_marks_,
+        *scheduler_,
+        blocking_executor_,
         [this](const std::string& urltest_tag, const std::string& new_child_tag) {
             post_control_task([this, urltest_tag, new_child_tag]() {
                 auto& log = Logger::instance();
@@ -841,19 +960,50 @@ void Daemon::register_urltest_outbounds() {
                 } catch (const std::exception& e) {
                     log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
                 }
-            });
+            }, "urltest-selection-change:" + urltest_tag);
+        },
+        [this, runtime_generation](const std::string& urltest_tag,
+                                   std::uint64_t probe_generation,
+                                   std::map<std::string, URLTestResult> results,
+                                   TraceId trace_id) mutable {
+            Logger::instance().trace("urltest_commit_enqueue",
+                                     "tag={} generation={} runtime_generation={}",
+                                     urltest_tag,
+                                     probe_generation,
+                                     runtime_generation);
+            post_control_task(
+                [this,
+                 urltest_tag,
+                 probe_generation,
+                 results = std::move(results),
+                 trace_id,
+                 runtime_generation]() mutable {
+                    ScopedTraceContext trace_scope(trace_id);
+                    if (runtime_generation != runtime_generation_.load(std::memory_order_acquire)) {
+                        Logger::instance().trace("urltest_commit_skip",
+                                                 "tag={} generation={} reason=stale_runtime",
+                                                 urltest_tag,
+                                                 probe_generation);
+                        return;
+                    }
+                    if (!urltest_manager_) {
+                        Logger::instance().trace("urltest_commit_skip",
+                                                 "tag={} generation={} reason=missing_manager",
+                                                 urltest_tag,
+                                                 probe_generation);
+                        return;
+                    }
+                    urltest_manager_->commit_probe_results(urltest_tag,
+                                                           probe_generation,
+                                                           std::move(results));
+                    publish_runtime_state();
+                },
+                "urltest-commit:" + urltest_tag);
         });
 
     for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
         if (ob.type == OutboundType::URLTEST) {
             urltest_manager_->register_urltest(ob);
-            // Read the initial selection that register_urltest() computed and
-            // seed firewall_state_ so the apply_firewall() call that follows
-            // builds the correct rules immediately, without a deferred rebuild.
-            const auto initial = urltest_manager_->get_selected(ob.tag);
-            if (!initial.empty()) {
-                firewall_state_.set_urltest_selection(ob.tag, initial);
-            }
         }
     }
 }
@@ -866,9 +1016,12 @@ void Daemon::schedule_lists_autoupdate() {
     const auto now = std::chrono::system_clock::now();
     auto delay = std::chrono::ceil<std::chrono::seconds>(next - now);
     if (delay.count() < 1) delay = std::chrono::seconds{1};
-    lists_autoupdate_task_id_ = scheduler_->schedule_oneshot(delay, [this]() {
-        refresh_lists_and_maybe_reload();
-    });
+    lists_autoupdate_task_id_ = scheduler_->schedule_oneshot(
+        delay,
+        [this]() {
+            refresh_lists_and_maybe_reload_async();
+        },
+        "lists-autoupdate");
     Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
 }
 
@@ -912,6 +1065,119 @@ void Daemon::refresh_lists_and_maybe_reload() {
         }
     } catch (const std::exception& e) {
         log.error("Lists autoupdate failed: {}", e.what());
+        schedule_lists_autoupdate();
+    }
+}
+
+void Daemon::refresh_lists_and_maybe_reload_async() {
+    auto& log = Logger::instance();
+    log.info("Lists autoupdate: checking for updated lists");
+
+    bool expected = false;
+    if (!remote_list_refresh_inflight_.compare_exchange_strong(expected,
+                                                               true,
+                                                               std::memory_order_acq_rel)) {
+        Logger::instance().trace("lists_refresh_skip",
+                                 "source=autoupdate reason=inflight");
+        return;
+    }
+
+    const Config config_snapshot = config_;
+    const OutboundMarkMap marks_snapshot = outbound_marks_;
+    const bool runtime_active_snapshot = routing_runtime_active_;
+    const auto relevant_lists = collect_relevant_list_names(config_snapshot);
+    const auto generation = runtime_generation_.load(std::memory_order_acquire);
+    const TraceId trace_id = ensure_trace_id();
+
+    const bool enqueued = blocking_executor_.try_post(
+        "lists-autoupdate",
+        [this,
+         config_snapshot,
+         marks_snapshot,
+         runtime_active_snapshot,
+         relevant_lists,
+         generation,
+         trace_id]() mutable {
+            ScopedTraceContext trace_scope(trace_id);
+            std::optional<RemoteListsRefreshResult> refresh_result;
+            std::string error;
+
+            Logger::instance().trace("lists_refresh_start",
+                                     "source=autoupdate generation={}",
+                                     generation);
+            try {
+                refresh_result = list_service_.refresh_remote_lists(config_snapshot,
+                                                                   marks_snapshot,
+                                                                   &relevant_lists);
+            } catch (const std::exception& e) {
+                error = e.what();
+            }
+
+            post_control_task(
+                [this,
+                 config_snapshot,
+                 runtime_active_snapshot,
+                 generation,
+                 refresh_result = std::move(refresh_result),
+                 error = std::move(error),
+                 trace_id]() mutable {
+                    ScopedTraceContext trace_scope_inner(trace_id);
+                    remote_list_refresh_inflight_.store(false, std::memory_order_release);
+
+                    if (generation != runtime_generation_.load(std::memory_order_acquire)) {
+                        Logger::instance().trace("lists_refresh_skip",
+                                                 "source=autoupdate generation={} reason=stale_runtime",
+                                                 generation);
+                        schedule_lists_autoupdate();
+                        return;
+                    }
+
+                    if (!error.empty()) {
+                        Logger::instance().error("Lists autoupdate failed: {}", error);
+                        schedule_lists_autoupdate();
+                        return;
+                    }
+
+                    ListsRefreshExecutionResult result;
+                    result.refresh_result = std::move(*refresh_result);
+
+                    if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
+                                                                result.refresh_result)) {
+                        Logger::instance().info(
+                            "Lists refresh: relevant list(s) changed ({}), reloading runtime",
+                            format_list_names(result.refresh_result.relevant_changed_lists));
+                        try {
+                            apply_config(config_snapshot, false);
+                            result.reloaded = true;
+                        } catch (const std::exception& e) {
+                            Logger::instance().error("Lists autoupdate reload failed: {}", e.what());
+                            schedule_lists_autoupdate();
+                            return;
+                        }
+                    } else if (result.refresh_result.any_relevant_changed()) {
+                        Logger::instance().info(
+                            "Lists refresh: relevant list(s) changed ({}), but runtime is stopped",
+                            format_list_names(result.refresh_result.relevant_changed_lists));
+                    } else if (result.refresh_result.any_changed()) {
+                        Logger::instance().info(
+                            "Lists refresh: updated list(s) did not affect runtime config: {}",
+                            format_list_names(result.refresh_result.changed_lists));
+                    } else {
+                        Logger::instance().info("Lists refresh: no list updates");
+                    }
+
+                    if (!result.reloaded) {
+                        schedule_lists_autoupdate();
+                    }
+                },
+                "lists-refresh-commit");
+        },
+        trace_id);
+
+    if (!enqueued) {
+        remote_list_refresh_inflight_.store(false, std::memory_order_release);
+        Logger::instance().trace("lists_refresh_skip",
+                                 "source=autoupdate reason=executor_unavailable");
         schedule_lists_autoupdate();
     }
 }
@@ -993,6 +1259,8 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
 }
 
 void Daemon::publish_runtime_state() {
+    Logger::instance().trace("runtime_state_publish", "routing_runtime_active={}",
+                             routing_runtime_active_ ? "true" : "false");
     runtime_state_store_.publish(build_runtime_state_snapshot());
 }
 
@@ -1003,9 +1271,171 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
     resolver_config_hash_actual_task_id_ = scheduler_->schedule_repeating(
         std::chrono::seconds{300},
         [this]() {
-            update_resolver_config_hash_actual();
-            publish_runtime_state();
-        });
+            maybe_schedule_resolver_config_hash_actual_refresh();
+        },
+        "resolver-config-hash-actual");
+}
+
+void Daemon::refresh_resolver_config_hash_actual_async() {
+    const auto dns_cfg_opt = config_.dns;
+    if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
+        resolver_config_hash_actual_.clear();
+        publish_runtime_state();
+        return;
+    }
+
+    const std::string resolver_addr = dns_cfg_opt->system_resolver->address;
+    if (resolver_addr.empty()) {
+        resolver_config_hash_actual_.clear();
+        publish_runtime_state();
+        return;
+    }
+
+    bool expected = false;
+    if (!resolver_hash_refresh_inflight_.compare_exchange_strong(expected,
+                                                                 true,
+                                                                 std::memory_order_acq_rel)) {
+        Logger::instance().trace("resolver_hash_refresh_skip", "reason=inflight");
+        return;
+    }
+
+    const auto generation = runtime_generation_.load(std::memory_order_acquire);
+    const TraceId trace_id = ensure_trace_id();
+    const bool enqueued = blocking_executor_.try_post(
+        "resolver-config-hash-actual",
+        [this, resolver_addr, generation, trace_id]() mutable {
+            ScopedTraceContext trace_scope(trace_id);
+            std::string error;
+            std::optional<std::string> normalized;
+
+            Logger::instance().trace("resolver_hash_refresh_start",
+                                     "resolver={} generation={}",
+                                     resolver_addr,
+                                     generation);
+            try {
+                auto txt = query_dns_txt_record(
+                    resolver_addr,
+                    "config-hash.keen.pbr",
+                    std::chrono::milliseconds(2000),
+                    &error);
+                if (txt.has_value()) {
+                    normalized = normalize_dns_txt_md5(*txt);
+                }
+            } catch (const std::exception& e) {
+                error = e.what();
+            }
+
+            post_control_task(
+                [this,
+                 resolver_addr,
+                 generation,
+                 normalized = std::move(normalized),
+                 error = std::move(error),
+                 trace_id]() mutable {
+                    ScopedTraceContext trace_scope_inner(trace_id);
+                    resolver_hash_refresh_inflight_.store(false, std::memory_order_release);
+
+                    if (generation != runtime_generation_.load(std::memory_order_acquire)) {
+                        Logger::instance().trace("resolver_hash_refresh_skip",
+                                                 "resolver={} generation={} reason=stale_runtime",
+                                                 resolver_addr,
+                                                 generation);
+                        return;
+                    }
+
+                    resolver_config_hash_actual_.clear();
+                    if (normalized.has_value()) {
+                        resolver_config_hash_actual_ = *normalized;
+                        Logger::instance().info("Resolver config hash (actual): {}",
+                                                resolver_config_hash_actual_);
+                    } else if (!error.empty()) {
+                        Logger::instance().warn(
+                            "Resolver config hash TXT query failed via {}: {}",
+                            resolver_addr,
+                            error);
+                    }
+                    publish_runtime_state();
+                },
+                "resolver-hash-refresh-commit");
+        },
+        trace_id);
+
+    if (!enqueued) {
+        resolver_hash_refresh_inflight_.store(false, std::memory_order_release);
+        Logger::instance().trace("resolver_hash_refresh_skip",
+                                 "reason=executor_unavailable");
+    }
+}
+
+void Daemon::maybe_schedule_resolver_config_hash_actual_refresh() {
+    if (resolver_hash_refresh_inflight_.load(std::memory_order_acquire)) {
+        Logger::instance().trace("resolver_hash_refresh_skip", "reason=inflight");
+        return;
+    }
+    refresh_resolver_config_hash_actual_async();
+}
+
+PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
+                                                     bool refresh_remote_lists) {
+    TraceSpan span("prepare-runtime-inputs");
+    validate_config(config);
+
+    PreparedRuntimeInputs prepared;
+    prepared.config = config;
+    prepared.outbound_marks = allocate_outbound_marks(
+        config.fwmark.value_or(FwmarkConfig{}),
+        config.outbounds.value_or(std::vector<Outbound>{}));
+
+    if (refresh_remote_lists) {
+        (void)list_service_.refresh_remote_lists(prepared.config, prepared.outbound_marks);
+        prepared.remote_lists_refreshed = true;
+    }
+
+    return prepared;
+}
+
+void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
+    if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
+        throw DaemonError("apply_prepared_runtime_inputs must run on the control/event-loop thread");
+    }
+
+    runtime_generation_.fetch_add(1, std::memory_order_acq_rel);
+
+    if (lists_autoupdate_task_id_ >= 0) {
+        scheduler_->cancel(lists_autoupdate_task_id_);
+        lists_autoupdate_task_id_ = -1;
+    }
+    if (resolver_config_hash_actual_task_id_ >= 0) {
+        scheduler_->cancel(resolver_config_hash_actual_task_id_);
+        resolver_config_hash_actual_task_id_ = -1;
+    }
+
+    outbound_marks_ = std::move(prepared.outbound_marks);
+    config_ = std::move(prepared.config);
+    firewall_state_.set_outbound_marks(outbound_marks_);
+
+    setup_static_routing();
+    teardown_dns_probe();
+
+    if (urltest_manager_) {
+        urltest_manager_->clear();
+    }
+    route_table_.clear();
+    policy_rules_.clear();
+    firewall_->cleanup();
+
+    setup_static_routing();
+    register_urltest_outbounds();
+    apply_firewall();
+    schedule_lists_autoupdate();
+    update_resolver_config_hash();
+    setup_dns_probe();
+    run_system_resolver_hook_reload();
+    refresh_resolver_config_hash_actual_async();
+    schedule_resolver_config_hash_actual_refresh();
+
+    config_store_.replace_active(config_, outbound_marks_);
+    publish_runtime_state();
 }
 
 void Daemon::apply_config(Config config, bool refresh_remote_lists) {
@@ -1018,71 +1448,7 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
         throw DaemonError("apply_config must run on the control/event-loop thread");
     }
 
-    validate_config(config);
-    OutboundMarkMap new_marks = allocate_outbound_marks(
-        config.fwmark.value_or(FwmarkConfig{}),
-        config.outbounds.value_or(std::vector<Outbound>{}));
-
-    // Cancel any pending autoupdate task
-    if (lists_autoupdate_task_id_ >= 0) {
-        scheduler_->cancel(lists_autoupdate_task_id_);
-        lists_autoupdate_task_id_ = -1;
-    }
-    if (resolver_config_hash_actual_task_id_ >= 0) {
-        scheduler_->cancel(resolver_config_hash_actual_task_id_);
-        resolver_config_hash_actual_task_id_ = -1;
-    }
-
-    // Apply new config and fwmarks early so routing is available for downloads
-    outbound_marks_ = new_marks;
-    config_ = config;
-    firewall_state_.set_outbound_marks(outbound_marks_);
-
-    // Install new routing tables/ip rules before downloading so fwmark-based
-    // detour routing works and general connectivity is preserved
-    setup_static_routing();
-
-    if (refresh_remote_lists) {
-        // Refresh all remote lists now so SIGHUP/config reloads pick up latest content.
-        (void)list_service_.refresh_remote_lists(config, new_marks);
-    }
-
-    // Tear down old state — no blocking I/O in this window
-    teardown_dns_probe();
-
-    if (urltest_manager_) {
-        urltest_manager_->clear();
-    }
-    route_table_.clear();
-    policy_rules_.clear();
-    firewall_->cleanup();
-
-    // Re-install routing cleanly after teardown
-    setup_static_routing();
-
-    // Re-register urltest outbounds
-    register_urltest_outbounds();
-
-    // Rebuild firewall rules
-    apply_firewall();
-
-    // Reschedule periodic list autoupdate
-    schedule_lists_autoupdate();
-
-    // Recompute resolver config hash after reload
-    update_resolver_config_hash();
-
-    // Recreate DNS test listener with the new config
-    setup_dns_probe();
-
-    // Reload dnsmasq with the new resolver config, then query the actual hash
-    // once dnsmasq is back up.
-    run_system_resolver_hook_reload();
-    update_resolver_config_hash_actual();
-    schedule_resolver_config_hash_actual_refresh();
-
-    config_store_.replace_active(config_, outbound_marks_);
-    publish_runtime_state();
+    apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
 }
 
 
@@ -1126,8 +1492,11 @@ void Daemon::setup_api() {
 
     api_server_ = std::make_unique<ApiServer>(*config_.api);
     const auto finish_config_operation = [this]() {
-        std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+        KPBR_LOCK_GUARD(config_op_mutex_);
         config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
+        Logger::instance().trace("config_operation_state",
+                                 "state={} reason=finish",
+                                 config_operation_state_name(ConfigOperationState::Idle));
         config_op_cv_.notify_all();
     };
     // ApiContext provides synchronized access to Daemon-owned runtime state.
@@ -1216,32 +1585,64 @@ void Daemon::setup_api() {
             return compute_test_routing(visible_config, list_service_.cache_manager(), target);
         },
         [this]() {
-            std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+            KPBR_LOCK_GUARD(config_op_mutex_);
             if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
                 throw ApiError("Another config operation is already in progress", 409);
             }
             config_op_state_.store(ConfigOperationState::Saving, std::memory_order_release);
+            Logger::instance().trace("config_operation_state",
+                                     "state={} reason=begin-save",
+                                     config_operation_state_name(ConfigOperationState::Saving));
         },
         finish_config_operation,
         [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
             auto result = std::make_shared<ConfigApplyResult>();
-            enqueue_control_task([this, result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
-                bool rolled_back = false;
-                try {
-                    apply_config_with_rollback(config, rolled_back);
-                    result->applied = true;
-                    result->rolled_back = rolled_back;
-                    config_store_.clear_staged_if_matches(saved_config_json);
-                } catch (const std::exception& e) {
-                    result->error = e.what();
-                    result->rolled_back = rolled_back;
-                    Logger::instance().error("Apply staged config task failed: {}", e.what());
-                }
-            }, true);
+            auto prepared = std::make_shared<PreparedRuntimeInputs>();
+            auto rollback_prepared = std::make_shared<PreparedRuntimeInputs>();
+
+            try {
+                *prepared = prepare_runtime_inputs(config, true);
+                *rollback_prepared = prepare_runtime_inputs(config_store_.active_config(), false);
+            } catch (const std::exception& e) {
+                result->error = e.what();
+                Logger::instance().error("Prepare staged config task failed: {}", e.what());
+                return *result;
+            }
+
+            enqueue_control_task(
+                [this,
+                 result,
+                 prepared,
+                 rollback_prepared,
+                 saved_config_json = std::move(saved_config_json)]() mutable {
+                    try {
+                        apply_prepared_runtime_inputs(std::move(*prepared));
+                        result->applied = true;
+                        result->rolled_back = false;
+                        config_store_.clear_staged_if_matches(saved_config_json);
+                    } catch (const std::exception& e) {
+                        result->error = e.what();
+                        Logger::instance().error("Apply staged config task failed: {}", e.what());
+
+                        try {
+                            apply_prepared_runtime_inputs(std::move(*rollback_prepared));
+                            result->rolled_back = true;
+                        } catch (const std::exception& rollback_error) {
+                            result->rolled_back = false;
+                            Logger::instance().error("Rollback to previous config failed: {}",
+                                                     rollback_error.what());
+                        } catch (...) {
+                            result->rolled_back = false;
+                            Logger::instance().error("Rollback to previous config failed: unknown error");
+                        }
+                    }
+                },
+                true,
+                "api-apply-config");
             return *result;
         },
         [this, finish_config_operation]() {
-            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            KPBR_UNIQUE_LOCK(lock, config_op_mutex_);
             if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
                 throw ApiError("Another config operation is already in progress", 409);
             }
@@ -1249,6 +1650,9 @@ void Daemon::setup_api() {
                 throw ApiError("Routing runtime is already started", 409);
             }
             config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            Logger::instance().trace("config_operation_state",
+                                     "state={} reason=start-runtime",
+                                     config_operation_state_name(ConfigOperationState::Reloading));
             lock.unlock();
 
             try {
@@ -1259,7 +1663,7 @@ void Daemon::setup_api() {
                         Logger::instance().error("Start routing runtime task failed: {}", e.what());
                         throw;
                     }
-                }, true);
+                }, true, "api-start-runtime");
             } catch (...) {
                 finish_config_operation();
                 throw;
@@ -1268,7 +1672,7 @@ void Daemon::setup_api() {
             finish_config_operation();
         },
         [this, finish_config_operation]() {
-            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            KPBR_UNIQUE_LOCK(lock, config_op_mutex_);
             if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
                 throw ApiError("Another config operation is already in progress", 409);
             }
@@ -1276,6 +1680,9 @@ void Daemon::setup_api() {
                 throw ApiError("Routing runtime is already stopped", 409);
             }
             config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            Logger::instance().trace("config_operation_state",
+                                     "state={} reason=stop-runtime",
+                                     config_operation_state_name(ConfigOperationState::Reloading));
             lock.unlock();
 
             try {
@@ -1286,7 +1693,7 @@ void Daemon::setup_api() {
                         Logger::instance().error("Stop routing runtime task failed: {}", e.what());
                         throw;
                     }
-                }, true);
+                }, true, "api-stop-runtime");
             } catch (...) {
                 finish_config_operation();
                 throw;
@@ -1295,7 +1702,7 @@ void Daemon::setup_api() {
             finish_config_operation();
         },
         [this, finish_config_operation]() {
-            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            KPBR_UNIQUE_LOCK(lock, config_op_mutex_);
             if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
                 throw ApiError("Another config operation is already in progress", 409);
             }
@@ -1303,6 +1710,9 @@ void Daemon::setup_api() {
                 throw ApiError("Routing runtime is stopped; start it first", 409);
             }
             config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            Logger::instance().trace("config_operation_state",
+                                     "state={} reason=restart-runtime",
+                                     config_operation_state_name(ConfigOperationState::Reloading));
             lock.unlock();
 
             try {
@@ -1313,7 +1723,7 @@ void Daemon::setup_api() {
                         Logger::instance().error("Restart routing runtime task failed: {}", e.what());
                         throw;
                     }
-                }, true);
+                }, true, "api-restart-runtime");
             } catch (...) {
                 finish_config_operation();
                 throw;
@@ -1322,7 +1732,7 @@ void Daemon::setup_api() {
             finish_config_operation();
         },
         [this, finish_config_operation](std::optional<std::string> requested_name) {
-            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            KPBR_UNIQUE_LOCK(lock, config_op_mutex_);
             if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
                 throw ApiError("Another config operation is already in progress", 409);
             }
@@ -1330,56 +1740,100 @@ void Daemon::setup_api() {
                 throw ApiError("List refresh is unavailable while a draft config is staged", 409);
             }
             config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            Logger::instance().trace("config_operation_state",
+                                     "state={} reason=refresh-lists",
+                                     config_operation_state_name(ConfigOperationState::Reloading));
             lock.unlock();
 
-            auto operation_result = std::make_shared<ListRefreshOperationResult>();
+            const Config config_snapshot = config_store_.active_config();
+            const auto marks_snapshot = allocate_outbound_marks(
+                config_snapshot.fwmark.value_or(FwmarkConfig{}),
+                config_snapshot.outbounds.value_or(std::vector<Outbound>{}));
+            const bool runtime_active_snapshot = runtime_state_store_.snapshot().routing_runtime_active;
+            const auto target_selection = select_remote_list_targets(config_snapshot, requested_name);
+            if (!target_selection.ok()) {
+                finish_config_operation();
+                switch (target_selection.error) {
+                case RemoteListTargetSelectionError::NotFound:
+                    throw ApiError("Requested list was not found", 404);
+                case RemoteListTargetSelectionError::NotRemote:
+                    throw ApiError("Requested list is not URL-backed", 400);
+                case RemoteListTargetSelectionError::None:
+                    break;
+                }
+            }
 
             try {
-                enqueue_control_task([this, operation_result, requested_name = std::move(requested_name)]() mutable {
-                    const auto target_selection =
-                        select_remote_list_targets(config_, requested_name);
-                    if (!target_selection.ok()) {
-                        switch (target_selection.error) {
-                            case RemoteListTargetSelectionError::NotFound:
-                                throw ApiError("Requested list was not found", 404);
-                            case RemoteListTargetSelectionError::NotRemote:
-                                throw ApiError("Requested list is not URL-backed", 400);
-                            case RemoteListTargetSelectionError::None:
-                                break;
+                const std::set<std::string> relevant_lists =
+                    collect_relevant_list_names(config_snapshot);
+                const std::set<std::string> target_lists(target_selection.list_names.begin(),
+                                                         target_selection.list_names.end());
+                RemoteListsRefreshResult refresh_result = list_service_.refresh_remote_lists(
+                    config_snapshot,
+                    marks_snapshot,
+                    &relevant_lists,
+                    requested_name ? &target_lists : nullptr);
+
+                bool reloaded = false;
+                bool stale_runtime = false;
+                const auto generation = runtime_generation_.load(std::memory_order_acquire);
+
+                enqueue_control_task(
+                    [this,
+                     &reloaded,
+                     &stale_runtime,
+                     config_snapshot,
+                     generation,
+                     runtime_active_snapshot,
+                     refresh_result]() mutable {
+                        if (generation != runtime_generation_.load(std::memory_order_acquire)) {
+                            stale_runtime = true;
+                            Logger::instance().trace("lists_refresh_skip",
+                                                     "source=api reason=stale_runtime generation={}",
+                                                     generation);
+                            return;
                         }
-                    }
 
-                    const std::set<std::string> target_lists(
-                        target_selection.list_names.begin(),
-                        target_selection.list_names.end());
-                    const auto execution_result =
-                        execute_remote_list_refresh(requested_name ? &target_lists : nullptr);
+                        if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
+                                                                    refresh_result)) {
+                            apply_config(config_snapshot, false);
+                            reloaded = true;
+                        }
+                    },
+                    true,
+                    "api-refresh-lists-commit");
 
-                    operation_result->refreshed_lists = execution_result.refresh_result.refreshed_lists;
-                    operation_result->changed_lists = execution_result.refresh_result.changed_lists;
-                    operation_result->reloaded = execution_result.reloaded;
+                ListRefreshOperationResult operation_result;
+                operation_result.refreshed_lists = std::move(refresh_result.refreshed_lists);
+                operation_result.changed_lists = std::move(refresh_result.changed_lists);
+                operation_result.reloaded = reloaded;
 
-                    if (!execution_result.refresh_result.any_refreshed()) {
-                        operation_result->message = "No URL-backed lists to refresh";
-                    } else if (!execution_result.refresh_result.any_changed()) {
-                        operation_result->message = "Lists refreshed; no updates found";
-                    } else if (execution_result.reloaded) {
-                        operation_result->message =
-                            "Lists refreshed and runtime reloaded";
-                    } else if (execution_result.refresh_result.any_relevant_changed()) {
-                        operation_result->message =
-                            "Lists refreshed; runtime is stopped so changes will apply on next start";
-                    } else {
-                        operation_result->message = "Lists refreshed";
-                    }
-                }, true);
+                finish_config_operation();
+
+                if (!target_selection.ok()) {
+                    return operation_result;
+                }
+                if (!operation_result.refreshed_lists.size()) {
+                    operation_result.message = "No URL-backed lists to refresh";
+                } else if (stale_runtime) {
+                    operation_result.message =
+                        "Lists refreshed; runtime changed before reload could be applied";
+                } else if (operation_result.changed_lists.empty()) {
+                    operation_result.message = "Lists refreshed; no updates found";
+                } else if (operation_result.reloaded) {
+                    operation_result.message = "Lists refreshed and runtime reloaded";
+                } else if (refresh_result.any_relevant_changed()) {
+                    operation_result.message =
+                        "Lists refreshed; runtime is stopped so changes will apply on next start";
+                } else {
+                    operation_result.message = "Lists refreshed";
+                }
+
+                return operation_result;
             } catch (...) {
                 finish_config_operation();
                 throw;
             }
-
-            finish_config_operation();
-            return *operation_result;
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);

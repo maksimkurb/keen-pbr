@@ -87,7 +87,7 @@ ListService::ListService(const std::filesystem::path& cache_dir,
     : cache_manager_(cache_dir, max_file_size_bytes) {}
 
 void ListService::ensure_dir() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    KPBR_LOCK_GUARD(mutex_);
     cache_manager_.ensure_dir();
 }
 
@@ -125,7 +125,7 @@ RemoteListsRefreshResult ListService::download_remote_lists(
         }
 
         if (only_uncached) {
-            std::lock_guard<std::mutex> lock(mutex_);
+            KPBR_LOCK_GUARD(mutex_);
             if (cache_manager_.has_cache(name)) {
                 continue;
             }

@@ -3,6 +3,8 @@
 #include "../config/config.hpp"
 #include "../health/circuit_breaker.hpp"
 #include "../health/url_tester.hpp"
+#include "../util/blocking_executor.hpp"
+#include "../util/traced_mutex.hpp"
 
 #include <functional>
 #include <map>
@@ -21,12 +23,18 @@ struct UrltestState {
     std::map<std::string, CircuitBreaker> circuit_breakers;
     std::string selected_outbound;
     int scheduler_task_id{-1};
+    bool probe_inflight{false};
+    std::uint64_t generation{0};
 };
 
 // Callback invoked when the selected outbound changes for a urltest.
 // Parameters: (urltest_tag, new_child_outbound_tag)
 // Guaranteed to be called without any UrltestManager lock held.
 using UrltestChangeCallback = std::function<void(const std::string&, const std::string&)>;
+using UrltestCommitCallback = std::function<void(const std::string&,
+                                                 std::uint64_t,
+                                                 std::map<std::string, URLTestResult>,
+                                                 TraceId)>;
 
 // Manages periodic URL testing for urltest outbounds, tracks per-child-outbound
 // latencies and circuit breaker states, and selects the best outbound using the
@@ -36,7 +44,10 @@ using UrltestChangeCallback = std::function<void(const std::string&, const std::
 class UrltestManager {
 public:
     UrltestManager(URLTester& tester, const OutboundMarkMap& marks,
-                   Scheduler& scheduler, UrltestChangeCallback on_change);
+                   Scheduler& scheduler,
+                   BlockingExecutor& blocking_executor,
+                   UrltestChangeCallback on_change,
+                   UrltestCommitCallback on_commit);
     ~UrltestManager();
 
     UrltestManager(const UrltestManager&) = delete;
@@ -50,6 +61,9 @@ public:
     // Run tests immediately for a specific urltest outbound (e.g. on SIGUSR1).
     // Invokes on_change_ if the selection changes.
     void trigger_immediate_test(const std::string& urltest_tag);
+    bool commit_probe_results(const std::string& urltest_tag,
+                              std::uint64_t generation,
+                              std::map<std::string, URLTestResult> results);
 
     // Return the currently selected child outbound tag, or "" if none.
     std::string get_selected(const std::string& urltest_tag) const;
@@ -65,7 +79,7 @@ private:
     // Run URL tests for all child outbounds of the given urltest and update
     // the internal selection. Returns the new selection if it changed.
     // Must NOT be called while holding mutex_.
-    std::optional<std::string> run_tests_unlocked(const std::string& tag);
+    bool queue_probe_unlocked(const std::string& tag, const std::string& reason);
 
     // Periodic test entry point (called by the scheduler).
     // Runs tests and invokes on_change_ if the selection changes.
@@ -78,10 +92,13 @@ private:
     URLTester& tester_;
     const OutboundMarkMap& marks_;
     Scheduler& scheduler_;
+    BlockingExecutor& blocking_executor_;
     UrltestChangeCallback on_change_;
+    UrltestCommitCallback on_commit_;
 
-    mutable std::shared_mutex mutex_;
+    mutable TracedSharedMutex mutex_;
     std::map<std::string, UrltestState> states_;
+    std::uint64_t generation_{1};
 };
 
 } // namespace keen_pbr3
