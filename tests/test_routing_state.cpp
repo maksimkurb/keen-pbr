@@ -112,7 +112,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
     CHECK(find_route(routes.get_routes(), 100, false, true, 1000) != nullptr);
 }
 
-TEST_CASE("populate_routing_state: outbound false overrides daemon true") {
+TEST_CASE("populate_routing_state: unreachable interface outbound remains unavailable when strict is disabled") {
     auto cfg = parse_minimal_config(R"({
         "daemon":{"strict_enforcement":true},
         "outbounds":[
@@ -130,9 +130,10 @@ TEST_CASE("populate_routing_state: outbound false overrides daemon true") {
         return false;
     });
 
-    REQUIRE(routes.get_routes().size() == 1);
-    CHECK(find_route(routes.get_routes(), 100, false, false, 0, std::optional<std::string>{"wg0"}) != nullptr);
+    CHECK(routes.get_routes().empty());
     CHECK(find_route(routes.get_routes(), 100, false, true) == nullptr);
+    REQUIRE(rules.get_rules().size() == 1);
+    CHECK(rules.get_rules()[0].table == 100);
 }
 
 TEST_CASE("populate_routing_state: outbound true overrides daemon false") {

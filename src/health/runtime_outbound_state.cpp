@@ -393,7 +393,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
                 api::RuntimeOutboundStateElement state;
                 state.tag = outbound.tag;
                 state.type = outbound.type;
-                state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
+                state.status = api::RuntimeOutboundStatusEnum::HEALTHY;
                 response.outbounds.push_back(std::move(state));
                 break;
             }

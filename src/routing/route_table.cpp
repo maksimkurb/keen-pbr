@@ -1,5 +1,7 @@
 #include "route_table.hpp"
 
+#include "../log/logger.hpp"
+
 #include <algorithm>
 #include <set>
 
@@ -43,7 +45,21 @@ void RouteTable::add(const RouteSpec& spec) {
         return;
     }
     if (!dry_run_) {
-        netlink_.add_route(spec);
+        try {
+            netlink_.add_route(spec);
+        } catch (const std::exception& e) {
+            Logger::instance().error(
+                "Failed to add route (dst={}, table={}, iface={}, gw={}, metric={}, blackhole={}, unreachable={}): {}",
+                spec.destination,
+                spec.table,
+                spec.interface.value_or("(none)"),
+                spec.gateway.value_or("(none)"),
+                spec.metric,
+                spec.blackhole,
+                spec.unreachable,
+                e.what());
+            return;
+        }
     }
     routes_.push_back(spec);
 }
@@ -55,7 +71,20 @@ void RouteTable::remove(const RouteSpec& spec) {
         return;
     }
     if (!dry_run_) {
-        netlink_.delete_route(spec);
+        try {
+            netlink_.delete_route(spec);
+        } catch (const std::exception& e) {
+            Logger::instance().error(
+                "Failed to delete route (dst={}, table={}, iface={}, gw={}, metric={}, blackhole={}, unreachable={}): {}",
+                spec.destination,
+                spec.table,
+                spec.interface.value_or("(none)"),
+                spec.gateway.value_or("(none)"),
+                spec.metric,
+                spec.blackhole,
+                spec.unreachable,
+                e.what());
+        }
     }
     routes_.erase(it);
 }
@@ -70,8 +99,15 @@ void RouteTable::clear() {
         for (uint32_t table_id : managed_tables) {
             try {
                 netlink_.flush_routes_in_table(table_id);
+            } catch (const std::exception& e) {
+                Logger::instance().error(
+                    "Failed to flush routes in table {} during clear(): {}",
+                    table_id,
+                    e.what());
             } catch (...) {
-                // Best effort: continue flushing remaining managed tables.
+                Logger::instance().error(
+                    "Failed to flush routes in table {} during clear(): unknown error",
+                    table_id);
             }
         }
     }

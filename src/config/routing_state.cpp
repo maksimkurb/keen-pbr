@@ -185,7 +185,7 @@ void populate_routing_state(const Config& cfg,
 
             const bool strict = strict_enforcement_enabled(cfg, ob);
             const bool reachable = !reachability_check || reachability_check(ob);
-            if (!strict || reachable) {
+            if (reachable) {
                 routes.add(make_default_route(table_id, ob));
             }
             if (strict) {
