@@ -245,9 +245,7 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Config& co
     const bool active = primary_route != nullptr && route_matches_outbound(*primary_route, outbound);
     interface_state.status = active
         ? api::RuntimeInterfaceStatusEnum::ACTIVE
-        : reachable
-            ? api::RuntimeInterfaceStatusEnum::BACKUP
-            : api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
+        : api::RuntimeInterfaceStatusEnum::UNAVAILABLE;
 
     if (!reachable) {
         interface_state.detail = std::string("interface is not reachable from the main routing table");
@@ -393,7 +391,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
                 api::RuntimeOutboundStateElement state;
                 state.tag = outbound.tag;
                 state.type = outbound.type;
-                state.status = api::RuntimeOutboundStatusEnum::UNKNOWN;
+                state.status = api::RuntimeOutboundStatusEnum::HEALTHY;
                 response.outbounds.push_back(std::move(state));
                 break;
             }
