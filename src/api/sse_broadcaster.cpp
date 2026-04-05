@@ -2,6 +2,8 @@
 
 #include "sse_broadcaster.hpp"
 
+#include "../log/logger.hpp"
+
 namespace keen_pbr3 {
 
 SseBroadcaster::SseBroadcaster(size_t max_queue_size)
@@ -9,8 +11,9 @@ SseBroadcaster::SseBroadcaster(size_t max_queue_size)
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
     auto subscription = std::make_shared<Subscription>();
-    std::lock_guard lock(mutex_);
+    KPBR_LOCK_GUARD(mutex_);
     subscriptions_.push_back(subscription);
+    Logger::instance().trace("sse_subscribe", "subscriptions={}", subscriptions_.size());
     return subscription;
 }
 
@@ -20,17 +23,19 @@ void SseBroadcaster::unsubscribe(const SubscriptionPtr& subscription) {
     }
 
     {
-        std::lock_guard sub_lock(subscription->mutex);
+        KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
         subscription->closed = true;
     }
     subscription->cv.notify_all();
 
-    std::lock_guard lock(mutex_);
+    KPBR_LOCK_GUARD(mutex_);
     compact_locked();
+    Logger::instance().trace("sse_unsubscribe", "subscriptions={}", subscriptions_.size());
 }
 
 void SseBroadcaster::publish(const std::string& message) {
-    std::lock_guard lock(mutex_);
+    KPBR_LOCK_GUARD(mutex_);
+    Logger::instance().trace("sse_publish", "subscriptions={} bytes={}", subscriptions_.size(), message.size());
 
     auto out = subscriptions_.begin();
     for (auto it = subscriptions_.begin(); it != subscriptions_.end(); ++it) {
@@ -41,7 +46,7 @@ void SseBroadcaster::publish(const std::string& message) {
 
         bool keep = true;
         {
-            std::lock_guard sub_lock(subscription->mutex);
+            KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             if (subscription->closed) {
                 keep = false;
             } else if (subscription->messages.size() >= max_queue_size_) {
@@ -63,7 +68,7 @@ void SseBroadcaster::publish(const std::string& message) {
 void SseBroadcaster::close_all() {
     std::vector<SubscriptionPtr> active;
     {
-        std::lock_guard lock(mutex_);
+        KPBR_LOCK_GUARD(mutex_);
         for (auto& weak : subscriptions_) {
             if (auto subscription = weak.lock()) {
                 active.push_back(std::move(subscription));
@@ -74,11 +79,12 @@ void SseBroadcaster::close_all() {
 
     for (auto& subscription : active) {
         {
-            std::lock_guard sub_lock(subscription->mutex);
+            KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
             subscription->closed = true;
         }
         subscription->cv.notify_all();
     }
+    Logger::instance().trace("sse_close_all", "closed={}", active.size());
 }
 
 void SseBroadcaster::compact_locked() {
@@ -89,7 +95,7 @@ void SseBroadcaster::compact_locked() {
             continue;
         }
 
-        std::lock_guard sub_lock(subscription->mutex);
+        KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
         if (subscription->closed) {
             continue;
         }

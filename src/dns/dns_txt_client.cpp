@@ -1,5 +1,7 @@
 #include "dns_txt_client.hpp"
 
+#include "../log/logger.hpp"
+
 #include <algorithm>
 #include <array>
 #include <arpa/inet.h>
@@ -84,8 +86,20 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                                                 const std::string& domain,
                                                 std::chrono::milliseconds timeout,
                                                 std::string* error_out) {
+    const auto started_at = std::chrono::steady_clock::now();
+    Logger::instance().trace("dns_txt_query_start",
+                             "resolver={} domain={} timeout_ms={}",
+                             dns_server_address,
+                             domain,
+                             timeout.count());
     if (domain.empty()) {
         if (error_out) *error_out = "DNS TXT query domain is empty";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=empty_domain",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return std::nullopt;
     }
 
@@ -93,6 +107,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
 
     if (parsed_server.ip.find(':') != std::string::npos) {
         if (error_out) *error_out = "IPv6 resolver addresses are not supported by this resolver backend";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=ipv6_unsupported",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return std::nullopt;
     }
 
@@ -101,6 +121,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     resolver_addr.sin_port = htons(parsed_server.port);
     if (inet_pton(AF_INET, parsed_server.ip.c_str(), &resolver_addr.sin_addr) != 1) {
         if (error_out) *error_out = "Invalid IPv4 DNS resolver address";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=invalid_ipv4",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return std::nullopt;
     }
 
@@ -116,12 +142,24 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                                       static_cast<int>(query.size()));
     if (query_len < 0) {
         if (error_out) *error_out = "Failed to build DNS TXT query";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=build_query_failed",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return std::nullopt;
     }
 
     const int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd < 0) {
         if (error_out) *error_out = "Failed to create DNS socket";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=socket_failed",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return std::nullopt;
     }
     const auto close_socket = [socket_fd]() { close(socket_fd); };
@@ -142,6 +180,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                    &socket_timeout,
                    sizeof(socket_timeout)) != 0) {
         if (error_out) *error_out = "Failed to configure DNS socket timeout";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=setsockopt_failed",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         close_socket();
         return std::nullopt;
     }
@@ -155,6 +199,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                                 sizeof(resolver_addr));
     if (sent != static_cast<ssize_t>(query_len)) {
         if (error_out) *error_out = "Failed to send DNS TXT query";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=send_failed",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         close_socket();
         return std::nullopt;
     }
@@ -167,6 +217,12 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
                                           nullptr);
     if (response_len <= 0) {
         if (error_out) *error_out = "DNS TXT query failed";
+        Logger::instance().trace("dns_txt_query_error",
+                                 "resolver={} domain={} duration_ms={} error=recv_failed",
+                                 dns_server_address,
+                                 domain,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         close_socket();
         return std::nullopt;
     }
@@ -175,13 +231,28 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         const auto* response_header = reinterpret_cast<const HEADER*>(response.data());
         if (response_header->tc != 0) {
             if (error_out) *error_out = "DNS TXT response truncated; TCP fallback is not implemented";
+            Logger::instance().trace("dns_txt_query_error",
+                                     "resolver={} domain={} duration_ms={} error=truncated_response",
+                                     dns_server_address,
+                                     domain,
+                                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::steady_clock::now() - started_at).count());
             close_socket();
             return std::nullopt;
         }
     }
 
     close_socket();
-    return parse_first_txt_answer(response.data(), static_cast<int>(response_len), error_out);
+    auto result = parse_first_txt_answer(response.data(), static_cast<int>(response_len), error_out);
+    Logger::instance().trace(result.has_value() ? "dns_txt_query_end" : "dns_txt_query_error",
+                             "resolver={} domain={} duration_ms={} bytes={} success={}",
+                             dns_server_address,
+                             domain,
+                             std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - started_at).count(),
+                             response_len,
+                             result.has_value() ? "true" : "false");
+    return result;
 }
 
 std::string normalize_dns_txt_md5(const std::string& txt_payload) {

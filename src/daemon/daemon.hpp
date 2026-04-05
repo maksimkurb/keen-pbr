@@ -23,6 +23,8 @@
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "../util/blocking_executor.hpp"
+#include "../util/traced_mutex.hpp"
 #include "list_service.hpp"
 #include "runtime_state_store.hpp"
 #include "system_resolver_hook.hpp"
@@ -59,6 +61,12 @@ struct ListsRefreshExecutionResult {
     bool reloaded{false};
 };
 
+struct PreparedRuntimeInputs {
+    Config config;
+    OutboundMarkMap outbound_marks;
+    bool remote_lists_refreshed{false};
+};
+
 // Helper to get tag from any outbound variant
 std::string get_outbound_tag(const Outbound& ob);
 
@@ -83,18 +91,26 @@ public:
     Daemon& operator=(Daemon&&) = delete;
 
     // Register an additional file descriptor for epoll monitoring.
-    void add_fd(int fd, uint32_t events, FdCallback cb);
+    void add_fd(int fd,
+                uint32_t events,
+                FdCallback cb,
+                bool wait_for_completion = true,
+                const std::string& label = "");
 
     // Remove a previously registered file descriptor.
-    void remove_fd(int fd);
+    void remove_fd(int fd,
+                   bool wait_for_completion = true,
+                   const std::string& label = "");
 
     // Serialize execution of control operations in event loop.
     void enqueue_control_task(std::function<void()> task,
-                              bool wait_for_completion = false);
+                              bool wait_for_completion = false,
+                              const std::string& label = "");
 
     // Backward-compatible alias for enqueue_control_task.
     void enqueue_control_command(std::function<void()> command,
-                                 bool wait_for_completion = false);
+                                 bool wait_for_completion = false,
+                                 const std::string& label = "");
 
     // Post a task to the event loop, always deferred to the next iteration.
     // Unlike enqueue_control_task, never executes inline even when called from
@@ -102,7 +118,8 @@ public:
     // task only runs after the current event-loop iteration completes and all
     // caller locks have been released. Use this for callbacks that must not
     // run re-entrantly inside the current controller action.
-    void post_control_task(std::function<void()> task);
+    void post_control_task(std::function<void()> task,
+                           const std::string& label = "");
 
     // Run the daemon lifecycle: startup, event loop, shutdown.
     void run();
@@ -132,6 +149,9 @@ private:
     void download_uncached_lists();
     void register_urltest_outbounds();
     void apply_config(Config config, bool refresh_remote_lists = true);
+    void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared);
+    PreparedRuntimeInputs prepare_runtime_inputs(const Config& config,
+                                                bool refresh_remote_lists = true);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
     void start_routing_runtime();
@@ -143,6 +163,9 @@ private:
     ListsRefreshExecutionResult execute_remote_list_refresh(
         const std::set<std::string>* target_lists = nullptr);
     void refresh_lists_and_maybe_reload();
+    void refresh_lists_and_maybe_reload_async();
+    void refresh_resolver_config_hash_actual_async();
+    void maybe_schedule_resolver_config_hash_actual_refresh();
 
     // PID file management
     void write_pid_file();
@@ -179,22 +202,28 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<std::thread::id> event_loop_thread_id_{};
     std::atomic<bool> event_loop_active_{false};
+    std::atomic<bool> accept_posted_control_tasks_{true};
 
     struct FdEntry {
         int fd;
         FdCallback callback;
     };
     std::vector<FdEntry> fd_entries_;
-    mutable std::mutex fd_entries_mutex_;
+    mutable TracedMutex fd_entries_mutex_;
 
     int pid_file_fd_{-1};
     int control_fd_{-1};
-    std::vector<std::function<void()>> control_tasks_;
-    std::mutex control_tasks_mutex_;
+    struct ControlTask {
+        std::function<void()> callback;
+        std::string label;
+        TraceId trace_id{0};
+    };
+    std::vector<ControlTask> control_tasks_;
+    TracedMutex control_tasks_mutex_;
 
 #ifdef WITH_API
-    std::mutex config_op_mutex_;
-    std::condition_variable config_op_cv_;
+    TracedMutex config_op_mutex_;
+    std::condition_variable_any config_op_cv_;
     std::atomic<ConfigOperationState> config_op_state_{static_cast<ConfigOperationState>(0)};
 #endif
 
@@ -218,6 +247,10 @@ private:
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<UrltestManager> urltest_manager_;
+    BlockingExecutor blocking_executor_{2, 64};
+    std::atomic<std::uint64_t> runtime_generation_{1};
+    std::atomic<bool> remote_list_refresh_inflight_{false};
+    std::atomic<bool> resolver_hash_refresh_inflight_{false};
 
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;

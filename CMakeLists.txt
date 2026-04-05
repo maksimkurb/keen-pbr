@@ -55,10 +55,16 @@ find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 find_library(LIBRESOLV resolv)
+find_library(LIBATOMIC atomic)
 if(LIBRESOLV)
   message(STATUS "Found libresolv: ${LIBRESOLV}")
 else()
   message(STATUS "libresolv not found; relying on libc resolver symbols")
+endif()
+if(LIBATOMIC)
+  message(STATUS "Found libatomic: ${LIBATOMIC}")
+else()
+  message(STATUS "libatomic not found; relying on toolchain default atomic support")
 endif()
 pkg_check_modules(LIBNL REQUIRED IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
@@ -93,6 +99,7 @@ endif()
 # Sources
 set(SOURCES
   src/log/logger.cpp
+  src/log/trace.cpp
   src/http/http_client.cpp
   src/config/config.cpp
   src/config/routing_state.cpp
@@ -135,6 +142,8 @@ set(SOURCES
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
+  src/util/blocking_executor.cpp
+  src/util/traced_mutex.cpp
   src/main.cpp
 )
 
@@ -187,6 +196,10 @@ target_link_libraries(keen-pbr PRIVATE
   fmt::fmt-header-only
   nlohmann_json::nlohmann_json
 )
+
+if(LIBATOMIC)
+  target_link_libraries(keen-pbr PRIVATE ${LIBATOMIC})
+endif()
 
 if(LIBRESOLV)
   target_link_libraries(keen-pbr PRIVATE ${LIBRESOLV})

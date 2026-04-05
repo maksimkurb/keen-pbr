@@ -2,9 +2,9 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../util/traced_mutex.hpp"
 
 #include <map>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
@@ -82,7 +82,7 @@ private:
         const std::set<std::string>* relevant_lists,
         const std::set<std::string>* target_lists);
 
-    mutable std::mutex mutex_;
+    mutable TracedMutex mutex_;
     CacheManager cache_manager_;
 };
 

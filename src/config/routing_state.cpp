@@ -220,26 +220,27 @@ void populate_routing_state(const Config& cfg,
             const auto ordered_children = ordered_urltest_children(outbounds, ob);
 
             const std::string selected_tag = resolve_urltest_selection(urltest_selections, ob.tag);
-            if (!selected_tag.empty()) {
+            const bool selection_ready = !selected_tag.empty();
+            if (selection_ready) {
                 const Outbound* selected = find_outbound(outbounds, selected_tag);
                 if (selected &&
                     selected->type == OutboundType::INTERFACE &&
                     (!reachability_check || reachability_check(*selected))) {
                     routes.add(make_default_route(table_id, *selected));
                 }
-            }
 
-            uint32_t metric = 1;
-            for (const Outbound* child : ordered_children) {
-                if (child->type != OutboundType::INTERFACE) {
-                    continue;
+                uint32_t metric = 1;
+                for (const Outbound* child : ordered_children) {
+                    if (child->type != OutboundType::INTERFACE) {
+                        continue;
+                    }
+                    if (reachability_check && !reachability_check(*child)) {
+                        continue;
+                    }
+                    RouteSpec route = make_default_route(table_id, *child);
+                    route.metric = metric++;
+                    routes.add(route);
                 }
-                if (reachability_check && !reachability_check(*child)) {
-                    continue;
-                }
-                RouteSpec route = make_default_route(table_id, *child);
-                route.metric = metric++;
-                routes.add(route);
             }
 
             if (strict) {

@@ -2,10 +2,11 @@
 
 #ifdef WITH_API
 
+#include "../util/traced_mutex.hpp"
+
 #include <condition_variable>
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -14,8 +15,8 @@ namespace keen_pbr3 {
 class SseBroadcaster {
 public:
     struct Subscription {
-        std::mutex mutex;
-        std::condition_variable cv;
+        TracedMutex mutex;
+        std::condition_variable_any cv;
         std::deque<std::string> messages;
         bool closed{false};
     };
@@ -33,7 +34,7 @@ private:
     void compact_locked();
 
     size_t max_queue_size_;
-    std::mutex mutex_;
+    TracedMutex mutex_;
     std::vector<std::weak_ptr<Subscription>> subscriptions_;
 };
 

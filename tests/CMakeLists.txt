@@ -16,6 +16,7 @@ add_executable(keen-pbr-tests
   test_routing_state.cpp
   test_system_resolver_hook.cpp
   test_safe_exec.cpp
+  test_trace_logging.cpp
   test_port_spec_util.cpp
   ../src/config/config.cpp
   ../src/config/routing_state.cpp
@@ -28,6 +29,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/iptables.cpp
   ../src/firewall/ipset_restore_pipe.cpp
   ../src/log/logger.cpp
+  ../src/log/trace.cpp
   ../src/dns/dnsmasq_gen.cpp
   ../src/dns/dns_router.cpp
   ../src/dns/dns_server.cpp
@@ -41,6 +43,8 @@ add_executable(keen-pbr-tests
   ../src/daemon/list_service.cpp
   ../src/http/http_client.cpp
   ../src/routing/netlink.cpp
+  ../src/util/blocking_executor.cpp
+  ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
   ../src/routing/route_table.cpp
   ../src/routing/target.cpp
@@ -76,6 +80,10 @@ target_link_libraries(keen-pbr-tests PRIVATE
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
 )
+
+if(LIBATOMIC)
+  target_link_libraries(keen-pbr-tests PRIVATE ${LIBATOMIC})
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)

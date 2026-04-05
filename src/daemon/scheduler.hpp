@@ -1,8 +1,9 @@
 #pragma once
 
+#include "../util/traced_mutex.hpp"
+
 #include <chrono>
 #include <functional>
-#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -35,11 +36,15 @@ public:
 
     // Schedule a repeating task. Returns a task ID for later cancellation.
     // The first invocation fires after `interval` elapses.
-    int schedule_repeating(std::chrono::seconds interval, TaskCallback cb);
+    int schedule_repeating(std::chrono::seconds interval,
+                           TaskCallback cb,
+                           std::string label = "");
 
     // Schedule a one-shot task. Returns a task ID for later cancellation.
     // The callback fires once after `delay` elapses.
-    int schedule_oneshot(std::chrono::seconds delay, TaskCallback cb);
+    int schedule_oneshot(std::chrono::seconds delay,
+                         TaskCallback cb,
+                         std::string label = "");
 
     // Cancel a previously scheduled task by ID.
     void cancel(int task_id);
@@ -56,6 +61,7 @@ private:
         int timer_fd;
         TaskCallback callback;
         bool repeating;
+        std::string label;
     };
 
     int create_timerfd(std::chrono::seconds initial, std::chrono::seconds interval);
@@ -64,7 +70,7 @@ private:
 
     Daemon& daemon_;
     std::vector<TimerEntry> entries_;
-    mutable std::mutex entries_mutex_;
+    mutable TracedMutex entries_mutex_;
     int next_id_{1};
 };
 

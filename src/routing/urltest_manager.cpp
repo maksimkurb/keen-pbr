@@ -1,204 +1,394 @@
 #include "urltest_manager.hpp"
+
 #include "../daemon/scheduler.hpp"
+#include "../log/logger.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
+#include <utility>
+#include <vector>
 
 namespace keen_pbr3 {
 
-UrltestManager::UrltestManager(URLTester& tester, const OutboundMarkMap& marks,
-                               Scheduler& scheduler, UrltestChangeCallback on_change)
-    : tester_(tester), marks_(marks), scheduler_(scheduler),
-      on_change_(std::move(on_change)) {}
+namespace {
+
+struct TestCandidate {
+    std::string child_tag;
+    std::string url;
+    uint32_t fwmark{0};
+    uint32_t timeout_ms{0};
+    RetryConfig retry;
+};
+
+std::chrono::seconds normalize_interval_seconds(const Outbound& outbound) {
+    auto interval = std::chrono::seconds(outbound.interval_ms.value_or(180000) / 1000);
+    if (interval.count() < 1) {
+        interval = std::chrono::seconds(1);
+    }
+    return interval;
+}
+
+} // namespace
+
+UrltestManager::UrltestManager(URLTester& tester,
+                               const OutboundMarkMap& marks,
+                               Scheduler& scheduler,
+                               BlockingExecutor& blocking_executor,
+                               UrltestChangeCallback on_change,
+                               UrltestCommitCallback on_commit)
+    : tester_(tester)
+    , marks_(marks)
+    , scheduler_(scheduler)
+    , blocking_executor_(blocking_executor)
+    , on_change_(std::move(on_change))
+    , on_commit_(std::move(on_commit)) {}
 
 UrltestManager::~UrltestManager() {
     try {
         clear();
     } catch (...) {
-        // Suppress exceptions in destructor
+        // Suppress exceptions in destructor.
     }
 }
 
 void UrltestManager::register_urltest(const Outbound& ut) {
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
+        KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
 
         UrltestState state;
         state.config = ut;
 
         for (const auto& group : ut.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
             for (const auto& child_tag : group.outbounds) {
-                state.circuit_breakers.emplace(child_tag,
+                state.circuit_breakers.emplace(
+                    child_tag,
                     CircuitBreaker(ut.circuit_breaker.value_or(CircuitBreakerConfig{})));
             }
         }
 
-        auto interval_sec = std::chrono::seconds(ut.interval_ms.value_or(180000) / 1000);
-        if (interval_sec.count() < 1) interval_sec = std::chrono::seconds(1);
-
         const std::string tag = ut.tag;
-        state.scheduler_task_id = scheduler_.schedule_repeating(interval_sec, [this, tag]() {
-            run_tests(tag);
-        });
+        state.scheduler_task_id = scheduler_.schedule_repeating(
+            normalize_interval_seconds(ut),
+            [this, tag]() {
+                run_tests(tag);
+            },
+            "urltest:" + tag);
 
         states_.emplace(ut.tag, std::move(state));
     }
 
-    // Run the initial test after releasing the lock. on_change_ is intentionally
-    // not called here — the caller reads the initial selection via get_selected().
-    run_tests_unlocked(ut.tag);
+    Logger::instance().trace("urltest_register", "tag={}", ut.tag);
+    queue_probe_unlocked(ut.tag, "initial");
 }
 
 void UrltestManager::trigger_immediate_test(const std::string& urltest_tag) {
-    auto changed = run_tests_unlocked(urltest_tag);
-    if (changed && on_change_) {
-        on_change_(urltest_tag, *changed);
+    queue_probe_unlocked(urltest_tag, "manual");
+}
+
+bool UrltestManager::commit_probe_results(const std::string& urltest_tag,
+                                          std::uint64_t generation,
+                                          std::map<std::string, URLTestResult> results) {
+    std::string new_selected;
+    bool selection_changed = false;
+
+    {
+        KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+        auto it = states_.find(urltest_tag);
+        if (it == states_.end()) {
+            Logger::instance().trace("urltest_commit_skip",
+                                     "tag={} generation={} reason=missing_state",
+                                     urltest_tag,
+                                     generation);
+            return false;
+        }
+
+        auto& state = it->second;
+        if (generation != state.generation) {
+            Logger::instance().trace("urltest_commit_skip",
+                                     "tag={} generation={} current_generation={} reason=stale",
+                                     urltest_tag,
+                                     generation,
+                                     state.generation);
+            return false;
+        }
+
+        state.probe_inflight = false;
+
+        for (const auto& [child_tag, result] : results) {
+            auto cb_it = state.circuit_breakers.find(child_tag);
+            if (cb_it == state.circuit_breakers.end()) {
+                continue;
+            }
+
+            cb_it->second.end_request(child_tag);
+            if (result.success) {
+                cb_it->second.record_success(child_tag);
+            } else {
+                cb_it->second.record_failure(child_tag);
+            }
+            state.last_results[child_tag] = result;
+        }
+
+        const std::string previous_selected = state.selected_outbound;
+        new_selected = select_outbound(urltest_tag);
+        if (new_selected != previous_selected) {
+            state.selected_outbound = new_selected;
+            selection_changed = true;
+        }
     }
+
+    Logger::instance().trace("urltest_commit",
+                             "tag={} generation={} changed={} selected={}",
+                             urltest_tag,
+                             generation,
+                             selection_changed ? "true" : "false",
+                             new_selected);
+
+    if (selection_changed && on_change_) {
+        on_change_(urltest_tag, new_selected);
+    }
+
+    return selection_changed;
 }
 
 std::string UrltestManager::get_selected(const std::string& urltest_tag) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
-    auto it = states_.find(urltest_tag);
-    if (it == states_.end()) return "";
+    KPBR_SHARED_LOCK(lock, mutex_);
+    const auto it = states_.find(urltest_tag);
+    if (it == states_.end()) {
+        return "";
+    }
     return it->second.selected_outbound;
 }
 
 std::optional<UrltestState> UrltestManager::get_state(const std::string& urltest_tag) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
-    auto it = states_.find(urltest_tag);
-    if (it == states_.end()) return std::nullopt;
+    KPBR_SHARED_LOCK(lock, mutex_);
+    const auto it = states_.find(urltest_tag);
+    if (it == states_.end()) {
+        return std::nullopt;
+    }
     return it->second;
 }
 
 void UrltestManager::clear() {
-    std::unique_lock<std::shared_mutex> lock(mutex_);
+    KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
     for (auto& [tag, state] : states_) {
+        (void)tag;
         if (state.scheduler_task_id >= 0) {
             scheduler_.cancel(state.scheduler_task_id);
         }
     }
     states_.clear();
+    ++generation_;
 }
 
 void UrltestManager::run_tests(const std::string& tag) {
-    auto changed = run_tests_unlocked(tag);
-    if (changed && on_change_) {
-        on_change_(tag, *changed);
-    }
+    queue_probe_unlocked(tag, "scheduled");
 }
 
-std::optional<std::string> UrltestManager::run_tests_unlocked(const std::string& tag) {
-    struct TestCandidate {
-        std::string child_tag;
-        std::string url;
-        uint32_t fwmark;
-        uint32_t timeout_ms;
-        RetryConfig retry;
-    };
-
-    std::unique_lock<std::shared_mutex> lock(mutex_);
-
-    auto it = states_.find(tag);
-    if (it == states_.end()) return std::nullopt;
-
-    auto& state = it->second;
-    const auto& ut = state.config;
-    const auto& cb_cfg = ut.circuit_breaker.value_or(CircuitBreakerConfig{});
-
-    // Snapshot test parameters and mark each candidate as in-flight.
+bool UrltestManager::queue_probe_unlocked(const std::string& tag,
+                                          const std::string& reason) {
     std::vector<TestCandidate> candidates;
-    for (const auto& group : ut.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
-        for (const auto& child_tag : group.outbounds) {
-            auto mark_it = marks_.find(child_tag);
-            if (mark_it == marks_.end()) continue;  // no fwmark (e.g. blackhole), skip
-            auto& cb = state.circuit_breakers.at(child_tag);
-            if (!cb.is_allowed(child_tag)) continue;  // circuit open, skip
-            cb.begin_request(child_tag);
-            candidates.push_back({child_tag, ut.url.value_or(""), mark_it->second,
-                                   cb_cfg.timeout_ms.value_or(5000),
-                                   ut.retry.value_or(RetryConfig{})});
+    std::uint64_t probe_generation = 0;
+    const TraceId trace_id = ensure_trace_id();
+
+    {
+        KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+        auto it = states_.find(tag);
+        if (it == states_.end()) {
+            Logger::instance().trace("urltest_probe_skip",
+                                     "tag={} reason=missing_state trigger={}",
+                                     tag,
+                                     reason);
+            return false;
+        }
+
+        auto& state = it->second;
+        if (state.probe_inflight) {
+            Logger::instance().trace("urltest_probe_skip",
+                                     "tag={} reason=inflight trigger={}",
+                                     tag,
+                                     reason);
+            return false;
+        }
+
+        state.probe_inflight = true;
+        state.generation = generation_++;
+        probe_generation = state.generation;
+
+        const auto& cb_cfg = state.config.circuit_breaker.value_or(CircuitBreakerConfig{});
+        for (const auto& group : state.config.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& child_tag : group.outbounds) {
+                const auto mark_it = marks_.find(child_tag);
+                if (mark_it == marks_.end()) {
+                    continue;
+                }
+
+                auto cb_it = state.circuit_breakers.find(child_tag);
+                if (cb_it == state.circuit_breakers.end()) {
+                    continue;
+                }
+
+                if (!cb_it->second.is_allowed(child_tag)) {
+                    continue;
+                }
+
+                cb_it->second.begin_request(child_tag);
+                candidates.push_back(TestCandidate{
+                    .child_tag = child_tag,
+                    .url = state.config.url.value_or(""),
+                    .fwmark = mark_it->second,
+                    .timeout_ms = static_cast<uint32_t>(cb_cfg.timeout_ms.value_or(5000)),
+                    .retry = state.config.retry.value_or(RetryConfig{}),
+                });
+            }
         }
     }
 
-    // Release the lock before blocking HTTP tests so concurrent reads and
-    // other write operations are not stalled for the test duration.
-    lock.unlock();
+    Logger::instance().trace("urltest_probe_queued",
+                             "tag={} generation={} trigger={} candidates={}",
+                             tag,
+                             probe_generation,
+                             reason,
+                             candidates.size());
 
-    std::map<std::string, URLTestResult> results;
-    for (const auto& c : candidates) {
-        results[c.child_tag] = tester_.test(c.url, c.fwmark, c.timeout_ms, c.retry);
+    const bool enqueued = blocking_executor_.try_post(
+        "urltest:" + tag,
+        [this, tag, probe_generation, reason, candidates = std::move(candidates), trace_id]() mutable {
+            ScopedTraceContext trace_scope(trace_id);
+            std::map<std::string, URLTestResult> results;
+            results.clear();
+
+            for (const auto& candidate : candidates) {
+                const auto started_at = std::chrono::steady_clock::now();
+                Logger::instance().trace("urltest_candidate_start",
+                                         "tag={} generation={} child={} fwmark={} trigger={}",
+                                         tag,
+                                         probe_generation,
+                                         candidate.child_tag,
+                                         candidate.fwmark,
+                                         reason);
+
+                auto result = tester_.test(candidate.url,
+                                           candidate.fwmark,
+                                           candidate.timeout_ms,
+                                           candidate.retry);
+
+                const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - started_at).count();
+                Logger::instance().trace("urltest_candidate_end",
+                                         "tag={} generation={} child={} success={} latency_ms={} duration_ms={} error={}",
+                                         tag,
+                                         probe_generation,
+                                         candidate.child_tag,
+                                         result.success ? "true" : "false",
+                                         result.latency_ms,
+                                         duration_ms,
+                                         result.error.empty() ? std::string("-") : result.error);
+
+                results.emplace(candidate.child_tag, std::move(result));
+            }
+
+            if (on_commit_) {
+                on_commit_(tag, probe_generation, std::move(results), trace_id);
+            }
+        },
+        trace_id);
+
+    if (enqueued) {
+        return true;
     }
 
-    // Re-acquire the lock to commit results and recompute the selection.
-    lock.lock();
-
-    auto it2 = states_.find(tag);
-    if (it2 == states_.end()) return std::nullopt;  // cleared while tests were running
-
-    auto& state2 = it2->second;
-    for (const auto& [child_tag, result] : results) {
-        auto& cb = state2.circuit_breakers.at(child_tag);
-        cb.end_request(child_tag);
-        if (result.success) cb.record_success(child_tag);
-        else cb.record_failure(child_tag);
-        state2.last_results[child_tag] = result;
+    KPBR_SHARED_UNIQUE_LOCK(lock, mutex_);
+    auto it = states_.find(tag);
+    if (it != states_.end() && it->second.generation == probe_generation) {
+        it->second.probe_inflight = false;
+        for (const auto& candidate : candidates) {
+            auto cb_it = it->second.circuit_breakers.find(candidate.child_tag);
+            if (cb_it != it->second.circuit_breakers.end()) {
+                cb_it->second.end_request(candidate.child_tag);
+            }
+        }
     }
 
-    const auto new_selected = select_outbound(tag);
-    if (new_selected != state2.selected_outbound) {
-        state2.selected_outbound = new_selected;
-        return new_selected;
-    }
-    return std::nullopt;
+    Logger::instance().trace("urltest_probe_skip",
+                             "tag={} generation={} trigger={} reason=executor_unavailable",
+                             tag,
+                             probe_generation,
+                             reason);
+    return false;
 }
 
 std::string UrltestManager::select_outbound(const std::string& tag) {
-    auto it = states_.find(tag);
-    if (it == states_.end()) return "";
+    const auto it = states_.find(tag);
+    if (it == states_.end()) {
+        return "";
+    }
 
     const auto& state = it->second;
     const auto& ut = state.config;
+    if (!ut.outbound_groups.has_value()) {
+        return "";
+    }
 
-    if (!ut.outbound_groups.has_value()) return "";
+    struct GroupRef {
+        size_t index;
+        uint32_t weight;
+    };
+
     const auto& groups = *ut.outbound_groups;
-
-    struct GroupRef { size_t index; uint32_t weight; };
     std::vector<GroupRef> sorted_groups;
     sorted_groups.reserve(groups.size());
     for (size_t i = 0; i < groups.size(); ++i) {
-        sorted_groups.push_back({i, static_cast<uint32_t>(groups[i].weight.value_or(1))});
+        sorted_groups.push_back(GroupRef{
+            .index = i,
+            .weight = static_cast<uint32_t>(groups[i].weight.value_or(1)),
+        });
     }
-    std::sort(sorted_groups.begin(), sorted_groups.end(),
-              [](const GroupRef& a, const GroupRef& b) { return a.weight < b.weight; });
+    std::sort(sorted_groups.begin(),
+              sorted_groups.end(),
+              [](const GroupRef& lhs, const GroupRef& rhs) {
+                  return lhs.weight < rhs.weight;
+              });
 
-    for (const auto& gref : sorted_groups) {
-        const auto& group = groups[gref.index];
-
+    for (const auto& group_ref : sorted_groups) {
+        const auto& group = groups[group_ref.index];
         uint32_t min_latency = std::numeric_limits<uint32_t>::max();
+
         for (const auto& child_tag : group.outbounds) {
-            auto cb_it = state.circuit_breakers.find(child_tag);
-            if (cb_it == state.circuit_breakers.end()) continue;
-            if (cb_it->second.state(child_tag) == CircuitState::open) continue;
-            auto res_it = state.last_results.find(child_tag);
-            if (res_it == state.last_results.end() || !res_it->second.success) continue;
-            if (res_it->second.latency_ms < min_latency) min_latency = res_it->second.latency_ms;
+            const auto cb_it = state.circuit_breakers.find(child_tag);
+            if (cb_it == state.circuit_breakers.end()) {
+                continue;
+            }
+            if (cb_it->second.state(child_tag) == CircuitState::open) {
+                continue;
+            }
+
+            const auto result_it = state.last_results.find(child_tag);
+            if (result_it == state.last_results.end() || !result_it->second.success) {
+                continue;
+            }
+            min_latency = std::min(min_latency, result_it->second.latency_ms);
         }
 
-        if (min_latency == std::numeric_limits<uint32_t>::max()) continue;
+        if (min_latency == std::numeric_limits<uint32_t>::max()) {
+            continue;
+        }
 
         const uint32_t tolerance = static_cast<uint32_t>(ut.tolerance_ms.value_or(100));
 
-        // Prefer the current selection if still within tolerance (avoids churn).
         if (!state.selected_outbound.empty()) {
-            auto it_inc = std::find(group.outbounds.begin(), group.outbounds.end(),
-                                    state.selected_outbound);
-            if (it_inc != group.outbounds.end()) {
-                auto cb_it = state.circuit_breakers.find(state.selected_outbound);
+            const auto existing_it = std::find(group.outbounds.begin(),
+                                               group.outbounds.end(),
+                                               state.selected_outbound);
+            if (existing_it != group.outbounds.end()) {
+                const auto cb_it = state.circuit_breakers.find(state.selected_outbound);
                 if (cb_it != state.circuit_breakers.end() &&
                     cb_it->second.state(state.selected_outbound) != CircuitState::open) {
-                    auto res_it = state.last_results.find(state.selected_outbound);
-                    if (res_it != state.last_results.end() && res_it->second.success &&
-                        res_it->second.latency_ms <= min_latency + tolerance) {
+                    const auto result_it = state.last_results.find(state.selected_outbound);
+                    if (result_it != state.last_results.end() &&
+                        result_it->second.success &&
+                        result_it->second.latency_ms <= min_latency + tolerance) {
                         return state.selected_outbound;
                     }
                 }
@@ -206,16 +396,25 @@ std::string UrltestManager::select_outbound(const std::string& tag) {
         }
 
         for (const auto& child_tag : group.outbounds) {
-            auto cb_it = state.circuit_breakers.find(child_tag);
-            if (cb_it == state.circuit_breakers.end()) continue;
-            if (cb_it->second.state(child_tag) == CircuitState::open) continue;
-            auto res_it = state.last_results.find(child_tag);
-            if (res_it == state.last_results.end() || !res_it->second.success) continue;
-            if (res_it->second.latency_ms <= min_latency + tolerance) return child_tag;
+            const auto cb_it = state.circuit_breakers.find(child_tag);
+            if (cb_it == state.circuit_breakers.end()) {
+                continue;
+            }
+            if (cb_it->second.state(child_tag) == CircuitState::open) {
+                continue;
+            }
+
+            const auto result_it = state.last_results.find(child_tag);
+            if (result_it == state.last_results.end() || !result_it->second.success) {
+                continue;
+            }
+            if (result_it->second.latency_ms <= min_latency + tolerance) {
+                return child_tag;
+            }
         }
     }
 
-    return "";  // all exhausted — blackhole fallback
+    return "";
 }
 
 } // namespace keen_pbr3

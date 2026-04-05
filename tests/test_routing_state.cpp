@@ -53,6 +53,14 @@ const RouteSpec* find_route(const std::vector<RouteSpec>& routes,
     return nullptr;
 }
 
+size_t count_routes_in_table(const std::vector<RouteSpec>& routes, uint32_t table) {
+    return static_cast<size_t>(std::count_if(routes.begin(),
+                                             routes.end(),
+                                             [table](const RouteSpec& route) {
+                                                 return route.table == table;
+                                             }));
+}
+
 } // namespace
 
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
@@ -223,6 +231,66 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
     CHECK(find_route(routes.get_routes(), 102, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg1"}) == nullptr);
+    CHECK(find_route(routes.get_routes(), 102, false, true, 1000) != nullptr);
+}
+
+TEST_CASE("populate_routing_state: urltest without completed probe does not install child routes") {
+    auto cfg = parse_minimal_config(R"({
+        "daemon":{"strict_enforcement":false},
+        "outbounds":[
+            {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
+            {"tag":"vpn2","type":"interface","interface":"wg2","gateway":"10.0.2.1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"weight":1,"outbounds":["vpn1","vpn2"]}]}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(
+        cfg,
+        marks,
+        routes,
+        rules,
+        [](const Outbound&) { return true; },
+        nullptr);
+
+    CHECK(count_routes_in_table(routes.get_routes(), 102) == 0);
+    REQUIRE(rules.get_rules().size() == 3);
+    CHECK(rules.get_rules()[2].table == 102);
+}
+
+TEST_CASE("populate_routing_state: strict urltest without completed probe keeps only terminal unreachable route") {
+    auto cfg = parse_minimal_config(R"({
+        "daemon":{"strict_enforcement":false},
+        "outbounds":[
+            {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
+            {"tag":"vpn2","type":"interface","interface":"wg2","gateway":"10.0.2.1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "strict_enforcement":true,
+             "outbound_groups":[{"weight":1,"outbounds":["vpn1","vpn2"]}]}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(
+        cfg,
+        marks,
+        routes,
+        rules,
+        [](const Outbound&) { return true; },
+        nullptr);
+
+    REQUIRE(count_routes_in_table(routes.get_routes(), 102) == 1);
     CHECK(find_route(routes.get_routes(), 102, false, true, 1000) != nullptr);
 }
 

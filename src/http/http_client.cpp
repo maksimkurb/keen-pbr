@@ -1,6 +1,9 @@
 #include "http_client.hpp"
 
+#include "../log/logger.hpp"
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <curl/curl.h>
 #include <sys/socket.h>
@@ -108,8 +111,19 @@ static int sockopt_cb(void* userdata, curl_socket_t fd, curlsocktype) {
 
 std::string HttpClient::download(const std::string& url,
                                  const HttpRequestOptions& options) {
+    const auto started_at = std::chrono::steady_clock::now();
+    Logger::instance().trace("http_download_start",
+                             "url={} fwmark={} timeout_s={}",
+                             url,
+                             options.fwmark,
+                             timeout_.count());
     CURL* curl = curl_easy_init();
     if (!curl) {
+        Logger::instance().trace("http_download_error",
+                                 "url={} duration_ms={} error=init_failed",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         throw HttpError("Failed to initialize curl handle");
     }
 
@@ -133,6 +147,12 @@ std::string HttpClient::download(const std::string& url,
     if (res != CURLE_OK) {
         std::string err = curl_easy_strerror(res);
         curl_easy_cleanup(curl);
+        Logger::instance().trace("http_download_error",
+                                 "url={} duration_ms={} error={}",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count(),
+                                 err);
         throw HttpError("HTTP request failed: " + err);
     }
 
@@ -141,9 +161,22 @@ std::string HttpClient::download(const std::string& url,
     curl_easy_cleanup(curl);
 
     if (http_code >= 400) {
+        Logger::instance().trace("http_download_error",
+                                 "url={} duration_ms={} http_code={}",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count(),
+                                 http_code);
         throw HttpError("HTTP error " + std::to_string(http_code), http_code);
     }
 
+    Logger::instance().trace("http_download_end",
+                             "url={} duration_ms={} bytes={} http_code={}",
+                             url,
+                             std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - started_at).count(),
+                             body.size(),
+                             http_code);
     return body;
 }
 
@@ -151,8 +184,21 @@ ConditionalDownloadResult HttpClient::download_conditional(
     const std::string& url, const std::string& if_none_match,
     const std::string& if_modified_since,
     const HttpRequestOptions& options) {
+    const auto started_at = std::chrono::steady_clock::now();
+    Logger::instance().trace("http_download_conditional_start",
+                             "url={} fwmark={} timeout_s={} has_etag={} has_last_modified={}",
+                             url,
+                             options.fwmark,
+                             timeout_.count(),
+                             if_none_match.empty() ? "false" : "true",
+                             if_modified_since.empty() ? "false" : "true");
     CURL* curl = curl_easy_init();
     if (!curl) {
+        Logger::instance().trace("http_download_conditional_error",
+                                 "url={} duration_ms={} error=init_failed",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         throw HttpError("Failed to initialize curl handle");
     }
 
@@ -209,6 +255,12 @@ ConditionalDownloadResult HttpClient::download_conditional(
     if (res != CURLE_OK) {
         std::string err = curl_easy_strerror(res);
         curl_easy_cleanup(curl);
+        Logger::instance().trace("http_download_conditional_error",
+                                 "url={} duration_ms={} error={}",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count(),
+                                 err);
         throw HttpError("HTTP request failed: " + err);
     }
 
@@ -221,16 +273,34 @@ ConditionalDownloadResult HttpClient::download_conditional(
         result.body.clear();
         result.etag = headers.etag;
         result.last_modified = headers.last_modified;
+        Logger::instance().trace("http_download_conditional_end",
+                                 "url={} duration_ms={} http_code=304 not_modified=true",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count());
         return result;
     }
 
     if (http_code >= 400) {
+        Logger::instance().trace("http_download_conditional_error",
+                                 "url={} duration_ms={} http_code={}",
+                                 url,
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - started_at).count(),
+                                 http_code);
         throw HttpError("HTTP error " + std::to_string(http_code), http_code);
     }
 
     result.not_modified = false;
     result.etag = headers.etag;
     result.last_modified = headers.last_modified;
+    Logger::instance().trace("http_download_conditional_end",
+                             "url={} duration_ms={} bytes={} http_code={} not_modified=false",
+                             url,
+                             std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - started_at).count(),
+                             result.body.size(),
+                             http_code);
     return result;
 }
 

@@ -4,9 +4,9 @@
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../util/traced_mutex.hpp"
 
 #include <map>
-#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -28,7 +28,7 @@ public:
     void publish(RuntimeStateSnapshot snapshot);
 
 private:
-    mutable std::shared_mutex mutex_;
+    mutable TracedSharedMutex mutex_;
     RuntimeStateSnapshot snapshot_;
 };
 
