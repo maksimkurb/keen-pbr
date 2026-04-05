@@ -275,7 +275,7 @@ curl http://127.0.0.1:8080/api/health/routing
 
 ## GET /api/dns/test
 
-Streams DNS queries observed by the built-in `dns.test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
+Streams DNS queries observed by the built-in `dns.dns_test_server` listener as Server-Sent Events. Each event payload is a JSON object. The connection receives a `HELLO` event immediately, then one `DNS` event per queried name while the connection is open.
 
 ```bash
 curl -N http://127.0.0.1:8080/api/dns/test
