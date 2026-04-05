@@ -62,6 +62,9 @@ jobs:
     uses: ./.github/workflows/reusable-publish-repository.yml
     with:
       target_root: stable
+      source_ref_type: tag
+      source_ref_name: ${{ github.ref_name }}
+      source_pr_number: ""
     secrets: inherit
 
   draft-release:

@@ -130,7 +130,6 @@ jobs:
     if: ${{ inputs.use_signing_secrets }}
     name: "sign: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"
     runs-on: ubuntu-latest
-    environment: package-builder
     needs: [generate-config, build]
     strategy:
       fail-fast: false

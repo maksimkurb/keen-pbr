@@ -27,31 +27,27 @@ void CacheManager::ensure_dir() {
     std::filesystem::create_directories(cache_dir_);
 }
 
-void CacheManager::set_fwmark(uint32_t mark) {
-    http_client_.set_fwmark(mark);
-}
-
 void CacheManager::set_max_file_size(size_t bytes) {
     http_client_.set_max_response_size(bytes);
 }
 
-bool CacheManager::download(const std::string& name, const std::string& url) {
+bool CacheManager::download(const std::string& name,
+                            const std::string& url,
+                            const CacheDownloadOptions& options) {
     CacheMetadata existing = load_metadata(name);
 
     ConditionalDownloadResult result;
     try {
         result = http_client_.download_conditional(
-            url, existing.etag.value_or(""), existing.last_modified.value_or(""));
+            url,
+            existing.etag.value_or(""),
+            existing.last_modified.value_or(""),
+            HttpRequestOptions{options.fwmark});
     } catch (const std::exception&) {
         return false;
     }
 
     if (result.not_modified) {
-        CacheMetadata meta = existing;
-        if (!result.etag.empty()) meta.etag = result.etag;
-        if (!result.last_modified.empty()) meta.last_modified = result.last_modified;
-        meta.download_time = current_time_iso();
-        save_metadata(name, meta);
         return false;
     }
 
@@ -121,8 +117,22 @@ CacheMetadata CacheManager::load_metadata(const std::string& name) const {
 }
 
 void CacheManager::save_metadata(const std::string& name, const CacheMetadata& meta) {
-    std::ofstream ofs(meta_path(name));
-    if (ofs.is_open()) ofs << nlohmann::json(meta).dump(2) << '\n';
+    const std::filesystem::path final_meta = meta_path(name);
+    const std::filesystem::path tmp_meta = cache_dir_ / (name + ".meta.json.tmp");
+
+    {
+        std::ofstream ofs(tmp_meta);
+        if (!ofs) {
+            return;
+        }
+        ofs << nlohmann::json(meta).dump(2) << '\n';
+        if (!ofs) {
+            std::filesystem::remove(tmp_meta);
+            return;
+        }
+    }
+
+    std::filesystem::rename(tmp_meta, final_meta);
 }
 
 } // namespace keen_pbr3

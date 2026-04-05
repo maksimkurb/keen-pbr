@@ -11,7 +11,6 @@
 #include <set>
 #include <signal.h>
 #include <sstream>
-#include <shared_mutex>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 #include <sys/file.h>
@@ -52,6 +51,25 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+std::string format_list_names(const std::vector<std::string>& list_names) {
+    if (list_names.empty()) {
+        return "(none)";
+    }
+
+    std::ostringstream out;
+    for (size_t i = 0; i < list_names.size(); ++i) {
+        if (i != 0) {
+            out << ", ";
+        }
+        out << list_names[i];
+    }
+    return out.str();
+}
+
+} // namespace
+
 // Helper to get tag from an outbound
 std::string get_outbound_tag(const Outbound& ob) {
     return ob.tag;
@@ -72,11 +90,12 @@ Daemon::Daemon(Config config,
                std::string config_path,
                DaemonOptions opts,
                HookCommandExecutor hook_command_executor)
-    : config_(std::move(config))
+    : config_store_(config)
+    , list_service_(config.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"),
+                    max_file_size_bytes(config))
+    , config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
-    , cache_(config_.daemon.value_or(DaemonConfig{}).cache_dir.value_or("/var/cache/keen-pbr"),
-             max_file_size_bytes(config_))
     , firewall_(create_firewall("auto"))
     , netlink_()
     , route_table_(netlink_)
@@ -108,17 +127,12 @@ Daemon::Daemon(Config config,
     firewall_state_.set_outbound_marks(outbound_marks_);
 
     // Ensure cache directory exists
-    cache_.ensure_dir();
+    list_service_.ensure_dir();
 
     // Create scheduler (needs Daemon& for epoll fd registration)
     scheduler_ = std::make_unique<Scheduler>(*this);
 
     // UrltestManager created later during startup (register_urltest_outbounds)
-
-    // RoutingHealthChecker depends on firewall_, firewall_state_, route_table_, policy_rules_, netlink_
-    // All are initialized by this point in the member initializer list
-    routing_health_checker_ = std::make_unique<RoutingHealthChecker>(
-        *firewall_, firewall_state_, route_table_, policy_rules_, netlink_);
 
 #ifdef WITH_API
     dns_test_broadcaster_ = std::make_unique<SseBroadcaster>();
@@ -169,6 +183,10 @@ void Daemon::wake_control_loop() {
     if (n < 0 && errno != EAGAIN) {
         throw DaemonError("eventfd write failed: " + std::string(strerror(errno)));
     }
+}
+
+bool Daemon::is_event_loop_thread() const {
+    return event_loop_thread_id_.load(std::memory_order_relaxed) == std::this_thread::get_id();
 }
 
 void Daemon::enqueue_control_task(std::function<void()> task,
@@ -316,10 +334,10 @@ void Daemon::handle_sigusr1() {
 
     // Re-add static routing tables/ip rules in case they were lost
     try {
-        std::unique_lock<std::shared_mutex> lock(state_mutex_);
         route_table_.clear();
         policy_rules_.clear();
         setup_static_routing();
+        publish_runtime_state();
         log.info("SIGUSR1: static routing tables verified.");
     } catch (const std::exception& e) {
         log.error("SIGUSR1: error verifying routing: {}", e.what());
@@ -374,13 +392,11 @@ void Daemon::run_system_resolver_hook_reload() {
 }
 
 bool Daemon::routing_runtime_active() const {
-    std::shared_lock<std::shared_mutex> lock(state_mutex_);
-    return routing_runtime_active_;
+    return runtime_state_store_.snapshot().routing_runtime_active;
 }
 
 void Daemon::stop_routing_runtime() {
     auto& log = Logger::instance();
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
     if (!routing_runtime_active_) {
         return;
     }
@@ -405,12 +421,12 @@ void Daemon::stop_routing_runtime() {
 
     routing_runtime_active_ = false;
     update_resolver_config_hash_actual();
+    publish_runtime_state();
     log.info("Routing runtime stopped.");
 }
 
 void Daemon::start_routing_runtime() {
     auto& log = Logger::instance();
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
     if (routing_runtime_active_) {
         return;
     }
@@ -437,15 +453,14 @@ void Daemon::start_routing_runtime() {
 
     routing_runtime_active_ = true;
     update_resolver_config_hash_actual();
+    publish_runtime_state();
     log.info("Routing runtime started.");
 }
 
 void Daemon::restart_routing_runtime() {
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
     if (!routing_runtime_active_) {
         throw DaemonError("Routing runtime is stopped");
     }
-    lock.unlock();
 
     stop_routing_runtime();
     start_routing_runtime();
@@ -484,7 +499,7 @@ void Daemon::run() {
     write_pid_file();
 
     log.info("Loading lists...");
-    download_uncached_lists();
+    (void)list_service_.refresh_remote_lists(config_, outbound_marks_);
 
     setup_static_routing();
     log.info("Static routing tables and ip rules installed.");
@@ -499,6 +514,7 @@ void Daemon::run() {
     update_resolver_config_hash();
     update_resolver_config_hash_actual();
     schedule_resolver_config_hash_actual_refresh();
+    publish_runtime_state();
 
     setup_dns_probe();
 
@@ -633,7 +649,7 @@ void Daemon::setup_static_routing() {
 }
 
 void Daemon::apply_firewall() {
-    ListStreamer list_streamer(cache_);
+    ListStreamer list_streamer(list_service_.cache_manager());
     auto rule_states =
         build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
 
@@ -804,42 +820,15 @@ void Daemon::apply_firewall() {
 }
 
 void Daemon::download_uncached_lists() {
-    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        if (!list_cfg.url.has_value() || cache_.has_cache(name)) continue;
-
-        uint32_t mark = 0;
-        if (list_cfg.detour.has_value()) {
-            auto it = outbound_marks_.find(*list_cfg.detour);
-            if (it != outbound_marks_.end()) {
-                mark = it->second;
-            } else {
-                Logger::instance().warn(
-                    "List '{}': detour outbound '{}' not found, using default routing",
-                    name, *list_cfg.detour);
-            }
-        }
-        cache_.set_fwmark(mark);
-
-        try {
-            cache_.download(name, *list_cfg.url);
-        } catch (const std::exception& e) {
-            Logger::instance().warn("Failed to download list '{}': {}", name, e.what());
-        }
-    }
-    cache_.set_fwmark(0);
+    list_service_.download_uncached(config_, outbound_marks_);
 }
 
 void Daemon::register_urltest_outbounds() {
     urltest_manager_ = std::make_unique<UrltestManager>(
         url_tester_, outbound_marks_, *scheduler_,
         [this](const std::string& urltest_tag, const std::string& new_child_tag) {
-            // Use post_control_task (always deferred, never inline) so this callback
-            // is safe to invoke from any context, including while holding state_mutex_.
-            // The task acquires state_mutex_ and rebuilds routing/firewall only after
-            // the current event-loop iteration completes and all caller locks are free.
             post_control_task([this, urltest_tag, new_child_tag]() {
                 auto& log = Logger::instance();
-                std::unique_lock<std::shared_mutex> lock(state_mutex_);
                 log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
                 firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
                 try {
@@ -847,6 +836,7 @@ void Daemon::register_urltest_outbounds() {
                     policy_rules_.clear();
                     setup_static_routing();
                     apply_firewall();
+                    publish_runtime_state();
                     log.info("Routing and firewall rebuilt after urltest change.");
                 } catch (const std::exception& e) {
                     log.error("Error rebuilding routing/firewall after urltest change: {}", e.what());
@@ -873,8 +863,8 @@ void Daemon::schedule_lists_autoupdate() {
     if (!config_.lists_autoupdate->enabled.value_or(false)) return;
     const auto& expr = config_.lists_autoupdate->cron.value_or("");
     auto next = cron_next(expr);
-    auto delay = std::chrono::duration_cast<std::chrono::seconds>(
-        next - std::chrono::system_clock::now());
+    const auto now = std::chrono::system_clock::now();
+    auto delay = std::chrono::ceil<std::chrono::seconds>(next - now);
     if (delay.count() < 1) delay = std::chrono::seconds{1};
     lists_autoupdate_task_id_ = scheduler_->schedule_oneshot(delay, [this]() {
         refresh_lists_and_maybe_reload();
@@ -882,47 +872,52 @@ void Daemon::schedule_lists_autoupdate() {
     Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
 }
 
+ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
+    const std::set<std::string>* target_lists) {
+    auto& log = Logger::instance();
+    ListsRefreshExecutionResult result;
+    const auto relevant_lists = collect_relevant_list_names(config_);
+    result.refresh_result =
+        list_service_.refresh_remote_lists(config_, outbound_marks_, &relevant_lists, target_lists);
+
+    if (should_reload_runtime_after_list_refresh(routing_runtime_active_, result.refresh_result)) {
+        log.info("Lists refresh: relevant list(s) changed ({}), reloading runtime",
+                 format_list_names(result.refresh_result.relevant_changed_lists));
+        apply_config(config_, false);
+        result.reloaded = true;
+        return result;
+    }
+
+    if (result.refresh_result.any_relevant_changed()) {
+        log.info("Lists refresh: relevant list(s) changed ({}), but runtime is stopped",
+                 format_list_names(result.refresh_result.relevant_changed_lists));
+    } else if (result.refresh_result.any_changed()) {
+        log.info("Lists refresh: updated list(s) did not affect runtime config: {}",
+                 format_list_names(result.refresh_result.changed_lists));
+    } else {
+        log.info("Lists refresh: no list updates");
+    }
+
+    return result;
+}
+
 void Daemon::refresh_lists_and_maybe_reload() {
     auto& log = Logger::instance();
     log.info("Lists autoupdate: checking for updated lists");
 
-    // Build set of lists referenced by any route rule
-    std::set<std::string> route_lists;
-    for (const auto& rule : config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{}))
-        for (const auto& ln : rule.list)
-            route_lists.insert(ln);
-
-    bool any_relevant_changed = false;
-    for (const auto& [name, list_cfg] : config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        if (!list_cfg.url.has_value()) continue;
-        try {
-            bool changed = cache_.download(name, *list_cfg.url);
-            if (changed) {
-                log.info("Lists autoupdate: list '{}' updated", name);
-                if (route_lists.count(name))
-                    any_relevant_changed = true;
-            }
-        } catch (const std::exception& e) {
-            log.warn("Lists autoupdate: failed to refresh list '{}': {}", name, e.what());
+    try {
+        const auto result = execute_remote_list_refresh();
+        if (!result.reloaded) {
+            schedule_lists_autoupdate();
         }
+    } catch (const std::exception& e) {
+        log.error("Lists autoupdate failed: {}", e.what());
+        schedule_lists_autoupdate();
     }
-
-    if (any_relevant_changed) {
-        log.info("Lists autoupdate: relevant list(s) changed, triggering reload");
-        try { reload_from_disk(); }
-        catch (const std::exception& e) {
-            log.error("Lists autoupdate: reload failed: {}", e.what());
-        }
-        // reload_from_disk() calls schedule_lists_autoupdate() at its end
-        return;
-    }
-
-    log.info("Lists autoupdate: no relevant changes");
-    schedule_lists_autoupdate();
 }
 
 void Daemon::update_resolver_config_hash() {
-    ListStreamer streamer(cache_);
+    ListStreamer streamer(list_service_.cache_manager());
     const DnsConfig dns_cfg = config_.dns.value_or(DnsConfig{});
     const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
     DnsServerRegistry dns_registry(dns_cfg);
@@ -973,6 +968,34 @@ void Daemon::update_resolver_config_hash_actual() {
     }
 }
 
+RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
+    RuntimeStateSnapshot snapshot;
+    snapshot.firewall_state = firewall_state_;
+    snapshot.route_specs = route_table_.get_routes();
+    snapshot.policy_rule_specs = policy_rules_.get_rules();
+    snapshot.resolver_config_hash = resolver_config_hash_;
+    snapshot.resolver_config_hash_actual = resolver_config_hash_actual_;
+    snapshot.routing_runtime_active = routing_runtime_active_;
+
+    if (urltest_manager_) {
+        for (const auto& outbound : config_.outbounds.value_or(std::vector<Outbound>{})) {
+            if (outbound.type != OutboundType::URLTEST) {
+                continue;
+            }
+            auto state = urltest_manager_->get_state(outbound.tag);
+            if (state.has_value()) {
+                snapshot.urltest_states.emplace(outbound.tag, std::move(*state));
+            }
+        }
+    }
+
+    return snapshot;
+}
+
+void Daemon::publish_runtime_state() {
+    runtime_state_store_.publish(build_runtime_state_snapshot());
+}
+
 void Daemon::schedule_resolver_config_hash_actual_refresh() {
     if (resolver_config_hash_actual_task_id_ >= 0) {
         scheduler_->cancel(resolver_config_hash_actual_task_id_);
@@ -980,15 +1003,25 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
     resolver_config_hash_actual_task_id_ = scheduler_->schedule_repeating(
         std::chrono::seconds{300},
         [this]() {
-            std::unique_lock<std::shared_mutex> lock(state_mutex_);
             update_resolver_config_hash_actual();
+            publish_runtime_state();
         });
 }
 
-void Daemon::apply_config(Config config) {
-    validate_config(config);
+void Daemon::apply_config(Config config, bool refresh_remote_lists) {
+    // Safety invariant:
+    // - During runtime, apply_config must run on the control/event-loop thread.
+    //   This guarantees scheduler fd mutations that internally enqueue control
+    //   commands cannot deadlock behind a concurrent event-loop callback.
+    // - Before the loop starts, inline startup apply is allowed.
+    if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
+        throw DaemonError("apply_config must run on the control/event-loop thread");
+    }
 
-    std::unique_lock<std::shared_mutex> lock(state_mutex_);
+    validate_config(config);
+    OutboundMarkMap new_marks = allocate_outbound_marks(
+        config.fwmark.value_or(FwmarkConfig{}),
+        config.outbounds.value_or(std::vector<Outbound>{}));
 
     // Cancel any pending autoupdate task
     if (lists_autoupdate_task_id_ >= 0) {
@@ -1001,17 +1034,18 @@ void Daemon::apply_config(Config config) {
     }
 
     // Apply new config and fwmarks early so routing is available for downloads
-    outbound_marks_ = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
-                                             config.outbounds.value_or(std::vector<Outbound>{}));
-    config_ = std::move(config);
+    outbound_marks_ = new_marks;
+    config_ = config;
     firewall_state_.set_outbound_marks(outbound_marks_);
 
     // Install new routing tables/ip rules before downloading so fwmark-based
     // detour routing works and general connectivity is preserved
     setup_static_routing();
 
-    // Download any lists not yet cached (uses per-list detour fwmark if configured)
-    download_uncached_lists();
+    if (refresh_remote_lists) {
+        // Refresh all remote lists now so SIGHUP/config reloads pick up latest content.
+        (void)list_service_.refresh_remote_lists(config, new_marks);
+    }
 
     // Tear down old state — no blocking I/O in this window
     teardown_dns_probe();
@@ -1046,15 +1080,14 @@ void Daemon::apply_config(Config config) {
     run_system_resolver_hook_reload();
     update_resolver_config_hash_actual();
     schedule_resolver_config_hash_actual_refresh();
+
+    config_store_.replace_active(config_, outbound_marks_);
+    publish_runtime_state();
 }
 
 
 void Daemon::apply_config_with_rollback(const Config& next_config, bool& rolled_back) {
-    Config previous_config;
-    {
-        std::shared_lock<std::shared_mutex> lock(state_mutex_);
-        previous_config = config_;
-    }
+    Config previous_config = config_;
 
     try {
         apply_config(next_config);
@@ -1092,33 +1125,29 @@ void Daemon::setup_api() {
     if (!config_.api || !config_.api->enabled.value_or(false) || opts_.no_api) return;
 
     api_server_ = std::make_unique<ApiServer>(*config_.api);
+    const auto finish_config_operation = [this]() {
+        std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+        config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
+        config_op_cv_.notify_all();
+    };
     // ApiContext provides synchronized access to Daemon-owned runtime state.
     api_ctx_ = std::make_unique<ApiContext>(ApiContext{
         config_path_,
-        cache_,
-        state_mutex_,
         *dns_test_broadcaster_,
         [this]() {
-            return staged_config_.has_value() ? *staged_config_ : config_;
+            return config_store_.visible_config();
         },
         [this]() {
-            return staged_config_.has_value();
+            return config_store_.config_is_draft();
         },
         [this](Config staged_config, std::string staged_config_json) {
-            std::unique_lock<std::shared_mutex> lock(state_mutex_);
-            staged_config_ = std::move(staged_config);
-            staged_config_json_ = std::move(staged_config_json);
+            config_store_.stage_config(std::move(staged_config), std::move(staged_config_json));
         },
         [this]() -> std::optional<std::pair<Config, std::string>> {
-            if (!staged_config_.has_value() || !staged_config_json_.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_optional(std::make_pair(*staged_config_, *staged_config_json_));
+            return config_store_.staged_snapshot();
         },
         [this]() {
-            std::unique_lock<std::shared_mutex> lock(state_mutex_);
-            staged_config_.reset();
-            staged_config_json_.reset();
+            config_store_.clear_staged();
         },
         [this](const Config& config) {
             validate_config(config);
@@ -1126,16 +1155,12 @@ void Daemon::setup_api() {
             const auto marks = allocate_outbound_marks(
                 config.fwmark.value_or(FwmarkConfig{}),
                 config.outbounds.value_or(std::vector<Outbound>{}));
-
-            std::map<std::string, std::string> urltest_selections;
-            {
-                std::shared_lock<std::shared_mutex> lock(state_mutex_);
-                urltest_selections = firewall_state_.get_urltest_selections();
-            }
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            const auto& urltest_selections = runtime_snapshot.firewall_state.get_urltest_selections();
 
             (void)build_fw_rule_states(config, marks, &urltest_selections);
 
-            ListStreamer streamer(cache_);
+            ListStreamer streamer(list_service_.cache_manager());
             const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
             const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
             DnsServerRegistry dns_registry(dns_cfg);
@@ -1148,85 +1173,213 @@ void Daemon::setup_api() {
                 resolver_type);
         },
         [this]() {
-            return routing_health_checker_->check();
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+            ServiceHealthState service_health;
+            service_health.status = runtime_snapshot.routing_runtime_active
+                ? api::HealthResponseStatus::RUNNING
+                : api::HealthResponseStatus::STOPPED;
+            service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
+            service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
+            service_health.config_is_draft = config_store_.config_is_draft();
+            return service_health;
         },
         [this]() {
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+
+            return build_routing_health_report(
+                firewall_->backend(),
+                runtime_snapshot.firewall_state,
+                runtime_snapshot.route_specs,
+                runtime_snapshot.policy_rule_specs,
+                netlink_);
+        },
+        [this]() {
+            const Config config_snapshot = config_store_.active_config();
+            const auto runtime_snapshot = runtime_state_store_.snapshot();
+
             return build_runtime_outbounds_response(
-                config_,
-                firewall_state_,
+                config_snapshot,
                 netlink_,
-                [this](const std::string& tag) -> std::optional<UrltestState> {
-                    if (!urltest_manager_) return std::nullopt;
-                    return urltest_manager_->get_state(tag);
+                [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
+                    auto it = runtime_snapshot.urltest_states.find(tag);
+                    if (it == runtime_snapshot.urltest_states.end()) {
+                        return std::nullopt;
+                    }
+                    return it->second;
                 });
         },
-        [this]() {
-            return resolver_config_hash_;
+        [this](const Config& config) {
+            return build_list_refresh_state_map(config, list_service_.cache_manager());
+        },
+        [this](const std::string& target) {
+            const Config visible_config = config_store_.visible_config();
+            return compute_test_routing(visible_config, list_service_.cache_manager(), target);
         },
         [this]() {
-            return resolver_config_hash_actual_;
+            std::lock_guard<std::mutex> op_lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Saving, std::memory_order_release);
         },
-        [this]() {
-            return routing_runtime_active();
-        },
-        config_op_mutex_,
-        config_op_cv_,
-        config_op_state_,
+        finish_config_operation,
         [this](Config config, std::string saved_config_json) -> ConfigApplyResult {
-            ConfigApplyResult result;
-            enqueue_control_task([this, &result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
+            auto result = std::make_shared<ConfigApplyResult>();
+            enqueue_control_task([this, result, config = std::move(config), saved_config_json = std::move(saved_config_json)]() mutable {
                 bool rolled_back = false;
                 try {
                     apply_config_with_rollback(config, rolled_back);
-                    result.applied = true;
-                    result.rolled_back = rolled_back;
-                    std::unique_lock<std::shared_mutex> lock(state_mutex_);
-                    if (staged_config_json_.has_value() && *staged_config_json_ == saved_config_json) {
-                        staged_config_.reset();
-                        staged_config_json_.reset();
-                    }
+                    result->applied = true;
+                    result->rolled_back = rolled_back;
+                    config_store_.clear_staged_if_matches(saved_config_json);
                 } catch (const std::exception& e) {
-                    result.error = e.what();
-                    result.rolled_back = rolled_back;
+                    result->error = e.what();
+                    result->rolled_back = rolled_back;
                     Logger::instance().error("Apply staged config task failed: {}", e.what());
                 }
-                {
-                    std::lock_guard<std::mutex> op_lock(config_op_mutex_);
-                    config_op_state_.store(ConfigOperationState::Idle, std::memory_order_release);
-                }
-                config_op_cv_.notify_all();
             }, true);
-            return result;
+            return *result;
         },
-        [this]() {
-            enqueue_control_task([this]() {
-                try {
-                    start_routing_runtime();
-                } catch (const std::exception& e) {
-                    Logger::instance().error("Start routing runtime task failed: {}", e.what());
-                    throw;
-                }
-            }, true);
+        [this, finish_config_operation]() {
+            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            if (runtime_state_store_.snapshot().routing_runtime_active) {
+                throw ApiError("Routing runtime is already started", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            lock.unlock();
+
+            try {
+                enqueue_control_task([this]() {
+                    try {
+                        start_routing_runtime();
+                    } catch (const std::exception& e) {
+                        Logger::instance().error("Start routing runtime task failed: {}", e.what());
+                        throw;
+                    }
+                }, true);
+            } catch (...) {
+                finish_config_operation();
+                throw;
+            }
+
+            finish_config_operation();
         },
-        [this]() {
-            enqueue_control_task([this]() {
-                try {
-                    stop_routing_runtime();
-                } catch (const std::exception& e) {
-                    Logger::instance().error("Stop routing runtime task failed: {}", e.what());
-                    throw;
-                }
-            }, true);
+        [this, finish_config_operation]() {
+            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            if (!runtime_state_store_.snapshot().routing_runtime_active) {
+                throw ApiError("Routing runtime is already stopped", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            lock.unlock();
+
+            try {
+                enqueue_control_task([this]() {
+                    try {
+                        stop_routing_runtime();
+                    } catch (const std::exception& e) {
+                        Logger::instance().error("Stop routing runtime task failed: {}", e.what());
+                        throw;
+                    }
+                }, true);
+            } catch (...) {
+                finish_config_operation();
+                throw;
+            }
+
+            finish_config_operation();
         },
-        [this]() {
-            enqueue_control_task([this]() {
-                try {
-                    restart_routing_runtime();
-                } catch (const std::exception& e) {
-                    Logger::instance().error("Restart routing runtime task failed: {}", e.what());
-                    throw;
-                }
-            }, true);
+        [this, finish_config_operation]() {
+            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            if (!runtime_state_store_.snapshot().routing_runtime_active) {
+                throw ApiError("Routing runtime is stopped; start it first", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            lock.unlock();
+
+            try {
+                enqueue_control_task([this]() {
+                    try {
+                        restart_routing_runtime();
+                    } catch (const std::exception& e) {
+                        Logger::instance().error("Restart routing runtime task failed: {}", e.what());
+                        throw;
+                    }
+                }, true);
+            } catch (...) {
+                finish_config_operation();
+                throw;
+            }
+
+            finish_config_operation();
+        },
+        [this, finish_config_operation](std::optional<std::string> requested_name) {
+            std::unique_lock<std::mutex> lock(config_op_mutex_);
+            if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+                throw ApiError("Another config operation is already in progress", 409);
+            }
+            if (config_store_.config_is_draft()) {
+                throw ApiError("List refresh is unavailable while a draft config is staged", 409);
+            }
+            config_op_state_.store(ConfigOperationState::Reloading, std::memory_order_release);
+            lock.unlock();
+
+            auto operation_result = std::make_shared<ListRefreshOperationResult>();
+
+            try {
+                enqueue_control_task([this, operation_result, requested_name = std::move(requested_name)]() mutable {
+                    const auto target_selection =
+                        select_remote_list_targets(config_, requested_name);
+                    if (!target_selection.ok()) {
+                        switch (target_selection.error) {
+                            case RemoteListTargetSelectionError::NotFound:
+                                throw ApiError("Requested list was not found", 404);
+                            case RemoteListTargetSelectionError::NotRemote:
+                                throw ApiError("Requested list is not URL-backed", 400);
+                            case RemoteListTargetSelectionError::None:
+                                break;
+                        }
+                    }
+
+                    const std::set<std::string> target_lists(
+                        target_selection.list_names.begin(),
+                        target_selection.list_names.end());
+                    const auto execution_result =
+                        execute_remote_list_refresh(requested_name ? &target_lists : nullptr);
+
+                    operation_result->refreshed_lists = execution_result.refresh_result.refreshed_lists;
+                    operation_result->changed_lists = execution_result.refresh_result.changed_lists;
+                    operation_result->reloaded = execution_result.reloaded;
+
+                    if (!execution_result.refresh_result.any_refreshed()) {
+                        operation_result->message = "No URL-backed lists to refresh";
+                    } else if (!execution_result.refresh_result.any_changed()) {
+                        operation_result->message = "Lists refreshed; no updates found";
+                    } else if (execution_result.reloaded) {
+                        operation_result->message =
+                            "Lists refreshed and runtime reloaded";
+                    } else if (execution_result.refresh_result.any_relevant_changed()) {
+                        operation_result->message =
+                            "Lists refreshed; runtime is stopped so changes will apply on next start";
+                    } else {
+                        operation_result->message = "Lists refreshed";
+                    }
+                }, true);
+            } catch (...) {
+                finish_config_operation();
+                throw;
+            }
+
+            finish_config_operation();
+            return *operation_result;
         },
     });
     register_api_handlers(*api_server_, *api_ctx_);

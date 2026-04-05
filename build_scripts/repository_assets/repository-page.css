@@ -1,0 +1,345 @@
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-subtle: #f8fafc;
+  --surface-muted: #f3f4f6;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text: #1e293b;
+  --text-strong: #0f172a;
+  --muted: #475569;
+  --brand: #2563eb;
+  --brand-soft: #eff6ff;
+  --success-soft: #ecfdf5;
+  --warning-soft: #fffbeb;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+  --sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+a {
+  color: inherit;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+code {
+  font-family: var(--mono);
+}
+
+.page-shell {
+  width: min(80rem, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 40px 0 56px;
+}
+
+.hero {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 32px;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  color: var(--text-strong);
+  font-size: clamp(2.5rem, 4.2vw, 3.8rem);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.hero p {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.meta-chip strong {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.panel-content {
+  padding: 22px;
+}
+
+.panel h2,
+.panel h3 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+}
+
+.panel h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.selector-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap select {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-strong);
+  padding: 12px 40px 12px 14px;
+}
+
+.select-wrap::after {
+  content: "▾";
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.selector-note {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  font-size: 0.95rem;
+}
+
+.selector-note strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-strong);
+}
+
+.status-note {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-md);
+  background: var(--warning-soft);
+  color: #92400e;
+  font-size: 0.92rem;
+}
+
+.instruction-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.instruction-header h2 {
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.instruction-header p {
+  max-width: 36rem;
+}
+
+.install-list {
+  display: grid;
+  gap: 18px;
+}
+
+.install-card {
+  padding: 0;
+}
+
+.install-card + .install-card {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.install-card h3 {
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.install-card p {
+  margin-bottom: 16px;
+}
+
+.command-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.command-card {
+  overflow: hidden;
+  border: 1px solid #27272a;
+  border-radius: var(--radius-md);
+  background: #18181b;
+  color: #fafafa;
+}
+
+.command-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #3f3f46;
+  background: #27272a;
+}
+
+.command-card header strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.copy-button {
+  border: 1px solid #52525b;
+  border-radius: 999px;
+  background: #3f3f46;
+  color: #fafafa;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.copy-button:hover,
+.copy-button:focus-visible {
+  background: #52525b;
+  border-color: #71717a;
+}
+
+.command-card pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: hidden;
+}
+
+.command-card code {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.empty-state {
+  padding: 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  color: var(--muted);
+}
+
+@media (max-width: 920px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    width: min(100vw - 20px, 80rem);
+    padding-top: 24px;
+    padding-bottom: 32px;
+  }
+
+  .hero,
+  .panel-content,
+  .install-card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .hero h1 {
+    max-width: none;
+    font-size: 2.8rem;
+  }
+
+  .instruction-header,
+  .command-card header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

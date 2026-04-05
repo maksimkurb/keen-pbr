@@ -129,7 +129,10 @@ set(SOURCES
   src/dns/dns_probe_server.cpp
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
+  src/daemon/config_store.cpp
   src/daemon/daemon.cpp
+  src/daemon/list_service.cpp
+  src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/main.cpp
@@ -142,6 +145,7 @@ if(WITH_API)
     src/api/sse_broadcaster.cpp
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
+    src/api/handler_lists_refresh.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
     src/api/handler_runtime_outbounds.cpp

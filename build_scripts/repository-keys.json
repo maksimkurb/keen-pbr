@@ -1,0 +1,12 @@
+{
+  "debian": {
+    "key": "https://repo.keen-pbr.fyi/keys/debian_public.pem"
+  },
+  "openwrt_apk": {
+    "key": "https://repo.keen-pbr.fyi/keys/openwrt_apk_public.pem"
+  },
+  "openwrt_opkg": {
+    "key": "https://repo.keen-pbr.fyi/keys/openwrt_opkg_public.key",
+    "key_id": "74e83b8dde9dd790"
+  }
+}

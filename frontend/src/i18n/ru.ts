@@ -672,6 +672,7 @@ export const ruTranslation = {
           actions: {
             new: "Добавить список",
             update: "Обновить",
+            updateAll: "Обновить все",
           },
           empty: {
             title: "Списков пока нет",
@@ -693,9 +694,22 @@ export const ruTranslation = {
           location: {
             inline: "Встроенный",
           },
+          refresh: {
+            draftBlocked:
+              "Примените или сбросьте сохранённый черновик перед обновлением URL-списков.",
+            updateDisabled:
+              "Примените или сбросьте черновик перед обновлением",
+          },
           rule: {
             configured: "Настроен",
           },
+          messages: {
+            refreshedOne: "Обновление списка завершено.",
+            refreshedAll: "Обновление списков завершено.",
+          },
+          lastUpdated: "Последнее обновление: {{value}}",
+          neverUpdated: "Ещё не обновлялся",
+          noStats: "-",
           source: {
             url: "URL",
             file: "Файл",

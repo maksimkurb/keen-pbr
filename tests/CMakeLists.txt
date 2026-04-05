@@ -10,6 +10,7 @@ add_executable(keen-pbr-tests
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
   test_list_set_usage.cpp
+  test_list_service.cpp
   test_http_client.cpp
   test_config_validation.cpp
   test_routing_state.cpp
@@ -37,6 +38,7 @@ add_executable(keen-pbr-tests
   ../src/lists/list_streamer.cpp
   ../src/lists/list_set_usage.cpp
   ../src/config/list_parser.cpp
+  ../src/daemon/list_service.cpp
   ../src/http/http_client.cpp
   ../src/routing/netlink.cpp
   ../src/routing/policy_rule.cpp

@@ -11,6 +11,16 @@
 
 namespace keen_pbr3 {
 
+// Build a routing health report from caller-provided snapshots of the tracked
+// route/policy state. This lets API readers copy daemon state quickly under
+// lock and perform the expensive live verification work after releasing it.
+RoutingHealthReport build_routing_health_report(
+    FirewallBackend firewall_backend,
+    const FirewallState& firewall_state,
+    const std::vector<RouteSpec>& tracked_routes,
+    const std::vector<RuleSpec>& tracked_policy_rules,
+    NetlinkManager& netlink);
+
 // Orchestrates firewall and routing verification to produce a RoutingHealthReport.
 // Combines results from FirewallVerifier and RoutingVerifier.
 class RoutingHealthChecker {

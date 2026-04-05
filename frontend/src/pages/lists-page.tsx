@@ -2,14 +2,20 @@ import { useQueryClient } from "@tanstack/react-query"
 import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
-import { usePostConfigMutation } from "@/api/mutations"
+import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
+import { usePostConfigMutation, usePostListsRefreshMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
-import { selectConfig } from "@/api/selectors"
+import {
+  selectConfig,
+  selectConfigIsDraft,
+  selectListRefreshState,
+} from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -35,8 +41,9 @@ type ListTableRow = {
   draft: ListDraft
   locationLabel: string
   locationIcon?: "external"
+  lastUpdated?: string
   rule: string
-  stats: {
+  stats?: {
     totalHosts: number
     ipv4Subnets: number
     ipv6Subnets: number
@@ -50,11 +57,31 @@ export function ListsPage() {
   const queryClient = useQueryClient()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
+  const isDraft = selectConfigIsDraft(configQuery.data)
+  const listRefreshState = selectListRefreshState(configQuery.data)
+
+  const listRefreshMutation = usePostListsRefreshMutation({
+    mutation: {
+      onSuccess: async (_response, variables) => {
+        const requestedName = variables?.data?.name
+        toast.success(
+          requestedName
+            ? t("pages.lists.messages.refreshedOne")
+            : t("pages.lists.messages.refreshedAll")
+        )
+      },
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error as ApiError))
+      },
+    },
+  })
 
   const tableRows = useMemo(
-    () => getTableRowsFromListMap(loadedConfig?.lists, t),
-    [loadedConfig?.lists, t]
+    () => getTableRowsFromListMap(loadedConfig?.lists, listRefreshState, t),
+    [loadedConfig?.lists, listRefreshState, t]
   )
+  const hasRefreshableLists = tableRows.some((row) => row.canRefresh)
+  const refreshDisabled = isDraft || listRefreshMutation.isPending
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -100,18 +127,50 @@ export function ListsPage() {
     postConfigMutation.mutate({ data: nextConfig })
   }
 
+  const handleRefreshAll = () => {
+    listRefreshMutation.mutate({ data: {} })
+  }
+
+  const handleRefreshOne = (listId: string) => {
+    listRefreshMutation.mutate({ data: { name: listId } })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/lists/create")}>
-            <Plus className="mr-1 h-4 w-4" />
-            {t("pages.lists.actions.new")}
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {hasRefreshableLists ? (
+              <Button
+                disabled={refreshDisabled}
+                onClick={handleRefreshAll}
+                variant="outline"
+              >
+                <RefreshCw
+                  className={`mr-1 h-4 w-4 ${
+                    listRefreshMutation.isPending ? "animate-spin" : ""
+                  }`}
+                />
+                {t("pages.lists.actions.updateAll")}
+              </Button>
+            ) : null}
+            <Button onClick={() => navigate("/lists/create")}>
+              <Plus className="mr-1 h-4 w-4" />
+              {t("pages.lists.actions.new")}
+            </Button>
+          </div>
         }
         description={t("pages.lists.description")}
         title={t("pages.lists.title")}
       />
+
+      {isDraft && hasRefreshableLists ? (
+        <Alert>
+          <AlertDescription>
+            {t("pages.lists.refresh.draftBlocked")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {postConfigMutation.error ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -154,16 +213,35 @@ export function ListsPage() {
               <div className="text-sm text-muted-foreground md:text-xs">
                 {list.locationLabel}
               </div>
+              {list.canRefresh ? (
+                <div className="text-sm text-muted-foreground md:text-xs">
+                  {t("pages.lists.lastUpdated", {
+                    value: formatLastUpdatedLabel(
+                      list.lastUpdated,
+                      t("pages.lists.neverUpdated")
+                    ),
+                  })}
+                </div>
+              ) : null}
             </div>,
             <Badge key={`${list.id}-type`} variant="outline">
               {getListSourceLabel(list.draft, t)}
             </Badge>,
-            <StatsDisplay
-              ipv4Subnets={list.stats.ipv4Subnets}
-              ipv6Subnets={list.stats.ipv6Subnets}
-              key={`${list.id}-stats`}
-              totalHosts={list.stats.totalHosts}
-            />,
+            list.stats ? (
+              <StatsDisplay
+                ipv4Subnets={list.stats.ipv4Subnets}
+                ipv6Subnets={list.stats.ipv6Subnets}
+                key={`${list.id}-stats`}
+                totalHosts={list.stats.totalHosts}
+              />
+            ) : (
+              <span
+                className="text-sm text-muted-foreground"
+                key={`${list.id}-stats-empty`}
+              >
+                {t("pages.lists.noStats")}
+              </span>
+            ),
             <Badge key={`${list.id}-rule`} variant="outline">
               {list.rule}
             </Badge>,
@@ -172,8 +250,20 @@ export function ListsPage() {
                 ...(list.canRefresh
                   ? [
                       {
-                        icon: <RefreshCw className="h-4 w-4" />,
-                        label: t("pages.lists.actions.update"),
+                        disabled: refreshDisabled,
+                        icon: (
+                          <RefreshCw
+                            className={`h-4 w-4 ${
+                              listRefreshMutation.isPending
+                                ? "animate-spin"
+                                : ""
+                            }`}
+                          />
+                        ),
+                        label: isDraft
+                          ? t("pages.lists.refresh.updateDisabled")
+                          : t("pages.lists.actions.update"),
+                        onClick: () => handleRefreshOne(list.id),
                       },
                     ]
                   : []),
@@ -199,11 +289,13 @@ export function ListsPage() {
 
 function getTableRowsFromListMap(
   lists: ConfigObject["lists"],
+  listRefreshState: ConfigStateResponseListRefreshState,
   t: (key: string) => string
 ): ListTableRow[] {
   return Object.entries(lists ?? {}).map(([name, listConfig]) => {
     const domains = listConfig.domains ?? []
     const ipCidrs = listConfig.ip_cidrs ?? []
+    const showInlineStats = !listConfig.url && !listConfig.file
 
     return {
       id: name,
@@ -216,14 +308,17 @@ function getTableRowsFromListMap(
         file: listConfig.file ?? "",
       },
       locationLabel:
-        listConfig.file || listConfig.url || t("pages.lists.location.inline"),
+        listConfig.url || listConfig.file || t("pages.lists.location.inline"),
       locationIcon: listConfig.url ? "external" : undefined,
+      lastUpdated: listRefreshState[name]?.last_updated,
       rule: t("pages.lists.rule.configured"),
-      stats: {
-        totalHosts: domains.length + ipCidrs.length,
-        ipv4Subnets: ipCidrs.filter((value) => value.includes(".")).length,
-        ipv6Subnets: ipCidrs.filter((value) => value.includes(":")).length,
-      },
+      stats: showInlineStats
+        ? {
+            totalHosts: domains.length + ipCidrs.length,
+            ipv4Subnets: ipCidrs.filter((value) => value.includes(".")).length,
+            ipv6Subnets: ipCidrs.filter((value) => value.includes(":")).length,
+          }
+        : undefined,
       canRefresh: Boolean(listConfig.url),
     }
   })
@@ -277,4 +372,20 @@ function getListSourceLabel(
   }
 
   return sources.map((source) => t(`pages.lists.source.${source}`)).join(", ")
+}
+
+function formatLastUpdatedLabel(value: string | undefined, fallback: string) {
+  if (!value) {
+    return fallback
+  }
+
+  const parsedDate = new Date(value)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsedDate)
 }

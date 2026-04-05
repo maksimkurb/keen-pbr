@@ -5,9 +5,11 @@ import {
 } from "@tanstack/react-query"
 
 import {
+  postListsRefresh,
   postConfig,
   postConfigSave,
   postRoutingTest,
+  usePostListsRefresh,
   usePostConfig,
   usePostConfigSave,
   usePostRoutingTest,
@@ -15,15 +17,42 @@ import {
 import {
   invalidationKeysAfterApplyConfigMutation,
   invalidationKeysAfterConfigMutation,
+  invalidationKeysAfterListRefreshMutation,
   invalidationKeysAfterRuntimeActionMutation,
 } from "@/api/query-keys"
 import { apiFetch } from "@/api/client"
 
+type UsePostListsRefreshOptions = Parameters<typeof usePostListsRefresh>[0]
 type UsePostConfigOptions = Parameters<typeof usePostConfig>[0]
 type UsePostConfigSaveOptions = Parameters<typeof usePostConfigSave>[0]
 type UsePostRoutingTestOptions = Parameters<typeof usePostRoutingTest>[0]
 
-export { postConfig, postConfigSave, postRoutingTest }
+export { postConfig, postConfigSave, postListsRefresh, postRoutingTest }
+
+export const usePostListsRefreshMutation = (
+  options?: UsePostListsRefreshOptions
+) => {
+  const queryClient = useQueryClient()
+
+  return usePostListsRefresh({
+    ...options,
+    mutation: {
+      ...options?.mutation,
+      onSuccess: async (data, variables, onMutateResult, context) => {
+        for (const queryKey of invalidationKeysAfterListRefreshMutation) {
+          await queryClient.invalidateQueries({ queryKey })
+        }
+
+        await options?.mutation?.onSuccess?.(
+          data,
+          variables,
+          onMutateResult,
+          context
+        )
+      },
+    },
+  })
+}
 
 export const usePostConfigMutation = (options?: UsePostConfigOptions) => {
   const queryClient = useQueryClient()

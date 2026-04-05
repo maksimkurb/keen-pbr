@@ -49,8 +49,8 @@ Expire-Date: 0
 EOF
 
 gpg --batch --generate-key debian-keygen.batch
-gpg --armor --export "keen-pbr Debian Repository" > debian_public.asc
-gpg --armor --export-secret-keys "keen-pbr Debian Repository" > debian_private.asc
+gpg --armor --export "keen-pbr Debian Repository" > debian_public.pem
+gpg --armor --export-secret-keys "keen-pbr Debian Repository" > debian_private.pem
 ```
 
 - `DEBIAN_GPG_PRIVATE_KEY` should contain the armored secret key export from `debian_private.asc`

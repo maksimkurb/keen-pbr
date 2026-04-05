@@ -6,10 +6,14 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { ConfigObject } from './configObject';
+import type { ConfigStateResponseListRefreshState } from './configStateResponseListRefreshState';
 
 export interface ConfigStateResponse {
   config: ConfigObject;
   /** Whether the returned config is a staged in-memory draft rather than the currently persisted config.
    */
   is_draft: boolean;
+  /** URL list refresh metadata keyed by list name. Present only for URL-backed lists visible in the returned config.
+   */
+  list_refresh_state?: ConfigStateResponseListRefreshState;
 }

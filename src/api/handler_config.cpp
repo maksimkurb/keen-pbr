@@ -15,7 +15,6 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
-#include <shared_mutex>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -156,10 +155,13 @@ std::string serialize_config_pretty(const Config& config) {
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/config - return current config and whether it is staged in memory
     server.get("/api/config", [&ctx]() -> std::string {
-        std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
+        const Config visible_config = ctx.get_visible_config();
+        const bool is_draft = ctx.config_is_draft();
+        const auto list_refresh_state = ctx.get_list_refresh_state_map(visible_config);
         nlohmann::json response = {
-            {"config", nlohmann::json(ctx.visible_config_fn())},
-            {"is_draft", ctx.config_is_draft_fn()},
+            {"config", nlohmann::json(visible_config)},
+            {"is_draft", is_draft},
+            {"list_refresh_state", nlohmann::json(list_refresh_state)},
         };
         return response.dump();
     });
@@ -183,7 +185,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         }
 
         std::string formatted_config = serialize_config_pretty(staged);
-        ctx.stage_config_fn(std::move(staged), std::move(formatted_config));
+        ctx.stage_config(std::move(staged), std::move(formatted_config));
 
         api::ConfigUpdateResponse resp;
         resp.status = api::ConfigUpdateResponseStatus::OK;
@@ -193,46 +195,33 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
 
     // POST /api/config/save - dry-run check, persist staged config, apply immediately
     server.post("/api/config/save", [&ctx]() -> std::string {
-        {
-            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
-            if (ctx.config_op_state.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
-                throw ApiError("Another config operation is already in progress", 409);
-            }
-            ctx.config_op_state.store(ConfigOperationState::Saving, std::memory_order_release);
-        }
-
-        auto finish_operation = [&ctx]() {
-            std::lock_guard<std::mutex> op_lock(ctx.config_op_mutex);
-            ctx.config_op_state.store(ConfigOperationState::Idle, std::memory_order_release);
-            ctx.config_op_cv.notify_all();
-        };
+        ctx.begin_save_operation();
 
         std::optional<std::pair<Config, std::string>> staged_snapshot;
         try {
-            std::shared_lock<std::shared_mutex> lock(ctx.state_mutex);
-            staged_snapshot = ctx.staged_config_snapshot_fn();
+            staged_snapshot = ctx.get_staged_config_snapshot();
         } catch (...) {
-            finish_operation();
+            ctx.finish_config_operation();
             throw;
         }
 
         if (!staged_snapshot.has_value()) {
-            finish_operation();
+            ctx.finish_config_operation();
             throw ApiError("No staged config to save", 400);
         }
 
         // Phase 1: validation + dry-run apply check.
         try {
-            ctx.dry_run_apply_check_fn(staged_snapshot->first);
+            ctx.validate_candidate_config(staged_snapshot->first);
         } catch (const ConfigValidationError& e) {
-            finish_operation();
+            ctx.finish_config_operation();
             nlohmann::json error_payload = make_validation_error_json(e);
             error_payload["saved"] = false;
             error_payload["applied"] = false;
             error_payload["rolled_back"] = false;
             throw ApiError("Dry-run apply check failed", 400, error_payload.dump());
         } catch (const std::exception& e) {
-            finish_operation();
+            ctx.finish_config_operation();
             nlohmann::json error_payload = {
                 {"error", std::string("Dry-run apply check failed: ") + e.what()},
                 {"saved", false},
@@ -246,7 +235,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         try {
             write_config_atomically(ctx.config_path, staged_snapshot->second);
             ConfigApplyResult apply_result =
-                ctx.enqueue_apply_validated_config_fn(staged_snapshot->first, staged_snapshot->second);
+                ctx.enqueue_apply_validated_config(staged_snapshot->first, staged_snapshot->second);
 
             if (!apply_result.error.empty()) {
                 nlohmann::json error_payload = {
@@ -265,10 +254,10 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
                 {"applied", apply_result.applied},
                 {"rolled_back", apply_result.rolled_back},
             };
-            finish_operation();
+            ctx.finish_config_operation();
             return response.dump();
         } catch (...) {
-            finish_operation();
+            ctx.finish_config_operation();
             throw;
         }
     });

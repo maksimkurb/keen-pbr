@@ -8,7 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <shared_mutex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -16,12 +16,15 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "config_store.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../health/url_tester.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "list_service.hpp"
+#include "runtime_state_store.hpp"
 #include "system_resolver_hook.hpp"
 
 namespace keen_pbr3 {
@@ -49,6 +52,11 @@ using FdCallback = std::function<void(uint32_t events)>;
 // Options controlling daemon runtime behavior
 struct DaemonOptions {
     bool no_api{false};
+};
+
+struct ListsRefreshExecutionResult {
+    RemoteListsRefreshResult refresh_result;
+    bool reloaded{false};
 };
 
 // Helper to get tag from any outbound variant
@@ -92,8 +100,8 @@ public:
     // Unlike enqueue_control_task, never executes inline even when called from
     // the event loop thread. Safe to call while holding any lock — the posted
     // task only runs after the current event-loop iteration completes and all
-    // caller locks have been released. Use this for callbacks that acquire
-    // state_mutex_ to prevent re-entrant lock acquisition.
+    // caller locks have been released. Use this for callbacks that must not
+    // run re-entrantly inside the current controller action.
     void post_control_task(std::function<void()> task);
 
     // Run the daemon lifecycle: startup, event loop, shutdown.
@@ -112,6 +120,7 @@ private:
     void setup_control_channel();
     void handle_control_commands();
     void wake_control_loop();
+    bool is_event_loop_thread() const;
 
     // Signal handlers
     void handle_sigusr1();
@@ -122,7 +131,7 @@ private:
     void apply_firewall();
     void download_uncached_lists();
     void register_urltest_outbounds();
-    void apply_config(Config config);
+    void apply_config(Config config, bool refresh_remote_lists = true);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
     void reload_from_disk();
     void start_routing_runtime();
@@ -131,6 +140,8 @@ private:
     bool routing_runtime_active() const;
     void run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
+    ListsRefreshExecutionResult execute_remote_list_refresh(
+        const std::set<std::string>* target_lists = nullptr);
     void refresh_lists_and_maybe_reload();
 
     // PID file management
@@ -154,6 +165,8 @@ private:
     void update_resolver_config_hash_actual();
     // Schedule (or reschedule) the 5-minute periodic refresh of resolver_config_hash_actual_.
     void schedule_resolver_config_hash_actual_refresh();
+    RuntimeStateSnapshot build_runtime_state_snapshot() const;
+    void publish_runtime_state();
 
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
@@ -185,16 +198,17 @@ private:
     std::atomic<ConfigOperationState> config_op_state_{static_cast<ConfigOperationState>(0)};
 #endif
 
-    // Configuration
-    mutable std::shared_mutex state_mutex_;
+    // Snapshot stores
+    ConfigStore config_store_;
+    ListService list_service_;
+    RuntimeStateStore runtime_state_store_;
+
+    // Event-loop-owned controller state
     Config config_;
     std::string config_path_;
-    std::optional<Config> staged_config_;
-    std::optional<std::string> staged_config_json_;
     DaemonOptions opts_;
 
     // Subsystems
-    CacheManager cache_;
     std::unique_ptr<Firewall> firewall_;
     NetlinkManager netlink_;
     RouteTable route_table_;
@@ -204,7 +218,6 @@ private:
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<UrltestManager> urltest_manager_;
-    std::unique_ptr<RoutingHealthChecker> routing_health_checker_;
 
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;

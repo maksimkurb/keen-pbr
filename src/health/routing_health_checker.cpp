@@ -49,12 +49,17 @@ RoutingHealthChecker::RoutingHealthChecker(const Firewall& firewall,
       policy_rules_(policy_rules),
       netlink_(netlink) {}
 
-RoutingHealthReport RoutingHealthChecker::check() const {
+RoutingHealthReport build_routing_health_report(
+    FirewallBackend firewall_backend,
+    const FirewallState& firewall_state,
+    const std::vector<RouteSpec>& tracked_routes,
+    const std::vector<RuleSpec>& tracked_policy_rules,
+    NetlinkManager& netlink) {
     RoutingHealthReport report;
 
     try {
         // Set firewall backend name
-        switch (firewall_.backend()) {
+        switch (firewall_backend) {
             case FirewallBackend::iptables:
                 report.firewall_backend = "iptables";
                 break;
@@ -64,26 +69,25 @@ RoutingHealthReport RoutingHealthChecker::check() const {
         }
 
         // 1. Create firewall verifier
-        auto verifier = create_firewall_verifier(firewall_.backend());
+        auto verifier = create_firewall_verifier(firewall_backend);
 
         // 2. Verify firewall chain
         report.firewall_chain = verifier->verify_chain();
 
         // 3. Verify firewall rules
-        const auto& expected_rules = firewall_state_.get_rules();
+        const auto& expected_rules = firewall_state.get_rules();
         report.firewall_rules = verifier->verify_rules(expected_rules);
 
         // 4. Create routing verifier
-        RoutingVerifier rv(netlink_);
+        RoutingVerifier rv(netlink);
 
         // Build a helper map: table_id -> outbound_tag
         // Using policy_rules (fwmark -> table) and outbound_marks (tag -> fwmark)
-        const auto& marks = firewall_state_.get_outbound_marks();
-        const auto& policy_rule_specs = policy_rules_.get_rules();
+        const auto& marks = firewall_state.get_outbound_marks();
 
         // map: table_id -> outbound_tag (via fwmark)
         std::map<uint32_t, std::string> table_to_outbound;
-        for (const auto& rule_spec : policy_rule_specs) {
+        for (const auto& rule_spec : tracked_policy_rules) {
             for (const auto& [tag, mark] : marks) {
                 if (mark == rule_spec.fwmark) {
                     table_to_outbound[rule_spec.table] = tag;
@@ -94,7 +98,7 @@ RoutingHealthReport RoutingHealthChecker::check() const {
 
         // 5. Verify route tables and detect unexpected live routes.
         std::map<uint32_t, std::vector<RouteSpec>> expected_routes_by_table;
-        for (const auto& spec : route_table_.get_routes()) {
+        for (const auto& spec : tracked_routes) {
             std::string outbound_tag;
             auto it = table_to_outbound.find(spec.table);
             if (it != table_to_outbound.end()) {
@@ -105,7 +109,7 @@ RoutingHealthReport RoutingHealthChecker::check() const {
         }
 
         for (const auto& [table_id, expected_routes] : expected_routes_by_table) {
-            auto routes = netlink_.dump_routes_in_table(table_id);
+            auto routes = netlink.dump_routes_in_table(table_id);
             std::vector<bool> matched(routes.size(), false);
 
             for (const auto& expected : expected_routes) {
@@ -144,7 +148,7 @@ RoutingHealthReport RoutingHealthChecker::check() const {
         }
 
         // 6. Verify policy rules
-        for (const auto& spec : policy_rules_.get_rules()) {
+        for (const auto& spec : tracked_policy_rules) {
             std::string outbound_tag;
             for (const auto& [tag, mark] : marks) {
                 if (mark == spec.fwmark) {
@@ -201,6 +205,15 @@ RoutingHealthReport RoutingHealthChecker::check() const {
     }
 
     return report;
+}
+
+RoutingHealthReport RoutingHealthChecker::check() const {
+    return build_routing_health_report(
+        firewall_.backend(),
+        firewall_state_,
+        route_table_.get_routes(),
+        policy_rules_.get_rules(),
+        netlink_);
 }
 
 static std::string hex_str(uint32_t v) {

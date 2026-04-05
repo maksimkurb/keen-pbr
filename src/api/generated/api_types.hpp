@@ -1,4 +1,4 @@
-// Generated from docs/openapi.yaml via scripts/generate_api_types.sh
+// Generated from docs/openapi.yaml via build_scripts/generate_api_types.sh
 // Run "make generate" to regenerate (requires Node.js).
 
 //  To parse this JSON data, first install
@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes7DNysf data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesETtoSz data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -233,9 +233,14 @@ namespace api {
         std::optional<Route> route;
     };
 
+    struct ListRefreshStateValue {
+        std::optional<std::string> last_updated;
+    };
+
     struct ConfigStateResponse {
         ConfigObject config;
         bool is_draft;
+        std::optional<std::map<std::string, ListRefreshStateValue>> list_refresh_state;
     };
 
     enum class ConfigUpdateResponseStatus : int { OK };
@@ -270,26 +275,6 @@ namespace api {
         CheckStatus status;
     };
 
-    enum class CircuitBreaker : int { CLOSED, HALF_OPEN, OPEN };
-
-    struct HealthChild {
-        std::optional<CircuitBreaker> circuit_breaker;
-        std::optional<std::string> error;
-        int64_t latency_ms;
-        bool success;
-        std::string tag;
-    };
-
-    enum class HealthEntryStatus : int { DEGRADED, HEALTHY, UNKNOWN };
-
-    struct HealthEntry {
-        std::optional<std::vector<HealthChild>> children;
-        std::optional<std::string> selected_outbound;
-        HealthEntryStatus status;
-        std::string tag;
-        OutboundType type;
-    };
-
     enum class HealthResponseStatus : int { RUNNING, STOPPED };
 
     struct HealthResponse {
@@ -298,6 +283,18 @@ namespace api {
         std::optional<std::string> resolver_config_hash_actual;
         HealthResponseStatus status;
         std::string version;
+    };
+
+    struct ListRefreshRequest {
+        std::optional<std::string> name;
+    };
+
+    struct ListRefreshResponse {
+        std::vector<std::string> changed_lists;
+        std::string message;
+        std::vector<std::string> refreshed_lists;
+        bool reloaded;
+        ConfigUpdateResponseStatus status;
     };
 
     struct PolicyRuleCheck {
@@ -418,7 +415,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypes7DNysf {
+    struct KeenPbrTypesETtoSz {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -436,11 +433,12 @@ namespace api {
         std::optional<FirewallChain> firewall_chain;
         std::optional<FirewallRuleCheck> firewall_rule_check;
         std::optional<Fwmark> fwmark_config;
-        std::optional<HealthChild> health_child;
-        std::optional<HealthEntry> health_entry;
         std::optional<HealthResponse> health_response;
         std::optional<Iproute> iproute_config;
         std::optional<ListConfigValue> list_config;
+        std::optional<ListRefreshRequest> list_refresh_request;
+        std::optional<ListRefreshResponse> list_refresh_response;
+        std::optional<ListRefreshStateValue> list_refresh_state;
         std::optional<ListsAutoupdate> lists_autoupdate_config;
         std::optional<OutboundElement> outbound;
         std::optional<OutboundGroupElement> outbound_group;
@@ -527,6 +525,9 @@ namespace api {
     void from_json(const json & j, ConfigObject & x);
     void to_json(json & j, const ConfigObject & x);
 
+    void from_json(const json & j, ListRefreshStateValue & x);
+    void to_json(json & j, const ListRefreshStateValue & x);
+
     void from_json(const json & j, ConfigStateResponse & x);
     void to_json(json & j, const ConfigStateResponse & x);
 
@@ -545,14 +546,14 @@ namespace api {
     void from_json(const json & j, FirewallRuleCheck & x);
     void to_json(json & j, const FirewallRuleCheck & x);
 
-    void from_json(const json & j, HealthChild & x);
-    void to_json(json & j, const HealthChild & x);
-
-    void from_json(const json & j, HealthEntry & x);
-    void to_json(json & j, const HealthEntry & x);
-
     void from_json(const json & j, HealthResponse & x);
     void to_json(json & j, const HealthResponse & x);
+
+    void from_json(const json & j, ListRefreshRequest & x);
+    void to_json(json & j, const ListRefreshRequest & x);
+
+    void from_json(const json & j, ListRefreshResponse & x);
+    void to_json(json & j, const ListRefreshResponse & x);
 
     void from_json(const json & j, PolicyRuleCheck & x);
     void to_json(json & j, const PolicyRuleCheck & x);
@@ -596,8 +597,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes7DNysf & x);
-    void to_json(json & j, const KeenPbrTypes7DNysf & x);
+    void from_json(const json & j, KeenPbrTypesETtoSz & x);
+    void to_json(json & j, const KeenPbrTypesETtoSz & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -613,12 +614,6 @@ namespace api {
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
-
-    void from_json(const json & j, CircuitBreaker & x);
-    void to_json(json & j, const CircuitBreaker & x);
-
-    void from_json(const json & j, HealthEntryStatus & x);
-    void to_json(json & j, const HealthEntryStatus & x);
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
@@ -927,15 +922,26 @@ namespace api {
         j["route"] = x.route;
     }
 
+    inline void from_json(const json & j, ListRefreshStateValue& x) {
+        x.last_updated = get_stack_optional<std::string>(j, "last_updated");
+    }
+
+    inline void to_json(json & j, const ListRefreshStateValue & x) {
+        j = json::object();
+        j["last_updated"] = x.last_updated;
+    }
+
     inline void from_json(const json & j, ConfigStateResponse& x) {
         x.config = j.at("config").get<ConfigObject>();
         x.is_draft = j.at("is_draft").get<bool>();
+        x.list_refresh_state = get_stack_optional<std::map<std::string, ListRefreshStateValue>>(j, "list_refresh_state");
     }
 
     inline void to_json(json & j, const ConfigStateResponse & x) {
         j = json::object();
         j["config"] = x.config;
         j["is_draft"] = x.is_draft;
+        j["list_refresh_state"] = x.list_refresh_state;
     }
 
     inline void from_json(const json & j, ConfigUpdateResponse& x) {
@@ -1003,40 +1009,6 @@ namespace api {
         j["status"] = x.status;
     }
 
-    inline void from_json(const json & j, HealthChild& x) {
-        x.circuit_breaker = get_stack_optional<CircuitBreaker>(j, "circuit_breaker");
-        x.error = get_stack_optional<std::string>(j, "error");
-        x.latency_ms = j.at("latency_ms").get<int64_t>();
-        x.success = j.at("success").get<bool>();
-        x.tag = j.at("tag").get<std::string>();
-    }
-
-    inline void to_json(json & j, const HealthChild & x) {
-        j = json::object();
-        j["circuit_breaker"] = x.circuit_breaker;
-        j["error"] = x.error;
-        j["latency_ms"] = x.latency_ms;
-        j["success"] = x.success;
-        j["tag"] = x.tag;
-    }
-
-    inline void from_json(const json & j, HealthEntry& x) {
-        x.children = get_stack_optional<std::vector<HealthChild>>(j, "children");
-        x.selected_outbound = get_stack_optional<std::string>(j, "selected_outbound");
-        x.status = j.at("status").get<HealthEntryStatus>();
-        x.tag = j.at("tag").get<std::string>();
-        x.type = j.at("type").get<OutboundType>();
-    }
-
-    inline void to_json(json & j, const HealthEntry & x) {
-        j = json::object();
-        j["children"] = x.children;
-        j["selected_outbound"] = x.selected_outbound;
-        j["status"] = x.status;
-        j["tag"] = x.tag;
-        j["type"] = x.type;
-    }
-
     inline void from_json(const json & j, HealthResponse& x) {
         x.config_is_draft = j.at("config_is_draft").get<bool>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
@@ -1052,6 +1024,32 @@ namespace api {
         j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
         j["status"] = x.status;
         j["version"] = x.version;
+    }
+
+    inline void from_json(const json & j, ListRefreshRequest& x) {
+        x.name = get_stack_optional<std::string>(j, "name");
+    }
+
+    inline void to_json(json & j, const ListRefreshRequest & x) {
+        j = json::object();
+        j["name"] = x.name;
+    }
+
+    inline void from_json(const json & j, ListRefreshResponse& x) {
+        x.changed_lists = j.at("changed_lists").get<std::vector<std::string>>();
+        x.message = j.at("message").get<std::string>();
+        x.refreshed_lists = j.at("refreshed_lists").get<std::vector<std::string>>();
+        x.reloaded = j.at("reloaded").get<bool>();
+        x.status = j.at("status").get<ConfigUpdateResponseStatus>();
+    }
+
+    inline void to_json(json & j, const ListRefreshResponse & x) {
+        j = json::object();
+        j["changed_lists"] = x.changed_lists;
+        j["message"] = x.message;
+        j["refreshed_lists"] = x.refreshed_lists;
+        j["reloaded"] = x.reloaded;
+        j["status"] = x.status;
     }
 
     inline void from_json(const json & j, PolicyRuleCheck& x) {
@@ -1284,7 +1282,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes7DNysf& x) {
+    inline void from_json(const json & j, KeenPbrTypesETtoSz& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1302,11 +1300,12 @@ namespace api {
         x.firewall_chain = get_stack_optional<FirewallChain>(j, "FirewallChain");
         x.firewall_rule_check = get_stack_optional<FirewallRuleCheck>(j, "FirewallRuleCheck");
         x.fwmark_config = get_stack_optional<Fwmark>(j, "FwmarkConfig");
-        x.health_child = get_stack_optional<HealthChild>(j, "HealthChild");
-        x.health_entry = get_stack_optional<HealthEntry>(j, "HealthEntry");
         x.health_response = get_stack_optional<HealthResponse>(j, "HealthResponse");
         x.iproute_config = get_stack_optional<Iproute>(j, "IprouteConfig");
         x.list_config = get_stack_optional<ListConfigValue>(j, "ListConfig");
+        x.list_refresh_request = get_stack_optional<ListRefreshRequest>(j, "ListRefreshRequest");
+        x.list_refresh_response = get_stack_optional<ListRefreshResponse>(j, "ListRefreshResponse");
+        x.list_refresh_state = get_stack_optional<ListRefreshStateValue>(j, "ListRefreshState");
         x.lists_autoupdate_config = get_stack_optional<ListsAutoupdate>(j, "ListsAutoupdateConfig");
         x.outbound = get_stack_optional<OutboundElement>(j, "Outbound");
         x.outbound_group = get_stack_optional<OutboundGroupElement>(j, "OutboundGroup");
@@ -1332,7 +1331,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes7DNysf & x) {
+    inline void to_json(json & j, const KeenPbrTypesETtoSz & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1351,11 +1350,12 @@ namespace api {
         j["FirewallChain"] = x.firewall_chain;
         j["FirewallRuleCheck"] = x.firewall_rule_check;
         j["FwmarkConfig"] = x.fwmark_config;
-        j["HealthChild"] = x.health_child;
-        j["HealthEntry"] = x.health_entry;
         j["HealthResponse"] = x.health_response;
         j["IprouteConfig"] = x.iproute_config;
         j["ListConfig"] = x.list_config;
+        j["ListRefreshRequest"] = x.list_refresh_request;
+        j["ListRefreshResponse"] = x.list_refresh_response;
+        j["ListRefreshState"] = x.list_refresh_state;
         j["ListsAutoupdateConfig"] = x.lists_autoupdate_config;
         j["Outbound"] = x.outbound;
         j["OutboundGroup"] = x.outbound_group;
@@ -1454,38 +1454,6 @@ namespace api {
         switch (x) {
             case ConfigUpdateResponseStatus::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ConfigUpdateResponseStatus\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, CircuitBreaker & x) {
-        if (j == "closed") x = CircuitBreaker::CLOSED;
-        else if (j == "half_open") x = CircuitBreaker::HALF_OPEN;
-        else if (j == "open") x = CircuitBreaker::OPEN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
-    }
-
-    inline void to_json(json & j, const CircuitBreaker & x) {
-        switch (x) {
-            case CircuitBreaker::CLOSED: j = "closed"; break;
-            case CircuitBreaker::HALF_OPEN: j = "half_open"; break;
-            case CircuitBreaker::OPEN: j = "open"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"CircuitBreaker\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, HealthEntryStatus & x) {
-        if (j == "degraded") x = HealthEntryStatus::DEGRADED;
-        else if (j == "healthy") x = HealthEntryStatus::HEALTHY;
-        else if (j == "unknown") x = HealthEntryStatus::UNKNOWN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
-    }
-
-    inline void to_json(json & j, const HealthEntryStatus & x) {
-        switch (x) {
-            case HealthEntryStatus::DEGRADED: j = "degraded"; break;
-            case HealthEntryStatus::HEALTHY: j = "healthy"; break;
-            case HealthEntryStatus::UNKNOWN: j = "unknown"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"HealthEntryStatus\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

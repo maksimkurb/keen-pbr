@@ -2,20 +2,20 @@
 
 #ifdef WITH_API
 
-#include "../cache/cache_manager.hpp"
+#include "generated/api_types.hpp"
+
+#include "../cmd/test_routing.hpp"
 #include "../config/config.hpp"
 #include "../health/routing_health.hpp"
-#include "../routing/urltest_manager.hpp"
 #include "sse_broadcaster.hpp"
 #include "server.hpp"
 
-#include <functional>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <optional>
-#include <shared_mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,42 +34,124 @@ struct ConfigApplyResult {
     std::string error;
 };
 
+struct ServiceHealthState {
+    api::HealthResponseStatus status{api::HealthResponseStatus::STOPPED};
+    std::string resolver_config_hash;
+    std::string resolver_config_hash_actual;
+    bool config_is_draft{false};
+};
+
+struct ListRefreshOperationResult {
+    std::vector<std::string> refreshed_lists;
+    std::vector<std::string> changed_lists;
+    bool reloaded{false};
+    std::string message;
+};
+
 // Context struct holding thread-safe accessors to daemon runtime state.
 struct ApiContext {
     const std::string& config_path;
-    const CacheManager& cache_manager;
-    std::shared_mutex& state_mutex;
     SseBroadcaster& dns_test_broadcaster;
 
-    std::function<Config()> visible_config_fn;
+    std::function<Config()> get_visible_config_fn;
     std::function<bool()> config_is_draft_fn;
     std::function<void(Config, std::string)> stage_config_fn;
-    std::function<std::optional<std::pair<Config, std::string>>()> staged_config_snapshot_fn;
+    std::function<std::optional<std::pair<Config, std::string>>()> get_staged_config_snapshot_fn;
     std::function<void()> clear_staged_config_fn;
-    std::function<void(const Config&)> dry_run_apply_check_fn;
-    std::function<RoutingHealthReport()> routing_health_check_fn;
-    std::function<api::RuntimeOutboundsResponse()> runtime_outbounds_fn;
-    std::function<std::string()> resolver_config_hash_fn;
-    std::function<std::string()> resolver_config_hash_actual_fn;
-    std::function<bool()> service_running_fn;
+    std::function<void(const Config&)> validate_candidate_config_fn;
+    std::function<ServiceHealthState()> get_service_health_fn;
+    std::function<RoutingHealthReport()> get_routing_health_fn;
+    std::function<api::RuntimeOutboundsResponse()> get_runtime_outbounds_fn;
+    std::function<std::map<std::string, api::ListRefreshStateValue>(const Config&)>
+        get_list_refresh_state_map_fn;
+    std::function<TestRoutingResult(const std::string&)> compute_test_routing_fn;
 
-    // Global serialization for config operations.
-    std::mutex& config_op_mutex;
-    std::condition_variable& config_op_cv;
-    std::atomic<ConfigOperationState>& config_op_state;
+    std::function<void()> begin_save_operation_fn;
+    std::function<void()> finish_config_operation_fn;
 
     // Callbacks that mutate daemon runtime state from event loop.
     std::function<ConfigApplyResult(Config, std::string)> enqueue_apply_validated_config_fn;
-    std::function<void()> enqueue_service_start_fn;
-    std::function<void()> enqueue_service_stop_fn;
-    std::function<void()> enqueue_service_restart_fn;
+    std::function<void()> start_runtime_fn;
+    std::function<void()> stop_runtime_fn;
+    std::function<void()> restart_runtime_fn;
+    std::function<ListRefreshOperationResult(std::optional<std::string>)> refresh_lists_fn;
 
-    Config visible_config() const {
-        return visible_config_fn();
+    Config get_visible_config() const {
+        return get_visible_config_fn();
     }
 
     bool config_is_draft() const {
         return config_is_draft_fn();
+    }
+
+    std::optional<std::pair<Config, std::string>> get_staged_config_snapshot() const {
+        return get_staged_config_snapshot_fn();
+    }
+
+    void clear_staged_config() const {
+        clear_staged_config_fn();
+    }
+
+    void stage_config(Config config, std::string staged_config_json) const {
+        stage_config_fn(std::move(config), std::move(staged_config_json));
+    }
+
+    void validate_candidate_config(const Config& config) const {
+        validate_candidate_config_fn(config);
+    }
+
+    ServiceHealthState get_service_health() const {
+        return get_service_health_fn();
+    }
+
+    RoutingHealthReport get_routing_health() const {
+        return get_routing_health_fn();
+    }
+
+    api::RuntimeOutboundsResponse get_runtime_outbounds() const {
+        return get_runtime_outbounds_fn();
+    }
+
+    std::map<std::string, api::ListRefreshStateValue> get_list_refresh_state_map(
+        const Config& config) const {
+        return get_list_refresh_state_map_fn(config);
+    }
+
+    TestRoutingResult compute_test_routing(const std::string& target) const {
+        return compute_test_routing_fn(target);
+    }
+
+    void begin_save_operation() const {
+        begin_save_operation_fn();
+    }
+
+    void finish_config_operation() const {
+        finish_config_operation_fn();
+    }
+
+    ConfigApplyResult enqueue_apply_validated_config(
+        Config config,
+        std::string saved_config_json) const {
+        return enqueue_apply_validated_config_fn(
+            std::move(config),
+            std::move(saved_config_json));
+    }
+
+    void start_runtime() const {
+        start_runtime_fn();
+    }
+
+    void stop_runtime() const {
+        stop_runtime_fn();
+    }
+
+    void restart_runtime() const {
+        restart_runtime_fn();
+    }
+
+    ListRefreshOperationResult refresh_lists(
+        const std::optional<std::string>& requested_name) const {
+        return refresh_lists_fn(requested_name);
     }
 };
 
@@ -78,6 +160,7 @@ struct ApiContext {
 //   POST /api/service/start   - start routing runtime and activate dnsmasq hook
 //   POST /api/service/stop    - stop routing runtime and deactivate dnsmasq hook
 //   POST /api/service/restart - restart routing runtime and activate dnsmasq hook
+//   POST /api/lists/refresh   - refresh one or all URL-backed lists
 //   GET  /api/config          - return current config and draft status
 //   POST /api/config          - validate + stage config in memory
 //   POST /api/config/save     - persist staged config and apply it
