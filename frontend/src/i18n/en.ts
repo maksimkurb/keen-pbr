@@ -172,6 +172,26 @@ export const enTranslation = {
             gatewayMismatch: "gateway mismatch",
           },
         },
+        diagnosticsDownload: {
+          button: "Download diagnostics file",
+          modal: {
+            title: "Warning: sensitive data",
+            description: "The diagnostics file includes:",
+            items: {
+              config:
+                "Your full configuration file (including the lists in use)",
+              serviceHealth: "Service health",
+              routingHealth: "Routing health",
+              outbounds: "Outbounds status",
+              names: "Names of lists, outbounds, and interfaces",
+            },
+            trustWarning:
+              "Please share this file only with people you trust.",
+            hideListsOption:
+              "Hide list contents and list URLs",
+            downloadAction: "Download diagnostics file",
+          },
+        },
         dnsCheck: {
           card: {
             title: "DNS check",
