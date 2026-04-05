@@ -13,7 +13,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: package-builder
     steps:
       - name: Checkout source
         uses: actions/checkout@v6

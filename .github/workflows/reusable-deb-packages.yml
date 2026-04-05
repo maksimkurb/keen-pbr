@@ -61,7 +61,6 @@ jobs:
     if: ${{ inputs.use_signing_secrets }}
     name: "sign: ubuntu-amd64"
     runs-on: ubuntu-latest
-    environment: package-builder
     needs: [build]
     steps:
       - uses: actions/checkout@v6
