@@ -5,7 +5,6 @@
 #include "generated/api_types.hpp"
 
 #include <nlohmann/json.hpp>
-#include <stdexcept>
 
 namespace keen_pbr3 {
 
@@ -14,17 +13,17 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
         nlohmann::json j;
         try {
             j = nlohmann::json::parse(body);
-        } catch (...) {
-            throw std::runtime_error(
-                nlohmann::json{{"error", "invalid JSON body"}}.dump());
+        } catch (const nlohmann::json::exception&) {
+            nlohmann::json payload = {{"error", "Invalid request body"}};
+            throw ApiError("Invalid request body", 400, payload.dump());
         }
 
         api::RoutingTestRequest req;
         try {
             api::from_json(j, req);
-        } catch (const std::exception& e) {
-            throw std::runtime_error(
-                nlohmann::json{{"error", std::string("invalid request: ") + e.what()}}.dump());
+        } catch (const std::exception&) {
+            nlohmann::json payload = {{"error", "Invalid request body"}};
+            throw ApiError("Invalid request body", 400, payload.dump());
         }
 
         auto result = ctx.compute_test_routing(req.target);
