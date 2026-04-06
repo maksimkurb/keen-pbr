@@ -319,15 +319,25 @@ export function DnsRuleUpsertPage({
           >
             {t("common.cancel")}
           </Button>
-          <Button
-            disabled={postConfigMutation.isPending || !loadedConfig}
-            size="xl"
-            type="submit"
+          <form.Subscribe
+            selector={(state) => ({
+              isPristine: state.isPristine,
+            })}
           >
-            {mode === "create"
-              ? t("pages.dnsRuleUpsert.actions.create")
-              : t("pages.dnsRuleUpsert.actions.save")}
-          </Button>
+            {({ isPristine }) => (
+              <Button
+                disabled={
+                  postConfigMutation.isPending || !loadedConfig || isPristine
+                }
+                size="xl"
+                type="submit"
+              >
+                {mode === "create"
+                  ? t("pages.dnsRuleUpsert.actions.create")
+                  : t("pages.dnsRuleUpsert.actions.save")}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
       </form>
     </UpsertPage>

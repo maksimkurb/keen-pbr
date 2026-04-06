@@ -575,12 +575,12 @@ function ListForm({
         </Button>
         <form.Subscribe
           selector={(state) => ({
-            canSubmit: state.canSubmit,
+            isPristine: state.isPristine,
           })}
         >
-          {({ canSubmit }) => (
+          {({ isPristine }) => (
             <Button
-              disabled={!isConfigLoaded || isPending || !canSubmit}
+              disabled={!isConfigLoaded || isPending || isPristine}
               size="xl"
               type="submit"
             >
@@ -755,10 +755,6 @@ function resolveListFieldPath(path: string, name: string) {
     return "name"
   }
 
-  if (normalizedName && path === `lists.${normalizedName}`) {
-    return "name"
-  }
-
   if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
     return "ttlMs"
   }
@@ -777,10 +773,6 @@ function resolveListFieldPath(path: string, name: string) {
 
   if (normalizedName && path === `lists.${normalizedName}.file`) {
     return "file"
-  }
-
-  if (path.startsWith("lists.") && !path.includes(".", "lists.".length)) {
-    return "name"
   }
 
   return undefined

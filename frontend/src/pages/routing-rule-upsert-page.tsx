@@ -437,13 +437,13 @@ export function RoutingRuleUpsertPage({
           </Button>
           <form.Subscribe
             selector={(state) => ({
-              canSubmit: state.canSubmit,
+              isPristine: state.isPristine,
             })}
           >
-            {({ canSubmit }) => (
+            {({ isPristine }) => (
               <Button
                 disabled={
-                  postConfigMutation.isPending || !loadedConfig || !canSubmit
+                  postConfigMutation.isPending || !loadedConfig || isPristine
                 }
                 size="xl"
                 type="submit"

@@ -304,11 +304,23 @@ function DnsServerForm({
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
         </Button>
-        <Button size="xl" type="submit">
-          {mode === "create"
-            ? t("pages.dnsServerUpsert.actions.create")
-            : t("pages.dnsServerUpsert.actions.save")}
-        </Button>
+        <form.Subscribe
+          selector={(state) => ({
+            isPristine: state.isPristine,
+          })}
+        >
+          {({ isPristine }) => (
+            <Button
+              disabled={postConfigMutation.isPending || !config || isPristine}
+              size="xl"
+              type="submit"
+            >
+              {mode === "create"
+                ? t("pages.dnsServerUpsert.actions.create")
+                : t("pages.dnsServerUpsert.actions.save")}
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   )
