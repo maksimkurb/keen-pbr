@@ -191,14 +191,6 @@ function LoadedGeneralConfigPage({
         </Alert>
       ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <Card>
         <CardHeader>
           <CardTitle>{t("pages.settings.general.title")}</CardTitle>
@@ -445,6 +437,14 @@ function LoadedGeneralConfigPage({
           </FieldGroup>
         </CardContent>
       </Card>
+
+      {mutationErrorMessage ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription className="whitespace-pre-wrap">
+            {mutationErrorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="flex justify-end gap-2">
         <Button

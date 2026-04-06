@@ -193,14 +193,6 @@ export function RoutingRuleUpsertPage({
         </Alert>
       ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <form
         className="space-y-6"
         onSubmit={(event) => {
@@ -425,6 +417,14 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
         </FieldGroup>
+
+        {mutationErrorMessage ? (
+          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertDescription className="whitespace-pre-wrap">
+              {mutationErrorMessage}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="flex justify-end gap-3">
           <Button

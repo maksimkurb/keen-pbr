@@ -201,14 +201,6 @@ function DnsServerForm({
         void form.handleSubmit()
       }}
     >
-      {apiErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {apiErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <FieldGroup>
         <form.Field
           name="tag"
@@ -299,6 +291,14 @@ function DnsServerForm({
           )}
         </form.Field>
       </FieldGroup>
+
+      {apiErrorMessage ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription className="whitespace-pre-wrap">
+            {apiErrorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">

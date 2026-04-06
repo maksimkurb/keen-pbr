@@ -162,16 +162,9 @@ export function ListUpsertPage({
         </Alert>
       ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <ListForm
         key={getListFormKey(mode, draft ?? sampleNewList)}
+        apiErrorMessage={mutationErrorMessage}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
         isConfigLoaded={Boolean(loadedConfig)}
@@ -205,6 +198,7 @@ export function ListUpsertPage({
 function ListForm({
   mode,
   draft,
+  apiErrorMessage,
   existingListNames,
   isConfigLoaded,
   isPending,
@@ -215,6 +209,7 @@ function ListForm({
 }: {
   mode: "create" | "edit"
   draft: ListDraft
+  apiErrorMessage: string | null
   existingListNames: string[]
   isConfigLoaded: boolean
   isPending: boolean
@@ -567,6 +562,14 @@ function ListForm({
             </FieldGroup>
           </CardContent>
         </Card>
+      ) : null}
+
+      {apiErrorMessage ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription className="whitespace-pre-wrap">
+            {apiErrorMessage}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       <div className="flex justify-end gap-3">
