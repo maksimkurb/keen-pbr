@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -56,10 +56,6 @@ export function DnsServerUpsertPage({
     mode === "edit"
       ? dnsServers.find((server) => server.tag === serverTag)
       : undefined
-  const initialDraft = useMemo(
-    () => getDnsServerDraft(existingServer),
-    [existingServer?.tag, existingServer?.address, existingServer?.detour]
-  )
 
   if (mode === "edit" && !existingServer && !configQuery.isLoading) {
     return (
@@ -97,7 +93,7 @@ export function DnsServerUpsertPage({
     >
       <DnsServerForm
         config={config}
-        initialDraft={initialDraft}
+        initialDraft={getDnsServerDraft(existingServer)}
         mode={mode}
         onCancel={() => navigate("/dns-servers")}
         onSaved={() => navigate("/dns-servers")}
@@ -192,7 +188,7 @@ function DnsServerForm({
   useEffect(() => {
     form.reset(initialDraft)
     clearFormServerErrors(form)
-  }, [initialDraft, form])
+  }, [form, initialDraft.address, initialDraft.detour, initialDraft.tag])
 
   const configServers = config?.dns?.servers ?? []
 
