@@ -31,6 +31,7 @@ enum class ConfigOperationState : uint8_t {
 struct ConfigApplyResult {
     bool applied{false};
     bool rolled_back{false};
+    std::optional<std::int64_t> apply_started_ts;
     std::string error;
 };
 
@@ -38,6 +39,9 @@ struct ServiceHealthState {
     api::HealthResponseStatus status{api::HealthResponseStatus::STOPPED};
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
+    std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    std::optional<std::int64_t> apply_started_ts;
+    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
     bool config_is_draft{false};
 };
 

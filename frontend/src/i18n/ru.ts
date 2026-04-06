@@ -91,6 +91,11 @@ export const ruTranslation = {
         },
         compact: {
           resolverStale: "Конфиг dnsmasq устарел.",
+          waitingForReload: "Ожидание перезагрузки dnsmasq",
+          waitingForReloadDescription:
+            "Применение конфигурации завершено. Ждём обновления TXT-записи резолвера.",
+          staleAfterTimeout:
+            "dnsmasq в последний раз перезагружался: {{actualTs}}. Если статус не меняется, перезапустите маршрутизацию.",
         },
         full: {
           unsavedTitle: "Конфигурация не сохранена",
@@ -109,6 +114,7 @@ export const ruTranslation = {
           version: "Версия",
           status: "Статус маршрутизации",
           dnsmasqGood: "dnsmasq в порядке",
+          dnsmasqWaiting: "dnsmasq перезагружается",
           dnsmasqStale: "dnsmasq требуется перезапуск",
           actions: {
             start: "Запустить",

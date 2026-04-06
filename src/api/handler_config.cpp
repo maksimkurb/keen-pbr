@@ -254,6 +254,9 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
                 {"applied", apply_result.applied},
                 {"rolled_back", apply_result.rolled_back},
             };
+            if (apply_result.apply_started_ts.has_value()) {
+                response["apply_started_ts"] = *apply_result.apply_started_ts;
+            }
             ctx.finish_config_operation();
             return response.dump();
         } catch (...) {

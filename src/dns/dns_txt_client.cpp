@@ -302,4 +302,32 @@ std::string normalize_dns_txt_md5(const std::string& txt_payload) {
     return compact;
 }
 
+ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt_payload) {
+    ResolverConfigHashTxtValue value;
+    const std::string normalized = trim_copy(txt_payload);
+
+    const size_t delimiter = normalized.find('|');
+    if (delimiter == std::string::npos) {
+        value.hash = normalize_dns_txt_md5(normalized);
+        return value;
+    }
+
+    const std::string ts_part = trim_copy(normalized.substr(0, delimiter));
+    const std::string hash_part = trim_copy(normalized.substr(delimiter + 1));
+    value.hash = normalize_dns_txt_md5(hash_part);
+
+    if (!ts_part.empty() &&
+        std::all_of(ts_part.begin(), ts_part.end(), [](unsigned char c) {
+            return std::isdigit(c) != 0;
+        })) {
+        try {
+            value.ts = std::stoll(ts_part);
+        } catch (...) {
+            value.ts = std::nullopt;
+        }
+    }
+
+    return value;
+}
+
 } // namespace keen_pbr3

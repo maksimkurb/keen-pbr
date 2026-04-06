@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { HealthResponseStatus } from './healthResponseStatus';
+import type { ResolverConfigSyncState } from './resolverConfigSyncState';
 
 export interface HealthResponse {
   /** Daemon version string. */
@@ -17,6 +18,13 @@ export interface HealthResponse {
   /** MD5 hex digest read from TXT record `config-hash.keen.pbr` using `dns.system_resolver.address` (optional `:port`, default `:53`), normalized to a raw md5 string.
    */
   resolver_config_hash_actual?: string;
+  /** Resolver TXT metadata timestamp from `config-hash.keen.pbr`, when published as `<ts>|<hash>`. Represents when dnsmasq last reloaded resolver config (Unix seconds).
+   */
+  resolver_config_hash_actual_ts?: number;
+  /** Server-authoritative Unix timestamp (seconds) captured when `POST /api/config/save` started applying the staged config.
+   */
+  apply_started_ts?: number;
+  resolver_config_sync_state?: ResolverConfigSyncState;
   /** Whether a newer configuration has been staged in memory but not yet persisted and applied.
    */
   config_is_draft: boolean;
