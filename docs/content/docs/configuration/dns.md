@@ -171,7 +171,7 @@ Restart dnsmasq after adding this line. dnsmasq will re-run the script on each r
 {{< callout type="info" >}}
 To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr against the TXT record dnsmasq exposes (written by `generate-resolver-config`):
 
-```bash
+```bash {filename="bash"}
 # Hash known to keen-pbr
 curl -s http://127.0.0.1:8080/api/health/service | grep resolver_config_hash
 

@@ -46,6 +46,7 @@ jobs:
     uses: ./.github/workflows/reusable-keenetic-packages.yml
     with:
       build_scope: full
+      keenetic_version: current
       frontend_artifact_name: frontend-dist
     secrets: inherit
 

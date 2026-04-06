@@ -11,9 +11,9 @@
 #   OPENWRT_DOCKER_IMAGE   — Builder image
 #   OPENWRT_DOCKER_CACHE_FROM / OPENWRT_DOCKER_CACHE_TO — Optional buildx cache dirs
 
-OPENWRT_VERSION       ?= 24.10.4
-OPENWRT_TARGET        ?= mediatek
-OPENWRT_SUBTARGET     ?= filogic
+OPENWRT_VERSION       ?=
+OPENWRT_TARGET        ?=
+OPENWRT_SUBTARGET     ?=
 OPENWRT_SDK_DIR       ?= /opt/openwrt-sdk
 OPENWRT_SDK_CACHE_DIR ?= $(HOME)/.cache/keen-pbr/openwrt-sdk
 OPENWRT_DOCKER_IMAGE  ?= keen-pbr-openwrt-builder:latest
@@ -22,9 +22,16 @@ OPENWRT_DOCKER_CACHE_TO   ?=
 
 _OPENWRT_SDK_INSTANCE := sdk-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 
+define _require_nonempty
+$(if $(strip $($1)),,$(error $1 is required for target '$2'))
+endef
+
 .PHONY: openwrt-sdk-prepare openwrt-packages openwrt-builder-image list-openwrt-targets
 
 openwrt-sdk-prepare: ## Download and prepare the OpenWrt SDK inside Docker (SDK cached on host)
+	$(call _require_nonempty,OPENWRT_VERSION,$@)
+	$(call _require_nonempty,OPENWRT_TARGET,$@)
+	$(call _require_nonempty,OPENWRT_SUBTARGET,$@)
 	@echo "[openwrt-sdk-prepare] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
 	@if ! docker image inspect "$(OPENWRT_DOCKER_IMAGE)" >/dev/null 2>&1; then \
 	  $(MAKE) openwrt-builder-image; \
@@ -42,6 +49,9 @@ openwrt-sdk-prepare: ## Download and prepare the OpenWrt SDK inside Docker (SDK 
 	    chmod -R u+rwX,go+rX "$(OPENWRT_SDK_DIR)"'
 
 openwrt-packages: openwrt-sdk-prepare ## Build OpenWrt packages inside Docker container (SDK cached on host)
+	$(call _require_nonempty,OPENWRT_VERSION,$@)
+	$(call _require_nonempty,OPENWRT_TARGET,$@)
+	$(call _require_nonempty,OPENWRT_SUBTARGET,$@)
 	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
 	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)" build/packages
 	docker run --rm \
@@ -79,4 +89,5 @@ openwrt-builder-image: ## Build the OpenWrt builder Docker image locally
 	fi
 
 list-openwrt-targets: ## List available OpenWrt targets from the workflow discovery script
+	$(call _require_nonempty,OPENWRT_VERSION,$@)
 	@python3 "$(abspath .)/docker/list_openwrt_targets.py" "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" "$(abspath .)"

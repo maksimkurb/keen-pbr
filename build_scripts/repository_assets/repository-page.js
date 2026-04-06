@@ -4,8 +4,8 @@
   var SYSTEMS = [
     {
       id: "keenetic",
-      label: "Keenetic / NetCraze",
-      description: "Entware opkg feed for Keenetic and NetCraze routers.",
+      label: "Keenetic / Netcraze",
+      description: "Entware opkg feed for Keenetic and Netcraze routers.",
       catalogKey: "keenetic"
     },
     {
@@ -161,7 +161,7 @@
 
   function keyBlockForSystem(systemId, keysManifest, keysError) {
     if (systemId === "keenetic") {
-      return "# No signing key installation is required for Keenetic / NetCraze feeds";
+      return "# No signing key installation is required for Keenetic / Netcraze feeds";
     }
 
     if (keysError) {

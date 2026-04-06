@@ -6,6 +6,9 @@ on:
       build_scope:
         required: true
         type: string
+      keenetic_version:
+        required: true
+        type: string
       configs:
         required: false
         type: string
@@ -83,7 +86,7 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/frontend-artifact"/. "$GITHUB_WORKSPACE/frontend/dist/"
       - name: Build packages
         run: |
-          make keenetic-packages KEENETIC_CONFIG="${{ matrix.build_env.config_name }}"
+          make keenetic-packages KEENETIC_CONFIG="${{ matrix.build_env.config_name }}" KEENETIC_VERSION="${{ inputs.keenetic_version }}"
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:

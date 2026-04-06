@@ -1,4 +1,4 @@
-baseURL: https://example.org/
+baseURL: https://keen-pbr.fyi/
 languageCode: en-us
 title: keen-pbr
 
@@ -7,9 +7,19 @@ module:
     - path: github.com/imfing/hextra
 
 markup:
+  highlight:
+    noClasses: false
   goldmark:
     renderer:
       unsafe: true
+    extensions:
+      passthrough:
+        delimiters:
+          block: [['\[', '\]'], ['$$', '$$']]
+          inline: [['\(', '\)']]
+        enable: true
+
+enableInlineShortcodes: true
 
 params:
   search:
@@ -27,7 +37,9 @@ params:
     width: wide
   page:
     width: normal
-
+    tabs:
+      sync: true
+      
 menu:
   main:
     - name: Docs
@@ -42,3 +54,8 @@ menu:
       weight: 3
       params:
         icon: github
+    - name: Telegram
+      url: https://t.me/keen_pbr
+      weight: 4
+      params:
+        icon: telegram

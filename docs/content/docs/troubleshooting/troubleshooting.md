@@ -14,7 +14,7 @@ weight: 2
 
 Check the routing health endpoint:
 
-```bash
+```bash {filename="bash"}
 curl http://127.0.0.1:8080/api/health/routing
 ```
 
@@ -26,7 +26,7 @@ Look for entries with `"status": "missing"` or `"status": "mismatch"` in:
 
 Also verify that `fwmark.start`, `fwmark.mask`, and `iproute.table_start` don't conflict with existing rules:
 
-```bash
+```bash {filename="bash"}
 ip rule list
 ip route show table 150
 ```
@@ -73,7 +73,7 @@ If other software on your system uses the same fwmark range, packets may be misr
 
 Check for conflicts:
 
-```bash
+```bash {filename="bash"}
 ip rule list
 nft list ruleset | grep mark
 ```

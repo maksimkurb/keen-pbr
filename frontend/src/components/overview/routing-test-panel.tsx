@@ -97,13 +97,13 @@ export function RoutingTestPanel() {
       ) : null}
 
       {routingInputError ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+        <Alert variant="destructive">
           <AlertDescription>{routingInputError}</AlertDescription>
         </Alert>
       ) : null}
 
       {routingTestMutation.isError ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+        <Alert variant="destructive">
           <AlertDescription>
             {t("overview.routingTest.requestFailed")}
           </AlertDescription>

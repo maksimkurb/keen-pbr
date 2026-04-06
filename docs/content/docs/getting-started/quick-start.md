@@ -5,6 +5,22 @@ weight: 2
 
 This guide walks you through a minimal working configuration that routes traffic from a domain list through a VPN interface.
 
+## Web UI Setup
+
+If you installed the full `keen-pbr` package, you can complete the initial setup from the Web UI:
+
+1. Open `http://<router-ip>:12121/` in your browser, or http://my.keenetic.net:12121 for Keenetic / NetCraze routers.
+2. Go to **Outbounds** and create your outbound connections. You can add your interfaces here, ip routing tables or 
+3. Go to **DNS Servers** and create at least one DNS server.
+4. Go to **Lists** and create your lists.
+5. Go to **Routing rules** and create your routing rules.
+6. Go to **DNS Rules** and configure the default upstream servers.
+7. Optionally, add DNS rules on the **DNS Rules** page.
+
+{{< callout type="info" >}}
+The `keen-pbr-headless` package does not include the Web UI or API.
+{{< /callout >}}
+
 ## Minimal Configuration
 
 Create `/etc/keen-pbr/config.json`:
@@ -62,13 +78,13 @@ This config:
 
 ## Run the Daemon
 
-```bash
+```bash {filename="bash"}
 keen-pbr --config /etc/keen-pbr/config.json
 ```
 
 Add `-d` to run as a background daemon:
 
-```bash
+```bash {filename="bash"}
 keen-pbr --config /etc/keen-pbr/config.json -d
 ```
 
@@ -76,8 +92,8 @@ keen-pbr --config /etc/keen-pbr/config.json -d
 
 Enable the API in your config (`"api": {"enabled": true}`), then check the routing health:
 
-```bash
-curl http://127.0.0.1:8080/api/health/routing
+```bash {filename="bash"}
+curl http://127.0.0.1:12121/api/health/routing
 ```
 
 A healthy response looks like:

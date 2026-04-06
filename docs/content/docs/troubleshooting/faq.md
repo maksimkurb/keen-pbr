@@ -11,7 +11,7 @@ keen-pbr auto-detects the firewall backend at startup. It uses nftables if avail
 
 Use `SIGHUP`:
 
-```bash
+```bash {filename="bash"}
 kill -HUP $(cat /var/run/keen-pbr.pid)
 ```
 
@@ -61,7 +61,7 @@ One entry per line. Supported formats:
 
 Use the routing health endpoint:
 
-```bash
+```bash {filename="bash"}
 curl http://127.0.0.1:8080/api/health/routing
 ```
 
