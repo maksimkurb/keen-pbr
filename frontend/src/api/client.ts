@@ -7,7 +7,19 @@ export type ApiError = {
 const parseResponsePayload = async (response: Response) => {
   const contentType = response.headers.get("content-type") ?? ""
   if (contentType.includes("application/json")) {
-    return response.json()
+    const contentLength = response.headers.get("content-length")
+    if (contentLength === "0") {
+      return null
+    }
+
+    try {
+      return await response.json()
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        return null
+      }
+      throw error
+    }
   }
 
   return response.text()

@@ -51,12 +51,16 @@ type OutboundDraft = {
   interfaceName: string
   gateway: string
   table: string
-  outbounds: string
+  urltestGroups: string[][]
   probeUrl: string
   interval: string
   tolerance: string
   retryAttempts: string
   retryInterval: string
+  circuitBreakerFailures: string
+  circuitBreakerSuccesses: string
+  circuitBreakerTimeout: string
+  circuitBreakerHalfOpen: string
   strictEnforcement: string
 }
 
@@ -91,12 +95,16 @@ const sampleNewOutbound: OutboundDraft = {
   interfaceName: "",
   gateway: "",
   table: "",
-  outbounds: "",
+  urltestGroups: [[]],
   probeUrl: "https://www.gstatic.com/generate_204",
   interval: "180000",
   tolerance: "100",
   retryAttempts: "3",
   retryInterval: "1000",
+  circuitBreakerFailures: "5",
+  circuitBreakerSuccesses: "2",
+  circuitBreakerTimeout: "30000",
+  circuitBreakerHalfOpen: "1",
   strictEnforcement: "Default (as in global config)",
 }
 
@@ -261,6 +269,7 @@ export function OutboundUpsertPage({
       <OutboundForm
         draft={draft}
         existingOutbounds={selectOutbounds(loadedConfig)}
+        isPending={postConfigMutation.isPending}
         mode={mode}
         onCancel={() => navigate("/outbounds")}
         onSubmit={handleSubmit}
@@ -274,6 +283,7 @@ function OutboundForm({
   mode,
   draft,
   existingOutbounds,
+  isPending,
   onCancel,
   onSubmit,
   serverFieldErrors,
@@ -281,6 +291,7 @@ function OutboundForm({
   mode: "create" | "edit"
   draft: OutboundDraft
   existingOutbounds: Outbound[]
+  isPending: boolean
   onCancel: () => void
   onSubmit: (payload: Outbound) => void
   serverFieldErrors: Partial<Record<OutboundFieldName, string>>
@@ -291,7 +302,7 @@ function OutboundForm({
     draft.strictEnforcement
   )
   const [urltestGroups, setUrltestGroups] = useState<UrltestGroup[]>(
-    getInitialUrltestGroups(draft.outbounds)
+    getInitialUrltestGroups(draft.urltestGroups)
   )
   const isUrltest = outboundType === "urltest"
   const isInterface = outboundType === "interface"
@@ -636,7 +647,7 @@ function OutboundForm({
               </FieldLabel>
               <FieldContent>
                 <Input
-                  defaultValue="5"
+                  defaultValue={draft.circuitBreakerFailures}
                   id={circuitBreakerFailuresId}
                   name="circuitBreakerFailures"
                 />
@@ -652,7 +663,7 @@ function OutboundForm({
               </FieldLabel>
               <FieldContent>
                 <Input
-                  defaultValue="2"
+                  defaultValue={draft.circuitBreakerSuccesses}
                   id={circuitBreakerSuccessesId}
                   name="circuitBreakerSuccesses"
                 />
@@ -668,7 +679,7 @@ function OutboundForm({
               </FieldLabel>
               <FieldContent>
                 <Input
-                  defaultValue="30000"
+                  defaultValue={draft.circuitBreakerTimeout}
                   id={circuitBreakerTimeoutId}
                   name="circuitBreakerTimeout"
                 />
@@ -684,7 +695,7 @@ function OutboundForm({
               </FieldLabel>
               <FieldContent>
                 <Input
-                  defaultValue="1"
+                  defaultValue={draft.circuitBreakerHalfOpen}
                   id={circuitBreakerHalfOpenId}
                   name="circuitBreakerHalfOpen"
                 />
@@ -734,7 +745,7 @@ function OutboundForm({
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
         </Button>
-        <Button size="xl" type="submit">
+        <Button disabled={isPending} size="xl" type="submit">
           {mode === "create"
             ? t("pages.outboundUpsert.actions.create")
             : t("pages.outboundUpsert.actions.save")}
@@ -751,9 +762,9 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
     interfaceName: outbound.interface ?? "",
     gateway: outbound.gateway ?? "",
     table: outbound.table?.toString() ?? "",
-    outbounds:
-      outbound.outbound_groups?.flatMap((group) => group.outbounds).join(",") ??
-      "",
+    urltestGroups:
+      outbound.outbound_groups?.map((group) => [...group.outbounds]) ??
+      sampleNewOutbound.urltestGroups,
     probeUrl: outbound.url ?? sampleNewOutbound.probeUrl,
     interval: outbound.interval_ms?.toString() ?? sampleNewOutbound.interval,
     tolerance: outbound.tolerance_ms?.toString() ?? sampleNewOutbound.tolerance,
@@ -762,6 +773,18 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
     retryInterval:
       outbound.retry?.interval_ms?.toString() ??
       sampleNewOutbound.retryInterval,
+    circuitBreakerFailures:
+      outbound.circuit_breaker?.failure_threshold?.toString() ??
+      sampleNewOutbound.circuitBreakerFailures,
+    circuitBreakerSuccesses:
+      outbound.circuit_breaker?.success_threshold?.toString() ??
+      sampleNewOutbound.circuitBreakerSuccesses,
+    circuitBreakerTimeout:
+      outbound.circuit_breaker?.timeout_ms?.toString() ??
+      sampleNewOutbound.circuitBreakerTimeout,
+    circuitBreakerHalfOpen:
+      outbound.circuit_breaker?.half_open_max_requests?.toString() ??
+      sampleNewOutbound.circuitBreakerHalfOpen,
     strictEnforcement: mapStrictEnforcementToOption(
       outbound.strict_enforcement
     ),
@@ -843,15 +866,14 @@ function getOutboundDraft(
   return outbound ? mapOutboundToDraft(outbound) : null
 }
 
-function getInitialUrltestGroups(outbounds: string) {
-  const parsedOutbounds = outbounds
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
+function getInitialUrltestGroups(groups: string[][]) {
+  if (!groups.length) {
+    return [createUrltestGroup([])]
+  }
 
-  return parsedOutbounds.length
-    ? [createUrltestGroup(parsedOutbounds)]
-    : [createUrltestGroup([])]
+  return groups.map((group) =>
+    createUrltestGroup(group.map((value) => value.trim()).filter(Boolean))
+  )
 }
 
 function createUrltestGroup(outbounds: string[]): UrltestGroup {

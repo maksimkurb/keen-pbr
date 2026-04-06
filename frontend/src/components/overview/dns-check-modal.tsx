@@ -50,6 +50,10 @@ export function DnsCheckModal({
 
   const isBrowserSuccess = browserStatus === "success"
   const isPcSuccess = pcStatus === "pc-success"
+  const handleClose = () => {
+    resetPcCheck()
+    onOpenChange(false)
+  }
 
   return (
     <Dialog
@@ -114,7 +118,7 @@ export function DnsCheckModal({
           ) : null}
 
           {isPcSuccess ? (
-            <Button className="w-full" onClick={() => onOpenChange(false)} variant="outline">
+            <Button className="w-full" onClick={handleClose} variant="outline">
               {t("common.close")}
             </Button>
           ) : null}

@@ -171,7 +171,6 @@ export function ListUpsertPage({
       ) : null}
 
       <ListForm
-        key={getListFormKey(mode, draft ?? sampleNewList)}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
         isConfigLoaded={Boolean(loadedConfig)}
@@ -613,18 +612,6 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
   }
 
   return populatedGroups.length > 0 ? populatedGroups : [DEFAULT_SOURCE_GROUP]
-}
-
-function getListFormKey(mode: "create" | "edit", draft: ListDraft) {
-  return [
-    mode,
-    draft.name,
-    draft.ttlMs,
-    draft.domains,
-    draft.ipCidrs,
-    draft.url,
-    draft.file,
-  ].join("::")
 }
 
 function isSourceGroupPopulated(group: ListSourceGroup, draft: ListDraft) {
