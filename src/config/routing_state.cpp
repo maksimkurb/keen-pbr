@@ -4,6 +4,9 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <net/if.h>
 
 namespace keen_pbr3 {
@@ -38,6 +41,25 @@ bool strict_enforcement_enabled(const Config& cfg, const Outbound& ob) {
 
 bool parse_ip(const std::string& ip, int family, void* out) {
     return inet_pton(family, ip.c_str(), out) == 1;
+}
+
+bool is_interface_up(const std::string& iface) {
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return false;
+    }
+
+    struct ifreq ifr {};
+    std::strncpy(ifr.ifr_name, iface.c_str(), IFNAMSIZ - 1);
+    ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+    const int rc = ioctl(fd, SIOCGIFFLAGS, &ifr);
+    close(fd);
+    if (rc < 0) {
+        return false;
+    }
+
+    return (ifr.ifr_flags & IFF_UP) != 0;
 }
 
 bool ipv4_prefix_contains(const in_addr& network, const in_addr& candidate, int prefix_len) {
@@ -185,7 +207,7 @@ void populate_routing_state(const Config& cfg,
 
             const bool strict = strict_enforcement_enabled(cfg, ob);
             const bool reachable = !reachability_check || reachability_check(ob);
-            if (!strict || reachable) {
+            if (reachable) {
                 routes.add(make_default_route(table_id, ob));
             }
             if (strict) {
@@ -268,6 +290,9 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
     if (iface.empty() || if_nametoindex(iface.c_str()) == 0) {
         return false;
     }
+    if (!is_interface_up(iface)) {
+        return false;
+    }
 
     auto routes = netlink.dump_routes_in_table(254);
 
@@ -282,13 +307,7 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
         return false;
     }
 
-    for (const auto& route : routes) {
-        if (route.blackhole || route.unreachable) continue;
-        if (!route.interface || *route.interface != iface) continue;
-        return true;
-    }
-
-    return false;
+    return true;
 }
 
 std::vector<RuleState> build_fw_rule_states(
