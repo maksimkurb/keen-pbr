@@ -306,12 +306,18 @@ function DnsServerForm({
         </Button>
         <form.Subscribe
           selector={(state) => ({
+            canSubmit: state.canSubmit,
             isPristine: state.isPristine,
           })}
         >
-          {({ isPristine }) => (
+          {({ canSubmit, isPristine }) => (
             <Button
-              disabled={postConfigMutation.isPending || !config || isPristine}
+              disabled={
+                postConfigMutation.isPending ||
+                !config ||
+                isPristine ||
+                !canSubmit
+              }
               size="xl"
               type="submit"
             >

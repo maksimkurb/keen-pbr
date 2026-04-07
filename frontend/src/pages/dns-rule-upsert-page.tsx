@@ -321,13 +321,17 @@ export function DnsRuleUpsertPage({
           </Button>
           <form.Subscribe
             selector={(state) => ({
+              canSubmit: state.canSubmit,
               isPristine: state.isPristine,
             })}
           >
-            {({ isPristine }) => (
+            {({ canSubmit, isPristine }) => (
               <Button
                 disabled={
-                  postConfigMutation.isPending || !loadedConfig || isPristine
+                  postConfigMutation.isPending ||
+                  !loadedConfig ||
+                  isPristine ||
+                  !canSubmit
                 }
                 size="xl"
                 type="submit"

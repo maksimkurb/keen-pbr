@@ -578,12 +578,13 @@ function ListForm({
         </Button>
         <form.Subscribe
           selector={(state) => ({
+            canSubmit: state.canSubmit,
             isPristine: state.isPristine,
           })}
         >
-          {({ isPristine }) => (
+          {({ canSubmit, isPristine }) => (
             <Button
-              disabled={!isConfigLoaded || isPending || isPristine}
+              disabled={!isConfigLoaded || isPending || isPristine || !canSubmit}
               size="xl"
               type="submit"
             >

@@ -457,12 +457,13 @@ function LoadedGeneralConfigPage({
         </Button>
         <form.Subscribe
           selector={(state) => ({
+            canSubmit: state.canSubmit,
             isPristine: state.isPristine,
           })}
         >
-          {({ isPristine }) => (
+          {({ canSubmit, isPristine }) => (
             <Button
-              disabled={isPending || isPristine}
+              disabled={isPending || isPristine || !canSubmit}
               onClick={() => form.handleSubmit()}
               size="xl"
             >
