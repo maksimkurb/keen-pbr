@@ -1366,8 +1366,6 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                         return;
                     }
 
-                    resolver_config_hash_actual_.clear();
-                    resolver_config_hash_actual_ts_.reset();
                     if (has_parsed_value) {
                         resolver_config_hash_actual_ = parsed_value.hash;
                         resolver_config_hash_actual_ts_ = parsed_value.ts;
