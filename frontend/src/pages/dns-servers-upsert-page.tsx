@@ -188,7 +188,7 @@ function DnsServerForm({
   useEffect(() => {
     form.reset(initialDraft)
     clearFormServerErrors(form)
-  }, [initialDraft, form])
+  }, [form, initialDraft.address, initialDraft.detour, initialDraft.tag])
 
   const configServers = config?.dns?.servers ?? []
 

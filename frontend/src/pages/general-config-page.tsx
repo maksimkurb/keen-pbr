@@ -75,7 +75,6 @@ export function GeneralConfigPage() {
         />
       ) : (
         <LoadedGeneralConfigPage
-          key={getSettingsDraftKey(loadedConfig)}
           loadedConfig={loadedConfig}
         />
       )}
@@ -551,17 +550,6 @@ function GeneralConfigPageSkeleton() {
       </div>
     </>
   )
-}
-
-function getSettingsDraftKey(config: ConfigObject) {
-  return JSON.stringify({
-    strictEnforcement: config.daemon?.strict_enforcement,
-    listsAutoupdateEnabled: config.lists_autoupdate?.enabled,
-    cron: config.lists_autoupdate?.cron,
-    fwmarkStart: config.fwmark?.start,
-    fwmarkMask: config.fwmark?.mask,
-    tableStart: config.iproute?.table_start,
-  })
 }
 
 function getFirstFieldError(errors: unknown[]) {
