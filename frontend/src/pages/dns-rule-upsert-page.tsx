@@ -21,6 +21,7 @@ import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
@@ -107,6 +108,7 @@ export function DnsRuleUpsertPage({
     rule: {
       server: serverTags[0] ?? "",
       lists: [],
+      allowDomainRebinding: false,
     },
   }
 
@@ -180,6 +182,7 @@ export function DnsRuleUpsertPage({
       rule: {
         server: serverTags[0] ?? "",
         lists: [],
+        allowDomainRebinding: false,
       },
     })
     clearFormServerErrors(form)
@@ -300,6 +303,35 @@ export function DnsRuleUpsertPage({
               </Field>
             )}
           </form.Field>
+
+          <form.Field name="rule.allowDomainRebinding">
+            {(field) => (
+              <Field>
+                <FieldContent>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={field.state.value}
+                      id="allow-domain-rebinding"
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked === true)
+                      }
+                    />
+                    <FieldLabel
+                      className="cursor-pointer flex-col items-start gap-0"
+                      htmlFor="allow-domain-rebinding"
+                    >
+                      {t("pages.dnsRuleUpsert.fields.allowDomainRebinding")}
+                    </FieldLabel>
+                  </div>
+                  <FieldHint
+                    description={t(
+                      "pages.dnsRuleUpsert.fields.allowDomainRebindingHint"
+                    )}
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
         </FieldGroup>
 
         {mutationErrorMessage ? (
@@ -355,6 +387,10 @@ function resolveDnsRuleFieldPath(path: string) {
 
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
     return "rule.lists"
+  }
+
+  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.allow_domain_rebinding$/.test(path)) {
+    return "rule.allowDomainRebinding"
   }
 
   return undefined

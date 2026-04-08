@@ -42,13 +42,15 @@ static DnsConfig make_empty_dns_cfg() {
 // Build a DnsConfig with a single server and a rule mapping list_name to that server.
 static DnsConfig make_dns_cfg(const std::string& list_name,
                                const std::string& server_tag,
-                               const std::string& server_ip) {
+                               const std::string& server_ip,
+                               bool allow_domain_rebinding = false) {
     DnsServer srv;
     srv.tag     = server_tag;
     srv.address = server_ip;
     DnsRule rule;
     rule.list   = std::vector<std::string>{list_name};
     rule.server = server_tag;
+    rule.allow_domain_rebinding = allow_domain_rebinding;
     DnsConfig cfg;
     cfg.fallback = std::vector<std::string>{server_tag};
     cfg.servers  = std::vector<DnsServer>{srv};
@@ -376,6 +378,38 @@ TEST_CASE("generate-resolver-config omits dns probe server directive when disabl
 
     CHECK(output.find("rebind-domain-ok=keen.pbr\n") == std::string::npos);
     CHECK(output.find("server=/check.keen.pbr/") == std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config includes rebind-domain-ok directives for dns rules with allow_domain_rebinding enabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
+    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com", "*.lan.test"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("rebind-domain-ok=/example.com/lan.test/\n") != std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config omits rebind-domain-ok directives for dns rules when allow_domain_rebinding is disabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg   = make_dns_cfg(list_name, "dns1", "8.8.8.8", false);
+    auto lists     = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("rebind-domain-ok=/example.com/\n") == std::string::npos);
 }
 
 TEST_CASE("hash changes when domain list content changes") {

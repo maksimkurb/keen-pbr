@@ -182,6 +182,7 @@ export function DnsRulesPage() {
               headers={[
                 t("pages.dnsRules.headers.lists"),
                 t("pages.dnsRules.headers.serverTag"),
+                t("pages.dnsRules.headers.allowDomainRebinding"),
                 t("pages.dnsRules.headers.actions"),
               ]}
               rows={rules.map((rule, index) => [
@@ -195,6 +196,14 @@ export function DnsRulesPage() {
                 <span className="font-medium" key={`server-${index}`}>
                   {rule.server}
                 </span>,
+                <Badge
+                  key={`allow-domain-rebinding-${index}`}
+                  variant={rule.allow_domain_rebinding ? "default" : "outline"}
+                >
+                  {rule.allow_domain_rebinding
+                    ? t("pages.dnsRules.rebinding.enabled")
+                    : t("pages.dnsRules.rebinding.disabled")}
+                </Badge>,
                 <ActionButtons
                   actions={[
                     {
