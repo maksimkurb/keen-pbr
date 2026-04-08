@@ -10,7 +10,12 @@ This guide walks you through a minimal working configuration that routes traffic
 If you installed the full `keen-pbr` package, you can complete the initial setup from the Web UI:
 
 1. Open `http://<router-ip>:12121/` in your browser, or http://my.keenetic.net:12121 for Keenetic / NetCraze routers.
-2. Go to **Outbounds** and create your outbound connections. You can add your interfaces here, ip routing tables or 
+2. Go to **Outbounds** and create your outbound connections. See [Outbounds]({{< ref "/docs/configuration/outbounds.md" >}}) for more info. You can configure the following types of outbounds:
+    - **interface**: routes all matched traffic via specified interface (and gateway IP if supplied)
+    - **urltest**: periodically checks interface latency and chooses the best interface
+    - **table**: routes all matched traffic via existing iproute table (e.g. table "main", which has ID `254`)
+    - **blackhole**: blocks all matched traffic
+    - **ignore**: ignores all matched traffic, making it follow default ip rules and routes
 3. Go to **DNS Servers** and create at least one DNS server.
 4. Go to **Lists** and create your lists.
 5. Go to **Routing rules** and create your routing rules.

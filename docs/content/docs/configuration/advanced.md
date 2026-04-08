@@ -49,7 +49,7 @@ Controls the embedded HTTP API server.
 }
 ```
 
-The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [API](../api/) for endpoint documentation.
+The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [Advanced](../advanced/) for endpoint documentation and runtime controls.
 
 ## fwmark
 

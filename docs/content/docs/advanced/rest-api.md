@@ -1,9 +1,27 @@
 ---
-title: Endpoints
+title: REST API
 weight: 1
 ---
 
-All endpoints are served at the configured `api.listen` address (default `0.0.0.0:12121`).
+This page documents the built-in HTTP REST API.
+
+The REST API is available when:
+- Full package version is installed (`keen-pbr`, not `keen-pbr-headless`)
+- The config has `api.enabled: true`
+- The `--no-api` flag was not passed at startup
+
+## Configuration
+
+```json
+{
+  "api": {
+    "enabled": true,
+    "listen": "0.0.0.0:12121"
+  }
+}
+```
+
+By default, the API listens on `0.0.0.0:12121`. All endpoints are served at the configured `api.listen` address.
 
 ---
 
@@ -61,7 +79,7 @@ curl -X POST http://127.0.0.1:8080/api/lists/refresh
 }
 ```
 
-- `name` *(optional string)*: List name to refresh. When omitted, all URL-backed lists from the active config are refreshed.
+- `name` *(optional string)*: List name to refresh.
 
 ### Response (200)
 
@@ -100,7 +118,7 @@ Error response body:
 
 ## GET /api/config
 
-Returns the current configuration together with a flag indicating whether it is a staged in-memory draft.
+Returns the current configuration and a flag indicating whether a staged in-memory draft exists.
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:12121/api/config
@@ -135,7 +153,7 @@ curl http://127.0.0.1:12121/api/config
 
 ## POST /api/config
 
-Validates the provided JSON body as a config file and stages it in daemon memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
+Validates the provided JSON body as a config file and stages it in memory. The config is **not** written to disk and the routing runtime is **not** changed. Use `POST /api/config/save` to persist and apply the staged draft.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config \
@@ -167,7 +185,7 @@ curl -X POST http://127.0.0.1:12121/api/config \
 
 ## POST /api/config/save
 
-Persists the currently staged in-memory config to disk, then applies it to the routing runtime.
+Persists the staged config to disk, then applies it to the routing runtime.
 
 ```bash {filename="bash"}
 curl -X POST http://127.0.0.1:12121/api/config/save
