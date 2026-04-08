@@ -6,6 +6,7 @@ add_executable(keen-pbr-tests
   test_cron.cpp
   test_addr_spec.cpp
   test_dnsmasq_gen.cpp
+  test_dns_txt_client.cpp
   test_dns_server.cpp
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
@@ -31,6 +32,7 @@ add_executable(keen-pbr-tests
   ../src/log/logger.cpp
   ../src/log/trace.cpp
   ../src/dns/dnsmasq_gen.cpp
+  ../src/dns/dns_txt_client.cpp
   ../src/dns/dns_router.cpp
   ../src/dns/dns_server.cpp
   ../src/dns/keenetic_dns.cpp
@@ -80,6 +82,10 @@ target_link_libraries(keen-pbr-tests PRIVATE
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
 )
+
+if(LIBRESOLV)
+  target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})
+endif()
 
 if(LIBATOMIC)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBATOMIC})

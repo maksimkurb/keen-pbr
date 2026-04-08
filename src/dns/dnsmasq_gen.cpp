@@ -1,6 +1,7 @@
 #include "dnsmasq_gen.hpp"
 #include "../crypto/md5.hpp"
 
+#include <chrono>
 #include <set>
 #include <streambuf>
 
@@ -148,10 +149,13 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
     // Collect all list names referenced in DNS rules for server directives.
     // Map: list_name -> dns server tag
     std::map<std::string, std::string> dns_list_servers;
+    std::map<std::string, bool> dns_list_allow_rebind;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
         for (const auto& list_name : rule.list) {
             if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
                 dns_list_servers[list_name] = rule.server;
+                dns_list_allow_rebind[list_name] =
+                    rule.allow_domain_rebinding.value_or(false);
             }
         }
     }
@@ -202,6 +206,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
                 dns_port = server->port;
             }
         }
+        const bool allow_domain_rebinding =
+            dns_list_allow_rebind.find(list_name) != dns_list_allow_rebind.end()
+            && dns_list_allow_rebind[list_name];
 
         // Output domains in batches of ~BATCH_SIZE per directive line
         auto it = domains.begin();
@@ -225,6 +232,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
                         << ",6#inet#KeenPbrTable#" << set6 << "\n";
                 }
             }
+            if (allow_domain_rebinding) {
+                out << "rebind-domain-ok=" << domain_path << "/\n";
+            }
             if (!dns_ip.empty()) {
                 std::string server_addr = dns_ip;
                 if (dns_port != 53)
@@ -242,7 +252,9 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     std::ostream hashing_out(&tee);
     generate_directives(hashing_out);
     const std::string hash = tee.finalize();
-    out << "txt-record=config-hash.keen.pbr," << hash << "\n";
+    const auto now_ts = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    out << "txt-record=config-hash.keen.pbr," << now_ts << "|" << hash << "\n";
 }
 
 

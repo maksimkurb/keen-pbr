@@ -31,7 +31,6 @@ export function RoutingTestPanel() {
   )
 
   const routingTestMutation = usePostRoutingTestMutation()
-
   const routingDiagnostics =
     routingTestMutation.data?.status === 200
       ? routingTestMutation.data.data
@@ -43,6 +42,10 @@ export function RoutingTestPanel() {
         className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault()
+          if (routingTestMutation.isPending) {
+            return
+          }
+
           const sanitized = sanitizeRoutingTarget(testTarget)
           if (!sanitized) {
             setRoutingInputError(t("overview.routingTest.invalidTarget"))
@@ -64,7 +67,11 @@ export function RoutingTestPanel() {
           <InputGroupInput
             onChange={(event) => setTestTarget(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && testTarget.trim()) {
+              if (
+                event.key === "Enter" &&
+                testTarget.trim() &&
+                !routingTestMutation.isPending
+              ) {
                 event.preventDefault()
                 const form = event.currentTarget.form
                 form?.requestSubmit()

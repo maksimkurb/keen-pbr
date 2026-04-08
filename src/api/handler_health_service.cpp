@@ -17,6 +17,9 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         resp.status = service_health.status;
         resp.resolver_config_hash = service_health.resolver_config_hash;
         resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
+        resp.resolver_config_hash_actual_ts = service_health.resolver_config_hash_actual_ts;
+        resp.apply_started_ts = service_health.apply_started_ts;
+        resp.resolver_config_sync_state = service_health.resolver_config_sync_state;
 
         nlohmann::json response = resp;
         response["config_is_draft"] = service_health.config_is_draft;

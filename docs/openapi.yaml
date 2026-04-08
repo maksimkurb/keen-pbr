@@ -540,6 +540,14 @@ components:
           type: string
           description: DNS server tag to use for matched domains.
           example: "vpn-dns"
+        allow_domain_rebinding:
+          type: boolean
+          default: false
+          description: >
+            Allow DNS responses for matched domains to resolve to internal/private
+            network addresses (for example 10.0.0.0/8, 172.16.0.0/12,
+            192.168.0.0/16, and other local ranges).
+          example: false
 
     DnsTestServer:
       type: object
@@ -995,12 +1003,41 @@ components:
             `dns.system_resolver.address` (optional `:port`, default `:53`),
             normalized to a raw md5 string.
           example: "a3f7c1d9e2b84560abcdef1234567890"
+        resolver_config_hash_actual_ts:
+          type: integer
+          format: int64
+          description: >
+            Resolver TXT metadata timestamp from `config-hash.keen.pbr`, when
+            published as `<ts>|<hash>`. Represents when dnsmasq last reloaded
+            resolver config (Unix seconds).
+          example: 1712345678
+        apply_started_ts:
+          type: integer
+          format: int64
+          description: >
+            Server-authoritative Unix timestamp (seconds) captured when
+            `POST /api/config/save` started applying the staged config.
+          example: 1712345680
+        resolver_config_sync_state:
+          $ref: "#/components/schemas/ResolverConfigSyncState"
         config_is_draft:
           type: boolean
           description: >
             Whether a newer configuration has been staged in memory but not yet
             persisted and applied.
           example: false
+
+    ResolverConfigSyncState:
+      type: string
+      description: >
+        Resolver config synchronization state derived from
+        `resolver_config_hash_actual_ts`, `apply_started_ts`, and hash comparison:
+        - converging: `actual_ts < apply_started_ts` during a short post-apply window (15s)
+        - converged: `actual_ts >= apply_started_ts && hash_equal`
+        - stale: `actual_ts >= apply_started_ts && hash_mismatch`, or when the
+          post-apply converging window has elapsed but timestamp is still behind
+          and hashes do not match
+      enum: [converging, converged, stale]
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds
@@ -1182,6 +1219,13 @@ components:
         message:
           type: string
           example: "Config staged in memory"
+        apply_started_ts:
+          type: integer
+          format: int64
+          description: >
+            Present for `POST /api/config/save`: server-authoritative Unix
+            timestamp (seconds) when apply started.
+          example: 1712345680
 
     ErrorResponse:
       type: object

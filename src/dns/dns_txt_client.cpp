@@ -37,6 +37,21 @@ std::string trim_copy(const std::string& s) {
     return s.substr(begin, end - begin);
 }
 
+std::string strip_balanced_quotes(std::string value) {
+    value = trim_copy(value);
+    while (value.size() >= 2) {
+        const char first = value.front();
+        const char last = value.back();
+        const bool wrapped_by_double = (first == '"' && last == '"');
+        const bool wrapped_by_single = (first == '\'' && last == '\'');
+        if (!wrapped_by_double && !wrapped_by_single) {
+            break;
+        }
+        value = trim_copy(value.substr(1, value.size() - 2));
+    }
+    return value;
+}
+
 std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
                                                   int response_len,
                                                   std::string* error_out) {
@@ -300,6 +315,34 @@ std::string normalize_dns_txt_md5(const std::string& txt_payload) {
     }
 
     return compact;
+}
+
+ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt_payload) {
+    ResolverConfigHashTxtValue value;
+    const std::string normalized = strip_balanced_quotes(txt_payload);
+
+    const size_t delimiter = normalized.find('|');
+    if (delimiter == std::string::npos) {
+        value.hash = normalize_dns_txt_md5(normalized);
+        return value;
+    }
+
+    const std::string ts_part = trim_copy(normalized.substr(0, delimiter));
+    const std::string hash_part = trim_copy(normalized.substr(delimiter + 1));
+    value.hash = normalize_dns_txt_md5(hash_part);
+
+    if (!ts_part.empty() &&
+        std::all_of(ts_part.begin(), ts_part.end(), [](unsigned char c) {
+            return std::isdigit(c) != 0;
+        })) {
+        try {
+            value.ts = std::stoll(ts_part);
+        } catch (...) {
+            value.ts = std::nullopt;
+        }
+    }
+
+    return value;
 }
 
 } // namespace keen_pbr3

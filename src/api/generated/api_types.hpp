@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesETtoSz data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesSuujvA data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -128,6 +128,7 @@ namespace api {
     };
 
     struct DnsRuleElement {
+        std::optional<bool> allow_domain_rebinding;
         std::vector<std::string> list;
         std::string server;
     };
@@ -246,6 +247,7 @@ namespace api {
     enum class ConfigUpdateResponseStatus : int { OK };
 
     struct ConfigUpdateResponse {
+        std::optional<int64_t> apply_started_ts;
         std::string message;
         ConfigUpdateResponseStatus status;
     };
@@ -275,12 +277,17 @@ namespace api {
         CheckStatus status;
     };
 
+    enum class ResolverConfigSyncState : int { CONVERGED, CONVERGING, STALE };
+
     enum class HealthResponseStatus : int { RUNNING, STOPPED };
 
     struct HealthResponse {
+        std::optional<int64_t> apply_started_ts;
         bool config_is_draft;
         std::optional<std::string> resolver_config_hash;
         std::optional<std::string> resolver_config_hash_actual;
+        std::optional<int64_t> resolver_config_hash_actual_ts;
+        std::optional<ResolverConfigSyncState> resolver_config_sync_state;
         HealthResponseStatus status;
         std::string version;
     };
@@ -415,7 +422,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesETtoSz {
+    struct KeenPbrTypesSuujvA {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -444,6 +451,7 @@ namespace api {
         std::optional<OutboundGroupElement> outbound_group;
         std::optional<PolicyRuleCheck> policy_rule_check;
         std::optional<ReloadResponse> reload_response;
+        std::optional<ResolverConfigSyncState> resolver_config_sync_state;
         std::optional<Retry> retry_config;
         std::optional<Route> route_config;
         std::optional<RouteRuleElement> route_rule;
@@ -597,8 +605,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesETtoSz & x);
-    void to_json(json & j, const KeenPbrTypesETtoSz & x);
+    void from_json(const json & j, KeenPbrTypesSuujvA & x);
+    void to_json(json & j, const KeenPbrTypesSuujvA & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -614,6 +622,9 @@ namespace api {
 
     void from_json(const json & j, ConfigUpdateResponseStatus & x);
     void to_json(json & j, const ConfigUpdateResponseStatus & x);
+
+    void from_json(const json & j, ResolverConfigSyncState & x);
+    void to_json(json & j, const ResolverConfigSyncState & x);
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
@@ -709,12 +720,14 @@ namespace api {
     }
 
     inline void from_json(const json & j, DnsRuleElement& x) {
+        x.allow_domain_rebinding = get_stack_optional<bool>(j, "allow_domain_rebinding");
         x.list = j.at("list").get<std::vector<std::string>>();
         x.server = j.at("server").get<std::string>();
     }
 
     inline void to_json(json & j, const DnsRuleElement & x) {
         j = json::object();
+        j["allow_domain_rebinding"] = x.allow_domain_rebinding;
         j["list"] = x.list;
         j["server"] = x.server;
     }
@@ -945,12 +958,14 @@ namespace api {
     }
 
     inline void from_json(const json & j, ConfigUpdateResponse& x) {
+        x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
         x.message = j.at("message").get<std::string>();
         x.status = j.at("status").get<ConfigUpdateResponseStatus>();
     }
 
     inline void to_json(json & j, const ConfigUpdateResponse & x) {
         j = json::object();
+        j["apply_started_ts"] = x.apply_started_ts;
         j["message"] = x.message;
         j["status"] = x.status;
     }
@@ -1010,18 +1025,24 @@ namespace api {
     }
 
     inline void from_json(const json & j, HealthResponse& x) {
+        x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
         x.config_is_draft = j.at("config_is_draft").get<bool>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
         x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
+        x.resolver_config_hash_actual_ts = get_stack_optional<int64_t>(j, "resolver_config_hash_actual_ts");
+        x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
         x.status = j.at("status").get<HealthResponseStatus>();
         x.version = j.at("version").get<std::string>();
     }
 
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
+        j["apply_started_ts"] = x.apply_started_ts;
         j["config_is_draft"] = x.config_is_draft;
         j["resolver_config_hash"] = x.resolver_config_hash;
         j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
+        j["resolver_config_hash_actual_ts"] = x.resolver_config_hash_actual_ts;
+        j["resolver_config_sync_state"] = x.resolver_config_sync_state;
         j["status"] = x.status;
         j["version"] = x.version;
     }
@@ -1282,7 +1303,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesETtoSz& x) {
+    inline void from_json(const json & j, KeenPbrTypesSuujvA& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1311,6 +1332,7 @@ namespace api {
         x.outbound_group = get_stack_optional<OutboundGroupElement>(j, "OutboundGroup");
         x.policy_rule_check = get_stack_optional<PolicyRuleCheck>(j, "PolicyRuleCheck");
         x.reload_response = get_stack_optional<ReloadResponse>(j, "ReloadResponse");
+        x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "ResolverConfigSyncState");
         x.retry_config = get_stack_optional<Retry>(j, "RetryConfig");
         x.route_config = get_stack_optional<Route>(j, "RouteConfig");
         x.route_rule = get_stack_optional<RouteRuleElement>(j, "RouteRule");
@@ -1331,7 +1353,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesETtoSz & x) {
+    inline void to_json(json & j, const KeenPbrTypesSuujvA & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1361,6 +1383,7 @@ namespace api {
         j["OutboundGroup"] = x.outbound_group;
         j["PolicyRuleCheck"] = x.policy_rule_check;
         j["ReloadResponse"] = x.reload_response;
+        j["ResolverConfigSyncState"] = x.resolver_config_sync_state;
         j["RetryConfig"] = x.retry_config;
         j["RouteConfig"] = x.route_config;
         j["RouteRule"] = x.route_rule;
@@ -1454,6 +1477,22 @@ namespace api {
         switch (x) {
             case ConfigUpdateResponseStatus::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ConfigUpdateResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, ResolverConfigSyncState & x) {
+        if (j == "converged") x = ResolverConfigSyncState::CONVERGED;
+        else if (j == "converging") x = ResolverConfigSyncState::CONVERGING;
+        else if (j == "stale") x = ResolverConfigSyncState::STALE;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const ResolverConfigSyncState & x) {
+        switch (x) {
+            case ResolverConfigSyncState::CONVERGED: j = "converged"; break;
+            case ResolverConfigSyncState::CONVERGING: j = "converging"; break;
+            case ResolverConfigSyncState::STALE: j = "stale"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverConfigSyncState\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

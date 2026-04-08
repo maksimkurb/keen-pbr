@@ -89,6 +89,11 @@ export const enTranslation = {
         },
         compact: {
           resolverStale: "dnsmasq config is stale.",
+          waitingForReload: "Waiting for dnsmasq reload",
+          waitingForReloadDescription:
+            "Config apply succeeded. Waiting for resolver TXT record update.",
+          staleAfterTimeout:
+            "dnsmasq last reloaded at {{actualTs}}. Restart routing runtime if this stays stale.",
         },
         full: {
           unsavedTitle: "Configuration is unsaved",
@@ -107,6 +112,7 @@ export const enTranslation = {
           version: "Version",
           status: "Routing status",
           dnsmasqGood: "dnsmasq good",
+          dnsmasqWaiting: "dnsmasq reloading",
           dnsmasqStale: "dnsmasq restart required",
           actions: {
             start: "Start",
@@ -627,7 +633,12 @@ export const enTranslation = {
           headers: {
             lists: "Lists",
             serverTag: "DNS server",
+            allowDomainRebinding: "Domain rebinding",
             actions: "Actions",
+          },
+          rebinding: {
+            enabled: "Allowed",
+            disabled: "Blocked",
           },
         },
         dnsRuleUpsert: {
@@ -658,6 +669,9 @@ export const enTranslation = {
             dnsServers: "DNS servers",
             noServers: "No DNS servers defined on the DNS Servers page.",
             listNames: "List names",
+            allowDomainRebinding: "Allow domain rebinding for these domains",
+            allowDomainRebindingHint:
+              "Enable this only when you know this domain list points to internal services. Responses for matched domains will be allowed to contain internal/private IPs (for example 192.168.0.0/16, 10.0.0.0/8, and other local network ranges).",
             listPlaceholderDescription:
               "Choose which lists this rule applies to. Matching domains will use this DNS server.",
             noListsSelected: "No lists selected",

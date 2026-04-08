@@ -10,4 +10,7 @@ import type { ConfigUpdateResponseStatus } from './configUpdateResponseStatus';
 export interface ConfigUpdateResponse {
   status: ConfigUpdateResponseStatus;
   message: string;
+  /** Present for `POST /api/config/save`: server-authoritative Unix timestamp (seconds) when apply started.
+   */
+  apply_started_ts?: number;
 }

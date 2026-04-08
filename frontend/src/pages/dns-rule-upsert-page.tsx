@@ -21,6 +21,7 @@ import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
@@ -107,6 +108,7 @@ export function DnsRuleUpsertPage({
     rule: {
       server: serverTags[0] ?? "",
       lists: [],
+      allowDomainRebinding: false,
     },
   }
 
@@ -180,6 +182,7 @@ export function DnsRuleUpsertPage({
       rule: {
         server: serverTags[0] ?? "",
         lists: [],
+        allowDomainRebinding: false,
       },
     })
     clearFormServerErrors(form)
@@ -220,14 +223,6 @@ export function DnsRuleUpsertPage({
       {saveSuccessMessage ? (
         <Alert className="mb-4 border-success/30 bg-success/5 text-success">
           <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {mutationErrorMessage ? (
-        <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -308,7 +303,44 @@ export function DnsRuleUpsertPage({
               </Field>
             )}
           </form.Field>
+
+          <form.Field name="rule.allowDomainRebinding">
+            {(field) => (
+              <Field>
+                <FieldContent>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={field.state.value}
+                      id="allow-domain-rebinding"
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked === true)
+                      }
+                    />
+                    <FieldLabel
+                      className="cursor-pointer flex-col items-start gap-0"
+                      htmlFor="allow-domain-rebinding"
+                    >
+                      {t("pages.dnsRuleUpsert.fields.allowDomainRebinding")}
+                    </FieldLabel>
+                  </div>
+                  <FieldHint
+                    description={t(
+                      "pages.dnsRuleUpsert.fields.allowDomainRebindingHint"
+                    )}
+                  />
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
         </FieldGroup>
+
+        {mutationErrorMessage ? (
+          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertDescription className="whitespace-pre-wrap">
+              {mutationErrorMessage}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="flex justify-end gap-3">
           <Button
@@ -319,15 +351,29 @@ export function DnsRuleUpsertPage({
           >
             {t("common.cancel")}
           </Button>
-          <Button
-            disabled={postConfigMutation.isPending || !loadedConfig}
-            size="xl"
-            type="submit"
+          <form.Subscribe
+            selector={(state) => ({
+              canSubmit: state.canSubmit,
+              isPristine: state.isPristine,
+            })}
           >
-            {mode === "create"
-              ? t("pages.dnsRuleUpsert.actions.create")
-              : t("pages.dnsRuleUpsert.actions.save")}
-          </Button>
+            {({ canSubmit, isPristine }) => (
+              <Button
+                disabled={
+                  postConfigMutation.isPending ||
+                  !loadedConfig ||
+                  isPristine ||
+                  !canSubmit
+                }
+                size="xl"
+                type="submit"
+              >
+                {mode === "create"
+                  ? t("pages.dnsRuleUpsert.actions.create")
+                  : t("pages.dnsRuleUpsert.actions.save")}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
       </form>
     </UpsertPage>
@@ -341,6 +387,10 @@ function resolveDnsRuleFieldPath(path: string) {
 
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
     return "rule.lists"
+  }
+
+  if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.allow_domain_rebinding$/.test(path)) {
+    return "rule.allowDomainRebinding"
   }
 
   return undefined

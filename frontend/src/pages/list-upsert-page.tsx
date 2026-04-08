@@ -162,16 +162,8 @@ export function ListUpsertPage({
         </Alert>
       ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <ListForm
-        key={getListFormKey(mode, draft ?? sampleNewList)}
+        apiErrorMessage={mutationErrorMessage}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
         isConfigLoaded={Boolean(loadedConfig)}
@@ -205,6 +197,7 @@ export function ListUpsertPage({
 function ListForm({
   mode,
   draft,
+  apiErrorMessage,
   existingListNames,
   isConfigLoaded,
   isPending,
@@ -215,6 +208,7 @@ function ListForm({
 }: {
   mode: "create" | "edit"
   draft: ListDraft
+  apiErrorMessage: string | null
   existingListNames: string[]
   isConfigLoaded: boolean
   isPending: boolean
@@ -569,6 +563,14 @@ function ListForm({
         </Card>
       ) : null}
 
+      {apiErrorMessage ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription className="whitespace-pre-wrap">
+            {apiErrorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
@@ -576,11 +578,12 @@ function ListForm({
         <form.Subscribe
           selector={(state) => ({
             canSubmit: state.canSubmit,
+            isPristine: state.isPristine,
           })}
         >
-          {({ canSubmit }) => (
+          {({ canSubmit, isPristine }) => (
             <Button
-              disabled={!isConfigLoaded || isPending || !canSubmit}
+              disabled={!isConfigLoaded || isPending || isPristine || !canSubmit}
               size="xl"
               type="submit"
             >
@@ -613,18 +616,6 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
   }
 
   return populatedGroups.length > 0 ? populatedGroups : [DEFAULT_SOURCE_GROUP]
-}
-
-function getListFormKey(mode: "create" | "edit", draft: ListDraft) {
-  return [
-    mode,
-    draft.name,
-    draft.ttlMs,
-    draft.domains,
-    draft.ipCidrs,
-    draft.url,
-    draft.file,
-  ].join("::")
 }
 
 function isSourceGroupPopulated(group: ListSourceGroup, draft: ListDraft) {
@@ -755,10 +746,6 @@ function resolveListFieldPath(path: string, name: string) {
     return "name"
   }
 
-  if (normalizedName && path === `lists.${normalizedName}`) {
-    return "name"
-  }
-
   if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
     return "ttlMs"
   }
@@ -777,10 +764,6 @@ function resolveListFieldPath(path: string, name: string) {
 
   if (normalizedName && path === `lists.${normalizedName}.file`) {
     return "file"
-  }
-
-  if (path.startsWith("lists.") && !path.includes(".", "lists.".length)) {
-    return "name"
   }
 
   return undefined

@@ -8,6 +8,8 @@
 
 #include <map>
 #include <string>
+#include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -19,6 +21,7 @@ struct RuntimeStateSnapshot {
     std::map<std::string, UrltestState> urltest_states;
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
+    std::optional<std::int64_t> resolver_config_hash_actual_ts;
     bool routing_runtime_active{true};
 };
 

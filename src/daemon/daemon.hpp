@@ -181,6 +181,10 @@ private:
     std::string resolver_config_hash_;
     // Hash currently published by the live system resolver TXT record.
     std::string resolver_config_hash_actual_;
+    // Resolver TXT timestamp currently published by the live system resolver record.
+    std::optional<std::int64_t> resolver_config_hash_actual_ts_;
+    // Timestamp captured when /api/config/save apply starts (server authoritative).
+    std::atomic<std::int64_t> apply_started_ts_{0};
 
     // Recompute resolver_config_hash_ from current config/cache state
     void update_resolver_config_hash();
