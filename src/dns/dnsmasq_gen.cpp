@@ -149,10 +149,13 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
     // Collect all list names referenced in DNS rules for server directives.
     // Map: list_name -> dns server tag
     std::map<std::string, std::string> dns_list_servers;
+    std::map<std::string, bool> dns_list_allow_rebind;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
         for (const auto& list_name : rule.list) {
             if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
                 dns_list_servers[list_name] = rule.server;
+                dns_list_allow_rebind[list_name] =
+                    rule.allow_domain_rebinding.value_or(false);
             }
         }
     }
@@ -203,6 +206,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
                 dns_port = server->port;
             }
         }
+        const bool allow_domain_rebinding =
+            dns_list_allow_rebind.find(list_name) != dns_list_allow_rebind.end()
+            && dns_list_allow_rebind[list_name];
 
         // Output domains in batches of ~BATCH_SIZE per directive line
         auto it = domains.begin();
@@ -225,6 +231,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
                         << "/4#inet#KeenPbrTable#" << set4
                         << ",6#inet#KeenPbrTable#" << set6 << "\n";
                 }
+            }
+            if (allow_domain_rebinding) {
+                out << "rebind-domain-ok=" << domain_path << "/\n";
             }
             if (!dns_ip.empty()) {
                 std::string server_addr = dns_ip;

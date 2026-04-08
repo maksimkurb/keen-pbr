@@ -11,4 +11,7 @@ export interface DnsRule {
   list: string[];
   /** DNS server tag to use for matched domains. */
   server: string;
+  /** Allow DNS responses for matched domains to resolve to internal/private network addresses (for example 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, and other local ranges).
+   */
+  allow_domain_rebinding?: boolean;
 }

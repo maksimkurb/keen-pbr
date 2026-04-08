@@ -650,7 +650,12 @@ export const ruTranslation = {
           headers: {
             lists: "Списки",
             serverTag: "DNS-сервер",
+            allowDomainRebinding: "Разрешение rebind",
             actions: "Действия",
+          },
+          rebinding: {
+            enabled: "Разрешён",
+            disabled: "Запрещён",
           },
         },
         dnsRuleUpsert: {
@@ -684,6 +689,9 @@ export const ruTranslation = {
             dnsServers: "DNS-серверы",
             noServers: "В config.dns.servers не определены DNS-серверы.",
             listNames: "Имена списков",
+            allowDomainRebinding: "Разрешить DNS rebind для этих доменов",
+            allowDomainRebindingHint:
+              "Включайте только если вы точно знаете, что этот список доменов указывает на внутренние сервисы. Тогда ответы для подходящих доменов могут содержать внутренние/приватные IP-адреса (например, 192.168.0.0/16, 10.0.0.0/8 и другие диапазоны локальной сети).",
             listPlaceholderDescription:
               "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
             noListsSelected: "Списки не выбраны",

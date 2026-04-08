@@ -4,6 +4,7 @@ import i18n from "@/i18n"
 export type DnsRuleDraft = {
   server: string
   lists: string[]
+  allowDomainRebinding: boolean
 }
 
 export type RuleErrors = {
@@ -15,10 +16,12 @@ export type RuleErrors = {
 export function getRuleDraft(rule?: {
   server?: string
   list?: string[]
+  allow_domain_rebinding?: boolean
 }): DnsRuleDraft {
   return {
     server: rule?.server ?? "",
     lists: rule?.list ?? [],
+    allowDomainRebinding: rule?.allow_domain_rebinding ?? false,
   }
 }
 
@@ -35,6 +38,7 @@ export function buildUpdatedConfigWithRules(
       rules: rules.map((rule) => ({
         server: rule.server,
         list: rule.lists,
+        allow_domain_rebinding: rule.allowDomainRebinding,
       })),
     },
   }

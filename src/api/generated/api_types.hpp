@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesRkDl3E data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesSuujvA data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -128,6 +128,7 @@ namespace api {
     };
 
     struct DnsRuleElement {
+        std::optional<bool> allow_domain_rebinding;
         std::vector<std::string> list;
         std::string server;
     };
@@ -421,7 +422,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesRkDl3E {
+    struct KeenPbrTypesSuujvA {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -604,8 +605,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesRkDl3E & x);
-    void to_json(json & j, const KeenPbrTypesRkDl3E & x);
+    void from_json(const json & j, KeenPbrTypesSuujvA & x);
+    void to_json(json & j, const KeenPbrTypesSuujvA & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -719,12 +720,14 @@ namespace api {
     }
 
     inline void from_json(const json & j, DnsRuleElement& x) {
+        x.allow_domain_rebinding = get_stack_optional<bool>(j, "allow_domain_rebinding");
         x.list = j.at("list").get<std::vector<std::string>>();
         x.server = j.at("server").get<std::string>();
     }
 
     inline void to_json(json & j, const DnsRuleElement & x) {
         j = json::object();
+        j["allow_domain_rebinding"] = x.allow_domain_rebinding;
         j["list"] = x.list;
         j["server"] = x.server;
     }
@@ -1300,7 +1303,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesRkDl3E& x) {
+    inline void from_json(const json & j, KeenPbrTypesSuujvA& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1350,7 +1353,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesRkDl3E & x) {
+    inline void to_json(json & j, const KeenPbrTypesSuujvA & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
