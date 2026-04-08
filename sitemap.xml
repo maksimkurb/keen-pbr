@@ -2,19 +2,25 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://keen-pbr.fyi/docs/api/endpoints/</loc>
-  </url><url>
     <loc>https://keen-pbr.fyi/docs/troubleshooting/faq/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/installation/</loc>
   </url><url>
+    <loc>https://keen-pbr.fyi/docs/getting-started/installation/keenetic/</loc>
+  </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/outbounds/</loc>
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/advanced/rest-api/</loc>
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/advanced/cli/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/concepts/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/lists/</loc>
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/getting-started/installation/openwrt/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/quick-start/</loc>
   </url><url>
@@ -24,9 +30,13 @@
   </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/</loc>
   </url><url>
+    <loc>https://keen-pbr.fyi/docs/getting-started/installation/debian/</loc>
+  </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/route-rules/</loc>
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/api/</loc>
+    <loc>https://keen-pbr.fyi/docs/advanced/signals/</loc>
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/advanced/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/dns/</loc>
   </url><url>
