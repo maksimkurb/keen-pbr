@@ -1,12 +1,12 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>keen-pbr – Tags</title>
-    <link>https://example.org/tags/</link>
+    <link>https://keen-pbr.fyi/tags/</link>
     <description>Recent content in Tags on keen-pbr</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     
-	  <atom:link href="https://example.org/tags/index.xml" rel="self" type="application/rss+xml" />
+	  <atom:link href="https://keen-pbr.fyi/tags/index.xml" rel="self" type="application/rss+xml" />
     
     
       
