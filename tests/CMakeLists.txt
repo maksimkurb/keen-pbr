@@ -83,6 +83,10 @@ target_link_libraries(keen-pbr-tests PRIVATE
   fmt::fmt-header-only
 )
 
+if(LIBRESOLV)
+  target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})
+endif()
+
 if(LIBATOMIC)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBATOMIC})
 endif()
