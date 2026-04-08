@@ -89,6 +89,11 @@ export const enTranslation = {
         },
         compact: {
           resolverStale: "dnsmasq config is stale.",
+          waitingForReload: "Waiting for dnsmasq reload",
+          waitingForReloadDescription:
+            "Config apply succeeded. Waiting for resolver TXT record update.",
+          staleAfterTimeout:
+            "dnsmasq last reloaded at {{actualTs}}. Restart routing runtime if this stays stale.",
         },
         full: {
           unsavedTitle: "Configuration is unsaved",
@@ -107,6 +112,7 @@ export const enTranslation = {
           version: "Version",
           status: "Routing status",
           dnsmasqGood: "dnsmasq good",
+          dnsmasqWaiting: "dnsmasq reloading",
           dnsmasqStale: "dnsmasq restart required",
           actions: {
             start: "Start",

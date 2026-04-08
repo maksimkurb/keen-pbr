@@ -98,6 +98,17 @@ export function OverviewPage() {
     Boolean(serviceHealth?.resolver_config_hash_actual) &&
     serviceHealth?.resolver_config_hash !==
       serviceHealth?.resolver_config_hash_actual
+  const resolverSyncState = serviceHealth?.resolver_config_sync_state
+  const dnsmasqBadgeLabel =
+    resolverSyncState === "converging"
+      ? t("overview.runtime.dnsmasqWaiting")
+      : resolverSyncState === "stale" || hasResolverHashMismatch
+        ? t("overview.runtime.dnsmasqStale")
+        : t("overview.runtime.dnsmasqGood")
+  const dnsmasqBadgeTone =
+    resolverSyncState === "converging" || resolverSyncState === "stale" || hasResolverHashMismatch
+      ? "warning"
+      : "healthy"
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
   const configIsDraft =
@@ -216,15 +227,9 @@ export function OverviewPage() {
                     >
                       {serviceHealth.status}
                     </StatusBadge>
-                    {hasResolverHashMismatch ? (
-                      <StatusBadge tone="warning">
-                        {t("overview.runtime.dnsmasqStale")}
-                      </StatusBadge>
-                    ) : (
-                      <StatusBadge tone="healthy">
-                        {t("overview.runtime.dnsmasqGood")}
-                      </StatusBadge>
-                    )}
+                    <StatusBadge tone={dnsmasqBadgeTone}>
+                      {dnsmasqBadgeLabel}
+                    </StatusBadge>
                   </div>
                 </div>
               </div>

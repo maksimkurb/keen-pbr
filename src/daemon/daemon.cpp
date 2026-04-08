@@ -74,6 +74,11 @@ std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at
         std::chrono::steady_clock::now() - started_at).count();
 }
 
+std::int64_t unix_timestamp_now_seconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 #ifdef WITH_API
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {
@@ -85,6 +90,28 @@ const char* config_operation_state_name(ConfigOperationState state) {
         return "reloading";
     }
     return "unknown";
+}
+
+std::optional<api::ResolverConfigSyncState> classify_resolver_config_sync_state(
+    const std::optional<std::int64_t>& actual_ts,
+    const std::optional<std::int64_t>& apply_started_ts,
+    std::int64_t now_ts,
+    bool hash_equal) {
+    if (!actual_ts.has_value() || !apply_started_ts.has_value()) {
+        return std::nullopt;
+    }
+    constexpr std::int64_t kConvergingWindowSeconds = 15;
+    if (*actual_ts < *apply_started_ts) {
+        if ((now_ts - *apply_started_ts) <= kConvergingWindowSeconds) {
+            return api::ResolverConfigSyncState::CONVERGING;
+        }
+        return hash_equal
+            ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
+            : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
+    }
+    return hash_equal
+        ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
+        : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
 }
 #endif
 
@@ -1186,6 +1213,7 @@ void Daemon::update_resolver_config_hash() {
 
 void Daemon::update_resolver_config_hash_actual() {
     resolver_config_hash_actual_.clear();
+    resolver_config_hash_actual_ts_.reset();
 
     const auto dns_cfg_opt = config_.dns;
     if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
@@ -1211,7 +1239,9 @@ void Daemon::update_resolver_config_hash_actual() {
             return;
         }
 
-        resolver_config_hash_actual_ = normalize_dns_txt_md5(*txt);
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*txt);
+        resolver_config_hash_actual_ = parsed.hash;
+        resolver_config_hash_actual_ts_ = parsed.ts;
         Logger::instance().info("Resolver config hash (actual): {}",
                                 resolver_config_hash_actual_);
     } catch (const std::exception& e) {
@@ -1228,6 +1258,7 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     snapshot.policy_rule_specs = policy_rules_.get_rules();
     snapshot.resolver_config_hash = resolver_config_hash_;
     snapshot.resolver_config_hash_actual = resolver_config_hash_actual_;
+    snapshot.resolver_config_hash_actual_ts = resolver_config_hash_actual_ts_;
     snapshot.routing_runtime_active = routing_runtime_active_;
 
     if (urltest_manager_) {
@@ -1267,6 +1298,7 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
     const auto dns_cfg_opt = config_.dns;
     if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
         resolver_config_hash_actual_.clear();
+        resolver_config_hash_actual_ts_.reset();
         publish_runtime_state();
         return;
     }
@@ -1274,6 +1306,7 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
     const std::string resolver_addr = dns_cfg_opt->system_resolver->address;
     if (resolver_addr.empty()) {
         resolver_config_hash_actual_.clear();
+        resolver_config_hash_actual_ts_.reset();
         publish_runtime_state();
         return;
     }
@@ -1293,7 +1326,8 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
         [this, resolver_addr, generation, trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
             std::string error;
-            std::optional<std::string> normalized;
+            ResolverConfigHashTxtValue parsed_value;
+            bool has_parsed_value = false;
 
             Logger::instance().trace("resolver_hash_refresh_start",
                                      "resolver={} generation={}",
@@ -1306,7 +1340,8 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                     std::chrono::milliseconds(2000),
                     &error);
                 if (txt.has_value()) {
-                    normalized = normalize_dns_txt_md5(*txt);
+                    parsed_value = parse_resolver_config_hash_txt(*txt);
+                    has_parsed_value = true;
                 }
             } catch (const std::exception& e) {
                 error = e.what();
@@ -1316,7 +1351,8 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                 [this,
                  resolver_addr,
                  generation,
-                 normalized = std::move(normalized),
+                 parsed_value = std::move(parsed_value),
+                 has_parsed_value,
                  error = std::move(error),
                  trace_id]() mutable {
                     ScopedTraceContext trace_scope_inner(trace_id);
@@ -1331,8 +1367,10 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                     }
 
                     resolver_config_hash_actual_.clear();
-                    if (normalized.has_value()) {
-                        resolver_config_hash_actual_ = *normalized;
+                    resolver_config_hash_actual_ts_.reset();
+                    if (has_parsed_value) {
+                        resolver_config_hash_actual_ = parsed_value.hash;
+                        resolver_config_hash_actual_ts_ = parsed_value.ts;
                         Logger::instance().info("Resolver config hash (actual): {}",
                                                 resolver_config_hash_actual_);
                     } else if (!error.empty()) {
@@ -1536,6 +1574,17 @@ void Daemon::setup_api() {
                 : api::HealthResponseStatus::STOPPED;
             service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
             service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
+            service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;
+            const std::int64_t apply_started_ts = apply_started_ts_.load(std::memory_order_acquire);
+            if (apply_started_ts > 0) {
+                service_health.apply_started_ts = apply_started_ts;
+            }
+            service_health.resolver_config_sync_state = classify_resolver_config_sync_state(
+                runtime_snapshot.resolver_config_hash_actual_ts,
+                service_health.apply_started_ts,
+                unix_timestamp_now_seconds(),
+                runtime_snapshot.resolver_config_hash ==
+                    runtime_snapshot.resolver_config_hash_actual);
             service_health.config_is_draft = config_store_.config_is_draft();
             return service_health;
         },
@@ -1586,6 +1635,8 @@ void Daemon::setup_api() {
             auto result = std::make_shared<ConfigApplyResult>();
             auto prepared = std::make_shared<PreparedRuntimeInputs>();
             auto rollback_prepared = std::make_shared<PreparedRuntimeInputs>();
+            result->apply_started_ts = unix_timestamp_now_seconds();
+            apply_started_ts_.store(*result->apply_started_ts, std::memory_order_release);
 
             try {
                 *prepared = prepare_runtime_inputs(config, true);

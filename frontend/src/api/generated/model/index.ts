@@ -43,6 +43,7 @@ export * from './outboundType';
 export * from './policyRuleCheck';
 export * from './reloadResponse';
 export * from './reloadResponseStatus';
+export * from './resolverConfigSyncState';
 export * from './retryConfig';
 export * from './routeConfig';
 export * from './routeRule';

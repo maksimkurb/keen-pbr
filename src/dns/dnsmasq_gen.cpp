@@ -1,6 +1,7 @@
 #include "dnsmasq_gen.hpp"
 #include "../crypto/md5.hpp"
 
+#include <chrono>
 #include <set>
 #include <streambuf>
 
@@ -242,7 +243,9 @@ void DnsmasqGenerator::generate(std::ostream& out) {
     std::ostream hashing_out(&tee);
     generate_directives(hashing_out);
     const std::string hash = tee.finalize();
-    out << "txt-record=config-hash.keen.pbr," << hash << "\n";
+    const auto now_ts = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    out << "txt-record=config-hash.keen.pbr," << now_ts << "|" << hash << "\n";
 }
 
 
