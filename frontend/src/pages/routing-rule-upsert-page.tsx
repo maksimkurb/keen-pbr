@@ -193,14 +193,6 @@ export function RoutingRuleUpsertPage({
         </Alert>
       ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <form
         className="space-y-6"
         onSubmit={(event) => {
@@ -426,6 +418,14 @@ export function RoutingRuleUpsertPage({
           </form.Field>
         </FieldGroup>
 
+        {mutationErrorMessage ? (
+          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertDescription className="whitespace-pre-wrap">
+              {mutationErrorMessage}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         <div className="flex justify-end gap-3">
           <Button
             onClick={() => navigate("/routing-rules")}
@@ -438,12 +438,16 @@ export function RoutingRuleUpsertPage({
           <form.Subscribe
             selector={(state) => ({
               canSubmit: state.canSubmit,
+              isPristine: state.isPristine,
             })}
           >
-            {({ canSubmit }) => (
+            {({ canSubmit, isPristine }) => (
               <Button
                 disabled={
-                  postConfigMutation.isPending || !loadedConfig || !canSubmit
+                  postConfigMutation.isPending ||
+                  !loadedConfig ||
+                  isPristine ||
+                  !canSubmit
                 }
                 size="xl"
                 type="submit"

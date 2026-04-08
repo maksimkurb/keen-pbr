@@ -201,14 +201,6 @@ function DnsServerForm({
         void form.handleSubmit()
       }}
     >
-      {apiErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {apiErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <FieldGroup>
         <form.Field
           name="tag"
@@ -300,15 +292,41 @@ function DnsServerForm({
         </form.Field>
       </FieldGroup>
 
+      {apiErrorMessage ? (
+        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+          <AlertDescription className="whitespace-pre-wrap">
+            {apiErrorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
           {t("common.cancel")}
         </Button>
-        <Button size="xl" type="submit">
-          {mode === "create"
-            ? t("pages.dnsServerUpsert.actions.create")
-            : t("pages.dnsServerUpsert.actions.save")}
-        </Button>
+        <form.Subscribe
+          selector={(state) => ({
+            canSubmit: state.canSubmit,
+            isPristine: state.isPristine,
+          })}
+        >
+          {({ canSubmit, isPristine }) => (
+            <Button
+              disabled={
+                postConfigMutation.isPending ||
+                !config ||
+                isPristine ||
+                !canSubmit
+              }
+              size="xl"
+              type="submit"
+            >
+              {mode === "create"
+                ? t("pages.dnsServerUpsert.actions.create")
+                : t("pages.dnsServerUpsert.actions.save")}
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </form>
   )
