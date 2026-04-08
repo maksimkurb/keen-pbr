@@ -1,0 +1,276 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>keen-pbr – Troubleshooting</title>
+    <link>https://example.org/docs/troubleshooting/</link>
+    <description>Recent content in Troubleshooting on keen-pbr</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    
+	  <atom:link href="https://example.org/docs/troubleshooting/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+    <item>
+      <title>FAQ</title>
+      <link>https://example.org/docs/troubleshooting/faq/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://example.org/docs/troubleshooting/faq/</guid>
+      <description>
+        
+        
+        &lt;h2&gt;What firewall backend will be used?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-firewall-backend-will-be-used&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#what-firewall-backend-will-be-used&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.&lt;/p&gt;
+&lt;h2&gt;How do I reload lists without restarting the daemon?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-reload-lists-without-restarting-the-daemon&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-do-i-reload-lists-without-restarting-the-daemon&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use &lt;code&gt;SIGHUP&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;kill -HUP &lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;cat /var/run/keen-pbr.pid&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;This triggers a full reload: it re-downloads all remote lists and re-applies firewall and routing rules.&lt;/p&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;code&gt;SIGUSR1&lt;/code&gt; is different — it re-verifies routing tables and triggers immediate URL tests, but does &lt;strong&gt;not&lt;/strong&gt; re-download lists.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;h2&gt;What happens if a remote list URL is unreachable at startup?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#what-happens-if-a-remote-list-url-is-unreachable-at-startup&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr uses the cached copy from &lt;code&gt;daemon.cache_dir&lt;/code&gt; if available. If no cache exists and the URL is unreachable, that list is skipped for this run.&lt;/p&gt;
+&lt;h2&gt;How does the urltest outbound select the best child?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-does-the-urltest-outbound-select-the-best-child&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-does-the-urltest-outbound-select-the-best-child&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;On each probe interval, keen-pbr sends an HTTP request to the configured &lt;code&gt;url&lt;/code&gt; from each child outbound and measures the round-trip latency. The child with the lowest latency is selected. Children within &lt;code&gt;tolerance_ms&lt;/code&gt; of the best are considered equivalent and selected by weight.&lt;/p&gt;
+&lt;p&gt;The circuit breaker prevents flapping: after &lt;code&gt;failure_threshold&lt;/code&gt; consecutive failures, the circuit opens and that child is bypassed during the &lt;code&gt;timeout_ms&lt;/code&gt; cooldown. After cooldown, it enters half-open state and gets limited probe attempts to recover.&lt;/p&gt;
+&lt;h2&gt;Can I route DNS queries through a VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-route-dns-queries-through-a-vpn&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#can-i-route-dns-queries-through-a-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. Use the &lt;code&gt;detour&lt;/code&gt; field in &lt;code&gt;dns.servers&lt;/code&gt; to bind DNS queries for that server to a specific outbound:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;servers&amp;#34;&lt;/span&gt;: [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vpn-dns&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;address&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;detour&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vpn&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h2&gt;What&amp;rsquo;s the list file format?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;whats-the-list-file-format&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#whats-the-list-file-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;One entry per line. Supported formats:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;IPv4 address: &lt;code&gt;93.184.216.34&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;IPv6 address: &lt;code&gt;2606:2800:220:1:248:1893:25c8:1946&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;CIDR: &lt;code&gt;10.0.0.0/8&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Domain: &lt;code&gt;example.com&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Wildcard domain: &lt;code&gt;*.example.org&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Lines starting with &lt;code&gt;#&lt;/code&gt; are comments and are ignored&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;How do I verify routing is correctly applied?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-do-i-verify-routing-is-correctly-applied&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#how-do-i-verify-routing-is-correctly-applied&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Use the routing health endpoint:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;curl http://127.0.0.1:8080/api/health/routing&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;This checks the live kernel state (firewall chain, firewall rules, routing tables, policy rules) against the expected configuration and reports &lt;code&gt;ok&lt;/code&gt;, &lt;code&gt;missing&lt;/code&gt;, or &lt;code&gt;mismatch&lt;/code&gt; for each element.&lt;/p&gt;
+&lt;h2&gt;Can I combine multiple sources in one list?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;can-i-combine-multiple-sources-in-one-list&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#can-i-combine-multiple-sources-in-one-list&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Yes. &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt;, and &lt;code&gt;file&lt;/code&gt; can all be set in the same list entry and are merged:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;lists&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;combined&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;url&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;https://example.com/remote.txt&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;domains&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;extra.example.com&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;ip_cidrs&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;192.168.100.0/24&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./local.txt&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>Troubleshooting</title>
+      <link>https://example.org/docs/troubleshooting/troubleshooting/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://example.org/docs/troubleshooting/troubleshooting/</guid>
+      <description>
+        
+        
+        &lt;h2&gt;Daemon won&amp;rsquo;t start&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;daemon-wont-start&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#daemon-wont-start&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Check config JSON validity&lt;/strong&gt; — parse errors are logged to stderr on startup. Validate with &lt;code&gt;jq . /etc/keen-pbr/config.json&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;PID file permissions&lt;/strong&gt; — ensure the directory for &lt;code&gt;daemon.pid_file&lt;/code&gt; exists and is writable by the process user.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Cache directory&lt;/strong&gt; — ensure &lt;code&gt;daemon.cache_dir&lt;/code&gt; exists and is writable. Create it if needed: &lt;code&gt;mkdir -p /var/cache/keen-pbr&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Port conflict&lt;/strong&gt; — if the API is enabled, check that the &lt;code&gt;api.listen&lt;/code&gt; address/port is not already in use.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Traffic not routed through VPN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;traffic-not-routed-through-vpn&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#traffic-not-routed-through-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Check the routing health endpoint:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;curl http://127.0.0.1:8080/api/health/routing&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Look for entries with &lt;code&gt;&amp;quot;status&amp;quot;: &amp;quot;missing&amp;quot;&lt;/code&gt; or &lt;code&gt;&amp;quot;status&amp;quot;: &amp;quot;mismatch&amp;quot;&lt;/code&gt; in:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;firewall&lt;/code&gt; — the keen-pbr chain may not be hooked into PREROUTING&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;firewall_rules&lt;/code&gt; — fwmark rules for your sets may be missing&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;route_tables&lt;/code&gt; — routing table may not have a default route via the VPN interface&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;policy_rules&lt;/code&gt; — ip rule to lookup the table by fwmark may be missing&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Also verify that &lt;code&gt;fwmark.start&lt;/code&gt;, &lt;code&gt;fwmark.mask&lt;/code&gt;, and &lt;code&gt;iproute.table_start&lt;/code&gt; don&amp;rsquo;t conflict with existing rules:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ip rule list
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ip route show table &lt;span style=&#34;color:#ae81ff&#34;&gt;150&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h2&gt;urltest always shows &amp;ldquo;degraded&amp;rdquo;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;urltest-always-shows-degraded&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#urltest-always-shows-degraded&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;code&gt;urltest&lt;/code&gt; outbound is &lt;code&gt;degraded&lt;/code&gt; when no child has been successfully selected.&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Check that the probe &lt;code&gt;url&lt;/code&gt; is reachable from the outbound interface.&lt;/li&gt;
+&lt;li&gt;Check circuit breaker states via &lt;code&gt;GET /api/health/service&lt;/code&gt; — if a child shows &lt;code&gt;&amp;quot;circuit_breaker&amp;quot;: &amp;quot;open&amp;quot;&lt;/code&gt;, it is in cooldown. Wait for &lt;code&gt;circuit_breaker.timeout_ms&lt;/code&gt; to elapse.&lt;/li&gt;
+&lt;li&gt;Check that child outbound interfaces are up: &lt;code&gt;ip link show tun0&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Reduce &lt;code&gt;interval_ms&lt;/code&gt; temporarily to force faster re-probing.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;dnsmasq not resolving domains to VPN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dnsmasq-not-resolving-domains-to-vpn&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#dnsmasq-not-resolving-domains-to-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;Verify &lt;code&gt;generate-resolver-config&lt;/code&gt; produces output: &lt;code&gt;keen-pbr generate-resolver-config dnsmasq-nftset&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Ensure your dnsmasq configuration includes &lt;code&gt;conf-script=&lt;/code&gt; pointing to keen-pbr, e.g.: &lt;code&gt;conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Restart dnsmasq after adding the &lt;code&gt;conf-script=&lt;/code&gt; line.&lt;/li&gt;
+&lt;li&gt;Check that &lt;code&gt;dns.rules&lt;/code&gt; lists the correct list names and server tag.&lt;/li&gt;
+&lt;li&gt;If using &lt;code&gt;detour&lt;/code&gt;, ensure the outbound interface is up.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Remote list not updating&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;remote-list-not-updating&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#remote-list-not-updating&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;Check keen-pbr logs for HTTP errors when downloading the list.&lt;/li&gt;
+&lt;li&gt;Verify the URL is reachable from the router: &lt;code&gt;curl -I &amp;lt;url&amp;gt;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Check &lt;code&gt;lists_autoupdate.cron&lt;/code&gt; — ensure the schedule is correct.&lt;/li&gt;
+&lt;li&gt;Trigger a manual reload to test: &lt;code&gt;kill -HUP $(cat /var/run/keen-pbr.pid)&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Check that &lt;code&gt;daemon.cache_dir&lt;/code&gt; is writable; failed writes prevent caching.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Port/address filter rules not matching&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;portaddress-filter-rules-not-matching&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#portaddress-filter-rules-not-matching&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Mixed negation in &lt;code&gt;src_addr&lt;/code&gt; / &lt;code&gt;dest_addr&lt;/code&gt; is not supported. All entries in the array must either all start with &lt;code&gt;!&lt;/code&gt; or none of them should.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;p&gt;If rules aren&amp;rsquo;t matching as expected:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Verify that &lt;code&gt;proto&lt;/code&gt; is set correctly (&lt;code&gt;&amp;quot;tcp&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;udp&amp;quot;&lt;/code&gt;, or &lt;code&gt;&amp;quot;tcp/udp&amp;quot;&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;Ensure negated address arrays use &lt;code&gt;!&lt;/code&gt; on &lt;strong&gt;every&lt;/strong&gt; entry, not just some&lt;/li&gt;
+&lt;li&gt;Check that the list name in the rule matches exactly (case-sensitive) the key in &lt;code&gt;lists&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;High fwmark conflicts&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;high-fwmark-conflicts&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#high-fwmark-conflicts&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;If other software on your system uses the same fwmark range, packets may be misrouted or dropped.&lt;/p&gt;
+&lt;p&gt;Check for conflicts:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ip rule list
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;nft list ruleset | grep mark&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Adjust to a non-conflicting range:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;fwmark&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;start&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0x00020000&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;mask&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;0x00FF0000&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;The &lt;code&gt;mask&lt;/code&gt; must be exactly two adjacent hex nibbles. Use hex strings such as &lt;code&gt;&amp;quot;0x00FF0000&amp;quot;&lt;/code&gt; and &lt;code&gt;&amp;quot;0x00020000&amp;quot;&lt;/code&gt;.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+  </channel>
+</rss>

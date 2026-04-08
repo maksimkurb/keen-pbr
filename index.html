@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head>
+	<meta name="generator" content="Hugo 0.160.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="robots" content="index, follow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" id="favicon-svg" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+<title>keen-pbr</title>
+  <meta name="description" content="" /><link rel="canonical" href="https://example.org/" itemprop="url" />
+
+<meta property="og:title" content="keen-pbr">
+<meta
+  property="og:description"
+  content="
+    
+      
+    
+  ">
+<meta
+  property="og:type"
+  content="
+    website
+  ">
+<meta property="og:url" content="https://example.org/">
+
+
+  <meta itemprop="name" content="keen-pbr">
+  <meta itemprop="description" content="Policy-based routing for Linux routers Route traffic selectively through VPN, WAN, or custom tables. Built for OpenWRT, Keenetic® and Netcraze® routers. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with configurable fallback.">
+  <meta itemprop="wordCount" content="228">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="keen-pbr">
+  <meta name="twitter:description" content="Policy-based routing for Linux routers Route traffic selectively through VPN, WAN, or custom tables. Built for OpenWRT, Keenetic® and Netcraze® routers. Get Started Selective Routing Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with configurable fallback.">
+
+    <link rel="preload" href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" as="style" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
+    <link href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" rel="stylesheet" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
+
+  
+
+
+
+
+
+
+<script src="/js/main-head.min.94da6f95b126542222dab3a6e07ffefe1aaf63ec3ca555e827b58b80e7d3f0b7.js" integrity="sha256-lNpvlbEmVCIi2rOm4H/&#43;/hqvY&#43;w8pVXoJ7WLgOfT8Lc="></script>
+
+  
+  
+  </head>
+<body>
+    <a href="#content" class="hx:sr-only hx:focus-visible:not-sr-only hx:focus-visible:fixed hx:focus-visible:z-50 hx:focus-visible:top-2 hx:focus-visible:left-2 hx:focus-visible:bg-primary-500 hx:focus-visible:text-white hx:focus-visible:px-4 hx:focus-visible:py-2 hx:focus-visible:rounded-md hx:focus-visible:text-sm hx:focus-visible:font-medium">Skip to content</a><div class="hextra-nav-container hx:sticky hx:top-0 hx:z-20 hx:w-full hx:bg-transparent hx:print:hidden">
+  <div
+    class="hextra-nav-container-blur hx:pointer-events-none hx:absolute hx:z-[-1] hx:h-full hx:w-full hx:bg-white hx:dark:bg-dark hx:shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] hx:contrast-more:shadow-[0_0_0_1px_#000] hx:dark:shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] hx:contrast-more:dark:shadow-[0_0_0_1px_#fff]"
+  ></div>
+
+  <nav class="hextra-max-navbar-width hx:mx-auto hx:flex hx:items-center hx:justify-end hx:gap-2 hx:h-16 hx:px-6">
+    <a class="hx:flex hx:items-center hx:hover:opacity-75 hx:ltr:mr-auto hx:rtl:ml-auto" href="/">
+    <img class="hx:mr-2 hx:block hx:dark:hidden" src="/logo.svg" alt="Logo" height="32" width="32" />
+    <img class="hx:mr-2 hx:hidden hx:dark:block" src="/logo.svg" alt="Dark Logo" height="32" width="32" />
+    <span class="hx:mr-2 hx:font-extrabold hx:inline hx:select-none">keen-pbr</span>
+</a>
+<a
+  title=""
+  href="/docs"
+  
+  class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200"
+><span class="hx:text-center">Docs</span>
+</a><div class="hextra-search-wrapper hx:relative hx:md:w-64">
+  <div class="hx:relative hx:flex hx:items-center hx:text-gray-900 hx:contrast-more:text-gray-800 hx:dark:text-gray-300 hx:contrast-more:dark:text-gray-300">
+    <input
+      placeholder="Search..."
+      aria-label="Search..."
+      class="hextra-search-input hx:hextra-focus-visible hx:block hx:w-full hx:appearance-none hx:rounded-lg hx:px-3 hx:py-2 hx:transition-colors hx:text-base hx:leading-tight hx:md:text-sm hx:bg-black/[.05] hx:dark:bg-gray-50/10 hx:focus-visible:bg-white hx:dark:focus-visible:bg-dark hx:placeholder:text-gray-500 hx:dark:placeholder:text-gray-400 hx:contrast-more:border hx:contrast-more:border-current"
+      type="search"
+      autocomplete="off"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx:absolute hx:my-1.5 hx:select-none hx:ltr:right-1.5 hx:rtl:left-1.5 hx:h-5 hx:rounded-sm hx:bg-white hx:px-1.5 hx:font-mono hx:text-[10px] hx:font-medium hx:text-gray-500 hx:border hx:border-gray-200 hx:dark:border-gray-100/20 hx:dark:bg-dark/50 hx:contrast-more:border-current hx:contrast-more:text-current hx:contrast-more:dark:border-current hx:items-center hx:gap-1 hx:transition-opacity hx:pointer-events-none hx:hidden hx:sm:flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="hextra-search-results hextra-scrollbar hx:hidden hx:border hx:border-gray-200 hx:bg-white hx:text-gray-100 hx:dark:border-neutral-800 hx:dark:bg-neutral-900 hx:absolute hx:top-full hx:z-20 hx:mt-2 hx:overflow-auto hx:overscroll-contain hx:rounded-xl hx:py-2.5 hx:shadow-xl hx:max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] hx:md:max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx:inset-x-0 hx:ltr:md:left-auto hx:rtl:md:right-auto hx:contrast-more:border hx:contrast-more:border-gray-900 hx:contrast-more:dark:border-gray-50 hx:w-screen hx:min-h-[100px] hx:max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      aria-label="Search results"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+    <div class="hextra-search-status hx:sr-only" aria-live="polite" role="status"></div>
+  </div>
+</div>
+
+          <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://github.com/maksimkurb/keen-pbr" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx:sr-only">GitHub</span>
+          </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+  <div class='hx:mx-auto hx:flex hextra-max-page-width'>
+    <aside class="hextra-sidebar-container hx:flex hx:flex-col hx:print:hidden hx:md:top-16 hx:md:shrink-0 hx:md:w-64 hx:md:self-start hx:max-md:[transform:translate3d(0,-100%,0)] hx:md:hidden">
+    <div class="hx:px-4 hx:pt-4 hx:md:hidden">
+      <div class="hextra-search-wrapper hx:relative hx:md:w-64">
+  <div class="hx:relative hx:flex hx:items-center hx:text-gray-900 hx:contrast-more:text-gray-800 hx:dark:text-gray-300 hx:contrast-more:dark:text-gray-300">
+    <input
+      placeholder="Search..."
+      aria-label="Search..."
+      class="hextra-search-input hx:hextra-focus-visible hx:block hx:w-full hx:appearance-none hx:rounded-lg hx:px-3 hx:py-2 hx:transition-colors hx:text-base hx:leading-tight hx:md:text-sm hx:bg-black/[.05] hx:dark:bg-gray-50/10 hx:focus-visible:bg-white hx:dark:focus-visible:bg-dark hx:placeholder:text-gray-500 hx:dark:placeholder:text-gray-400 hx:contrast-more:border hx:contrast-more:border-current"
+      type="search"
+      autocomplete="off"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx:absolute hx:my-1.5 hx:select-none hx:ltr:right-1.5 hx:rtl:left-1.5 hx:h-5 hx:rounded-sm hx:bg-white hx:px-1.5 hx:font-mono hx:text-[10px] hx:font-medium hx:text-gray-500 hx:border hx:border-gray-200 hx:dark:border-gray-100/20 hx:dark:bg-dark/50 hx:contrast-more:border-current hx:contrast-more:text-current hx:contrast-more:dark:border-current hx:items-center hx:gap-1 hx:transition-opacity hx:pointer-events-none hx:hidden hx:sm:flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="hextra-search-results hextra-scrollbar hx:hidden hx:border hx:border-gray-200 hx:bg-white hx:text-gray-100 hx:dark:border-neutral-800 hx:dark:bg-neutral-900 hx:absolute hx:top-full hx:z-20 hx:mt-2 hx:overflow-auto hx:overscroll-contain hx:rounded-xl hx:py-2.5 hx:shadow-xl hx:max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] hx:md:max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx:inset-x-0 hx:ltr:md:left-auto hx:rtl:md:right-auto hx:contrast-more:border hx:contrast-more:border-gray-900 hx:contrast-more:dark:border-gray-50 hx:w-screen hx:min-h-[100px] hx:max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      aria-label="Search results"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+    <div class="hextra-search-status hx:sr-only" aria-live="polite" role="status"></div>
+  </div>
+</div>
+
+    </div><div class="hextra-scrollbar hx:overflow-y-auto hx:overflow-x-hidden hx:p-4 hx:grow hx:md:h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx:flex hx:flex-col hx:gap-1 hx:md:hidden">
+      
+      
+              <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Docs</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div><div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/getting-started/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Getting Started</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/getting-started/installation/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Installation</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/getting-started/quick-start/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Quick Start</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/getting-started/compilation/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/concepts/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Concepts</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Configuration</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/outbounds/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Outbounds</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/lists/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Lists</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/route-rules/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Route Rules</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/dns/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">DNS</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/configuration/advanced/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Advanced</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/api/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">API</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/api/endpoints/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Endpoints</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/troubleshooting/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/troubleshooting/faq/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">FAQ</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/troubleshooting/troubleshooting/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li></ul>
+      </div></li>
+    </ul>
+
+    </div>
+  
+  
+    <div class="hx:md:hidden  hx:sticky hx:bottom-0 hx:max-h-(--menu-height) hx:bg-white hx:dark:bg-dark hx:mx-4 hx:py-4 hx:shadow-[0_-12px_16px_#fff] hx:flex hx:items-center hx:gap-2 hx:border-gray-200 hx:dark:border-neutral-800 hx:dark:shadow-[0_-12px_16px_#111] hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:shadow-none hx:border-t" data-toggle-animation="show"><div class="hx:flex hx:grow hx:flex-col"><div class="hx:flex hx:justify-items-start hx:group" data-theme="light">
+  <button
+    title="Change theme"
+    data-state="closed"
+    data-location="bottom"
+    class="hextra-theme-toggle hx:cursor-pointer hx:rounded-md hx:text-left hx:font-medium hx:h-7 hx:px-2 hx:text-xs hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:font-medium hx:text-gray-600 hx:transition-colors hx:dark:text-gray-400 hx:grow"
+    type="button"
+    aria-label="Change theme"
+    aria-expanded="false"
+    aria-haspopup="menu"
+  >
+    <div class="hx:flex hx:items-center hx:gap-2 hx:capitalize"><svg height=12 class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden">Light</span><svg height=12 class="hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden">Dark</span><svg height=12 class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"  fill="currentColor">
+  <path d="M 11.996094,2 C 6.4986225,2.0192368 2.03125,6.5024993 2.03125,12 c 0,5.497501 4.4673725,9.980763 9.964844,10 H 12 12.0039 c 5.497471,-0.01924 9.964844,-4.502499 9.964844,-10 0,-5.4975007 -4.467373,-9.9807632 -9.964844,-10 H 12 Z M 12,4 c 4.417218,0.017598 7.96875,3.5822356 7.96875,8 0,4.417764 -3.551532,7.982402 -7.96875,8 z" />
+</svg>
+<span class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden">System</span></div>
+  </button>
+  <ul
+    class="hextra-theme-toggle-options hx:hidden hx:z-20 hx:max-h-64 hx:overflow-auto hx:rounded-lg hx:border hx:border-gray-200 hx:bg-white hx:p-1 hx:text-sm hx:shadow-lg hx:dark:border-neutral-700 hx:dark:bg-neutral-900"
+    style="position: fixed; inset: auto auto 0px 0px; margin: 0px; min-width: 100px;"
+    data-theme="light"
+    role="menu"
+  >
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="true"
+        tabindex="-1"
+        data-item="light"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        Light
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="false"
+        tabindex="-1"
+        data-item="dark"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        Dark
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="false"
+        tabindex="-1"
+        data-item="system"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        System
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+  </ul>
+</div>
+</div></div></aside>
+    <main id="content" class="hx:w-full hx:break-words hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:pb-8 hx:pt-8 hx:md:pt-12 hx:pl-[max(env(safe-area-inset-left),1.5rem)] hx:pr-[max(env(safe-area-inset-left),1.5rem)]">
+      <div class="hx:flex hx:flex-col hx:items-start">
+        <div class="hx:mt-4 hx:mb-6">
+<h1
+  class="not-prose hx:text-4xl hx:font-bold hx:leading-none hx:tracking-tighter hx:md:text-5xl hx:py-2 hx:bg-clip-text hx:text-transparent hx:bg-gradient-to-r hx:from-gray-900 hx:to-gray-600 hx:dark:from-gray-100 hx:dark:to-gray-400"
+  
+>
+  Policy-based routing <br class="hx:sm:block hx:hidden" />for Linux routers
+</h1>
+
+</div>
+<div class="hx:mb-12">
+<p
+  class="not-prose hx:text-xl hx:text-gray-600 hx:dark:text-gray-400 hx:sm:text-xl"
+  
+>
+  Route traffic selectively through VPN, WAN, or custom tables. <br class="hx:sm:block hx:hidden" />Built for OpenWRT, Keenetic® and Netcraze® routers.
+</p>
+
+</div>
+<div class="hx:mb-6">
+<a
+  href="docs/getting-started/"
+  class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200"
+  
+  >Get Started</a>
+
+</div>
+<div class="hx:mt-6"></div>
+<div
+  class="hextra-feature-grid hx:grid hx:sm:max-lg:grid-cols-2 hx:max-sm:grid-cols-1 hx:gap-4 hx:w-full not-prose"
+  style="--hextra-feature-grid-cols: 3; "
+>
+  
+
+<div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(59,130,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
+<div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
+<h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Selective Routing</h3>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with configurable fallback.</p>
+<div style="flex:1;"></div>
+<div class="hx:mt-4">
+<svg id="kpbr-sr" viewBox="0 30 300 100" style="width:100%;height:auto;display:block;" aria-hidden="true">
+  <g id="kpbr-sr-d1" style="opacity:0.35;transition:opacity 0.4s;">
+    <rect x="2" y="40" width="102" height="26" rx="6" style="fill:rgba(59,130,246,0.1);stroke:#3b82f6;stroke-width:1.5;"/>
+    <text x="10" y="57" style="font-size:11px;fill:currentColor;font-family:monospace;">google.com</text>
+  </g>
+  <g id="kpbr-sr-d2" style="opacity:0.35;transition:opacity 0.4s;">
+    <rect x="2" y="94" width="102" height="26" rx="6" style="fill:rgba(16,185,129,0.1);stroke:#10b981;stroke-width:1.5;"/>
+    <text x="10" y="111" style="font-size:11px;fill:currentColor;font-family:monospace;">internal.site</text>
+  </g>
+  <g id="kpbr-sr-hub" style="opacity:1;">
+    <circle cx="150" cy="80" r="22" style="fill:rgba(128,128,128,0.1);stroke:rgba(128,128,128,0.4);stroke-width:1.5;"/>
+    <rect x="140" y="74" width="20" height="12" rx="2" style="fill:none;stroke:currentColor;stroke-width:1.2;opacity:0.7;"/>
+    <circle cx="144" cy="80" r="1.5" style="fill:currentColor;opacity:0.7;"/>
+    <circle cx="150" cy="80" r="1.5" style="fill:currentColor;opacity:0.7;"/>
+    <circle cx="156" cy="80" r="1.5" style="fill:currentColor;opacity:0.7;"/>
+    <line x1="150" y1="74" x2="150" y2="68" style="stroke:currentColor;stroke-width:1.2;opacity:0.7;"/>
+    <line x1="147" y1="68" x2="153" y2="68" style="stroke:currentColor;stroke-width:1.2;opacity:0.7;"/>
+  </g>
+  <g id="kpbr-sr-o1" style="opacity:0.35;transition:opacity 0.4s;">
+    <rect x="196" y="40" width="102" height="26" rx="6" style="fill:rgba(59,130,246,0.1);stroke:#3b82f6;stroke-width:1.5;"/>
+    <text x="205" y="57" style="font-size:11px;fill:currentColor;">WAN</text>
+  </g>
+  <g id="kpbr-sr-o2" style="opacity:0.35;transition:opacity 0.4s;">
+    <rect x="196" y="94" width="102" height="26" rx="6" style="fill:rgba(16,185,129,0.1);stroke:#10b981;stroke-width:1.5;"/>
+    <text x="205" y="111" style="font-size:11px;fill:currentColor;">Corp VPN</text>
+  </g>
+  <path id="kpbr-sr-p1" d="M 104,53 H 111 Q 116,53 116,58 V 75 Q 116,80 121,80 H 128" pathLength="100" style="fill:none;stroke:#3b82f6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:stroke-dashoffset 0.55s ease-in-out,opacity 0.3s;"/>
+  <path id="kpbr-sr-p2" d="M 104,107 H 111 Q 116,107 116,102 V 85 Q 116,80 121,80 H 128" pathLength="100" style="fill:none;stroke:#10b981;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:stroke-dashoffset 0.55s ease-in-out,opacity 0.3s;"/>
+  <path id="kpbr-sr-p3" d="M 172,80 H 179 Q 184,80 184,75 V 58 Q 184,53 189,53 H 196" pathLength="100" style="fill:none;stroke:#3b82f6;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:stroke-dashoffset 0.55s ease-in-out,opacity 0.3s;"/>
+  <path id="kpbr-sr-p4" d="M 172,80 H 179 Q 184,80 184,85 V 102 Q 184,107 189,107 H 196" pathLength="100" style="fill:none;stroke:#10b981;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100;opacity:0;transition:stroke-dashoffset 0.55s ease-in-out,opacity 0.3s;"/>
+</svg>
+</div>
+</div>
+</div>
+<script>
+(function(){
+  var d1=document.getElementById('kpbr-sr-d1'),d2=document.getElementById('kpbr-sr-d2');
+  var o1=document.getElementById('kpbr-sr-o1'),o2=document.getElementById('kpbr-sr-o2');
+  var p1=document.getElementById('kpbr-sr-p1'),p2=document.getElementById('kpbr-sr-p2');
+  var p3=document.getElementById('kpbr-sr-p3'),p4=document.getElementById('kpbr-sr-p4');
+  if(!d1)return;
+  function op(el,v){el.style.opacity=v;}
+  function sp(p,show){p.style.opacity=show?'1':'0';p.style.strokeDashoffset=show?'0':'100';}
+  function reset(){
+    op(d1,'0.35');op(d2,'0.35');op(o1,'0.35');op(o2,'0.35');
+    sp(p1,false);sp(p2,false);sp(p3,false);sp(p4,false);
+  }
+  function runGoogle(){
+    reset();op(d1,'1');
+    setTimeout(function(){sp(p1,true);
+      setTimeout(function(){sp(p3,true);
+        setTimeout(function(){op(o1,'1');
+          setTimeout(function(){setTimeout(runInternal,1200);},900);
+        },600);
+      },600);
+    },400);
+  }
+  function runInternal(){
+    reset();op(d2,'1');
+    setTimeout(function(){sp(p2,true);
+      setTimeout(function(){sp(p4,true);
+        setTimeout(function(){op(o2,'1');
+          setTimeout(function(){setTimeout(runGoogle,1200);},900);
+        },600);
+      },600);
+    },400);
+  }
+  runGoogle();
+})();
+</script>
+
+<div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto" style="background: radial-gradient(ellipse at 50% 80%,rgba(139,92,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;max-height:300px;">
+<div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
+<h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Web Interface</h3>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Manage routing rules, monitor outbound health, and reload configuration from a clean browser-based dashboard — no SSH required.</p>
+<div style="flex:1;position:relative;overflow:hidden;border-radius:12px 0 0 0;margin:16px -24px -24px 0;min-height:120px;">
+
+<style>
+  .kpbr-ui-mock {
+    --kpbr-window-border: rgba(139, 92, 246, 0.3);
+    --kpbr-window-shadow: -4px -4px 24px rgba(139, 92, 246, 0.12);
+    --kpbr-window-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98));
+    --kpbr-chrome-bg: rgba(255, 255, 255, 0.8);
+    --kpbr-divider: rgba(148, 163, 184, 0.2);
+    --kpbr-sidebar-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.85));
+    --kpbr-main-bg: radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 34%), linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.98));
+    --kpbr-text: #0f172a;
+    --kpbr-muted: #64748b;
+    --kpbr-chip-bg: rgba(139, 92, 246, 0.08);
+    --kpbr-chip-text: #6d28d9;
+    --kpbr-card-bg: rgba(255, 255, 255, 0.8);
+    --kpbr-card-bg-soft: rgba(255, 255, 255, 0.78);
+    --kpbr-card-bg-strong: rgba(255, 255, 255, 0.82);
+    --kpbr-card-border: rgba(148, 163, 184, 0.18);
+    --kpbr-input-bg: #ffffff;
+    --kpbr-line: rgba(148, 163, 184, 0.18);
+    --kpbr-line-active: rgba(59, 130, 246, 0.16);
+    --kpbr-green-soft: rgba(16, 185, 129, 0.12);
+    --kpbr-green-soft-2: rgba(16, 185, 129, 0.1);
+    --kpbr-green-soft-3: rgba(16, 185, 129, 0.07);
+    --kpbr-green-soft-4: rgba(16, 185, 129, 0.18);
+    --kpbr-green-soft-5: rgba(16, 185, 129, 0.14);
+    --kpbr-green-text: #059669;
+    --kpbr-green-solid: #10b981;
+    --kpbr-blue-grad: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.04));
+    --kpbr-blue-row: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(255, 255, 255, 0));
+    --kpbr-amber-row: linear-gradient(90deg, rgba(245, 158, 11, 0.14), rgba(255, 255, 255, 0));
+    --kpbr-amber-soft: rgba(245, 158, 11, 0.16);
+  }
+
+  .dark .kpbr-ui-mock,
+  [data-theme="dark"] .kpbr-ui-mock {
+    --kpbr-window-border: rgba(167, 139, 250, 0.35);
+    --kpbr-window-shadow: -6px -6px 28px rgba(15, 23, 42, 0.45);
+    --kpbr-window-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+    --kpbr-chrome-bg: rgba(15, 23, 42, 0.88);
+    --kpbr-divider: rgba(71, 85, 105, 0.45);
+    --kpbr-sidebar-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(17, 24, 39, 0.88));
+    --kpbr-main-bg: radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 34%), linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(2, 6, 23, 0.98));
+    --kpbr-text: #e5e7eb;
+    --kpbr-muted: #94a3b8;
+    --kpbr-chip-bg: rgba(139, 92, 246, 0.18);
+    --kpbr-chip-text: #ddd6fe;
+    --kpbr-card-bg: rgba(30, 41, 59, 0.82);
+    --kpbr-card-bg-soft: rgba(30, 41, 59, 0.76);
+    --kpbr-card-bg-strong: rgba(30, 41, 59, 0.86);
+    --kpbr-card-border: rgba(71, 85, 105, 0.5);
+    --kpbr-input-bg: rgba(15, 23, 42, 0.78);
+    --kpbr-line: rgba(71, 85, 105, 0.52);
+    --kpbr-line-active: rgba(96, 165, 250, 0.28);
+    --kpbr-green-soft: rgba(16, 185, 129, 0.2);
+    --kpbr-green-soft-2: rgba(16, 185, 129, 0.16);
+    --kpbr-green-soft-3: rgba(16, 185, 129, 0.14);
+    --kpbr-green-soft-4: rgba(16, 185, 129, 0.24);
+    --kpbr-green-soft-5: rgba(16, 185, 129, 0.2);
+    --kpbr-green-text: #6ee7b7;
+    --kpbr-green-solid: #34d399;
+    --kpbr-blue-grad: linear-gradient(90deg, rgba(96, 165, 250, 0.22), rgba(96, 165, 250, 0.06));
+    --kpbr-blue-row: linear-gradient(90deg, rgba(96, 165, 250, 0.24), rgba(15, 23, 42, 0));
+    --kpbr-amber-row: linear-gradient(90deg, rgba(251, 191, 36, 0.24), rgba(15, 23, 42, 0));
+    --kpbr-amber-soft: rgba(251, 191, 36, 0.22);
+  }
+</style>
+
+<div class="kpbr-ui-mock" style="width:120%;max-width:none;transform:translate(5%, 5%);transform-origin:bottom left;">
+  <div style="border-radius:14px 0 0 0;border-top:1.5px solid var(--kpbr-window-border);border-left:1.5px solid var(--kpbr-window-border);box-shadow:var(--kpbr-window-shadow);background:var(--kpbr-window-bg);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--kpbr-divider);background:var(--kpbr-chrome-bg);">
+      <span style="width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block;"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#fbbf24;display:inline-block;"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;"></span>
+      <div style="margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--kpbr-chip-bg);font-size:10px;font-weight:600;color:var(--kpbr-chip-text);">keen-pbr.local</div>
+    </div>
+    <div style="display:grid;grid-template-columns:102px 1fr;min-height:164px;">
+      <div style="padding:12px 10px;background:var(--kpbr-sidebar-bg);border-right:1px solid var(--kpbr-card-border);">
+        <div style="display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;margin-bottom:12px;">
+          <img src="/logo.svg" alt="keen-pbr logo" style="width:28px;height:28px;border-radius:8px;display:block;" />
+          <div style="min-width:0;">
+            <div style="font-size:10px;font-weight:700;line-height:1.05;color:var(--kpbr-text);white-space:nowrap;">keen-pbr</div>
+            <div style="font-size:7px;color:var(--kpbr-muted);margin-top:3px;line-height:1.15;">Get packets sorted</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:6px;">
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line-active);width:70%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:84%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:58%;"></div>
+          <div style="height:8px;border-radius:999px;background:var(--kpbr-line);width:76%;"></div>
+        </div>
+        <div style="margin-top:22px;height:34px;border-radius:10px;background:var(--kpbr-input-bg);border:1px solid var(--kpbr-card-border);"></div>
+      </div>
+      <div style="padding:14px 14px 12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--kpbr-main-bg);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:18px;font-weight:700;line-height:1.1;color:var(--kpbr-text);">Dashboard</div>
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-top:4px;">Service health, DNS checks and active routes</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="padding:3px 7px;border-radius:999px;background:var(--kpbr-green-soft);color:var(--kpbr-green-text);font-size:9px;font-weight:700;">running</span>
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--kpbr-green-solid);box-shadow:0 0 0 4px var(--kpbr-green-soft);display:inline-block;"></span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:10px;">
+          <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg);padding:10px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-bottom:8px;">Core service</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+              <div style="flex:1;height:28px;border-radius:9px;background:var(--kpbr-blue-grad);"></div>
+              <div style="width:54px;height:28px;border-radius:9px;background:var(--kpbr-green-soft-2);"></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <div style="height:22px;flex:1;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+              <div style="height:22px;width:22px;border-radius:8px;background:var(--kpbr-chip-bg);"></div>
+              <div style="height:22px;width:22px;border-radius:8px;background:var(--kpbr-line-active);"></div>
+            </div>
+          </div>
+          <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg-soft);padding:10px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);margin-bottom:10px;">DNS check</div>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;background:var(--kpbr-green-soft-3);margin-bottom:8px;">
+              <span style="width:18px;height:18px;border-radius:50%;border:1.5px solid var(--kpbr-green-solid);display:inline-block;position:relative;flex-shrink:0;">
+                <span style="position:absolute;left:4px;top:4px;width:6px;height:3px;border-left:1.5px solid var(--kpbr-green-solid);border-bottom:1.5px solid var(--kpbr-green-solid);transform:rotate(-45deg);"></span>
+              </span>
+              <div style="height:8px;flex:1;border-radius:999px;background:var(--kpbr-green-soft-4);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div style="height:20px;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+              <div style="height:20px;border-radius:8px;border:1px solid var(--kpbr-card-border);background:var(--kpbr-input-bg);"></div>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--kpbr-card-border);border-radius:12px;background:var(--kpbr-card-bg-strong);padding:10px 10px 8px 10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--kpbr-muted);">Outbounds health</div>
+            <div style="height:8px;width:46px;border-radius:999px;background:var(--kpbr-line);"></div>
+          </div>
+          <div style="display:grid;gap:6px;">
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:var(--kpbr-blue-row);"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-green-soft-5);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:var(--kpbr-amber-row);"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-amber-soft);"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center;">
+              <div style="height:18px;border-radius:8px;background:linear-gradient(90deg, var(--kpbr-green-soft), rgba(255, 255, 255, 0));"></div>
+              <div style="height:16px;border-radius:999px;background:var(--kpbr-green-soft-5);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+<div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(239,68,68,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
+<div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
+<h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Failover &amp; Health Checks</h3>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">urltest probes candidate outbounds by latency and picks the fastest within tolerance. Circuit breaker prevents flapping under sustained failures.</p>
+<div style="flex:1;"></div>
+<div class="hx:mt-4">
+  <div style="border:1.5px solid rgba(128,128,128,0.25);border-radius:10px;padding:8px 10px;background:rgba(128,128,128,0.06);">
+    <div style="font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;">urltest outbound</div>
+    <div id="kpbr-hc-r1" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;border:1.5px solid #10b981;margin-bottom:6px;transition:border-color 0.4s;">
+      <span id="kpbr-hc-dot1" style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;flex-shrink:0;transition:background 0.4s;"></span>
+      <span style="font-size:11px;font-family:monospace;flex:1;">eth0</span>
+      <span id="kpbr-hc-p1" style="font-size:11px;color:#6b7280;min-width:32px;text-align:right;">87ms</span>
+      <span id="kpbr-hc-b1" style="font-size:9px;background:#10b981;color:#fff;border-radius:4px;padding:1px 5px;font-weight:600;transition:opacity 0.4s;white-space:nowrap;">BEST</span>
+    </div>
+    <div id="kpbr-hc-r2" style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;border:1.5px solid rgba(128,128,128,0.25);transition:border-color 0.4s;">
+      <span id="kpbr-hc-dot2" style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;flex-shrink:0;transition:background 0.4s;"></span>
+      <span style="font-size:11px;font-family:monospace;flex:1;">wlan0</span>
+      <span id="kpbr-hc-p2" style="font-size:11px;color:#6b7280;min-width:32px;text-align:right;">142ms</span>
+      <span id="kpbr-hc-b2" style="font-size:9px;background:#10b981;color:#fff;border-radius:4px;padding:1px 5px;font-weight:600;opacity:0;transition:opacity 0.4s;white-space:nowrap;">BEST</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+<script>
+(function(){
+  var dot1=document.getElementById('kpbr-hc-dot1'),dot2=document.getElementById('kpbr-hc-dot2');
+  var p1=document.getElementById('kpbr-hc-p1'),p2=document.getElementById('kpbr-hc-p2');
+  var r1=document.getElementById('kpbr-hc-r1'),r2=document.getElementById('kpbr-hc-r2');
+  var b1=document.getElementById('kpbr-hc-b1'),b2=document.getElementById('kpbr-hc-b2');
+  if(!dot1)return;
+  var state={v1:true,v2:true,ms1:87,ms2:142};
+  function rnd(){return Math.floor(Math.random()*250)+50;}
+  function render(){
+    var m1=state.v1?state.ms1:Infinity,m2=state.v2?state.ms2:Infinity;
+    var best1=m1<=m2;
+    r1.style.borderColor=state.v1?(best1?'#10b981':'rgba(128,128,128,0.25)'):'#ef4444';
+    r2.style.borderColor=state.v2?(best1?'rgba(128,128,128,0.25)':'#10b981'):'#ef4444';
+    b1.style.opacity=(state.v1&&best1)?'1':'0';
+    b2.style.opacity=(state.v2&&!best1)?'1':'0';
+    p1.textContent=state.v1?state.ms1+'ms':'–';
+    p2.textContent=state.v2?state.ms2+'ms':'–';
+    dot1.style.background=state.v1?'#10b981':'#ef4444';
+    dot2.style.background=state.v2?'#10b981':'#ef4444';
+  }
+  setInterval(function(){
+    if(state.v1)state.ms1=rnd();
+    if(state.v2)state.ms2=rnd();
+    render();
+  },2000);
+  setInterval(function(){
+    var which=Math.random()<0.5?1:2;
+    if(which===1)state.v1=false; else state.v2=false;
+    render();
+    setTimeout(function(){
+      if(which===1){state.v1=true;state.ms1=rnd();}
+      else{state.v2=true;state.ms2=rnd();}
+      render();
+    },2000);
+  },5000);
+  render();
+})();
+</script>
+  <a
+    
+    
+    class=" hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700 hx:before:pointer-events-none hx:before:absolute hx:before:inset-0 hx:before:bg-glass-gradient"
+  >
+    <div class="hx:relative hx:w-full hx:p-6">
+      <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2 hx:flex hx:items-center">
+        <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></span>
+        <span>Multiple Outbound Types</span>
+      </h3>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Route traffic to a specific interface, to an existing routing table (e.g. WAN), or block it completely. Use <code>urltest</code> to monitor latency and automatically select the best interface.</p>
+    </div></a>
+
+  <a
+    
+    
+    class=" hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700 hx:before:pointer-events-none hx:before:absolute hx:before:inset-0 hx:before:bg-glass-gradient"
+  >
+    <div class="hx:relative hx:w-full hx:p-6">
+      <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2 hx:flex hx:items-center">
+        <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg></span>
+        <span>DNS Integration</span>
+      </h3>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Generates dnsmasq <code>server=</code> and <code>ipset=</code> directives so resolved domain IPs are instantly routed through the correct outbound.</p>
+    </div></a>
+
+  <a
+    
+    
+    class=" hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700 hx:before:pointer-events-none hx:before:absolute hx:before:inset-0 hx:before:bg-glass-gradient"
+  >
+    <div class="hx:relative hx:w-full hx:p-6">
+      <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2 hx:flex hx:items-center">
+        <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg></span>
+        <span>Dual Firewall Backend</span>
+      </h3>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Auto-detects <code>nftables</code> or <code>iptables</code>. Works on both modern and legacy kernels without configuration changes.</p>
+    </div></a>
+
+  <a
+    
+    
+    class=" hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700 hx:before:pointer-events-none hx:before:absolute hx:before:inset-0 hx:before:bg-glass-gradient"
+  >
+    <div class="hx:relative hx:w-full hx:p-6">
+      <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2 hx:flex hx:items-center">
+        <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg></span>
+        <span>REST API</span>
+      </h3>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Built-in HTTP API for health checks, live kernel routing verification, and hot config reloads — no daemon restart required.</p>
+    </div></a>
+
+  <a
+    
+    
+    class=" hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700 hx:before:pointer-events-none hx:before:absolute hx:before:inset-0 hx:before:bg-glass-gradient"
+  >
+    <div class="hx:relative hx:w-full hx:p-6">
+      <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2 hx:flex hx:items-center">
+        <span class="hx:pr-2"><svg height=1.5rem xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></span>
+        <span>Auto-updating lists</span>
+      </h3>
+      <p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Remote domain and IP lists are downloaded at startup and refreshed on a configurable cron schedule, with local cache fallback.</p>
+    </div></a>
+
+
+</div>
+
+
+      </div>
+    </main>
+  </div>
+
+      <footer class="hextra-footer hx:bg-gray-100 hx:pb-[env(safe-area-inset-bottom)] hx:dark:bg-neutral-900 hx:print:bg-transparent"><div class="hx:mx-auto hx:flex hx:gap-2 hx:py-2 hx:px-4 hextra-max-footer-width"><div class="hx:flex hx:justify-items-start hx:group" data-theme="light">
+  <button
+    title="Change theme"
+    data-state="closed"
+    data-location="bottom"
+    class="hextra-theme-toggle hx:cursor-pointer hx:rounded-md hx:text-left hx:font-medium hx:h-7 hx:px-2 hx:text-xs hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:font-medium hx:text-gray-600 hx:transition-colors hx:dark:text-gray-400 hx:grow"
+    type="button"
+    aria-label="Change theme"
+    aria-expanded="false"
+    aria-haspopup="menu"
+  >
+    <div class="hx:flex hx:items-center hx:gap-2 hx:capitalize"><svg height=12 class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden">Light</span><svg height=12 class="hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden">Dark</span><svg height=12 class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"  fill="currentColor">
+  <path d="M 11.996094,2 C 6.4986225,2.0192368 2.03125,6.5024993 2.03125,12 c 0,5.497501 4.4673725,9.980763 9.964844,10 H 12 12.0039 c 5.497471,-0.01924 9.964844,-4.502499 9.964844,-10 0,-5.4975007 -4.467373,-9.9807632 -9.964844,-10 H 12 Z M 12,4 c 4.417218,0.017598 7.96875,3.5822356 7.96875,8 0,4.417764 -3.551532,7.982402 -7.96875,8 z" />
+</svg>
+<span class="hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden">System</span></div>
+  </button>
+  <ul
+    class="hextra-theme-toggle-options hx:hidden hx:z-20 hx:max-h-64 hx:overflow-auto hx:rounded-lg hx:border hx:border-gray-200 hx:bg-white hx:p-1 hx:text-sm hx:shadow-lg hx:dark:border-neutral-700 hx:dark:bg-neutral-900"
+    style="position: fixed; inset: auto auto 0px 0px; margin: 0px; min-width: 100px;"
+    data-theme="light"
+    role="menu"
+  >
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="true"
+        tabindex="-1"
+        data-item="light"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        Light
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=dark]:hidden hx:group-data-[theme=system]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="false"
+        tabindex="-1"
+        data-item="dark"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        Dark
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=light]:hidden hx:group-data-[theme=system]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+    <li role="none" class="hx:flex hx:flex-col">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked="false"
+        tabindex="-1"
+        data-item="system"
+        class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9 hx:text-left hx:w-full hx:bg-transparent hx:border-0"
+      >
+        System
+         <span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3 hx:group-data-[theme=dark]:hidden hx:group-data-[theme=light]:hidden"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>
+      </button>
+    </li>
+  </ul>
+</div>
+</div><hr class="hx:border-gray-200 hx:dark:border-neutral-800" /><div class="hextra-custom-footer hextra-max-footer-width hx:mx-auto hx:pl-[max(env(safe-area-inset-left),1.5rem)] hx:pr-[max(env(safe-area-inset-right),1.5rem)] hx:text-gray-600 hx:dark:text-gray-400"><div class="hx:py-12 hx:flex hx:flex-col hx:gap-4 hx:text-xs hx:text-gray-400 hx:dark:text-gray-600"><div><p>keen-pbr is an independent open-source project. This website is not official and is not affiliated with or endorsed by Keenetic or Netcraze.</p>
+<p>Keenetic® is a registered trademark of Keenetic GmbH.</p>
+<p>Netcraze® is a registered trademark of ООО «Неткрейз».</p>
+</div><div>Made by <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Maxim Kurbatov</a> | Website is powered by <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div></div></footer>
+    
+    <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script>
+  </body>
+</html>
