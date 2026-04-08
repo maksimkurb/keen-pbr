@@ -26,6 +26,22 @@ log_info() {
     log_message info "$1"
 }
 
+write_managed_conf() {
+    local target="$1"
+    local line="$2"
+    local existing=""
+
+    if [ -f "$target" ]; then
+        existing="$(cat "$target")"
+        if [ "$existing" = "$line" ]; then
+            return 0
+        fi
+    fi
+
+    printf '%s\n' "$line" > "$target"
+    log_info "Created $target"
+}
+
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
         echo "dnsmasq-nftset"
@@ -191,8 +207,7 @@ write_temp_conf_for_section() {
 
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
-    printf '%s\n' "$(conf_script_line)" > "${confdir}/${CONFFILE}"
-    log_info "Created ${confdir}/${CONFFILE}"
+    write_managed_conf "${confdir}/${CONFFILE}" "$(conf_script_line)"
 }
 
 write_fallback_conf_for_section() {
@@ -202,8 +217,7 @@ write_fallback_conf_for_section() {
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
     if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        printf '%s\n' "$(fallback_conf_line)" > "${confdir}/${CONFFILE}"
-        log_info "Created ${confdir}/${CONFFILE}"
+        write_managed_conf "${confdir}/${CONFFILE}" "$(fallback_conf_line)"
     else
         rm -f "${confdir}/${CONFFILE}"
         log_info "Removed ${confdir}/${CONFFILE}"
@@ -217,6 +231,16 @@ remove_temp_conf_for_section() {
     confdir="$(dnsmasq_confdir "$section")"
     rm -f "${confdir}/${CONFFILE}"
     log_info "Removed ${confdir}/${CONFFILE}"
+}
+
+remove_all_temp_confs() {
+    local path
+
+    for path in /tmp/dnsmasq.*.d/"${CONFFILE}" /tmp/dnsmasq.d/"${CONFFILE}"; do
+        [ -e "$path" ] || continue
+        rm -f "$path"
+        log_info "Removed $path"
+    done
 }
 
 install_persistent() {
@@ -296,6 +320,8 @@ uninstall_persistent() {
             log_info "Committed UCI package dhcp"
         fi
     fi
+
+    remove_all_temp_confs || true
 
     restart_dnsmasq
 }
