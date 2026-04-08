@@ -163,7 +163,6 @@ export function ListUpsertPage({
       ) : null}
 
       <ListForm
-        key={getListFormKey(mode, draft ?? sampleNewList)}
         apiErrorMessage={mutationErrorMessage}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
