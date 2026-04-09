@@ -9,26 +9,22 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Concepts – keen-pbr</title>
-  <meta name="description" content="keen-pbr orchestrates three Linux kernel subsystems — netfilter (firewall), policy routing (ip rules &#43; routing tables), and DNS (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:
-Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inline IPs/CIDRs (ip_cidrs) — loaded directly from config Inline domains (domains) — loaded directly from config Local file (file) — read from disk At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;). Domain entries generate dnsmasq ipset=/nftset= directives so that when a domain is resolved, its IPs are dynamically added to the matching set." /><link rel="canonical" href="https://keen-pbr.fyi/docs/concepts/" itemprop="url" />
+  <meta name="description" content="You do not need this page to finish a normal setup.
+The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
+This page explains what happens under the hood for readers who want the deeper technical model.
+Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/concepts/" itemprop="url" />
 
 <meta property="og:title" content="Concepts">
 <meta
   property="og:description"
   content="
     
-      keen-pbr orchestrates three Linux kernel subsystems — netfilter (firewall), policy routing (ip rules &#43; routing tables), and DNS (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
+      You do not need this page to finish a normal setup.
+The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
+This page explains what happens under the hood for readers who want the deeper technical model.
 Core Entities
     Lists
     Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:
-
-Remote URL (url) — downloaded and cached at startup, refreshed on schedule
-Inline IPs/CIDRs (ip_cidrs) — loaded directly from config
-Inline domains (domains) — loaded directly from config
-Local file (file) — read from disk
-
-At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;). Domain entries generate dnsmasq ipset=/nftset= directives so that when a domain is resolved, its IPs are dynamically added to the matching set.
     
   ">
 <meta
@@ -42,15 +38,17 @@ At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (kpbr4_&lt;
 
 
   <meta itemprop="name" content="Concepts">
-  <meta itemprop="description" content="keen-pbr orchestrates three Linux kernel subsystems — netfilter (firewall), policy routing (ip rules &#43; routing tables), and DNS (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:
-Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inline IPs/CIDRs (ip_cidrs) — loaded directly from config Inline domains (domains) — loaded directly from config Local file (file) — read from disk At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;). Domain entries generate dnsmasq ipset=/nftset= directives so that when a domain is resolved, its IPs are dynamically added to the matching set.">
-  <meta itemprop="wordCount" content="620">
+  <meta itemprop="description" content="You do not need this page to finish a normal setup.
+The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
+This page explains what happens under the hood for readers who want the deeper technical model.
+Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
+  <meta itemprop="wordCount" content="641">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Concepts">
-  <meta name="twitter:description" content="keen-pbr orchestrates three Linux kernel subsystems — netfilter (firewall), policy routing (ip rules &#43; routing tables), and DNS (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:
-Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inline IPs/CIDRs (ip_cidrs) — loaded directly from config Inline domains (domains) — loaded directly from config Local file (file) — read from disk At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;). Domain entries generate dnsmasq ipset=/nftset= directives so that when a domain is resolved, its IPs are dynamically added to the matching set.">
+  <meta name="twitter:description" content="You do not need this page to finish a normal setup.
+The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
+This page explains what happens under the hood for readers who want the deeper technical model.
+Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
 
     <link rel="preload" href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" as="style" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
     <link href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" rel="stylesheet" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
@@ -246,18 +244,6 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
     </a>
   </div>
               
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
-    </a>
-  </div>
-              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
@@ -413,7 +399,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -465,6 +451,33 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -548,18 +561,6 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Quick Start</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -682,7 +683,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -733,6 +734,32 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div><div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -873,7 +900,9 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
             
           </div>
           
-          <p>keen-pbr orchestrates three Linux kernel subsystems — <strong>netfilter</strong> (firewall), <strong>policy routing</strong> (ip rules + routing tables), and <strong>DNS</strong> (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.</p>
+          <p>You do not need this page to finish a normal setup.</p>
+<p>The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.</p>
+<p>This page explains what happens under the hood for readers who want the deeper technical model.</p>
 <h2>Core Entities<span class="hx:absolute hx:-mt-20" id="core-entities"></span>
     <a href="#core-entities" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Lists<span class="hx:absolute hx:-mt-20" id="lists"></span>
     <a href="#lists" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:</p>
@@ -927,7 +956,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
 <li><strong>Port filters</strong> (<code>src_port</code>, <code>dest_port</code>) — single, list, range, or negation</li>
 <li><strong>Address filters</strong> (<code>src_addr</code>, <code>dest_addr</code>) — CIDR, list, or negation</li>
 </ul>
-<p>First matching rule wins. Unmatched traffic goes to the configured <code>fallback</code> outbound.</p>
+<p>First matching rule wins. Unmatched traffic is left unmarked and follows the system&rsquo;s normal routing.</p>
 <p>See <a href="configuration/route-rules/">Route Rules</a> for the full reference.</p>
 <h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
     <a href="#dns" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Maps domain lists to DNS servers via dnsmasq <code>server=</code> directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.</p>
@@ -982,7 +1011,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
     Packet([&#34;Incoming packet\n(e.g. dest: 93.184.216.34)&#34;])
     PREROUTING[&#34;Firewall PREROUTING\n(netfilter mangle)&#34;]
     IpsetCheck{&#34;IP in\nipset/nftset?&#34;}
-    NoMatch[&#34;No match →\nfallback outbound\n(ignore / default route)&#34;]
+    NoMatch[&#34;No match →\nno fwmark\nsystem routing&#34;]
     Fwmark[&#34;Set fwmark\n(e.g. 0x00010000)&#34;]
     IpRule[&#34;ip rule lookup\n(fwmark → table 150)&#34;]
     RoutingTable[&#34;Routing table 150\ndefault via tun0 10.8.0.1&#34;]
@@ -991,7 +1020,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
     Packet --&gt; PREROUTING
     PREROUTING --&gt; IpsetCheck
     IpsetCheck --&gt;|&#34;no&#34;| NoMatch
-    IpsetCheck --&gt;|&#34;yes (list: my-domains)&#34;| Fwmark
+    IpsetCheck --&gt;|&#34;yes (list: my_domains)&#34;| Fwmark
     Fwmark --&gt; IpRule
     IpRule --&gt; RoutingTable
     RoutingTable --&gt; Egress
@@ -1004,7 +1033,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
     participant Client
     participant dnsmasq
     participant VPN_DNS as VPN DNS (10.8.0.1)
-    participant Ipset as ipset kpbr4_my-domains
+    participant Ipset as ipset kpbr4_my_domains
     participant Firewall
 
     Client-&gt;&gt;dnsmasq: query example.com
@@ -1015,7 +1044,7 @@ Remote URL (url) — downloaded and cached at startup, refreshed on schedule Inl
 
     Note over Client,Firewall: Next packet to 93.184.216.34
     Client-&gt;&gt;Firewall: packet dest 93.184.216.34
-    Firewall-&gt;&gt;Firewall: match ipset kpbr4_my-domains → set fwmark
+    Firewall-&gt;&gt;Firewall: match ipset kpbr4_my_domains → set fwmark
   </pre>
 </div>
         </div>

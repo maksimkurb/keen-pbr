@@ -9,26 +9,36 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>DNS – keen-pbr</title>
-  <meta name="description" content="keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a generate-resolver-config subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its conf-script= directive.
-Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: &#34;127.0.0.88:53&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google-dns&#34;, &#34;quad9&#34;] } } Field Type Description servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for connectivity checks System Resolver dns.system_resolver configures the dnsmasq integration used by keen-pbr’s daemon runtime." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/dns/" itemprop="url" />
+  <meta name="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
+system_resolver servers rules fallback Configuration { &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;hook&#34;: &#34;/usr/lib/keen-pbr/dnsmasq.sh&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to refresh dnsmasq after configuration changes." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/dns/" itemprop="url" />
 
 <meta property="og:title" content="DNS">
 <meta
   property="og:description"
   content="
     
-      keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a generate-resolver-config subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its conf-script= directive.
+      Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
+
+system_resolver
+servers
+rules
+fallback
+
 Configuration
     
 
 {
   &#34;dns&#34;: {
-    &#34;dns_test_server&#34;: {
-      &#34;listen&#34;: &#34;127.0.0.88:53&#34;
+    &#34;system_resolver&#34;: {
+      &#34;type&#34;: &#34;dnsmasq-nftset&#34;,
+      &#34;hook&#34;: &#34;/usr/lib/keen-pbr/dnsmasq.sh&#34;,
+      &#34;address&#34;: &#34;127.0.0.1&#34;
     },
     &#34;servers&#34;: [...],
     &#34;rules&#34;: [...],
-    &#34;fallback&#34;: [&#34;google-dns&#34;, &#34;quad9&#34;]
+    &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;]
   }
 }
   
@@ -47,6 +57,11 @@ Configuration
   
   
       
+          system_resolver
+          object
+          How keen-pbr refreshes dnsmasq on the system
+      
+      
           servers
           array
           DNS server definitions
@@ -64,13 +79,12 @@ Configuration
       
           dns_test_server
           object
-          Optional built-in DNS probe listener for connectivity checks
+          Optional built-in DNS probe listener for advanced troubleshooting
       
   
 
 System Resolver
-    dns.system_resolver configures the dnsmasq integration used by keen-pbr&rsquo;s
-daemon runtime.
+    dns.system_resolver tells keen-pbr how to refresh dnsmasq after configuration changes.
     
   ">
 <meta
@@ -84,13 +98,15 @@ daemon runtime.
 
 
   <meta itemprop="name" content="DNS">
-  <meta itemprop="description" content="keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a generate-resolver-config subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its conf-script= directive.
-Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: &#34;127.0.0.88:53&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google-dns&#34;, &#34;quad9&#34;] } } Field Type Description servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for connectivity checks System Resolver dns.system_resolver configures the dnsmasq integration used by keen-pbr’s daemon runtime.">
-  <meta itemprop="wordCount" content="866">
+  <meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
+system_resolver servers rules fallback Configuration { &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;hook&#34;: &#34;/usr/lib/keen-pbr/dnsmasq.sh&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to refresh dnsmasq after configuration changes.">
+  <meta itemprop="wordCount" content="660">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DNS">
-  <meta name="twitter:description" content="keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a generate-resolver-config subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its conf-script= directive.
-Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: &#34;127.0.0.88:53&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google-dns&#34;, &#34;quad9&#34;] } } Field Type Description servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for connectivity checks System Resolver dns.system_resolver configures the dnsmasq integration used by keen-pbr’s daemon runtime.">
+  <meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
+system_resolver servers rules fallback Configuration { &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;hook&#34;: &#34;/usr/lib/keen-pbr/dnsmasq.sh&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to refresh dnsmasq after configuration changes.">
 
     <link rel="preload" href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" as="style" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
     <link href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" rel="stylesheet" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
@@ -286,18 +302,6 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
     </a>
   </div>
               
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
-    </a>
-  </div>
-              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -465,7 +469,7 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -517,6 +521,33 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -600,18 +631,6 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Quick Start</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -734,7 +753,7 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -785,6 +804,32 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div><div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -928,18 +973,27 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
             
           </div>
           
-          <p>keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a <code>generate-resolver-config</code> subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its <code>conf-script=</code> directive.</p>
+          <p>Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.</p>
+<p>On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:</p>
+<ul>
+<li><code>system_resolver</code></li>
+<li><code>servers</code></li>
+<li><code>rules</code></li>
+<li><code>fallback</code></li>
+</ul>
 <h2>Configuration<span class="hx:absolute hx:-mt-20" id="configuration"></span>
     <a href="#configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;dns_test_server&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;listen&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.88:53&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;system_resolver&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;dnsmasq-nftset&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;hook&#34;</span><span class="p">:</span> <span class="s2">&#34;/usr/lib/keen-pbr/dnsmasq.sh&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span><span class="err">...</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google-dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -963,6 +1017,11 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
   </thead>
   <tbody>
       <tr>
+          <td><code>system_resolver</code></td>
+          <td>object</td>
+          <td>How keen-pbr refreshes dnsmasq on the system</td>
+      </tr>
+      <tr>
           <td><code>servers</code></td>
           <td>array</td>
           <td>DNS server definitions</td>
@@ -980,18 +1039,13 @@ Configuration { &#34;dns&#34;: { &#34;dns_test_server&#34;: { &#34;listen&#34;: 
       <tr>
           <td><code>dns_test_server</code></td>
           <td>object</td>
-          <td>Optional built-in DNS probe listener for connectivity checks</td>
+          <td>Optional built-in DNS probe listener for advanced troubleshooting</td>
       </tr>
   </tbody>
 </table>
 <h2>System Resolver<span class="hx:absolute hx:-mt-20" id="system-resolver"></span>
-    <a href="#system-resolver" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.system_resolver</code> configures the dnsmasq integration used by keen-pbr&rsquo;s
-daemon runtime.</p>
-<ul>
-<li>It is required for daemon service startup, config reload, and config apply via the API.</li>
-<li><code>address</code> is also the endpoint used by <code>/api/health/service</code> to query the TXT record <code>config-hash.keen.pbr</code>.</li>
-<li><code>address</code> accepts <code>host[:port]</code>; when the port is omitted, keen-pbr queries port <code>53</code>.</li>
-</ul>
+    <a href="#system-resolver" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.system_resolver</code> tells keen-pbr how to refresh dnsmasq after configuration changes.</p>
+<p>On normal router package installs, you usually keep this configured exactly as shown in the package examples.</p>
 <table>
   <thead>
       <tr>
@@ -1012,20 +1066,23 @@ daemon runtime.</p>
           <td><code>hook</code></td>
           <td>string</td>
           <td>yes</td>
-          <td>Hook script path used to reload the system resolver</td>
+          <td>Hook script path used to refresh dnsmasq</td>
       </tr>
       <tr>
           <td><code>address</code></td>
           <td>string</td>
           <td>yes</td>
-          <td>Resolver address used for integration and TXT health checks, for example <code>&quot;127.0.0.1&quot;</code> or <code>&quot;127.0.0.1:5353&quot;</code></td>
+          <td>Resolver address used for integration and health checks</td>
       </tr>
   </tbody>
 </table>
+<p>Common <code>hook</code> paths:</p>
+<ul>
+<li>OpenWrt / Debian: <code>/usr/lib/keen-pbr/dnsmasq.sh</code></li>
+<li>Keenetic / NetCraze: <code>/opt/usr/lib/keen-pbr/dnsmasq.sh</code></li>
+</ul>
 <h2>DNS Test Server<span class="hx:absolute hx:-mt-20" id="dns-test-server"></span>
-    <a href="#dns-test-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.dns_test_server</code> enables a minimal DNS server inside keen-pbr. It listens on
-the configured IPv4 <code>host:port</code>, accepts both UDP and TCP DNS requests, logs
-the queried name, and always replies with one synthetic <code>A</code> record.</p>
+    <a href="#dns-test-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.dns_test_server</code> is optional. It is mainly useful when you are troubleshooting DNS and want keen-pbr to expose a simple test DNS listener.</p>
 <table>
   <thead>
       <tr>
@@ -1070,9 +1127,7 @@ the queried name, and always replies with one synthetic <code>A</code> record.</
   </button>
 </div>
 </div>
-<p>When the HTTP API is enabled, <code>GET /api/dns/test</code> exposes these DNS query names
-as Server-Sent Events. Each new SSE connection receives <code>HELLO</code> first, then one
-event per queried DNS name observed while that connection stays open.</p>
+<p>When the HTTP API is enabled, <code>GET /api/dns/test</code> can stream the DNS queries seen by this test server.</p>
 <h2>DNS Servers<span class="hx:absolute hx:-mt-20" id="dns-servers"></span>
     <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Each server has a tag, optional <code>type</code>, optional <code>address</code>, and optional <code>detour</code>.</p>
 <table>
@@ -1095,39 +1150,39 @@ event per queried DNS name observed while that connection stays open.</p>
           <td><code>type</code></td>
           <td>string</td>
           <td>no</td>
-          <td>DNS source type: <code>static</code> (default) or <code>keenetic</code>.</td>
+          <td>DNS source type: <code>static</code> (default) or <code>keenetic</code></td>
       </tr>
       <tr>
           <td><code>address</code></td>
           <td>string</td>
           <td>for <code>static</code></td>
-          <td>IPv4 or IPv6 address of the DNS server, with optional port: <code>&quot;8.8.8.8&quot;</code>, <code>&quot;8.8.8.8:5353&quot;</code>, <code>&quot;[::1]:5353&quot;</code>. Default port: 53.</td>
+          <td>IP address of the DNS server, with optional port</td>
       </tr>
       <tr>
           <td><code>detour</code></td>
           <td>string</td>
           <td>no</td>
-          <td>Outbound tag to use when querying this server</td>
+          <td>Outbound to use when contacting this DNS server</td>
       </tr>
   </tbody>
 </table>
-<p>The <code>detour</code> field binds DNS queries for this server to a specific outbound. This ensures that DNS resolution goes through the same path as the routed traffic.</p>
+<p>The <code>detour</code> field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn-dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;static&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google-dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic-dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;keenetic&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
@@ -1144,26 +1199,10 @@ event per queried DNS name observed while that connection stays open.</p>
 </div>
 </div>
 <h3><code>type: keenetic</code> (built-in router DNS via RCI)<span class="hx:absolute hx:-mt-20" id="type-keenetic-built-in-router-dns-via-rci"></span>
-    <a href="#type-keenetic-built-in-router-dns-via-rci" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>type</code> is set to <code>keenetic</code>, <code>keen-pbr</code> resolves the DNS server address from Keenetic RCI at startup, on config reload, and after manual restart via UI reload flow.</p>
-<ul>
-<li>Compile-time requirement: <code>USE_KEENETIC_API=ON</code>.</li>
-<li>Source of truth endpoint: <code>GET http://127.0.0.1:79/rci/show/dns-proxy</code>.</li>
-<li>Data source inside response: <code>proxy-status[]</code> entry with <code>proxy-name == &quot;System&quot;</code>, field <code>proxy-config</code>, first <code>dns_server = ...</code> directive.</li>
-</ul>
-<p>If Keenetic API support is not compiled in, config with <code>type: &quot;keenetic&quot;</code> fails validation with a clear diagnostic.</p>
+    <a href="#type-keenetic-built-in-router-dns-via-rci" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On Keenetic routers, <code>type: &quot;keenetic&quot;</code> tells keen-pbr to reuse the router&rsquo;s current built-in DNS settings automatically.</p>
 <h3>How <code>detour</code> works<span class="hx:absolute hx:-mt-20" id="how-detour-works"></span>
-    <a href="#how-detour-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>detour</code> is set, keen-pbr installs a firewall mark rule for UDP <strong>and</strong>
-TCP traffic whose destination is <code>&lt;server.address&gt;:&lt;server.port&gt;</code> (default port
-53). The rule marks those packets with the fwmark of the referenced outbound,
-so the kernel routes DNS queries through that outbound&rsquo;s routing table — the
-same path as the tunnelled traffic.</p>
-<p>Rules are installed on both the <strong>iptables</strong> and <strong>nftables</strong> backends and are
-rebuilt on every <code>full_reload()</code> (SIGHUP, config API reload, or urltest
-selection change).</p>
-<p><code>urltest</code> outbounds are supported: the rule always uses the fwmark of the
-currently selected child, so DNS detour follows interface failover automatically.</p>
-<p><code>blackhole</code> and <code>ignore</code> outbounds cannot be used as <code>detour</code> targets and are
-rejected at config validation time.</p>
+    <a href="#how-detour-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>detour</code> is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound.</p>
+<p>For example, if <code>vpn_dns</code> has <code>detour: &quot;vpn&quot;</code>, then the DNS requests to <code>vpn_dns</code> will also go through <code>vpn</code>.</p>
 <h2>DNS Rules<span class="hx:absolute hx:-mt-20" id="dns-rules"></span>
     <a href="#dns-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Rules map list names to a DNS server tag. Domains from the specified lists are resolved using the specified server.</p>
 <table>
@@ -1195,8 +1234,8 @@ rejected at config validation time.</p>
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my-domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote-list&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn-dns&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
@@ -1212,7 +1251,13 @@ rejected at config validation time.</p>
 </div>
 </div>
 <h2>dnsmasq Integration<span class="hx:absolute hx:-mt-20" id="dnsmasq-integration"></span>
-    <a href="#dnsmasq-integration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>keen-pbr provides the <code>generate-resolver-config</code> subcommand that prints global fallback <code>server=</code> directives plus per-list <code>server=</code> and <code>ipset=</code>/<code>nftset=</code> directives to stdout.</p>
+    <a href="#dnsmasq-integration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>On packaged router installs, you usually do not need to configure dnsmasq manually.</p>
+<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
+  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
+    <strong class="hx:text-lg">Manual dnsmasq integration (advanced)</strong>
+  </summary>
+  <div class="hx:p-2 hx:overflow-hidden">
+    <p>keen-pbr provides the <code>generate-resolver-config</code> subcommand that prints dnsmasq configuration to stdout.</p>
 <p>Two resolver types are supported:</p>
 <table>
   <thead>
@@ -1235,10 +1280,9 @@ rejected at config validation time.</p>
       </tr>
   </tbody>
 </table>
-<p>Use dnsmasq&rsquo;s <code>conf-script=</code> directive to call keen-pbr directly — no intermediate file needed:</p>
+<p>Example dnsmasq integration:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div><pre><code>conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset</code></pre></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1250,36 +1294,9 @@ rejected at config validation time.</p>
   </button>
 </div>
 </div>
-<p>Restart dnsmasq after adding this line. dnsmasq will re-run the script on each reload.</p>
-<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
-  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-
-  <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><p>To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr against the TXT record dnsmasq exposes (written by <code>generate-resolver-config</code>):</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Hash known to keen-pbr</span>
-</span></span><span class="line"><span class="cl">curl -s http://127.0.0.1:8080/api/health/service <span class="p">|</span> grep resolver_config_hash
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Hash dnsmasq is currently using</span>
-</span></span><span class="line"><span class="cl">dig +short TXT config-hash.keen.pbr @127.0.0.1
-</span></span><span class="line"><span class="cl"><span class="c1"># or: nslookup -type=TXT config-hash.keen.pbr 127.0.0.1</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>If the two values differ, dnsmasq has not picked up the latest configuration — restart dnsmasq to reload.</p>
-</div>
+<p>Restart dnsmasq after adding this line.</p>
   </div>
-</div>
-
+</details>
 <h2>Complete Example<span class="hx:absolute hx:-mt-20" id="complete-example"></span>
     <a href="#complete-example" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1287,22 +1304,22 @@ rejected at config validation time.</p>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn-dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;detour&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">},</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google-dns&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;google_dns&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;8.8.8.8&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">],</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my-domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote-list&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn-dns&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
 </span></span><span class="line"><span class="cl">    <span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google-dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;fallback&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google_dns&#34;</span><span class="p">,</span> <span class="s2">&#34;quad9&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -1316,6 +1333,14 @@ rejected at config validation time.</p>
   </button>
 </div>
 </div>
+<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
+  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
+    <strong class="hx:text-lg">Under the hood: how domain-based routing works</strong>
+  </summary>
+  <div class="hx:p-2 hx:overflow-hidden">
+    When a domain in a matched list is resolved, dnsmasq adds the resulting IP address to an internal set used by keen-pbr. Traffic to that IP can then be routed through the correct outbound.
+  </div>
+</details>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

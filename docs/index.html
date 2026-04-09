@@ -10,9 +10,11 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Documentation – keen-pbr</title>
   <meta name="description" content="Welcome to the keen-pbr documentation.
-keen-pbr is a policy-based routing daemon for Linux systems (OpenWRT, Keenetic routers, and similar). It manages firewall marks, routing tables, and ip rules to selectively route traffic from specific domain lists or IP ranges through designated outbound connections.
-New here? Start with Getting Started to build and deploy keen-pbr, or jump straight to the Quick Start guide for a minimal working configuration.
-For a conceptual overview of how the pieces fit together, see Concepts." /><link rel="canonical" href="https://keen-pbr.fyi/docs/" itemprop="url" />
+keen-pbr helps you send selected sites and services through a VPN while the rest of your traffic keeps using the normal connection.
+New here? Start with Getting Started for package installation and first setup, or jump straight to Quick Start if keen-pbr is already installed.
+For the full configuration reference, see Configuration.
+If you want to understand how keen-pbr works under the hood, see Concepts.
+If you need command-line tools, API details, or service signals, see Advanced." /><link rel="canonical" href="https://keen-pbr.fyi/docs/" itemprop="url" />
 
 <meta property="og:title" content="Documentation">
 <meta
@@ -32,16 +34,20 @@ For a conceptual overview of how the pieces fit together, see Concepts." /><link
 
   <meta itemprop="name" content="Documentation">
   <meta itemprop="description" content="Welcome to the keen-pbr documentation.
-keen-pbr is a policy-based routing daemon for Linux systems (OpenWRT, Keenetic routers, and similar). It manages firewall marks, routing tables, and ip rules to selectively route traffic from specific domain lists or IP ranges through designated outbound connections.
-New here? Start with Getting Started to build and deploy keen-pbr, or jump straight to the Quick Start guide for a minimal working configuration.
-For a conceptual overview of how the pieces fit together, see Concepts.">
-  <meta itemprop="wordCount" content="86">
+keen-pbr helps you send selected sites and services through a VPN while the rest of your traffic keeps using the normal connection.
+New here? Start with Getting Started for package installation and first setup, or jump straight to Quick Start if keen-pbr is already installed.
+For the full configuration reference, see Configuration.
+If you want to understand how keen-pbr works under the hood, see Concepts.
+If you need command-line tools, API details, or service signals, see Advanced.">
+  <meta itemprop="wordCount" content="93">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Documentation">
   <meta name="twitter:description" content="Welcome to the keen-pbr documentation.
-keen-pbr is a policy-based routing daemon for Linux systems (OpenWRT, Keenetic routers, and similar). It manages firewall marks, routing tables, and ip rules to selectively route traffic from specific domain lists or IP ranges through designated outbound connections.
-New here? Start with Getting Started to build and deploy keen-pbr, or jump straight to the Quick Start guide for a minimal working configuration.
-For a conceptual overview of how the pieces fit together, see Concepts.">
+keen-pbr helps you send selected sites and services through a VPN while the rest of your traffic keeps using the normal connection.
+New here? Start with Getting Started for package installation and first setup, or jump straight to Quick Start if keen-pbr is already installed.
+For the full configuration reference, see Configuration.
+If you want to understand how keen-pbr works under the hood, see Concepts.
+If you need command-line tools, API details, or service signals, see Advanced.">
 
     <link rel="preload" href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" as="style" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
     <link href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" rel="stylesheet" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
@@ -238,18 +244,6 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
     </a>
   </div>
               
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
-    </a>
-  </div>
-              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -372,7 +366,7 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -424,6 +418,33 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -507,18 +528,6 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Quick Start</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -641,7 +650,7 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -692,6 +701,32 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div><div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -794,10 +829,12 @@ For a conceptual overview of how the pieces fit together, see Concepts.">
           </div>
           
           <p>Welcome to the keen-pbr documentation.</p>
-<p>keen-pbr is a policy-based routing daemon for Linux systems (OpenWRT, Keenetic routers, and similar). It manages firewall marks, routing tables, and ip rules to selectively route traffic from specific domain lists or IP ranges through designated outbound connections.</p>
-<p><strong>New here?</strong> Start with <a href="getting-started/">Getting Started</a> to build and deploy keen-pbr, or jump straight to the <a href="getting-started/quick-start/">Quick Start</a> guide for a minimal working configuration.</p>
-<p>For a conceptual overview of how the pieces fit together, see <a href="concepts/">Concepts</a>.</p>
+<p>keen-pbr helps you send selected sites and services through a VPN while the rest of your traffic keeps using the normal connection.</p>
+<p><strong>New here?</strong> Start with <a href="getting-started/">Getting Started</a> for package installation and first setup, or jump straight to <a href="getting-started/quick-start/">Quick Start</a> if keen-pbr is already installed.</p>
 <p>For the full configuration reference, see <a href="configuration/">Configuration</a>.</p>
+<p>If you want to understand how keen-pbr works under the hood, see <a href="concepts/">Concepts</a>.</p>
+<p>If you need command-line tools, API details, or service signals, see <a href="advanced/">Advanced</a>.</p>
+<p>If you are building packages or compiling from source, see <a href="developer/">Developer</a>.</p>
 
         </div>
         <div class="hx:mt-16"></div>

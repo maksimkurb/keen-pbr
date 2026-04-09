@@ -9,17 +9,34 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Lists – keen-pbr</title>
-  <meta name="description" content="Lists define named collections of domains and/or IP CIDRs used in route rules and DNS rules.
+  <meta name="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
-Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; 0 means no timeout At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/lists/" itemprop="url" />
+Most users start with a simple domain list such as:
+{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/lists/" itemprop="url" />
 
 <meta property="og:title" content="Lists">
 <meta
   property="og:description"
   content="
     
-      Lists define named collections of domains and/or IP CIDRs used in route rules and DNS rules.
+      Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
+Most users start with a simple domain list such as:
+
+
+{
+  &#34;lists&#34;: {
+    &#34;my_sites&#34;: {
+      &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;]
+    }
+  }
+}
+  
+    
+
+  
+
+
 Fields
     
   
@@ -59,7 +76,7 @@ Fields
           ttl_ms
           integer
           no (default: 0)
-          TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; 0 means no timeout
+          How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0.
       
   
 
@@ -77,15 +94,17 @@ At least one of url, domains, ip_cidrs, or file must be provided. Multiple sourc
 
 
   <meta itemprop="name" content="Lists">
-  <meta itemprop="description" content="Lists define named collections of domains and/or IP CIDRs used in route rules and DNS rules.
+  <meta itemprop="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
-Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; 0 means no timeout At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged.">
-  <meta itemprop="wordCount" content="520">
+Most users start with a simple domain list such as:
+{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged.">
+  <meta itemprop="wordCount" content="448">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Lists">
-  <meta name="twitter:description" content="Lists define named collections of domains and/or IP CIDRs used in route rules and DNS rules.
+  <meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
-Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; 0 means no timeout At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged.">
+Most users start with a simple domain list such as:
+{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided. Multiple sources can be combined in a single list entry — all entries are merged.">
 
     <link rel="preload" href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" as="style" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
     <link href="/css/compiled/main.min.83d905613bd328353674f82188ff8a6fa53af396b933454ba2eebad0c5fcd1ad.css" rel="stylesheet" integrity="sha256-g9kFYTvTKDU2dPghiP&#43;Kb6U685a5M0VLou660MX80a0=" />
@@ -281,18 +300,6 @@ Fields Field Type Required Description url string no URL to a remote list file t
     </a>
   </div>
               
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
-    </a>
-  </div>
-              
             </li></ul>
       </div>
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
@@ -349,12 +356,6 @@ Fields Field Type Required Description url string no URL to a remote list file t
                 href="#fields"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Fields</a>
-            </li>
-          <li>
-              <a
-                href="#static-and-dynamic-ip-sets"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Static and dynamic IP sets</a>
             </li>
           <li>
               <a
@@ -442,7 +443,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -494,6 +495,33 @@ Fields Field Type Required Description url string no URL to a remote list file t
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div>
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div>
+              <div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -577,18 +605,6 @@ Fields Field Type Required Description url string no URL to a remote list file t
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Quick Start</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/getting-started/compilation/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -711,7 +727,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
       href="/docs/advanced/cli/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">CLI manual</span>
+      <span class="hx:min-w-0 [word-break:break-word]">CLI</span>
     </a>
   </div>
               
@@ -762,6 +778,32 @@ Fields Field Type Required Description url string no URL to a remote list file t
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Troubleshooting</span>
+    </a>
+  </div>
+              
+            </li></ul>
+      </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:ltr:pr-8 hx:rtl:pl-8
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Developer</span>
+    </a>
+      <button type="button" class="hextra-sidebar-collapsible-button hx:absolute hx:top-1/2 hx:-translate-y-1/2 hx:ltr:right-2 hx:rtl:left-2 hx:shrink-0 hx:cursor-pointer hx:p-0 hx:text-gray-500 hx:dark:text-neutral-400 hx:group-hover:text-gray-900 hx:dark:group-hover:text-gray-50 hx:group-data-[active=true]:text-primary-800 hx:group-data-[active=true]:dark:text-primary-600 hx:hextra-focus-visible-inset" aria-label="Toggle section" aria-expanded="false"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:h-[18px] hx:min-w-[18px] hx:rounded-xs hx:p-0.5 hx:hover:bg-gray-800/5 hx:dark:hover:bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx:origin-center hx:transition-transform hx:rtl:-rotate-180"></path></svg></button>
+  </div><div class="hextra-sidebar-children hx:ltr:pr-0 hx:rtl:pl-0 hx:overflow-hidden">
+        <ul class='hx:relative hx:flex hx:flex-col hx:gap-1 hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:ltr:ml-3 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:mr-3 hx:rtl:pr-3 hx:rtl:before:right-0 hx:dark:before:bg-neutral-800'><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/developer/build-from-source/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Build from Source</span>
     </a>
   </div>
               
@@ -844,10 +886,6 @@ Fields Field Type Required Description url string no URL to a remote list file t
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#static-and-dynamic-ip-sets">Static and dynamic IP sets
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#list-file-format">List File Format
         </a>
       </li>
@@ -905,8 +943,29 @@ Fields Field Type Required Description url string no URL to a remote list file t
             
           </div>
           
-          <p>Lists define named collections of domains and/or IP CIDRs used in route rules and DNS rules.</p>
+          <p>Lists are groups of sites or IP ranges that you want keen-pbr to match.</p>
 <p>The <code>lists</code> key is an object where each key is the list name and the value is the list configuration.</p>
+<p>Most users start with a simple domain list such as:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_sites&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;google.com&#34;</span><span class="p">,</span> <span class="s2">&#34;youtube.com&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
 <h2>Fields<span class="hx:absolute hx:-mt-20" id="fields"></span>
     <a href="#fields" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
   <thead>
@@ -946,37 +1005,11 @@ Fields Field Type Required Description url string no URL to a remote list file t
           <td><code>ttl_ms</code></td>
           <td>integer</td>
           <td>no (default: <code>0</code>)</td>
-          <td>TTL in milliseconds for dnsmasq-resolved IPs added to the dynamic set; <code>0</code> means no timeout</td>
+          <td>How long resolved IPs should stay cached for domain-based lists. Most users can leave this at <code>0</code>.</td>
       </tr>
   </tbody>
 </table>
 <p>At least one of <code>url</code>, <code>domains</code>, <code>ip_cidrs</code>, or <code>file</code> must be provided. Multiple sources can be combined in a single list entry — all entries are merged.</p>
-<h2>Static and dynamic IP sets<span class="hx:absolute hx:-mt-20" id="static-and-dynamic-ip-sets"></span>
-    <a href="#static-and-dynamic-ip-sets" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Each list is backed by <strong>two pairs</strong> of kernel IP sets:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Set name</th>
-          <th>Contents</th>
-          <th>TTL</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>kpbr4_&lt;list&gt;</code> / <code>kpbr6_&lt;list&gt;</code></td>
-          <td>Static IPs from <code>ip_cidrs</code>, <code>file</code>, <code>url</code></td>
-          <td>none (permanent)</td>
-      </tr>
-      <tr>
-          <td><code>kpbr4d_&lt;list&gt;</code> / <code>kpbr6d_&lt;list&gt;</code></td>
-          <td>IPs resolved by dnsmasq at DNS query time</td>
-          <td><code>ttl_ms</code> (if set)</td>
-      </tr>
-  </tbody>
-</table>
-<p>Firewall MARK rules match packets whose destination address appears in <strong>either</strong> the static or dynamic set (OR semantics), so traffic is correctly routed regardless of whether the IP was loaded at startup or resolved later by dnsmasq.</p>
-<p>The <code>dnsmasq</code> resolver config (<code>ipset=</code> / <code>nftset=</code> directives) references the <strong>dynamic</strong> sets (<code>kpbr4d_*</code> / <code>kpbr6d_*</code>). When a listed domain is resolved, dnsmasq writes the resulting IP directly into the dynamic set. If <code>ttl_ms</code> is set, that entry automatically expires after the specified duration so stale IPs from changed DNS records are removed without a daemon reload.</p>
-<p>Static entries (from <code>ip_cidrs</code>, <code>file</code>, <code>url</code>) are always permanent — they persist until the next reload regardless of <code>ttl_ms</code>.</p>
 <h2>List File Format<span class="hx:absolute hx:-mt-20" id="list-file-format"></span>
     <a href="#list-file-format" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Whether loaded from <code>url</code> or <code>file</code>, keen-pbr expects one entry per line:</p>
 <ul>
@@ -995,7 +1028,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;remote-list&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;remote_list&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1017,7 +1050,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my-domains&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_domains&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;domains&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;example.com&#34;</span><span class="p">,</span> <span class="s2">&#34;other.org&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1039,7 +1072,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my-ips&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;my_ips&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;ip_cidrs&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;93.184.216.34&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="s2">&#34;10.0.0.0/8&#34;</span><span class="p">,</span>
@@ -1065,7 +1098,7 @@ Fields Field Type Required Description url string no URL to a remote list file t
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;lists&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local-list&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;local_list&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;file&#34;</span><span class="p">:</span> <span class="s2">&#34;/etc/keen-pbr/my-list.txt&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1107,6 +1140,20 @@ Fields Field Type Required Description url string no URL to a remote list file t
 </div>
 </div>
 <p>All four sources are merged into a single list. <code>ttl_ms: 86400000</code> sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (<code>kpbr4d_combined</code> / <code>kpbr6d_combined</code>). Static IPs from <code>ip_cidrs</code> and the cached URL/file are loaded into the permanent static set (<code>kpbr4_combined</code> / <code>kpbr6_combined</code>) and are never expired automatically.</p>
+<details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
+  <summary class="hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[''] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90">
+    <strong class="hx:text-lg">Under the hood: how domain lists are matched</strong>
+  </summary>
+  <div class="hx:p-2 hx:overflow-hidden">
+    <p>Each list is backed by static and dynamic IP sets.</p>
+<ul>
+<li>Static entries from <code>ip_cidrs</code>, <code>file</code>, and <code>url</code> are loaded immediately.</li>
+<li>Domain entries are added later, when dnsmasq resolves them.</li>
+<li>If <code>ttl_ms</code> is set, those resolved IPs expire automatically after that time.</li>
+</ul>
+<p>This is why a domain-based rule can keep working even after a site&rsquo;s IP changes.</p>
+  </div>
+</details>
 
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a

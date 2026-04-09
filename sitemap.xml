@@ -2,6 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://keen-pbr.fyi/docs/developer/build-from-source/</loc>
+  </url><url>
     <loc>https://keen-pbr.fyi/docs/troubleshooting/faq/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/</loc>
@@ -26,8 +28,6 @@
   </url><url>
     <loc>https://keen-pbr.fyi/docs/troubleshooting/troubleshooting/</loc>
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/compilation/</loc>
-  </url><url>
     <loc>https://keen-pbr.fyi/docs/configuration/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/getting-started/installation/debian/</loc>
@@ -43,6 +43,8 @@
     <loc>https://keen-pbr.fyi/docs/configuration/advanced/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/docs/troubleshooting/</loc>
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/developer/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/categories/</loc>
   </url><url>
