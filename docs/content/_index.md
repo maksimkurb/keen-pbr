@@ -27,7 +27,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(59,130,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Selective Routing</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with configurable fallback.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Route traffic based on domain lists, IP CIDRs, ports, and addresses. First-match rule evaluation with normal system routing for unmatched traffic.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
 <svg id="kpbr-sr" viewBox="0 30 300 100" style="width:100%;height:auto;display:block;" aria-hidden="true">

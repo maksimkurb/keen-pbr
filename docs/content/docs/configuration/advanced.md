@@ -3,7 +3,9 @@ title: Advanced
 weight: 5
 ---
 
-This page covers the remaining top-level configuration keys: `daemon`, `api`, `fwmark`, `iproute`, and `lists_autoupdate`.
+Most users can skip this page.
+
+These settings are for advanced setups and service-level tuning: `daemon`, `api`, `fwmark`, `iproute`, and `lists_autoupdate`.
 
 ## daemon
 
@@ -49,7 +51,7 @@ Controls the embedded HTTP API server.
 }
 ```
 
-The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [Advanced](../advanced/) for endpoint documentation and runtime controls.
+The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [REST API](../advanced/rest-api/) for endpoint documentation and runtime controls.
 
 ## fwmark
 

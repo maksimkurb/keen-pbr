@@ -3,58 +3,104 @@ title: Troubleshooting
 weight: 2
 ---
 
-## Daemon won't start
+Start with the symptom that matches what you see. Each section begins with the simplest checks first, then gives more advanced checks if you still need them.
 
-1. **Check config JSON validity** — parse errors are logged to stderr on startup. Validate with `jq . /etc/keen-pbr/config.json`.
-2. **PID file permissions** — ensure the directory for `daemon.pid_file` exists and is writable by the process user.
-3. **Cache directory** — ensure `daemon.cache_dir` exists and is writable. Create it if needed: `mkdir -p /var/cache/keen-pbr`.
-4. **Port conflict** — if the API is enabled, check that the `api.listen` address/port is not already in use.
+## Service does not start
 
-## Traffic not routed through VPN
+1. Confirm that the config file exists in the usual place for your platform.
+2. Restart the service with the command from your installation page.
+3. If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths.
+4. If you are using the full package, make sure you did not accidentally disable the service or replace the config with a headless-only example.
 
-Check the routing health endpoint:
+{{% details title="Advanced checks" closed="true" %}}
+Use these if the service still will not start:
+
+1. Validate the JSON in your platform's config file, for example: `jq . /etc/keen-pbr/config.json`
+2. Make sure the directory for `daemon.pid_file` exists and is writable.
+3. Make sure `daemon.cache_dir` exists and is writable.
+4. If the API is enabled, make sure the configured listen address and port are not already in use.
+{{% /details %}}
+
+## Sites are not going through the VPN
+
+1. Make sure the site is in the correct list.
+2. Make sure the route rule for that list points to your VPN outbound.
+3. Make sure your VPN connection is actually up.
+4. Run a quick test:
+
+```bash {filename="bash"}
+keen-pbr test-routing google.com
+```
+
+If the expected and actual outbounds are different, the rule or DNS setup is not complete yet.
+
+{{% details title="Advanced checks" closed="true" %}}
+If you want deeper diagnostics, check the routing health endpoint:
 
 ```bash {filename="bash"}
 curl http://127.0.0.1:8080/api/health/routing
 ```
 
-Look for entries with `"status": "missing"` or `"status": "mismatch"` in:
-- `firewall` — the keen-pbr chain may not be hooked into PREROUTING
-- `firewall_rules` — fwmark rules for your sets may be missing
-- `route_tables` — routing table may not have a default route via the VPN interface
-- `policy_rules` — ip rule to lookup the table by fwmark may be missing
+Look for entries with `"status": "missing"` or `"status": "mismatch"`.
 
-Also verify that `fwmark.start`, `fwmark.mask`, and `iproute.table_start` don't conflict with existing rules:
+Only if you are intentionally using custom low-level routing settings, also verify that `fwmark.start`, `fwmark.mask`, and `iproute.table_start` do not conflict with existing rules:
 
 ```bash {filename="bash"}
 ip rule list
 ip route show table 150
 ```
+{{% /details %}}
 
-## urltest always shows "degraded"
+## DNS rules do not work
 
-The `urltest` outbound is `degraded` when no child has been successfully selected.
+1. Make sure the list name in `dns.rules` matches the list name in `lists`.
+2. Make sure the DNS rule points to the correct DNS server tag.
+3. If the DNS server uses `detour`, make sure that outbound is up.
+4. Restart keen-pbr after editing the DNS section.
 
-1. Check that the probe `url` is reachable from the outbound interface.
-2. Check circuit breaker states via `GET /api/health/service` — if a child shows `"circuit_breaker": "open"`, it is in cooldown. Wait for `circuit_breaker.timeout_ms` to elapse.
-3. Check that child outbound interfaces are up: `ip link show tun0`.
-4. Reduce `interval_ms` temporarily to force faster re-probing.
+{{% details title="Advanced checks" closed="true" %}}
+For manual or headless dnsmasq integration:
 
-## dnsmasq not resolving domains to VPN
+1. Verify `generate-resolver-config` produces output:
 
-1. Verify `generate-resolver-config` produces output: `keen-pbr generate-resolver-config dnsmasq-nftset`.
-2. Ensure your dnsmasq configuration includes `conf-script=` pointing to keen-pbr, e.g.: `conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset`
-3. Restart dnsmasq after adding the `conf-script=` line.
-4. Check that `dns.rules` lists the correct list names and server tag.
-5. If using `detour`, ensure the outbound interface is up.
+```bash {filename="bash"}
+keen-pbr generate-resolver-config dnsmasq-nftset
+```
 
-## Remote list not updating
+2. Ensure dnsmasq includes a matching `conf-script=` line.
+3. Restart dnsmasq after changing that line.
+{{% /details %}}
 
-1. Check keen-pbr logs for HTTP errors when downloading the list.
-2. Verify the URL is reachable from the router: `curl -I <url>`.
-3. Check `lists_autoupdate.cron` — ensure the schedule is correct.
-4. Trigger a manual reload to test: `kill -HUP $(cat /var/run/keen-pbr.pid)`
-5. Check that `daemon.cache_dir` is writable; failed writes prevent caching.
+## Remote lists do not update
+
+1. Run:
+
+```bash {filename="bash"}
+keen-pbr download
+```
+
+2. If the list still does not update, check whether the URL is reachable from the router.
+3. If you use automatic refresh, check that `lists_autoupdate.cron` is set to the schedule you want.
+
+{{% details title="Advanced checks" closed="true" %}}
+If you need to force a full reload:
+
+```bash {filename="bash"}
+kill -HUP $(cat /var/run/keen-pbr.pid)
+```
+
+Also confirm that `daemon.cache_dir` is writable.
+{{% /details %}}
+
+## `urltest` always shows degraded
+
+1. Make sure the test `url` is reachable.
+2. Make sure the child outbounds are up.
+3. Wait for the next probe cycle, or lower `interval_ms` temporarily while testing.
+
+{{% details title="Advanced checks" closed="true" %}}
+Check `GET /api/health/service` for circuit breaker state. If a child is `"open"`, wait for `circuit_breaker.timeout_ms` to expire.
+{{% /details %}}
 
 ## Port/address filter rules not matching
 
@@ -67,9 +113,9 @@ If rules aren't matching as expected:
 - Ensure negated address arrays use `!` on **every** entry, not just some
 - Check that the list name in the rule matches exactly (case-sensitive) the key in `lists`
 
-## High fwmark conflicts
+## Low-level routing conflicts (advanced)
 
-If other software on your system uses the same fwmark range, packets may be misrouted or dropped.
+If you changed `fwmark` or `iproute` settings, or another tool is also managing advanced routing on the same system, packets may be misrouted or dropped.
 
 Check for conflicts:
 

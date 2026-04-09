@@ -3,7 +3,11 @@ title: Concepts
 weight: 2
 ---
 
-keen-pbr orchestrates three Linux kernel subsystems — **netfilter** (firewall), **policy routing** (ip rules + routing tables), and **DNS** (via dnsmasq) — driven by a single JSON config file. This page explains the core entities and how they interact at runtime.
+You do not need this page to finish a normal setup.
+
+The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
+
+This page explains what happens under the hood for readers who want the deeper technical model.
 
 ## Core Entities
 
@@ -43,7 +47,7 @@ An ordered list of match → action pairs. Each rule selects traffic by:
 - **Port filters** (`src_port`, `dest_port`) — single, list, range, or negation
 - **Address filters** (`src_addr`, `dest_addr`) — CIDR, list, or negation
 
-First matching rule wins. Unmatched traffic goes to the configured `fallback` outbound.
+First matching rule wins. Unmatched traffic is left unmarked and follows the system's normal routing.
 
 See [Route Rules](configuration/route-rules/) for the full reference.
 
@@ -108,7 +112,7 @@ flowchart TD
     Packet(["Incoming packet\n(e.g. dest: 93.184.216.34)"])
     PREROUTING["Firewall PREROUTING\n(netfilter mangle)"]
     IpsetCheck{"IP in\nipset/nftset?"}
-    NoMatch["No match →\nfallback outbound\n(ignore / default route)"]
+    NoMatch["No match →\nno fwmark\nsystem routing"]
     Fwmark["Set fwmark\n(e.g. 0x00010000)"]
     IpRule["ip rule lookup\n(fwmark → table 150)"]
     RoutingTable["Routing table 150\ndefault via tun0 10.8.0.1"]
@@ -117,7 +121,7 @@ flowchart TD
     Packet --> PREROUTING
     PREROUTING --> IpsetCheck
     IpsetCheck -->|"no"| NoMatch
-    IpsetCheck -->|"yes (list: my-domains)"| Fwmark
+    IpsetCheck -->|"yes (list: my_domains)"| Fwmark
     Fwmark --> IpRule
     IpRule --> RoutingTable
     RoutingTable --> Egress
@@ -132,7 +136,7 @@ sequenceDiagram
     participant Client
     participant dnsmasq
     participant VPN_DNS as VPN DNS (10.8.0.1)
-    participant Ipset as ipset kpbr4_my-domains
+    participant Ipset as ipset kpbr4_my_domains
     participant Firewall
 
     Client->>dnsmasq: query example.com
@@ -143,5 +147,5 @@ sequenceDiagram
 
     Note over Client,Firewall: Next packet to 93.184.216.34
     Client->>Firewall: packet dest 93.184.216.34
-    Firewall->>Firewall: match ipset kpbr4_my-domains → set fwmark
+    Firewall->>Firewall: match ipset kpbr4_my_domains → set fwmark
 ```

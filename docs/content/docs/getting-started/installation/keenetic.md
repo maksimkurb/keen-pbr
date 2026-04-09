@@ -17,7 +17,7 @@ First, ensure Entware is installed on your router. Please consult the official r
 
 Open your router configuration page, navigate to **Management** -> **System settings**, and install these additional components:
 
-- Network Functions / **IPv6 Protocol** (required to install **Netfilter Subsystem Kernel Modules**)
+- Network Functions / **IPv6 Protocol**
 - OPKG Packages / **Open Package System Support**
 - OPKG Packages / **Netfilter Subsystem Kernel Modules**
 - OPKG Packages / **Xtables-addons Extension Package for Netfilter**
@@ -56,8 +56,4 @@ If you do not plan to use the keen-pbr Web UI or API, you can install the `keen-
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
 {{< /callout >}}
 
-After installation, see the [Quick Start](../quick-start/) guide for a minimal working configuration, or the full [Configuration](../../configuration/) reference.
-
-{{< callout type="info" >}}
-If pre-built packages are not yet available for your platform, see [Build from Source](../compilation/) to compile keen-pbr yourself.
-{{< /callout >}}
+Next step: open [Quick Start](../quick-start/) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
