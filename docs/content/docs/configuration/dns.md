@@ -39,7 +39,6 @@ daemon runtime.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `type` | string | yes | Resolver integration type: `dnsmasq-ipset` or `dnsmasq-nftset` |
-| `hook` | string | yes | Hook script path used to reload the system resolver |
 | `address` | string | yes | Resolver address used for integration and TXT health checks, for example `"127.0.0.1"` or `"127.0.0.1:5353"` |
 
 ## DNS Test Server

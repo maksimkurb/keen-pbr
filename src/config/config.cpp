@@ -621,11 +621,6 @@ void validate_config(const Config& cfg) {
         if (cfg.dns->system_resolver.has_value()) {
             const auto& resolver = *cfg.dns->system_resolver;
 
-            if (resolver.hook.empty()) {
-                add_issue(issues, "dns.system_resolver.hook",
-                          "dns.system_resolver.hook must not be empty");
-            }
-
             if (resolver.address.empty()) {
                 add_issue(issues, "dns.system_resolver.address",
                           "dns.system_resolver.address must not be empty");

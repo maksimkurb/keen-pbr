@@ -13,11 +13,10 @@ TEST_CASE("build_system_resolver_reload_args: returns hook and reload as separat
     Config cfg;
     cfg.dns = DnsConfig{};
     cfg.dns->system_resolver = api::SystemResolver{};
-    cfg.dns->system_resolver->hook = "/usr/local/bin/resolver-hook";
 
     const auto args = build_system_resolver_reload_args(cfg);
     REQUIRE(args.size() == 2);
-    CHECK(args[0] == "/usr/local/bin/resolver-hook");
+    CHECK(args[0] == system_resolver_hook_path());
     CHECK(args[1] == "reload");
 }
 
@@ -25,7 +24,6 @@ TEST_CASE("execute_system_resolver_reload_hook: succeeds for zero exit code") {
     Config cfg;
     cfg.dns = DnsConfig{};
     cfg.dns->system_resolver = api::SystemResolver{};
-    cfg.dns->system_resolver->hook = "resolver-hook";
 
     std::vector<std::string> observed_args;
     std::string command;
@@ -41,9 +39,9 @@ TEST_CASE("execute_system_resolver_reload_hook: succeeds for zero exit code") {
         exit_code);
 
     CHECK(ok);
-    CHECK(command == "resolver-hook reload");
+    CHECK(command == std::string(system_resolver_hook_path()) + " reload");
     REQUIRE(observed_args.size() == 2);
-    CHECK(observed_args[0] == "resolver-hook");
+    CHECK(observed_args[0] == system_resolver_hook_path());
     CHECK(observed_args[1] == "reload");
     CHECK(exit_code == 0);
 }
@@ -52,7 +50,6 @@ TEST_CASE("execute_system_resolver_reload_hook: fails but remains non-throwing")
     Config cfg;
     cfg.dns = DnsConfig{};
     cfg.dns->system_resolver = api::SystemResolver{};
-    cfg.dns->system_resolver->hook = "resolver-hook";
 
     std::string command;
     int exit_code = -1;
@@ -66,7 +63,7 @@ TEST_CASE("execute_system_resolver_reload_hook: fails but remains non-throwing")
         exit_code);
 
     CHECK_FALSE(ok);
-    CHECK(command == "resolver-hook reload");
+    CHECK(command == std::string(system_resolver_hook_path()) + " reload");
     CHECK(exit_code == 17);
 }
 

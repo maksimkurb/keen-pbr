@@ -101,7 +101,6 @@ The following is the full annotated example configuration:
   "dns": {
     "system_resolver": {
       "type": "dnsmasq-nftset",
-      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
       "address": "127.0.0.1"
     },
     "servers": [

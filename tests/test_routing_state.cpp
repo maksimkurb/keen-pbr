@@ -27,7 +27,6 @@ Config parse_minimal_config(const std::string& json) {
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
         resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
-        resolver.hook = "/usr/lib/keen-pbr/dnsmasq.sh";
         resolver.address = "127.0.0.1";
         cfg.dns->system_resolver = resolver;
     }

@@ -527,13 +527,11 @@ void Daemon::stop_routing_runtime() {
     firewall_->cleanup();
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        const auto& hook = config_.dns->system_resolver->hook;
-        if (!hook.empty()) {
-            const int exit_code = hook_command_executor_({hook, "deactivate"});
-            if (exit_code != 0) {
-                throw DaemonError("System resolver deactivate hook failed with exit code " +
-                                  std::to_string(exit_code));
-            }
+        const auto args = build_system_resolver_hook_args(config_, "deactivate");
+        const int exit_code = hook_command_executor_(args);
+        if (exit_code != 0) {
+            throw DaemonError("System resolver deactivate hook failed with exit code " +
+                              std::to_string(exit_code));
         }
     }
 
@@ -556,18 +554,17 @@ void Daemon::start_routing_runtime() {
     apply_firewall();
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        const auto& hook = config_.dns->system_resolver->hook;
-        if (!hook.empty()) {
-            int exit_code = hook_command_executor_({hook, "ensure-runtime-prereqs"});
-            if (exit_code != 0) {
-                throw DaemonError("System resolver ensure-runtime-prereqs hook failed with exit code " +
-                                  std::to_string(exit_code));
-            }
-            exit_code = hook_command_executor_({hook, "activate"});
-            if (exit_code != 0) {
-                throw DaemonError("System resolver activate hook failed with exit code " +
-                                  std::to_string(exit_code));
-            }
+        auto args = build_system_resolver_hook_args(config_, "ensure-runtime-prereqs");
+        int exit_code = hook_command_executor_(args);
+        if (exit_code != 0) {
+            throw DaemonError("System resolver ensure-runtime-prereqs hook failed with exit code " +
+                              std::to_string(exit_code));
+        }
+        args = build_system_resolver_hook_args(config_, "activate");
+        exit_code = hook_command_executor_(args);
+        if (exit_code != 0) {
+            throw DaemonError("System resolver activate hook failed with exit code " +
+                              std::to_string(exit_code));
         }
     }
 

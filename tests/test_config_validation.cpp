@@ -27,7 +27,6 @@ Config parse_test_config(const std::string& json_str) {
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
         resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
-        resolver.hook = "/usr/lib/keen-pbr/dnsmasq.sh";
         resolver.address = "127.0.0.1";
         cfg.dns->system_resolver = resolver;
     }
@@ -220,8 +219,7 @@ TEST_CASE("config validation: accepts system_resolver") {
             "fallback": ["plain-dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
-                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
-                "address": "127.0.0.1"
+                          "address": "127.0.0.1"
             }
         }
     })");
@@ -255,8 +253,7 @@ TEST_CASE("config validation: allows missing fallback") {
             "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
-                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
-                "address": "127.0.0.1"
+                          "address": "127.0.0.1"
             }
         }
     })");
@@ -271,8 +268,7 @@ TEST_CASE("config validation: allows empty fallback array") {
             "fallback": [],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
-                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
-                "address": "127.0.0.1"
+                          "address": "127.0.0.1"
             }
         }
     })");
@@ -287,8 +283,7 @@ TEST_CASE("config validation: rejects unknown fallback tag") {
             "fallback": ["missing-dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
-                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
-                "address": "127.0.0.1"
+                          "address": "127.0.0.1"
             }
         }
     })");
@@ -303,8 +298,7 @@ TEST_CASE("config validation: rejects duplicate fallback tag") {
             "fallback": ["plain-dns", "plain-dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
-                "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
-                "address": "127.0.0.1"
+                          "address": "127.0.0.1"
             }
         }
     })");
@@ -328,11 +322,9 @@ TEST_CASE("config validation: collects empty system_resolver fields") {
         validate_config(cfg);
         FAIL("Expected ConfigValidationError");
     } catch (const ConfigValidationError& e) {
-        REQUIRE(e.issues().size() == 2);
-        CHECK(e.issues()[0].path == "dns.system_resolver.hook");
-        CHECK(e.issues()[0].message == "dns.system_resolver.hook must not be empty");
-        CHECK(e.issues()[1].path == "dns.system_resolver.address");
-        CHECK(e.issues()[1].message == "dns.system_resolver.address must not be empty");
+        REQUIRE(e.issues().size() == 1);
+        CHECK(e.issues()[0].path == "dns.system_resolver.address");
+        CHECK(e.issues()[0].message == "dns.system_resolver.address must not be empty");
     }
 }
 

@@ -564,7 +564,7 @@ components:
 
     DnsSystemResolver:
       type: object
-      required: [type, hook, address]
+      required: [type, address]
       description: >
         System resolver integration used by daemon runtime. This object is
         required for service startup, reload, and applied config updates,
@@ -575,10 +575,6 @@ components:
           enum: [dnsmasq-ipset, dnsmasq-nftset]
           description: Type of external system resolver integration.
           example: "dnsmasq-nftset"
-        hook:
-          type: string
-          description: Filesystem path to the resolver hook script.
-          example: "/usr/lib/keen-pbr/dnsmasq.sh"
         address:
           type: string
           description: >
