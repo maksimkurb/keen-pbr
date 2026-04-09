@@ -62,7 +62,6 @@
   },
 
   "route": {
-    "rules": [],
-    "fallback": "wan"
+    "rules": []
   }
 }

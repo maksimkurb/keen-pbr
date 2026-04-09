@@ -238,7 +238,7 @@ curl http://127.0.0.1:12121/api/runtime/outbounds
       ]
     },
     {
-      "tag": "auto-select",
+      "tag": "auto_select",
       "type": "urltest",
       "status": "healthy",
       "selected_outbound": "vpn"
@@ -272,7 +272,7 @@ curl -X POST http://127.0.0.1:12121/api/routing/test \
       "expected_outbound": "vpn",
       "actual_outbound": "vpn",
       "ok": true,
-      "list_match": { "list": "my-domains", "via": "domain" }
+      "list_match": { "list": "my_domains", "via": "domain" }
     }
   ]
 }
@@ -301,7 +301,7 @@ curl http://127.0.0.1:12121/api/health/routing
   },
   "firewall_rules": [
     {
-      "set_name": "keen-pbr-my-domains",
+      "set_name": "keen-pbr-my_domains",
       "action": "MARK",
       "expected_fwmark": "0x00010000",
       "actual_fwmark": "0x00010000",

@@ -3,38 +3,45 @@ title: DNS
 weight: 4
 ---
 
-keen-pbr integrates with dnsmasq to route DNS queries for specific domain lists through designated DNS servers. It provides a `generate-resolver-config` subcommand that prints a dnsmasq configuration to stdout, which dnsmasq can consume directly via its `conf-script=` directive.
+Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+
+On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
+
+- `system_resolver`
+- `servers`
+- `rules`
+- `fallback`
 
 ## Configuration
 
 ```json
 {
   "dns": {
-    "dns_test_server": {
-      "listen": "127.0.0.88:53"
+    "system_resolver": {
+      "type": "dnsmasq-nftset",
+      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
+      "address": "127.0.0.1"
     },
     "servers": [...],
     "rules": [...],
-    "fallback": ["google-dns", "quad9"]
+    "fallback": ["google_dns", "quad9"]
   }
 }
 ```
 
 | Field | Type | Description |
 |---|---|---|
+| `system_resolver` | object | How keen-pbr refreshes dnsmasq on the system |
 | `servers` | array | DNS server definitions |
 | `rules` | array | Rules mapping lists to DNS servers |
 | `fallback` | array of string | Ordered DNS server tags for queries that match no rule |
-| `dns_test_server` | object | Optional built-in DNS probe listener for connectivity checks |
+| `dns_test_server` | object | Optional built-in DNS probe listener for advanced troubleshooting |
 
 ## System Resolver
 
-`dns.system_resolver` configures the dnsmasq integration used by keen-pbr's
-daemon runtime.
+`dns.system_resolver` tells keen-pbr how to refresh dnsmasq after configuration changes.
 
-- It is required for daemon service startup, config reload, and config apply via the API.
-- `address` is also the endpoint used by `/api/health/service` to query the TXT record `config-hash.keen.pbr`.
-- `address` accepts `host[:port]`; when the port is omitted, keen-pbr queries port `53`.
+On normal router package installs, you usually keep this configured exactly as shown in the package examples.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -43,9 +50,7 @@ daemon runtime.
 
 ## DNS Test Server
 
-`dns.dns_test_server` enables a minimal DNS server inside keen-pbr. It listens on
-the configured IPv4 `host:port`, accepts both UDP and TCP DNS requests, logs
-the queried name, and always replies with one synthetic `A` record.
+`dns.dns_test_server` is optional. It is mainly useful when you are troubleshooting DNS and want keen-pbr to expose a simple test DNS listener.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -62,9 +67,7 @@ the queried name, and always replies with one synthetic `A` record.
 }
 ```
 
-When the HTTP API is enabled, `GET /api/dns/test` exposes these DNS query names
-as Server-Sent Events. Each new SSE connection receives `HELLO` first, then one
-event per queried DNS name observed while that connection stays open.
+When the HTTP API is enabled, `GET /api/dns/test` can stream the DNS queries seen by this test server.
 
 ## DNS Servers
 
@@ -73,27 +76,27 @@ Each server has a tag, optional `type`, optional `address`, and optional `detour
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier for this DNS server |
-| `type` | string | no | DNS source type: `static` (default) or `keenetic`. |
-| `address` | string | for `static` | IPv4 or IPv6 address of the DNS server, with optional port: `"8.8.8.8"`, `"8.8.8.8:5353"`, `"[::1]:5353"`. Default port: 53. |
-| `detour` | string | no | Outbound tag to use when querying this server |
+| `type` | string | no | DNS source type: `static` (default) or `keenetic` |
+| `address` | string | for `static` | IP address of the DNS server, with optional port |
+| `detour` | string | no | Outbound to use when contacting this DNS server |
 
-The `detour` field binds DNS queries for this server to a specific outbound. This ensures that DNS resolution goes through the same path as the routed traffic.
+The `detour` field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.
 
 ```json
 {
   "servers": [
     {
-      "tag": "vpn-dns",
+      "tag": "vpn_dns",
       "type": "static",
       "address": "10.8.0.1",
       "detour": "vpn"
     },
     {
-      "tag": "google-dns",
+      "tag": "google_dns",
       "address": "8.8.8.8"
     },
     {
-      "tag": "keenetic-dns",
+      "tag": "keenetic_dns",
       "type": "keenetic"
     }
   ]
@@ -102,31 +105,13 @@ The `detour` field binds DNS queries for this server to a specific outbound. Thi
 
 ### `type: keenetic` (built-in router DNS via RCI)
 
-When `type` is set to `keenetic`, `keen-pbr` resolves the DNS server address from Keenetic RCI at startup, on config reload, and after manual restart via UI reload flow.
-
-- Compile-time requirement: `USE_KEENETIC_API=ON`.
-- Source of truth endpoint: `GET http://127.0.0.1:79/rci/show/dns-proxy`.
-- Data source inside response: `proxy-status[]` entry with `proxy-name == "System"`, field `proxy-config`, first `dns_server = ...` directive.
-
-If Keenetic API support is not compiled in, config with `type: "keenetic"` fails validation with a clear diagnostic.
+On Keenetic routers, `type: "keenetic"` tells keen-pbr to reuse the router's current built-in DNS settings automatically.
 
 ### How `detour` works
 
-When `detour` is set, keen-pbr installs a firewall mark rule for UDP **and**
-TCP traffic whose destination is `<server.address>:<server.port>` (default port
-53). The rule marks those packets with the fwmark of the referenced outbound,
-so the kernel routes DNS queries through that outbound's routing table — the
-same path as the tunnelled traffic.
+When `detour` is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound.
 
-Rules are installed on both the **iptables** and **nftables** backends and are
-rebuilt on every `full_reload()` (SIGHUP, config API reload, or urltest
-selection change).
-
-`urltest` outbounds are supported: the rule always uses the fwmark of the
-currently selected child, so DNS detour follows interface failover automatically.
-
-`blackhole` and `ignore` outbounds cannot be used as `detour` targets and are
-rejected at config validation time.
+For example, if `vpn_dns` has `detour: "vpn"`, then the DNS requests to `vpn_dns` will also go through `vpn`.
 
 ## DNS Rules
 
@@ -141,8 +126,8 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 {
   "rules": [
     {
-      "list": ["my-domains", "remote-list"],
-      "server": "vpn-dns"
+      "list": ["my_domains", "remote_list"],
+      "server": "vpn_dns"
     }
   ]
 }
@@ -150,7 +135,10 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 
 ## dnsmasq Integration
 
-keen-pbr provides the `generate-resolver-config` subcommand that prints global fallback `server=` directives plus per-list `server=` and `ipset=`/`nftset=` directives to stdout.
+On packaged router installs, you usually do not need to configure dnsmasq manually.
+
+{{% details title="Manual dnsmasq integration (advanced)" closed="true" %}}
+keen-pbr provides the `generate-resolver-config` subcommand that prints dnsmasq configuration to stdout.
 
 Two resolver types are supported:
 
@@ -159,28 +147,14 @@ Two resolver types are supported:
 | `dnsmasq-ipset` | `ipset=` | iptables/ipset backend |
 | `dnsmasq-nftset` | `nftset=` | nftables backend |
 
-Use dnsmasq's `conf-script=` directive to call keen-pbr directly — no intermediate file needed:
+Example dnsmasq integration:
 
-```
+```text
 conf-script=/usr/sbin/keen-pbr generate-resolver-config dnsmasq-nftset
 ```
 
-Restart dnsmasq after adding this line. dnsmasq will re-run the script on each reload.
-
-{{< callout type="info" >}}
-To verify dnsmasq is running with up-to-date configuration, compare the hash from keen-pbr against the TXT record dnsmasq exposes (written by `generate-resolver-config`):
-
-```bash {filename="bash"}
-# Hash known to keen-pbr
-curl -s http://127.0.0.1:8080/api/health/service | grep resolver_config_hash
-
-# Hash dnsmasq is currently using
-dig +short TXT config-hash.keen.pbr @127.0.0.1
-# or: nslookup -type=TXT config-hash.keen.pbr 127.0.0.1
-```
-
-If the two values differ, dnsmasq has not picked up the latest configuration — restart dnsmasq to reload.
-{{< /callout >}}
+Restart dnsmasq after adding this line.
+{{% /details %}}
 
 ## Complete Example
 
@@ -189,22 +163,26 @@ If the two values differ, dnsmasq has not picked up the latest configuration —
   "dns": {
     "servers": [
       {
-        "tag": "vpn-dns",
+        "tag": "vpn_dns",
         "address": "10.8.0.1",
         "detour": "vpn"
       },
       {
-        "tag": "google-dns",
+        "tag": "google_dns",
         "address": "8.8.8.8"
       }
     ],
     "rules": [
       {
-        "list": ["my-domains", "remote-list"],
-        "server": "vpn-dns"
+        "list": ["my_domains", "remote_list"],
+        "server": "vpn_dns"
       }
     ],
-    "fallback": ["google-dns", "quad9"]
+    "fallback": ["google_dns", "quad9"]
   }
 }
 ```
+
+{{% details title="Under the hood: how domain-based routing works" closed="true" %}}
+When a domain in a matched list is resolved, dnsmasq adds the resulting IP address to an internal set used by keen-pbr. Traffic to that IP can then be routed through the correct outbound.
+{{% /details %}}

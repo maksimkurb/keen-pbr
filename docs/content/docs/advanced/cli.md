@@ -1,5 +1,5 @@
 ---
-title: CLI manual
+title: CLI
 weight: 2
 ---
 
@@ -26,7 +26,7 @@ Commands:
   test-routing <ip-or-domain>
 ```
 
-The default `--config` path depends on the build target. For example, it is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, and `/opt/etc/keen-pbr/config.json` on Keenetic / NetCraze.
+The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, and `/opt/etc/keen-pbr/config.json` on Keenetic / NetCraze.
 
 ## Options
 

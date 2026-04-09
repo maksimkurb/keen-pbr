@@ -3,11 +3,40 @@ title: Outbounds
 weight: 1
 ---
 
-Outbounds define where traffic goes. Each outbound has a unique `tag` and a `type`. The `type` determines which fields are required.
+Outbounds tell keen-pbr where matching traffic should go.
+
+Most users only need:
+
+- one `interface` outbound for the VPN connection
+- one `interface` outbound for the normal connection, often `wan`
+- optionally one `urltest` outbound if they want automatic failover between several connections
+
+If you are not sure, start with `interface` outbounds and come back to the others later.
+
+## Common Example
+
+```json
+[
+  {
+    "type": "interface",
+    "tag": "vpn",
+    "interface": "tun0",
+    "gateway": "10.8.0.1"
+  },
+  {
+    "type": "interface",
+    "tag": "wan",
+    "interface": "eth0",
+    "gateway": "192.168.1.1"
+  }
+]
+```
+
+## Types
 
 ## `interface`
 
-Routes traffic via a specific network interface, optionally through a gateway.
+Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -27,18 +56,18 @@ Routes traffic via a specific network interface, optionally through a gateway.
 
 ## `table`
 
-Routes traffic using an existing kernel routing table. The table must already be populated (e.g. by a VPN client or manual `ip route` commands).
+Use this only if another service on the system already created a separate routing table for you and you want keen-pbr to reuse it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"table"` |
-| `table` | integer | yes | Kernel routing table ID |
+| `table` | integer | yes | Existing routing table number |
 
 ```json
 {
   "type": "table",
-  "tag": "custom-table",
+  "tag": "custom_table",
   "table": 200
 }
 ```
@@ -77,13 +106,13 @@ Passes traffic through without any routing modification. Use this to explicitly 
 
 ## `urltest`
 
-Probes multiple child outbounds via HTTP and automatically selects the best one based on latency. Includes retry logic and a circuit breaker to prevent flapping.
+Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"urltest"` |
-| `url` | string | yes | HTTP URL used for latency probes |
+| `url` | string | yes | URL used for availability and latency checks |
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; outbounds within this range of the best are considered equivalent |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
@@ -92,7 +121,7 @@ Probes multiple child outbounds via HTTP and automatically selects the best one 
 
 ### Outbound Groups
 
-Groups are evaluated in order. Within a healthy group, outbounds are selected by `weight`.
+Groups are checked in order. Within a healthy group, outbounds are selected by `weight`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -123,7 +152,7 @@ Groups are evaluated in order. Within a healthy group, outbounds are selected by
 ```json
 {
   "type": "urltest",
-  "tag": "auto-select",
+  "tag": "auto_select",
   "url": "https://www.gstatic.com/generate_204",
   "interval_ms": 180000,
   "tolerance_ms": 100,

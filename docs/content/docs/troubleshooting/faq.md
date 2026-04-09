@@ -7,7 +7,7 @@ weight: 1
 
 keen-pbr auto-detects the firewall backend at startup. It uses nftables if available, and falls back to iptables/ipset on older kernels.
 
-## How do I reload lists without restarting the daemon?
+## How do I reload lists without restarting the service?
 
 Use `SIGHUP`:
 
@@ -39,7 +39,7 @@ Yes. Use the `detour` field in `dns.servers` to bind DNS queries for that server
 {
   "servers": [
     {
-      "tag": "vpn-dns",
+      "tag": "vpn_dns",
       "address": "10.8.0.1",
       "detour": "vpn"
     }
