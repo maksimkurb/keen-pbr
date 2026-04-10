@@ -573,3 +573,33 @@ TEST_CASE("daemon.firewall_verify_max_bytes: rejects non-integer value") {
 TEST_CASE("daemon.firewall_verify_max_bytes: rejects negative value") {
     CHECK_THROWS_AS(parse_test_config(R"({"daemon":{"firewall_verify_max_bytes":-1}})"), ConfigError);
 }
+
+TEST_CASE("daemon.firewall_backend: defaults to auto when absent") {
+    auto cfg = parse_test_config(R"({"daemon":{}})");
+    CHECK(firewall_backend_preference(cfg) == "auto");
+}
+
+TEST_CASE("daemon.firewall_backend: accepts auto") {
+    auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"auto"}})");
+    CHECK(firewall_backend_preference(cfg) == "auto");
+}
+
+TEST_CASE("daemon.firewall_backend: accepts iptables") {
+    auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"iptables"}})");
+    CHECK(firewall_backend_preference(cfg) == "iptables");
+}
+
+TEST_CASE("daemon.firewall_backend: accepts nftables") {
+    auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"nftables"}})");
+    CHECK(firewall_backend_preference(cfg) == "nftables");
+}
+
+TEST_CASE("daemon.firewall_backend: rejects non-string value") {
+    const auto issues = parse_issues(R"({"daemon":{"firewall_backend":true}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.firewall_backend");
+}
+
+TEST_CASE("daemon.firewall_backend: rejects unsupported value") {
+    CHECK_THROWS_AS(parse_test_config(R"({"daemon":{"firewall_backend":"pf"}})"), ConfigError);
+}

@@ -2,6 +2,7 @@
   "daemon": {
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
+    "firewall_backend": "auto",
     "strict_enforcement": false
   },
 

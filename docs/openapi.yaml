@@ -302,6 +302,12 @@ components:
           description: Directory for cached list data.
           default: "/var/cache/keen-pbr"
           example: "/var/cache/keen-pbr"
+        firewall_backend:
+          type: string
+          description: Firewall backend selection.
+          enum: [auto, iptables, nftables]
+          default: auto
+          example: auto
         firewall_verify_max_bytes:
           type: integer
           minimum: 0
@@ -735,6 +741,7 @@ components:
         daemon:
           pid_file: "/var/run/keen-pbr.pid"
           cache_dir: "/var/cache/keen-pbr"
+          firewall_backend: auto
           firewall_verify_max_bytes: 262144
           strict_enforcement: true
           max_file_size_bytes: 8388608
