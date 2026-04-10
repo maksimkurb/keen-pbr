@@ -17,12 +17,12 @@ Config parse_test_config(const std::string& json_str) {
     }
     if (!cfg.dns->servers.has_value()) {
         DnsServer fallback_server;
-        fallback_server.tag = "default-dns";
+        fallback_server.tag = "default_dns";
         fallback_server.address = "127.0.0.1";
         cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     }
     if (!cfg.dns->fallback.has_value()) {
-        cfg.dns->fallback = std::vector<std::string>{"default-dns"};
+        cfg.dns->fallback = std::vector<std::string>{"default_dns"};
     }
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
@@ -86,16 +86,16 @@ TEST_CASE("list name: lowercase letters only is valid") {
     CHECK_NOTHROW(parse_test_config(list_config_json("mylist")));
 }
 
-TEST_CASE("list name: uppercase letters are valid") {
-    CHECK_NOTHROW(parse_test_config(list_config_json("MyList")));
+TEST_CASE("list name: uppercase letters are rejected") {
+    CHECK_THROWS_AS(parse_test_config(list_config_json("MyList")), ConfigError);
 }
 
-TEST_CASE("list name: uppercase first char is valid") {
-    CHECK_NOTHROW(parse_test_config(list_config_json("Mylist")));
+TEST_CASE("list name: uppercase first char is rejected") {
+    CHECK_THROWS_AS(parse_test_config(list_config_json("Mylist")), ConfigError);
 }
 
-TEST_CASE("list name: mixed case + digits + underscore is valid") {
-    CHECK_NOTHROW(parse_test_config(list_config_json("My_List01")));
+TEST_CASE("list name: mixed case + digits + underscore is rejected") {
+    CHECK_THROWS_AS(parse_test_config(list_config_json("My_List01")), ConfigError);
 }
 
 TEST_CASE("list name: lowercase + digits + underscore is valid") {
@@ -139,13 +139,13 @@ static const std::string kDnsDetourBase = R"({
 
 TEST_CASE("dns detour: valid interface outbound") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
-        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"vpn"}],"fallback":["vpn-dns"]}})";
+        "dns":{"servers":[{"tag":"vpn_dns","address":"10.8.0.1","detour":"vpn"}],"fallback":["vpn_dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: valid table outbound") {
     std::string json = R"({"outbounds":[{"tag":"tbl","type":"table","table":100}],
-        "dns":{"servers":[{"tag":"tbl-dns","address":"10.8.0.2","detour":"tbl"}],"fallback":["tbl-dns"]}})";
+        "dns":{"servers":[{"tag":"tbl_dns","address":"10.8.0.2","detour":"tbl"}],"fallback":["tbl_dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
@@ -153,31 +153,67 @@ TEST_CASE("dns detour: valid urltest outbound") {
     std::string json = R"({"outbounds":[
         {"tag":"vpn","type":"interface","interface":"wg0"},
         {"tag":"ut","type":"urltest","url":"http://example.com","outbound_groups":[{"outbounds":["vpn"]}]}
-    ],"dns":{"servers":[{"tag":"ut-dns","address":"10.8.0.3","detour":"ut"}],"fallback":["ut-dns"]}})";
+    ],"dns":{"servers":[{"tag":"ut_dns","address":"10.8.0.3","detour":"ut"}],"fallback":["ut_dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
 }
 
 TEST_CASE("dns detour: unknown outbound tag is rejected") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
-        "dns":{"servers":[{"tag":"vpn-dns","address":"10.8.0.1","detour":"nonexistent"}],"fallback":["vpn-dns"]}})";
+        "dns":{"servers":[{"tag":"vpn_dns","address":"10.8.0.1","detour":"nonexistent"}],"fallback":["vpn_dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: blackhole outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"bh","type":"blackhole"}],
-        "dns":{"servers":[{"tag":"bh-dns","address":"10.8.0.1","detour":"bh"}],"fallback":["bh-dns"]}})";
+        "dns":{"servers":[{"tag":"bh_dns","address":"10.8.0.1","detour":"bh"}],"fallback":["bh_dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: ignore outbound is rejected") {
     std::string json = R"({"outbounds":[{"tag":"ig","type":"ignore"}],
-        "dns":{"servers":[{"tag":"ig-dns","address":"10.8.0.1","detour":"ig"}],"fallback":["ig-dns"]}})";
+        "dns":{"servers":[{"tag":"ig_dns","address":"10.8.0.1","detour":"ig"}],"fallback":["ig_dns"]}})";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns detour: no detour field is accepted") {
-    std::string json = R"({"dns":{"servers":[{"tag":"plain-dns","address":"8.8.8.8"}],"fallback":["plain-dns"]}})";
+    std::string json = R"({"dns":{"servers":[{"tag":"plain_dns","address":"8.8.8.8"}],"fallback":["plain_dns"]}})";
     CHECK_NOTHROW(parse_test_config(json));
+}
+
+TEST_CASE("dns servers: duplicate tag is rejected") {
+    std::string json = R"({
+        "dns":{
+            "servers":[
+                {"tag":"dup_dns","address":"8.8.8.8"},
+                {"tag":"dup_dns","address":"1.1.1.1"}
+            ],
+            "fallback":["dup_dns"]
+        }
+    })";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+
+TEST_CASE("dns servers: duplicate server definition is rejected") {
+    std::string json = R"({
+        "dns":{
+            "servers":[
+                {"tag":"dns_a","address":"8.8.8.8"},
+                {"tag":"dns_b","address":"8.8.8.8"}
+            ],
+            "fallback":["dns_a"]
+        }
+    })";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+
+TEST_CASE("outbound tag: uppercase is rejected") {
+    std::string json = R"({"outbounds":[{"tag":"Vpn","type":"interface","interface":"wg0"}]})";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+
+TEST_CASE("dns tag: uppercase is rejected") {
+    std::string json = R"({"dns":{"servers":[{"tag":"Dns_1","address":"8.8.8.8"}],"fallback":["Dns_1"]}})";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
 TEST_CASE("dns test server: valid listen parses") {
@@ -215,8 +251,8 @@ TEST_CASE("dns test server: invalid answer IPv4 is rejected") {
 TEST_CASE("config validation: accepts system_resolver") {
     auto cfg = parse_test_config(R"({
         "dns": {
-            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
-            "fallback": ["plain-dns"],
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["plain_dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
                           "address": "127.0.0.1"
@@ -231,9 +267,9 @@ TEST_CASE("config validation: rejects missing system_resolver") {
     auto cfg = parse_config(R"({
         "dns": {
             "servers": [
-                {"tag":"plain-dns","address":"8.8.8.8"}
+                {"tag":"plain_dns","address":"8.8.8.8"}
             ],
-            "fallback": ["plain-dns"]
+            "fallback": ["plain_dns"]
         }
     })");
 
@@ -250,7 +286,7 @@ TEST_CASE("config validation: rejects missing system_resolver") {
 TEST_CASE("config validation: allows missing fallback") {
     auto cfg = parse_config(R"({
         "dns": {
-            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
                           "address": "127.0.0.1"
@@ -264,7 +300,7 @@ TEST_CASE("config validation: allows missing fallback") {
 TEST_CASE("config validation: allows empty fallback array") {
     auto cfg = parse_config(R"({
         "dns": {
-            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "fallback": [],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
@@ -279,8 +315,8 @@ TEST_CASE("config validation: allows empty fallback array") {
 TEST_CASE("config validation: rejects unknown fallback tag") {
     auto cfg = parse_config(R"({
         "dns": {
-            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
-            "fallback": ["missing-dns"],
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["missing_dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
                           "address": "127.0.0.1"
@@ -294,8 +330,8 @@ TEST_CASE("config validation: rejects unknown fallback tag") {
 TEST_CASE("config validation: rejects duplicate fallback tag") {
     auto cfg = parse_config(R"({
         "dns": {
-            "servers": [{"tag":"plain-dns","address":"8.8.8.8"}],
-            "fallback": ["plain-dns", "plain-dns"],
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["plain_dns", "plain_dns"],
             "system_resolver": {
                 "type": "dnsmasq-nftset",
                           "address": "127.0.0.1"
@@ -310,10 +346,10 @@ TEST_CASE("config validation: collects empty system_resolver fields") {
     Config cfg;
     cfg.dns = DnsConfig{};
     DnsServer fallback_server;
-    fallback_server.tag = "default-dns";
+    fallback_server.tag = "default_dns";
     fallback_server.address = "127.0.0.1";
     cfg.dns->servers = std::vector<DnsServer>{fallback_server};
-    cfg.dns->fallback = std::vector<std::string>{"default-dns"};
+    cfg.dns->fallback = std::vector<std::string>{"default_dns"};
     api::SystemResolver resolver{};
     resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
     cfg.dns->system_resolver = resolver;

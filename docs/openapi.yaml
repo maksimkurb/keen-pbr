@@ -409,7 +409,9 @@ components:
           example: "interface"
         tag:
           type: string
-          description: Unique identifier for this outbound.
+          description: >
+            Unique identifier for this outbound. Must match
+            `^[a-z][a-z0-9_]*$` and be at most 24 characters.
           example: "vpn"
         interface:
           type: string
@@ -469,6 +471,8 @@ components:
       description: >
         Defines a named list of domains and/or IP CIDRs used in routing and DNS rules.
         At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided.
+        List names (the keys under `lists`) must match `^[a-z][a-z0-9_]*$`
+        and be at most 24 characters.
       properties:
         url:
           type: string
@@ -511,7 +515,10 @@ components:
       properties:
         tag:
           type: string
-          description: Unique identifier for this DNS server.
+          description: >
+            Unique identifier for this DNS server. Must match
+            `^[a-z][a-z0-9_]*$`, be at most 24 characters, and be unique
+            within `dns.servers`.
           example: "vpn-dns"
         type:
           type: string

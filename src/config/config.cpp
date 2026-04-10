@@ -120,6 +120,56 @@ bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, i
     return true;
 }
 
+constexpr size_t IPSET_MAX_NAME = 31;
+constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_")
+constexpr size_t MAX_TAG_LEN = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
+
+bool is_valid_tag(const std::string& value) {
+    if (value.empty() || value.size() > MAX_TAG_LEN) {
+        return false;
+    }
+
+    const unsigned char first = static_cast<unsigned char>(value[0]);
+    if (first < 'a' || first > 'z') {
+        return false;
+    }
+
+    for (size_t i = 1; i < value.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(value[i]);
+        const bool valid = (c >= 'a' && c <= 'z') ||
+                           (c >= '0' && c <= '9') ||
+                           c == '_';
+        if (!valid) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void validate_tag(std::vector<ConfigValidationIssue>& issues,
+                  const std::string& path,
+                  const std::string& kind,
+                  const std::string& value) {
+    if (value.empty()) {
+        add_issue(issues, path, kind + " must not be empty");
+        return;
+    }
+
+    if (value.size() > MAX_TAG_LEN) {
+        add_issue(issues, path,
+                  kind + " '" + value + "' is too long: " +
+                      std::to_string(value.size()) + " chars, maximum is " +
+                      std::to_string(MAX_TAG_LEN));
+    }
+
+    if (!is_valid_tag(value)) {
+        add_issue(issues, path,
+                  kind + " '" + value +
+                      "' must match naming convention [a-z][a-z0-9_]*");
+    }
+}
+
 std::optional<std::string> validate_port_spec(const std::optional<std::string>& value) {
     if (!value.has_value()) {
         return std::nullopt;
@@ -422,41 +472,9 @@ void validate_config(const Config& cfg) {
         }
     }
 
-    static constexpr size_t IPSET_MAX_NAME    = 31;
-    static constexpr size_t IPSET_PREFIX_LEN  = 7; // len("kpbr4d_")
-    static constexpr size_t LIST_NAME_MAX_LEN = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
-
     for (const auto& [name, list_cfg] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
         const std::string list_path = name.empty() ? "lists" : "lists." + name;
-
-        if (name.empty()) {
-            add_issue(issues, "lists", "List name must not be empty");
-            continue;
-        }
-
-        if (name.size() > LIST_NAME_MAX_LEN) {
-            add_issue(issues, list_path,
-                      "List name '" + name + "' is too long: " +
-                          std::to_string(name.size()) + " chars, maximum is " +
-                          std::to_string(LIST_NAME_MAX_LEN));
-        }
-
-        if (!std::isalpha(static_cast<unsigned char>(name[0]))) {
-            add_issue(issues, list_path,
-                      "List name '" + name +
-                          "': first character must be a letter [a-zA-Z]");
-        }
-
-        for (size_t i = 1; i < name.size(); ++i) {
-            const unsigned char c = static_cast<unsigned char>(name[i]);
-            if (!std::isalpha(c) && !std::isdigit(c) && c != '_') {
-                add_issue(issues, list_path,
-                          "List name '" + name +
-                              "': invalid character '" + name[i] +
-                              "' at position " + std::to_string(i) +
-                              " (allowed: a-zA-Z, 0-9, _)");
-            }
-        }
+        validate_tag(issues, list_path, "List name", name);
 
         const bool has_url = list_cfg.url.has_value();
         const bool has_file = list_cfg.file.has_value();
@@ -473,6 +491,8 @@ void validate_config(const Config& cfg) {
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     for (const auto& ob : outbounds) {
+        validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
+
         if (ob.type != OutboundType::URLTEST) continue;
 
         if (!ob.outbound_groups.has_value() || ob.outbound_groups->empty()) {
@@ -565,9 +585,24 @@ void validate_config(const Config& cfg) {
     if (cfg.dns.has_value()) {
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         std::set<std::string> dns_server_tags;
+        std::set<std::string> dns_server_identities;
         for (const auto& srv : dns_servers) {
-            dns_server_tags.insert(srv.tag);
+            validate_tag(issues, "dns.servers." + srv.tag + ".tag", "DNS server tag", srv.tag);
+            if (!dns_server_tags.insert(srv.tag).second) {
+                add_issue(issues, "dns.servers." + srv.tag + ".tag",
+                          "Duplicate DNS server tag \"" + srv.tag + "\"");
+            }
+
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
+            const std::string srv_addr = srv.address.value_or("");
+            const std::string srv_detour = srv.detour.value_or("");
+            const std::string srv_identity =
+                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr + "|" + srv_detour;
+            if (!dns_server_identities.insert(srv_identity).second) {
+                add_issue(issues, "dns.servers." + srv.tag,
+                          "DNS server \"" + srv.tag +
+                              "\" duplicates an existing DNS server definition (same type/address/detour)");
+            }
 
             if (srv_type == api::DnsServerType::KEENETIC) {
 #ifndef USE_KEENETIC_API
