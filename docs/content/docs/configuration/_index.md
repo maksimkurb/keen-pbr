@@ -78,8 +78,6 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
 }
 ```
 
-If you are using Keenetic / NetCraze, change `dns.system_resolver.hook` to `/opt/usr/lib/keen-pbr/dnsmasq.sh`.
-
 ## Basic Configuration
 
 - [Outbounds](outbounds/) — choose the VPN and normal internet connections

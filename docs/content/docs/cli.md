@@ -1,6 +1,9 @@
 ---
-title: CLI
-weight: 2
+title: keen-pbr CLI usage
+weight: 4
+aliases:
+  - /docs/advanced/cli/
+  - /docs/advanced/signals/
 ---
 
 `keen-pbr` can run the service, inspect live routing state, download list data, and print generated resolver configuration.
@@ -48,6 +51,22 @@ The config file is usually `/etc/keen-pbr/config.json` on OpenWrt and Debian, an
 | `generate-resolver-config <res>` | Print generated resolver config to stdout. Supported resolvers: `dnsmasq-ipset`, `dnsmasq-nftset`. |
 | `resolver-config-hash` | Print the MD5 hash of the generated domain-to-ipset mapping, then exit. |
 | `test-routing <ip-or-domain>` | Compare expected and actual routing for the given IP or domain. |
+
+## Signals
+
+When `keen-pbr` is running as a managed service (daemon), you can also control it with Unix signals:
+
+| Signal | Action |
+|---|---|
+| `SIGUSR1` | Re-verify routing tables and trigger immediate `urltest` latency checks |
+| `SIGHUP` | Full reload: re-download lists if changed, re-apply firewall and routing rules |
+| `SIGTERM` / `SIGINT` | Graceful shutdown |
+
+Example full reload via signal:
+
+```bash {filename="bash"}
+kill -HUP $(cat /var/run/keen-pbr.pid)
+```
 
 ## Examples
 

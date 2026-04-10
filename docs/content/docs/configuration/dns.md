@@ -7,19 +7,18 @@ Use DNS settings when you want domains in a list to be resolved through a specif
 
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 
-- `system_resolver`
+- `system_resolver` (keep the defaults)
 - `servers`
 - `rules`
 - `fallback`
 
 ## Configuration
 
-```json
+```json { filename="config.json" }
 {
   "dns": {
     "system_resolver": {
       "type": "dnsmasq-nftset",
-      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
       "address": "127.0.0.1"
     },
     "servers": [...],
@@ -39,9 +38,9 @@ On package-based router installs, keen-pbr normally takes care of dnsmasq integr
 
 ## System Resolver
 
-`dns.system_resolver` tells keen-pbr how to refresh dnsmasq after configuration changes.
+`dns.system_resolver` tells keen-pbr how to check dnsmasq state after configuration changes.
 
-On normal router package installs, you usually keep this configured exactly as shown in the package examples.
+On normal router package installs, you usually should not change these settings.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -55,7 +54,7 @@ On normal router package installs, you usually keep this configured exactly as s
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `listen` | string | yes | IPv4 listen address in `host:port` form, for example `"127.0.0.88:53"` |
-| `answer_ipv4` | string | no | IPv4 address returned in the `A` answer. Defaults to the host part of `listen`. |
+| `answer_ipv4` | string | no | IPv4 address returned in the DNS probe answer (`nslookup check.keen.pbr`). Defaults to the host part of `listen`. |
 
 ```json
 {
@@ -67,7 +66,7 @@ On normal router package installs, you usually keep this configured exactly as s
 }
 ```
 
-When the HTTP API is enabled, `GET /api/dns/test` can stream the DNS queries seen by this test server.
+When the HTTP API is enabled, you can verify if your DNS works or not via Web UI.
 
 ## DNS Servers
 
@@ -77,29 +76,35 @@ Each server has a tag, optional `type`, optional `address`, and optional `detour
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier for this DNS server |
 | `type` | string | no | DNS source type: `static` (default) or `keenetic` |
-| `address` | string | for `static` | IP address of the DNS server, with optional port |
+| `address` | string | for `static` | IP address of the DNS server, with optional port, for example `"10.8.0.1"`, `"10.8.0.1:5353"`, `"2001:4860:4860::8888"`, or `"[2001:4860:4860::8888]:5353"` |
 | `detour` | string | no | Outbound to use when contacting this DNS server |
 
 The `detour` field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.
 
-```json
+```json { filename="config.json" }
 {
-  "servers": [
-    {
-      "tag": "vpn_dns",
-      "type": "static",
-      "address": "10.8.0.1",
-      "detour": "vpn"
-    },
-    {
-      "tag": "google_dns",
-      "address": "8.8.8.8"
-    },
-    {
-      "tag": "keenetic_dns",
-      "type": "keenetic"
-    }
-  ]
+  "dns": {
+    "servers": [
+      {
+        "tag": "vpn_dns",
+        "type": "static",
+        "address": "10.8.0.1:5353",
+        "detour": "vpn"
+      },
+      {
+        "tag": "google_dns",
+        "address": "8.8.8.8"
+      },
+      {
+        "tag": "google_dns_v6",
+        "address": "[2001:4860:4860::8888]:53"
+      },
+      {
+        "tag": "keenetic_dns",
+        "type": "keenetic"
+      }
+    ]
+  }
 }
 ```
 
@@ -109,7 +114,7 @@ On Keenetic routers, `type: "keenetic"` tells keen-pbr to reuse the router's cur
 
 ### How `detour` works
 
-When `detour` is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound.
+When `detour` is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound; keen-pbr would automatically create firewall rule for specified DNS IP and port. This can also affect other clients in your network that trying to contact this DNS server directly.
 
 For example, if `vpn_dns` has `detour: "vpn"`, then the DNS requests to `vpn_dns` will also go through `vpn`.
 
@@ -122,14 +127,16 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 | `list` | array of string | yes | List names whose domains should be resolved by this server |
 | `server` | string | yes | DNS server tag to use for matched domains |
 
-```json
+```json { filename="config.json" }
 {
-  "rules": [
-    {
-      "list": ["my_domains", "remote_list"],
-      "server": "vpn_dns"
-    }
-  ]
+  "dns": {
+    "rules": [
+      {
+        "list": ["my_domains", "remote_list"],
+        "server": "vpn_dns"
+      }
+    ]
+  }
 }
 ```
 
@@ -158,18 +165,22 @@ Restart dnsmasq after adding this line.
 
 ## Complete Example
 
-```json
+```json { filename="config.json" }
 {
   "dns": {
     "servers": [
       {
         "tag": "vpn_dns",
-        "address": "10.8.0.1",
+        "address": "10.8.0.1:5353",
         "detour": "vpn"
       },
       {
         "tag": "google_dns",
         "address": "8.8.8.8"
+      },
+      {
+        "tag": "google_dns_v6",
+        "address": "[2001:4860:4860::8888]:53"
       }
     ],
     "rules": [

@@ -14,6 +14,8 @@ For the full configuration reference, see [Configuration](configuration/).
 
 If you want to understand how keen-pbr works under the hood, see [Concepts](concepts/).
 
-If you need command-line tools, API details, or service signals, see [Advanced](advanced/).
+If you need command-line tools or service signals, see [CLI](cli/). For HTTP integration, see [REST API](rest-api/).
+
+If something is not working yet, see [Troubleshooting](troubleshooting/) or [FAQ](faq/).
 
 If you are building packages or compiling from source, see [Developer](developer/).

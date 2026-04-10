@@ -1,6 +1,8 @@
 ---
 title: FAQ
-weight: 1
+weight: 6
+aliases:
+  - /docs/troubleshooting/faq/
 ---
 
 ## What firewall backend will be used?
@@ -23,7 +25,7 @@ This triggers a full reload: it re-downloads all remote lists and re-applies fir
 
 ## What happens if a remote list URL is unreachable at startup?
 
-keen-pbr uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, that list is skipped for this run.
+keen-pbr uses the cached copy from `daemon.cache_dir` if available. If no cache exists and the URL is unreachable, the remote source contributes no entries for this run. For a URL-only list, that means the list is effectively empty and no matching set or firewall rule is created.
 
 ## How does the urltest outbound select the best child?
 
@@ -53,16 +55,17 @@ One entry per line. Supported formats:
 - IPv4 address: `93.184.216.34`
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
 - CIDR: `10.0.0.0/8`
-- Domain: `example.com`
-- Wildcard domain: `*.example.org`
+- Domain: `example.com` (automatically includes all sub-domains)
+  - entries like `*.example.com` are also supported and handled the same way as `example.com`
 - Lines starting with `#` are comments and are ignored
+- Empty lines are ignored
 
 ## How do I verify routing is correctly applied?
 
 Use the routing health endpoint:
 
 ```bash {filename="bash"}
-curl http://127.0.0.1:8080/api/health/routing
+curl http://127.0.0.1:12121/api/health/routing
 ```
 
 This checks the live kernel state (firewall chain, firewall rules, routing tables, policy rules) against the expected configuration and reports `ok`, `missing`, or `mismatch` for each element.
@@ -83,3 +86,7 @@ Yes. `url`, `domains`, `ip_cidrs`, and `file` can all be set in the same list en
   }
 }
 ```
+
+{{< callout type="warning" >}}
+In the WebUI combining is supported only for `ip_cidrs` + `domains`. Combining them with `url` or with `file` is not supported in WebUI and discouraged; thus it can be forbidden in the future to prevent mis-understanding.
+{{< /callout >}}

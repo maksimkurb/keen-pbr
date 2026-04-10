@@ -79,14 +79,14 @@ Go to **Lists** and create a list such as `my_sites` with type `Domains / IPs`, 
     - For Windows PC, open Command Prompt and run `ipconfig /flushdns`.
     - For Linux PC, open Terminal and run `sudo resolvectl flush-caches`.
     - For mobile devices just reconnect to your WiFi.
-3. Open a website from your list (`ipconfig.co`) and check that IP is differs from the other "my IP" website (e.g. `ipinfo.io`)
+3. Open a website from your list (`ipconfig.co`) and check that IP is differs from the other "my IP" website (e.g. `wtfismyip.com`)
 
 {{% /steps %}}
 
 To verify the setup, open a site from your list and make sure it works through the VPN. If you want a command-line check, run:
 
 ```bash {filename="bash"}
-keen-pbr test-routing google.com
+keen-pbr test-routing ifconfig.co
 ```
 
 If the result shows your VPN outbound in both the expected and actual columns, the setup is working.
@@ -223,5 +223,5 @@ You can also run `keen-pbr status` for a broader health check.
 {{< /tabs >}}
 
 {{< callout type="info" >}}
-For the full reference, start with [Configuration](../configuration/). If something does not work yet, see [Troubleshooting](../troubleshooting/).
+For the full reference, start with [Configuration](../../configuration/). If something does not work yet, see [Troubleshooting](../../troubleshooting/).
 {{< /callout >}}

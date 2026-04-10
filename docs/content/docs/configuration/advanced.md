@@ -19,7 +19,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
 | `firewall_verify_max_bytes` | integer | `262144` | Maximum stdout bytes captured per firewall verification command (`0` = unlimited) |
 
-```json
+```json { filename="config.json" }
 {
   "daemon": {
     "pid_file": "/var/run/keen-pbr.pid",
@@ -42,7 +42,7 @@ Controls the embedded HTTP API server.
 | `enabled` | boolean | `false` | Enable the HTTP API |
 | `listen` | string | `"0.0.0.0:12121"` | Address and port to listen on |
 
-```json
+```json { filename="config.json" }
 {
   "api": {
     "enabled": true,
@@ -51,7 +51,7 @@ Controls the embedded HTTP API server.
 }
 ```
 
-The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [REST API](../advanced/rest-api/) for endpoint documentation and runtime controls.
+The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [REST API](../../rest-api/) for endpoint documentation and runtime controls.
 
 ## fwmark
 
@@ -62,7 +62,7 @@ Controls the firewall mark range used to tag packets for policy routing.
 | `start` | string | `"0x00010000"` | First fwmark value to assign to outbounds |
 | `mask` | string | `"0x00FF0000"` | Fwmark bitmask |
 
-```json
+```json { filename="config.json" }
 {
   "fwmark": {
     "start": "0x00010000",
@@ -85,7 +85,7 @@ Controls the routing table ID range used for outbound-specific tables.
 |---|---|---|---|
 | `table_start` | integer | `150` | First routing table ID to allocate for outbounds |
 
-```json
+```json { filename="config.json" }
 {
   "iproute": {
     "table_start": 150
@@ -104,7 +104,7 @@ Controls automatic periodic refresh of remote lists.
 | `enabled` | boolean | `false` | Enable automatic list refresh |
 | `cron` | string | — | Standard 5-field cron expression for the refresh schedule |
 
-```json
+```json { filename="config.json" }
 {
   "lists_autoupdate": {
     "enabled": true,

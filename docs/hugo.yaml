@@ -36,10 +36,20 @@ params:
       height: 32
     width: wide
   page:
-    width: normal
+    width: wide
     tabs:
       sync: true
-      
+    contextMenu:
+      enable: true
+      links:
+        - name: Open in ChatGPT
+          icon: chatgpt
+          url: "https://chatgpt.com/?hints=search&q=I%27m+looking+at+this+documentation%3A+{url}%0AHelp+me+understand+how+to+use+it."
+
+outputs:
+  page: [html, markdown]
+  section: [html, rss, markdown]
+
 menu:
   main:
     - name: Docs

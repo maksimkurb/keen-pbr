@@ -9,7 +9,7 @@ The `lists` key is an object where each key is the list name and the value is th
 
 Most users start with a simple domain list such as:
 
-```json
+```json { filename="config.json" }
 {
   "lists": {
     "my_sites": {
@@ -29,7 +29,19 @@ Most users start with a simple domain list such as:
 | `file` | string | no | Path to a local list file |
 | `ttl_ms` | integer | no (default: `0`) | How long resolved IPs should stay cached for domain-based lists. Most users can leave this at `0`. |
 
-At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. Multiple sources can be combined in a single list entry — all entries are merged.
+At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. 
+
+{{< callout type="warning" >}}
+If you combine multiple sources in a single list entry, all entries are merged, but this is discouraged and may be forbidden in future releases.
+{{< /callout >}}
+
+{{% details title="Under the hood: how domain lists are matched" closed="true" %}}
+Each list is backed by static and dynamic IP sets.
+
+- Static entries from `ip_cidrs`, `file`, and `url` are loaded immediately.
+- Domain entries are added later, when dnsmasq resolves them.
+- If `ttl_ms` is set, those resolved IPs for domains expire automatically after that time.
+{{% /details %}}
 
 ## List File Format
 
@@ -40,7 +52,7 @@ Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 - IPv6 address: `2606:2800:220:1:248:1893:25c8:1946`
 - IPv6 CIDR: `2001:db8::/32`
 - Domain: `example.com` — matches the domain and all its subdomains (dnsmasq `server=/example.com/` semantics)
-- Wildcard domain: `*.example.org` — equivalent to `example.org`; the `*.` prefix is stripped automatically
+  - Wildcard domain: `*.example.org` is equivalent to `example.org`, so **there is no need** to add `*.` before domain. For compatibility, the `*.` prefix is stripped automatically
 - Comments: lines starting with `#` are ignored
 - Empty lines are ignored
 
@@ -48,7 +60,7 @@ Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 
 ### Remote URL list
 
-```json
+```json { filename="config.json" }
 {
   "lists": {
     "remote_list": {
@@ -60,9 +72,13 @@ Whether loaded from `url` or `file`, keen-pbr expects one entry per line:
 
 Downloaded files are cached in `daemon.cache_dir`. If the URL is unreachable at startup, the cached copy is used.
 
+{{< callout type="warning" >}}
+To avoid downloading the same list again and again even when it has not changed, the remote server must support `If-Modified-Since` or `ETag`.
+{{< /callout >}}
+
 ### Inline domain list
 
-```json
+```json { filename="config.json" }
 {
   "lists": {
     "my_domains": {
@@ -72,11 +88,11 @@ Downloaded files are cached in `daemon.cache_dir`. If the URL is unreachable at 
 }
 ```
 
-Both entries match the domain and all its subdomains. Writing `*.example.com` is equivalent to `example.com` — the `*.` prefix is stripped automatically.
+Both entries match the domain and all its subdomains. Writing `*.example.com` is equivalent to `example.com` — the `*.` prefix is stripped automatically by keen-pbr.
 
 ### Inline IP list
 
-```json
+```json { filename="config.json" }
 {
   "lists": {
     "my_ips": {
@@ -93,7 +109,7 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 
 ### Local file
 
-```json
+```json { filename="config.json" }
 {
   "lists": {
     "local_list": {
@@ -103,30 +119,4 @@ Both entries match the domain and all its subdomains. Writing `*.example.com` is
 }
 ```
 
-### Combined sources
-
-```json
-{
-  "lists": {
-    "combined": {
-      "url": "https://example.com/remote-list.txt",
-      "domains": ["extra.example.com"],
-      "ip_cidrs": ["192.168.100.0/24"],
-      "file": "/etc/keen-pbr/local-additions.txt",
-      "ttl_ms": 86400000
-    }
-  }
-}
-```
-
 All four sources are merged into a single list. `ttl_ms: 86400000` sets a 24-hour TTL for dnsmasq-resolved IPs in the dynamic set (`kpbr4d_combined` / `kpbr6d_combined`). Static IPs from `ip_cidrs` and the cached URL/file are loaded into the permanent static set (`kpbr4_combined` / `kpbr6_combined`) and are never expired automatically.
-
-{{% details title="Under the hood: how domain lists are matched" closed="true" %}}
-Each list is backed by static and dynamic IP sets.
-
-- Static entries from `ip_cidrs`, `file`, and `url` are loaded immediately.
-- Domain entries are added later, when dnsmasq resolves them.
-- If `ttl_ms` is set, those resolved IPs expire automatically after that time.
-
-This is why a domain-based rule can keep working even after a site's IP changes.
-{{% /details %}}

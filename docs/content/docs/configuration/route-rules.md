@@ -7,10 +7,16 @@ Route rules connect your lists to your outbounds.
 
 Most users only need one simple rule for each list, for example:
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_sites"],
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_sites"],
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
@@ -18,7 +24,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 ## Configuration
 
-```json
+```json { filename="config.json" }
 {
   "route": {
     "rules": [...]
@@ -46,88 +52,138 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 ### Basic — route a list through VPN
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_domains", "my_ips", "remote_list"],
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_domains", "my_ips", "remote_list"],
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
-### Port filter — only HTTPS TCP from a subnet
+### Port filter — only HTTPS TCP from two subnets
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_domains"],
-  "src_addr": "192.168.20.0/24,192.168.30.0/24",
-  "proto": "tcp",
-  "dest_port": "443",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_domains"],
+        "src_addr": "192.168.20.0/24,192.168.30.0/24",
+        "proto": "tcp",
+        "dest_port": "443",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
 ### Address filter — match a specific source subnet
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_ips"],
-  "src_addr": "192.168.10.0/24",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_ips"],
+        "src_addr": "192.168.10.0/24",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
-### Full filter — DNS from a subnet through VPN
+### Full filter — Google DNS from a subnet through VPN
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_domains"],
-  "src_addr": "192.168.10.0/24",
-  "dest_addr": "8.8.8.0/24",
-  "proto": "udp",
-  "src_port": "1024-65535",
-  "dest_port": "53",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_domains"],
+        "src_addr": "192.168.10.0/24",
+        "dest_addr": "8.8.8.8",
+        "dest_port": "53",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
 ### Negation — all sources except local LAN
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_ips"],
-  "src_addr": "!192.168.1.0/24",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_ips"],
+        "src_addr": "!192.168.1.0/24",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
 ### Negation — all TCP except HTTPS goes through VPN
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_domains"],
-  "proto": "tcp",
-  "dest_port": "!443",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_domains"],
+        "proto": "tcp",
+        "dest_port": "!443",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
 ### Negation — all UDP except DNS and NTP goes through VPN
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_domains"],
-  "proto": "udp",
-  "dest_port": "!53,123",
-  "outbound": "vpn"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_domains"],
+        "proto": "udp",
+        "dest_port": "!53,123",
+        "outbound": "vpn"
+      }
+    ]
+  }
 }
 ```
 
+{{< callout type="warning" >}}
+Keep in mind that DNS is working over TCP and UDP, but this rule covers only UDP. This rule is shown just for your reference, in real life you would probably like to add TCP rule for port 53 as well.
+{{< /callout >}}
+
 ### Negation — block traffic NOT going to a trusted subnet
 
-```json
+```json { filename="config.json" }
 {
-  "list": ["my_ips"],
-  "dest_addr": "!10.0.0.0/8,172.16.0.0/12",
-  "outbound": "block"
+  "route": {
+    "rules": [
+      {
+        "list": ["my_ips"],
+        "dest_addr": "!10.0.0.0/8,172.16.0.0/12",
+        "outbound": "block"
+      }
+    ]
+  }
 }
 ```
 
@@ -137,9 +193,9 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 | Format | Example | Matches |
 |---|---|---|
 | Single value | `"192.168.1.0/24"` | this subnet |
-| List | `"192.168.1.0/24,10.0.0.0/8"` | either subnet |
+| List | `"192.168.1.0/24,8.8.8.8"` | either subnet/ip |
 | Negation | `"!192.168.1.0/24"` | any source except this subnet |
-| Negated list | `"!192.168.1.0/24,10.0.0.0/8"` | any source except either subnet |
+| Negated list | `"!192.168.1.0/24,8.8.8.8"` | any source except either subnet |
 | Single port | `"443"` | port 443 |
 | Port list | `"80,443"` | port 80 or 443 |
 | Port range | `"8000-9000"` | ports 8000 through 9000 |

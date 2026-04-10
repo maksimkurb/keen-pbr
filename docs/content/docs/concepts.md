@@ -19,9 +19,11 @@ Named collections of IPs, CIDRs, and domain names. Sources can be combined freel
 - **Inline domains** (`domains`) — loaded directly from config
 - **Local file** (`file`) — read from disk
 
-At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (`kpbr4_<list>`, `kpbr6_<list>`). Domain entries generate dnsmasq `ipset=`/`nftset=` directives so that when a domain is resolved, its IPs are dynamically added to the matching set.
+At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (`kpbr4_<list>`, `kpbr6_<list>`, no timeout on entries).
 
-See [Lists](configuration/lists/) for the full reference.
+Domain entries generate dnsmasq `ipset=`/`nftset=` directives so that when a domain is resolved, its IPs are dynamically added to the matching set (`kpbr4d_<list>`, `kpbr6d_<list>`, entries are timing out after `ttl_ms` configured for domain list).
+
+See [Lists](../configuration/lists/) for the full reference.
 
 ### Outbounds
 
@@ -35,21 +37,25 @@ Named egress targets. Five types:
 | `ignore` | Pass through without modification (uses default route) |
 | `urltest` | Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping |
 
-Each outbound gets an fwmark and a routing table entry in the kernel.
+`interface` and `table` outbounds get fwmarks and policy-routing entries. `urltest` selects among child outbounds that do. `blackhole` becomes a firewall drop rule, and `ignore` becomes a firewall pass-through rule.
 
-See [Outbounds](configuration/outbounds/) for the full reference.
+When a rule points to `ignore`, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or `ip rule` is created for that match, so the packet continues through the system's normal routing path. Because route rules are first-match wins, `ignore` is mainly used to carve out exceptions before broader rules below it.
+
+See [Outbounds](../configuration/outbounds/) for the full reference.
 
 ### Route Rules
 
-An ordered list of match → action pairs. Each rule selects traffic by:
+An ordered list of match → action pairs. Each rule can match traffic by:
 - **List membership** — IP is in a named ipset/nftset
 - **Protocol** (`proto`) — `tcp`, `udp`
 - **Port filters** (`src_port`, `dest_port`) — single, list, range, or negation
 - **Address filters** (`src_addr`, `dest_addr`) — CIDR, list, or negation
 
+If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.
+
 First matching rule wins. Unmatched traffic is left unmarked and follows the system's normal routing.
 
-See [Route Rules](configuration/route-rules/) for the full reference.
+See [Route Rules](../configuration/route-rules/) for the full reference.
 
 ### DNS
 
@@ -57,7 +63,7 @@ Maps domain lists to DNS servers via dnsmasq `server=` directives. When a domain
 
 Integration is via `conf-file=` (or `conf-script=`): keen-pbr writes `/tmp/keen-pbr-dnsmasq.conf` on startup; dnsmasq reads it on the next reload.
 
-See [DNS](configuration/dns/) for the full reference.
+See [DNS](../configuration/dns/) for the full reference.
 
 ---
 
@@ -65,40 +71,43 @@ See [DNS](configuration/dns/) for the full reference.
 
 1. **Load lists** — download remote URLs (using cache if unavailable), read local files and inline entries
 2. **Populate ipsets/nftsets** — IP/CIDR entries from lists are inserted into kernel sets (`kpbr4_<list>`, `kpbr6_<list>`)
-3. **Install routing** — create routing tables and ip rules for each outbound based on assigned fwmarks
-4. **Generate resolver config** — write `/tmp/keen-pbr-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
-5. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
+3. **Install firewall rules** — create rules in the `iptables` `mangle` table or the `nftables` `inet KeenPbrTable` table that match configured lists and filters, then set the appropriate fwmark in `PREROUTING` / `prerouting`
+4. **Install routing** — create routing tables and `ip rule` entries for each outbound based on assigned fwmarks
+5. **Generate resolver config** — write `/tmp/keen-pbr-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
+6. **Start urltest probing** — if any `urltest` outbounds are configured, begin periodic latency probes
 
 ---
 
 ## Architecture Overview
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Config["config.json"]
+        RoutingOutbounds["Routing outbounds\n(interface, table,\nurltest-selected child)"]
         Lists["Lists\n(IPs, CIDRs, domains)"]
-        Outbounds["Outbounds\n(interface/table/blackhole/ignore/urltest)"]
-        RouteRules["Route Rules\n(list + filters → outbound)"]
         DNS["DNS\n(servers + rules)"]
+        RouteRules["Route Rules\n(list + filters →\nrouting / drop / pass)"]
     end
 
     subgraph Kernel["Linux Kernel"]
         Ipsets["ipsets / nftsets\n(kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;)"]
-        FwmarkRules["Firewall rules\n(PREROUTING → fwmark)"]
+        FwmarkRules["Firewall rules\n(PREROUTING →\nmark, drop, or pass)"]
         IpRules["ip rules\n(fwmark → table)"]
-        RoutingTables["Routing tables\n(table → interface/gateway)"]
+        RoutingTables["Routing tables\n(table → interfaces)"]
+        SystemRouting["System routing\n(default path)"]
     end
 
-    Dnsmasq["dnsmasq\n(conf-file=)"]
+    Dnsmasq["dnsmasq\n(ipset= / nftset=)"]
 
     Lists -->|"IP/CIDR entries"| Ipsets
     Lists -->|"domain entries"| Dnsmasq
     DNS --> Dnsmasq
     Ipsets --> FwmarkRules
     RouteRules --> FwmarkRules
-    Outbounds --> IpRules
-    Outbounds --> RoutingTables
+    RoutingOutbounds --> IpRules
+    RoutingOutbounds --> RoutingTables
     FwmarkRules --> IpRules
+    FwmarkRules --> SystemRouting
     IpRules --> RoutingTables
     Dnsmasq -->|"resolved IPs → ipset"| Ipsets
 ```

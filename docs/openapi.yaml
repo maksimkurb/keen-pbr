@@ -1290,7 +1290,7 @@ components:
           example: "keen-pbr-russia"
         action:
           type: string
-          description: Expected firewall action (e.g. "MARK", "DROP").
+          description: Expected firewall action (e.g. "MARK", "DROP", "PASS").
           example: "MARK"
         expected_fwmark:
           type: string

@@ -1,6 +1,8 @@
 ---
 title: REST API
-weight: 1
+weight: 5
+aliases:
+  - /docs/advanced/rest-api/
 ---
 
 This page documents the built-in HTTP REST API.
@@ -12,7 +14,7 @@ The REST API is available when:
 
 ## Configuration
 
-```json
+```json { filename="config.json" }
 {
   "api": {
     "enabled": true,
@@ -60,7 +62,7 @@ Refreshes remote URL-backed lists from the active daemon config.
 - If refreshed data changed and affects active routing/DNS while the runtime is running, keen-pbr rebuilds runtime state so updates take effect immediately.
 
 ```bash {filename="bash"}
-curl -X POST http://127.0.0.1:8080/api/lists/refresh \
+curl -X POST http://127.0.0.1:12121/api/lists/refresh \
   -H "Content-Type: application/json" \
   -d '{"name":"apple"}'
 ```
@@ -68,7 +70,7 @@ curl -X POST http://127.0.0.1:8080/api/lists/refresh \
 Refresh all URL-backed lists:
 
 ```bash {filename="bash"}
-curl -X POST http://127.0.0.1:8080/api/lists/refresh
+curl -X POST http://127.0.0.1:12121/api/lists/refresh
 ```
 
 ### Request Body (optional)
