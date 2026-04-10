@@ -285,9 +285,6 @@ function ListForm({
       form.setFieldValue("ipCidrs", "")
     }
 
-    if (group !== "url") {
-      form.setFieldValue("ttlMs", sampleNewList.ttlMs)
-    }
   }
 
   return (
@@ -347,6 +344,41 @@ function ListForm({
                       />
                       <FieldHint
                         description={t("pages.listUpsert.fields.nameHint")}
+                        error={error ?? null}
+                      />
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <form.Field
+              name="ttlMs"
+              validators={{
+                onMount: ({ value }) => getTtlError(value, t) ?? undefined,
+                onChange: ({ value }) => getTtlError(value, t) ?? undefined,
+              }}
+            >
+              {(field) => {
+                const error = getFirstFieldError(field.state.meta.errors)
+
+                return (
+                  <Field invalid={Boolean(error)}>
+                    <FieldLabel htmlFor="list-ttl-ms">
+                      {t("pages.listUpsert.fields.ttlMs")}
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        aria-invalid={Boolean(error)}
+                        id="list-ttl-ms"
+                        onBlur={field.handleBlur}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
+                        value={field.state.value}
+                      />
+                      <FieldHint
+                        description={t("pages.listUpsert.fields.ttlMsHint")}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -422,40 +454,6 @@ function ListForm({
                 )}
               </form.Field>
 
-              <form.Field
-                name="ttlMs"
-                validators={{
-                  onMount: ({ value }) => getTtlError(value, t) ?? undefined,
-                  onChange: ({ value }) => getTtlError(value, t) ?? undefined,
-                }}
-              >
-                {(field) => {
-                  const error = getFirstFieldError(field.state.meta.errors)
-
-                  return (
-                    <Field invalid={Boolean(error)}>
-                      <FieldLabel htmlFor="list-ttl-ms">
-                        {t("pages.listUpsert.fields.ttlMs")}
-                      </FieldLabel>
-                      <FieldContent>
-                        <Input
-                          aria-invalid={Boolean(error)}
-                          id="list-ttl-ms"
-                          onBlur={field.handleBlur}
-                          onChange={(event) =>
-                            field.handleChange(event.target.value)
-                          }
-                          value={field.state.value}
-                        />
-                        <FieldHint
-                          description={t("pages.listUpsert.fields.ttlMsHint")}
-                          error={error ?? null}
-                        />
-                      </FieldContent>
-                    </Field>
-                  )
-                }}
-              </form.Field>
             </FieldGroup>
           </CardContent>
         </Card>
