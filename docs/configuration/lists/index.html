@@ -11,6 +11,7 @@
 <title>Lists – keen-pbr</title>
   <meta name="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
+List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/lists/" itemprop="url" />
 
@@ -21,6 +22,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
     
       Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
+List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 
 
@@ -96,13 +98,15 @@ At least one of url, domains, ip_cidrs, or file must be provided.
   <meta itemprop="name" content="Lists">
   <meta itemprop="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
+List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided.">
-  <meta itemprop="wordCount" content="462">
+  <meta itemprop="wordCount" content="473">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Lists">
   <meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
+List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided.">
 
@@ -908,6 +912,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
           
           <p>Lists are groups of sites or IP ranges that you want keen-pbr to match.</p>
 <p>The <code>lists</code> key is an object where each key is the list name and the value is the list configuration.</p>
+<p>List names must match <code>^[a-z][a-z0-9_]*$</code> and be at most 24 characters.</p>
 <p>Most users start with a simple domain list such as:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

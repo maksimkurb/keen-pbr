@@ -542,6 +542,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         
         &lt;p&gt;Outbounds tell keen-pbr where matching traffic should go.&lt;/p&gt;
+&lt;p&gt;Every outbound &lt;code&gt;tag&lt;/code&gt; must match &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; and be at most 24 characters.&lt;/p&gt;
 &lt;p&gt;Most users only need:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;one &lt;code&gt;interface&lt;/code&gt; outbound for the VPN connection&lt;/li&gt;
@@ -1174,6 +1175,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         &lt;p&gt;Lists are groups of sites or IP ranges that you want keen-pbr to match.&lt;/p&gt;
 &lt;p&gt;The &lt;code&gt;lists&lt;/code&gt; key is an object where each key is the list name and the value is the list configuration.&lt;/p&gt;
+&lt;p&gt;List names must match &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; and be at most 24 characters.&lt;/p&gt;
 &lt;p&gt;Most users start with a simple domain list such as:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -2422,7 +2424,8 @@ If you route traffic to this table, it would follow your system default routes.&
 &lt;/div&gt;
 &lt;p&gt;When the HTTP API is enabled, you can verify if your DNS works or not via Web UI.&lt;/p&gt;
 &lt;h2&gt;DNS Servers&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns-servers&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dns-servers&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Each server has a tag, optional &lt;code&gt;type&lt;/code&gt;, optional &lt;code&gt;address&lt;/code&gt;, and optional &lt;code&gt;detour&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#dns-servers&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Each server has a tag, optional &lt;code&gt;type&lt;/code&gt;, optional &lt;code&gt;address&lt;/code&gt;, and optional &lt;code&gt;detour&lt;/code&gt;.
+DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt;, be at most 24 characters, and must be unique.&lt;/p&gt;
 &lt;table&gt;
   &lt;thead&gt;
       &lt;tr&gt;

@@ -10,6 +10,7 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
   <meta name="description" content="Outbounds tell keen-pbr where matching traffic should go.
+Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
 Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/outbounds/" itemprop="url" />
@@ -20,6 +21,7 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
   content="
     
       Outbounds tell keen-pbr where matching traffic should go.
+Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 
 one interface outbound for the VPN connection
@@ -69,13 +71,15 @@ Types
 
   <meta itemprop="name" content="Outbounds">
   <meta itemprop="description" content="Outbounds tell keen-pbr where matching traffic should go.
+Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
 Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.">
-  <meta itemprop="wordCount" content="740">
+  <meta itemprop="wordCount" content="752">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Outbounds">
   <meta name="twitter:description" content="Outbounds tell keen-pbr where matching traffic should go.
+Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
 Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.">
@@ -917,6 +921,7 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
           </div>
           
           <p>Outbounds tell keen-pbr where matching traffic should go.</p>
+<p>Every outbound <code>tag</code> must match <code>^[a-z][a-z0-9_]*$</code> and be at most 24 characters.</p>
 <p>Most users only need:</p>
 <ul>
 <li>one <code>interface</code> outbound for the VPN connection</li>

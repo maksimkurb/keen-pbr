@@ -2,6 +2,8 @@
 
 Outbounds tell keen-pbr where matching traffic should go.
 
+Every outbound `tag` must match `^[a-z][a-z0-9_]*$` and be at most 24 characters.
+
 Most users only need:
 
 - one `interface` outbound for the VPN connection

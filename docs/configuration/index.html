@@ -35,7 +35,7 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 Common config file locations:
 Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
 Outbounds — where matching traffic should go Lists — the sites or IP ranges you want to match Route Rules — which lists go through which outbound DNS — which DNS server should be used for those lists Practical Example This example routes google.com through vpn and leaves everything else on wan:">
-  <meta itemprop="wordCount" content="286">
+  <meta itemprop="wordCount" content="277">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Configuration">
   <meta name="twitter:description" content="keen-pbr reads its settings from one JSON config file.
@@ -922,7 +922,7 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">List names must be 1-24 characters, use only <code>a-z</code>, <code>A-Z</code>, <code>0-9</code>, and <code>_</code>, and start with a letter. For consistency, use the same underscore style for outbound and DNS tags too.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">List names, outbound tags, and DNS server tags must all follow the same convention: <code>^[a-z][a-z0-9_]*$</code> and must be at most 24 characters.</div>
   </div>
 </div>
 

@@ -89,6 +89,6 @@ These settings are optional for most users:
 - [Advanced](advanced/) — API, service paths, automatic list refresh, and low-level routing options
 
 {{< callout type="info" >}}
-List names must be 1-24 characters, use only `a-z`, `A-Z`, `0-9`, and `_`, and start with a letter. For consistency, use the same underscore style for outbound and DNS tags too.
+List names, outbound tags, and DNS server tags must all follow the same convention: `^[a-z][a-z0-9_]*$` and must be at most 24 characters.
 {{< /callout >}}
 

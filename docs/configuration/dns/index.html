@@ -100,7 +100,7 @@ System Resolver
   <meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 system_resolver (keep the defaults) servers rules fallback Configuration config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.">
-  <meta itemprop="wordCount" content="699">
+  <meta itemprop="wordCount" content="715">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DNS">
   <meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
@@ -1083,7 +1083,8 @@ system_resolver (keep the defaults) servers rules fallback Configuration config.
 </div>
 <p>When the HTTP API is enabled, you can verify if your DNS works or not via Web UI.</p>
 <h2>DNS Servers<span class="hx:absolute hx:-mt-20" id="dns-servers"></span>
-    <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Each server has a tag, optional <code>type</code>, optional <code>address</code>, and optional <code>detour</code>.</p>
+    <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Each server has a tag, optional <code>type</code>, optional <code>address</code>, and optional <code>detour</code>.
+DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be at most 24 characters, and must be unique.</p>
 <table>
   <thead>
       <tr>

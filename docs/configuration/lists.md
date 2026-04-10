@@ -4,6 +4,8 @@ Lists are groups of sites or IP ranges that you want keen-pbr to match.
 
 The `lists` key is an object where each key is the list name and the value is the list configuration.
 
+List names must match `^[a-z][a-z0-9_]*$` and be at most 24 characters.
+
 Most users start with a simple domain list such as:
 
 ```json { filename="config.json" }
