@@ -12,7 +12,7 @@
   <meta name="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
 
 <meta property="og:title" content="Advanced">
 <meta
@@ -46,6 +46,12 @@ daemon
           Directory for cached list data
       
       
+          firewall_backend
+          string
+          &quot;auto&quot;
+          Firewall backend selection: auto, iptables, or nftables
+      
+      
           strict_enforcement
           boolean
           false
@@ -71,6 +77,7 @@ config.json{
   &#34;daemon&#34;: {
     &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;,
     &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;,
+    &#34;firewall_backend&#34;: &#34;auto&#34;,
     &#34;strict_enforcement&#34;: false,
     &#34;max_file_size_bytes&#34;: 8388608,
     &#34;firewall_verify_max_bytes&#34;: 262144
@@ -99,14 +106,14 @@ The cache directory stores downloaded remote lists so they are available if the 
   <meta itemprop="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
-  <meta itemprop="wordCount" content="435">
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
+  <meta itemprop="wordCount" content="447">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Advanced">
   <meta name="twitter:description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -939,6 +946,12 @@ Field Type Default Description pid_file string — Path to write the PID file ca
           <td>Directory for cached list data</td>
       </tr>
       <tr>
+          <td><code>firewall_backend</code></td>
+          <td>string</td>
+          <td><code>&quot;auto&quot;</code></td>
+          <td>Firewall backend selection: <code>auto</code>, <code>iptables</code>, or <code>nftables</code></td>
+      </tr>
+      <tr>
           <td><code>strict_enforcement</code></td>
           <td>boolean</td>
           <td><code>false</code></td>
@@ -964,6 +977,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;daemon&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;pid_file&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/run/keen-pbr.pid&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;cache_dir&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/cache/keen-pbr&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;auto&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_file_size_bytes&#34;</span><span class="p">:</span> <span class="mi">8388608</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span>
