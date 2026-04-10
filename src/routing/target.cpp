@@ -27,9 +27,10 @@ RoutingDecision resolve_route_action(
         return RoutingDecision::none();
     }
 
-    // IGNORE type means skip (not managed by keen-pbr)
+    // IGNORE type means install a pass-through firewall verdict so the
+    // packet leaves keen-pbr processing unchanged.
     if (ob->type == OutboundType::IGNORE) {
-        return RoutingDecision::skip();
+        return RoutingDecision::passthrough(ob);
     }
 
     return RoutingDecision::route_to(ob);

@@ -73,6 +73,8 @@ ParsedIptablesState parse_iptables_s(const std::string& output) {
 
             if (action_part == "DROP") {
                 rule.is_drop = true;
+            } else if (action_part == "RETURN") {
+                rule.is_pass = true;
             } else if (action_part.rfind("MARK --set-mark ", 0) == 0) {
                 rule.is_mark = true;
                 const std::string mark_str = action_part.substr(16); // len("MARK --set-mark ") == 16
@@ -195,8 +197,10 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
             if (rs.action_type == RuleActionType::Mark) {
                 check.action = "mark";
                 check.expected_fwmark = rs.fwmark;
-            } else {
+            } else if (rs.action_type == RuleActionType::Drop) {
                 check.action = "drop";
+            } else {
+                check.action = "pass";
             }
 
             auto it = rule_map.find(set_name);
@@ -225,11 +229,14 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
                     } else if (parsed.is_drop) {
                         check.status = CheckStatus::mismatch;
                         check.detail = "expected MARK rule but found DROP rule";
+                    } else if (parsed.is_pass) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected MARK rule but found RETURN rule";
                     } else {
                         check.status = CheckStatus::mismatch;
                         check.detail = "rule action mismatch";
                     }
-                } else {
+                } else if (rs.action_type == RuleActionType::Drop) {
                     // Expecting DROP
                     if (parsed.is_drop) {
                         check.status = CheckStatus::ok;
@@ -238,6 +245,25 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
                         check.actual_fwmark = parsed.fwmark;
                         check.status = CheckStatus::mismatch;
                         check.detail = "expected DROP rule but found MARK rule";
+                    } else if (parsed.is_pass) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected DROP rule but found RETURN rule";
+                    } else {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "rule action mismatch";
+                    }
+                } else {
+                    // Expecting RETURN
+                    if (parsed.is_pass) {
+                        check.status = CheckStatus::ok;
+                        check.detail = "ok";
+                    } else if (parsed.is_mark) {
+                        check.actual_fwmark = parsed.fwmark;
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected RETURN rule but found MARK rule";
+                    } else if (parsed.is_drop) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected RETURN rule but found DROP rule";
                     } else {
                         check.status = CheckStatus::mismatch;
                         check.detail = "rule action mismatch";

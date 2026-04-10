@@ -15,6 +15,7 @@ struct ParsedIptablesRule {
     std::string set_name;  // IP set name from --match-set
     bool is_mark{false};   // true if -j MARK --set-mark / --set-xmark
     bool is_drop{false};   // true if -j DROP
+    bool is_pass{false};   // true if -j RETURN
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool mark_is_exact{true};      // false for partial-mask --set-xmark rules
     uint32_t xmark_mask{0xFFFFFFFF}; // parsed mask for --set-xmark
@@ -39,7 +40,7 @@ public:
     // Verify KeenPbrTable chain existence and PREROUTING hook for both v4 and v6.
     FirewallChainCheck verify_chain() override;
 
-    // Verify mark/drop rules for all expected RuleState entries (action_type != Skip).
+    // Verify mark/drop/pass rules for all expected RuleState entries (action_type != Skip).
     std::vector<FirewallRuleCheck> verify_rules(
         const std::vector<RuleState>& expected) override;
 

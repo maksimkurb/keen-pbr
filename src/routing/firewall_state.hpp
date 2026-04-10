@@ -13,7 +13,8 @@ namespace keen_pbr3 {
 enum class RuleActionType {
     Mark,   // Packet marking with fwmark (interface/table outbound)
     Drop,   // DROP rule (blackhole outbound)
-    Skip    // No firewall rule (ignore outbound)
+    Pass,   // Pass-through verdict that stops further keen-pbr rule processing
+    Skip    // No firewall rule (e.g. unresolved outbound)
 };
 
 // Tracked state of a single applied firewall rule

@@ -121,6 +121,18 @@ TEST_CASE("parse_iptables_s: drop rule") {
     CHECK_FALSE(state.rules[0].is_mark);
 }
 
+TEST_CASE("parse_iptables_s: return rule") {
+    const std::string input =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set allowlist dst -j RETURN\n";
+    auto state = parse_iptables_s(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].set_name == "allowlist");
+    CHECK(state.rules[0].is_pass);
+    CHECK_FALSE(state.rules[0].is_mark);
+    CHECK_FALSE(state.rules[0].is_drop);
+}
+
 TEST_CASE("parse_iptables_s: multiple rules parsed in order") {
     const std::string input =
         "-N KeenPbrTable\n"
@@ -219,6 +231,28 @@ TEST_CASE("parse_nft_json: chain-only output with prerouting hook") {
     CHECK(state.has_prerouting_chain);
     CHECK(state.has_prerouting_hook);
     CHECK(state.rules.empty());
+}
+
+TEST_CASE("parse_nft_json: pass rule") {
+    const std::string input = R"({
+        "nftables": [
+            {"rule": {
+                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "expr": [
+                    {"match": {"op": "==",
+                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
+                               "right": "@allowset"}},
+                    {"accept": null}
+                ]
+            }}
+        ]
+    })";
+    auto state = parse_nft_json(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].set_name == "allowset");
+    CHECK(state.rules[0].is_pass);
+    CHECK_FALSE(state.rules[0].is_mark);
+    CHECK_FALSE(state.rules[0].is_drop);
 }
 
 TEST_CASE("parse_nft_json: mark rule with fwmark") {
@@ -494,6 +528,32 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {
     CHECK(checks[0].status == CheckStatus::ok);
 }
 
+TEST_CASE("IptablesFirewallVerifier::verify_rules: return rule ok") {
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set allowlist dst -j RETURN\n";
+
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"allowlist"};
+    rs.action_type = RuleActionType::Pass;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+}
+
 TEST_CASE("IptablesFirewallVerifier::verify_rules: skip rule produces no check") {
     auto runner = [](const std::vector<std::string>& args) -> CommandResult {
         if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
@@ -670,6 +730,42 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: drop rule ok") {
     rs.rule_index = 0;
     rs.set_names = {"dropset"};
     rs.action_type = RuleActionType::Drop;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+}
+
+TEST_CASE("NftablesFirewallVerifier::verify_rules: pass rule ok") {
+    const std::string canned = R"({
+        "nftables": [
+            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
+                       "type": "filter", "hook": "prerouting"}},
+            {"rule": {
+                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "expr": [
+                    {"match": {"op": "==",
+                               "left": {"payload": {"protocol": "ip", "field": "daddr"}},
+                               "right": "@allowset"}},
+                    {"accept": null}
+                ]
+            }}
+        ]
+    })";
+
+    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
+                                "prerouting"})) {
+            return command_result(canned);
+        }
+        return command_result({}, 1);
+    };
+    NftablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"allowset"};
+    rs.action_type = RuleActionType::Pass;
 
     auto checks = verifier.verify_rules({rs});
     REQUIRE(checks.size() == 1);

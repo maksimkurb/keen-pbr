@@ -62,6 +62,95 @@ size_t count_routes_in_table(const std::vector<RouteSpec>& routes, uint32_t tabl
 
 } // namespace
 
+TEST_CASE("build_fw_rule_states: ignore outbound becomes pass-through firewall rule") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"direct","type":"ignore"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"direct"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    auto states = build_fw_rule_states(cfg, marks);
+
+    REQUIRE(states.size() == 1);
+    CHECK(states[0].action_type == RuleActionType::Pass);
+    CHECK(states[0].set_names == std::vector<std::string>({
+        "kpbr4_local", "kpbr6_local", "kpbr4d_local", "kpbr6d_local"
+    }));
+}
+
+TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rule") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"bh","type":"blackhole"},
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"outbounds":["wan","bh"]}]}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"auto"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    std::map<std::string, std::string> selections{{"auto", "bh"}};
+    auto states = build_fw_rule_states(cfg, marks, &selections);
+
+    REQUIRE(states.size() == 1);
+    CHECK(states[0].action_type == RuleActionType::Drop);
+}
+
+TEST_CASE("prune_fw_rule_states_to_realized_sets: removes nonexistent pass-through set variants") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"direct","type":"ignore"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"direct"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    auto states = build_fw_rule_states(cfg, marks);
+
+    prune_fw_rule_states_to_realized_sets(
+        cfg,
+        states,
+        [](const std::string&, const ListConfig&) {
+            ListSetUsage usage;
+            usage.has_static_entries = true;
+            usage.has_domain_entries = false;
+            return usage;
+        });
+
+    REQUIRE(states.size() == 1);
+    CHECK(states[0].action_type == RuleActionType::Pass);
+    CHECK(states[0].set_names == std::vector<std::string>({
+        "kpbr4_local", "kpbr6_local"
+    }));
+}
+
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
     auto cfg = parse_minimal_config(R"({
         "daemon":{"strict_enforcement":true},

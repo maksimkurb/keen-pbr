@@ -186,9 +186,15 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                 nr.is_drop = true;
                 continue;
             }
+
+            // Pass-through verdict
+            if (expr.contains("accept") || expr.contains("return")) {
+                nr.is_pass = true;
+                continue;
+            }
         }
 
-        if (has_set_ref && (nr.is_mark || nr.is_drop)) {
+        if (has_set_ref && (nr.is_mark || nr.is_drop || nr.is_pass)) {
             state.rules.push_back(std::move(nr));
         }
     }
@@ -310,8 +316,10 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
             if (rs.action_type == RuleActionType::Mark) {
                 check.action = "mark";
                 check.expected_fwmark = rs.fwmark;
-            } else {
+            } else if (rs.action_type == RuleActionType::Drop) {
                 check.action = "drop";
+            } else {
+                check.action = "pass";
             }
 
             if (!cached.error.empty()) {
@@ -342,11 +350,14 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                     } else if (parsed.is_drop) {
                         check.status = CheckStatus::mismatch;
                         check.detail = "expected MARK rule but found DROP rule";
+                    } else if (parsed.is_pass) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected MARK rule but found ACCEPT rule";
                     } else {
                         check.status = CheckStatus::mismatch;
                         check.detail = "rule action mismatch";
                     }
-                } else {
+                } else if (rs.action_type == RuleActionType::Drop) {
                     // Expecting DROP
                     if (parsed.is_drop) {
                         check.status = CheckStatus::ok;
@@ -355,6 +366,25 @@ std::vector<FirewallRuleCheck> NftablesFirewallVerifier::verify_rules(
                         check.actual_fwmark = parsed.fwmark;
                         check.status = CheckStatus::mismatch;
                         check.detail = "expected DROP rule but found MARK rule";
+                    } else if (parsed.is_pass) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected DROP rule but found ACCEPT rule";
+                    } else {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "rule action mismatch";
+                    }
+                } else {
+                    // Expecting ACCEPT/RETURN
+                    if (parsed.is_pass) {
+                        check.status = CheckStatus::ok;
+                        check.detail = "ok";
+                    } else if (parsed.is_mark) {
+                        check.actual_fwmark = parsed.fwmark;
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected ACCEPT rule but found MARK rule";
+                    } else if (parsed.is_drop) {
+                        check.status = CheckStatus::mismatch;
+                        check.detail = "expected ACCEPT rule but found DROP rule";
                     } else {
                         check.status = CheckStatus::mismatch;
                         check.detail = "rule action mismatch";

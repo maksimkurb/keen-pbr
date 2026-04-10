@@ -15,6 +15,7 @@ struct ParsedNftRule {
     std::string set_name;  // Named set referenced in the match expression (without '@' prefix)
     bool is_mark{false};   // true if rule has a mangle/meta mark action
     bool is_drop{false};   // true if rule has a drop verdict
+    bool is_pass{false};   // true if rule has an accept/return verdict
     uint32_t fwmark{0};    // mark value (only valid when is_mark == true)
     bool ipv6{false};      // true if the payload protocol is ip6
 };
@@ -40,7 +41,7 @@ public:
     // Verify KeenPbrTable table/chain existence and prerouting hook.
     FirewallChainCheck verify_chain() override;
 
-    // Verify mark/drop rules for all expected RuleState entries (action_type != Skip).
+    // Verify mark/drop/pass rules for all expected RuleState entries (action_type != Skip).
     std::vector<FirewallRuleCheck> verify_rules(
         const std::vector<RuleState>& expected) override;
 

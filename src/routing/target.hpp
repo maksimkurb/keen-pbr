@@ -13,6 +13,7 @@ struct RoutingDecision {
     // The resolved outbound, or std::nullopt if no match
     std::optional<const Outbound*> outbound;
     bool is_skip{false};
+    bool is_passthrough{false};
 
     static RoutingDecision skip() {
         RoutingDecision d;
@@ -26,6 +27,13 @@ struct RoutingDecision {
         return d;
     }
 
+    static RoutingDecision passthrough(const Outbound* ob) {
+        RoutingDecision d;
+        d.outbound = ob;
+        d.is_passthrough = true;
+        return d;
+    }
+
     static RoutingDecision none() {
         return RoutingDecision{};
     }
@@ -33,7 +41,7 @@ struct RoutingDecision {
 
 // Resolve a route rule's outbound tag to a RoutingDecision.
 // Looks up the tag in the outbounds list.
-// If tag refers to an IgnoreOutbound, returns RoutingDecision::skip().
+// If tag refers to an IgnoreOutbound, returns RoutingDecision::passthrough().
 // If tag refers to a UrltestOutbound, returns RoutingDecision::route_to() with the UrltestOutbound.
 //
 // Parameters:

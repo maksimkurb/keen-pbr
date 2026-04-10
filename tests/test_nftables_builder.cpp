@@ -62,6 +62,18 @@ public:
     return NftablesFirewall::build_drop_rule_json(pr);
   }
 
+  static nlohmann::json build_pass_rule_json(const std::string &set_name,
+                                             int family,
+                                             ProtoPortFilter filter = {}) {
+    NftablesFirewall::PendingRule pr;
+    pr.set_name = set_name;
+    pr.family = family;
+    pr.action = NftablesFirewall::PendingRule::Pass;
+    pr.fwmark = 0;
+    pr.filter = filter;
+    return NftablesFirewall::build_pass_rule_json(pr);
+  }
+
   static nlohmann::json build_port_match_exprs(const std::string &proto,
                                                const std::string &src_port,
                                                const std::string &dst_port,
@@ -197,6 +209,24 @@ TEST_CASE("build_drop_rule_json: IPv6 drop rule") {
       has_drop = true;
   }
   CHECK(has_drop);
+}
+
+TEST_CASE("build_pass_rule_json: IPv4 pass rule") {
+  auto j = T::build_pass_rule_json("allowlist", AF_INET);
+  const auto &expr = j["add"]["rule"]["expr"];
+
+  bool has_accept = false, has_drop = false, has_mangle = false;
+  for (const auto &e : expr) {
+    if (e.contains("accept"))
+      has_accept = true;
+    if (e.contains("drop"))
+      has_drop = true;
+    if (e.contains("mangle"))
+      has_mangle = true;
+  }
+  CHECK(has_accept);
+  CHECK_FALSE(has_drop);
+  CHECK_FALSE(has_mangle);
 }
 
 // =============================================================================

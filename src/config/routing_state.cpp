@@ -349,6 +349,32 @@ std::vector<RuleState> build_fw_rule_states(
 
         const Outbound* ob = *decision.outbound;
 
+        if (decision.is_passthrough) {
+            RuleState rs;
+            rs.rule_index = rule_idx;
+            rs.list_names = rule.list;
+            rs.outbound_tag = rule.outbound;
+            rs.action_type = RuleActionType::Pass;
+
+            for (const auto& list_name : rule.list) {
+                auto list_cfg_it = lists_map.find(list_name);
+                if (list_cfg_it == lists_map.end()) continue;
+
+                const std::string set4  = "kpbr4_"  + list_name;
+                const std::string set6  = "kpbr6_"  + list_name;
+                const std::string set4d = "kpbr4d_" + list_name;
+                const std::string set6d = "kpbr6d_" + list_name;
+
+                rs.set_names.push_back(set4);
+                rs.set_names.push_back(set6);
+                rs.set_names.push_back(set4d);
+                rs.set_names.push_back(set6d);
+            }
+
+            rule_states.push_back(std::move(rs));
+            continue;
+        }
+
         std::string effective_tag = ob->tag;
         const Outbound* effective_ob = ob;
 
@@ -364,17 +390,6 @@ std::vector<RuleState> build_fw_rule_states(
         }
 
         const bool is_blackhole = (effective_ob->type == OutboundType::BLACKHOLE);
-        const bool is_ignore    = (effective_ob->type == OutboundType::IGNORE);
-
-        if (is_ignore) {
-            RuleState rs;
-            rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
-            rs.outbound_tag = rule.outbound;
-            rs.action_type = RuleActionType::Skip;
-            rule_states.push_back(std::move(rs));
-            continue;
-        }
 
         RuleState rs;
         rs.rule_index = rule_idx;
@@ -410,6 +425,52 @@ std::vector<RuleState> build_fw_rule_states(
     }
 
     return rule_states;
+}
+
+void prune_fw_rule_states_to_realized_sets(
+    const Config& cfg,
+    std::vector<RuleState>& rule_states,
+    const ListSetUsageFn& list_usage_fn) {
+    static const std::map<std::string, ListConfig> empty_lists;
+    const auto& lists_map = cfg.lists ? *cfg.lists : empty_lists;
+    const auto& route_rules =
+        cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+
+    std::map<std::string, ListSetUsage> usage_cache;
+
+    for (auto& rs : rule_states) {
+        if (rs.action_type == RuleActionType::Skip) {
+            continue;
+        }
+        if (rs.rule_index >= route_rules.size()) {
+            continue;
+        }
+
+        rs.set_names.clear();
+
+        const auto& rule = route_rules[rs.rule_index];
+        for (const auto& list_name : rule.list) {
+            auto list_cfg_it = lists_map.find(list_name);
+            if (list_cfg_it == lists_map.end()) continue;
+
+            auto usage_it = usage_cache.find(list_name);
+            if (usage_it == usage_cache.end()) {
+                usage_it = usage_cache.emplace(
+                    list_name,
+                    list_usage_fn(list_name, list_cfg_it->second)).first;
+            }
+            const auto& usage = usage_it->second;
+
+            if (usage.has_static_entries) {
+                rs.set_names.push_back("kpbr4_" + list_name);
+                rs.set_names.push_back("kpbr6_" + list_name);
+            }
+            if (usage.has_domain_entries) {
+                rs.set_names.push_back("kpbr4d_" + list_name);
+                rs.set_names.push_back("kpbr6d_" + list_name);
+            }
+        }
+    }
 }
 
 } // namespace keen_pbr3

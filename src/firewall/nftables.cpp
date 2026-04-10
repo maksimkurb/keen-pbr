@@ -106,6 +106,33 @@ void NftablesFirewall::create_drop_rule(const std::string& set_name,
     }
 }
 
+void NftablesFirewall::create_pass_rule(const std::string& set_name,
+                                         const ProtoPortFilter& filter) {
+    auto it = created_sets_.find(set_name);
+    int family = (it != created_sets_.end()) ? it->second : AF_INET;
+
+    if (filter.proto == "tcp/udp") {
+        for (const char* p : {"tcp", "udp"}) {
+            PendingRule pr;
+            pr.set_name = set_name;
+            pr.family = family;
+            pr.action = PendingRule::Pass;
+            pr.fwmark = 0;
+            pr.filter = filter;
+            pr.filter.proto = p;
+            pending_rules_.push_back(std::move(pr));
+        }
+    } else {
+        PendingRule pr;
+        pr.set_name = set_name;
+        pr.family = family;
+        pr.action = PendingRule::Pass;
+        pr.fwmark = 0;
+        pr.filter = filter;
+        pending_rules_.push_back(std::move(pr));
+    }
+}
+
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
     const std::string& set_name) {
     // Ensure an entry exists in pending_elements_ for this set (as an empty array)
@@ -304,6 +331,30 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     }}}}};
 }
 
+nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
+    std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
+    nlohmann::json expr = nlohmann::json::array();
+    if (!pr.direct) {
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    }
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
+                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
+        expr.push_back(e);
+    }
+    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
+                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
+        expr.push_back(e);
+    }
+    expr.push_back({{"counter", nullptr}});
+    expr.push_back({{"accept", nullptr}});
+    return {{"add", {{"rule", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"chain", CHAIN_NAME},
+        {"expr", expr}
+    }}}}};
+}
+
 nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name,
                                                       const nlohmann::json& elems) {
     return {{"add", {{"element", {
@@ -340,8 +391,10 @@ void NftablesFirewall::apply() {
     for (const auto& pr : pending_rules_) {
         if (pr.action == PendingRule::Mark) {
             arr.push_back(build_mark_rule_json(pr));
-        } else {
+        } else if (pr.action == PendingRule::Drop) {
             arr.push_back(build_drop_rule_json(pr));
+        } else {
+            arr.push_back(build_pass_rule_json(pr));
         }
     }
 

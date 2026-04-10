@@ -28,6 +28,9 @@ public:
     // Buffer a drop verdict rule that matches the given named set.
     void create_drop_rule(const std::string& set_name,
                           const ProtoPortFilter& filter = {}) override;
+    // Buffer a pass-through verdict rule that matches the given named set.
+    void create_pass_rule(const std::string& set_name,
+                          const ProtoPortFilter& filter = {}) override;
     // Buffer a direct meta mark set rule matching dst IP/port (no named set).
     void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
 
@@ -64,7 +67,7 @@ private:
         std::string set_name; // nftables set name to match (without '@' prefix)
         int family;  // AF_INET or AF_INET6
         bool direct = false;  // if true, no @set match; dst comes from filter.dst_addr
-        enum Action { Mark, Drop } action; // meta mark or drop verdict
+        enum Action { Mark, Drop, Pass } action; // meta mark, drop, or accept verdict
         uint32_t fwmark; // only for Mark
         ProtoPortFilter filter; // optional proto/port filter
     };
@@ -79,6 +82,8 @@ private:
     static nlohmann::json build_mark_rule_json(const PendingRule& pr);
     // Build the JSON rule object for a drop verdict matching a named set.
     static nlohmann::json build_drop_rule_json(const PendingRule& pr);
+    // Build the JSON rule object for a pass-through verdict matching a named set.
+    static nlohmann::json build_pass_rule_json(const PendingRule& pr);
     // Build nftables match expression(s) for proto/port filter.
     // Returns a (possibly empty) array of JSON match expressions.
     static nlohmann::json build_port_match_exprs(const std::string& proto,

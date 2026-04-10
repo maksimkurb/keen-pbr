@@ -11,7 +11,7 @@ namespace keen_pbr3 {
 
 class ListEntryVisitor;
 
-// Protocol + port + address filter for firewall mark/drop rules.
+// Protocol + port + address filter for firewall mark/drop/pass rules.
 // All fields default to empty meaning "any".
 struct ProtoPortFilter {
     std::string proto;                  // "tcp", "udp", "tcp/udp", or "" (any)
@@ -45,7 +45,7 @@ enum class FirewallBackend {
 //
 // Usage pattern (transactional rebuild):
 //   cleanup()  — remove all previous state
-//   create_ipset() / create_mark_rule() / create_drop_rule() — buffer operations
+//   create_ipset() / create_mark_rule() / create_drop_rule() / create_pass_rule() — buffer operations
 //   create_batch_loader() → stream entries → finish()
 //   apply()    — atomically commit everything
 class Firewall {
@@ -72,6 +72,13 @@ public:
     // set_name: IP set to match against
     // filter: optional proto/port filter (default = any proto, any port)
     virtual void create_drop_rule(const std::string& set_name,
+                                  const ProtoPortFilter& filter = {}) = 0;
+
+    // Create a firewall rule that stops keen-pbr processing for matching packets
+    // and leaves them unmodified for normal system routing.
+    // set_name: IP set to match against
+    // filter: optional proto/port filter (default = any proto, any port)
+    virtual void create_pass_rule(const std::string& set_name,
                                   const ProtoPortFilter& filter = {}) = 0;
 
     // Create a firewall rule that marks packets matching the filter's dst_addr

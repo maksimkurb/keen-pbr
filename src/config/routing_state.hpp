@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../lists/list_set_usage.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
@@ -43,5 +44,16 @@ std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
     const OutboundMarkMap& marks,
     const std::map<std::string, std::string>* urltest_selections = nullptr);
+
+using ListSetUsageFn = std::function<ListSetUsage(const std::string&,
+                                                  const ListConfig&)>;
+
+// Remove set names for list variants that would not produce a live firewall set.
+// This keeps dry-run/verification paths aligned with apply_firewall(), which skips
+// always-empty static or dynamic sets.
+void prune_fw_rule_states_to_realized_sets(
+    const Config& cfg,
+    std::vector<RuleState>& rule_states,
+    const ListSetUsageFn& list_usage_fn);
 
 } // namespace keen_pbr3

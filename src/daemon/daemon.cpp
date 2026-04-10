@@ -802,6 +802,7 @@ void Daemon::apply_firewall() {
         rs.set_names.clear();
 
         const bool is_blackhole = (rs.action_type == RuleActionType::Drop);
+        const bool is_pass = (rs.action_type == RuleActionType::Pass);
 
         // Create ipsets and stream entries for each list in the rule
         for (const auto& list_name : rule.list) {
@@ -890,6 +891,15 @@ void Daemon::apply_firewall() {
                 if (usage.has_domain_entries) {
                     firewall_->create_drop_rule(set4d, filter);
                     firewall_->create_drop_rule(set6d, filter);
+                }
+            } else if (is_pass) {
+                if (usage.has_static_entries) {
+                    firewall_->create_pass_rule(set4, filter);
+                    firewall_->create_pass_rule(set6, filter);
+                }
+                if (usage.has_domain_entries) {
+                    firewall_->create_pass_rule(set4d, filter);
+                    firewall_->create_pass_rule(set6d, filter);
                 }
             } else if (rs.fwmark != 0) {
                 if (usage.has_static_entries) {

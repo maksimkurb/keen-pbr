@@ -78,6 +78,13 @@ void IptablesFirewall::create_drop_rule(const std::string& set_name,
     expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Drop, 0, filter);
 }
 
+void IptablesFirewall::create_pass_rule(const std::string& set_name,
+                                         const ProtoPortFilter& filter) {
+    auto it = created_sets_.find(set_name);
+    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
+    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Pass, 0, filter);
+}
+
 void IptablesFirewall::create_direct_mark_rule(uint32_t fwmark,
                                                 const ProtoPortFilter& filter) {
     bool is_v6 = !filter.dst_addr.empty() &&
@@ -190,14 +197,19 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
             if (pr.action == PendingRule::Mark)
                 s += keen_pbr3::format("-A {}{}{} -j MARK --set-mark {:#x}\n",
                                        CHAIN_NAME, addr_frag, pp, pr.fwmark);
-            else
+            else if (pr.action == PendingRule::Drop)
                 s += keen_pbr3::format("-A {}{}{} -j DROP\n", CHAIN_NAME, addr_frag, pp);
+            else
+                s += keen_pbr3::format("-A {}{}{} -j RETURN\n", CHAIN_NAME, addr_frag, pp);
         } else {
             if (pr.action == PendingRule::Mark)
                 s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
                                        CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
-            else
+            else if (pr.action == PendingRule::Drop)
                 s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
+                                       CHAIN_NAME, pr.set_name, addr_frag, pp);
+            else
+                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j RETURN\n",
                                        CHAIN_NAME, pr.set_name, addr_frag, pp);
         }
     }

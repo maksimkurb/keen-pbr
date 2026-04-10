@@ -1,9 +1,12 @@
 #include "status.hpp"
 
+#include "../cache/cache_manager.hpp"
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../health/routing_health_checker.hpp"
+#include "../lists/list_streamer.hpp"
+#include "../lists/list_set_usage.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
@@ -485,6 +488,8 @@ int run_status_command(const Config& config, const std::string& config_path) {
     const int64_t verify_max_bytes = config.daemon.value_or(DaemonConfig{})
         .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
     set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
+    const auto cache_dir = config.daemon.value_or(DaemonConfig{})
+                               .cache_dir.value_or("/var/cache/keen-pbr");
     auto marks = allocate_outbound_marks(config.fwmark.value_or(FwmarkConfig{}),
                                          config.outbounds.value_or(std::vector<Outbound>{}));
 
@@ -502,9 +507,19 @@ int run_status_command(const Config& config, const std::string& config_path) {
         },
         &urltest_selections);
 
+    CacheManager cache(cache_dir, max_file_size_bytes(config));
+    ListStreamer list_streamer(cache);
+    auto fw_rules = build_fw_rule_states(config, marks, &urltest_selections);
+    prune_fw_rule_states_to_realized_sets(
+        config,
+        fw_rules,
+        [&list_streamer](const std::string& list_name, const ListConfig& list_cfg) {
+            return analyze_list_set_usage(list_name, list_cfg, list_streamer);
+        });
+
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
-    fw_state.set_rules(build_fw_rule_states(config, marks));
+    fw_state.set_rules(std::move(fw_rules));
 
     auto firewall = create_firewall("auto");
     RoutingHealthChecker checker(*firewall, fw_state, routes, rules, netlink);

@@ -18,7 +18,7 @@ public:
     std::string set_name;
     bool ipv6;
     bool direct = false;
-    enum Action { Mark, Drop } action;
+    enum Action { Mark, Drop, Pass } action;
     uint32_t fwmark;
     ProtoPortFilter filter;
   };
@@ -42,9 +42,13 @@ public:
       pr.set_name = d.set_name;
       pr.ipv6 = d.ipv6;
       pr.direct = d.direct;
-      pr.action = (d.action == RuleDesc::Mark)
-                      ? IptablesFirewall::PendingRule::Mark
-                      : IptablesFirewall::PendingRule::Drop;
+      if (d.action == RuleDesc::Mark) {
+        pr.action = IptablesFirewall::PendingRule::Mark;
+      } else if (d.action == RuleDesc::Drop) {
+        pr.action = IptablesFirewall::PendingRule::Drop;
+      } else {
+        pr.action = IptablesFirewall::PendingRule::Pass;
+      }
       pr.fwmark = d.fwmark;
       pr.filter = d.filter;
       rules.push_back(std::move(pr));
@@ -87,6 +91,18 @@ static Rule drop_rule(const std::string &set_name, bool ipv6,
   r.ipv6 = ipv6;
   r.direct = false;
   r.action = Rule::Drop;
+  r.fwmark = 0;
+  r.filter = filter;
+  return r;
+}
+
+static Rule pass_rule(const std::string &set_name, bool ipv6,
+                      ProtoPortFilter filter = {}) {
+  Rule r;
+  r.set_name = set_name;
+  r.ipv6 = ipv6;
+  r.direct = false;
+  r.action = Rule::Pass;
   r.fwmark = 0;
   r.filter = filter;
   return r;
@@ -166,6 +182,12 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
 TEST_CASE("build_ipt_script: IPv4 drop rule") {
   auto s = T::build_ipt_script(false, {drop_rule("blacklist", false)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set blacklist dst -j DROP") !=
+        std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: IPv4 pass rule") {
+  auto s = T::build_ipt_script(false, {pass_rule("allowlist", false)});
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -j RETURN") !=
         std::string::npos);
 }
 
