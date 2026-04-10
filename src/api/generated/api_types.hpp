@@ -749,14 +749,13 @@ namespace api {
 
     inline void from_json(const json & j, SystemResolver& x) {
         x.address = j.at("address").get<std::string>();
-        x.hook = j.at("hook").get<std::string>();
+        x.hook = j.value("hook", "");
         x.type = j.at("type").get<DnsSystemResolverType>();
     }
 
     inline void to_json(json & j, const SystemResolver & x) {
         j = json::object();
         j["address"] = x.address;
-        j["hook"] = x.hook;
         j["type"] = x.type;
     }
 

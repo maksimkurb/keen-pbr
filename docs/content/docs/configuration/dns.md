@@ -46,13 +46,7 @@ On normal router package installs, you usually keep this configured exactly as s
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `type` | string | yes | Resolver integration type: `dnsmasq-ipset` or `dnsmasq-nftset` |
-| `hook` | string | yes | Hook script path used to refresh dnsmasq |
-| `address` | string | yes | Resolver address used for integration and health checks |
-
-Common `hook` paths:
-
-- OpenWrt / Debian: `/usr/lib/keen-pbr/dnsmasq.sh`
-- Keenetic / NetCraze: `/opt/usr/lib/keen-pbr/dnsmasq.sh`
+| `address` | string | yes | Resolver address used for integration and TXT health checks, for example `"127.0.0.1"` or `"127.0.0.1:5353"` |
 
 ## DNS Test Server
 

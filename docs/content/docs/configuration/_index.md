@@ -46,7 +46,6 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
   "dns": {
     "system_resolver": {
       "type": "dnsmasq-nftset",
-      "hook": "/usr/lib/keen-pbr/dnsmasq.sh",
       "address": "127.0.0.1"
     },
     "servers": [

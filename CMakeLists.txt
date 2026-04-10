@@ -49,6 +49,8 @@ set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/conf
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
   "Default frontend static root served by API (SPA assets)")
+set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq.sh" CACHE STRING
+  "System resolver hook command path compiled into keen-pbr")
 
 # Dependencies
 find_package(CURL REQUIRED)
@@ -184,6 +186,7 @@ target_include_directories(keen-pbr PRIVATE
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
+  KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
 )
 if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)

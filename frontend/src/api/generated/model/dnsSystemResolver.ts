@@ -14,8 +14,6 @@ import type { DnsSystemResolverType } from './dnsSystemResolverType';
 export interface DnsSystemResolver {
   /** Type of external system resolver integration. */
   type: DnsSystemResolverType;
-  /** Filesystem path to the resolver hook script. */
-  hook: string;
   /** IP address or host for the system resolver, with optional port. This is also the resolver endpoint used for TXT lookup of `config-hash.keen.pbr`; if the port is omitted, runtime behavior defaults to 53.
    */
   address: string;

@@ -4,17 +4,29 @@
 
 namespace keen_pbr3 {
 
-std::vector<std::string> build_system_resolver_reload_args(const Config& config) {
+const char* system_resolver_hook_path() noexcept {
+#ifdef KEEN_PBR_SYSTEM_RESOLVER_HOOK
+    return KEEN_PBR_SYSTEM_RESOLVER_HOOK;
+#else
+    return "/usr/lib/keen-pbr/dnsmasq.sh";
+#endif
+}
+
+std::vector<std::string> build_system_resolver_hook_args(const Config& config,
+                                                         std::string_view action) {
     if (!config.dns.has_value() || !config.dns->system_resolver.has_value()) {
         return {};
     }
 
-    const std::string& hook = config.dns->system_resolver->hook;
-    if (hook.empty()) {
+    if (action.empty()) {
         return {};
     }
 
-    return {hook, "reload"};
+    return {system_resolver_hook_path(), std::string(action)};
+}
+
+std::vector<std::string> build_system_resolver_reload_args(const Config& config) {
+    return build_system_resolver_hook_args(config, "reload");
 }
 
 bool execute_system_resolver_reload_hook(
