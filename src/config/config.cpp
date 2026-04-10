@@ -45,6 +45,26 @@ void validate_optional_integer_field(const json& root,
     }
 }
 
+void validate_optional_string_field(const json& root,
+                                    const char* parent_key,
+                                    const char* child_key,
+                                    const std::string& path,
+                                    std::vector<ConfigValidationIssue>& issues) {
+    const auto parent_it = root.find(parent_key);
+    if (parent_it == root.end() || !parent_it->is_object()) {
+        return;
+    }
+
+    const auto child_it = parent_it->find(child_key);
+    if (child_it == parent_it->end() || child_it->is_null()) {
+        return;
+    }
+
+    if (!child_it->is_string()) {
+        add_issue(issues, path, path + " must be a string");
+    }
+}
+
 void validate_optional_hex_string_field(const json& root,
                                         const char* parent_key,
                                         const char* child_key,
@@ -343,6 +363,8 @@ Config parse_config(const std::string& json_str) {
         "daemon.firewall_verify_max_bytes", issues);
     validate_optional_integer_field(
         parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
+    validate_optional_string_field(
+        parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_route_rule_specs(parsed_json, issues);
 
     if (!issues.empty()) {
@@ -373,6 +395,14 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->max_file_size_bytes <= 0) {
         add_issue(issues, "daemon.max_file_size_bytes",
                   "daemon.max_file_size_bytes must be greater than 0");
+    }
+
+    if (cfg.daemon && cfg.daemon->firewall_backend.has_value()) {
+        const std::string backend = trim_copy(*cfg.daemon->firewall_backend);
+        if (backend != "auto" && backend != "iptables" && backend != "nftables") {
+            add_issue(issues, "daemon.firewall_backend",
+                      "daemon.firewall_backend must be one of: auto, iptables, nftables");
+        }
     }
 
     if (cfg.lists_autoupdate) {
@@ -666,6 +696,12 @@ size_t max_file_size_bytes(const Config& config) {
                            .max_file_size_bytes.value_or(
                                static_cast<int64_t>(kDefaultMaxFileSizeBytes));
     return static_cast<size_t>(bytes);
+}
+
+std::string firewall_backend_preference(const Config& config) {
+    const std::string backend = trim_copy(
+        config.daemon.value_or(DaemonConfig{}).firewall_backend.value_or("auto"));
+    return backend.empty() ? "auto" : backend;
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

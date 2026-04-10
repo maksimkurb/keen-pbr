@@ -143,7 +143,7 @@ Daemon::Daemon(Config config,
     , config_(std::move(config))
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
-    , firewall_(create_firewall("auto"))
+    , firewall_(create_firewall(firewall_backend_preference(config_)))
     , netlink_()
     , route_table_(netlink_)
     , policy_rules_(netlink_)

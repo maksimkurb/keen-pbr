@@ -521,7 +521,7 @@ int run_status_command(const Config& config, const std::string& config_path) {
     fw_state.set_outbound_marks(marks);
     fw_state.set_rules(std::move(fw_rules));
 
-    auto firewall = create_firewall("auto");
+    auto firewall = create_firewall(firewall_backend_preference(config));
     RoutingHealthChecker checker(*firewall, fw_state, routes, rules, netlink);
     RoutingHealthReport report = checker.check();
     const auto display_firewall_rules = build_display_firewall_rules(config, marks, report.firewall_rules);

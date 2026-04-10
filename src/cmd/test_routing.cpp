@@ -291,7 +291,7 @@ TestRoutingResult compute_test_routing(const Config& config,
 
     std::unique_ptr<Firewall> firewall;
     try {
-        firewall = create_firewall("auto");
+        firewall = create_firewall(firewall_backend_preference(config));
     } catch (const std::exception& e) {
         result.warnings.push_back(
             keen_pbr3::format("Cannot check actual outbound (firewall tool unavailable): {}", e.what()));
