@@ -38,6 +38,8 @@ start_service() {
 }
 
 stop_service() {
+    [ -n "$KEEN_PBR_SKIP_DNSMASQ" ] && return 0
+
     if [ -x "$HELPER" ]; then
         "$HELPER" deactivate || true
     fi

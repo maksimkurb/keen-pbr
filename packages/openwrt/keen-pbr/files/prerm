@@ -1,7 +1,7 @@
 #!/bin/sh
 
-/etc/init.d/keen-pbr stop || true
 /etc/init.d/keen-pbr disable || true
+KEEN_PBR_SKIP_DNSMASQ=1 /etc/init.d/keen-pbr stop || true
 /usr/lib/keen-pbr/dnsmasq.sh uninstall-persistent || true
 
 cat <<'EOF'
