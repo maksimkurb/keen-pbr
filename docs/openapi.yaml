@@ -409,7 +409,9 @@ components:
           example: "interface"
         tag:
           type: string
-          description: Unique identifier for this outbound.
+          description: >
+            Unique identifier for this outbound. Must match
+            `^[a-z][a-z0-9_]*$` and be at most 24 characters.
           example: "vpn"
         interface:
           type: string
@@ -469,6 +471,8 @@ components:
       description: >
         Defines a named list of domains and/or IP CIDRs used in routing and DNS rules.
         At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided.
+        List names (the keys under `lists`) must match `^[a-z][a-z0-9_]*$`
+        and be at most 24 characters.
       properties:
         url:
           type: string
@@ -511,7 +515,10 @@ components:
       properties:
         tag:
           type: string
-          description: Unique identifier for this DNS server.
+          description: >
+            Unique identifier for this DNS server. Must match
+            `^[a-z][a-z0-9_]*$`, be at most 24 characters, and be unique
+            within `dns.servers`.
           example: "vpn-dns"
         type:
           type: string
@@ -759,14 +766,14 @@ components:
             interface: "eth0"
             gateway: "192.168.1.1"
           - type: "table"
-            tag: "custom-table"
+            tag: "custom_table"
             table: 200
           - type: "blackhole"
             tag: "block"
           - type: "ignore"
             tag: "direct"
           - type: "urltest"
-            tag: "auto-select"
+            tag: "auto_select"
             url: "https://www.gstatic.com/generate_204"
             interval_ms: 180000
             tolerance_ms: 100
@@ -784,28 +791,28 @@ components:
               timeout_ms: 30000
               half_open_max_requests: 1
         lists:
-          my-domains:
+          my_domains:
             domains:
               - "example.com"
               - "*.example.org"
-          my-ips:
+          my_ips:
             ip_cidrs:
               - "93.184.216.34"
               - "10.0.0.0/8"
-          remote-list:
+          remote_list:
             url: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
-          local-list:
+          local_list:
             file: "./my-list.txt"
         dns:
           servers:
-            - tag: "vpn-dns"
+            - tag: "vpn_dns"
               address: "10.8.0.1"
-            - tag: "google-dns"
+            - tag: "google_dns"
               address: "8.8.8.8"
           rules:
-            - list: ["my-domains", "remote-list"]
-              server: "vpn-dns"
-          fallback: ["google-dns", "quad9"]
+            - list: ["my_domains", "remote_list"]
+              server: "vpn_dns"
+          fallback: ["google_dns", "quad9"]
         fwmark:
           start: "0x00010000"
           mask: "0x00FF0000"

@@ -71,6 +71,7 @@ When the HTTP API is enabled, you can verify if your DNS works or not via Web UI
 ## DNS Servers
 
 Each server has a tag, optional `type`, optional `address`, and optional `detour`.
+DNS server `tag` values must match `^[a-z][a-z0-9_]*$`, be at most 24 characters, and must be unique.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
