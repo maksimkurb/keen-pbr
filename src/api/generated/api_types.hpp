@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesSuujvA data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesBy9TMj data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -114,9 +114,11 @@ namespace api {
         std::optional<int64_t> timeout_ms;
     };
 
+    enum class DaemonConfigFirewallBackend : int { AUTO, IPTABLES, NFTABLES };
+
     struct Daemon {
         std::optional<std::string> cache_dir;
-        std::optional<std::string> firewall_backend;
+        std::optional<DaemonConfigFirewallBackend> firewall_backend;
         std::optional<int64_t> firewall_verify_max_bytes;
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
@@ -147,7 +149,6 @@ namespace api {
 
     struct SystemResolver {
         std::string address;
-        std::string hook;
         DnsSystemResolverType type;
     };
 
@@ -220,6 +221,7 @@ namespace api {
     };
 
     struct Route {
+        std::optional<std::vector<std::string>> inbound_interfaces;
         std::optional<std::vector<RouteRuleElement>> rules;
     };
 
@@ -344,13 +346,13 @@ namespace api {
         RoutingHealthErrorResponseOverall overall;
     };
 
-    enum class FirewallBackend : int { IPTABLES, NFTABLES };
+    enum class RoutingHealthResponseFirewallBackend : int { IPTABLES, NFTABLES };
 
     enum class RoutingHealthResponseOverall : int { DEGRADED, ERROR, OK };
 
     struct RoutingHealthResponse {
         FirewallChain firewall;
-        FirewallBackend firewall_backend;
+        RoutingHealthResponseFirewallBackend firewall_backend;
         std::vector<FirewallRuleCheck> firewall_rules;
         RoutingHealthResponseOverall overall;
         std::vector<PolicyRuleCheck> policy_rules;
@@ -399,6 +401,22 @@ namespace api {
         std::vector<std::string> warnings;
     };
 
+    enum class RuntimeInterfaceInventoryStatusEnum : int { DOWN, UP };
+
+    struct RuntimeInterfaceInventoryEntry {
+        std::optional<bool> admin_up;
+        std::optional<bool> carrier;
+        std::optional<std::vector<std::string>> ipv4_addresses;
+        std::optional<std::vector<std::string>> ipv6_addresses;
+        std::string name;
+        std::optional<std::string> oper_state;
+        RuntimeInterfaceInventoryStatusEnum status;
+    };
+
+    struct RuntimeInterfaceInventoryResponse {
+        std::vector<RuntimeInterfaceInventoryEntry> interfaces;
+    };
+
     enum class RuntimeInterfaceStatusEnum : int { ACTIVE, BACKUP, DEGRADED, UNAVAILABLE, UNKNOWN };
 
     struct RuntimeInterfaceState {
@@ -423,7 +441,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesSuujvA {
+    struct KeenPbrTypesBy9TMj {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -465,6 +483,9 @@ namespace api {
         std::optional<RoutingTestResponse> routing_test_response;
         std::optional<RoutingTestRuleDiagnosticElement> routing_test_rule_diagnostic;
         std::optional<RoutingTestRuleIpDiagnosticElement> routing_test_rule_ip_diagnostic;
+        std::optional<RuntimeInterfaceInventoryEntry> runtime_interface_inventory_entry;
+        std::optional<RuntimeInterfaceInventoryResponse> runtime_interface_inventory_response;
+        std::optional<RuntimeInterfaceInventoryStatusEnum> runtime_interface_inventory_status;
         std::optional<RuntimeInterfaceState> runtime_interface_state;
         std::optional<RuntimeInterfaceStatusEnum> runtime_interface_status;
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
@@ -597,6 +618,12 @@ namespace api {
     void from_json(const json & j, RoutingTestResponse & x);
     void to_json(json & j, const RoutingTestResponse & x);
 
+    void from_json(const json & j, RuntimeInterfaceInventoryEntry & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryEntry & x);
+
+    void from_json(const json & j, RuntimeInterfaceInventoryResponse & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryResponse & x);
+
     void from_json(const json & j, RuntimeInterfaceState & x);
     void to_json(json & j, const RuntimeInterfaceState & x);
 
@@ -606,11 +633,14 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesSuujvA & x);
-    void to_json(json & j, const KeenPbrTypesSuujvA & x);
+    void from_json(const json & j, KeenPbrTypesBy9TMj & x);
+    void to_json(json & j, const KeenPbrTypesBy9TMj & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
+
+    void from_json(const json & j, DaemonConfigFirewallBackend & x);
+    void to_json(json & j, const DaemonConfigFirewallBackend & x);
 
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
@@ -633,11 +663,14 @@ namespace api {
     void from_json(const json & j, RoutingHealthErrorResponseOverall & x);
     void to_json(json & j, const RoutingHealthErrorResponseOverall & x);
 
-    void from_json(const json & j, FirewallBackend & x);
-    void to_json(json & j, const FirewallBackend & x);
+    void from_json(const json & j, RoutingHealthResponseFirewallBackend & x);
+    void to_json(json & j, const RoutingHealthResponseFirewallBackend & x);
 
     void from_json(const json & j, RoutingHealthResponseOverall & x);
     void to_json(json & j, const RoutingHealthResponseOverall & x);
+
+    void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x);
 
     void from_json(const json & j, RuntimeInterfaceStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceStatusEnum & x);
@@ -694,7 +727,7 @@ namespace api {
 
     inline void from_json(const json & j, Daemon& x) {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
-        x.firewall_backend = get_stack_optional<std::string>(j, "firewall_backend");
+        x.firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "firewall_backend");
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
@@ -752,7 +785,6 @@ namespace api {
 
     inline void from_json(const json & j, SystemResolver& x) {
         x.address = j.at("address").get<std::string>();
-        x.hook = j.value("hook", "");
         x.type = j.at("type").get<DnsSystemResolverType>();
     }
 
@@ -904,11 +936,13 @@ namespace api {
     }
 
     inline void from_json(const json & j, Route& x) {
+        x.inbound_interfaces = get_stack_optional<std::vector<std::string>>(j, "inbound_interfaces");
         x.rules = get_stack_optional<std::vector<RouteRuleElement>>(j, "rules");
     }
 
     inline void to_json(json & j, const Route & x) {
         j = json::object();
+        j["inbound_interfaces"] = x.inbound_interfaces;
         j["rules"] = x.rules;
     }
 
@@ -1155,7 +1189,7 @@ namespace api {
 
     inline void from_json(const json & j, RoutingHealthResponse& x) {
         x.firewall = j.at("firewall").get<FirewallChain>();
-        x.firewall_backend = j.at("firewall_backend").get<FirewallBackend>();
+        x.firewall_backend = j.at("firewall_backend").get<RoutingHealthResponseFirewallBackend>();
         x.firewall_rules = j.at("firewall_rules").get<std::vector<FirewallRuleCheck>>();
         x.overall = j.at("overall").get<RoutingHealthResponseOverall>();
         x.policy_rules = j.at("policy_rules").get<std::vector<PolicyRuleCheck>>();
@@ -1262,6 +1296,36 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
+    inline void from_json(const json & j, RuntimeInterfaceInventoryEntry& x) {
+        x.admin_up = get_stack_optional<bool>(j, "admin_up");
+        x.carrier = get_stack_optional<bool>(j, "carrier");
+        x.ipv4_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv4_addresses");
+        x.ipv6_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv6_addresses");
+        x.name = j.at("name").get<std::string>();
+        x.oper_state = get_stack_optional<std::string>(j, "oper_state");
+        x.status = j.at("status").get<RuntimeInterfaceInventoryStatusEnum>();
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryEntry & x) {
+        j = json::object();
+        j["admin_up"] = x.admin_up;
+        j["carrier"] = x.carrier;
+        j["ipv4_addresses"] = x.ipv4_addresses;
+        j["ipv6_addresses"] = x.ipv6_addresses;
+        j["name"] = x.name;
+        j["oper_state"] = x.oper_state;
+        j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, RuntimeInterfaceInventoryResponse& x) {
+        x.interfaces = j.at("interfaces").get<std::vector<RuntimeInterfaceInventoryEntry>>();
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryResponse & x) {
+        j = json::object();
+        j["interfaces"] = x.interfaces;
+    }
+
     inline void from_json(const json & j, RuntimeInterfaceState& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interface_name = get_stack_optional<std::string>(j, "interface_name");
@@ -1305,7 +1369,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesSuujvA& x) {
+    inline void from_json(const json & j, KeenPbrTypesBy9TMj& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1347,6 +1411,9 @@ namespace api {
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
         x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnosticElement>(j, "RoutingTestRuleDiagnostic");
         x.routing_test_rule_ip_diagnostic = get_stack_optional<RoutingTestRuleIpDiagnosticElement>(j, "RoutingTestRuleIpDiagnostic");
+        x.runtime_interface_inventory_entry = get_stack_optional<RuntimeInterfaceInventoryEntry>(j, "RuntimeInterfaceInventoryEntry");
+        x.runtime_interface_inventory_response = get_stack_optional<RuntimeInterfaceInventoryResponse>(j, "RuntimeInterfaceInventoryResponse");
+        x.runtime_interface_inventory_status = get_stack_optional<RuntimeInterfaceInventoryStatusEnum>(j, "RuntimeInterfaceInventoryStatus");
         x.runtime_interface_state = get_stack_optional<RuntimeInterfaceState>(j, "RuntimeInterfaceState");
         x.runtime_interface_status = get_stack_optional<RuntimeInterfaceStatusEnum>(j, "RuntimeInterfaceStatus");
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
@@ -1355,7 +1422,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesSuujvA & x) {
+    inline void to_json(json & j, const KeenPbrTypesBy9TMj & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1398,6 +1465,9 @@ namespace api {
         j["RoutingTestResponse"] = x.routing_test_response;
         j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
         j["RoutingTestRuleIpDiagnostic"] = x.routing_test_rule_ip_diagnostic;
+        j["RuntimeInterfaceInventoryEntry"] = x.runtime_interface_inventory_entry;
+        j["RuntimeInterfaceInventoryResponse"] = x.runtime_interface_inventory_response;
+        j["RuntimeInterfaceInventoryStatus"] = x.runtime_interface_inventory_status;
         j["RuntimeInterfaceState"] = x.runtime_interface_state;
         j["RuntimeInterfaceStatus"] = x.runtime_interface_status;
         j["RuntimeOutboundsResponse"] = x.runtime_outbounds_response;
@@ -1419,6 +1489,22 @@ namespace api {
             case CheckStatus::MISSING: j = "missing"; break;
             case CheckStatus::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"CheckStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, DaemonConfigFirewallBackend & x) {
+        if (j == "auto") x = DaemonConfigFirewallBackend::AUTO;
+        else if (j == "iptables") x = DaemonConfigFirewallBackend::IPTABLES;
+        else if (j == "nftables") x = DaemonConfigFirewallBackend::NFTABLES;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const DaemonConfigFirewallBackend & x) {
+        switch (x) {
+            case DaemonConfigFirewallBackend::AUTO: j = "auto"; break;
+            case DaemonConfigFirewallBackend::IPTABLES: j = "iptables"; break;
+            case DaemonConfigFirewallBackend::NFTABLES: j = "nftables"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"DaemonConfigFirewallBackend\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -1524,17 +1610,17 @@ namespace api {
         }
     }
 
-    inline void from_json(const json & j, FirewallBackend & x) {
-        if (j == "iptables") x = FirewallBackend::IPTABLES;
-        else if (j == "nftables") x = FirewallBackend::NFTABLES;
+    inline void from_json(const json & j, RoutingHealthResponseFirewallBackend & x) {
+        if (j == "iptables") x = RoutingHealthResponseFirewallBackend::IPTABLES;
+        else if (j == "nftables") x = RoutingHealthResponseFirewallBackend::NFTABLES;
         else { throw std::runtime_error("Input JSON does not conform to schema!"); }
     }
 
-    inline void to_json(json & j, const FirewallBackend & x) {
+    inline void to_json(json & j, const RoutingHealthResponseFirewallBackend & x) {
         switch (x) {
-            case FirewallBackend::IPTABLES: j = "iptables"; break;
-            case FirewallBackend::NFTABLES: j = "nftables"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"FirewallBackend\": " + std::to_string(static_cast<int>(x)));
+            case RoutingHealthResponseFirewallBackend::IPTABLES: j = "iptables"; break;
+            case RoutingHealthResponseFirewallBackend::NFTABLES: j = "nftables"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthResponseFirewallBackend\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -1551,6 +1637,20 @@ namespace api {
             case RoutingHealthResponseOverall::ERROR: j = "error"; break;
             case RoutingHealthResponseOverall::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthResponseOverall\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x) {
+        if (j == "down") x = RuntimeInterfaceInventoryStatusEnum::DOWN;
+        else if (j == "up") x = RuntimeInterfaceInventoryStatusEnum::UP;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x) {
+        switch (x) {
+            case RuntimeInterfaceInventoryStatusEnum::DOWN: j = "down"; break;
+            case RuntimeInterfaceInventoryStatusEnum::UP: j = "up"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeInterfaceInventoryStatusEnum\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

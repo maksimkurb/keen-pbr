@@ -6,6 +6,7 @@
 #include "handler_reload.hpp"
 #include "handler_config.hpp"
 #include "handler_health_routing.hpp"
+#include "handler_runtime_interfaces.hpp"
 #include "handler_runtime_outbounds.hpp"
 #include "handler_test_routing.hpp"
 #include "handler_dns_test.hpp"
@@ -18,6 +19,7 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
     register_lists_refresh_handler(server, ctx);
     register_config_handler(server, ctx);
     register_health_routing_handler(server, ctx);
+    register_runtime_interfaces_handler(server, ctx);
     register_runtime_outbounds_handler(server, ctx);
     register_test_routing_handler(server, ctx);
     register_dns_test_handler(server, ctx);

@@ -78,6 +78,10 @@ private:
     static nlohmann::json build_set_json(const PendingSet& ps);
     // Build the JSON object for the prerouting chain (type filter, hook prerouting).
     static nlohmann::json build_chain_json();
+    // Build all prerouting rule add-commands, including global prefilter rules.
+    static nlohmann::json build_rule_add_commands(
+        const FirewallGlobalPrefilter& prefilter,
+        const std::vector<PendingRule>& rules);
     // Build the JSON rule object for a meta mark set action matching a named set.
     static nlohmann::json build_mark_rule_json(const PendingRule& pr);
     // Build the JSON rule object for a drop verdict matching a named set.

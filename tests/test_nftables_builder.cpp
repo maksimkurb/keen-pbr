@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 
+#include "../src/config/config.hpp"
+#include "../src/config/routing_state.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
 
@@ -34,6 +36,39 @@ public:
 
   static nlohmann::json build_chain_json() {
     return NftablesFirewall::build_chain_json();
+  }
+
+  struct RuleDesc {
+    std::string set_name;
+    int family;
+    bool direct = false;
+    enum Action { Mark, Drop, Pass } action;
+    uint32_t fwmark;
+    ProtoPortFilter filter;
+  };
+
+  static nlohmann::json build_rule_add_commands(
+      FirewallGlobalPrefilter prefilter,
+      const std::vector<RuleDesc> &descs) {
+    std::vector<NftablesFirewall::PendingRule> rules;
+    rules.reserve(descs.size());
+    for (const auto &d : descs) {
+      NftablesFirewall::PendingRule pr;
+      pr.set_name = d.set_name;
+      pr.family = d.family;
+      pr.direct = d.direct;
+      if (d.action == RuleDesc::Mark) {
+        pr.action = NftablesFirewall::PendingRule::Mark;
+      } else if (d.action == RuleDesc::Drop) {
+        pr.action = NftablesFirewall::PendingRule::Drop;
+      } else {
+        pr.action = NftablesFirewall::PendingRule::Pass;
+      }
+      pr.fwmark = d.fwmark;
+      pr.filter = d.filter;
+      rules.push_back(std::move(pr));
+    }
+    return NftablesFirewall::build_rule_add_commands(prefilter, rules);
   }
 
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
@@ -102,6 +137,56 @@ public:
 
 using namespace keen_pbr3;
 using T = NftablesBuilderTest;
+using Rule = NftablesBuilderTest::RuleDesc;
+
+namespace {
+
+Config parse_valid_config(const std::string& json) {
+  Config cfg = parse_config(json);
+  if (!cfg.dns.has_value()) {
+    cfg.dns = DnsConfig{};
+  }
+  if (!cfg.dns->servers.has_value()) {
+    DnsServer fallback_server;
+    fallback_server.tag = "default_dns";
+    fallback_server.address = "127.0.0.1";
+    cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+  }
+  if (!cfg.dns->fallback.has_value()) {
+    cfg.dns->fallback = std::vector<std::string>{"default_dns"};
+  }
+  if (!cfg.dns->system_resolver.has_value()) {
+    api::SystemResolver resolver;
+    resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+    resolver.address = "127.0.0.1";
+    cfg.dns->system_resolver = resolver;
+  }
+  validate_config(cfg);
+  return cfg;
+}
+
+} // namespace
+
+static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
+                      ProtoPortFilter filter = {}) {
+  Rule r;
+  r.set_name = set_name;
+  r.family = family;
+  r.direct = false;
+  r.action = Rule::Mark;
+  r.fwmark = fwmark;
+  r.filter = filter;
+  return r;
+}
+
+static FirewallGlobalPrefilter prefilter_with_interfaces(
+    std::vector<std::string> interfaces,
+    bool skip_established_or_dnat = true) {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.skip_established_or_dnat = skip_established_or_dnat;
+  prefilter.inbound_interfaces = std::move(interfaces);
+  return prefilter;
+}
 
 // =============================================================================
 // build_set_json tests
@@ -148,6 +233,87 @@ TEST_CASE("build_chain_json: correct fields") {
   CHECK(chain["hook"] == "prerouting");
   CHECK(chain["prio"] == -150);
   CHECK(chain["policy"] == "accept");
+}
+
+TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") {
+  auto cmds = T::build_rule_add_commands(
+      prefilter_with_interfaces({"br0", "wg0"}),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 3);
+
+  const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
+  CHECK(dnat_expr[0]["match"]["left"]["ct"]["key"] == "status");
+  CHECK(dnat_expr[0]["match"]["right"] == "dnat");
+  CHECK(dnat_expr[2].contains("accept"));
+
+  const auto &iface_expr = cmds[1]["add"]["rule"]["expr"];
+  CHECK(iface_expr[0]["match"]["op"] == "!=");
+  CHECK(iface_expr[0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(iface_expr[0]["match"]["right"]["set"][0] == "br0");
+  CHECK(iface_expr[0]["match"]["right"]["set"][1] == "wg0");
+  CHECK(iface_expr[2].contains("accept"));
+
+  CHECK(cmds.dump().find("\"state\"") == std::string::npos);
+
+  const auto &mark_expr = cmds[2]["add"]["rule"]["expr"];
+  CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
+  CHECK(mark_expr[0]["match"]["right"] == "@myset");
+  CHECK(mark_expr[2]["mangle"]["value"] == 256);
+}
+
+TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
+  auto cfg = parse_valid_config(R"({
+    "outbounds":[
+      {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+    ],
+    "lists":{
+      "local":{"ip_cidrs":["192.168.0.0/16"]}
+    },
+    "route":{
+      "inbound_interfaces":[],
+      "rules":[
+        {"list":["local"],"outbound":"wan"}
+      ]
+    }
+  })");
+
+  const auto cmds = T::build_rule_add_commands(
+      build_firewall_global_prefilter(cfg),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 2);
+  CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+}
+
+TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
+  auto cfg = parse_valid_config(R"({
+    "outbounds":[
+      {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+    ],
+    "lists":{
+      "local":{"ip_cidrs":["192.168.0.0/16"]}
+    },
+    "route":{
+      "inbound_interfaces":["br0"],
+      "rules":[
+        {"list":["local"],"outbound":"wan"}
+      ]
+    }
+  })");
+
+  const auto cmds = T::build_rule_add_commands(
+      build_firewall_global_prefilter(cfg),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 3);
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 // =============================================================================

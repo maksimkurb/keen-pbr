@@ -10,7 +10,7 @@ import type { CheckStatus } from './checkStatus';
 export interface FirewallRuleCheck {
   /** IP set or nftables set name for this rule. */
   set_name: string;
-  /** Expected firewall action (e.g. "MARK", "DROP"). */
+  /** Expected firewall action (e.g. "MARK", "DROP", "PASS"). */
   action: string;
   /** Expected fwmark value as hex string. Present when applicable. */
   expected_fwmark?: string;

@@ -468,6 +468,52 @@ TEST_CASE("route rule: invalid dest_addr reports route.rules[0].dest_addr") {
     CHECK(issues.front().path == "route.rules[0].dest_addr");
 }
 
+TEST_CASE("route inbound_interfaces: omitted is accepted") {
+    CHECK_NOTHROW(parse_test_config(R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
+}
+
+TEST_CASE("route inbound_interfaces: empty array is accepted") {
+    CHECK_NOTHROW(parse_test_config(R"({"route":{"inbound_interfaces":[],"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
+}
+
+TEST_CASE("route inbound_interfaces: valid entries are parsed") {
+    auto cfg = parse_test_config(
+        R"({"route":{"inbound_interfaces":["br0","wg0"],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+    REQUIRE(cfg.route.has_value());
+    REQUIRE(cfg.route->inbound_interfaces.has_value());
+    CHECK(cfg.route->inbound_interfaces->size() == 2);
+    CHECK(cfg.route->inbound_interfaces->at(0) == "br0");
+    CHECK(cfg.route->inbound_interfaces->at(1) == "wg0");
+}
+
+TEST_CASE("route inbound_interfaces: non-array is rejected") {
+    const auto issues = parse_issues(
+        R"({"route":{"inbound_interfaces":"br0","rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.inbound_interfaces");
+}
+
+TEST_CASE("route inbound_interfaces: non-string entry is rejected") {
+    const auto issues = parse_issues(
+        R"({"route":{"inbound_interfaces":["br0",42],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.inbound_interfaces[1]");
+}
+
+TEST_CASE("route inbound_interfaces: blank entry is rejected") {
+    const auto issues = parse_issues(
+        R"({"route":{"inbound_interfaces":["br0","   "],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.inbound_interfaces[1]");
+}
+
+TEST_CASE("route inbound_interfaces: duplicate entry is rejected") {
+    const auto issues = parse_issues(
+        R"({"route":{"inbound_interfaces":["br0","br0"],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.inbound_interfaces[1]");
+}
+
 // =============================================================================
 // is_reserved_table
 // =============================================================================
@@ -638,22 +684,22 @@ TEST_CASE("daemon.firewall_verify_max_bytes: rejects negative value") {
 
 TEST_CASE("daemon.firewall_backend: defaults to auto when absent") {
     auto cfg = parse_test_config(R"({"daemon":{}})");
-    CHECK(firewall_backend_preference(cfg) == "auto");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::auto_detect);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts auto") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"auto"}})");
-    CHECK(firewall_backend_preference(cfg) == "auto");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::auto_detect);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts iptables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"iptables"}})");
-    CHECK(firewall_backend_preference(cfg) == "iptables");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::iptables);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts nftables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"nftables"}})");
-    CHECK(firewall_backend_preference(cfg) == "nftables");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::nftables);
 }
 
 TEST_CASE("daemon.firewall_backend: rejects non-string value") {

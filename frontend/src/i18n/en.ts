@@ -277,6 +277,23 @@ export const enTranslation = {
               "Block traffic when outbound drops (kill-switch)",
             strictEnforcementHint:
               "If a VPN or interface goes offline, traffic matching its rules is blocked instead of falling back to the main routing table. Can be overridden per outbound.",
+            inboundInterfacesLabel: "Inbound interfaces",
+            inboundInterfacesHint:
+              "Only packets arriving on the selected interfaces will be processed by policy routing. Leave this empty to match traffic from any interface.",
+            inboundInterfacesAddAction: "Add interface",
+            inboundInterfacesLoading: "Loading interfaces...",
+            inboundInterfacesNoAvailable: "No more interfaces available.",
+            inboundInterfacesEmptyTitle: "No inbound interfaces selected",
+            inboundInterfacesEmptyDescription:
+              "Add interfaces here if you want policy routing to apply only to specific ingress interfaces.",
+            inboundInterfacesLoadError:
+              "Live interface inventory is temporarily unavailable. Saved selections are still editable.",
+            inboundInterfacesStatusUp: "UP",
+            inboundInterfacesStatusDown: "DOWN",
+            inboundInterfacesStatusLoading: "Loading",
+            inboundInterfacesStatusMissing: "Missing",
+            inboundInterfacesMissingDetail:
+              "This interface is saved in config but is not present in the current live interface inventory.",
           },
           autoupdate: {
             title: "Lists autoupdate",

@@ -95,6 +95,19 @@ std::string trim_copy(const std::string& value) {
     return value.substr(begin, end - begin + 1);
 }
 
+FirewallBackendPreference to_firewall_backend_preference(api::DaemonConfigFirewallBackend backend) {
+    switch (backend) {
+        case api::DaemonConfigFirewallBackend::AUTO:
+            return FirewallBackendPreference::auto_detect;
+        case api::DaemonConfigFirewallBackend::IPTABLES:
+            return FirewallBackendPreference::iptables;
+        case api::DaemonConfigFirewallBackend::NFTABLES:
+            return FirewallBackendPreference::nftables;
+    }
+
+    throw std::runtime_error("Unexpected daemon.firewall_backend value");
+}
+
 bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, int& out) {
     if (raw.empty()) {
         return false;
@@ -294,6 +307,46 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
     }
 }
 
+void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValidationIssue>& issues) {
+    const auto route_it = root.find("route");
+    if (route_it == root.end() || !route_it->is_object()) {
+        return;
+    }
+
+    const auto inbound_it = route_it->find("inbound_interfaces");
+    if (inbound_it == route_it->end() || inbound_it->is_null()) {
+        return;
+    }
+
+    if (!inbound_it->is_array()) {
+        add_issue(issues, "route.inbound_interfaces", "route.inbound_interfaces must be an array of strings");
+        return;
+    }
+
+    std::set<std::string> seen_interfaces;
+    for (size_t index = 0; index < inbound_it->size(); ++index) {
+        const auto& iface_value = inbound_it->at(index);
+        const std::string iface_path =
+            "route.inbound_interfaces[" + std::to_string(index) + "]";
+
+        if (!iface_value.is_string()) {
+            add_issue(issues, iface_path, iface_path + " must be a string");
+            continue;
+        }
+
+        const std::string iface = iface_value.get<std::string>();
+        if (trim_copy(iface).empty()) {
+            add_issue(issues, iface_path, iface_path + " must not be blank");
+            continue;
+        }
+
+        if (!seen_interfaces.insert(iface).second) {
+            add_issue(issues, iface_path,
+                      iface_path + " duplicates interface '" + iface + "'");
+        }
+    }
+}
+
 } // namespace
 
 ConfigValidationError::ConfigValidationError(std::vector<ConfigValidationIssue> issues)
@@ -416,6 +469,7 @@ Config parse_config(const std::string& json_str) {
     validate_optional_string_field(
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_route_rule_specs(parsed_json, issues);
+    validate_route_inbound_interfaces(parsed_json, issues);
 
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
@@ -424,6 +478,10 @@ Config parse_config(const std::string& json_str) {
     try {
         cfg = parsed_json.get<Config>();
     } catch (const json::exception& e) {
+        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
+            {"$", e.what()}
+        });
+    } catch (const std::exception& e) {
         throw ConfigValidationError(std::vector<ConfigValidationIssue>{
             {"$", e.what()}
         });
@@ -445,14 +503,6 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->max_file_size_bytes <= 0) {
         add_issue(issues, "daemon.max_file_size_bytes",
                   "daemon.max_file_size_bytes must be greater than 0");
-    }
-
-    if (cfg.daemon && cfg.daemon->firewall_backend.has_value()) {
-        const std::string backend = trim_copy(*cfg.daemon->firewall_backend);
-        if (backend != "auto" && backend != "iptables" && backend != "nftables") {
-            add_issue(issues, "daemon.firewall_backend",
-                      "daemon.firewall_backend must be one of: auto, iptables, nftables");
-        }
     }
 
     if (cfg.lists_autoupdate) {
@@ -733,10 +783,12 @@ size_t max_file_size_bytes(const Config& config) {
     return static_cast<size_t>(bytes);
 }
 
-std::string firewall_backend_preference(const Config& config) {
-    const std::string backend = trim_copy(
-        config.daemon.value_or(DaemonConfig{}).firewall_backend.value_or("auto"));
-    return backend.empty() ? "auto" : backend;
+FirewallBackendPreference firewall_backend_preference(const Config& config) {
+    if (!config.daemon || !config.daemon->firewall_backend.has_value()) {
+        return FirewallBackendPreference::auto_detect;
+    }
+
+    return to_firewall_backend_preference(*config.daemon->firewall_backend);
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

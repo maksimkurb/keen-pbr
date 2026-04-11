@@ -29,13 +29,33 @@ struct ProtoPortFilter {
     }
 };
 
+struct FirewallGlobalPrefilter {
+    std::optional<std::vector<std::string>> inbound_interfaces;
+    bool skip_established_or_dnat{false};
+
+    bool has_inbound_interfaces() const {
+        return inbound_interfaces.has_value() && !inbound_interfaces->empty();
+    }
+
+    bool empty() const {
+        return !skip_established_or_dnat && !has_inbound_interfaces();
+    }
+};
+
 class FirewallError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
 };
 
-// Firewall backend type
-enum class FirewallBackend {
+// Concrete firewall backend selected for runtime use.
+enum class FirewallBackend : uint8_t {
+    iptables,
+    nftables
+};
+
+// User-facing backend preference from config.
+enum class FirewallBackendPreference : uint8_t {
+    auto_detect,
     iptables,
     nftables
 };
@@ -97,6 +117,15 @@ public:
     // Apply all pending changes atomically (where supported by the backend).
     virtual void apply() = 0;
 
+    // Configure a backend-wide prefilter emitted ahead of mark/drop/pass rules.
+    void set_global_prefilter(FirewallGlobalPrefilter prefilter) {
+        global_prefilter_ = std::move(prefilter);
+    }
+
+    const FirewallGlobalPrefilter& global_prefilter() const {
+        return global_prefilter_;
+    }
+
     // Remove all firewall rules and IP sets created by this instance.
     // Should be called on daemon shutdown.
     virtual void cleanup() = 0;
@@ -117,6 +146,8 @@ public:
 
 protected:
     Firewall() = default;
+
+    FirewallGlobalPrefilter global_prefilter_;
 };
 
 // Detect which firewall backend is available on the system.
@@ -124,9 +155,13 @@ protected:
 // Throws FirewallError if neither is available.
 FirewallBackend detect_firewall_backend();
 
+// Return the stable config/CLI label for a concrete backend.
+const char* firewall_backend_name(FirewallBackend backend);
+
 // Factory function to create the appropriate firewall backend.
-// backend_pref: "auto" (detect), "iptables", or "nftables"
+// backend_pref: auto-detect, iptables, or nftables.
 // Throws FirewallError if requested backend is not available.
-std::unique_ptr<Firewall> create_firewall(const std::string& backend_pref = "auto");
+std::unique_ptr<Firewall> create_firewall(
+    FirewallBackendPreference backend_pref = FirewallBackendPreference::auto_detect);
 
 } // namespace keen_pbr3

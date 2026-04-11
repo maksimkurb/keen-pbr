@@ -66,6 +66,7 @@ struct ApiContext {
     std::function<ServiceHealthState()> get_service_health_fn;
     std::function<RoutingHealthReport()> get_routing_health_fn;
     std::function<api::RuntimeOutboundsResponse()> get_runtime_outbounds_fn;
+    std::function<api::RuntimeInterfaceInventoryResponse()> get_runtime_interfaces_fn;
     std::function<std::map<std::string, api::ListRefreshStateValue>(const Config&)>
         get_list_refresh_state_map_fn;
     std::function<TestRoutingResult(const std::string&)> compute_test_routing_fn;
@@ -114,6 +115,10 @@ struct ApiContext {
 
     api::RuntimeOutboundsResponse get_runtime_outbounds() const {
         return get_runtime_outbounds_fn();
+    }
+
+    api::RuntimeInterfaceInventoryResponse get_runtime_interfaces() const {
+        return get_runtime_interfaces_fn();
     }
 
     std::map<std::string, api::ListRefreshStateValue> get_list_refresh_state_map(
@@ -170,6 +175,7 @@ struct ApiContext {
 //   POST /api/config/save     - persist staged config and apply it
 //   GET  /api/health/routing  - routing and firewall health verification
 //   GET  /api/runtime/outbounds - live outbound/interface runtime state
+//   GET  /api/runtime/interfaces - live system interface inventory
 //   POST /api/routing/test    - test expected/actual routing for an IP or domain
 void register_api_handlers(ApiServer& server, ApiContext& ctx);
 

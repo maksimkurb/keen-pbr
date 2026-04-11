@@ -3,8 +3,10 @@
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -12,6 +14,8 @@
 #include <netlink/cache.h>
 #include <netlink/errno.h>
 #include <netlink/netlink.h>
+#include <netlink/route/addr.h>
+#include <netlink/route/link.h>
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
 #include <netlink/route/nexthop.h>
@@ -31,6 +35,14 @@ std::string nl_addr_to_ip_str(struct nl_addr* addr) {
         s = s.substr(0, pos);
     }
     return s;
+}
+
+// Convert an nl_addr to its canonical string form, preserving prefix length.
+std::string nl_addr_to_str(struct nl_addr* addr) {
+    if (!addr) return "";
+    char buf[128];
+    nl_addr2str(addr, buf, sizeof(buf));
+    return buf;
 }
 
 // RAII wrapper for nl_cache
@@ -493,6 +505,120 @@ std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
 
         out->push_back(dr);
     }, &result);
+
+    return result;
+}
+
+std::vector<DumpedInterface> NetlinkManager::dump_interfaces() {
+    KPBR_LOCK_GUARD(mutex_);
+
+    struct nl_cache* raw_link_cache = nullptr;
+    int err = rtnl_link_alloc_cache(impl_->sock, AF_UNSPEC, &raw_link_cache);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to alloc link cache: ") +
+                           nl_geterror(err));
+    }
+    CachePtr link_cache(raw_link_cache);
+
+    struct nl_cache* raw_addr_cache = nullptr;
+    err = rtnl_addr_alloc_cache(impl_->sock, &raw_addr_cache);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to alloc address cache: ") +
+                           nl_geterror(err));
+    }
+    CachePtr addr_cache(raw_addr_cache);
+
+    std::map<int, DumpedInterface> interfaces_by_index;
+
+    nl_cache_foreach(link_cache.get(), [](struct nl_object* obj, void* arg) {
+        auto* interfaces = static_cast<std::map<int, DumpedInterface>*>(arg);
+        auto* link = reinterpret_cast<struct rtnl_link*>(obj);
+
+        const int ifindex = rtnl_link_get_ifindex(link);
+        const char* ifname = rtnl_link_get_name(link);
+        if (ifindex <= 0 || ifname == nullptr || *ifname == '\0') {
+            return;
+        }
+
+        DumpedInterface dumped;
+        dumped.name = ifname;
+        dumped.admin_up = (rtnl_link_get_flags(link) & IFF_UP) != 0;
+
+        const int oper_state = rtnl_link_get_operstate(link);
+        if (oper_state >= 0) {
+            char oper_state_buf[32];
+            const char* rendered = rtnl_link_operstate2str(
+                oper_state,
+                oper_state_buf,
+                sizeof(oper_state_buf));
+            if (rendered != nullptr && *rendered != '\0') {
+                dumped.oper_state = rendered;
+            }
+        }
+
+        const int carrier = rtnl_link_get_carrier(link);
+        if (carrier >= 0) {
+            dumped.carrier = carrier > 0;
+        }
+
+        interfaces->insert_or_assign(ifindex, std::move(dumped));
+    }, &interfaces_by_index);
+
+    nl_cache_foreach(addr_cache.get(), [](struct nl_object* obj, void* arg) {
+        auto* interfaces = static_cast<std::map<int, DumpedInterface>*>(arg);
+        auto* addr = reinterpret_cast<struct rtnl_addr*>(obj);
+
+        const int ifindex = rtnl_addr_get_ifindex(addr);
+        if (ifindex <= 0) {
+            return;
+        }
+
+        struct nl_addr* local = rtnl_addr_get_local(addr);
+        if (!local) {
+            return;
+        }
+
+        auto interface_it = interfaces->find(ifindex);
+        if (interface_it == interfaces->end()) {
+            char ifname[IF_NAMESIZE];
+            if (!if_indextoname(static_cast<unsigned int>(ifindex), ifname)) {
+                return;
+            }
+
+            DumpedInterface dumped;
+            dumped.name = ifname;
+            interface_it = interfaces->insert({ifindex, std::move(dumped)}).first;
+        }
+
+        const std::string rendered = nl_addr_to_str(local);
+        if (rendered.empty()) {
+            return;
+        }
+
+        switch (nl_addr_get_family(local)) {
+        case AF_INET:
+            interface_it->second.ipv4_addresses.push_back(rendered);
+            break;
+        case AF_INET6:
+            interface_it->second.ipv6_addresses.push_back(rendered);
+            break;
+        default:
+            break;
+        }
+    }, &interfaces_by_index);
+
+    std::vector<DumpedInterface> result;
+    result.reserve(interfaces_by_index.size());
+    for (auto& [ifindex, dumped] : interfaces_by_index) {
+        (void)ifindex;
+        std::sort(dumped.ipv4_addresses.begin(), dumped.ipv4_addresses.end());
+        std::sort(dumped.ipv6_addresses.begin(), dumped.ipv6_addresses.end());
+        result.push_back(std::move(dumped));
+    }
+
+    std::sort(result.begin(), result.end(), [](const DumpedInterface& lhs, const DumpedInterface& rhs) {
+        return lhs.name < rhs.name;
+    });
 
     return result;
 }

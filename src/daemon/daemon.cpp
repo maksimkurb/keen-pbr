@@ -34,6 +34,7 @@
 #include "../routing/urltest_manager.hpp"
 #include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
+#include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/cron.hpp"
@@ -832,14 +833,16 @@ void Daemon::apply_firewall() {
     ListStreamer list_streamer(list_service_.cache_manager());
     auto rule_states =
         build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
+    const RouteConfig route_config = config_.route.value_or(RouteConfig{});
 
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
+    firewall_->set_global_prefilter(build_firewall_global_prefilter(config_));
 
     const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
     static const std::map<std::string, ListConfig> empty_lists;
     const auto& lists_map = config_.lists ? *config_.lists : empty_lists;
-    const auto& route_rules = config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
     std::map<std::string, ListSetUsage> list_usage_cache;
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
@@ -1671,6 +1674,9 @@ void Daemon::setup_api() {
                     }
                     return it->second;
                 });
+        },
+        [this]() {
+            return build_runtime_interface_inventory_response(netlink_);
         },
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());

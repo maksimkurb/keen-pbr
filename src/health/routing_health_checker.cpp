@@ -56,18 +56,9 @@ RoutingHealthReport build_routing_health_report(
     const std::vector<RuleSpec>& tracked_policy_rules,
     NetlinkManager& netlink) {
     RoutingHealthReport report;
+    report.firewall_backend = firewall_backend;
 
     try {
-        // Set firewall backend name
-        switch (firewall_backend) {
-            case FirewallBackend::iptables:
-                report.firewall_backend = "iptables";
-                break;
-            case FirewallBackend::nftables:
-                report.firewall_backend = "nftables";
-                break;
-        }
-
         // 1. Create firewall verifier
         auto verifier = create_firewall_verifier(firewall_backend);
 
@@ -229,6 +220,17 @@ static api::CheckStatus to_api_check_status(CheckStatus s) {
     return api::CheckStatus::MISSING;
 }
 
+static api::RoutingHealthResponseFirewallBackend to_api_firewall_backend(FirewallBackend backend) {
+    switch (backend) {
+        case FirewallBackend::iptables:
+            return api::RoutingHealthResponseFirewallBackend::IPTABLES;
+        case FirewallBackend::nftables:
+            return api::RoutingHealthResponseFirewallBackend::NFTABLES;
+    }
+
+    throw std::runtime_error("Unexpected firewall backend value");
+}
+
 nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
     if (!r.error.empty()) {
         api::RoutingHealthErrorResponse err;
@@ -242,9 +244,11 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
         ? api::RoutingHealthResponseOverall::OK
         : api::RoutingHealthResponseOverall::DEGRADED;
 
-    resp.firewall_backend = (r.firewall_backend == "iptables")
-        ? api::FirewallBackend::IPTABLES
-        : api::FirewallBackend::NFTABLES;
+    if (!r.firewall_backend.has_value()) {
+        throw std::runtime_error("Routing health report missing firewall backend");
+    }
+
+    resp.firewall_backend = to_api_firewall_backend(*r.firewall_backend);
 
     resp.firewall.chain_present = r.firewall_chain.chain_present;
     resp.firewall.prerouting_hook_present = r.firewall_chain.prerouting_hook_present;

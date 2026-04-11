@@ -174,43 +174,124 @@ std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto
     return frag;
 }
 
+std::string IptablesFirewall::build_prefilter_lines(
+    const FirewallGlobalPrefilter& prefilter) {
+    std::string lines;
+    if (prefilter.skip_established_or_dnat) {
+        lines += keen_pbr3::format(
+            "-A {} -m conntrack --ctstatus DNAT -j RETURN\n",
+            CHAIN_NAME);
+    }
+
+    if (prefilter.has_inbound_interfaces()
+        && prefilter.inbound_interfaces->size() == 1) {
+        lines += keen_pbr3::format(
+            "-A {} ! -i {} -j RETURN\n",
+            CHAIN_NAME,
+            prefilter.inbound_interfaces->front());
+    }
+
+    return lines;
+}
+
+std::vector<std::string> IptablesFirewall::build_rule_lines(
+    const PendingRule& pr,
+    const FirewallGlobalPrefilter& prefilter) {
+    // iptables cannot express a multi-value negated -i guard in one rule, so
+    // multi-interface allowlists are expanded into one positive -i match per rule.
+    std::vector<std::string> iface_frags;
+    if (prefilter.has_inbound_interfaces()
+        && prefilter.inbound_interfaces->size() > 1) {
+        iface_frags.reserve(prefilter.inbound_interfaces->size());
+        for (const auto& iface : *prefilter.inbound_interfaces) {
+            iface_frags.push_back(" -i " + iface);
+        }
+    } else {
+        iface_frags.push_back("");
+    }
+
+    std::string addr_frag;
+    if (!pr.filter.src_addr.empty())
+        addr_frag += std::string(pr.filter.negate_src_addr ? " !" : "") + " -s " + pr.filter.src_addr[0];
+    if (!pr.filter.dst_addr.empty())
+        addr_frag += std::string(pr.filter.negate_dst_addr ? " !" : "") + " -d " + pr.filter.dst_addr[0];
+    std::string pp = build_proto_port_fragment(pr.filter.proto,
+                                               pr.filter.src_port,
+                                               pr.filter.dst_port,
+                                               pr.filter.negate_src_port,
+                                               pr.filter.negate_dst_port);
+
+    std::vector<std::string> lines;
+    lines.reserve(iface_frags.size());
+    for (const auto& iface_frag : iface_frags) {
+        if (pr.direct) {
+            if (pr.action == PendingRule::Mark) {
+                lines.push_back(keen_pbr3::format(
+                    "-A {}{}{}{} -j MARK --set-mark {:#x}\n",
+                    CHAIN_NAME,
+                    iface_frag,
+                    addr_frag,
+                    pp,
+                    pr.fwmark));
+            } else if (pr.action == PendingRule::Drop) {
+                lines.push_back(keen_pbr3::format(
+                    "-A {}{}{}{} -j DROP\n",
+                    CHAIN_NAME,
+                    iface_frag,
+                    addr_frag,
+                    pp));
+            } else {
+                lines.push_back(keen_pbr3::format(
+                    "-A {}{}{}{} -j RETURN\n",
+                    CHAIN_NAME,
+                    iface_frag,
+                    addr_frag,
+                    pp));
+            }
+        } else {
+            if (pr.action == PendingRule::Mark) {
+                lines.push_back(keen_pbr3::format(
+                    "-A {} -m set --match-set {} dst{}{}{} -j MARK --set-mark {:#x}\n",
+                    CHAIN_NAME,
+                    pr.set_name,
+                    iface_frag,
+                    addr_frag,
+                    pp,
+                    pr.fwmark));
+            } else if (pr.action == PendingRule::Drop) {
+                lines.push_back(keen_pbr3::format(
+                    "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",
+                    CHAIN_NAME,
+                    pr.set_name,
+                    iface_frag,
+                    addr_frag,
+                    pp));
+            } else {
+                lines.push_back(keen_pbr3::format(
+                    "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                    CHAIN_NAME,
+                    pr.set_name,
+                    iface_frag,
+                    addr_frag,
+                    pp));
+            }
+        }
+    }
+
+    return lines;
+}
+
 std::string IptablesFirewall::build_ipt_script(bool ipv6,
-                                                const std::vector<PendingRule>& rules) {
+                                                const std::vector<PendingRule>& rules,
+                                                const FirewallGlobalPrefilter& prefilter) {
     std::string s;
     s += keen_pbr3::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
                            CHAIN_NAME, CHAIN_NAME);
+    s += build_prefilter_lines(prefilter);
     for (const auto& pr : rules) {
         if (pr.ipv6 != ipv6) continue;
-        // Optional src/dst address constraints (-s/-d flags).
-        // After expand_and_push each filter has at most one entry per list.
-        std::string addr_frag;
-        if (!pr.filter.src_addr.empty())
-            addr_frag += std::string(pr.filter.negate_src_addr ? " !" : "") + " -s " + pr.filter.src_addr[0];
-        if (!pr.filter.dst_addr.empty())
-            addr_frag += std::string(pr.filter.negate_dst_addr ? " !" : "") + " -d " + pr.filter.dst_addr[0];
-        std::string pp = build_proto_port_fragment(pr.filter.proto,
-                                                   pr.filter.src_port,
-                                                   pr.filter.dst_port,
-                                                   pr.filter.negate_src_port,
-                                                   pr.filter.negate_dst_port);
-        if (pr.direct) {
-            if (pr.action == PendingRule::Mark)
-                s += keen_pbr3::format("-A {}{}{} -j MARK --set-mark {:#x}\n",
-                                       CHAIN_NAME, addr_frag, pp, pr.fwmark);
-            else if (pr.action == PendingRule::Drop)
-                s += keen_pbr3::format("-A {}{}{} -j DROP\n", CHAIN_NAME, addr_frag, pp);
-            else
-                s += keen_pbr3::format("-A {}{}{} -j RETURN\n", CHAIN_NAME, addr_frag, pp);
-        } else {
-            if (pr.action == PendingRule::Mark)
-                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j MARK --set-mark {:#x}\n",
-                                       CHAIN_NAME, pr.set_name, addr_frag, pp, pr.fwmark);
-            else if (pr.action == PendingRule::Drop)
-                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j DROP\n",
-                                       CHAIN_NAME, pr.set_name, addr_frag, pp);
-            else
-                s += keen_pbr3::format("-A {} -m set --match-set {} dst{}{} -j RETURN\n",
-                                       CHAIN_NAME, pr.set_name, addr_frag, pp);
+        for (const auto& line : build_rule_lines(pr, prefilter)) {
+            s += line;
         }
     }
     s += "COMMIT\n";
@@ -246,11 +327,13 @@ void IptablesFirewall::apply() {
     }
 
     if (has_v4) {
-        pipe_to_cmd({"iptables-restore", "--noflush"}, build_ipt_script(false, pending_rules_));
+        pipe_to_cmd({"iptables-restore", "--noflush"},
+                    build_ipt_script(false, pending_rules_, global_prefilter_));
         chain_v4_created_ = true;
     }
     if (has_v6) {
-        pipe_to_cmd({"ip6tables-restore", "--noflush"}, build_ipt_script(true, pending_rules_));
+        pipe_to_cmd({"ip6tables-restore", "--noflush"},
+                    build_ipt_script(true, pending_rules_, global_prefilter_));
         chain_v6_created_ = true;
     }
 

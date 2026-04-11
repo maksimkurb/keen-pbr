@@ -310,6 +310,19 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
     return true;
 }
 
+FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
+    FirewallGlobalPrefilter prefilter;
+    prefilter.skip_established_or_dnat = true;
+
+    const auto route_cfg = cfg.route.value_or(RouteConfig{});
+    if (route_cfg.inbound_interfaces.has_value()
+        && !route_cfg.inbound_interfaces->empty()) {
+        prefilter.inbound_interfaces = *route_cfg.inbound_interfaces;
+    }
+
+    return prefilter;
+}
+
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
     const OutboundMarkMap& marks,

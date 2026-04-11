@@ -38,6 +38,10 @@ void populate_routing_state(const Config& cfg,
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
 
+// Build the global firewall prefilter derived from route-level config.
+// Missing or empty inbound_interfaces leaves interface restriction disabled.
+FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg);
+
 // Build firewall rule state (set names + actions) from config without touching firewall.
 // urltest_selections optionally overrides URLTEST outbounds to a selected child tag.
 std::vector<RuleState> build_fw_rule_states(

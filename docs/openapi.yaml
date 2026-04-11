@@ -261,6 +261,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/RuntimeOutboundsResponse"
 
+  /api/runtime/interfaces:
+    get:
+      summary: Live system interface inventory
+      description: >
+        Returns the daemon's current system interface inventory derived from
+        live netlink link and address state. This endpoint is interface-centric
+        and is intended for UI selectors and diagnostics rather than outbound
+        health. It includes all detected system interfaces, optional live
+        detail such as carrier and operstate, and best-effort IPv4/IPv6
+        addresses.
+      operationId: getRuntimeInterfaces
+      responses:
+        "200":
+          description: Live system interface inventory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
+
   /api/dns/test:
     get:
       summary: Stream DNS test queries
@@ -673,6 +692,15 @@ components:
     RouteConfig:
       type: object
       properties:
+        inbound_interfaces:
+          type: array
+          description: >
+            Optional ingress interface filter for route processing. If omitted or empty,
+            route processing applies to packets from any interface. If present and non-empty,
+            KeenPbrTable processes packets only when they arrive via one of the listed
+            ingress interfaces.
+          items:
+            type: string
         rules:
           type: array
           items:
@@ -1127,6 +1155,61 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RuntimeOutboundState"
+
+    # -------------------------------------------------------------------------
+    # /api/runtime/interfaces
+    # -------------------------------------------------------------------------
+
+    RuntimeInterfaceInventoryStatus:
+      type: string
+      enum: [up, down]
+      description: >
+        - up: interface is administratively up
+        - down: interface is not administratively up
+
+    RuntimeInterfaceInventoryEntry:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          description: System interface name.
+          example: "eth0"
+        status:
+          $ref: "#/components/schemas/RuntimeInterfaceInventoryStatus"
+        admin_up:
+          type: boolean
+          description: Whether the interface has the kernel IFF_UP flag set.
+          example: true
+        oper_state:
+          type: string
+          description: Best-effort kernel operstate label.
+          example: "up"
+        carrier:
+          type: boolean
+          description: Link carrier state when reported by the kernel.
+          example: true
+        ipv4_addresses:
+          type: array
+          items:
+            type: string
+          description: Best-effort IPv4 addresses in CIDR form.
+          example: ["192.168.1.1/24"]
+        ipv6_addresses:
+          type: array
+          items:
+            type: string
+          description: Best-effort IPv6 addresses in CIDR form.
+          example: ["fe80::1/64"]
+
+    RuntimeInterfaceInventoryResponse:
+      type: object
+      required: [interfaces]
+      properties:
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeInterfaceInventoryEntry"
 
     # -------------------------------------------------------------------------
     # /api/service/*

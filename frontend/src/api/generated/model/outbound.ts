@@ -13,7 +13,8 @@ import type { RetryConfig } from './retryConfig';
 export interface Outbound {
   /** Outbound type. */
   type: OutboundType;
-  /** Unique identifier for this outbound. */
+  /** Unique identifier for this outbound. Must match `^[a-z][a-z0-9_]*$` and be at most 24 characters.
+   */
   tag: string;
   /** Egress network interface name. Required for `interface` outbound type.
    */
