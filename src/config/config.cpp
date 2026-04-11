@@ -481,6 +481,10 @@ Config parse_config(const std::string& json_str) {
         throw ConfigValidationError(std::vector<ConfigValidationIssue>{
             {"$", e.what()}
         });
+    } catch (const std::exception& e) {
+        throw ConfigValidationError(std::vector<ConfigValidationIssue>{
+            {"$", e.what()}
+        });
     }
 
     return cfg;
