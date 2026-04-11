@@ -778,14 +778,22 @@ void Daemon::apply_firewall() {
     ListStreamer list_streamer(list_service_.cache_manager());
     auto rule_states =
         build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
+    const RouteConfig route_config = config_.route.value_or(RouteConfig{});
 
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
+    FirewallGlobalPrefilter prefilter;
+    prefilter.skip_established_or_dnat = true;
+    if (route_config.inbound_interfaces.has_value()
+        && !route_config.inbound_interfaces->empty()) {
+        prefilter.inbound_interfaces = *route_config.inbound_interfaces;
+    }
+    firewall_->set_global_prefilter(std::move(prefilter));
 
     const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
     static const std::map<std::string, ListConfig> empty_lists;
     const auto& lists_map = config_.lists ? *config_.lists : empty_lists;
-    const auto& route_rules = config_.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
     std::map<std::string, ListSetUsage> list_usage_cache;
 
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {

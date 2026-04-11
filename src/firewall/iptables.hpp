@@ -76,13 +76,22 @@ private:
     // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
     static std::string build_ipset_create_line(const PendingSet& ps);
     // Build a complete iptables-restore script for the given protocol and rules.
-    static std::string build_ipt_script(bool ipv6, const std::vector<PendingRule>& rules);
+    static std::string build_ipt_script(bool ipv6,
+                                        const std::vector<PendingRule>& rules,
+                                        const FirewallGlobalPrefilter& prefilter = {});
+    // Build early RETURN lines for the global prefilter.
+    static std::string build_prefilter_lines(
+        const FirewallGlobalPrefilter& prefilter);
     // Build the proto/port fragment for a single rule (single proto, not tcp/udp).
     static std::string build_proto_port_fragment(const std::string& proto,
                                                  const std::string& src_port,
                                                  const std::string& dst_port,
                                                  bool negate_src_port = false,
                                                  bool negate_dst_port = false);
+    // Build one or more iptables-restore lines for a queued rule.
+    static std::vector<std::string> build_rule_lines(
+        const PendingRule& pr,
+        const FirewallGlobalPrefilter& prefilter);
     // Expand filter (proto, src_addr, dst_addr) into cross-product of PendingRules
     // and append them to out.  tcp/udp is split into two entries.  Multiple CIDRs
     // in src_addr / dst_addr each become separate rules (OR semantics when combined).

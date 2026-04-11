@@ -36,6 +36,39 @@ public:
     return NftablesFirewall::build_chain_json();
   }
 
+  struct RuleDesc {
+    std::string set_name;
+    int family;
+    bool direct = false;
+    enum Action { Mark, Drop, Pass } action;
+    uint32_t fwmark;
+    ProtoPortFilter filter;
+  };
+
+  static nlohmann::json build_rule_add_commands(
+      FirewallGlobalPrefilter prefilter,
+      const std::vector<RuleDesc> &descs) {
+    std::vector<NftablesFirewall::PendingRule> rules;
+    rules.reserve(descs.size());
+    for (const auto &d : descs) {
+      NftablesFirewall::PendingRule pr;
+      pr.set_name = d.set_name;
+      pr.family = d.family;
+      pr.direct = d.direct;
+      if (d.action == RuleDesc::Mark) {
+        pr.action = NftablesFirewall::PendingRule::Mark;
+      } else if (d.action == RuleDesc::Drop) {
+        pr.action = NftablesFirewall::PendingRule::Drop;
+      } else {
+        pr.action = NftablesFirewall::PendingRule::Pass;
+      }
+      pr.fwmark = d.fwmark;
+      pr.filter = d.filter;
+      rules.push_back(std::move(pr));
+    }
+    return NftablesFirewall::build_rule_add_commands(prefilter, rules);
+  }
+
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
                                              int family, uint32_t fwmark,
                                              ProtoPortFilter filter = {},
@@ -102,6 +135,28 @@ public:
 
 using namespace keen_pbr3;
 using T = NftablesBuilderTest;
+using Rule = NftablesBuilderTest::RuleDesc;
+
+static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
+                      ProtoPortFilter filter = {}) {
+  Rule r;
+  r.set_name = set_name;
+  r.family = family;
+  r.direct = false;
+  r.action = Rule::Mark;
+  r.fwmark = fwmark;
+  r.filter = filter;
+  return r;
+}
+
+static FirewallGlobalPrefilter prefilter_with_interfaces(
+    std::vector<std::string> interfaces,
+    bool skip_established_or_dnat = true) {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.skip_established_or_dnat = skip_established_or_dnat;
+  prefilter.inbound_interfaces = std::move(interfaces);
+  return prefilter;
+}
 
 // =============================================================================
 // build_set_json tests
@@ -148,6 +203,38 @@ TEST_CASE("build_chain_json: correct fields") {
   CHECK(chain["hook"] == "prerouting");
   CHECK(chain["prio"] == -150);
   CHECK(chain["policy"] == "accept");
+}
+
+TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") {
+  auto cmds = T::build_rule_add_commands(
+      prefilter_with_interfaces({"br0", "wg0"}),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 4);
+
+  const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
+  CHECK(dnat_expr[0]["match"]["left"]["ct"]["key"] == "status");
+  CHECK(dnat_expr[0]["match"]["right"] == "dnat");
+  CHECK(dnat_expr[2].contains("accept"));
+
+  const auto &established_expr = cmds[1]["add"]["rule"]["expr"];
+  CHECK(established_expr[0]["match"]["left"]["ct"]["key"] == "state");
+  CHECK(established_expr[0]["match"]["right"]["set"][0] == "established");
+  CHECK(established_expr[0]["match"]["right"]["set"][1] == "related");
+  CHECK(established_expr[2].contains("accept"));
+
+  const auto &iface_expr = cmds[2]["add"]["rule"]["expr"];
+  CHECK(iface_expr[0]["match"]["op"] == "!=");
+  CHECK(iface_expr[0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(iface_expr[0]["match"]["right"]["set"][0] == "br0");
+  CHECK(iface_expr[0]["match"]["right"]["set"][1] == "wg0");
+  CHECK(iface_expr[2].contains("accept"));
+
+  const auto &mark_expr = cmds[3]["add"]["rule"]["expr"];
+  CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
+  CHECK(mark_expr[0]["match"]["right"] == "@myset");
+  CHECK(mark_expr[2]["mangle"]["value"] == 256);
 }
 
 // =============================================================================

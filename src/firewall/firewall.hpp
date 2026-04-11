@@ -29,6 +29,19 @@ struct ProtoPortFilter {
     }
 };
 
+struct FirewallGlobalPrefilter {
+    std::optional<std::vector<std::string>> inbound_interfaces;
+    bool skip_established_or_dnat{false};
+
+    bool has_inbound_interfaces() const {
+        return inbound_interfaces.has_value() && !inbound_interfaces->empty();
+    }
+
+    bool empty() const {
+        return !skip_established_or_dnat && !has_inbound_interfaces();
+    }
+};
+
 class FirewallError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
@@ -104,6 +117,15 @@ public:
     // Apply all pending changes atomically (where supported by the backend).
     virtual void apply() = 0;
 
+    // Configure a backend-wide prefilter emitted ahead of mark/drop/pass rules.
+    void set_global_prefilter(FirewallGlobalPrefilter prefilter) {
+        global_prefilter_ = std::move(prefilter);
+    }
+
+    const FirewallGlobalPrefilter& global_prefilter() const {
+        return global_prefilter_;
+    }
+
     // Remove all firewall rules and IP sets created by this instance.
     // Should be called on daemon shutdown.
     virtual void cleanup() = 0;
@@ -124,6 +146,8 @@ public:
 
 protected:
     Firewall() = default;
+
+    FirewallGlobalPrefilter global_prefilter_;
 };
 
 // Detect which firewall backend is available on the system.

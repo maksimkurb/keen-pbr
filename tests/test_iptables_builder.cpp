@@ -34,7 +34,8 @@ public:
   }
 
   static std::string build_ipt_script(bool ipv6,
-                                      const std::vector<RuleDesc> &descs) {
+                                      const std::vector<RuleDesc> &descs,
+                                      FirewallGlobalPrefilter prefilter = {}) {
     std::vector<IptablesFirewall::PendingRule> rules;
     rules.reserve(descs.size());
     for (const auto &d : descs) {
@@ -53,7 +54,7 @@ public:
       pr.filter = d.filter;
       rules.push_back(std::move(pr));
     }
-    return IptablesFirewall::build_ipt_script(ipv6, rules);
+    return IptablesFirewall::build_ipt_script(ipv6, rules, prefilter);
   }
 
   static std::string build_proto_port_fragment(const std::string &proto,
@@ -106,6 +107,15 @@ static Rule pass_rule(const std::string &set_name, bool ipv6,
   r.fwmark = 0;
   r.filter = filter;
   return r;
+}
+
+static FirewallGlobalPrefilter prefilter_with_interfaces(
+    std::vector<std::string> interfaces,
+    bool skip_established_or_dnat = true) {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.skip_established_or_dnat = skip_established_or_dnat;
+  prefilter.inbound_interfaces = std::move(interfaces);
+  return prefilter;
 }
 
 // =============================================================================
@@ -234,6 +244,46 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
   CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable ") == std::string::npos);
   CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n-A PREROUTING -j KeenPbrTable\nCOMMIT\n");
+}
+
+TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before route rules") {
+  auto s = T::build_ipt_script(
+      false,
+      {mark_rule("myset", false, 0x100)},
+      prefilter_with_interfaces({"br0"}));
+
+  const std::string dnat =
+      "-A KeenPbrTable -m conntrack --ctstatus DNAT -j RETURN\n";
+  const std::string established =
+      "-A KeenPbrTable -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN\n";
+  const std::string iface =
+      "-A KeenPbrTable ! -i br0 -j RETURN\n";
+  const std::string mark =
+      "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x100\n";
+
+  const auto dnat_pos = s.find(dnat);
+  const auto established_pos = s.find(established);
+  const auto iface_pos = s.find(iface);
+  const auto mark_pos = s.find(mark);
+  REQUIRE(dnat_pos != std::string::npos);
+  REQUIRE(established_pos != std::string::npos);
+  REQUIRE(iface_pos != std::string::npos);
+  REQUIRE(mark_pos != std::string::npos);
+  CHECK(dnat_pos < established_pos);
+  CHECK(established_pos < iface_pos);
+  CHECK(iface_pos < mark_pos);
+}
+
+TEST_CASE("build_ipt_script: multi-interface prefilter expands route rules with -i matches") {
+  auto s = T::build_ipt_script(
+      false,
+      {pass_rule("allowlist", false)},
+      prefilter_with_interfaces({"br0", "wg0"}, false));
+
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i br0 -j RETURN\n") !=
+        std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set allowlist dst -i wg0 -j RETURN\n") !=
+        std::string::npos);
 }
 
 // =============================================================================

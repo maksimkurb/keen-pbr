@@ -226,6 +226,83 @@ nlohmann::json NftablesFirewall::build_chain_json() {
     }}}}};
 }
 
+nlohmann::json NftablesFirewall::build_rule_add_commands(
+    const FirewallGlobalPrefilter& prefilter,
+    const std::vector<PendingRule>& rules) {
+    nlohmann::json commands = nlohmann::json::array();
+
+    if (prefilter.skip_established_or_dnat) {
+        nlohmann::json dnat_expr = nlohmann::json::array();
+        dnat_expr.push_back({{"match", {
+            {"op", "=="},
+            {"left", {{"ct", {{"key", "status"}}}}},
+            {"right", "dnat"}
+        }}});
+        dnat_expr.push_back({{"counter", nullptr}});
+        dnat_expr.push_back({{"accept", nullptr}});
+        commands.push_back({{"add", {{"rule", {
+            {"family", "inet"},
+            {"table", TABLE_NAME},
+            {"chain", CHAIN_NAME},
+            {"expr", dnat_expr}
+        }}}}});
+
+        nlohmann::json established_expr = nlohmann::json::array();
+        established_expr.push_back({{"match", {
+            {"op", "=="},
+            {"left", {{"ct", {{"key", "state"}}}}},
+            {"right", {{"set", nlohmann::json::array({"established", "related"})}}}
+        }}});
+        established_expr.push_back({{"counter", nullptr}});
+        established_expr.push_back({{"accept", nullptr}});
+        commands.push_back({{"add", {{"rule", {
+            {"family", "inet"},
+            {"table", TABLE_NAME},
+            {"chain", CHAIN_NAME},
+            {"expr", established_expr}
+        }}}}});
+    }
+
+    if (prefilter.has_inbound_interfaces()) {
+        nlohmann::json iface_rhs;
+        if (prefilter.inbound_interfaces->size() == 1) {
+            iface_rhs = prefilter.inbound_interfaces->front();
+        } else {
+            iface_rhs = {{"set", nlohmann::json::array()}};
+            for (const auto& iface : *prefilter.inbound_interfaces) {
+                iface_rhs["set"].push_back(iface);
+            }
+        }
+
+        nlohmann::json iface_expr = nlohmann::json::array();
+        iface_expr.push_back({{"match", {
+            {"op", "!="},
+            {"left", {{"meta", {{"key", "iifname"}}}}},
+            {"right", iface_rhs}
+        }}});
+        iface_expr.push_back({{"counter", nullptr}});
+        iface_expr.push_back({{"accept", nullptr}});
+        commands.push_back({{"add", {{"rule", {
+            {"family", "inet"},
+            {"table", TABLE_NAME},
+            {"chain", CHAIN_NAME},
+            {"expr", iface_expr}
+        }}}}});
+    }
+
+    for (const auto& pr : rules) {
+        if (pr.action == PendingRule::Mark) {
+            commands.push_back(build_mark_rule_json(pr));
+        } else if (pr.action == PendingRule::Drop) {
+            commands.push_back(build_drop_rule_json(pr));
+        } else {
+            commands.push_back(build_pass_rule_json(pr));
+        }
+    }
+
+    return commands;
+}
+
 nlohmann::json NftablesFirewall::build_port_match_exprs(const std::string& proto,
                                                           const std::string& src_port,
                                                           const std::string& dst_port,
@@ -392,14 +469,8 @@ void NftablesFirewall::apply() {
     arr.push_back(build_chain_json());
 
     // Rules
-    for (const auto& pr : pending_rules_) {
-        if (pr.action == PendingRule::Mark) {
-            arr.push_back(build_mark_rule_json(pr));
-        } else if (pr.action == PendingRule::Drop) {
-            arr.push_back(build_drop_rule_json(pr));
-        } else {
-            arr.push_back(build_pass_rule_json(pr));
-        }
+    for (const auto& cmd : build_rule_add_commands(global_prefilter_, pending_rules_)) {
+        arr.push_back(cmd);
     }
 
     // Elements
