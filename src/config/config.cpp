@@ -294,6 +294,46 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
     }
 }
 
+void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValidationIssue>& issues) {
+    const auto route_it = root.find("route");
+    if (route_it == root.end() || !route_it->is_object()) {
+        return;
+    }
+
+    const auto inbound_it = route_it->find("inbound_interfaces");
+    if (inbound_it == route_it->end() || inbound_it->is_null()) {
+        return;
+    }
+
+    if (!inbound_it->is_array()) {
+        add_issue(issues, "route.inbound_interfaces", "route.inbound_interfaces must be an array of strings");
+        return;
+    }
+
+    std::set<std::string> seen_interfaces;
+    for (size_t index = 0; index < inbound_it->size(); ++index) {
+        const auto& iface_value = inbound_it->at(index);
+        const std::string iface_path =
+            "route.inbound_interfaces[" + std::to_string(index) + "]";
+
+        if (!iface_value.is_string()) {
+            add_issue(issues, iface_path, iface_path + " must be a string");
+            continue;
+        }
+
+        const std::string iface = iface_value.get<std::string>();
+        if (trim_copy(iface).empty()) {
+            add_issue(issues, iface_path, iface_path + " must not be blank");
+            continue;
+        }
+
+        if (!seen_interfaces.insert(iface).second) {
+            add_issue(issues, iface_path,
+                      iface_path + " duplicates interface '" + iface + "'");
+        }
+    }
+}
+
 } // namespace
 
 ConfigValidationError::ConfigValidationError(std::vector<ConfigValidationIssue> issues)
@@ -416,6 +456,7 @@ Config parse_config(const std::string& json_str) {
     validate_optional_string_field(
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_route_rule_specs(parsed_json, issues);
+    validate_route_inbound_interfaces(parsed_json, issues);
 
     if (!issues.empty()) {
         throw ConfigValidationError(std::move(issues));
