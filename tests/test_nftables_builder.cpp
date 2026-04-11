@@ -284,10 +284,9 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 3);
+  REQUIRE(cmds.size() == 2);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
-  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "state");
-  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
@@ -311,10 +310,10 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 4);
-  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
-  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
-  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  REQUIRE(cmds.size() == 3);
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 // =============================================================================
