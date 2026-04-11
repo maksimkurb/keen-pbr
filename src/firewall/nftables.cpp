@@ -239,15 +239,19 @@ nlohmann::json NftablesFirewall::build_port_match_exprs(const std::string& proto
     if (!proto.empty()) {
         exprs.push_back({{"match", {{"op", "=="}, {"left", {{"meta", {{"key", "l4proto"}}}}}, {"right", proto}}}});
     }
+    // For port payload fields, nft expects a transport-header payload protocol.
+    // When proto is unspecified, use "th" (transport header) so expressions like
+    // dport/sport are still valid.
+    const std::string payload_proto = proto.empty() ? "th" : proto;
     // src_port match
     if (!src_port.empty()) {
         std::string op = negate_src_port ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", proto}, {"field", "sport"}}}}}, {"right", port_spec_to_nft_rhs(src_port)}}}});
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", payload_proto}, {"field", "sport"}}}}}, {"right", port_spec_to_nft_rhs(src_port)}}}});
     }
     // dst_port match
     if (!dst_port.empty()) {
         std::string op = negate_dst_port ? "!=" : "==";
-        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", proto}, {"field", "dport"}}}}}, {"right", port_spec_to_nft_rhs(dst_port)}}}});
+        exprs.push_back({{"match", {{"op", op}, {"left", {{"payload", {{"protocol", payload_proto}, {"field", "dport"}}}}}, {"right", port_spec_to_nft_rhs(dst_port)}}}});
     }
     return exprs;
 }
