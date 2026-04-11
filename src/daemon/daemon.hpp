@@ -146,7 +146,7 @@ private:
     void handle_interface_monitor_events(uint32_t events);
     void handle_interface_state_change(const std::string& interface_name, bool is_up);
     bool is_interface_outbound_in_use(const std::string& interface_name) const;
-    void refresh_runtime_for_signal_equivalent();
+    void refresh_iproute_and_firewall_runtime();
 
     // Business logic methods
     void setup_static_routing();

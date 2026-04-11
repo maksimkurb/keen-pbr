@@ -452,7 +452,7 @@ void Daemon::handle_sigusr1() {
     auto& log = Logger::instance();
     log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
 
-    refresh_runtime_for_signal_equivalent();
+    refresh_iproute_and_firewall_runtime();
 
     // Trigger immediate URL tests for all urltest outbounds
     if (urltest_manager_) {
@@ -477,7 +477,7 @@ void Daemon::handle_sighup() {
     }
 }
 
-void Daemon::refresh_runtime_for_signal_equivalent() {
+void Daemon::refresh_iproute_and_firewall_runtime() {
     auto& log = Logger::instance();
     try {
         route_table_.clear();
@@ -509,7 +509,7 @@ void Daemon::handle_interface_state_change(const std::string& interface_name, bo
     log.info("Interface {} state changed to {}, iproute and firewall refresh triggered",
              interface_name,
              is_up ? "UP" : "DOWN");
-    refresh_runtime_for_signal_equivalent();
+    refresh_iproute_and_firewall_runtime();
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {
