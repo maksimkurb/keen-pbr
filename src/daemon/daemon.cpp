@@ -144,6 +144,10 @@ Daemon::Daemon(Config config,
     , config_path_(std::move(config_path))
     , opts_(std::move(opts))
     , firewall_(create_firewall(firewall_backend_preference(config_)))
+    , interface_monitor_(std::make_unique<InterfaceMonitor>(
+          [this](const std::string& interface_name, bool is_up) {
+              handle_interface_state_change(interface_name, is_up);
+          }))
     , netlink_()
     , route_table_(netlink_)
     , policy_rules_(netlink_)
@@ -448,16 +452,7 @@ void Daemon::handle_sigusr1() {
     auto& log = Logger::instance();
     log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
 
-    // Re-add static routing tables/ip rules in case they were lost
-    try {
-        route_table_.clear();
-        policy_rules_.clear();
-        setup_static_routing();
-        publish_runtime_state();
-        log.info("SIGUSR1: static routing tables verified.");
-    } catch (const std::exception& e) {
-        log.error("SIGUSR1: error verifying routing: {}", e.what());
-    }
+    refresh_runtime_for_signal_equivalent();
 
     // Trigger immediate URL tests for all urltest outbounds
     if (urltest_manager_) {
@@ -479,6 +474,57 @@ void Daemon::handle_sighup() {
         log.info("SIGHUP: full reload complete.");
     } catch (const std::exception& e) {
         log.error("SIGHUP: reload failed: {}", e.what());
+    }
+}
+
+void Daemon::refresh_runtime_for_signal_equivalent() {
+    auto& log = Logger::instance();
+    try {
+        route_table_.clear();
+        policy_rules_.clear();
+        setup_static_routing();
+        apply_firewall();
+        publish_runtime_state();
+        log.info("Runtime iproute and firewall refresh complete.");
+    } catch (const std::exception& e) {
+        log.error("Runtime iproute and firewall refresh failed: {}", e.what());
+    }
+}
+
+bool Daemon::is_interface_outbound_in_use(const std::string& interface_name) const {
+    const auto outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
+    return std::any_of(outbounds.begin(), outbounds.end(), [&interface_name](const Outbound& outbound) {
+        return outbound.type == OutboundType::INTERFACE &&
+               outbound.interface.has_value() &&
+               outbound.interface.value() == interface_name;
+    });
+}
+
+void Daemon::handle_interface_state_change(const std::string& interface_name, bool is_up) {
+    auto& log = Logger::instance();
+    if (!is_interface_outbound_in_use(interface_name)) {
+        return;
+    }
+
+    log.info("Interface {} state changed to {}, iproute and firewall refresh triggered",
+             interface_name,
+             is_up ? "UP" : "DOWN");
+    refresh_runtime_for_signal_equivalent();
+}
+
+void Daemon::handle_interface_monitor_events(uint32_t events) {
+    if ((events & EPOLLIN) == 0) {
+        return;
+    }
+
+    if (!interface_monitor_) {
+        return;
+    }
+
+    try {
+        interface_monitor_->handle_events();
+    } catch (const std::exception& e) {
+        Logger::instance().error("Interface monitor event handling failed: {}", e.what());
     }
 }
 
@@ -640,6 +686,14 @@ void Daemon::run() {
     publish_runtime_state();
 
     setup_dns_probe();
+
+    if (interface_monitor_) {
+        add_fd(interface_monitor_->fd(),
+               EPOLLIN,
+               [this](uint32_t events) { handle_interface_monitor_events(events); },
+               true,
+               "interface-monitor");
+    }
 
 #ifdef WITH_API
     setup_api();
