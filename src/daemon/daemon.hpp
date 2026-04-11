@@ -19,6 +19,7 @@
 #include "config_store.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../health/url_tester.hpp"
+#include "../routing/interface_monitor.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
@@ -142,6 +143,10 @@ private:
     // Signal handlers
     void handle_sigusr1();
     void handle_sighup();
+    void handle_interface_monitor_events(uint32_t events);
+    void handle_interface_state_change(const std::string& interface_name, bool is_up);
+    bool is_interface_outbound_in_use(const std::string& interface_name) const;
+    void refresh_iproute_and_firewall_runtime();
 
     // Business logic methods
     void setup_static_routing();
@@ -243,6 +248,7 @@ private:
 
     // Subsystems
     std::unique_ptr<Firewall> firewall_;
+    std::unique_ptr<InterfaceMonitor> interface_monitor_;
     NetlinkManager netlink_;
     RouteTable route_table_;
     PolicyRuleManager policy_rules_;
