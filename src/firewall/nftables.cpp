@@ -246,21 +246,6 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
             {"chain", CHAIN_NAME},
             {"expr", dnat_expr}
         }}}}});
-
-        nlohmann::json established_expr = nlohmann::json::array();
-        established_expr.push_back({{"match", {
-            {"op", "=="},
-            {"left", {{"ct", {{"key", "state"}}}}},
-            {"right", {{"set", nlohmann::json::array({"established", "related"})}}}
-        }}});
-        established_expr.push_back({{"counter", nullptr}});
-        established_expr.push_back({{"accept", nullptr}});
-        commands.push_back({{"add", {{"rule", {
-            {"family", "inet"},
-            {"table", TABLE_NAME},
-            {"chain", CHAIN_NAME},
-            {"expr", established_expr}
-        }}}}});
     }
 
     if (prefilter.has_inbound_interfaces()) {

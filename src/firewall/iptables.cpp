@@ -181,9 +181,6 @@ std::string IptablesFirewall::build_prefilter_lines(
         lines += keen_pbr3::format(
             "-A {} -m conntrack --ctstatus DNAT -j RETURN\n",
             CHAIN_NAME);
-        lines += keen_pbr3::format(
-            "-A {} -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN\n",
-            CHAIN_NAME);
     }
 
     if (prefilter.has_inbound_interfaces()

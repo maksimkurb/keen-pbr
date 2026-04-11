@@ -284,23 +284,19 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before ro
 
   const std::string dnat =
       "-A KeenPbrTable -m conntrack --ctstatus DNAT -j RETURN\n";
-  const std::string established =
-      "-A KeenPbrTable -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN\n";
   const std::string iface =
       "-A KeenPbrTable ! -i br0 -j RETURN\n";
   const std::string mark =
       "-A KeenPbrTable -m set --match-set myset dst -j MARK --set-mark 0x100\n";
 
   const auto dnat_pos = s.find(dnat);
-  const auto established_pos = s.find(established);
   const auto iface_pos = s.find(iface);
   const auto mark_pos = s.find(mark);
   REQUIRE(dnat_pos != std::string::npos);
-  REQUIRE(established_pos != std::string::npos);
   REQUIRE(iface_pos != std::string::npos);
   REQUIRE(mark_pos != std::string::npos);
-  CHECK(dnat_pos < established_pos);
-  CHECK(established_pos < iface_pos);
+  CHECK(s.find("--ctstate RELATED,ESTABLISHED") == std::string::npos);
+  CHECK(dnat_pos < iface_pos);
   CHECK(iface_pos < mark_pos);
 }
 

@@ -241,27 +241,23 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 4);
+  REQUIRE(cmds.size() == 3);
 
   const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
   CHECK(dnat_expr[0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(dnat_expr[0]["match"]["right"] == "dnat");
   CHECK(dnat_expr[2].contains("accept"));
 
-  const auto &established_expr = cmds[1]["add"]["rule"]["expr"];
-  CHECK(established_expr[0]["match"]["left"]["ct"]["key"] == "state");
-  CHECK(established_expr[0]["match"]["right"]["set"][0] == "established");
-  CHECK(established_expr[0]["match"]["right"]["set"][1] == "related");
-  CHECK(established_expr[2].contains("accept"));
-
-  const auto &iface_expr = cmds[2]["add"]["rule"]["expr"];
+  const auto &iface_expr = cmds[1]["add"]["rule"]["expr"];
   CHECK(iface_expr[0]["match"]["op"] == "!=");
   CHECK(iface_expr[0]["match"]["left"]["meta"]["key"] == "iifname");
   CHECK(iface_expr[0]["match"]["right"]["set"][0] == "br0");
   CHECK(iface_expr[0]["match"]["right"]["set"][1] == "wg0");
   CHECK(iface_expr[2].contains("accept"));
 
-  const auto &mark_expr = cmds[3]["add"]["rule"]["expr"];
+  CHECK(cmds.dump().find("\"state\"") == std::string::npos);
+
+  const auto &mark_expr = cmds[2]["add"]["rule"]["expr"];
   CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
