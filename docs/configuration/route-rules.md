@@ -24,6 +24,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 ```json { filename="config.json" }
 {
   "route": {
+    "inbound_interfaces": [...],
     "rules": [...]
   }
 }
@@ -31,6 +32,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `inbound_interfaces` | array of string | no | Optional ingress-interface filter. If omitted or empty, all interfaces are eligible. If non-empty, only packets entering via listed interfaces are processed by KeenPbrTable. |
 | `rules` | array | yes | Ordered list of route rules |
 
 ## Route Rule Fields
@@ -55,6 +57,40 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
     "rules": [
       {
         "list": ["my_domains", "my_ips", "remote_list"],
+        "outbound": "vpn"
+      }
+    ]
+  }
+}
+```
+
+### Ingress interface filter — process only packets from `br0`
+
+```json { filename="config.json" }
+{
+  "route": {
+    "inbound_interfaces": ["br0"],
+    "rules": [
+      {
+        "list": ["my_domains"],
+        "outbound": "vpn"
+      }
+    ]
+  }
+}
+```
+
+### Ingress interface filter disabled (omitted or empty)
+
+If `inbound_interfaces` is omitted (default) or explicitly set to an empty array, interface filtering is disabled and route rules are applied regardless of ingress interface.
+
+```json { filename="config.json" }
+{
+  "route": {
+    "inbound_interfaces": [],
+    "rules": [
+      {
+        "list": ["my_domains"],
         "outbound": "vpn"
       }
     ]
