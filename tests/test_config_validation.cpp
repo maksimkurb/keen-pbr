@@ -180,6 +180,32 @@ TEST_CASE("dns detour: no detour field is accepted") {
     CHECK_NOTHROW(parse_test_config(json));
 }
 
+TEST_CASE("dns fallback: parser diagnostics include precise path for type error") {
+    const auto issues = parse_issues(R"({"dns":{"fallback":"quad9"}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "$");
+    CHECK(issues[0].message.find("/dns/fallback") != std::string::npos);
+    CHECK(issues[0].message.find("type must be array") != std::string::npos);
+}
+
+TEST_CASE("parse_config accepts JSON comments") {
+    const std::string json = R"({
+        // daemon settings
+        "daemon": {
+            "strict_enforcement": false
+        },
+        /* dns settings */
+        "dns": {
+            "servers": [
+                {"tag":"quad9","address":"9.9.9.9"}
+            ],
+            "fallback": ["quad9"]
+        }
+    })";
+
+    CHECK_NOTHROW(parse_test_config(json));
+}
+
 TEST_CASE("dns servers: duplicate tag is rejected") {
     std::string json = R"({
         "dns":{
