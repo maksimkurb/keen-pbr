@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes3MkCzr data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesBy9TMj data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -401,6 +401,22 @@ namespace api {
         std::vector<std::string> warnings;
     };
 
+    enum class RuntimeInterfaceInventoryStatusEnum : int { DOWN, UP };
+
+    struct RuntimeInterfaceInventoryEntry {
+        std::optional<bool> admin_up;
+        std::optional<bool> carrier;
+        std::optional<std::vector<std::string>> ipv4_addresses;
+        std::optional<std::vector<std::string>> ipv6_addresses;
+        std::string name;
+        std::optional<std::string> oper_state;
+        RuntimeInterfaceInventoryStatusEnum status;
+    };
+
+    struct RuntimeInterfaceInventoryResponse {
+        std::vector<RuntimeInterfaceInventoryEntry> interfaces;
+    };
+
     enum class RuntimeInterfaceStatusEnum : int { ACTIVE, BACKUP, DEGRADED, UNAVAILABLE, UNKNOWN };
 
     struct RuntimeInterfaceState {
@@ -425,7 +441,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypes3MkCzr {
+    struct KeenPbrTypesBy9TMj {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -467,6 +483,9 @@ namespace api {
         std::optional<RoutingTestResponse> routing_test_response;
         std::optional<RoutingTestRuleDiagnosticElement> routing_test_rule_diagnostic;
         std::optional<RoutingTestRuleIpDiagnosticElement> routing_test_rule_ip_diagnostic;
+        std::optional<RuntimeInterfaceInventoryEntry> runtime_interface_inventory_entry;
+        std::optional<RuntimeInterfaceInventoryResponse> runtime_interface_inventory_response;
+        std::optional<RuntimeInterfaceInventoryStatusEnum> runtime_interface_inventory_status;
         std::optional<RuntimeInterfaceState> runtime_interface_state;
         std::optional<RuntimeInterfaceStatusEnum> runtime_interface_status;
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
@@ -599,6 +618,12 @@ namespace api {
     void from_json(const json & j, RoutingTestResponse & x);
     void to_json(json & j, const RoutingTestResponse & x);
 
+    void from_json(const json & j, RuntimeInterfaceInventoryEntry & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryEntry & x);
+
+    void from_json(const json & j, RuntimeInterfaceInventoryResponse & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryResponse & x);
+
     void from_json(const json & j, RuntimeInterfaceState & x);
     void to_json(json & j, const RuntimeInterfaceState & x);
 
@@ -608,8 +633,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes3MkCzr & x);
-    void to_json(json & j, const KeenPbrTypes3MkCzr & x);
+    void from_json(const json & j, KeenPbrTypesBy9TMj & x);
+    void to_json(json & j, const KeenPbrTypesBy9TMj & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -643,6 +668,9 @@ namespace api {
 
     void from_json(const json & j, RoutingHealthResponseOverall & x);
     void to_json(json & j, const RoutingHealthResponseOverall & x);
+
+    void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x);
+    void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x);
 
     void from_json(const json & j, RuntimeInterfaceStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceStatusEnum & x);
@@ -1268,6 +1296,36 @@ namespace api {
         j["warnings"] = x.warnings;
     }
 
+    inline void from_json(const json & j, RuntimeInterfaceInventoryEntry& x) {
+        x.admin_up = get_stack_optional<bool>(j, "admin_up");
+        x.carrier = get_stack_optional<bool>(j, "carrier");
+        x.ipv4_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv4_addresses");
+        x.ipv6_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv6_addresses");
+        x.name = j.at("name").get<std::string>();
+        x.oper_state = get_stack_optional<std::string>(j, "oper_state");
+        x.status = j.at("status").get<RuntimeInterfaceInventoryStatusEnum>();
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryEntry & x) {
+        j = json::object();
+        j["admin_up"] = x.admin_up;
+        j["carrier"] = x.carrier;
+        j["ipv4_addresses"] = x.ipv4_addresses;
+        j["ipv6_addresses"] = x.ipv6_addresses;
+        j["name"] = x.name;
+        j["oper_state"] = x.oper_state;
+        j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, RuntimeInterfaceInventoryResponse& x) {
+        x.interfaces = j.at("interfaces").get<std::vector<RuntimeInterfaceInventoryEntry>>();
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryResponse & x) {
+        j = json::object();
+        j["interfaces"] = x.interfaces;
+    }
+
     inline void from_json(const json & j, RuntimeInterfaceState& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interface_name = get_stack_optional<std::string>(j, "interface_name");
@@ -1311,7 +1369,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes3MkCzr& x) {
+    inline void from_json(const json & j, KeenPbrTypesBy9TMj& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1353,6 +1411,9 @@ namespace api {
         x.routing_test_response = get_stack_optional<RoutingTestResponse>(j, "RoutingTestResponse");
         x.routing_test_rule_diagnostic = get_stack_optional<RoutingTestRuleDiagnosticElement>(j, "RoutingTestRuleDiagnostic");
         x.routing_test_rule_ip_diagnostic = get_stack_optional<RoutingTestRuleIpDiagnosticElement>(j, "RoutingTestRuleIpDiagnostic");
+        x.runtime_interface_inventory_entry = get_stack_optional<RuntimeInterfaceInventoryEntry>(j, "RuntimeInterfaceInventoryEntry");
+        x.runtime_interface_inventory_response = get_stack_optional<RuntimeInterfaceInventoryResponse>(j, "RuntimeInterfaceInventoryResponse");
+        x.runtime_interface_inventory_status = get_stack_optional<RuntimeInterfaceInventoryStatusEnum>(j, "RuntimeInterfaceInventoryStatus");
         x.runtime_interface_state = get_stack_optional<RuntimeInterfaceState>(j, "RuntimeInterfaceState");
         x.runtime_interface_status = get_stack_optional<RuntimeInterfaceStatusEnum>(j, "RuntimeInterfaceStatus");
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
@@ -1361,7 +1422,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes3MkCzr & x) {
+    inline void to_json(json & j, const KeenPbrTypesBy9TMj & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1404,6 +1465,9 @@ namespace api {
         j["RoutingTestResponse"] = x.routing_test_response;
         j["RoutingTestRuleDiagnostic"] = x.routing_test_rule_diagnostic;
         j["RoutingTestRuleIpDiagnostic"] = x.routing_test_rule_ip_diagnostic;
+        j["RuntimeInterfaceInventoryEntry"] = x.runtime_interface_inventory_entry;
+        j["RuntimeInterfaceInventoryResponse"] = x.runtime_interface_inventory_response;
+        j["RuntimeInterfaceInventoryStatus"] = x.runtime_interface_inventory_status;
         j["RuntimeInterfaceState"] = x.runtime_interface_state;
         j["RuntimeInterfaceStatus"] = x.runtime_interface_status;
         j["RuntimeOutboundsResponse"] = x.runtime_outbounds_response;
@@ -1573,6 +1637,20 @@ namespace api {
             case RoutingHealthResponseOverall::ERROR: j = "error"; break;
             case RoutingHealthResponseOverall::OK: j = "ok"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RoutingHealthResponseOverall\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x) {
+        if (j == "down") x = RuntimeInterfaceInventoryStatusEnum::DOWN;
+        else if (j == "up") x = RuntimeInterfaceInventoryStatusEnum::UP;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x) {
+        switch (x) {
+            case RuntimeInterfaceInventoryStatusEnum::DOWN: j = "down"; break;
+            case RuntimeInterfaceInventoryStatusEnum::UP: j = "up"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeInterfaceInventoryStatusEnum\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

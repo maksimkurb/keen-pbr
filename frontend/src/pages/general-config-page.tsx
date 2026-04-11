@@ -9,17 +9,19 @@ import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
   FieldContent,
+  FieldDescription,
   FieldGroup,
   FieldHint,
   FieldLabel,
   FieldSeparator,
 } from "@/components/shared/field"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
+import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -37,6 +39,7 @@ import { applyFormApiErrors, clearFormServerErrors } from "@/lib/form-api-errors
 
 type SettingsDraft = {
   strictEnforcement: boolean
+  inboundInterfaces: string[]
   listsAutoupdateEnabled: boolean
   cron: string
   fwmarkStart: string
@@ -46,6 +49,7 @@ type SettingsDraft = {
 
 const fallbackDraft: SettingsDraft = {
   strictEnforcement: true,
+  inboundInterfaces: [],
   listsAutoupdateEnabled: true,
   cron: "0 */6 * * *",
   fwmarkStart: "0x00010000",
@@ -91,6 +95,12 @@ function LoadedGeneralConfigPage({
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
 
   const [savedDraft, setSavedDraft] = useState<SettingsDraft>(() =>
     getDraftFromConfig(loadedConfig)
@@ -175,6 +185,10 @@ function LoadedGeneralConfigPage({
   }, [form, formValues, hasServerErrors])
 
   const isPending = postConfigMutation.isPending
+  const runtimeInterfaces =
+    runtimeInterfacesQuery.data?.status === 200
+      ? runtimeInterfacesQuery.data.data.interfaces
+      : []
 
   const handleCancel = () => {
     form.reset(savedDraft)
@@ -221,6 +235,36 @@ function LoadedGeneralConfigPage({
                     <FieldHint
                       description={t("pages.settings.general.strictEnforcementHint")}
                     />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name="inboundInterfaces">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="inbound-interfaces">
+                    {t("pages.settings.general.inboundInterfacesLabel")}
+                  </FieldLabel>
+                  <FieldContent>
+                    <div id="inbound-interfaces">
+                      <MultiSelectList
+                        options={runtimeInterfaces.map((i) => i.name)}
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        addLabel={t("pages.settings.general.inboundInterfacesAddAction")}
+                        emptyMessage={t("pages.settings.general.inboundInterfacesNoAvailable")}
+                        placeholderTitle={t("pages.settings.general.inboundInterfacesEmptyTitle")}
+                        placeholderDescription={t(
+                          "pages.settings.general.inboundInterfacesEmptyDescription"
+                        )}
+                      />
+                    </div>
+                    <FieldDescription>
+                      {t("pages.settings.general.inboundInterfacesHint")}
+                    </FieldDescription>
                   </FieldContent>
                 </Field>
               )}
@@ -561,6 +605,8 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   return {
     strictEnforcement:
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
+    inboundInterfaces:
+      config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
     listsAutoupdateEnabled:
       config.lists_autoupdate?.enabled ?? fallbackDraft.listsAutoupdateEnabled,
     cron: config.lists_autoupdate?.cron ?? fallbackDraft.cron,
@@ -584,6 +630,10 @@ function buildUpdatedConfig(
     daemon: {
       ...config.daemon,
       strict_enforcement: draft.strictEnforcement,
+    },
+    route: {
+      ...config.route,
+      inbound_interfaces: draft.inboundInterfaces,
     },
     fwmark: {
       ...config.fwmark,
@@ -651,6 +701,13 @@ function getCrontabGuruUrl(value: string) {
 }
 
 function resolveSettingsFieldPath(path: string) {
+  if (
+    path === "route.inbound_interfaces" ||
+    path.startsWith("route.inbound_interfaces[")
+  ) {
+    return "inboundInterfaces"
+  }
+
   switch (path) {
     case "daemon.strict_enforcement":
       return "strictEnforcement"

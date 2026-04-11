@@ -283,6 +283,25 @@ export const ruTranslation = {
               "Блокировать трафик при падении outbound (kill-switch)",
             strictEnforcementHint:
               "Если VPN или интерфейс отключится, трафик по его правилам будет заблокирован, а не отправлен через основную таблицу маршрутизации. Можно переопределить для каждого outbound.",
+            inboundInterfacesLabel: "Входящие интерфейсы",
+            inboundInterfacesHint:
+              "Policy routing будет применяться только к пакетам, пришедшим через выбранные интерфейсы. Оставьте поле пустым, чтобы обрабатывать трафик с любых интерфейсов.",
+            inboundInterfacesAddAction: "Добавить интерфейс",
+            inboundInterfacesLoading: "Загрузка интерфейсов...",
+            inboundInterfacesNoAvailable:
+              "Больше нет доступных интерфейсов для добавления.",
+            inboundInterfacesEmptyTitle:
+              "Входящие интерфейсы не выбраны",
+            inboundInterfacesEmptyDescription:
+              "Добавьте интерфейсы, если policy routing должен применяться только к определённым входящим интерфейсам.",
+            inboundInterfacesLoadError:
+              "Живая инвентаризация интерфейсов временно недоступна. Сохранённые значения всё равно можно редактировать.",
+            inboundInterfacesStatusUp: "UP",
+            inboundInterfacesStatusDown: "DOWN",
+            inboundInterfacesStatusLoading: "Загрузка",
+            inboundInterfacesStatusMissing: "Отсутствует",
+            inboundInterfacesMissingDetail:
+              "Этот интерфейс сохранён в конфиге, но сейчас отсутствует в живом списке интерфейсов системы.",
           },
           autoupdate: {
             title: "Автообновление списков",

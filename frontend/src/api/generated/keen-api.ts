@@ -37,6 +37,7 @@ import type {
   RoutingHealthResponse,
   RoutingTestRequest,
   RoutingTestResponse,
+  RuntimeInterfaceInventoryResponse,
   RuntimeOutboundsResponse
 } from './model';
 
@@ -1142,6 +1143,119 @@ export function useGetRuntimeOutbounds<TData = Awaited<ReturnType<typeof getRunt
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetRuntimeOutboundsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
+ * Returns the daemon's current system interface inventory derived from live netlink link and address state. This endpoint is interface-centric and is intended for UI selectors and diagnostics rather than outbound health. It includes all detected system interfaces, optional live detail such as carrier and operstate, and best-effort IPv4/IPv6 addresses.
+
+ * @summary Live system interface inventory
+ */
+export type getRuntimeInterfacesResponse200 = {
+  data: RuntimeInterfaceInventoryResponse
+  status: 200
+}
+
+export type getRuntimeInterfacesResponseSuccess = (getRuntimeInterfacesResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getRuntimeInterfacesResponse = (getRuntimeInterfacesResponseSuccess)
+
+export const getGetRuntimeInterfacesUrl = () => {
+
+
+
+
+  return `/api/runtime/interfaces`
+}
+
+export const getRuntimeInterfaces = async ( options?: RequestInit): Promise<getRuntimeInterfacesResponse> => {
+
+  return apiFetch<getRuntimeInterfacesResponse>(getGetRuntimeInterfacesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRuntimeInterfacesQueryKey = () => {
+    return [
+    `/api/runtime/interfaces`
+    ] as const;
+    }
+
+
+export const getGetRuntimeInterfacesQueryOptions = <TData = Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRuntimeInterfacesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRuntimeInterfaces>>> = ({ signal }) => getRuntimeInterfaces({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetRuntimeInterfacesQueryResult = NonNullable<Awaited<ReturnType<typeof getRuntimeInterfaces>>>
+export type GetRuntimeInterfacesQueryError = unknown
+
+
+export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRuntimeInterfaces>>,
+          TError,
+          Awaited<ReturnType<typeof getRuntimeInterfaces>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRuntimeInterfaces>>,
+          TError,
+          Awaited<ReturnType<typeof getRuntimeInterfaces>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Live system interface inventory
+ */
+
+export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRuntimeInterfaces>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetRuntimeInterfacesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

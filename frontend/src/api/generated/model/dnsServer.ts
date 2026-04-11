@@ -8,7 +8,8 @@
 import type { DnsServerType } from './dnsServerType';
 
 export interface DnsServer {
-  /** Unique identifier for this DNS server. */
+  /** Unique identifier for this DNS server. Must match `^[a-z][a-z0-9_]*$`, be at most 24 characters, and be unique within `dns.servers`.
+   */
   tag: string;
   /** DNS server source type. */
   type?: DnsServerType;

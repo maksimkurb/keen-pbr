@@ -64,6 +64,16 @@ struct DumpedRule {
     int family{0};              // AF_INET or AF_INET6
 };
 
+// A network interface dumped from the kernel (read-only snapshot)
+struct DumpedInterface {
+    std::string name;                   // Interface name (e.g. "eth0")
+    bool admin_up{false};              // True when IFF_UP is set
+    std::optional<std::string> oper_state; // Kernel operstate label when available
+    std::optional<bool> carrier;       // Link carrier state when reported by kernel
+    std::vector<std::string> ipv4_addresses; // IPv4 addresses in CIDR form
+    std::vector<std::string> ipv6_addresses; // IPv6 addresses in CIDR form
+};
+
 // Low-level netlink route and policy rule management via libnl
 class NetlinkManager {
 public:
@@ -93,6 +103,9 @@ public:
     // Dump all policy rules from the kernel.
     // family: 0 (AF_UNSPEC) to get both IPv4 and IPv6 rules.
     std::vector<DumpedRule> dump_policy_rules(int family = 0);
+
+    // Dump all network interfaces from the kernel with best-effort live detail.
+    std::vector<DumpedInterface> dump_interfaces();
 
 private:
     struct Impl;

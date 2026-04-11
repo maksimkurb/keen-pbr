@@ -5,12 +5,15 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
+import type { DaemonConfigFirewallBackend } from './daemonConfigFirewallBackend';
 
 export interface DaemonConfig {
   /** Path to the PID file. */
   pid_file?: string;
   /** Directory for cached list data. */
   cache_dir?: string;
+  /** Firewall backend selection. */
+  firewall_backend?: DaemonConfigFirewallBackend;
   /**
      * Max stdout bytes captured per firewall verification command (0 = unlimited).
      * @minimum 0

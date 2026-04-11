@@ -124,6 +124,7 @@ set(SOURCES
   src/health/url_tester.cpp
   src/health/routing_health_checker.cpp
   src/health/runtime_outbound_state.cpp
+  src/health/runtime_interface_inventory.cpp
   src/routing/urltest_manager.cpp
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
@@ -162,6 +163,7 @@ if(WITH_API)
     src/api/handler_lists_refresh.cpp
     src/api/handler_config.cpp
     src/api/handler_health_routing.cpp
+    src/api/handler_runtime_interfaces.cpp
     src/api/handler_runtime_outbounds.cpp
     src/api/handler_test_routing.cpp
     src/api/handler_dns_test.cpp

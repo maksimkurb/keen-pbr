@@ -7,7 +7,7 @@
  */
 
 /**
- * Defines a named list of domains and/or IP CIDRs used in routing and DNS rules. At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided.
+ * Defines a named list of domains and/or IP CIDRs used in routing and DNS rules. At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. List names (the keys under `lists`) must match `^[a-z][a-z0-9_]*$` and be at most 24 characters.
 
  */
 export interface ListConfig {

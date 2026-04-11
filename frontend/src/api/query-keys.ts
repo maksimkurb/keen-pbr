@@ -3,12 +3,14 @@ import {
   getGetDnsTestQueryKey,
   getGetHealthRoutingQueryKey,
   getGetHealthServiceQueryKey,
+  getGetRuntimeInterfacesQueryKey,
   getGetRuntimeOutboundsQueryKey,
 } from "@/api/generated/keen-api"
 
 export const queryKeys = {
   healthService: getGetHealthServiceQueryKey,
   healthRouting: getGetHealthRoutingQueryKey,
+  runtimeInterfaces: getGetRuntimeInterfacesQueryKey,
   runtimeOutbounds: getGetRuntimeOutboundsQueryKey,
   config: getGetConfigQueryKey,
   dnsTest: getGetDnsTestQueryKey,

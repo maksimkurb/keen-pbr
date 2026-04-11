@@ -15,6 +15,8 @@ add_executable(keen-pbr-tests
   test_http_client.cpp
   test_config_validation.cpp
   test_routing_state.cpp
+  test_runtime_interface_inventory.cpp
+  test_api_runtime_interfaces.cpp
   test_system_resolver_hook.cpp
   test_safe_exec.cpp
   test_trace_logging.cpp
@@ -97,4 +99,21 @@ endif()
 
 if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
+endif()
+
+if(WITH_API)
+  target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)
+  target_sources(keen-pbr-tests PRIVATE
+    ../src/api/server.cpp
+    ../src/api/sse_broadcaster.cpp
+    ../src/api/handler_runtime_interfaces.cpp
+    ../src/health/runtime_interface_inventory.cpp
+  )
+  target_link_libraries(keen-pbr-tests PRIVATE
+    httplib::httplib
+    Threads::Threads
+  )
+  if(HTTPLIB_ANL_LIB)
+    target_link_libraries(keen-pbr-tests PRIVATE ${HTTPLIB_ANL_LIB})
+  endif()
 endif()

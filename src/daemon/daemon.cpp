@@ -34,6 +34,7 @@
 #include "../routing/urltest_manager.hpp"
 #include "../config/routing_state.hpp"
 #include "../config/addr_spec.hpp"
+#include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/cron.hpp"
@@ -1619,6 +1620,9 @@ void Daemon::setup_api() {
                     }
                     return it->second;
                 });
+        },
+        [this]() {
+            return build_runtime_interface_inventory_response(netlink_);
         },
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());

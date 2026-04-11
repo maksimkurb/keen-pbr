@@ -8,5 +8,8 @@
 import type { RouteRule } from './routeRule';
 
 export interface RouteConfig {
+  /** Optional ingress interface filter for route processing. If omitted or empty, route processing applies to packets from any interface. If present and non-empty, KeenPbrTable processes packets only when they arrive via one of the listed ingress interfaces.
+   */
+  inbound_interfaces?: string[];
   rules?: RouteRule[];
 }
