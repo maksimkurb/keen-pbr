@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 
+#include "../src/config/config.hpp"
+#include "../src/config/routing_state.hpp"
 #include "../src/firewall/nft_batch_pipe.hpp"
 #include "../src/firewall/nftables.hpp"
 
@@ -137,6 +139,34 @@ using namespace keen_pbr3;
 using T = NftablesBuilderTest;
 using Rule = NftablesBuilderTest::RuleDesc;
 
+namespace {
+
+Config parse_valid_config(const std::string& json) {
+  Config cfg = parse_config(json);
+  if (!cfg.dns.has_value()) {
+    cfg.dns = DnsConfig{};
+  }
+  if (!cfg.dns->servers.has_value()) {
+    DnsServer fallback_server;
+    fallback_server.tag = "default_dns";
+    fallback_server.address = "127.0.0.1";
+    cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+  }
+  if (!cfg.dns->fallback.has_value()) {
+    cfg.dns->fallback = std::vector<std::string>{"default_dns"};
+  }
+  if (!cfg.dns->system_resolver.has_value()) {
+    api::SystemResolver resolver;
+    resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
+    resolver.address = "127.0.0.1";
+    cfg.dns->system_resolver = resolver;
+  }
+  validate_config(cfg);
+  return cfg;
+}
+
+} // namespace
+
 static Rule mark_rule(const std::string &set_name, int family, uint32_t fwmark,
                       ProtoPortFilter filter = {}) {
   Rule r;
@@ -235,6 +265,60 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
   CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
+}
+
+TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
+  auto cfg = parse_valid_config(R"({
+    "outbounds":[
+      {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+    ],
+    "lists":{
+      "local":{"ip_cidrs":["192.168.0.0/16"]}
+    },
+    "route":{
+      "inbound_interfaces":[],
+      "rules":[
+        {"list":["local"],"outbound":"wan"}
+      ]
+    }
+  })");
+
+  const auto cmds = T::build_rule_add_commands(
+      build_firewall_global_prefilter(cfg),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 3);
+  CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "state");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+}
+
+TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
+  auto cfg = parse_valid_config(R"({
+    "outbounds":[
+      {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+    ],
+    "lists":{
+      "local":{"ip_cidrs":["192.168.0.0/16"]}
+    },
+    "route":{
+      "inbound_interfaces":["br0"],
+      "rules":[
+        {"list":["local"],"outbound":"wan"}
+      ]
+    }
+  })");
+
+  const auto cmds = T::build_rule_add_commands(
+      build_firewall_global_prefilter(cfg),
+      {mark_rule("myset", AF_INET, 256)});
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 4);
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 // =============================================================================

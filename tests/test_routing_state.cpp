@@ -88,6 +88,72 @@ TEST_CASE("build_fw_rule_states: ignore outbound becomes pass-through firewall r
     }));
 }
 
+TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps interface restriction disabled") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"wan"}
+            ]
+        }
+    })");
+
+    const auto prefilter = build_firewall_global_prefilter(cfg);
+    CHECK(prefilter.skip_established_or_dnat);
+    CHECK_FALSE(prefilter.has_inbound_interfaces());
+    CHECK_FALSE(prefilter.inbound_interfaces.has_value());
+}
+
+TEST_CASE("build_firewall_global_prefilter: empty inbound_interfaces keeps interface restriction disabled") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "inbound_interfaces":[],
+            "rules":[
+                {"list":["local"],"outbound":"wan"}
+            ]
+        }
+    })");
+
+    const auto prefilter = build_firewall_global_prefilter(cfg);
+    CHECK(prefilter.skip_established_or_dnat);
+    CHECK_FALSE(prefilter.has_inbound_interfaces());
+    CHECK_FALSE(prefilter.inbound_interfaces.has_value());
+}
+
+TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface restriction") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "inbound_interfaces":["br0","wg0"],
+            "rules":[
+                {"list":["local"],"outbound":"wan"}
+            ]
+        }
+    })");
+
+    const auto prefilter = build_firewall_global_prefilter(cfg);
+    CHECK(prefilter.skip_established_or_dnat);
+    REQUIRE(prefilter.inbound_interfaces.has_value());
+    CHECK(prefilter.has_inbound_interfaces());
+    CHECK(*prefilter.inbound_interfaces == std::vector<std::string>({"br0", "wg0"}));
+}
+
 TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rule") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[

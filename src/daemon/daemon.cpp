@@ -782,13 +782,7 @@ void Daemon::apply_firewall() {
 
     // Clean existing firewall state before rebuilding
     firewall_->cleanup();
-    FirewallGlobalPrefilter prefilter;
-    prefilter.skip_established_or_dnat = true;
-    if (route_config.inbound_interfaces.has_value()
-        && !route_config.inbound_interfaces->empty()) {
-        prefilter.inbound_interfaces = *route_config.inbound_interfaces;
-    }
-    firewall_->set_global_prefilter(std::move(prefilter));
+    firewall_->set_global_prefilter(build_firewall_global_prefilter(config_));
 
     const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
     static const std::map<std::string, ListConfig> empty_lists;
