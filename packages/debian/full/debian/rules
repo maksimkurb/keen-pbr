@@ -10,6 +10,7 @@ override_dh_auto_configure:
 		-DCMAKE_INSTALL_BINDIR:PATH=sbin \
 		-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
 		-DKEEN_PBR_FRONTEND_ROOT:STRING=/usr/share/keen-pbr/frontend \
+		-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/usr/lib/keen-pbr/dnsmasq.sh \
 		-DWITH_API=ON
 
 override_dh_auto_test:

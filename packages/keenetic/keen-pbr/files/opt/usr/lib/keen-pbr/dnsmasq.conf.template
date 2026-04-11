@@ -21,9 +21,10 @@ stop-dns-rebind     # Reject upstream responses containing private IPs
 rebind-localhost-ok # Allow 127.0.0.1 responses for local services
 
 # --- Performance & Logic ---
-# Caching: set to 0 to ensure 'keenetic-pbr' ipsets are always updated.
-# Change to 1000 or more if you prefer speed over routing accuracy.
-cache-size=0
+# Cache up to 1000 entries, but keep them no longer than 5 minutes
+# so 'keen-pbr' ipsets still react reasonably quickly to DNS changes.
+cache-size=1000
+max-cache-ttl=300
 dns-forward-max=5096
 min-port=4096
 
