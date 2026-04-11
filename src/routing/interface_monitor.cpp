@@ -4,8 +4,9 @@
 
 #include <cerrno>
 #include <cstring>
-#include <linux/if.h>
+#include <net/if.h>
 #include <linux/rtnetlink.h>
+#include <sys/socket.h>
 #include <unordered_map>
 
 #include <netlink/attr.h>
