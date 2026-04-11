@@ -42,6 +42,9 @@ add_link_options(-Wl,--gc-sections)
 # Export symbols for backtrace() stack traces on crash
 add_link_options(-rdynamic)
 
+# Enrich nlohmann::json exception messages with JSON Pointer context.
+add_compile_definitions(JSON_DIAGNOSTICS=1)
+
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)

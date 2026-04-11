@@ -395,7 +395,7 @@ Config parse_config(const std::string& json_str) {
     std::vector<ConfigValidationIssue> issues;
 
     try {
-        parsed_json = json::parse(json_str);
+        parsed_json = json::parse(json_str, nullptr, true, true);
     } catch (const json::parse_error& e) {
         throw ConfigValidationError(std::vector<ConfigValidationIssue>{
             {"$", std::string("Invalid JSON: ") + e.what()}
