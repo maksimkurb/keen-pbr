@@ -34,8 +34,15 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// Firewall backend type
-enum class FirewallBackend {
+// Concrete firewall backend selected for runtime use.
+enum class FirewallBackend : uint8_t {
+    iptables,
+    nftables
+};
+
+// User-facing backend preference from config.
+enum class FirewallBackendPreference : uint8_t {
+    auto_detect,
     iptables,
     nftables
 };
@@ -124,9 +131,13 @@ protected:
 // Throws FirewallError if neither is available.
 FirewallBackend detect_firewall_backend();
 
+// Return the stable config/CLI label for a concrete backend.
+const char* firewall_backend_name(FirewallBackend backend);
+
 // Factory function to create the appropriate firewall backend.
-// backend_pref: "auto" (detect), "iptables", or "nftables"
+// backend_pref: auto-detect, iptables, or nftables.
 // Throws FirewallError if requested backend is not available.
-std::unique_ptr<Firewall> create_firewall(const std::string& backend_pref = "auto");
+std::unique_ptr<Firewall> create_firewall(
+    FirewallBackendPreference backend_pref = FirewallBackendPreference::auto_detect);
 
 } // namespace keen_pbr3

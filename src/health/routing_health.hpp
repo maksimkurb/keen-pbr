@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../firewall/firewall.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -57,7 +59,7 @@ struct PolicyRuleCheck {
 
 struct RoutingHealthReport {
     bool overall_ok{false};
-    std::string firewall_backend;
+    std::optional<FirewallBackend> firewall_backend;
     FirewallChainCheck firewall_chain;
     std::vector<FirewallRuleCheck> firewall_rules;
     std::vector<RouteTableCheck> route_tables;

@@ -95,6 +95,19 @@ std::string trim_copy(const std::string& value) {
     return value.substr(begin, end - begin + 1);
 }
 
+FirewallBackendPreference to_firewall_backend_preference(api::DaemonConfigFirewallBackend backend) {
+    switch (backend) {
+        case api::DaemonConfigFirewallBackend::AUTO:
+            return FirewallBackendPreference::auto_detect;
+        case api::DaemonConfigFirewallBackend::IPTABLES:
+            return FirewallBackendPreference::iptables;
+        case api::DaemonConfigFirewallBackend::NFTABLES:
+            return FirewallBackendPreference::nftables;
+    }
+
+    throw std::runtime_error("Unexpected daemon.firewall_backend value");
+}
+
 bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, int& out) {
     if (raw.empty()) {
         return false;
@@ -488,14 +501,6 @@ void validate_config(const Config& cfg) {
                   "daemon.max_file_size_bytes must be greater than 0");
     }
 
-    if (cfg.daemon && cfg.daemon->firewall_backend.has_value()) {
-        const std::string backend = trim_copy(*cfg.daemon->firewall_backend);
-        if (backend != "auto" && backend != "iptables" && backend != "nftables") {
-            add_issue(issues, "daemon.firewall_backend",
-                      "daemon.firewall_backend must be one of: auto, iptables, nftables");
-        }
-    }
-
     if (cfg.lists_autoupdate) {
         const bool enabled = cfg.lists_autoupdate->enabled.value_or(false);
         const std::string cron = cfg.lists_autoupdate->cron.value_or("");
@@ -774,10 +779,12 @@ size_t max_file_size_bytes(const Config& config) {
     return static_cast<size_t>(bytes);
 }
 
-std::string firewall_backend_preference(const Config& config) {
-    const std::string backend = trim_copy(
-        config.daemon.value_or(DaemonConfig{}).firewall_backend.value_or("auto"));
-    return backend.empty() ? "auto" : backend;
+FirewallBackendPreference firewall_backend_preference(const Config& config) {
+    if (!config.daemon || !config.daemon->firewall_backend.has_value()) {
+        return FirewallBackendPreference::auto_detect;
+    }
+
+    return to_firewall_backend_preference(*config.daemon->firewall_backend);
 }
 
 Config parse_and_validate_config(const std::string& json_str) {

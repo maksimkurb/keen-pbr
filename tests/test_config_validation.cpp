@@ -684,22 +684,22 @@ TEST_CASE("daemon.firewall_verify_max_bytes: rejects negative value") {
 
 TEST_CASE("daemon.firewall_backend: defaults to auto when absent") {
     auto cfg = parse_test_config(R"({"daemon":{}})");
-    CHECK(firewall_backend_preference(cfg) == "auto");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::auto_detect);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts auto") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"auto"}})");
-    CHECK(firewall_backend_preference(cfg) == "auto");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::auto_detect);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts iptables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"iptables"}})");
-    CHECK(firewall_backend_preference(cfg) == "iptables");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::iptables);
 }
 
 TEST_CASE("daemon.firewall_backend: accepts nftables") {
     auto cfg = parse_test_config(R"({"daemon":{"firewall_backend":"nftables"}})");
-    CHECK(firewall_backend_preference(cfg) == "nftables");
+    CHECK(firewall_backend_preference(cfg) == FirewallBackendPreference::nftables);
 }
 
 TEST_CASE("daemon.firewall_backend: rejects non-string value") {

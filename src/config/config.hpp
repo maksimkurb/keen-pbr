@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "../api/generated/api_types.hpp"
+#include "../firewall/firewall.hpp"
 
 namespace keen_pbr3 {
 
@@ -65,7 +66,7 @@ Config parse_config(const std::string& json_str);
 void validate_config(const Config& config);
 Config parse_and_validate_config(const std::string& json_str);
 size_t max_file_size_bytes(const Config& config);
-std::string firewall_backend_preference(const Config& config);
+FirewallBackendPreference firewall_backend_preference(const Config& config);
 
 // --- Fwmark allocation ---
 
