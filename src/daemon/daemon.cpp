@@ -1436,9 +1436,9 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                         if (apply_started_ts > 0 &&
                             parsed_value.ts.has_value() &&
                             *parsed_value.ts < apply_started_ts) {
-                            Logger::instance().trace(
-                                "resolver_hash_refresh_skip",
-                                "resolver={} reason=txt_older_than_apply txt_ts={} apply_started_ts={}",
+                            Logger::instance().verbose(
+                                "Resolver config hash TXT is older than current apply; clearing cached actual value "
+                                "(resolver={}, txt_ts={}, apply_started_ts={})",
                                 resolver_addr,
                                 *parsed_value.ts,
                                 apply_started_ts);
@@ -1451,11 +1451,15 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                         resolver_config_hash_actual_ts_ = parsed_value.ts;
                         Logger::instance().info("Resolver config hash (actual): {}",
                                                 resolver_config_hash_actual_);
-                    } else if (!error.empty()) {
-                        Logger::instance().warn(
-                            "Resolver config hash TXT query failed via {}: {}",
-                            resolver_addr,
-                            error);
+                    } else {
+                        resolver_config_hash_actual_.clear();
+                        resolver_config_hash_actual_ts_.reset();
+                        if (!error.empty()) {
+                            Logger::instance().warn(
+                                "Resolver config hash TXT query failed via {}: {}; cleared cached actual value",
+                                resolver_addr,
+                                error);
+                        }
                     }
                     publish_runtime_state();
                 },

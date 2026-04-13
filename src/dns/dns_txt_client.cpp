@@ -14,10 +14,13 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <vector>
 
 #include "dns_server.hpp"
 
 namespace keen_pbr3 {
+
+ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt_payload);
 
 namespace {
 
@@ -62,6 +65,11 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
     }
 
     const int answer_count = ns_msg_count(handle, ns_s_an);
+    std::optional<std::string> first_txt;
+    std::optional<std::string> latest_ts_txt;
+    std::optional<std::int64_t> latest_ts_value;
+    std::vector<std::string> txt_records_log_lines;
+
     for (int i = 0; i < answer_count; ++i) {
         ns_rr rr {};
         if (ns_parserr(&handle, ns_s_an, i, &rr) < 0) {
@@ -88,7 +96,51 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
             txt.append(reinterpret_cast<const char*>(rdata + offset), chunk_len);
             offset += chunk_len;
         }
-        return txt;
+
+        if (!first_txt.has_value()) {
+            first_txt = txt;
+        }
+
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(txt);
+        txt_records_log_lines.push_back(
+            std::string("#") + std::to_string(i) + " txt=\"" + txt +
+            "\" ts=" + (parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none") +
+            " hash=" + parsed.hash);
+        if (parsed.ts.has_value() &&
+            (!latest_ts_value.has_value() || *parsed.ts > *latest_ts_value)) {
+            latest_ts_value = parsed.ts;
+            latest_ts_txt = txt;
+        }
+    }
+
+    if (!txt_records_log_lines.empty()) {
+        std::string records_joined;
+        for (size_t i = 0; i < txt_records_log_lines.size(); ++i) {
+            if (i > 0) {
+                records_joined += " ; ";
+            }
+            records_joined += txt_records_log_lines[i];
+        }
+        Logger::instance().verbose("Resolver TXT answers: {}", records_joined);
+    } else {
+        Logger::instance().verbose("Resolver TXT answers: <none>");
+    }
+
+    if (latest_ts_txt.has_value()) {
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*latest_ts_txt);
+        Logger::instance().verbose("Resolver TXT selected by latest ts: txt=\"{}\" ts={} hash={}",
+                                   *latest_ts_txt,
+                                   parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none",
+                                   parsed.hash);
+        return latest_ts_txt;
+    }
+    if (first_txt.has_value()) {
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*first_txt);
+        Logger::instance().verbose("Resolver TXT selected by first answer: txt=\"{}\" ts={} hash={}",
+                                   *first_txt,
+                                   parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none",
+                                   parsed.hash);
+        return first_txt;
     }
 
     if (error_out) *error_out = "DNS TXT answer not found";
