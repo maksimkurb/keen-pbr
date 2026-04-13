@@ -436,7 +436,8 @@ export const enTranslation = {
             back: "Back to routing rules",
           },
           validation: {
-            selectList: "Select at least one list.",
+            atLeastOneCondition:
+              "Specify at least one condition: list, source/destination address, or source/destination port.",
             outboundRequired: "Outbound tag is required.",
           },
           actions: { create: "Create rule", save: "Save rule" },

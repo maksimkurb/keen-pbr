@@ -113,6 +113,21 @@ export function RoutingRuleUpsertPage({
       }
 
       const nextRule = normalizeRouteRuleDraft(value)
+      const hasRuleCondition =
+        nextRule.list.length > 0 ||
+        Boolean(nextRule.src_port) ||
+        Boolean(nextRule.dest_port) ||
+        Boolean(nextRule.src_addr) ||
+        Boolean(nextRule.dest_addr)
+
+      if (!hasRuleCondition) {
+        setSaveSuccessMessage(null)
+        setMutationErrorMessage(
+          t("pages.routingRuleUpsert.validation.atLeastOneCondition")
+        )
+        return
+      }
+
       const nextRules =
         mode === "edit"
           ? rules.map((rule: RouteRule, index: number) =>
@@ -201,15 +216,7 @@ export function RoutingRuleUpsertPage({
         }}
       >
         <FieldGroup>
-          <form.Field
-            name="list"
-            validators={{
-              onChange: ({ value }) =>
-                value.length > 0
-                  ? undefined
-                  : t("pages.routingRuleUpsert.validation.selectList"),
-            }}
-          >
+          <form.Field name="list">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
