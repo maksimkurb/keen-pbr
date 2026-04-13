@@ -917,7 +917,7 @@ namespace api {
     inline void from_json(const json & j, RouteRuleElement& x) {
         x.dest_addr = get_stack_optional<std::string>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
-        x.list = j.at("list").get<std::vector<std::string>>();
+        x.list = get_stack_optional<std::vector<std::string>>(j, "list").value_or(std::vector<std::string>{});
         x.outbound = j.at("outbound").get<std::string>();
         x.proto = get_stack_optional<std::string>(j, "proto");
         x.src_addr = get_stack_optional<std::string>(j, "src_addr");

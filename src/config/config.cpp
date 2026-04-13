@@ -270,6 +270,26 @@ std::optional<std::string> get_optional_string_field(const json& object, const c
     return it->get<std::string>();
 }
 
+bool rule_has_list_condition(const json& rule) {
+    const auto list_it = rule.find("list");
+    if (list_it == rule.end() || !list_it->is_array()) {
+        return false;
+    }
+
+    for (const auto& value : *list_it) {
+        if (value.is_string() && !trim_copy(value.get<std::string>()).empty()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool rule_has_string_condition(const json& rule, const char* key) {
+    const auto value = get_optional_string_field(rule, key);
+    return value.has_value() && !trim_copy(*value).empty();
+}
+
 void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIssue>& issues) {
     const auto route_it = root.find("route");
     if (route_it == root.end() || !route_it->is_object()) {
@@ -288,6 +308,18 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
         }
 
         const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
+        const bool has_any_condition =
+            rule_has_list_condition(rule) ||
+            rule_has_string_condition(rule, "src_port") ||
+            rule_has_string_condition(rule, "dest_port") ||
+            rule_has_string_condition(rule, "src_addr") ||
+            rule_has_string_condition(rule, "dest_addr");
+
+        if (!has_any_condition) {
+            add_issue(issues,
+                      rule_path,
+                      "Route rule must include at least one condition: list, src_port, dest_port, src_addr, or dest_addr.");
+        }
 
         if (auto error = validate_port_spec(get_optional_string_field(rule, "src_port"))) {
             add_issue(issues, rule_path + ".src_port", *error);

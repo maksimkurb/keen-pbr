@@ -447,7 +447,8 @@ export const ruTranslation = {
             back: "Назад к правилам маршрутизации",
           },
           validation: {
-            selectList: "Выберите хотя бы один список.",
+            atLeastOneCondition:
+              "Укажите хотя бы одно условие: список, адрес источника/назначения или порт источника/назначения.",
             outboundRequired: "Тег outbound обязателен.",
           },
           actions: { create: "Создать правило", save: "Сохранить правило" },
