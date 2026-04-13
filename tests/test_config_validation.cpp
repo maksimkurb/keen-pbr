@@ -440,6 +440,26 @@ TEST_CASE("route rule: valid port and address filters are accepted") {
     CHECK_NOTHROW(parse_config(json));
 }
 
+TEST_CASE("route rule: at least one condition is required") {
+    std::string json = R"({
+        "route":{"rules":[
+            {"list":[],"outbound":"vpn"}
+        ]}
+    })";
+    const auto issues = parse_issues(json);
+    REQUIRE_FALSE(issues.empty());
+    CHECK(issues.front().path == "route.rules[0]");
+}
+
+TEST_CASE("route rule: list is optional when another condition is present") {
+    std::string json = R"({
+        "route":{"rules":[
+            {"outbound":"vpn","src_addr":"10.0.0.1"}
+        ]}
+    })";
+    CHECK_NOTHROW(parse_config(json));
+}
+
 TEST_CASE("route rule: invalid src_port reports route.rules[0].src_port") {
     std::string json = R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn","src_port":"1,,2"}]}})";
     const auto issues = parse_issues(json);
