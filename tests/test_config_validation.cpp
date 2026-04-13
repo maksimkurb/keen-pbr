@@ -454,7 +454,7 @@ TEST_CASE("route rule: at least one condition is required") {
 TEST_CASE("route rule: list is optional when another condition is present") {
     std::string json = R"({
         "route":{"rules":[
-            {"list":[],"outbound":"vpn","src_addr":"10.0.0.1"}
+            {"outbound":"vpn","src_addr":"10.0.0.1"}
         ]}
     })";
     CHECK_NOTHROW(parse_config(json));
