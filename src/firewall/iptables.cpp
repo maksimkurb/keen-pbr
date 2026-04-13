@@ -233,6 +233,12 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                     addr_frag,
                     pp,
                     pr.fwmark));
+                lines.push_back(keen_pbr3::format(
+                    "-A {}{}{}{} -j RETURN\n",
+                    CHAIN_NAME,
+                    iface_frag,
+                    addr_frag,
+                    pp));
             } else if (pr.action == PendingRule::Drop) {
                 lines.push_back(keen_pbr3::format(
                     "-A {}{}{}{} -j DROP\n",
@@ -258,6 +264,13 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                     addr_frag,
                     pp,
                     pr.fwmark));
+                lines.push_back(keen_pbr3::format(
+                    "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                    CHAIN_NAME,
+                    pr.set_name,
+                    iface_frag,
+                    addr_frag,
+                    pp));
             } else if (pr.action == PendingRule::Drop) {
                 lines.push_back(keen_pbr3::format(
                     "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",

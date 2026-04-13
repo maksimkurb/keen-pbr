@@ -215,6 +215,8 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
   CHECK(s.find("-A PREROUTING -j KeenPbrTable") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
                "--set-mark 0x100") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j RETURN") !=
+        std::string::npos);
   CHECK(s.size() >= 7);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
 }
@@ -235,6 +237,8 @@ TEST_CASE("build_ipt_script: IPv6 mark rule") {
   auto s = T::build_ipt_script(true, {mark_rule("v6set", true, 0x200)});
   CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j MARK "
                "--set-mark 0x200") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set v6set dst -j RETURN") !=
+        std::string::npos);
   CHECK(s.substr(s.size() - 7) == "COMMIT\n");
 }
 

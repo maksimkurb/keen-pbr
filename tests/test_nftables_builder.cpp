@@ -261,6 +261,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
   CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
+  CHECK(mark_expr[3].contains("accept"));
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
@@ -330,6 +331,7 @@ TEST_CASE("build_mark_rule_json: IPv4 mark rule") {
   CHECK(expr[1].contains("counter"));
   CHECK(expr[2]["mangle"]["key"]["meta"]["key"] == "mark");
   CHECK(expr[2]["mangle"]["value"] == 256);
+  CHECK(expr[3].contains("accept"));
 }
 
 TEST_CASE("build_mark_rule_json: IPv6 mark rule") {
@@ -341,6 +343,7 @@ TEST_CASE("build_mark_rule_json: IPv6 mark rule") {
 TEST_CASE("build_mark_rule_json: zero fwmark is valid") {
   auto j = T::build_mark_rule_json("zeroset", AF_INET, 0);
   CHECK(j["add"]["rule"]["expr"][2]["mangle"]["value"] == 0);
+  CHECK(j["add"]["rule"]["expr"][3].contains("accept"));
 }
 
 // =============================================================================
@@ -583,8 +586,8 @@ TEST_CASE(
 TEST_CASE("build_mark_rule_json: no filter → no port exprs (regression)") {
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
   const auto &expr = j["add"]["rule"]["expr"];
-  // Should be exactly 3: daddr match, counter, mangle
-  CHECK(expr.size() == 3);
+  // Should be exactly 4: daddr match, counter, mangle, accept
+  CHECK(expr.size() == 4);
 }
 
 TEST_CASE("build_drop_rule_json: no filter → no port exprs (regression)") {
@@ -650,8 +653,8 @@ TEST_CASE("build_mark_rule_json: src_addr → saddr expr present") {
   f.src_addr = {"192.168.10.0/24"};
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
   const auto &expr = j["add"]["rule"]["expr"];
-  // daddr @set, saddr match, counter, mangle = 4
-  CHECK(expr.size() == 4);
+  // daddr @set, saddr match, counter, mangle, accept = 5
+  CHECK(expr.size() == 5);
   bool has_saddr = false;
   for (const auto &e : expr) {
     if (e.contains("match") && e["match"]["left"].contains("payload") &&
@@ -680,10 +683,10 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "build_mark_rule_json: no filter → still exactly 3 exprs (regression)") {
+    "build_mark_rule_json: no filter → still exactly 4 exprs (regression)") {
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
   const auto &expr = j["add"]["rule"]["expr"];
-  CHECK(expr.size() == 3);
+  CHECK(expr.size() == 4);
 }
 
 // =============================================================================

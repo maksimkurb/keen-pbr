@@ -363,6 +363,7 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     }
     expr.push_back({{"counter", nullptr}});
     expr.push_back({{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}}, {"value", pr.fwmark}}}});
+    expr.push_back({{"accept", nullptr}});
     return {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
