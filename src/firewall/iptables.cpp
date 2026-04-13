@@ -179,7 +179,7 @@ std::string IptablesFirewall::build_prefilter_lines(
     std::string lines;
     if (prefilter.skip_established_or_dnat) {
         lines += keen_pbr3::format(
-            "-A {} -m conntrack --ctstatus DNAT -j RETURN\n",
+            "-A {} -m conntrack --ctstate DNAT -j RETURN\n",
             CHAIN_NAME);
     }
 

@@ -287,7 +287,7 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before ro
       prefilter_with_interfaces({"br0"}));
 
   const std::string dnat =
-      "-A KeenPbrTable -m conntrack --ctstatus DNAT -j RETURN\n";
+      "-A KeenPbrTable -m conntrack --ctstate DNAT -j RETURN\n";
   const std::string iface =
       "-A KeenPbrTable ! -i br0 -j RETURN\n";
   const std::string mark =
