@@ -1,8 +1,6 @@
 #!/bin/sh
 
-/etc/init.d/keen-pbr disable || true
-KEEN_PBR_SKIP_DNSMASQ=1 /etc/init.d/keen-pbr stop || true
-/usr/lib/keen-pbr/dnsmasq.sh uninstall-persistent || true
+[ "$PKG_UPGRADE" = "1" ] && exit 0
 
 cat <<'EOF'
 keen-pbr has restored the dnsmasq configuration.
