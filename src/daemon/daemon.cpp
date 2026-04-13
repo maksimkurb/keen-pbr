@@ -1431,6 +1431,22 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                     }
 
                     if (has_parsed_value) {
+                        const std::int64_t apply_started_ts =
+                            apply_started_ts_.load(std::memory_order_acquire);
+                        if (apply_started_ts > 0 &&
+                            parsed_value.ts.has_value() &&
+                            *parsed_value.ts < apply_started_ts) {
+                            Logger::instance().trace(
+                                "resolver_hash_refresh_skip",
+                                "resolver={} reason=txt_older_than_apply txt_ts={} apply_started_ts={}",
+                                resolver_addr,
+                                *parsed_value.ts,
+                                apply_started_ts);
+                            has_parsed_value = false;
+                        }
+                    }
+
+                    if (has_parsed_value) {
                         resolver_config_hash_actual_ = parsed_value.hash;
                         resolver_config_hash_actual_ts_ = parsed_value.ts;
                         Logger::instance().info("Resolver config hash (actual): {}",
