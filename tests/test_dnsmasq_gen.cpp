@@ -518,6 +518,37 @@ TEST_CASE("generate-resolver-config splits ipset directives to stay within 1024 
     CHECK(ipset_lines >= 2);
 }
 
+TEST_CASE("generate-resolver-config splits server directives to stay within 1024 chars per row") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_dns_cfg(list_name, "dns1", "8.8.8.8:5353");
+
+    std::vector<std::string> domains;
+    for (int i = 0; i < 140; ++i) {
+        domains.push_back("very-long-domain-segment-" + std::to_string(i) + ".example.com");
+    }
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string output = run_generate(gen);
+
+    std::istringstream lines(output);
+    std::string line;
+    size_t server_lines = 0;
+    while (std::getline(lines, line)) {
+        if (line.rfind("server=/", 0) == 0) {
+            ++server_lines;
+            CHECK(line.size() <= 1024);
+            CHECK(line.find("#5353") != std::string::npos);
+        }
+    }
+    CHECK(server_lines >= 2);
+}
+
 TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);

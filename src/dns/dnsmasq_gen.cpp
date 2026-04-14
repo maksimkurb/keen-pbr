@@ -14,6 +14,14 @@ static constexpr const char* kDnsProbeZone = "check.keen.pbr";
 static constexpr size_t kBatchSize = 50;
 static constexpr size_t kMaxDnsmasqRowLength = 1024;
 static constexpr size_t kMaxDomainNameLength = 255;
+static constexpr size_t kIpsetPrefixLen = sizeof("ipset=") - 1;
+static constexpr size_t kNftsetPrefixLen = sizeof("nftset=") - 1;
+static constexpr size_t kRebindPrefixLen = sizeof("rebind-domain-ok=") - 1;
+static constexpr size_t kServerPrefixLen = sizeof("server=") - 1;
+static constexpr const char* kNftSetPrefix = "/4#inet#KeenPbrTable#";
+static constexpr const char* kNftSetMiddle = ",6#inet#KeenPbrTable#";
+static constexpr size_t kNftSetPrefixLen = sizeof("/4#inet#KeenPbrTable#") - 1;
+static constexpr size_t kNftSetMiddleLen = sizeof(",6#inet#KeenPbrTable#") - 1;
 
 // A streambuf that simultaneously forwards bytes to a sink streambuf
 // and feeds them into an MD5State. No buffering of config content.
@@ -37,6 +45,42 @@ public:
         return crypto::digest_to_hex(md5_.digest());
     }
 };
+
+template <typename EmitLineFn>
+void emit_chunked_domain_lines(std::ostream& out,
+                               const std::set<std::string>& domains,
+                               const std::string& list_name,
+                               size_t prefix_len,
+                               size_t suffix_len,
+                               std::string_view directive_name,
+                               EmitLineFn emit_line) {
+    auto it = domains.begin();
+    while (it != domains.end()) {
+        std::string domain_path;
+        size_t count = 0;
+        while (it != domains.end() && count < kBatchSize) {
+            std::string next_chunk = domain_path + "/" + *it;
+            if (prefix_len + next_chunk.size() + suffix_len > kMaxDnsmasqRowLength) {
+                if (count == 0) {
+                    Logger::instance().warn(
+                        "Skipping domain '{}' from list '{}': {} directive would exceed {} chars",
+                        *it, list_name, directive_name, kMaxDnsmasqRowLength);
+                    ++it;
+                }
+                break;
+            }
+            domain_path = std::move(next_chunk);
+            ++it;
+            ++count;
+        }
+
+        if (count == 0) {
+            continue;
+        }
+
+        emit_line(domain_path);
+    }
+}
 
 } // anonymous namespace
 
@@ -228,73 +272,40 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
             server_addr += "#" + std::to_string(dns_port);
         }
 
-        size_t max_directive_overhead = 0;
         if (needs_ipset) {
             const std::string set4 = ipset_name_v4(list_name);
             const std::string set6 = ipset_name_v6(list_name);
             if (resolver_type_ == ResolverType::DNSMASQ_IPSET) {
-                max_directive_overhead = std::max(
-                    max_directive_overhead,
-                    std::string("ipset=").size() + 1 + set4.size() + 1 + set6.size());
+                const size_t suffix_len = 1 + set4.size() + 1 + set6.size();
+                emit_chunked_domain_lines(
+                    out, domains, list_name, kIpsetPrefixLen, suffix_len, "ipset",
+                    [&](const std::string& domain_path) {
+                        out << "ipset=" << domain_path << "/" << set4 << "," << set6 << "\n";
+                    });
             } else {
-                static constexpr const char* kNftSetPrefix = "/4#inet#KeenPbrTable#";
-                static constexpr const char* kNftSetMiddle = ",6#inet#KeenPbrTable#";
-                max_directive_overhead = std::max(
-                    max_directive_overhead,
-                    std::string("nftset=").size() + std::string(kNftSetPrefix).size()
-                    + set4.size() + std::string(kNftSetMiddle).size() + set6.size());
+                const size_t suffix_len = kNftSetPrefixLen + set4.size() + kNftSetMiddleLen + set6.size();
+                emit_chunked_domain_lines(
+                    out, domains, list_name, kNftsetPrefixLen, suffix_len, "nftset",
+                    [&](const std::string& domain_path) {
+                        out << "nftset=" << domain_path
+                            << kNftSetPrefix << set4
+                            << kNftSetMiddle << set6 << "\n";
+                    });
             }
         }
         if (allow_domain_rebinding) {
-            max_directive_overhead =
-                std::max(max_directive_overhead, std::string("rebind-domain-ok=").size() + 1);
+            emit_chunked_domain_lines(
+                out, domains, list_name, kRebindPrefixLen, 1, "rebind-domain-ok",
+                [&](const std::string& domain_path) {
+                    out << "rebind-domain-ok=" << domain_path << "/\n";
+                });
         }
         if (!server_addr.empty()) {
-            max_directive_overhead =
-                std::max(max_directive_overhead, std::string("server=").size() + server_addr.size());
-        }
-
-        // Output domains in batches of ~BATCH_SIZE per directive line
-        auto it = domains.begin();
-        while (it != domains.end()) {
-            std::string domain_path;
-            size_t count = 0;
-            while (it != domains.end() && count < kBatchSize) {
-                std::string next_chunk = domain_path + "/" + *it;
-                if (next_chunk.size() + max_directive_overhead > kMaxDnsmasqRowLength) {
-                    if (count == 0) {
-                        Logger::instance().warn(
-                            "Skipping domain '{}' from list '{}': dnsmasq directive would exceed {} chars",
-                            *it, list_name, kMaxDnsmasqRowLength);
-                        ++it;
-                    }
-                    break;
-                }
-                domain_path = std::move(next_chunk);
-                ++it;
-                ++count;
-            }
-            if (count == 0) {
-                continue;
-            }
-
-            if (needs_ipset) {
-                const std::string set4 = ipset_name_v4(list_name);
-                const std::string set6 = ipset_name_v6(list_name);
-                if (resolver_type_ == ResolverType::DNSMASQ_IPSET) {
-                    out << "ipset=" << domain_path << "/" << set4 << "," << set6 << "\n";
-                } else {
-                    out << "nftset=" << domain_path
-                        << "/4#inet#KeenPbrTable#" << set4
-                        << ",6#inet#KeenPbrTable#" << set6 << "\n";
-                }
-            }
-            if (allow_domain_rebinding) {
-                out << "rebind-domain-ok=" << domain_path << "/\n";
-            }
-            if (!dns_ip.empty()) {
-                out << "server=" << domain_path << "/" << server_addr << "\n";
-            }
+            emit_chunked_domain_lines(
+                out, domains, list_name, kServerPrefixLen, 1 + server_addr.size(), "server",
+                [&](const std::string& domain_path) {
+                    out << "server=" << domain_path << "/" << server_addr << "\n";
+                });
         }
 
         out << "\n";
