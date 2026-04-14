@@ -98,8 +98,13 @@ std::optional<api::ResolverConfigSyncState> classify_resolver_config_sync_state(
     const std::optional<std::int64_t>& apply_started_ts,
     std::int64_t now_ts,
     bool hash_equal) {
-    if (!actual_ts.has_value() || !apply_started_ts.has_value()) {
+    if (!actual_ts.has_value()) {
         return std::nullopt;
+    }
+    if (!apply_started_ts.has_value()) {
+        return hash_equal
+            ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
+            : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
     }
     constexpr std::int64_t kConvergingWindowSeconds = 15;
     if (*actual_ts < *apply_started_ts) {
@@ -1358,6 +1363,19 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
         "resolver-config-hash-actual");
 }
 
+void Daemon::schedule_resolver_config_hash_actual_retry() {
+    if (resolver_config_hash_actual_retry_task_id_ >= 0) {
+        scheduler_->cancel(resolver_config_hash_actual_retry_task_id_);
+    }
+    resolver_config_hash_actual_retry_task_id_ = scheduler_->schedule_oneshot(
+        std::chrono::seconds{1},
+        [this]() {
+            resolver_config_hash_actual_retry_task_id_ = -1;
+            maybe_schedule_resolver_config_hash_actual_refresh();
+        },
+        "resolver-config-hash-actual-retry");
+}
+
 void Daemon::refresh_resolver_config_hash_actual_async() {
     const auto dns_cfg_opt = config_.dns;
     if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
@@ -1437,12 +1455,13 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                             parsed_value.ts.has_value() &&
                             *parsed_value.ts < apply_started_ts) {
                             Logger::instance().verbose(
-                                "Resolver config hash TXT is older than current apply; clearing cached actual value "
+                                "Resolver config hash TXT is older than current apply; keeping previous actual value "
                                 "(resolver={}, txt_ts={}, apply_started_ts={})",
                                 resolver_addr,
                                 *parsed_value.ts,
                                 apply_started_ts);
                             has_parsed_value = false;
+                            schedule_resolver_config_hash_actual_retry();
                         }
                     }
 
@@ -1452,13 +1471,18 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                         Logger::instance().info("Resolver config hash (actual): {}",
                                                 resolver_config_hash_actual_);
                     } else {
-                        resolver_config_hash_actual_.clear();
-                        resolver_config_hash_actual_ts_.reset();
                         if (!error.empty()) {
                             Logger::instance().warn(
-                                "Resolver config hash TXT query failed via {}: {}; cleared cached actual value",
+                                "Resolver config hash TXT query failed via {}: {}; keeping previous actual value",
                                 resolver_addr,
                                 error);
+                            const std::int64_t apply_started_ts =
+                                apply_started_ts_.load(std::memory_order_acquire);
+                            const std::int64_t now_ts = unix_timestamp_now_seconds();
+                            if (apply_started_ts > 0 &&
+                                (now_ts - apply_started_ts) <= 15) {
+                                schedule_resolver_config_hash_actual_retry();
+                            }
                         }
                     }
                     publish_runtime_state();
@@ -1515,6 +1539,10 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     if (resolver_config_hash_actual_task_id_ >= 0) {
         scheduler_->cancel(resolver_config_hash_actual_task_id_);
         resolver_config_hash_actual_task_id_ = -1;
+    }
+    if (resolver_config_hash_actual_retry_task_id_ >= 0) {
+        scheduler_->cancel(resolver_config_hash_actual_retry_task_id_);
+        resolver_config_hash_actual_retry_task_id_ = -1;
     }
 
     outbound_marks_ = std::move(prepared.outbound_marks);

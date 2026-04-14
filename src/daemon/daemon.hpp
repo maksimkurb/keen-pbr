@@ -171,6 +171,7 @@ private:
     void refresh_lists_and_maybe_reload_async();
     void refresh_resolver_config_hash_actual_async();
     void maybe_schedule_resolver_config_hash_actual_refresh();
+    void schedule_resolver_config_hash_actual_retry();
 
     // PID file management
     void write_pid_file();
@@ -204,6 +205,8 @@ private:
     int lists_autoupdate_task_id_{-1};
     // Periodic refresh task for the actual resolver config hash (5-minute TTL).
     int resolver_config_hash_actual_task_id_{-1};
+    // Short-interval retry while resolver hash is converging after apply.
+    int resolver_config_hash_actual_retry_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};
