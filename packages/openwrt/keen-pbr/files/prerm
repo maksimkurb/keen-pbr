@@ -1,7 +1,18 @@
 #!/bin/sh
 
 /etc/init.d/keen-pbr disable || true
-KEEN_PBR_SKIP_DNSMASQ=1 /etc/init.d/keen-pbr stop || true
+/etc/init.d/keen-pbr stop || true
+
+# procd stop may return before the service is fully torn down.
+# Wait briefly to avoid races where late stop hooks recreate keen-pbr.conf
+# after uninstall-persistent has already removed it.
+wait_count=0
+while /etc/init.d/keen-pbr running >/dev/null 2>&1; do
+    [ "$wait_count" -ge 30 ] && break
+    sleep 1
+    wait_count=$((wait_count + 1))
+done
+
 /usr/lib/keen-pbr/dnsmasq.sh uninstall-persistent || true
 
 cat <<'EOF'
