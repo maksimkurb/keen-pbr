@@ -487,3 +487,55 @@ TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
     CHECK(nftset_output.find("nftset=") == std::string::npos);
     CHECK(nftset_output.find("server=/") == std::string::npos);
 }
+
+TEST_CASE("generate-resolver-config splits ipset directives to stay within 1024 chars per row") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+
+    std::vector<std::string> domains;
+    for (int i = 0; i < 120; ++i) {
+        domains.push_back("very-long-domain-part-" + std::to_string(i) + ".example.com");
+    }
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string output = run_generate(gen);
+
+    std::istringstream lines(output);
+    std::string line;
+    size_t ipset_lines = 0;
+    while (std::getline(lines, line)) {
+        if (line.rfind("ipset=", 0) == 0) {
+            ++ipset_lines;
+            CHECK(line.size() <= 1024);
+        }
+    }
+    CHECK(ipset_lines >= 2);
+}
+
+TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+
+    const std::string invalid =
+        std::string(256, 'a') + ".com";
+    auto lists = std::map<std::string, ListConfig>{{
+        list_name, make_list_cfg({"valid.example.com", invalid})
+    }};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("valid.example.com") != std::string::npos);
+    CHECK(output.find(invalid) == std::string::npos);
+}
