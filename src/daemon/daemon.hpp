@@ -27,6 +27,7 @@
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 #include "list_service.hpp"
+#include "resolver_health.hpp"
 #include "runtime_state_store.hpp"
 #include "system_resolver_hook.hpp"
 
@@ -189,21 +190,23 @@ private:
     std::string resolver_config_hash_actual_;
     // Resolver TXT timestamp currently published by the live system resolver record.
     std::optional<std::int64_t> resolver_config_hash_actual_ts_;
+    // Health of the live system resolver endpoint based on the latest TXT probe.
+    api::ResolverLiveStatus resolver_live_status_{api::ResolverLiveStatus::UNKNOWN};
+    // When the latest resolver TXT probe completed.
+    std::optional<std::int64_t> resolver_last_probe_ts_;
     // Timestamp captured when /api/config/save apply starts (server authoritative).
     std::atomic<std::int64_t> apply_started_ts_{0};
 
     // Recompute resolver_config_hash_ from current config/cache state
     void update_resolver_config_hash();
-    // Query resolver TXT record and update resolver_config_hash_actual_.
-    void update_resolver_config_hash_actual();
-    // Schedule (or reschedule) the 5-minute periodic refresh of resolver_config_hash_actual_.
+    // Schedule (or reschedule) the periodic refresh of resolver_config_hash_actual_.
     void schedule_resolver_config_hash_actual_refresh();
     RuntimeStateSnapshot build_runtime_state_snapshot() const;
     void publish_runtime_state();
 
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
-    // Periodic refresh task for the actual resolver config hash (5-minute TTL).
+    // Periodic refresh task for the actual resolver config hash / live status.
     int resolver_config_hash_actual_task_id_{-1};
     // Short-interval retry while resolver hash is converging after apply.
     int resolver_config_hash_actual_retry_task_id_{-1};

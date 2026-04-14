@@ -20,9 +20,9 @@
 
 namespace keen_pbr3 {
 
-ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt_payload);
-
 namespace {
+
+constexpr const char* kDnsTxtAnswerNotFound = "DNS TXT answer not found";
 
 bool is_hex_char(char c) {
     return std::isxdigit(static_cast<unsigned char>(c)) != 0;
@@ -143,7 +143,7 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
         return first_txt;
     }
 
-    if (error_out) *error_out = "DNS TXT answer not found";
+    if (error_out) *error_out = kDnsTxtAnswerNotFound;
     return std::nullopt;
 }
 
@@ -395,6 +395,44 @@ ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt
     }
 
     return value;
+}
+
+bool is_valid_resolver_config_hash_txt_value(const ResolverConfigHashTxtValue& value) {
+    if (value.hash.size() != 32) {
+        return false;
+    }
+    return std::all_of(value.hash.begin(), value.hash.end(), [](unsigned char c) {
+        return std::isxdigit(c) != 0;
+    });
+}
+
+ResolverConfigHashProbeResult query_resolver_config_hash_txt(const std::string& dns_server_address,
+                                                             const std::string& domain,
+                                                             std::chrono::milliseconds timeout) {
+    ResolverConfigHashProbeResult result;
+    try {
+        auto txt = query_dns_txt_record(dns_server_address, domain, timeout, &result.error);
+        if (!txt.has_value()) {
+            result.status = (result.error == kDnsTxtAnswerNotFound)
+                ? ResolverConfigHashProbeStatus::NO_USABLE_TXT
+                : ResolverConfigHashProbeStatus::QUERY_FAILED;
+            return result;
+        }
+
+        result.raw_txt = *txt;
+        result.parsed_value = parse_resolver_config_hash_txt(*txt);
+        result.status = is_valid_resolver_config_hash_txt_value(result.parsed_value)
+            ? ResolverConfigHashProbeStatus::SUCCESS
+            : ResolverConfigHashProbeStatus::INVALID_TXT;
+        if (result.status == ResolverConfigHashProbeStatus::INVALID_TXT) {
+            result.error = "Resolver TXT payload is missing a valid md5 hash";
+        }
+        return result;
+    } catch (const std::exception& e) {
+        result.status = ResolverConfigHashProbeStatus::QUERY_FAILED;
+        result.error = e.what();
+        return result;
+    }
 }
 
 } // namespace keen_pbr3

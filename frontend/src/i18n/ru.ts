@@ -113,9 +113,11 @@ export const ruTranslation = {
           loadError: "Не удалось загрузить состояние маршрутизации.",
           version: "Версия",
           status: "Статус маршрутизации",
-          dnsmasqGood: "dnsmasq в порядке",
+          dnsmasqHealthy: "dnsmasq исправен",
           dnsmasqWaiting: "dnsmasq перезагружается",
           dnsmasqStale: "dnsmasq требуется перезапуск",
+          dnsmasqUnavailable: "dnsmasq недоступен",
+          dnsmasqUnknown: "статус dnsmasq неизвестен",
           actions: {
             start: "Запустить",
             stop: "Остановить",

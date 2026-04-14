@@ -92,33 +92,6 @@ const char* config_operation_state_name(ConfigOperationState state) {
     }
     return "unknown";
 }
-
-std::optional<api::ResolverConfigSyncState> classify_resolver_config_sync_state(
-    const std::optional<std::int64_t>& actual_ts,
-    const std::optional<std::int64_t>& apply_started_ts,
-    std::int64_t now_ts,
-    bool hash_equal) {
-    if (!actual_ts.has_value()) {
-        return std::nullopt;
-    }
-    if (!apply_started_ts.has_value()) {
-        return hash_equal
-            ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
-            : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
-    }
-    constexpr std::int64_t kConvergingWindowSeconds = 15;
-    if (*actual_ts < *apply_started_ts) {
-        if ((now_ts - *apply_started_ts) <= kConvergingWindowSeconds) {
-            return api::ResolverConfigSyncState::CONVERGING;
-        }
-        return hash_equal
-            ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
-            : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
-    }
-    return hash_equal
-        ? std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::CONVERGED)
-        : std::optional<api::ResolverConfigSyncState>(api::ResolverConfigSyncState::STALE);
-}
 #endif
 
 } // namespace
@@ -1280,46 +1253,6 @@ void Daemon::update_resolver_config_hash() {
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 
-void Daemon::update_resolver_config_hash_actual() {
-    resolver_config_hash_actual_.clear();
-    resolver_config_hash_actual_ts_.reset();
-
-    const auto dns_cfg_opt = config_.dns;
-    if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
-        return;
-    }
-
-    const std::string& resolver_addr = dns_cfg_opt->system_resolver->address;
-    if (resolver_addr.empty()) {
-        return;
-    }
-
-    try {
-        std::string error;
-        auto txt = query_dns_txt_record(
-            resolver_addr, "config-hash.keen.pbr", std::chrono::milliseconds(2000), &error);
-        if (!txt.has_value()) {
-            if (!error.empty()) {
-                Logger::instance().warn(
-                    "Resolver config hash TXT query failed via {}: {}",
-                    resolver_addr,
-                    error);
-            }
-            return;
-        }
-
-        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*txt);
-        resolver_config_hash_actual_ = parsed.hash;
-        resolver_config_hash_actual_ts_ = parsed.ts;
-        Logger::instance().info("Resolver config hash (actual): {}",
-                                resolver_config_hash_actual_);
-    } catch (const std::exception& e) {
-        Logger::instance().warn("Resolver config hash TXT query failed via {}: {}",
-                                resolver_addr,
-                                e.what());
-    }
-}
-
 RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     RuntimeStateSnapshot snapshot;
     snapshot.firewall_state = firewall_state_;
@@ -1328,6 +1261,8 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     snapshot.resolver_config_hash = resolver_config_hash_;
     snapshot.resolver_config_hash_actual = resolver_config_hash_actual_;
     snapshot.resolver_config_hash_actual_ts = resolver_config_hash_actual_ts_;
+    snapshot.resolver_live_status = resolver_live_status_;
+    snapshot.resolver_last_probe_ts = resolver_last_probe_ts_;
     snapshot.routing_runtime_active = routing_runtime_active_;
 
     if (urltest_manager_) {
@@ -1356,7 +1291,7 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
         scheduler_->cancel(resolver_config_hash_actual_task_id_);
     }
     resolver_config_hash_actual_task_id_ = scheduler_->schedule_repeating(
-        std::chrono::seconds{300},
+        std::chrono::seconds{30},
         [this]() {
             maybe_schedule_resolver_config_hash_actual_refresh();
         },
@@ -1378,9 +1313,13 @@ void Daemon::schedule_resolver_config_hash_actual_retry() {
 
 void Daemon::refresh_resolver_config_hash_actual_async() {
     const auto dns_cfg_opt = config_.dns;
-    if (!dns_cfg_opt.has_value() || !dns_cfg_opt->system_resolver.has_value()) {
+    if (!routing_runtime_active_ ||
+        !dns_cfg_opt.has_value() ||
+        !dns_cfg_opt->system_resolver.has_value()) {
         resolver_config_hash_actual_.clear();
         resolver_config_hash_actual_ts_.reset();
+        resolver_live_status_ = api::ResolverLiveStatus::UNKNOWN;
+        resolver_last_probe_ts_.reset();
         publish_runtime_state();
         return;
     }
@@ -1389,6 +1328,8 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
     if (resolver_addr.empty()) {
         resolver_config_hash_actual_.clear();
         resolver_config_hash_actual_ts_.reset();
+        resolver_live_status_ = api::ResolverLiveStatus::UNKNOWN;
+        resolver_last_probe_ts_.reset();
         publish_runtime_state();
         return;
     }
@@ -1407,35 +1348,33 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
         "resolver-config-hash-actual",
         [this, resolver_addr, generation, trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
-            std::string error;
-            ResolverConfigHashTxtValue parsed_value;
-            bool has_parsed_value = false;
+            std::optional<ResolverConfigHashProbeResult> probe_result;
+            std::optional<std::int64_t> probe_completed_ts;
 
             Logger::instance().trace("resolver_hash_refresh_start",
                                      "resolver={} generation={}",
                                      resolver_addr,
                                      generation);
             try {
-                auto txt = query_dns_txt_record(
+                probe_result = query_resolver_config_hash_txt(
                     resolver_addr,
                     "config-hash.keen.pbr",
-                    std::chrono::milliseconds(2000),
-                    &error);
-                if (txt.has_value()) {
-                    parsed_value = parse_resolver_config_hash_txt(*txt);
-                    has_parsed_value = true;
-                }
+                    std::chrono::milliseconds(2000));
+                probe_completed_ts = unix_timestamp_now_seconds();
             } catch (const std::exception& e) {
-                error = e.what();
+                ResolverConfigHashProbeResult failed_result;
+                failed_result.status = ResolverConfigHashProbeStatus::QUERY_FAILED;
+                failed_result.error = e.what();
+                probe_result = std::move(failed_result);
+                probe_completed_ts = unix_timestamp_now_seconds();
             }
 
             post_control_task(
                 [this,
                  resolver_addr,
                  generation,
-                 parsed_value = std::move(parsed_value),
-                 has_parsed_value,
-                 error = std::move(error),
+                 probe_result = std::move(probe_result),
+                 probe_completed_ts,
                  trace_id]() mutable {
                     ScopedTraceContext trace_scope_inner(trace_id);
                     resolver_hash_refresh_inflight_.store(false, std::memory_order_release);
@@ -1448,41 +1387,68 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
                         return;
                     }
 
-                    if (has_parsed_value) {
-                        const std::int64_t apply_started_ts =
-                            apply_started_ts_.load(std::memory_order_acquire);
-                        if (apply_started_ts > 0 &&
-                            parsed_value.ts.has_value() &&
-                            *parsed_value.ts < apply_started_ts) {
-                            Logger::instance().verbose(
-                                "Resolver config hash TXT is older than current apply; keeping previous actual value "
-                                "(resolver={}, txt_ts={}, apply_started_ts={})",
-                                resolver_addr,
-                                *parsed_value.ts,
-                                apply_started_ts);
-                            has_parsed_value = false;
-                            schedule_resolver_config_hash_actual_retry();
-                        }
-                    }
+                    const ResolverActualState actual_state = build_resolver_actual_state(
+                        routing_runtime_active_,
+                        true,
+                        probe_result,
+                        probe_completed_ts);
+                    resolver_live_status_ = actual_state.live_status;
+                    resolver_last_probe_ts_ = actual_state.last_probe_ts;
+                    resolver_config_hash_actual_ = actual_state.actual_hash;
+                    resolver_config_hash_actual_ts_ = actual_state.actual_ts;
 
-                    if (has_parsed_value) {
-                        resolver_config_hash_actual_ = parsed_value.hash;
-                        resolver_config_hash_actual_ts_ = parsed_value.ts;
+                    const std::int64_t apply_started_ts =
+                        apply_started_ts_.load(std::memory_order_acquire);
+                    const std::int64_t now_ts = unix_timestamp_now_seconds();
+                    const bool within_converging_window =
+                        apply_started_ts > 0 && (now_ts - apply_started_ts) <= 15;
+
+                    if (resolver_live_status_ == api::ResolverLiveStatus::HEALTHY) {
                         Logger::instance().info("Resolver config hash (actual): {}",
                                                 resolver_config_hash_actual_);
-                    } else {
-                        if (!error.empty()) {
-                            Logger::instance().warn(
-                                "Resolver config hash TXT query failed via {}: {}; keeping previous actual value",
+                        if (resolver_config_hash_actual_ts_.has_value() &&
+                            apply_started_ts > 0 &&
+                            *resolver_config_hash_actual_ts_ < apply_started_ts) {
+                            Logger::instance().verbose(
+                                "Resolver config hash TXT is older than current apply; using live actual value "
+                                "(resolver={}, txt_ts={}, apply_started_ts={})",
                                 resolver_addr,
-                                error);
-                            const std::int64_t apply_started_ts =
-                                apply_started_ts_.load(std::memory_order_acquire);
-                            const std::int64_t now_ts = unix_timestamp_now_seconds();
-                            if (apply_started_ts > 0 &&
-                                (now_ts - apply_started_ts) <= 15) {
+                                *resolver_config_hash_actual_ts_,
+                                apply_started_ts);
+                            if (within_converging_window) {
                                 schedule_resolver_config_hash_actual_retry();
                             }
+                        }
+                    } else if (probe_result.has_value()) {
+                        switch (probe_result->status) {
+                        case ResolverConfigHashProbeStatus::QUERY_FAILED:
+                            Logger::instance().warn(
+                                "Resolver config hash TXT query failed via {}: {}; clearing actual value",
+                                resolver_addr,
+                                probe_result->error);
+                            if (within_converging_window) {
+                                schedule_resolver_config_hash_actual_retry();
+                            }
+                            break;
+                        case ResolverConfigHashProbeStatus::NO_USABLE_TXT:
+                            Logger::instance().warn(
+                                "Resolver config hash TXT is missing via {}; clearing actual value",
+                                resolver_addr);
+                            if (within_converging_window) {
+                                schedule_resolver_config_hash_actual_retry();
+                            }
+                            break;
+                        case ResolverConfigHashProbeStatus::INVALID_TXT:
+                            Logger::instance().warn(
+                                "Resolver config hash TXT is invalid via {}: {}; clearing actual value",
+                                resolver_addr,
+                                probe_result->raw_txt.value_or("<empty>"));
+                            if (within_converging_window) {
+                                schedule_resolver_config_hash_actual_retry();
+                            }
+                            break;
+                        case ResolverConfigHashProbeStatus::SUCCESS:
+                            break;
                         }
                     }
                     publish_runtime_state();
@@ -1685,6 +1651,8 @@ void Daemon::setup_api() {
             service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
             service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
             service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;
+            service_health.resolver_live_status = runtime_snapshot.resolver_live_status;
+            service_health.resolver_last_probe_ts = runtime_snapshot.resolver_last_probe_ts;
             const std::int64_t apply_started_ts = apply_started_ts_.load(std::memory_order_acquire);
             if (apply_started_ts > 0) {
                 service_health.apply_started_ts = apply_started_ts;

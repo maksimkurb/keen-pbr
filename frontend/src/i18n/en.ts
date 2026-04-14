@@ -111,9 +111,11 @@ export const enTranslation = {
           loadError: "Failed to load routing runtime state.",
           version: "Version",
           status: "Routing status",
-          dnsmasqGood: "dnsmasq good",
+          dnsmasqHealthy: "dnsmasq healthy",
           dnsmasqWaiting: "dnsmasq reloading",
           dnsmasqStale: "dnsmasq restart required",
+          dnsmasqUnavailable: "dnsmasq unavailable",
+          dnsmasqUnknown: "dnsmasq status unknown",
           actions: {
             start: "Start",
             stop: "Stop",

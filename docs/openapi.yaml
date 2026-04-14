@@ -1017,7 +1017,7 @@ components:
 
     HealthResponse:
       type: object
-      required: [version, status, config_is_draft]
+      required: [version, status, resolver_live_status, config_is_draft]
       properties:
         version:
           type: string
@@ -1049,6 +1049,15 @@ components:
             published as `<ts>|<hash>`. Represents when dnsmasq last reloaded
             resolver config (Unix seconds).
           example: 1712345678
+        resolver_live_status:
+          $ref: "#/components/schemas/RuntimeOutboundStatus"
+        resolver_last_probe_ts:
+          type: integer
+          format: int64
+          description: >
+            Unix timestamp (seconds) when the daemon last completed a live TXT
+            probe against the configured system resolver.
+          example: 1712345681
         apply_started_ts:
           type: integer
           format: int64

@@ -40,6 +40,8 @@ struct ServiceHealthState {
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
     std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
+    std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
     std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
     bool config_is_draft{false};

@@ -35,6 +35,7 @@ import { SectionCard } from "@/components/shared/section-card"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
+import { getDnsmasqBadgeState } from "@/components/overview/dnsmasq-status"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
@@ -93,22 +94,10 @@ export function OverviewPage() {
       ),
     [runtimeOutbounds]
   )
-  const hasResolverHashMismatch =
-    Boolean(serviceHealth?.resolver_config_hash) &&
-    Boolean(serviceHealth?.resolver_config_hash_actual) &&
-    serviceHealth?.resolver_config_hash !==
-      serviceHealth?.resolver_config_hash_actual
-  const resolverSyncState = serviceHealth?.resolver_config_sync_state
-  const dnsmasqBadgeLabel =
-    resolverSyncState === "converging"
-      ? t("overview.runtime.dnsmasqWaiting")
-      : resolverSyncState === "stale" || hasResolverHashMismatch
-        ? t("overview.runtime.dnsmasqStale")
-        : t("overview.runtime.dnsmasqGood")
-  const dnsmasqBadgeTone =
-    resolverSyncState === "converging" || resolverSyncState === "stale" || hasResolverHashMismatch
-      ? "warning"
-      : "healthy"
+  const dnsmasqBadge = getDnsmasqBadgeState(
+    serviceHealth?.resolver_live_status,
+    serviceHealth?.resolver_config_sync_state
+  )
   const hasServiceHealth = Boolean(serviceHealth)
   const isServiceRunning = serviceHealth?.status === "running"
   const configIsDraft =
@@ -227,8 +216,8 @@ export function OverviewPage() {
                     >
                       {serviceHealth.status}
                     </StatusBadge>
-                    <StatusBadge tone={dnsmasqBadgeTone}>
-                      {dnsmasqBadgeLabel}
+                    <StatusBadge tone={dnsmasqBadge.tone}>
+                      {t(dnsmasqBadge.labelKey)}
                     </StatusBadge>
                   </div>
                 </div>

@@ -152,12 +152,12 @@ api::RuntimeInterfaceStatusEnum map_urltest_child_status(
     return api::RuntimeInterfaceStatusEnum::DEGRADED;
 }
 
-api::RuntimeOutboundStatusEnum derive_overall_status(
+api::ResolverLiveStatus derive_overall_status(
     const std::vector<api::RuntimeInterfaceState>& interfaces,
     bool has_active_interface,
     bool has_live_route) {
     if (has_active_interface) {
-        return api::RuntimeOutboundStatusEnum::HEALTHY;
+        return api::ResolverLiveStatus::HEALTHY;
     }
 
     bool has_backup = false;
@@ -172,24 +172,24 @@ api::RuntimeOutboundStatusEnum derive_overall_status(
     }
 
     if (has_live_route && (has_backup || has_degraded)) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::ResolverLiveStatus::DEGRADED;
     }
 
     if (has_backup) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::ResolverLiveStatus::DEGRADED;
     }
 
     if (has_degraded) {
-        return api::RuntimeOutboundStatusEnum::DEGRADED;
+        return api::ResolverLiveStatus::DEGRADED;
     }
 
     if (!interfaces.empty()) {
-        return api::RuntimeOutboundStatusEnum::UNAVAILABLE;
+        return api::ResolverLiveStatus::UNAVAILABLE;
     }
 
     return has_live_route
-        ? api::RuntimeOutboundStatusEnum::HEALTHY
-        : api::RuntimeOutboundStatusEnum::UNKNOWN;
+        ? api::ResolverLiveStatus::HEALTHY
+        : api::ResolverLiveStatus::UNKNOWN;
 }
 
 std::optional<uint32_t> outbound_table_id(const Config& config,
@@ -273,8 +273,8 @@ api::RuntimeOutboundStateElement build_table_outbound_state(const Config& config
     const DumpedRoute* primary_route = find_primary_default_route(routes);
 
     state.status = primary_route != nullptr
-        ? api::RuntimeOutboundStatusEnum::HEALTHY
-        : api::RuntimeOutboundStatusEnum::UNKNOWN;
+        ? api::ResolverLiveStatus::HEALTHY
+        : api::ResolverLiveStatus::UNKNOWN;
     return state;
 }
 
@@ -391,7 +391,7 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
                 api::RuntimeOutboundStateElement state;
                 state.tag = outbound.tag;
                 state.type = outbound.type;
-                state.status = api::RuntimeOutboundStatusEnum::HEALTHY;
+                state.status = api::ResolverLiveStatus::HEALTHY;
                 response.outbounds.push_back(std::move(state));
                 break;
             }
