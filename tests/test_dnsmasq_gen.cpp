@@ -8,6 +8,7 @@
 #include <map>
 #include <algorithm>
 #include <cctype>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -95,6 +96,64 @@ static std::string extract_txt_payload(const std::string& output) {
     pos += prefix.size();
     auto end = output.find('\n', pos);
     return output.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+}
+
+static std::vector<std::string> split_domains_from_ipset_line(const std::string& line,
+                                                               const std::string& list_name) {
+    const std::string prefix = "ipset=";
+    const std::string suffix =
+        "/" + DnsmasqGenerator::ipset_name_v4(list_name) + ","
+        + DnsmasqGenerator::ipset_name_v6(list_name);
+
+    if (line.rfind(prefix, 0) != 0 || line.size() < prefix.size() + suffix.size()) {
+        return {};
+    }
+    if (line.substr(line.size() - suffix.size()) != suffix) {
+        return {};
+    }
+
+    const std::string path = line.substr(prefix.size(), line.size() - prefix.size() - suffix.size());
+    std::vector<std::string> domains;
+    std::string current;
+    for (const char ch : path) {
+        if (ch == '/') {
+            if (!current.empty()) {
+                domains.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+        current.push_back(ch);
+    }
+    if (!current.empty()) {
+        domains.push_back(current);
+    }
+    return domains;
+}
+
+static std::string make_domain_with_len(size_t target_len, const std::string& seed) {
+    std::string domain = seed + ".";
+    if (domain.size() < target_len) {
+        domain += std::string(target_len - domain.size(), 'a');
+    } else if (domain.size() > target_len) {
+        domain.resize(target_len);
+    }
+    return domain;
+}
+
+static size_t calc_ipset_line_len(const std::string& list_name,
+                                  const std::vector<size_t>& domain_lengths) {
+    const size_t prefix_len = std::string("ipset=").size();
+    const std::string set4 = DnsmasqGenerator::ipset_name_v4(list_name);
+    const std::string set6 = DnsmasqGenerator::ipset_name_v6(list_name);
+    const size_t suffix_len = 1 + set4.size() + 1 + set6.size();
+
+    size_t path_len = 0;
+    for (size_t domain_len : domain_lengths) {
+        path_len += 1 + domain_len; // "/<domain>"
+    }
+
+    return prefix_len + path_len + suffix_len;
 }
 
 // =============================================================================
@@ -486,4 +545,133 @@ TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
     const std::string nftset_output = run_generate(nftset_gen);
     CHECK(nftset_output.find("nftset=") == std::string::npos);
     CHECK(nftset_output.find("server=/") == std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config keeps 1000 short domains within batch and line limits") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+
+    std::vector<std::string> domains;
+    std::set<std::string> expected_domains;
+    for (int i = 1; i <= 1000; ++i) {
+        const std::string domain = "d" + std::to_string(i) + ".gg";
+        domains.push_back(domain);
+        expected_domains.insert(domain);
+    }
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string output = run_generate(gen);
+
+    std::istringstream lines(output);
+    std::string line;
+    size_t ipset_lines = 0;
+    std::set<std::string> emitted_domains;
+    while (std::getline(lines, line)) {
+        if (line.rfind("ipset=", 0) == 0) {
+            ++ipset_lines;
+            CHECK(line.size() <= 1024);
+            const auto line_domains = split_domains_from_ipset_line(line, list_name);
+            CHECK(line_domains.size() <= 50);
+            for (const auto& d : line_domains) {
+                emitted_domains.insert(d);
+            }
+        }
+    }
+    CHECK(ipset_lines >= 2);
+    CHECK(emitted_domains == expected_domains);
+}
+
+TEST_CASE("generate-resolver-config edge lengths 200..255 split rows safely and keep all domains") {
+    CacheManager cache("/nonexistent/cache");
+    const std::string list_name(80, 'l');
+
+    for (size_t variable_len = 200; variable_len <= 255; ++variable_len) {
+        CAPTURE(variable_len);
+
+        ListStreamer streamer(cache);
+        auto route_cfg = make_route_cfg(list_name);
+        auto dns_cfg = make_empty_dns_cfg();
+
+        std::vector<std::string> domains;
+        std::set<std::string> expected_domains;
+
+        const std::string variable_domain = make_domain_with_len(variable_len, "a0");
+        domains.push_back(variable_domain);
+        expected_domains.insert(variable_domain);
+
+        for (int i = 1; i <= 9; ++i) {
+            const std::string domain = make_domain_with_len(200, "z" + std::to_string(i));
+            domains.push_back(domain);
+            expected_domains.insert(domain);
+        }
+
+        auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+        DnsServerRegistry reg(dns_cfg);
+        DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+        const std::string output = run_generate(gen);
+
+        std::istringstream lines(output);
+        std::string line;
+        std::set<std::string> emitted_domains;
+        std::vector<size_t> line_domain_counts;
+
+        while (std::getline(lines, line)) {
+            if (line.rfind("ipset=", 0) != 0) {
+                continue;
+            }
+
+            CHECK(line.size() <= 1024);
+            const auto line_domains = split_domains_from_ipset_line(line, list_name);
+            line_domain_counts.push_back(line_domains.size());
+            for (const auto& d : line_domains) {
+                emitted_domains.insert(d);
+            }
+        }
+
+        // Manual check for why "2 domains in a line" can be valid:
+        // line_len = len("ipset=") + sum(len("/" + domain_i)) + len("/set4,set6")
+        // For this test list_name (len=80), fixed overhead is 182 chars.
+        // Thus:
+        //   4x200 domains => 182 + 4*201 = 986 (fits)
+        //   (variable + 3x200) fits while variable <= 238 (hits 1024 at 238)
+        //   variable >= 239 forces first chunk to 3 domains.
+        CHECK(calc_ipset_line_len(list_name, {200, 200, 200, 200}) == 986);
+        const bool first_chunk_fits =
+            calc_ipset_line_len(list_name, {variable_len, 200, 200, 200}) <= 1024;
+        CHECK(first_chunk_fits == (variable_len <= 238));
+
+        const std::vector<size_t> expected_counts =
+            (variable_len <= 238) ? std::vector<size_t>{4, 4, 2}
+                                  : std::vector<size_t>{3, 4, 3};
+        CHECK(line_domain_counts == expected_counts);
+        CHECK(emitted_domains == expected_domains);
+    }
+}
+
+TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+
+    const std::string invalid =
+        std::string(256, 'a') + ".com";
+    auto lists = std::map<std::string, ListConfig>{{
+        list_name, make_list_cfg({"valid.example.com", invalid})
+    }};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("valid.example.com") != std::string::npos);
+    CHECK(output.find(invalid) == std::string::npos);
 }
