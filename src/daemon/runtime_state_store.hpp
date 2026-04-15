@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../api/generated/api_types.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
@@ -22,6 +23,8 @@ struct RuntimeStateSnapshot {
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
     std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
+    std::optional<std::int64_t> resolver_last_probe_ts;
     bool routing_runtime_active{true};
 };
 

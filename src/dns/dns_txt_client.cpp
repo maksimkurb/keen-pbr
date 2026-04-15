@@ -14,12 +14,15 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <vector>
 
 #include "dns_server.hpp"
 
 namespace keen_pbr3 {
 
 namespace {
+
+constexpr const char* kDnsTxtAnswerNotFound = "DNS TXT answer not found";
 
 bool is_hex_char(char c) {
     return std::isxdigit(static_cast<unsigned char>(c)) != 0;
@@ -62,6 +65,11 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
     }
 
     const int answer_count = ns_msg_count(handle, ns_s_an);
+    std::optional<std::string> first_txt;
+    std::optional<std::string> latest_ts_txt;
+    std::optional<std::int64_t> latest_ts_value;
+    std::vector<std::string> txt_records_log_lines;
+
     for (int i = 0; i < answer_count; ++i) {
         ns_rr rr {};
         if (ns_parserr(&handle, ns_s_an, i, &rr) < 0) {
@@ -88,10 +96,54 @@ std::optional<std::string> parse_first_txt_answer(const unsigned char* response,
             txt.append(reinterpret_cast<const char*>(rdata + offset), chunk_len);
             offset += chunk_len;
         }
-        return txt;
+
+        if (!first_txt.has_value()) {
+            first_txt = txt;
+        }
+
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(txt);
+        txt_records_log_lines.push_back(
+            std::string("#") + std::to_string(i) + " txt=\"" + txt +
+            "\" ts=" + (parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none") +
+            " hash=" + parsed.hash);
+        if (parsed.ts.has_value() &&
+            (!latest_ts_value.has_value() || *parsed.ts > *latest_ts_value)) {
+            latest_ts_value = parsed.ts;
+            latest_ts_txt = txt;
+        }
     }
 
-    if (error_out) *error_out = "DNS TXT answer not found";
+    if (!txt_records_log_lines.empty()) {
+        std::string records_joined;
+        for (size_t i = 0; i < txt_records_log_lines.size(); ++i) {
+            if (i > 0) {
+                records_joined += " ; ";
+            }
+            records_joined += txt_records_log_lines[i];
+        }
+        Logger::instance().verbose("Resolver TXT answers: {}", records_joined);
+    } else {
+        Logger::instance().verbose("Resolver TXT answers: <none>");
+    }
+
+    if (latest_ts_txt.has_value()) {
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*latest_ts_txt);
+        Logger::instance().verbose("Resolver TXT selected by latest ts: txt=\"{}\" ts={} hash={}",
+                                   *latest_ts_txt,
+                                   parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none",
+                                   parsed.hash);
+        return latest_ts_txt;
+    }
+    if (first_txt.has_value()) {
+        const ResolverConfigHashTxtValue parsed = parse_resolver_config_hash_txt(*first_txt);
+        Logger::instance().verbose("Resolver TXT selected by first answer: txt=\"{}\" ts={} hash={}",
+                                   *first_txt,
+                                   parsed.ts.has_value() ? std::to_string(*parsed.ts) : "none",
+                                   parsed.hash);
+        return first_txt;
+    }
+
+    if (error_out) *error_out = kDnsTxtAnswerNotFound;
     return std::nullopt;
 }
 
@@ -343,6 +395,44 @@ ResolverConfigHashTxtValue parse_resolver_config_hash_txt(const std::string& txt
     }
 
     return value;
+}
+
+bool is_valid_resolver_config_hash_txt_value(const ResolverConfigHashTxtValue& value) {
+    if (value.hash.size() != 32) {
+        return false;
+    }
+    return std::all_of(value.hash.begin(), value.hash.end(), [](unsigned char c) {
+        return std::isxdigit(c) != 0;
+    });
+}
+
+ResolverConfigHashProbeResult query_resolver_config_hash_txt(const std::string& dns_server_address,
+                                                             const std::string& domain,
+                                                             std::chrono::milliseconds timeout) {
+    ResolverConfigHashProbeResult result;
+    try {
+        auto txt = query_dns_txt_record(dns_server_address, domain, timeout, &result.error);
+        if (!txt.has_value()) {
+            result.status = (result.error == kDnsTxtAnswerNotFound)
+                ? ResolverConfigHashProbeStatus::NO_USABLE_TXT
+                : ResolverConfigHashProbeStatus::QUERY_FAILED;
+            return result;
+        }
+
+        result.raw_txt = *txt;
+        result.parsed_value = parse_resolver_config_hash_txt(*txt);
+        result.status = is_valid_resolver_config_hash_txt_value(result.parsed_value)
+            ? ResolverConfigHashProbeStatus::SUCCESS
+            : ResolverConfigHashProbeStatus::INVALID_TXT;
+        if (result.status == ResolverConfigHashProbeStatus::INVALID_TXT) {
+            result.error = "Resolver TXT payload is missing a valid md5 hash";
+        }
+        return result;
+    } catch (const std::exception& e) {
+        result.status = ResolverConfigHashProbeStatus::QUERY_FAILED;
+        result.error = e.what();
+        return result;
+    }
 }
 
 } // namespace keen_pbr3

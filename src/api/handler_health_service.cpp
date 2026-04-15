@@ -18,6 +18,8 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         resp.resolver_config_hash = service_health.resolver_config_hash;
         resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
         resp.resolver_config_hash_actual_ts = service_health.resolver_config_hash_actual_ts;
+        resp.resolver_live_status = service_health.resolver_live_status;
+        resp.resolver_last_probe_ts = service_health.resolver_last_probe_ts;
         resp.apply_started_ts = service_health.apply_started_ts;
         resp.resolver_config_sync_state = service_health.resolver_config_sync_state;
 

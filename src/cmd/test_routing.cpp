@@ -124,7 +124,7 @@ std::map<std::string, ListLookupData> build_all_lookups(const Config& config,
 
     std::set<std::string> referenced;
     for (const auto& rule : route_rules) {
-        for (const auto& list_name : rule.list) {
+        for (const auto& list_name : route_rule_lists(rule)) {
             referenced.insert(list_name);
         }
     }
@@ -149,7 +149,7 @@ find_expected_outbound(const Config& config,
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 
     for (const auto& rule : route_rules) {
-        for (const auto& list_name : rule.list) {
+        for (const auto& list_name : route_rule_lists(rule)) {
             auto it = lookups.find(list_name);
             if (it == lookups.end()) continue;
             const auto& lookup = it->second;
@@ -177,7 +177,7 @@ std::optional<ListMatchInfo> find_rule_match(const RouteRule& rule,
                                              const std::map<std::string, ListLookupData>& lookups,
                                              const std::string& ip,
                                              const std::vector<std::string>& domain_cands) {
-    for (const auto& list_name : rule.list) {
+    for (const auto& list_name : route_rule_lists(rule)) {
         auto it = lookups.find(list_name);
         if (it == lookups.end()) continue;
         const auto& lookup = it->second;

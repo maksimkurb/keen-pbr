@@ -146,6 +146,7 @@ set(SOURCES
   src/daemon/config_store.cpp
   src/daemon/daemon.cpp
   src/daemon/list_service.cpp
+  src/daemon/resolver_health.cpp
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp

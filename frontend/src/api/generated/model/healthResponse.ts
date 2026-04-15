@@ -7,6 +7,7 @@
  */
 import type { HealthResponseStatus } from './healthResponseStatus';
 import type { ResolverConfigSyncState } from './resolverConfigSyncState';
+import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 
 export interface HealthResponse {
   /** Daemon version string. */
@@ -21,6 +22,10 @@ export interface HealthResponse {
   /** Resolver TXT metadata timestamp from `config-hash.keen.pbr`, when published as `<ts>|<hash>`. Represents when dnsmasq last reloaded resolver config (Unix seconds).
    */
   resolver_config_hash_actual_ts?: number;
+  resolver_live_status: RuntimeOutboundStatus;
+  /** Unix timestamp (seconds) when the daemon last completed a live TXT probe against the configured system resolver.
+   */
+  resolver_last_probe_ts?: number;
   /** Server-authoritative Unix timestamp (seconds) captured when `POST /api/config/save` started applying the staged config.
    */
   apply_started_ts?: number;

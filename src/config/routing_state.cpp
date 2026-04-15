@@ -343,7 +343,7 @@ std::vector<RuleState> build_fw_rule_states(
         if (decision.is_skip) {
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
+            rs.list_names = route_rule_lists(rule);
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Skip;
             rule_states.push_back(std::move(rs));
@@ -353,7 +353,7 @@ std::vector<RuleState> build_fw_rule_states(
         if (!decision.outbound.has_value() || !*decision.outbound) {
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
+            rs.list_names = route_rule_lists(rule);
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Skip;
             rule_states.push_back(std::move(rs));
@@ -365,11 +365,11 @@ std::vector<RuleState> build_fw_rule_states(
         if (decision.is_passthrough) {
             RuleState rs;
             rs.rule_index = rule_idx;
-            rs.list_names = rule.list;
+            rs.list_names = route_rule_lists(rule);
             rs.outbound_tag = rule.outbound;
             rs.action_type = RuleActionType::Pass;
 
-            for (const auto& list_name : rule.list) {
+            for (const auto& list_name : route_rule_lists(rule)) {
                 auto list_cfg_it = lists_map.find(list_name);
                 if (list_cfg_it == lists_map.end()) continue;
 
@@ -406,7 +406,7 @@ std::vector<RuleState> build_fw_rule_states(
 
         RuleState rs;
         rs.rule_index = rule_idx;
-        rs.list_names = rule.list;
+        rs.list_names = route_rule_lists(rule);
         rs.outbound_tag = rule.outbound;
 
         if (is_blackhole) {
@@ -419,7 +419,7 @@ std::vector<RuleState> build_fw_rule_states(
             }
         }
 
-        for (const auto& list_name : rule.list) {
+        for (const auto& list_name : route_rule_lists(rule)) {
             auto list_cfg_it = lists_map.find(list_name);
             if (list_cfg_it == lists_map.end()) continue;
 
@@ -462,7 +462,7 @@ void prune_fw_rule_states_to_realized_sets(
         rs.set_names.clear();
 
         const auto& rule = route_rules[rs.rule_index];
-        for (const auto& list_name : rule.list) {
+        for (const auto& list_name : route_rule_lists(rule)) {
             auto list_cfg_it = lists_map.find(list_name);
             if (list_cfg_it == lists_map.end()) continue;
 

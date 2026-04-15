@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesBy9TMj data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesNobxev data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -213,7 +213,7 @@ namespace api {
     struct RouteRuleElement {
         std::optional<std::string> dest_addr;
         std::optional<std::string> dest_port;
-        std::vector<std::string> list;
+        std::optional<std::vector<std::string>> list;
         std::string outbound;
         std::optional<std::string> proto;
         std::optional<std::string> src_addr;
@@ -282,6 +282,8 @@ namespace api {
 
     enum class ResolverConfigSyncState : int { CONVERGED, CONVERGING, STALE };
 
+    enum class ResolverLiveStatus : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
+
     enum class HealthResponseStatus : int { RUNNING, STOPPED };
 
     struct HealthResponse {
@@ -291,6 +293,8 @@ namespace api {
         std::optional<std::string> resolver_config_hash_actual;
         std::optional<int64_t> resolver_config_hash_actual_ts;
         std::optional<ResolverConfigSyncState> resolver_config_sync_state;
+        std::optional<int64_t> resolver_last_probe_ts;
+        ResolverLiveStatus resolver_live_status;
         HealthResponseStatus status;
         std::string version;
     };
@@ -427,12 +431,10 @@ namespace api {
         RuntimeInterfaceStatusEnum status;
     };
 
-    enum class RuntimeOutboundStatusEnum : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
-
     struct RuntimeOutboundStateElement {
         std::optional<std::string> detail;
         std::vector<RuntimeInterfaceState> interfaces;
-        RuntimeOutboundStatusEnum status;
+        ResolverLiveStatus status;
         std::string tag;
         OutboundType type;
     };
@@ -441,7 +443,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesBy9TMj {
+    struct KeenPbrTypesNobxev {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -490,7 +492,7 @@ namespace api {
         std::optional<RuntimeInterfaceStatusEnum> runtime_interface_status;
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
         std::optional<RuntimeOutboundStateElement> runtime_outbound_state;
-        std::optional<RuntimeOutboundStatusEnum> runtime_outbound_status;
+        std::optional<ResolverLiveStatus> runtime_outbound_status;
         std::optional<ValidationErrorElement> validation_error;
     };
 }
@@ -633,8 +635,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesBy9TMj & x);
-    void to_json(json & j, const KeenPbrTypesBy9TMj & x);
+    void from_json(const json & j, KeenPbrTypesNobxev & x);
+    void to_json(json & j, const KeenPbrTypesNobxev & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -657,6 +659,9 @@ namespace api {
     void from_json(const json & j, ResolverConfigSyncState & x);
     void to_json(json & j, const ResolverConfigSyncState & x);
 
+    void from_json(const json & j, ResolverLiveStatus & x);
+    void to_json(json & j, const ResolverLiveStatus & x);
+
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
 
@@ -674,9 +679,6 @@ namespace api {
 
     void from_json(const json & j, RuntimeInterfaceStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceStatusEnum & x);
-
-    void from_json(const json & j, RuntimeOutboundStatusEnum & x);
-    void to_json(json & j, const RuntimeOutboundStatusEnum & x);
 
     inline void from_json(const json & j, ApiConfig& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
@@ -917,7 +919,7 @@ namespace api {
     inline void from_json(const json & j, RouteRuleElement& x) {
         x.dest_addr = get_stack_optional<std::string>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
-        x.list = get_stack_optional<std::vector<std::string>>(j, "list").value_or(std::vector<std::string>{});
+        x.list = get_stack_optional<std::vector<std::string>>(j, "list");
         x.outbound = j.at("outbound").get<std::string>();
         x.proto = get_stack_optional<std::string>(j, "proto");
         x.src_addr = get_stack_optional<std::string>(j, "src_addr");
@@ -1067,6 +1069,8 @@ namespace api {
         x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
         x.resolver_config_hash_actual_ts = get_stack_optional<int64_t>(j, "resolver_config_hash_actual_ts");
         x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
+        x.resolver_last_probe_ts = get_stack_optional<int64_t>(j, "resolver_last_probe_ts");
+        x.resolver_live_status = j.at("resolver_live_status").get<ResolverLiveStatus>();
         x.status = j.at("status").get<HealthResponseStatus>();
         x.version = j.at("version").get<std::string>();
     }
@@ -1079,6 +1083,8 @@ namespace api {
         j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
         j["resolver_config_hash_actual_ts"] = x.resolver_config_hash_actual_ts;
         j["resolver_config_sync_state"] = x.resolver_config_sync_state;
+        j["resolver_last_probe_ts"] = x.resolver_last_probe_ts;
+        j["resolver_live_status"] = x.resolver_live_status;
         j["status"] = x.status;
         j["version"] = x.version;
     }
@@ -1346,7 +1352,7 @@ namespace api {
     inline void from_json(const json & j, RuntimeOutboundStateElement& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
         x.interfaces = j.at("interfaces").get<std::vector<RuntimeInterfaceState>>();
-        x.status = j.at("status").get<RuntimeOutboundStatusEnum>();
+        x.status = j.at("status").get<ResolverLiveStatus>();
         x.tag = j.at("tag").get<std::string>();
         x.type = j.at("type").get<OutboundType>();
     }
@@ -1369,7 +1375,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesBy9TMj& x) {
+    inline void from_json(const json & j, KeenPbrTypesNobxev& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1418,11 +1424,11 @@ namespace api {
         x.runtime_interface_status = get_stack_optional<RuntimeInterfaceStatusEnum>(j, "RuntimeInterfaceStatus");
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
         x.runtime_outbound_state = get_stack_optional<RuntimeOutboundStateElement>(j, "RuntimeOutboundState");
-        x.runtime_outbound_status = get_stack_optional<RuntimeOutboundStatusEnum>(j, "RuntimeOutboundStatus");
+        x.runtime_outbound_status = get_stack_optional<ResolverLiveStatus>(j, "RuntimeOutboundStatus");
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesBy9TMj & x) {
+    inline void to_json(json & j, const KeenPbrTypesNobxev & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1584,6 +1590,24 @@ namespace api {
         }
     }
 
+    inline void from_json(const json & j, ResolverLiveStatus & x) {
+        if (j == "degraded") x = ResolverLiveStatus::DEGRADED;
+        else if (j == "healthy") x = ResolverLiveStatus::HEALTHY;
+        else if (j == "unavailable") x = ResolverLiveStatus::UNAVAILABLE;
+        else if (j == "unknown") x = ResolverLiveStatus::UNKNOWN;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const ResolverLiveStatus & x) {
+        switch (x) {
+            case ResolverLiveStatus::DEGRADED: j = "degraded"; break;
+            case ResolverLiveStatus::HEALTHY: j = "healthy"; break;
+            case ResolverLiveStatus::UNAVAILABLE: j = "unavailable"; break;
+            case ResolverLiveStatus::UNKNOWN: j = "unknown"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ResolverLiveStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
     inline void from_json(const json & j, HealthResponseStatus & x) {
         if (j == "running") x = HealthResponseStatus::RUNNING;
         else if (j == "stopped") x = HealthResponseStatus::STOPPED;
@@ -1671,24 +1695,6 @@ namespace api {
             case RuntimeInterfaceStatusEnum::UNAVAILABLE: j = "unavailable"; break;
             case RuntimeInterfaceStatusEnum::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeInterfaceStatusEnum\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, RuntimeOutboundStatusEnum & x) {
-        if (j == "degraded") x = RuntimeOutboundStatusEnum::DEGRADED;
-        else if (j == "healthy") x = RuntimeOutboundStatusEnum::HEALTHY;
-        else if (j == "unavailable") x = RuntimeOutboundStatusEnum::UNAVAILABLE;
-        else if (j == "unknown") x = RuntimeOutboundStatusEnum::UNKNOWN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
-    }
-
-    inline void to_json(json & j, const RuntimeOutboundStatusEnum & x) {
-        switch (x) {
-            case RuntimeOutboundStatusEnum::DEGRADED: j = "degraded"; break;
-            case RuntimeOutboundStatusEnum::HEALTHY: j = "healthy"; break;
-            case RuntimeOutboundStatusEnum::UNAVAILABLE: j = "unavailable"; break;
-            case RuntimeOutboundStatusEnum::UNKNOWN: j = "unknown"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeOutboundStatusEnum\": " + std::to_string(static_cast<int>(x)));
         }
     }
 }
