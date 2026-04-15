@@ -97,6 +97,49 @@ static std::string extract_txt_payload(const std::string& output) {
     return output.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
 }
 
+static std::vector<std::string> split_domains_from_ipset_line(const std::string& line,
+                                                               const std::string& list_name) {
+    const std::string prefix = "ipset=";
+    const std::string suffix =
+        "/" + DnsmasqGenerator::ipset_name_v4(list_name) + ","
+        + DnsmasqGenerator::ipset_name_v6(list_name);
+
+    if (line.rfind(prefix, 0) != 0 || line.size() < prefix.size() + suffix.size()) {
+        return {};
+    }
+    if (line.substr(line.size() - suffix.size()) != suffix) {
+        return {};
+    }
+
+    const std::string path = line.substr(prefix.size(), line.size() - prefix.size() - suffix.size());
+    std::vector<std::string> domains;
+    std::string current;
+    for (const char ch : path) {
+        if (ch == '/') {
+            if (!current.empty()) {
+                domains.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+        current.push_back(ch);
+    }
+    if (!current.empty()) {
+        domains.push_back(current);
+    }
+    return domains;
+}
+
+static std::string make_domain_with_len(size_t target_len, const std::string& seed) {
+    std::string domain = seed + ".";
+    if (domain.size() < target_len) {
+        domain += std::string(target_len - domain.size(), 'a');
+    } else if (domain.size() > target_len) {
+        domain.resize(target_len);
+    }
+    return domain;
+}
+
 // =============================================================================
 // Dynamic set naming tests (dnsmasq ipset=/nftset= directives)
 // =============================================================================
@@ -488,7 +531,7 @@ TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
     CHECK(nftset_output.find("server=/") == std::string::npos);
 }
 
-TEST_CASE("generate-resolver-config splits ipset directives to stay within 1024 chars per row") {
+TEST_CASE("generate-resolver-config keeps 1000 short domains within batch and line limits") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
 
@@ -497,8 +540,11 @@ TEST_CASE("generate-resolver-config splits ipset directives to stay within 1024 
     auto dns_cfg = make_empty_dns_cfg();
 
     std::vector<std::string> domains;
-    for (int i = 0; i < 120; ++i) {
-        domains.push_back("very-long-domain-part-" + std::to_string(i) + ".example.com");
+    std::set<std::string> expected_domains;
+    for (int i = 1; i <= 1000; ++i) {
+        const std::string domain = "d" + std::to_string(i) + ".gg";
+        domains.push_back(domain);
+        expected_domains.insert(domain);
     }
     auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
 
@@ -509,44 +555,70 @@ TEST_CASE("generate-resolver-config splits ipset directives to stay within 1024 
     std::istringstream lines(output);
     std::string line;
     size_t ipset_lines = 0;
+    std::set<std::string> emitted_domains;
     while (std::getline(lines, line)) {
         if (line.rfind("ipset=", 0) == 0) {
             ++ipset_lines;
             CHECK(line.size() <= 1024);
+            const auto line_domains = split_domains_from_ipset_line(line, list_name);
+            CHECK(line_domains.size() <= 50);
+            for (const auto& d : line_domains) {
+                emitted_domains.insert(d);
+            }
         }
     }
     CHECK(ipset_lines >= 2);
+    CHECK(emitted_domains == expected_domains);
 }
 
-TEST_CASE("generate-resolver-config splits server directives to stay within 1024 chars per row") {
+TEST_CASE("generate-resolver-config edge lengths 200..255 split rows safely and keep all domains") {
     CacheManager cache("/nonexistent/cache");
-    ListStreamer streamer(cache);
+    const std::string list_name(80, 'l');
 
-    const std::string list_name = "mylist";
-    auto route_cfg = make_route_cfg(list_name);
-    auto dns_cfg = make_dns_cfg(list_name, "dns1", "8.8.8.8:5353");
+    for (size_t variable_len = 200; variable_len <= 255; ++variable_len) {
+        CAPTURE(variable_len);
 
-    std::vector<std::string> domains;
-    for (int i = 0; i < 140; ++i) {
-        domains.push_back("very-long-domain-segment-" + std::to_string(i) + ".example.com");
-    }
-    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+        ListStreamer streamer(cache);
+        auto route_cfg = make_route_cfg(list_name);
+        auto dns_cfg = make_empty_dns_cfg();
 
-    DnsServerRegistry reg(dns_cfg);
-    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
-    const std::string output = run_generate(gen);
+        std::vector<std::string> domains;
+        std::set<std::string> expected_domains;
 
-    std::istringstream lines(output);
-    std::string line;
-    size_t server_lines = 0;
-    while (std::getline(lines, line)) {
-        if (line.rfind("server=/", 0) == 0) {
-            ++server_lines;
-            CHECK(line.size() <= 1024);
-            CHECK(line.find("#5353") != std::string::npos);
+        const std::string variable_domain = make_domain_with_len(variable_len, "a0");
+        domains.push_back(variable_domain);
+        expected_domains.insert(variable_domain);
+
+        for (int i = 1; i <= 9; ++i) {
+            const std::string domain = make_domain_with_len(200, "z" + std::to_string(i));
+            domains.push_back(domain);
+            expected_domains.insert(domain);
         }
+
+        auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg(domains)}};
+        DnsServerRegistry reg(dns_cfg);
+        DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+        const std::string output = run_generate(gen);
+
+        std::istringstream lines(output);
+        std::string line;
+        std::set<std::string> emitted_domains;
+
+        while (std::getline(lines, line)) {
+            if (line.rfind("ipset=", 0) != 0) {
+                continue;
+            }
+
+            CHECK(line.size() <= 1024);
+            const auto line_domains = split_domains_from_ipset_line(line, list_name);
+            CHECK((line_domains.size() == 3 || line_domains.size() == 4));
+            for (const auto& d : line_domains) {
+                emitted_domains.insert(d);
+            }
+        }
+
+        CHECK(emitted_domains == expected_domains);
     }
-    CHECK(server_lines >= 2);
 }
 
 TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
