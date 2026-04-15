@@ -640,11 +640,11 @@ components:
 
     RouteRule:
       type: object
-      required: [list, outbound]
+      required: [outbound]
       properties:
         list:
           type: array
-          description: List names whose traffic this rule matches.
+          description: List names whose traffic this rule matches. Optional when another route condition is present.
           items:
             type: string
           example: ["my-domains", "my-ips"]

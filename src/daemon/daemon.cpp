@@ -840,7 +840,7 @@ void Daemon::apply_firewall() {
         const bool is_pass = (rs.action_type == RuleActionType::Pass);
 
         // Create ipsets and stream entries for each list in the rule
-        for (const auto& list_name : rule.list) {
+        for (const auto& list_name : route_rule_lists(rule)) {
             auto list_cfg_it = lists_map.find(list_name);
             if (list_cfg_it == lists_map.end()) continue;
 

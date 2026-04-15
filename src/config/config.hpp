@@ -60,6 +60,11 @@ using ListsAutoupdateConfig = api::ListsAutoupdate;
 
 constexpr size_t kDefaultMaxFileSizeBytes = 8 * 1024 * 1024; // 8 MiB
 
+inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
+    static const std::vector<std::string> empty;
+    return rule.list ? *rule.list : empty;
+}
+
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);
