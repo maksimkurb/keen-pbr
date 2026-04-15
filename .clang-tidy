@@ -1,0 +1,7 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*
+HeaderFilterRegex: '^(src|tests|include)/'
+FormatStyle: none
+SystemHeaders: false

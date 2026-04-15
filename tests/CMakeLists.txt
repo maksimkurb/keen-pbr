@@ -86,6 +86,7 @@ target_link_libraries(keen-pbr-tests PRIVATE
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
 )
+keen_pbr_apply_project_options(keen-pbr-tests)
 
 if(LIBRESOLV)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})
@@ -118,4 +119,16 @@ if(WITH_API)
   if(HTTPLIB_ANL_LIB)
     target_link_libraries(keen-pbr-tests PRIVATE ${HTTPLIB_ANL_LIB})
   endif()
+endif()
+
+if(ENABLE_THREAD_SAFETY_ANALYSIS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_custom_target(thread-safety-smoke
+    COMMAND ${CMAKE_COMMAND}
+      -DCLANG_CXX=${CMAKE_CXX_COMPILER}
+      -DPROJECT_ROOT=${CMAKE_SOURCE_DIR}
+      -DSOURCE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/thread_safety_negative.cpp
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/thread_safety_smoke.cmake
+    COMMENT "Checking that thread-safety analysis rejects an unlocked access"
+    VERBATIM
+  )
 endif()

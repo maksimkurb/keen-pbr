@@ -1,20 +1,25 @@
 include version.mk
 
-BUILD_DIR := build/cmake
+GCC_BUILD_DIR := cmake-build-gcc
+CLANG_BUILD_DIR := cmake-build-clang
 DIST_DIR := build/dist
 ORVAL_VERSION := $(shell sed -n 's/.*"orval": "\([^"]*\)".*/\1/p' frontend/package.json | head -1)
 KEEN_PBR_VERSION_RELEASE := $(KEEN_PBR_VERSION)-$(KEEN_PBR_RELEASE)
 
 # Prefer an explicitly installed compiler when available; C++17 is required.
-CXX := $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
-CMAKE_CXX_FLAGS := -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+GCC_CXX ?= $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
+CLANG_CXX ?= clang++
+COMMON_CMAKE_FLAGS := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+GCC_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(GCC_CXX) $(COMMON_CMAKE_FLAGS)
+CLANG_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(CLANG_CXX) $(COMMON_CMAKE_FLAGS)
 
-SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
+SETUP_STAMP := $(GCC_BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
         frontend-build \
         frontend-api-generate \
         test \
+        clang-build clang-check clang-tidy \
         generate \
         cross-setup cross-build cross-deploy \
         help
@@ -24,13 +29,13 @@ SETUP_STAMP := $(BUILD_DIR)/.stamp-setup
 all: build ## Build for host (native)
 
 $(SETUP_STAMP): CMakeLists.txt version.mk include/keen-pbr/version.hpp.in
-	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS)
+	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS)
 	@touch $@
 
 setup: $(SETUP_STAMP) ## Configure CMake
 
 build: $(SETUP_STAMP) ## Compile the project
-	cmake --build $(BUILD_DIR)
+	cmake --build $(GCC_BUILD_DIR)
 
 frontend-build: ## Build frontend assets with bun
 	bash build_scripts/build-frontend.sh "$(abspath .)" "$(abspath frontend/dist)"
@@ -42,16 +47,28 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 	bash build_scripts/generate_api_types.sh
 
 test: ## Build and run unit tests (doctest)
-	cmake -S . -B $(BUILD_DIR) $(CMAKE_CXX_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(BUILD_DIR) --target keen-pbr-tests
-	$(BUILD_DIR)/tests/keen-pbr-tests
+	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
+	cmake --build $(GCC_BUILD_DIR) --target keen-pbr-tests
+	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
+
+clang-build: ## Configure and compile with Clang in a host-only build dir
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS)
+	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr
+
+clang-check: ## Compile with Clang thread-safety analysis enabled; never runs binaries
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
+	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr keen-pbr-tests thread-safety-smoke
+
+clang-tidy: ## Run clang-tidy against project-owned sources using the Clang compile database
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
+	bash build_scripts/run-clang-tidy.sh "$(abspath $(CLANG_BUILD_DIR))"
 
 clean: ## Remove compiled artifacts
-	rm -rf build/cmake build/cmake-aarch64 build/cross-toolchain build/dist \
+	rm -rf $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR) build/cmake-aarch64 build/cross-toolchain build/dist \
 	       build/debian-src-full build/debian-src-headless build/packages
 
 distclean: ## Remove all build artifacts including downloaded SDKs
-	rm -rf build/
+	rm -rf build/ $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR)
 
 ## Cross-compilation for aarch64_cortex-a53 + deploy ##########################
 

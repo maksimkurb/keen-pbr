@@ -223,8 +223,8 @@ private:
         int fd;
         FdCallback callback;
     };
-    std::vector<FdEntry> fd_entries_;
     mutable TracedMutex fd_entries_mutex_;
+    std::vector<FdEntry> fd_entries_ GUARDED_BY(fd_entries_mutex_);
 
     int pid_file_fd_{-1};
     int control_fd_{-1};
@@ -233,8 +233,8 @@ private:
         std::string label;
         TraceId trace_id{0};
     };
-    std::vector<ControlTask> control_tasks_;
     TracedMutex control_tasks_mutex_;
+    std::vector<ControlTask> control_tasks_ GUARDED_BY(control_tasks_mutex_);
 
 #ifdef WITH_API
     TracedMutex config_op_mutex_;

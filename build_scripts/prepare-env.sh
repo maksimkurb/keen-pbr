@@ -53,11 +53,17 @@ if apt-cache show g++-13 >/dev/null 2>&1; then
     COMPILER_PACKAGES=(gcc-13 g++-13)
 fi
 
+ANALYSIS_PACKAGES=(
+    clang
+    clang-tidy
+)
+
 echo "==> Installing native build dependencies"
 "${APT_RUN[@]}" apt-get update
 "${APT_RUN[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     "${COMMON_PACKAGES[@]}" \
     "${DEV_PACKAGES[@]}" \
+    "${ANALYSIS_PACKAGES[@]}" \
     "${COMPILER_PACKAGES[@]}"
 
 if ! command -v bun >/dev/null 2>&1; then
@@ -91,3 +97,6 @@ echo "Next steps:"
 echo "  cd ${ROOT_DIR}"
 echo "  make"
 echo "  make test"
+echo "  make clang-build"
+echo "  make clang-check"
+echo "  make clang-tidy"

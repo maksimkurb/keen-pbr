@@ -1,0 +1,62 @@
+name: Clang analysis
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'dev'
+      - 'dev-*'
+    paths:
+      - '.clang-tidy'
+      - '.github/workflows/**'
+      - 'build_scripts/**'
+      - 'cmake/**'
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - 'Makefile'
+      - 'version.mk'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  clang-analysis:
+    name: clang-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            clang-tidy \
+            cmake \
+            pkg-config \
+            libcurl4-openssl-dev \
+            libnl-3-dev \
+            libnl-route-3-dev
+
+      - name: Fail on Clang compiler warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clang-check 2>&1 | tee /tmp/clang-check.log
+          if grep -E ':[0-9]+:[0-9]+: warning:' /tmp/clang-check.log >/dev/null; then
+            echo "Clang emitted warnings during make clang-check" >&2
+            exit 1
+          fi
+
+      - name: Fail on clang-tidy warnings
+        run: |
+          cmake -S . -B cmake-build-clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DBUILD_TESTS=ON \
+            -DENABLE_THREAD_SAFETY_ANALYSIS=ON
+          bash build_scripts/run-clang-tidy.sh "$(pwd)/cmake-build-clang" --warnings-as-errors=*

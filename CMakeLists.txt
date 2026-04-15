@@ -48,6 +48,7 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 # Options
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
+option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
@@ -100,6 +101,21 @@ if(WITH_API)
   endif()
   add_subdirectory(third_party/cpp-httplib)
 endif()
+
+add_library(keen_pbr_project_options INTERFACE)
+if(ENABLE_THREAD_SAFETY_ANALYSIS)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(keen_pbr_project_options INTERFACE
+      -Wthread-safety
+    )
+  else()
+    message(WARNING "ENABLE_THREAD_SAFETY_ANALYSIS is only supported with Clang; no extra diagnostics will be added.")
+  endif()
+endif()
+
+function(keen_pbr_apply_project_options target_name)
+  target_link_libraries(${target_name} PRIVATE keen_pbr_project_options)
+endfunction()
 
 # Sources
 set(SOURCES
@@ -206,6 +222,7 @@ target_link_libraries(keen-pbr PRIVATE
   fmt::fmt-header-only
   nlohmann_json::nlohmann_json
 )
+keen_pbr_apply_project_options(keen-pbr)
 
 if(LIBATOMIC)
   target_link_libraries(keen-pbr PRIVATE ${LIBATOMIC})

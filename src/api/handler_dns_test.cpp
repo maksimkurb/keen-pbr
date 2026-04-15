@@ -48,9 +48,9 @@ void register_dns_test_handler(ApiServer& server, ApiContext& ctx) {
                 std::string next_message;
                 {
                     KPBR_UNIQUE_LOCK(lock, subscription->mutex);
-                    subscription->cv.wait(lock, [&]() {
-                        return subscription->closed || !subscription->messages.empty();
-                    });
+                    while (!subscription->closed && subscription->messages.empty()) {
+                        subscription->cv.wait(lock);
+                    }
 
                     if (subscription->messages.empty()) {
                         Logger::instance().trace("sse_done", "path=/api/dns/test");

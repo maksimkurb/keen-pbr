@@ -47,6 +47,16 @@ This README is intentionally short. Full installation, configuration, packaging,
 | Configuration reference | https://keen-pbr.fyi/docs/configuration/ |
 | API reference | https://keen-pbr.fyi/docs/api/ |
 
+## Development
+
+Native host builds use top-level `cmake-build-*` directories:
+
+- `make` builds with GCC in `cmake-build-gcc`
+- `make test` builds and runs tests with GCC in `cmake-build-gcc`
+- `make clang-build` performs a compile-only Clang build in `cmake-build-clang`
+- `make clang-check` compiles app and tests with Clang thread-safety analysis enabled, but does not run any Clang-built binary
+- `make clang-tidy` runs static analysis on project-owned `src/`, `tests/`, and `include/` code via the Clang compilation database
+
 ## Community
 
 | Need | Link |

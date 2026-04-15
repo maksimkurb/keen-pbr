@@ -35,7 +35,7 @@ public:
 
 private:
     mutable TracedSharedMutex mutex_;
-    RuntimeStateSnapshot snapshot_;
+    RuntimeStateSnapshot snapshot_ GUARDED_BY(mutex_);
 };
 
 } // namespace keen_pbr3
