@@ -86,7 +86,6 @@ target_link_libraries(keen-pbr-tests PRIVATE
   PkgConfig::LIBNL_ROUTE
   fmt::fmt-header-only
 )
-keen_pbr_apply_project_options(keen-pbr-tests)
 
 if(LIBRESOLV)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})

@@ -1,7 +1,8 @@
 Checks: >
   -*,
   clang-analyzer-*,
-  bugprone-*
+  bugprone-*,
+  -bugprone-easily-swappable-parameters
 HeaderFilterRegex: '^(src|tests|include)/'
 FormatStyle: none
 SystemHeaders: false
