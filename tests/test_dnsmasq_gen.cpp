@@ -141,6 +141,21 @@ static std::string make_domain_with_len(size_t target_len, const std::string& se
     return domain;
 }
 
+static size_t calc_ipset_line_len(const std::string& list_name,
+                                  const std::vector<size_t>& domain_lengths) {
+    const size_t prefix_len = std::string("ipset=").size();
+    const std::string set4 = DnsmasqGenerator::ipset_name_v4(list_name);
+    const std::string set6 = DnsmasqGenerator::ipset_name_v6(list_name);
+    const size_t suffix_len = 1 + set4.size() + 1 + set6.size();
+
+    size_t path_len = 0;
+    for (size_t domain_len : domain_lengths) {
+        path_len += 1 + domain_len; // "/<domain>"
+    }
+
+    return prefix_len + path_len + suffix_len;
+}
+
 // =============================================================================
 // Dynamic set naming tests (dnsmasq ipset=/nftset= directives)
 // =============================================================================
@@ -604,23 +619,37 @@ TEST_CASE("generate-resolver-config edge lengths 200..255 split rows safely and 
         std::istringstream lines(output);
         std::string line;
         std::set<std::string> emitted_domains;
-        size_t ipset_lines = 0;
+        std::vector<size_t> line_domain_counts;
 
         while (std::getline(lines, line)) {
             if (line.rfind("ipset=", 0) != 0) {
                 continue;
             }
-            ++ipset_lines;
 
             CHECK(line.size() <= 1024);
             const auto line_domains = split_domains_from_ipset_line(line, list_name);
-            CHECK((line_domains.size() >= 2 && line_domains.size() <= 4));
+            line_domain_counts.push_back(line_domains.size());
             for (const auto& d : line_domains) {
                 emitted_domains.insert(d);
             }
         }
 
-        CHECK((ipset_lines == 3 || ipset_lines == 4));
+        // Manual check for why "2 domains in a line" can be valid:
+        // line_len = len("ipset=") + sum(len("/" + domain_i)) + len("/set4,set6")
+        // For this test list_name (len=80), fixed overhead is 182 chars.
+        // Thus:
+        //   4x200 domains => 182 + 4*201 = 986 (fits)
+        //   (variable + 3x200) fits while variable <= 238 (hits 1024 at 238)
+        //   variable >= 239 forces first chunk to 3 domains.
+        CHECK(calc_ipset_line_len(list_name, {200, 200, 200, 200}) == 986);
+        const bool first_chunk_fits =
+            calc_ipset_line_len(list_name, {variable_len, 200, 200, 200}) <= 1024;
+        CHECK(first_chunk_fits == (variable_len <= 238));
+
+        const std::vector<size_t> expected_counts =
+            (variable_len <= 238) ? std::vector<size_t>{4, 4, 2}
+                                  : std::vector<size_t>{3, 4, 3};
+        CHECK(line_domain_counts == expected_counts);
         CHECK(emitted_domains == expected_domains);
     }
 }
