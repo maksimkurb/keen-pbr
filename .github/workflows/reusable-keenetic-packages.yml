@@ -45,7 +45,7 @@ jobs:
           build_scope = os.environ["BUILD_SCOPE"]
           raw = os.environ.get("CONFIGS_INPUT", "")
           if build_scope == "default":
-              builds = ["mipsel-3.4.config"]
+              builds = ["mipsel-3.4.config", "aarch64-3.10.config"]
           else:
               selected = [item.strip() for item in raw.split(",") if item.strip()]
               builds = [cfg for cfg in all_configs if cfg in selected] if selected else all_configs

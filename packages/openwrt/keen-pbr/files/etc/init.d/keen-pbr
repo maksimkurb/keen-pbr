@@ -18,6 +18,53 @@ CONFIG=/etc/keen-pbr/config.json
 HELPER=/usr/lib/keen-pbr/dnsmasq.sh
 PIDFILE=/var/run/keen-pbr.pid
 
+script_name() {
+    basename "${initscript:-$0}"
+}
+
+rc_root() {
+    printf '%s' "${IPKG_INSTROOT:-}"
+}
+
+start_link_path() {
+    printf '%s/etc/rc.d/S%02d%s' "$(rc_root)" "$START" "$(script_name)"
+}
+
+stop_link_path() {
+    printf '%s/etc/rc.d/K%02d%s' "$(rc_root)" "$STOP" "$(script_name)"
+}
+
+is_enabled() {
+    [ -L "$(start_link_path)" ] || [ -L "$(stop_link_path)" ]
+}
+
+enable() {
+    local root name
+
+    root="$(rc_root)"
+    name="$(script_name)"
+
+    mkdir -p "$root/etc/rc.d"
+    ln -sf "../init.d/${name}" "$(start_link_path)"
+    ln -sf "../init.d/${name}" "$(stop_link_path)"
+
+    [ -n "$IPKG_INSTROOT" ] && return 0
+
+    if [ -x "$HELPER" ]; then
+        "$HELPER" install-persistent || return 1
+    fi
+}
+
+disable() {
+    rm -f "$(start_link_path)" "$(stop_link_path)"
+
+    [ -n "$IPKG_INSTROOT" ] && return 0
+
+    if [ -x "$HELPER" ]; then
+        "$HELPER" uninstall-persistent || return 1
+    fi
+}
+
 start_service() {
     [ -x "$PROG" ] || return 1
     [ -f "$CONFIG" ] || return 1
@@ -39,6 +86,7 @@ start_service() {
 
 stop_service() {
     [ -n "$KEEN_PBR_SKIP_DNSMASQ" ] && return 0
+    is_enabled || return 0
 
     if [ -x "$HELPER" ]; then
         "$HELPER" deactivate || true
