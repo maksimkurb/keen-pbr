@@ -604,20 +604,23 @@ TEST_CASE("generate-resolver-config edge lengths 200..255 split rows safely and 
         std::istringstream lines(output);
         std::string line;
         std::set<std::string> emitted_domains;
+        size_t ipset_lines = 0;
 
         while (std::getline(lines, line)) {
             if (line.rfind("ipset=", 0) != 0) {
                 continue;
             }
+            ++ipset_lines;
 
             CHECK(line.size() <= 1024);
             const auto line_domains = split_domains_from_ipset_line(line, list_name);
-            CHECK((line_domains.size() == 3 || line_domains.size() == 4));
+            CHECK((line_domains.size() >= 2 && line_domains.size() <= 4));
             for (const auto& d : line_domains) {
                 emitted_domains.insert(d);
             }
         }
 
+        CHECK((ipset_lines == 3 || ipset_lines == 4));
         CHECK(emitted_domains == expected_domains);
     }
 }
