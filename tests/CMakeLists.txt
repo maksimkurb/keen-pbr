@@ -122,12 +122,41 @@ if(WITH_API)
 endif()
 
 if(ENABLE_THREAD_SAFETY_ANALYSIS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(THREAD_SAFETY_SMOKE_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/thread_safety_smoke.cmake")
+  file(WRITE "${THREAD_SAFETY_SMOKE_SCRIPT}" [=[
+execute_process(
+  COMMAND
+    "${CLANG_CXX}"
+    -std=c++17
+    -I
+    "${PROJECT_ROOT}/include"
+    -Wthread-safety
+    -Werror=thread-safety
+    -fsyntax-only
+    "${SOURCE_FILE}"
+  RESULT_VARIABLE smoke_result
+  OUTPUT_VARIABLE smoke_stdout
+  ERROR_VARIABLE smoke_stderr
+)
+
+set(smoke_output "${smoke_stdout}${smoke_stderr}")
+
+if(smoke_result EQUAL 0)
+  message(FATAL_ERROR "Thread-safety smoke test unexpectedly compiled cleanly.\n${smoke_output}")
+endif()
+
+string(FIND "${smoke_output}" "requires holding" smoke_match)
+if(smoke_match EQUAL -1)
+  message(FATAL_ERROR "Thread-safety smoke test failed for an unexpected reason.\n${smoke_output}")
+endif()
+]=])
+
   add_custom_target(thread-safety-smoke
     COMMAND ${CMAKE_COMMAND}
       -DCLANG_CXX=${CMAKE_CXX_COMPILER}
       -DPROJECT_ROOT=${CMAKE_SOURCE_DIR}
       -DSOURCE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/thread_safety_negative.cpp
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/thread_safety_smoke.cmake
+      -P ${THREAD_SAFETY_SMOKE_SCRIPT}
     COMMENT "Checking that thread-safety analysis rejects an unlocked access"
     VERBATIM
   )
