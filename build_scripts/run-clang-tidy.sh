@@ -31,7 +31,11 @@ if [[ -z "${CLANG_TIDY_BIN}" ]]; then
     exit 1
 fi
 
-mapfile -t FILES < <(rg --files src tests include -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' -g '*.h' -g '*.hpp' | sort)
+mapfile -t FILES < <(
+    find src tests include -type f \
+        \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.h' -o -name '*.hpp' \) \
+        | sort
+)
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
     echo "No project files matched for clang-tidy." >&2
