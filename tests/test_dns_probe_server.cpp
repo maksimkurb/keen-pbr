@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/dns/dns_probe_server.hpp"
+#include "../src/dns/dns_server.hpp"
 
 #include <array>
 
