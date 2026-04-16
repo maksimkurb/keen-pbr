@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -37,12 +38,15 @@ class Firewall;
 class Scheduler;
 class UrltestManager;
 class DnsProbeServer;
+struct DnsProbeEvent;
 
 #ifdef WITH_API
 enum class ConfigOperationState : uint8_t;
 class ApiServer;
 struct ApiContext;
 class SseBroadcaster;
+struct ConfigApplyResult;
+struct ListRefreshOperationResult;
 #endif
 
 class DaemonError : public std::runtime_error {
@@ -133,7 +137,7 @@ public:
     bool running() const;
 
 private:
-    // Epoll/signal setup
+    // control loop and fd registration
     void setup_signals();
     void handle_signal();
     void setup_control_channel();
@@ -148,12 +152,21 @@ private:
     void handle_interface_state_change(const std::string& interface_name, bool is_up);
     bool is_interface_outbound_in_use(const std::string& interface_name) const;
     void refresh_iproute_and_firewall_runtime();
+    void dispatch_event_fd(int fd, uint32_t events);
+    void run_event_loop();
 
-    // Business logic methods
+    // lifecycle and runtime apply
     void setup_static_routing();
     void apply_firewall();
     void download_uncached_lists();
     void register_urltest_outbounds();
+    void handle_urltest_selection_change(const std::string& urltest_tag,
+                                         const std::string& new_child_tag);
+    void commit_urltest_probe_results(const std::string& urltest_tag,
+                                      std::uint64_t probe_generation,
+                                      std::map<std::string, URLTestResult> results,
+                                      TraceId trace_id,
+                                      std::uint64_t runtime_generation_snapshot);
     void apply_config(Config config, bool refresh_remote_lists = true);
     void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared);
     PreparedRuntimeInputs prepare_runtime_inputs(const Config& config,
@@ -170,19 +183,53 @@ private:
         const std::set<std::string>* target_lists = nullptr);
     void refresh_lists_and_maybe_reload();
     void refresh_lists_and_maybe_reload_async();
-    void refresh_resolver_config_hash_actual_async();
-    void maybe_schedule_resolver_config_hash_actual_refresh();
-    void schedule_resolver_config_hash_actual_retry();
+    void commit_lists_refresh_async_result(Config config_snapshot,
+                                           bool runtime_active_snapshot,
+                                           std::uint64_t generation,
+                                           std::optional<RemoteListsRefreshResult> refresh_result,
+                                           std::string error,
+                                           TraceId trace_id);
 
     // PID file management
     void write_pid_file();
     void remove_pid_file();
 
+    // state publication and resolver sync
+    void refresh_resolver_config_hash_actual_async();
+    void maybe_schedule_resolver_config_hash_actual_refresh();
+    void schedule_resolver_config_hash_actual_retry();
+    void reset_resolver_actual_state();
+    void commit_resolver_hash_probe_result(const std::string& resolver_addr,
+                                           std::uint64_t generation,
+                                           std::optional<ResolverConfigHashProbeResult> probe_result,
+                                           std::optional<std::int64_t> probe_completed_ts,
+                                           TraceId trace_id);
+
 #ifdef WITH_API
+    // API integration
     void setup_api();
+    void finish_config_operation();
+    void begin_config_operation_or_throw(ConfigOperationState state,
+                                         const char* reason,
+                                         bool require_runtime_running,
+                                         bool require_runtime_stopped);
+    ConfigApplyResult apply_validated_config_via_control_task(
+        Config config,
+        std::string saved_config_json);
+    void run_runtime_control_operation_or_throw(const std::string& label,
+                                                const char* operation_name,
+                                                std::function<void()> task);
+    ListRefreshOperationResult refresh_lists_via_api(std::optional<std::string> requested_name);
 #endif
+
+    // DNS probe integration
     void setup_dns_probe();
     void teardown_dns_probe();
+    void handle_dns_probe_query_event(const DnsProbeEvent& event);
+    void handle_dns_probe_udp_events(uint32_t events);
+    void handle_dns_probe_tcp_listener_events(uint32_t events);
+    void handle_dns_probe_tcp_client_events(int client_fd, uint32_t events);
+    void handle_dns_probe_tcp_timer_events(uint32_t events);
 
     // Hash of the current domain-to-ipset mapping (matches dnsmasq txt-record)
     std::string resolver_config_hash_;

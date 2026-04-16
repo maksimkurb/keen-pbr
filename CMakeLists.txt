@@ -160,7 +160,11 @@ set(SOURCES
   src/dns/dns_router.cpp
   src/dns/dnsmasq_gen.cpp
   src/daemon/config_store.cpp
-  src/daemon/daemon.cpp
+  src/daemon/daemon_core.cpp
+  src/daemon/daemon_runtime.cpp
+  src/daemon/daemon_resolver.cpp
+  src/daemon/daemon_api.cpp
+  src/daemon/daemon_dns_probe.cpp
   src/daemon/list_service.cpp
   src/daemon/resolver_health.cpp
   src/daemon/runtime_state_store.cpp
