@@ -86,9 +86,7 @@ bool ListParser::is_domain(std::string_view s) {
         char c = s[i];
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
             has_alpha = true;
-        } else if (c >= '0' && c <= '9') {
-            // ok
-        } else if (c == '-' || c == '_') {
+        } else if ((c >= '0' && c <= '9') || c == '-' || c == '_') {
             // ok (hyphen/underscore allowed in labels)
         } else if (c == '.') {
             // dot separating labels
@@ -105,10 +103,12 @@ bool ListParser::classify_entry(std::string_view entry, ListEntryVisitor& visito
     if (is_cidr_v4(entry) || is_cidr_v6(entry)) {
         visitor.on_entry(EntryType::Cidr, entry);
         return true;
-    } else if (is_ipv4(entry) || is_ipv6(entry)) {
+    }
+    if (is_ipv4(entry) || is_ipv6(entry)) {
         visitor.on_entry(EntryType::Ip, entry);
         return true;
-    } else if (is_domain(entry)) {
+    }
+    if (is_domain(entry)) {
         visitor.on_entry(EntryType::Domain, entry);
         return true;
     }

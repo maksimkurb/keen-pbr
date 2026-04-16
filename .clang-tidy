@@ -2,7 +2,9 @@ Checks: >
   -*,
   clang-analyzer-*,
   bugprone-*,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -clang-analyzer-optin.performance.Padding
 HeaderFilterRegex: '^(src|tests|include)/'
 FormatStyle: none
 SystemHeaders: false

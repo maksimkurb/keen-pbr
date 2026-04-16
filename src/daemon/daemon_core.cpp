@@ -101,25 +101,31 @@ Daemon::Daemon(Config config,
 }
 
 Daemon::~Daemon() {
-    accept_posted_control_tasks_.store(false, std::memory_order_release);
-    blocking_executor_.shutdown();
+    try {
+        accept_posted_control_tasks_.store(false, std::memory_order_release);
+        blocking_executor_.shutdown();
 
-    if (control_fd_ >= 0) {
-        epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, control_fd_, nullptr);
-        close(control_fd_);
-        control_fd_ = -1;
-    }
-    if (signal_fd_ >= 0) {
-        epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
-        close(signal_fd_);
-        signal_fd_ = -1;
-    }
-    if (epoll_fd_ >= 0) {
-        close(epoll_fd_);
-        epoll_fd_ = -1;
-    }
+        if (control_fd_ >= 0) {
+            epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, control_fd_, nullptr);
+            close(control_fd_);
+            control_fd_ = -1;
+        }
+        if (signal_fd_ >= 0) {
+            epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
+            close(signal_fd_);
+            signal_fd_ = -1;
+        }
+        if (epoll_fd_ >= 0) {
+            close(epoll_fd_);
+            epoll_fd_ = -1;
+        }
 
-    unblock_daemon_signals_for_current_thread();
+        unblock_daemon_signals_for_current_thread();
+    } catch (const std::exception& e) {
+        Logger::instance().error("Daemon destruction cleanup failed: {}", e.what());
+    } catch (...) {
+        Logger::instance().error("Daemon destruction cleanup failed: unknown error");
+    }
 }
 
 void Daemon::setup_control_channel() {

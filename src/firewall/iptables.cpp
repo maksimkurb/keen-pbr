@@ -17,9 +17,13 @@ IptablesFirewall::IptablesFirewall() = default;
 
 IptablesFirewall::~IptablesFirewall() {
     try {
-        cleanup();
+        cleanup_impl();
+    } catch (const std::exception& e) {
+        Logger::instance().error("IptablesFirewall cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Best-effort cleanup in destructor
+        Logger::instance().error(
+            "IptablesFirewall cleanup failed during destruction: unknown error");
     }
 }
 
@@ -184,6 +188,7 @@ std::string IptablesFirewall::build_prefilter_lines(
     }
 
     if (prefilter.has_inbound_interfaces()
+        && prefilter.inbound_interfaces.has_value()
         && prefilter.inbound_interfaces->size() == 1) {
         lines += keen_pbr3::format(
             "-A {} ! -i {} -j RETURN\n",
@@ -201,6 +206,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
     // multi-interface allowlists are expanded into one positive -i match per rule.
     std::vector<std::string> iface_frags;
     if (prefilter.has_inbound_interfaces()
+        && prefilter.inbound_interfaces.has_value()
         && prefilter.inbound_interfaces->size() > 1) {
         iface_frags.reserve(prefilter.inbound_interfaces->size());
         for (const auto& iface : *prefilter.inbound_interfaces) {
@@ -356,7 +362,7 @@ void IptablesFirewall::apply() {
     pending_rules_.clear();
 }
 
-void IptablesFirewall::cleanup() {
+void IptablesFirewall::cleanup_impl() {
     auto& log = Logger::instance();
 
     // Remove jump rules, flush and delete custom chain for IPv4
@@ -388,6 +394,10 @@ void IptablesFirewall::cleanup() {
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
+}
+
+void IptablesFirewall::cleanup() {
+    cleanup_impl();
 }
 
 FirewallBackend IptablesFirewall::backend() const {

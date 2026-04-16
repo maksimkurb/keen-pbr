@@ -103,8 +103,9 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     auto result = std::make_shared<ConfigApplyResult>();
     auto prepared = std::make_shared<PreparedRuntimeInputs>();
     auto rollback_prepared = std::make_shared<PreparedRuntimeInputs>();
-    result->apply_started_ts = unix_timestamp_now_seconds();
-    apply_started_ts_.store(*result->apply_started_ts, std::memory_order_release);
+    const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
+    result->apply_started_ts = apply_started_ts;
+    apply_started_ts_.store(apply_started_ts, std::memory_order_release);
 
     try {
         *prepared = prepare_runtime_inputs(config, true);

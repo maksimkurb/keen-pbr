@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <stdexcept>
@@ -58,7 +59,7 @@ using IprouteConfig        = api::Iproute;
 using ListsAutoupdateConfig = api::ListsAutoupdate;
 // Note: DnsRule.list (not .lists) and RouteRule.list (not .lists) match JSON keys.
 
-constexpr size_t kDefaultMaxFileSizeBytes = 8 * 1024 * 1024; // 8 MiB
+constexpr std::size_t kDefaultMaxFileSizeBytes = std::size_t{8} * 1024U * 1024U; // 8 MiB
 
 inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
     static const std::vector<std::string> empty;

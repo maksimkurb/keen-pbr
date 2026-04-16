@@ -9,6 +9,22 @@ namespace keen_pbr3 {
 
 namespace {
 
+uint16_t parse_dns_port_or_throw(const std::string& address, std::string_view port_str) {
+    uint32_t port = 0;
+    auto [ptr, ec] = std::from_chars(port_str.data(),
+                                     port_str.data() + port_str.size(),
+                                     port);
+    if (ec != std::errc{} || ptr != port_str.data() + port_str.size()) {
+        throw DnsError("Invalid DNS server address: '" + address +
+                       "' (non-numeric port)");
+    }
+    if (port < 1 || port > 65535) {
+        throw DnsError("Invalid DNS server address: '" + address +
+                       "' (port out of range 1-65535)");
+    }
+    return static_cast<uint16_t>(port);
+}
+
 bool is_valid_ipv4(const std::string& addr) {
     int dots = 0;
     size_t start = 0;
@@ -66,48 +82,22 @@ ParsedDnsAddress parse_dns_address_str(const std::string& address) {
                 throw DnsError("Invalid DNS server address: '" + address +
                                "' (expected ':' after ']')");
             }
-            const std::string port_str = address.substr(close + 2);
-            uint32_t p = 0;
-            auto [ptr, ec] = std::from_chars(port_str.data(),
-                                              port_str.data() + port_str.size(), p);
-            if (ec != std::errc{} || ptr != port_str.data() + port_str.size()) {
-                throw DnsError("Invalid DNS server address: '" + address +
-                               "' (non-numeric port)");
-            }
-            if (p < 1 || p > 65535) {
-                throw DnsError("Invalid DNS server address: '" + address +
-                               "' (port out of range 1-65535)");
-            }
-            port = static_cast<uint16_t>(p);
+            port = parse_dns_port_or_throw(address,
+                                           std::string_view(address).substr(close + 2));
         }
     } else {
         int colon_count = 0;
         for (char c : address) {
             if (c == ':') ++colon_count;
         }
-        if (colon_count > 1) {
-            // Bare IPv6 (no brackets, no port)
-            ip   = address;
-            port = 53;
-        } else if (colon_count == 1) {
+        if (colon_count == 1) {
             // IPv4:port
             auto sep = address.find(':');
             ip = address.substr(0, sep);
-            const std::string port_str = address.substr(sep + 1);
-            uint32_t p = 0;
-            auto [ptr, ec] = std::from_chars(port_str.data(),
-                                              port_str.data() + port_str.size(), p);
-            if (ec != std::errc{} || ptr != port_str.data() + port_str.size()) {
-                throw DnsError("Invalid DNS server address: '" + address +
-                               "' (non-numeric port)");
-            }
-            if (p < 1 || p > 65535) {
-                throw DnsError("Invalid DNS server address: '" + address +
-                               "' (port out of range 1-65535)");
-            }
-            port = static_cast<uint16_t>(p);
+            port = parse_dns_port_or_throw(address,
+                                           std::string_view(address).substr(sep + 1));
         } else {
-            // Bare IPv4
+            // Bare IPv4 or IPv6 without an explicit port.
             ip   = address;
             port = 53;
         }

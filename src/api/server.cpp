@@ -58,7 +58,7 @@ std::string get_mime_type_for_path(const std::filesystem::path& path) {
 }
 
 bool read_file(const std::filesystem::path& path, std::string& output) {
-    constexpr std::uintmax_t kMaxStaticFileSize = 32 * 1024 * 1024; // 32 MiB
+    constexpr std::uintmax_t kMaxStaticFileSize = std::uintmax_t{32} * 1024U * 1024U; // 32 MiB
 
     std::error_code ec;
     auto file_size = std::filesystem::file_size(path, ec);

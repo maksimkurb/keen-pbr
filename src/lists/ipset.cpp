@@ -164,21 +164,24 @@ bool IpSet::parse_ipv6(std::string_view s, std::array<uint8_t, 16>& out) {
         // Build full 8-group list
         int out_idx = 0;
         for (int i = 0; i < double_colon_pos && i < total_groups; ++i) {
-            out[out_idx * 2] = static_cast<uint8_t>(groups[i] >> 8);
-            out[out_idx * 2 + 1] = static_cast<uint8_t>(groups[i] & 0xFF);
+            const std::size_t byte_offset = static_cast<std::size_t>(out_idx) * 2U;
+            out[byte_offset] = static_cast<uint8_t>(groups[i] >> 8);
+            out[byte_offset + 1U] = static_cast<uint8_t>(groups[i] & 0xFF);
             ++out_idx;
         }
         out_idx += missing; // skip zero-filled groups
         for (int i = double_colon_pos; i < total_groups; ++i) {
-            out[out_idx * 2] = static_cast<uint8_t>(groups[i] >> 8);
-            out[out_idx * 2 + 1] = static_cast<uint8_t>(groups[i] & 0xFF);
+            const std::size_t byte_offset = static_cast<std::size_t>(out_idx) * 2U;
+            out[byte_offset] = static_cast<uint8_t>(groups[i] >> 8);
+            out[byte_offset + 1U] = static_cast<uint8_t>(groups[i] & 0xFF);
             ++out_idx;
         }
     } else {
         if (groups.size() != 8) return false;
-        for (int i = 0; i < 8; ++i) {
-            out[i * 2] = static_cast<uint8_t>(groups[i] >> 8);
-            out[i * 2 + 1] = static_cast<uint8_t>(groups[i] & 0xFF);
+        for (std::size_t i = 0; i < 8U; ++i) {
+            const std::size_t byte_offset = i * 2U;
+            out[byte_offset] = static_cast<uint8_t>(groups[i] >> 8);
+            out[byte_offset + 1U] = static_cast<uint8_t>(groups[i] & 0xFF);
         }
     }
 

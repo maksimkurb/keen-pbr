@@ -15,7 +15,7 @@ class NftablesFirewall : public Firewall {
 public:
     // Initialize the nftables backend; does not modify firewall state yet.
     NftablesFirewall();
-    // Destructor; does not call cleanup() — caller must do so explicitly.
+    // Destructor performs best-effort cleanup without virtual dispatch.
     ~NftablesFirewall() override;
 
     // Buffer an nftables named set (ipv4_addr/ipv6_addr, optional timeout).
@@ -54,6 +54,7 @@ public:
 private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
+    void cleanup_impl();
 
     // Describes an nftables named set to be created.
     struct PendingSet {

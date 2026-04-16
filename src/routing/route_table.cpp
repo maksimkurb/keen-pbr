@@ -30,8 +30,11 @@ RouteTable::~RouteTable() {
     // Best-effort cleanup on destruction
     try {
         clear();
+    } catch (const std::exception& e) {
+        Logger::instance().error("RouteTable cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Suppress exceptions in destructor
+        Logger::instance().error("RouteTable cleanup failed during destruction: unknown error");
     }
 }
 

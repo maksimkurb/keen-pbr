@@ -16,9 +16,13 @@ NftablesFirewall::NftablesFirewall() = default;
 
 NftablesFirewall::~NftablesFirewall() {
     try {
-        cleanup();
+        cleanup_impl();
+    } catch (const std::exception& e) {
+        Logger::instance().error("NftablesFirewall cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Best-effort cleanup in destructor
+        Logger::instance().error(
+            "NftablesFirewall cleanup failed during destruction: unknown error");
     }
 }
 
@@ -248,7 +252,8 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         }}}}});
     }
 
-    if (prefilter.has_inbound_interfaces()) {
+    if (prefilter.has_inbound_interfaces()
+        && prefilter.inbound_interfaces.has_value()) {
         nlohmann::json iface_rhs;
         if (prefilter.inbound_interfaces->size() == 1) {
             iface_rhs = prefilter.inbound_interfaces->front();
@@ -482,7 +487,7 @@ void NftablesFirewall::apply() {
     table_created_ = true;
 }
 
-void NftablesFirewall::cleanup() {
+void NftablesFirewall::cleanup_impl() {
     if (table_created_) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
         safe_exec({"nft", "delete", "table", "inet", std::string(TABLE_NAME)}, /*suppress_output=*/true);
@@ -493,6 +498,10 @@ void NftablesFirewall::cleanup() {
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
+}
+
+void NftablesFirewall::cleanup() {
+    cleanup_impl();
 }
 
 FirewallBackend NftablesFirewall::backend() const {

@@ -20,8 +20,6 @@ class Response;
 
 namespace keen_pbr3 {
 
-class Daemon;
-
 class ApiError : public std::runtime_error {
 public:
     explicit ApiError(std::string message,

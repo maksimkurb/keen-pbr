@@ -69,6 +69,7 @@ void crash_handler(int signum, siginfo_t* /*info*/, void* /*context*/) {
         case SIGBUS:  name = "SIGBUS";  break;
         case SIGFPE:  name = "SIGFPE";  break;
         case SIGILL:  name = "SIGILL";  break;
+        default: break;
     }
 
     // write() is async-signal-safe
