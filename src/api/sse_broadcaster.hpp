@@ -17,8 +17,8 @@ public:
     struct Subscription {
         TracedMutex mutex;
         std::condition_variable_any cv;
-        std::deque<std::string> messages;
-        bool closed{false};
+        std::deque<std::string> messages GUARDED_BY(mutex);
+        bool closed GUARDED_BY(mutex){false};
     };
 
     using SubscriptionPtr = std::shared_ptr<Subscription>;
@@ -31,11 +31,11 @@ public:
     void close_all();
 
 private:
-    void compact_locked();
+    void compact_locked() REQUIRES(mutex_);
 
     size_t max_queue_size_;
     TracedMutex mutex_;
-    std::vector<std::weak_ptr<Subscription>> subscriptions_;
+    std::vector<std::weak_ptr<Subscription>> subscriptions_ GUARDED_BY(mutex_);
 };
 
 } // namespace keen_pbr3

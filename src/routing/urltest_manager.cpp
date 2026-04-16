@@ -47,8 +47,12 @@ UrltestManager::UrltestManager(URLTester& tester,
 UrltestManager::~UrltestManager() {
     try {
         clear();
+    } catch (const std::exception& e) {
+        Logger::instance().error("UrltestManager cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Suppress exceptions in destructor.
+        Logger::instance().error(
+            "UrltestManager cleanup failed during destruction: unknown error");
     }
 }
 
@@ -254,12 +258,17 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
 
     const bool enqueued = blocking_executor_.try_post(
         "urltest:" + tag,
-        [this, tag, probe_generation, reason, candidates = std::move(candidates), trace_id]() mutable {
+        [this,
+         tag,
+         probe_generation,
+         reason,
+         candidates_for_probe = candidates,
+         trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
             std::map<std::string, URLTestResult> results;
             results.clear();
 
-            for (const auto& candidate : candidates) {
+            for (const auto& candidate : candidates_for_probe) {
                 const auto started_at = std::chrono::steady_clock::now();
                 Logger::instance().trace("urltest_candidate_start",
                                          "tag={} generation={} child={} fwmark={} trigger={}",

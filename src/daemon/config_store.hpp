@@ -32,10 +32,10 @@ public:
 
 private:
     mutable TracedSharedMutex mutex_;
-    Config active_config_;
-    OutboundMarkMap active_outbound_marks_;
-    std::optional<Config> staged_config_;
-    std::optional<std::string> staged_config_json_;
+    Config active_config_ GUARDED_BY(mutex_);
+    OutboundMarkMap active_outbound_marks_ GUARDED_BY(mutex_);
+    std::optional<Config> staged_config_ GUARDED_BY(mutex_);
+    std::optional<std::string> staged_config_json_ GUARDED_BY(mutex_);
 };
 
 } // namespace keen_pbr3

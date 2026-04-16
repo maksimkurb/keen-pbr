@@ -53,12 +53,30 @@ if apt-cache show g++-13 >/dev/null 2>&1; then
     COMPILER_PACKAGES=(gcc-13 g++-13)
 fi
 
+ANALYSIS_PACKAGES=(
+    clang
+    clangd
+    clang-tidy
+    pipx
+    python3-pip
+)
+
 echo "==> Installing native build dependencies"
 "${APT_RUN[@]}" apt-get update
 "${APT_RUN[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     "${COMMON_PACKAGES[@]}" \
     "${DEV_PACKAGES[@]}" \
+    "${ANALYSIS_PACKAGES[@]}" \
     "${COMPILER_PACKAGES[@]}"
+
+export PATH="${HOME}/.local/bin:${PATH}"
+
+echo "==> Installing clangd-tidy with pipx"
+if pipx list 2>/dev/null | grep -Fq "package clangd-tidy "; then
+    pipx upgrade --force clangd-tidy
+else
+    pipx install clangd-tidy
+fi
 
 if ! command -v bun >/dev/null 2>&1; then
     echo "==> Installing bun"
@@ -70,7 +88,7 @@ else
 fi
 
 export BUN_INSTALL="${BUN_INSTALL:-${HOME}/.bun}"
-export PATH="${BUN_INSTALL}/bin:${PATH}"
+export PATH="${BUN_INSTALL}/bin:${HOME}/.local/bin:${PATH}"
 
 if git -C "${ROOT_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "==> Initializing git submodules"
@@ -91,3 +109,6 @@ echo "Next steps:"
 echo "  cd ${ROOT_DIR}"
 echo "  make"
 echo "  make test"
+echo "  make clang-build"
+echo "  make clang-check"
+echo "  make clang-tidy"

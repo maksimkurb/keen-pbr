@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "../log/logger.hpp"
+
 namespace keen_pbr3 {
 
 namespace {
@@ -24,8 +26,12 @@ PolicyRuleManager::~PolicyRuleManager() {
     // Best-effort cleanup on destruction
     try {
         clear();
+    } catch (const std::exception& e) {
+        Logger::instance().error("PolicyRuleManager cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Suppress exceptions in destructor
+        Logger::instance().error(
+            "PolicyRuleManager cleanup failed during destruction: unknown error");
     }
 }
 
@@ -63,8 +69,23 @@ void PolicyRuleManager::clear() {
             if (!dry_run_) {
                 netlink_.delete_rule(*it);
             }
+        } catch (const std::exception& e) {
+            Logger::instance().error(
+                "Failed to delete policy rule during clear() (table={}, fwmark={}, mask={}, priority={}, family={}): {}",
+                it->table,
+                it->fwmark,
+                it->fwmask,
+                it->priority,
+                it->family,
+                e.what());
         } catch (...) {
-            // Best effort: continue removing remaining rules
+            Logger::instance().error(
+                "Failed to delete policy rule during clear() (table={}, fwmark={}, mask={}, priority={}, family={}): unknown error",
+                it->table,
+                it->fwmark,
+                it->fwmask,
+                it->priority,
+                it->family);
         }
     }
     rules_.clear();

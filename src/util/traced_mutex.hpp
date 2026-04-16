@@ -1,56 +1,54 @@
 #pragma once
 
-#include "../log/trace.hpp"
+#include <keen-pbr/thread_annotations.hpp>
 
-#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <shared_mutex>
-#include <string>
 
 namespace keen_pbr3 {
 
-class TracedMutex {
+class CAPABILITY("mutex") TracedMutex {
 public:
     TracedMutex() = default;
 
     void lock(const char* mutex_name,
               const char* file,
               int line,
-              const char* function);
-    void unlock();
+              const char* function) ACQUIRE();
+    void unlock() RELEASE();
 
 private:
     std::timed_mutex mutex_;
 };
 
-class TracedSharedMutex {
+class SHARED_CAPABILITY("shared_mutex") TracedSharedMutex {
 public:
     TracedSharedMutex() = default;
 
     void lock(const char* mutex_name,
               const char* file,
               int line,
-              const char* function);
-    void unlock();
+              const char* function) ACQUIRE();
+    void unlock() RELEASE();
     void lock_shared(const char* mutex_name,
                      const char* file,
                      int line,
-                     const char* function);
-    void unlock_shared();
+                     const char* function) ACQUIRE_SHARED();
+    void unlock_shared() RELEASE_SHARED();
 
 private:
     std::shared_timed_mutex mutex_;
 };
 
-class TracedLockGuard {
+class SCOPED_CAPABILITY TracedLockGuard {
 public:
     TracedLockGuard(TracedMutex& mutex,
                     const char* mutex_name,
                     const char* file,
                     int line,
-                    const char* function);
-    ~TracedLockGuard();
+                    const char* function) ACQUIRE(mutex);
+    ~TracedLockGuard() RELEASE();
 
     TracedLockGuard(const TracedLockGuard&) = delete;
     TracedLockGuard& operator=(const TracedLockGuard&) = delete;
@@ -64,20 +62,20 @@ private:
     std::uint64_t acquired_at_ms_{0};
 };
 
-class TracedUniqueLock {
+class SCOPED_CAPABILITY TracedUniqueLock {
 public:
     TracedUniqueLock(TracedMutex& mutex,
                      const char* mutex_name,
                      const char* file,
                      int line,
-                     const char* function);
-    ~TracedUniqueLock();
+                     const char* function) ACQUIRE(mutex);
+    ~TracedUniqueLock() RELEASE();
 
     TracedUniqueLock(const TracedUniqueLock&) = delete;
     TracedUniqueLock& operator=(const TracedUniqueLock&) = delete;
 
-    void lock();
-    void unlock();
+    void lock() ACQUIRE();
+    void unlock() RELEASE();
     bool owns_lock() const;
 
 private:
@@ -90,14 +88,14 @@ private:
     std::uint64_t acquired_at_ms_{0};
 };
 
-class TracedSharedLock {
+class SCOPED_CAPABILITY TracedSharedLock {
 public:
     TracedSharedLock(TracedSharedMutex& mutex,
                      const char* mutex_name,
                      const char* file,
                      int line,
-                     const char* function);
-    ~TracedSharedLock();
+                     const char* function) ACQUIRE_SHARED(mutex);
+    ~TracedSharedLock() RELEASE();
 
     TracedSharedLock(const TracedSharedLock&) = delete;
     TracedSharedLock& operator=(const TracedSharedLock&) = delete;
@@ -111,20 +109,20 @@ private:
     std::uint64_t acquired_at_ms_{0};
 };
 
-class TracedSharedUniqueLock {
+class SCOPED_CAPABILITY TracedSharedUniqueLock {
 public:
     TracedSharedUniqueLock(TracedSharedMutex& mutex,
                            const char* mutex_name,
                            const char* file,
                            int line,
-                           const char* function);
-    ~TracedSharedUniqueLock();
+                           const char* function) ACQUIRE(mutex);
+    ~TracedSharedUniqueLock() RELEASE();
 
     TracedSharedUniqueLock(const TracedSharedUniqueLock&) = delete;
     TracedSharedUniqueLock& operator=(const TracedSharedUniqueLock&) = delete;
 
-    void lock();
-    void unlock();
+    void lock() ACQUIRE();
+    void unlock() RELEASE();
     bool owns_lock() const;
 
 private:

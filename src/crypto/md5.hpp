@@ -4,6 +4,7 @@
 // API: keen_pbr3::crypto::md5_hex(std::string_view) -> std::string (32 hex chars)
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -54,20 +55,21 @@ struct MD5State {
 
     void process_block(const uint8_t* block) {
         uint32_t M[16];
-        for (int i = 0; i < 16; ++i) {
-            M[i] = uint32_t(block[i*4])
-                 | uint32_t(block[i*4+1]) << 8
-                 | uint32_t(block[i*4+2]) << 16
-                 | uint32_t(block[i*4+3]) << 24;
+        for (std::size_t i = 0; i < 16; ++i) {
+            const std::size_t offset = i * 4U;
+            M[i] = uint32_t(block[offset])
+                 | uint32_t(block[offset + 1U]) << 8
+                 | uint32_t(block[offset + 2U]) << 16
+                 | uint32_t(block[offset + 3U]) << 24;
         }
 
         uint32_t aa = a, bb = b, cc = c, dd = d;
-        for (int i = 0; i < 64; ++i) {
+        for (uint32_t i = 0; i < 64U; ++i) {
             uint32_t F, g;
-            if      (i < 16) { F = (bb & cc) | (~bb & dd); g = uint32_t(i); }
-            else if (i < 32) { F = (dd & bb) | (~dd & cc); g = (5u*i + 1u) % 16u; }
-            else if (i < 48) { F = bb ^ cc ^ dd;            g = (3u*i + 5u) % 16u; }
-            else             { F = cc ^ (bb | ~dd);          g = (7u*i)      % 16u; }
+            if      (i < 16U) { F = (bb & cc) | (~bb & dd); g = i; }
+            else if (i < 32U) { F = (dd & bb) | (~dd & cc); g = (5U * i + 1U) % 16U; }
+            else if (i < 48U) { F = bb ^ cc ^ dd;           g = (3U * i + 5U) % 16U; }
+            else              { F = cc ^ (bb | ~dd);        g = (7U * i) % 16U; }
             F += aa + K[i] + M[g];
             aa = dd;
             dd = cc;
@@ -78,7 +80,7 @@ struct MD5State {
     }
 
     void update(const uint8_t* data, size_t len) {
-        count += uint64_t(len) * 8u;
+        count += static_cast<uint64_t>(len) * uint64_t{8};
         while (len > 0) {
             size_t space = 64u - buf_len;
             size_t take  = (len < space) ? len : space;
@@ -103,16 +105,18 @@ struct MD5State {
 
         // Length
         uint8_t len_bytes[8];
-        for (int i = 0; i < 8; ++i)
-            len_bytes[i] = uint8_t(message_bits >> (i * 8));
+        for (std::size_t i = 0; i < 8U; ++i) {
+            len_bytes[i] = uint8_t(message_bits >> (i * 8U));
+        }
         update(len_bytes, 8);
 
         std::array<uint8_t, 16> result;
-        for (int i = 0; i < 4; ++i) {
-            result[i]    = uint8_t(a >> (i*8));
-            result[i+4]  = uint8_t(b >> (i*8));
-            result[i+8]  = uint8_t(c >> (i*8));
-            result[i+12] = uint8_t(d >> (i*8));
+        for (std::size_t i = 0; i < 4U; ++i) {
+            const std::size_t shift = i * 8U;
+            result[i] = uint8_t(a >> shift);
+            result[i + 4U] = uint8_t(b >> shift);
+            result[i + 8U] = uint8_t(c >> shift);
+            result[i + 12U] = uint8_t(d >> shift);
         }
         return result;
     }
@@ -128,9 +132,10 @@ struct MD5State {
 inline std::string digest_to_hex(const std::array<uint8_t, 16>& digest) {
     static constexpr char hex[] = "0123456789abcdef";
     std::string out(32, '\0');
-    for (int i = 0; i < 16; ++i) {
-        out[i*2]   = hex[digest[i] >> 4];
-        out[i*2+1] = hex[digest[i] & 0xf];
+    for (std::size_t i = 0; i < 16U; ++i) {
+        const std::size_t offset = i * 2U;
+        out[offset] = hex[digest[i] >> 4];
+        out[offset + 1U] = hex[digest[i] & 0xFU];
     }
     return out;
 }

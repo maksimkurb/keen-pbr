@@ -69,9 +69,9 @@ private:
     void remove_entry(int timer_fd);
 
     Daemon& daemon_;
-    std::vector<TimerEntry> entries_;
     mutable TracedMutex entries_mutex_;
-    int next_id_{1};
+    std::vector<TimerEntry> entries_ GUARDED_BY(entries_mutex_);
+    int next_id_ GUARDED_BY(entries_mutex_){1};
 };
 
 } // namespace keen_pbr3

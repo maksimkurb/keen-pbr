@@ -6,7 +6,6 @@
 
 #include <functional>
 #include <ostream>
-#include <stdexcept>
 #include <string>
 
 namespace keen_pbr3 {

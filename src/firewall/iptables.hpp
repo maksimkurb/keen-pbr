@@ -15,7 +15,7 @@ class IptablesFirewall : public Firewall {
 public:
     // Initialize the iptables backend; does not modify firewall state yet.
     IptablesFirewall();
-    // Destructor; does not call cleanup() — caller must do so explicitly.
+    // Destructor performs best-effort cleanup without virtual dispatch.
     ~IptablesFirewall() override;
 
     // Buffer an ipset create command (hash:net family, optional timeout).
@@ -55,6 +55,7 @@ public:
 
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
+    void cleanup_impl();
 
     // Describes a set to be created via 'ipset restore'.
     struct PendingSet {

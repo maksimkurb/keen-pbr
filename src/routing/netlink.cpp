@@ -441,8 +441,8 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
         // Destination
         struct nl_addr* dst = rtnl_route_get_dst(route);
         if (dst) {
-            int prefixlen = nl_addr_get_prefixlen(dst);
-            if (prefixlen == 0) {
+            const unsigned int prefix_length = nl_addr_get_prefixlen(dst);
+            if (prefix_length == 0U) {
                 dr.destination = "default";
             } else {
                 char buf[128];

@@ -6,8 +6,6 @@
 #include "../util/format_compat.hpp"
 #include "../util/string_compat.hpp"
 
-#include <algorithm>
-#include <set>
 #include <stdexcept>
 
 namespace keen_pbr3 {

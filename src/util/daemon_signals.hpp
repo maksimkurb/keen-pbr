@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../log/logger.hpp"
+
 #include <pthread.h>
 #include <signal.h>
 
@@ -53,7 +55,12 @@ public:
     ~ScopedDaemonSignalMask() {
         try {
             unblock_daemon_signals_for_current_thread();
+        } catch (const std::exception& e) {
+            Logger::instance().error("Failed to unblock daemon signals during destruction: {}",
+                                     e.what());
         } catch (...) {
+            Logger::instance().error(
+                "Failed to unblock daemon signals during destruction: unknown error");
         }
     }
 

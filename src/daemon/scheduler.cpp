@@ -18,8 +18,11 @@ Scheduler::~Scheduler() {
     // Best-effort cleanup: cancel all timers
     try {
         cancel_all();
+    } catch (const std::exception& e) {
+        Logger::instance().error("Scheduler cleanup failed during destruction: {}",
+                                 e.what());
     } catch (...) {
-        // Suppress exceptions in destructor
+        Logger::instance().error("Scheduler cleanup failed during destruction: unknown error");
     }
 }
 

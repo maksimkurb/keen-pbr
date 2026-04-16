@@ -9,7 +9,6 @@
 #include <functional>
 #include <map>
 #include <optional>
-#include <shared_mutex>
 #include <string>
 
 namespace keen_pbr3 {
@@ -87,7 +86,7 @@ private:
 
     // Select the best outbound using the weighted group / tolerance algorithm.
     // Caller must hold at least a shared_lock on mutex_.
-    std::string select_outbound(const std::string& tag);
+    std::string select_outbound(const std::string& tag) REQUIRES_SHARED(mutex_);
 
     URLTester& tester_;
     const OutboundMarkMap& marks_;
@@ -97,8 +96,8 @@ private:
     UrltestCommitCallback on_commit_;
 
     mutable TracedSharedMutex mutex_;
-    std::map<std::string, UrltestState> states_;
-    std::uint64_t generation_{1};
+    std::map<std::string, UrltestState> states_ GUARDED_BY(mutex_);
+    std::uint64_t generation_ GUARDED_BY(mutex_){1};
 };
 
 } // namespace keen_pbr3

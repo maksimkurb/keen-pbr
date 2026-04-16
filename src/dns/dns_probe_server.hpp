@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "../util/byte_view.hpp"
-#include "dns_server.hpp"
 
 namespace keen_pbr3 {
 

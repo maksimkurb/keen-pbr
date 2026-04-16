@@ -3,7 +3,6 @@
 #include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <sstream>
 
 namespace keen_pbr3 {
 

@@ -3,6 +3,7 @@
 #include <keen-pbr/version.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -53,7 +54,7 @@ public:
 private:
     std::chrono::seconds timeout_{30};
     std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
-    size_t max_response_size_{8 * 1024 * 1024}; // 8 MiB
+    size_t max_response_size_{size_t{8} * 1024U * 1024U}; // 8 MiB
 };
 
 } // namespace keen_pbr3
