@@ -12,6 +12,7 @@ CLANG_CXX ?= clang++
 COMMON_CMAKE_FLAGS := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 GCC_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(GCC_CXX) $(COMMON_CMAKE_FLAGS)
 CLANG_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(CLANG_CXX) $(COMMON_CMAKE_FLAGS)
+CLANG_FEATURE_CMAKE_FLAGS := -DWITH_API=ON -DUSE_KEENETIC_API=ON
 
 SETUP_STAMP := $(GCC_BUILD_DIR)/.stamp-setup
 
@@ -52,17 +53,17 @@ test: ## Build and run unit tests (doctest)
 	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
 
 clang-build: ## Configure and compile with Clang in a host-only build dir
-	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS)
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS)
 	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr
 
 clang-check: ## Compile with Clang thread-safety analysis enabled; never runs binaries
-	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
 	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr keen-pbr-tests thread-safety-smoke
 
 CLANGD_TIDY_ARGS ?=
 
 clang-tidy: ## Run clangd-tidy against project-owned sources using the Clang compile database
-	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
+	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
 	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" $(CLANGD_TIDY_ARGS)
 
 clean: ## Remove compiled artifacts

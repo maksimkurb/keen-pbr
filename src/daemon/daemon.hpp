@@ -317,7 +317,7 @@ private:
     std::unique_ptr<SseBroadcaster> dns_test_broadcaster_;
 #endif
 
-    std::unique_ptr<class DnsProbeServer> dns_probe_server_;
+    std::unique_ptr<DnsProbeServer> dns_probe_server_;
     HookCommandExecutor hook_command_executor_;
     bool routing_runtime_active_{true};
 };
