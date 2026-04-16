@@ -2,13 +2,9 @@
 
 #include <keen-pbr/thread_annotations.hpp>
 
-#include "../log/trace.hpp"
-
-#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <shared_mutex>
-#include <string>
 
 namespace keen_pbr3 {
 

@@ -9,7 +9,6 @@
 
 #include "../config/config.hpp"
 #include "../health/circuit_breaker.hpp"
-#include "../routing/firewall_state.hpp"
 
 namespace keen_pbr3 {
 

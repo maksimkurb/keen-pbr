@@ -6,8 +6,6 @@
 #include "../util/safe_exec.hpp"
 
 #include <optional>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 

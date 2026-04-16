@@ -1,8 +1,6 @@
 #include "firewall.hpp"
 #include "../util/safe_exec.hpp"
 
-#include <string>
-
 namespace keen_pbr3 {
 
 namespace {

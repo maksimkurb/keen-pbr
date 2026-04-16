@@ -59,9 +59,11 @@ clang-check: ## Compile with Clang thread-safety analysis enabled; never runs bi
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
 	cmake --build $(CLANG_BUILD_DIR) --target keen-pbr keen-pbr-tests thread-safety-smoke
 
-clang-tidy: ## Run clang-tidy against project-owned sources using the Clang compile database
+CLANGD_TIDY_ARGS ?=
+
+clang-tidy: ## Run clangd-tidy against project-owned sources using the Clang compile database
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) -DBUILD_TESTS=ON -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-	bash build_scripts/run-clang-tidy.sh "$(abspath $(CLANG_BUILD_DIR))"
+	bash build_scripts/run-clangd-tidy.sh "$(abspath $(CLANG_BUILD_DIR))" $(CLANGD_TIDY_ARGS)
 
 clean: ## Remove compiled artifacts
 	rm -rf $(GCC_BUILD_DIR) $(CLANG_BUILD_DIR) build/cmake-aarch64 build/cross-toolchain build/dist \

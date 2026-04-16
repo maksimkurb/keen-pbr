@@ -1,9 +1,11 @@
 #include "daemon.hpp"
 
+#include "../dns/dns_router.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "../dns/dnsmasq_gen.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "resolver_health.hpp"
 #include "scheduler.hpp"
 
 namespace keen_pbr3 {

@@ -2,7 +2,6 @@
 
 #include "../log/logger.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <curl/curl.h>

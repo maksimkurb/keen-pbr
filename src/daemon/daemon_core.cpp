@@ -16,13 +16,11 @@
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../log/logger.hpp"
-#include "../dns/dns_probe_server.hpp"
 #include "../util/daemon_signals.hpp"
 #include "scheduler.hpp"
 
 #ifdef WITH_API
 #include "../api/server.hpp"
-#include "../api/handlers.hpp"
 #include "../api/sse_broadcaster.hpp"
 #endif
 

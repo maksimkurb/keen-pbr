@@ -4,10 +4,8 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
-#include <future>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -15,10 +13,9 @@
 #include <thread>
 #include <vector>
 
-#include "../cache/cache_manager.hpp"
 #include "../config/config.hpp"
+#include "../dns/dns_txt_client.hpp"
 #include "config_store.hpp"
-#include "../health/routing_health_checker.hpp"
 #include "../health/url_tester.hpp"
 #include "../routing/interface_monitor.hpp"
 #include "../routing/firewall_state.hpp"
@@ -28,7 +25,6 @@
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 #include "list_service.hpp"
-#include "resolver_health.hpp"
 #include "runtime_state_store.hpp"
 #include "system_resolver_hook.hpp"
 

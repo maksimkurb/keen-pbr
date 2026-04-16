@@ -3,15 +3,12 @@
 #ifdef WITH_API
 
 #include "../config/config.hpp"
-#include "../util/traced_mutex.hpp"
 
-#include <condition_variable>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <thread>
 
 namespace httplib {
 class Request;

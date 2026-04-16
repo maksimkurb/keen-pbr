@@ -4,6 +4,7 @@
 
 #include "../log/logger.hpp"
 #include "../log/trace.hpp"
+#include "../util/traced_mutex.hpp"
 
 #include <cerrno>
 #include <chrono>
@@ -14,7 +15,6 @@
 #include <atomic>
 #include <cctype>
 #include <unordered_map>
-#include <mutex>
 #include <nlohmann/json.hpp>
 
 namespace keen_pbr3 {

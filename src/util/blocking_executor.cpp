@@ -3,7 +3,6 @@
 #include "../log/logger.hpp"
 
 #include <chrono>
-#include <stdexcept>
 
 namespace keen_pbr3 {
 

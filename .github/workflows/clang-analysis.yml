@@ -35,12 +35,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang \
-            clang-tidy \
+            clangd \
             cmake \
+            pipx \
+            python3-pip \
             pkg-config \
             libcurl4-openssl-dev \
             libnl-3-dev \
             libnl-route-3-dev
+          export PATH="$HOME/.local/bin:$PATH"
+          if pipx list 2>/dev/null | grep -Fq "package clangd-tidy "; then
+            pipx upgrade --force clangd-tidy
+          else
+            pipx install clangd-tidy
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Fail on Clang compiler warnings
         shell: bash
@@ -52,11 +61,6 @@ jobs:
             exit 1
           fi
 
-      - name: Fail on clang-tidy warnings
+      - name: Fail on clangd-tidy warnings
         run: |
-          cmake -S . -B cmake-build-clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-            -DBUILD_TESTS=ON \
-            -DENABLE_THREAD_SAFETY_ANALYSIS=ON
-          bash build_scripts/run-clang-tidy.sh "$(pwd)/cmake-build-clang" --warnings-as-errors=*
+          make clang-tidy CLANGD_TIDY_ARGS="--fail-on-severity=warn"

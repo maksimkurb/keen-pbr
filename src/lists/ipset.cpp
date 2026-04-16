@@ -1,8 +1,10 @@
 #include "ipset.hpp"
 
 #include <charconv>
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <vector>
 
 namespace keen_pbr3 {
 

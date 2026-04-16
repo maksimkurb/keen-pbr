@@ -10,11 +10,8 @@
 #include "sse_broadcaster.hpp"
 #include "server.hpp"
 
-#include <atomic>
-#include <condition_variable>
 #include <cstdint>
 #include <functional>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>

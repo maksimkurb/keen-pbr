@@ -2,8 +2,6 @@
 
 #include "dns_server.hpp"
 
-#include "../http/http_client.hpp"
-
 #include <nlohmann/json.hpp>
 
 #include <cctype>

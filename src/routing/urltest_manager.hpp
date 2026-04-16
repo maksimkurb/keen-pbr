@@ -9,7 +9,6 @@
 #include <functional>
 #include <map>
 #include <optional>
-#include <shared_mutex>
 #include <string>
 
 namespace keen_pbr3 {

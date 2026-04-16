@@ -6,7 +6,6 @@
 #include <string>
 
 #include <csignal>
-#include <cstdint>
 #include <unistd.h>
 
 #if __has_include(<execinfo.h>)

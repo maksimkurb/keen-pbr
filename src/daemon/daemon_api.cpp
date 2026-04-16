@@ -6,13 +6,15 @@
 
 #include "../api/handlers.hpp"
 #include "../api/server.hpp"
-#include "../api/sse_broadcaster.hpp"
 #include "../config/routing_state.hpp"
+#include "../dns/dns_router.hpp"
 #include "../dns/dnsmasq_gen.hpp"
+#include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "resolver_health.hpp"
 
 #ifndef KEEN_PBR_FRONTEND_ROOT
 #define KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend"

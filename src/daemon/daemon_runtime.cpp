@@ -7,8 +7,8 @@
 
 #include "../config/addr_spec.hpp"
 #include "../config/routing_state.hpp"
+#include "../dns/dns_router.hpp"
 #include "../dns/dns_server.hpp"
-#include "../dns/dnsmasq_gen.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
