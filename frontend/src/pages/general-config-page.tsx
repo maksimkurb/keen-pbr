@@ -496,7 +496,7 @@ function LoadedGeneralConfigPage({
           size="xl"
           variant="outline"
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <form.Subscribe
           selector={(state) => ({

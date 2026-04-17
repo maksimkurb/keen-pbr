@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next"
 import { LanguageSelector } from "@/components/language-selector"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
 import { ThemeSelector } from "@/components/theme-selector"
-import { WarningBanner } from "@/components/layout/warning-banner"
 import { NavMain } from "@/components/nav-main"
 import {
   Sidebar,
@@ -81,7 +80,6 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         <SidebarMenuHeader isMobile={isMobile} onMenuClick={toggleSidebar} />
       </SidebarHeader>
       <SidebarContent>
-        {!isMobile ? <WarningBanner className="mx-2 mt-2 mb-0 w-auto" /> : null}
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter className={isMobile ? "border-t px-4 py-3" : "border-t"}>

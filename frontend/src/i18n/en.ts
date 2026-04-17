@@ -84,14 +84,27 @@ export const enTranslation = {
         actions: {
           applying: "Applying...",
           apply: "Apply",
+          applyingAndRestarting: "Applying & Restarting...",
+          applyAndRestart: "Apply & Restart",
           restarting: "Restarting...",
           restart: "Restart",
         },
         compact: {
-          resolverStale: "dnsmasq config is stale.",
-          waitingForReload: "Waiting for dnsmasq reload",
-          waitingForReloadDescription:
-            "Config apply succeeded. Waiting for resolver TXT record update.",
+          keenRestartRequired: "Pending changes",
+          keenRestartRequiredDescription:
+            "New settings found. Apply to restart keen-pbr.",
+          keenAndDnsmasqRestartRequired: "Out of sync",
+          keenAndDnsmasqRestartRequiredDescription:
+            "Apply changes to sync keen-pbr and dnsmasq.",
+          dnsmasqRestartRequired: "DNS-server config is outdated",
+          dnsmasqRestartRequiredDescription:
+            "dnsmasq needs a restart to update its resolver config.",
+          dnsmasqRestarting: "Restarting dnsmasq...",
+          dnsmasqRestartingDescription:
+            "dnsmasq is restarting. Please wait.",
+          dnsmasqUnavailable: "dnsmasq is unavailable",
+          dnsmasqUnavailableDescription:
+            "dnsmasq is not responding. Internet connectivity may be affected. Try Apply & Restart, or disable keen-pbr to restore network access.",
           staleAfterTimeout:
             "dnsmasq last reloaded at {{actualTs}}. Restart routing runtime if this stays stale.",
         },

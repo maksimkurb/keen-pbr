@@ -86,14 +86,27 @@ export const ruTranslation = {
         actions: {
           applying: "Применение...",
           apply: "Применить",
+          applyingAndRestarting: "Применение и перезапуск...",
+          applyAndRestart: "Применить и перезапустить",
           restarting: "Перезапуск...",
           restart: "Перезапустить",
         },
         compact: {
-          resolverStale: "Конфиг dnsmasq устарел.",
-          waitingForReload: "Ожидание перезагрузки dnsmasq",
-          waitingForReloadDescription:
-            "Применение конфигурации завершено. Ждём обновления TXT-записи резолвера.",
+          keenRestartRequired: "Несохранённые изменения",
+          keenRestartRequiredDescription:
+            "Настройки изменены. Примените их для перезапуска keen-pbr.",
+          keenAndDnsmasqRestartRequired: "Конфигурация устарела",
+          keenAndDnsmasqRestartRequiredDescription:
+            "Примените настройки, чтобы синхронизировать keen-pbr и dnsmasq.",
+          dnsmasqRestartRequired: "Конфигурация DNS-сервера устарела",
+          dnsmasqRestartRequiredDescription:
+            "dnsmasq использует устаревший конфиг. Требуется перезапуск.",
+          dnsmasqRestarting: "Перезапуск dnsmasq...",
+          dnsmasqRestartingDescription:
+            "DNS-сервер перезапускается, подождите немного.",
+          dnsmasqUnavailable: "dnsmasq недоступен",
+          dnsmasqUnavailableDescription:
+            "dnsmasq не отвечает. Из-за этого могут быть проблемы с интернетом. Попробуйте Применить и перезапустить, либо отключите keen-pbr, чтобы восстановить доступ к сети.",
           staleAfterTimeout:
             "dnsmasq в последний раз перезагружался: {{actualTs}}. Если статус не меняется, перезапустите маршрутизацию.",
         },

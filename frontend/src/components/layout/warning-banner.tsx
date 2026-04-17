@@ -2,173 +2,237 @@ import { useEffect, useMemo, useState } from "react"
 import { SaveIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { useGetHealthService, useGetConfig } from "@/api/queries"
-import {
-  useApplyConfigMutation,
-  usePostServiceActionMutation,
-  useRoutingControlPendingState,
-} from "@/api/mutations"
-import { selectConfigIsDraft } from "@/api/selectors"
+import type { HealthResponse } from "@/api/generated/model"
+import { useApplyConfigMutation, useRoutingControlPendingState } from "@/api/mutations"
+import { useGetHealthService } from "@/api/queries"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/components/ui/sidebar-context"
 import { cn } from "@/lib/utils"
 
-export function WarningBanner({ className }: { className?: string }) {
-  const { t } = useTranslation()
-  const [applyMonitor, setApplyMonitor] = useState<{
-    applyStartedTs: number
-    startedAtMs: number
-    nowMs: number
-    timedOut: boolean
-  } | null>(null)
-  const configQuery = useGetConfig()
+const DEFAULT_REFETCH_INTERVAL_MS = 30_000
+const CONVERGING_REFETCH_INTERVAL_MS = 1_000
+const CONVERGING_WINDOW_MS = 15_000
+
+type WarningBannerMode =
+  | "hidden"
+  | "draft"
+  | "draft-and-dnsmasq"
+  | "dnsmasq-stale"
+  | "dnsmasq-converging"
+  | "dnsmasq-error"
+
+export type WarningBannerState = {
+  applyPending: boolean
+  isActionDisabled: boolean
+  isVisible: boolean
+  mode: WarningBannerMode
+  progressPercent: number
+}
+
+export function useWarningBannerState(): WarningBannerState {
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const healthQuery = useGetHealthService({
     query: {
-      refetchInterval: 30_000,
+      refetchInterval: (query) => {
+        const response = query.state.data
+        if (response?.status !== 200) {
+          return DEFAULT_REFETCH_INTERVAL_MS
+        }
+
+        const mode = getWarningBannerMode(response.data, Date.now())
+
+        return mode === "dnsmasq-converging" || mode === "dnsmasq-error"
+          ? CONVERGING_REFETCH_INTERVAL_MS
+          : DEFAULT_REFETCH_INTERVAL_MS
+      },
       refetchIntervalInBackground: false,
     },
   })
-  const applyConfigMutation = useApplyConfigMutation({
-    mutation: {
-      onSuccess: (response) => {
-        const applyStartedTs =
-          response.status === 200
-            ? (response.data.apply_started_ts ?? Math.floor(Date.now() / 1000))
-            : Math.floor(Date.now() / 1000)
-        setApplyMonitor({
-          applyStartedTs,
-          startedAtMs: Date.now(),
-          nowMs: Date.now(),
-          timedOut: false,
-        })
-      },
-    },
-  })
-  const restartRoutingMutation = usePostServiceActionMutation("restart")
-  const { anyPending, applyPending, restartPending } =
-    useRoutingControlPendingState()
-
-  const serviceHealth =
-    healthQuery.data?.status === 200 ? healthQuery.data.data : null
-  const isDraft =
-    serviceHealth?.config_is_draft ?? selectConfigIsDraft(configQuery.data)
-  const expectedResolverHash = serviceHealth?.resolver_config_hash
-  const actualResolverHash = serviceHealth?.resolver_config_hash_actual
-  const hasResolverHashMismatch =
-    Boolean(expectedResolverHash) &&
-    Boolean(actualResolverHash) &&
-    expectedResolverHash !== actualResolverHash
-  const resolverSyncState = serviceHealth?.resolver_config_sync_state
-  const isResolverConverging = resolverSyncState === "converging"
-  const isResolverStale = resolverSyncState === "stale" || hasResolverHashMismatch
-  const isServiceRunning = serviceHealth?.status === "running"
-  const progressPercent = useMemo(() => {
-    if (!applyMonitor) {
-      return 0
-    }
-    const elapsed = Math.max(0, applyMonitor.nowMs - applyMonitor.startedAtMs)
-    return Math.min(100, (elapsed / 15_000) * 100)
-  }, [applyMonitor])
-  const formattedActualTs = formatUnixTimestampLabel(
-    serviceHealth?.resolver_config_hash_actual_ts
-  )
+  const { anyPending, applyPending } = useRoutingControlPendingState()
+  const serviceHealth = healthQuery.data?.status === 200 ? healthQuery.data.data : null
+  const mode = getWarningBannerMode(serviceHealth, nowMs)
 
   useEffect(() => {
-    if (!applyMonitor || applyMonitor.timedOut) {
+    if (mode !== "dnsmasq-converging") {
+      setNowMs(Date.now())
       return
     }
 
     const timer = window.setInterval(() => {
-      setApplyMonitor((current) => {
-        if (!current || current.timedOut) {
-          return current
-        }
-        const nowMs = Date.now()
-        const timedOut = nowMs - current.startedAtMs >= 15_000
-        return { ...current, nowMs, timedOut }
-      })
-      void healthQuery.refetch()
-    }, 1_000)
+      setNowMs(Date.now())
+    }, 500)
 
     return () => window.clearInterval(timer)
-  }, [applyMonitor, healthQuery.refetch])
+  }, [mode])
 
-  if (!isDraft && !isResolverStale && !isResolverConverging) {
+  const progressPercent = useMemo(() => {
+    if (mode !== "dnsmasq-converging") {
+      return 0
+    }
+
+    const fallbackApplyStartedMs = nowMs
+    const applyStartedMs =
+      typeof serviceHealth?.apply_started_ts === "number"
+        ? serviceHealth.apply_started_ts * 1000
+        : fallbackApplyStartedMs
+    const elapsed = Math.max(0, nowMs - applyStartedMs)
+
+    return Math.min(95, (elapsed / CONVERGING_WINDOW_MS) * 100)
+  }, [mode, nowMs, serviceHealth?.apply_started_ts])
+
+  return {
+    applyPending,
+    isActionDisabled: anyPending || !serviceHealth,
+    isVisible: mode !== "hidden",
+    mode,
+    progressPercent,
+  }
+}
+
+export function WarningBanner({
+  className,
+  state,
+}: {
+  className?: string
+  state: WarningBannerState
+}) {
+  const { t } = useTranslation()
+  const { isMobile, open } = useSidebar()
+  const applyConfigMutation = useApplyConfigMutation()
+
+  if (!state.isVisible) {
     return null
   }
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      {isDraft ? (
-        <Alert variant="warning">
-          <AlertDescription>{t("warning.draftChanged")}</AlertDescription>
-          <Button
-            disabled={anyPending}
-            onClick={() => applyConfigMutation.mutate()}
-            size="xs"
-            variant="outline"
-            className="mt-2"
-          >
-            <SaveIcon className="mr-1 h-3 w-3" />
-            {applyPending
-              ? t("warning.actions.applying")
-              : t("warning.actions.apply")}
-          </Button>
-        </Alert>
-      ) : null}
+  const isConverging = state.mode === "dnsmasq-converging"
+  const isError = state.mode === "dnsmasq-error"
 
-      {applyMonitor && !applyMonitor.timedOut && isResolverConverging ? (
-        <Alert>
-          <AlertTitle>{t("warning.compact.waitingForReload")}</AlertTitle>
-          <AlertDescription>
-            {t("warning.compact.waitingForReloadDescription")}
-          </AlertDescription>
-          <div className="mt-2 h-2 rounded bg-muted">
+  return (
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-5",
+        !isMobile && open ? "left-[calc(var(--sidebar-width)+1rem)] right-4" : null,
+        className
+      )}
+    >
+      <Alert
+        variant={isError ? "destructive" : isConverging ? "default" : "warning"}
+        className="pointer-events-auto w-full w-full gap-4 rounded-2xl border border-white/10 px-4 py-4 shadow-[0_10px_30px_hsl(0_0%_0%/0.18),0_24px_80px_hsl(0_0%_0%/0.4)] ring-1 ring-black/5 dark:border-white/12 dark:ring-white/6"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <AlertTitle>{t(getWarningBannerTitleKey(state.mode))}</AlertTitle>
+            <AlertDescription>
+              {t(getWarningBannerDescriptionKey(state.mode))}
+            </AlertDescription>
+          </div>
+
+          {!isConverging ? (
+            <Button
+              disabled={state.isActionDisabled}
+              onClick={() => applyConfigMutation.mutate()}
+              size="lg"
+              variant="outline"
+              className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
+            >
+              <SaveIcon className="mr-1 h-4 w-4" />
+              {state.applyPending
+                ? t("warning.actions.applyingAndRestarting")
+                : t("warning.actions.applyAndRestart")}
+            </Button>
+          ) : null}
+        </div>
+
+        {isConverging ? (
+          <div className="h-2 rounded bg-muted">
             <div
               className="h-2 rounded bg-primary transition-[width] duration-700"
-              style={{ width: `${progressPercent}%` }}
+              style={{ width: `${state.progressPercent}%` }}
             />
           </div>
-        </Alert>
-      ) : null}
-
-      {isResolverStale ? (
-        <Alert variant="warning">
-          <AlertTitle>{t("warning.compact.resolverStale")}</AlertTitle>
-          {applyMonitor?.timedOut && formattedActualTs ? (
-            <AlertDescription>
-              {t("warning.compact.staleAfterTimeout", {
-                actualTs: formattedActualTs,
-              })}
-            </AlertDescription>
-          ) : null}
-          <Button
-            disabled={anyPending || !serviceHealth || !isServiceRunning}
-            onClick={() => restartRoutingMutation.mutate()}
-            size="xs"
-            variant="outline"
-            className="mt-2"
-          >
-            {restartPending
-              ? t("warning.actions.restarting")
-              : t("warning.actions.restart")}
-          </Button>
-        </Alert>
-      ) : null}
+        ) : null}
+      </Alert>
     </div>
   )
 }
 
-function formatUnixTimestampLabel(value?: number): string | null {
-  if (!value || !Number.isFinite(value)) {
-    return null
+function getWarningBannerMode(
+  serviceHealth: HealthResponse | null,
+  nowMs: number
+): WarningBannerMode {
+  if (!serviceHealth) {
+    return "hidden"
   }
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "medium",
-    }).format(new Date(value * 1000))
-  } catch {
-    return null
+
+  if (serviceHealth.config_is_draft) {
+    return serviceHealth.resolver_config_sync_state === "stale"
+      ? "draft-and-dnsmasq"
+      : "draft"
+  }
+
+  if (isResolverUnavailable(serviceHealth.resolver_live_status)) {
+    return isRecentApply(serviceHealth.apply_started_ts, nowMs)
+      ? "dnsmasq-converging"
+      : "dnsmasq-error"
+  }
+
+  if (serviceHealth.resolver_config_sync_state === "stale") {
+    return "dnsmasq-stale"
+  }
+
+  if (serviceHealth.resolver_config_sync_state === "converging") {
+    return "dnsmasq-converging"
+  }
+
+  return "hidden"
+}
+
+function isRecentApply(
+  applyStartedTs: number | undefined,
+  nowMs: number
+): boolean {
+  if (typeof applyStartedTs !== "number") {
+    return false
+  }
+
+  return nowMs - applyStartedTs * 1000 <= CONVERGING_WINDOW_MS
+}
+
+function isResolverUnavailable(status: HealthResponse["resolver_live_status"]) {
+  return status === "degraded" || status === "unavailable"
+}
+
+function getWarningBannerTitleKey(mode: WarningBannerMode) {
+  switch (mode) {
+    case "draft":
+      return "warning.compact.keenRestartRequired"
+    case "draft-and-dnsmasq":
+      return "warning.compact.keenAndDnsmasqRestartRequired"
+    case "dnsmasq-stale":
+      return "warning.compact.dnsmasqRestartRequired"
+    case "dnsmasq-converging":
+      return "warning.compact.dnsmasqRestarting"
+    case "dnsmasq-error":
+      return "warning.compact.dnsmasqUnavailable"
+    case "hidden":
+      return "warning.compact.keenRestartRequired"
+  }
+}
+
+function getWarningBannerDescriptionKey(mode: WarningBannerMode) {
+  switch (mode) {
+    case "draft":
+      return "warning.compact.keenRestartRequiredDescription"
+    case "draft-and-dnsmasq":
+      return "warning.compact.keenAndDnsmasqRestartRequiredDescription"
+    case "dnsmasq-stale":
+      return "warning.compact.dnsmasqRestartRequiredDescription"
+    case "dnsmasq-converging":
+      return "warning.compact.dnsmasqRestartingDescription"
+    case "dnsmasq-error":
+      return "warning.compact.dnsmasqUnavailableDescription"
+    case "hidden":
+      return "warning.compact.keenRestartRequiredDescription"
   }
 }

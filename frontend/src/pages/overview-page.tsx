@@ -16,7 +16,6 @@ import {
   useRoutingControlPendingState,
 } from "@/api/mutations"
 import { selectConfig } from "@/api/selectors"
-import { WarningBanner } from "@/components/layout/warning-banner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -197,7 +196,7 @@ export function OverviewPage() {
 
           {serviceHealth ? (
             <div className="flex h-full flex-1 flex-col">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 mb-2">
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
                     {t("overview.runtime.version")}
@@ -222,9 +221,6 @@ export function OverviewPage() {
                   </div>
                 </div>
               </div>
-
-              <WarningBanner className="my-2" />
-
               <ButtonGroup className="mt-auto [&>[data-slot=button]]:flex-1">
                 <Button
                   size="sm"
