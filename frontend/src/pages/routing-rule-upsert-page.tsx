@@ -114,7 +114,7 @@ export function RoutingRuleUpsertPage({
 
       const nextRule = normalizeRouteRuleDraft(value)
       const hasRuleCondition =
-        nextRule.list.length > 0 ||
+        (nextRule.list ?? []).length > 0 ||
         Boolean(nextRule.src_port) ||
         Boolean(nextRule.dest_port) ||
         Boolean(nextRule.src_addr) ||

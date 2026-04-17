@@ -263,7 +263,7 @@ function getRouteRuleRow(
   const conditions = [
     {
       label: t("pages.routingRules.criteriaLabels.lists"),
-      value: rule.list.join(", "),
+      value: (rule.list ?? []).join(", "),
     },
     {
       label: t("pages.routingRules.criteriaLabels.proto"),

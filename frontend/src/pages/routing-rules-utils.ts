@@ -40,7 +40,7 @@ export function getRuleDetails(rule: RouteRule) {
 export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
   return {
     enabled: rule.enabled ?? true,
-    list: rule.list,
+    list: rule.list ?? [],
     outbound: rule.outbound,
     proto: rule.proto ?? "",
     src_port: rule.src_port ?? "",

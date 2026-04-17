@@ -2,10 +2,8 @@ import type { ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
-import {
-  WarningBanner,
-  useWarningBannerState,
-} from "@/components/layout/warning-banner"
+import { useWarningBannerState } from "@/components/layout/warning-banner-state"
+import { WarningBanner } from "@/components/layout/warning-banner"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
 import { cn } from "@/lib/utils"

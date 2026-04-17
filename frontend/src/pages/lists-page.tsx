@@ -105,7 +105,7 @@ export function ListsPage() {
         (nextConfig.route?.rules ?? []).length ||
       (loadedConfig.route?.rules ?? []).some((rule, index) => {
         const nextRule = nextConfig.route?.rules?.[index]
-        return !nextRule || nextRule.list.length !== rule.list.length
+        return !nextRule || (nextRule.list ?? []).length !== (rule.list ?? []).length
       })
     const hasDnsReferenceUpdates =
       (loadedConfig.dns?.rules ?? []).length !==
@@ -339,7 +339,7 @@ function buildUpdatedConfigForListDelete(
       rules: (config.route?.rules ?? [])
         .map((rule) => ({
           ...rule,
-          list: rule.list.filter((name) => name !== listId),
+          list: (rule.list ?? []).filter((name) => name !== listId),
         }))
         .filter((rule) => rule.list.length > 0),
     },
