@@ -26,7 +26,6 @@ Config parse_test_config(const std::string& json_str) {
     }
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
-        resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
         resolver.address = "127.0.0.1";
         cfg.dns->system_resolver = resolver;
     }
@@ -380,8 +379,7 @@ TEST_CASE("config validation: accepts system_resolver") {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "fallback": ["plain_dns"],
             "system_resolver": {
-                "type": "dnsmasq-nftset",
-                          "address": "127.0.0.1"
+                "address": "127.0.0.1"
             }
         }
     })");
@@ -414,8 +412,7 @@ TEST_CASE("config validation: allows missing fallback") {
         "dns": {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "system_resolver": {
-                "type": "dnsmasq-nftset",
-                          "address": "127.0.0.1"
+                "address": "127.0.0.1"
             }
         }
     })");
@@ -429,8 +426,7 @@ TEST_CASE("config validation: allows empty fallback array") {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "fallback": [],
             "system_resolver": {
-                "type": "dnsmasq-nftset",
-                          "address": "127.0.0.1"
+                "address": "127.0.0.1"
             }
         }
     })");
@@ -444,8 +440,7 @@ TEST_CASE("config validation: rejects unknown fallback tag") {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "fallback": ["missing_dns"],
             "system_resolver": {
-                "type": "dnsmasq-nftset",
-                          "address": "127.0.0.1"
+                "address": "127.0.0.1"
             }
         }
     })");
@@ -459,8 +454,7 @@ TEST_CASE("config validation: rejects duplicate fallback tag") {
             "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
             "fallback": ["plain_dns", "plain_dns"],
             "system_resolver": {
-                "type": "dnsmasq-nftset",
-                          "address": "127.0.0.1"
+                "address": "127.0.0.1"
             }
         }
     })");
@@ -477,7 +471,6 @@ TEST_CASE("config validation: collects empty system_resolver fields") {
     cfg.dns->servers = std::vector<DnsServer>{fallback_server};
     cfg.dns->fallback = std::vector<std::string>{"default_dns"};
     api::SystemResolver resolver{};
-    resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
     cfg.dns->system_resolver = resolver;
 
     try {
@@ -488,6 +481,24 @@ TEST_CASE("config validation: collects empty system_resolver fields") {
         CHECK(e.issues()[0].path == "dns.system_resolver.address");
         CHECK(e.issues()[0].message == "dns.system_resolver.address must not be empty");
     }
+}
+
+TEST_CASE("config validation: accepts legacy system_resolver.type and ignores it") {
+    auto cfg = parse_config(R"({
+        "dns": {
+            "servers": [{"tag":"plain_dns","address":"8.8.8.8"}],
+            "fallback": ["plain_dns"],
+            "system_resolver": {
+                "type": "dnsmasq-ipset",
+                "address": "127.0.0.1"
+            }
+        }
+    })");
+
+    CHECK_NOTHROW(validate_config(cfg));
+    REQUIRE(cfg.dns.has_value());
+    REQUIRE(cfg.dns->system_resolver.has_value());
+    CHECK(cfg.dns->system_resolver->address == "127.0.0.1");
 }
 
 TEST_CASE("strict enforcement: daemon default parses") {

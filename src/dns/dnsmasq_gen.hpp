@@ -3,6 +3,7 @@
 #include "../config/config.hpp"
 #include "../lists/list_streamer.hpp"
 #include "dns_router.hpp"
+#include <keen-pbr/version.hpp>
 
 #include <functional>
 #include <ostream>
@@ -14,10 +15,6 @@ enum class ResolverType {
     DNSMASQ_IPSET,
     DNSMASQ_NFTSET,
 };
-
-// Resolve runtime resolver mode from config dns.system_resolver.type.
-// Falls back to dnsmasq-ipset when system_resolver/type is absent.
-ResolverType resolver_type_from_dns_config(const DnsConfig& dns_config);
 
 class DnsmasqGenerator {
 public:
@@ -33,13 +30,14 @@ public:
                      const RouteConfig& route_config,
                      const DnsConfig& dns_config,
                      const std::map<std::string, ListConfig>& lists,
-                     ResolverType resolver_type = ResolverType::DNSMASQ_IPSET);
+                     ResolverType resolver_type = ResolverType::DNSMASQ_IPSET,
+                     std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING);
 
     // Generate dnsmasq configuration and stream it to the output.
     // Produces ipset=/nftset= and server= directives for all matched domains.
     void generate(std::ostream& out);
 
-    // Compute MD5 hash over the full generated directives (excluding TXT record line).
+    // Compute MD5 hash over canonical user-controlled resolver records.
     // Returns 32-char lowercase hex string.
     std::string compute_config_hash();
 
@@ -50,7 +48,7 @@ public:
         const RouteConfig& route_config,
         const DnsConfig& dns_config,
         const std::map<std::string, ListConfig>& lists,
-        ResolverType resolver_type = ResolverType::DNSMASQ_IPSET);
+        std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING);
 
     // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
     // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
@@ -63,15 +61,11 @@ public:
     }
 
 private:
-    // Emit all dnsmasq directives (header comment, ipset=/nftset=, server= lines)
-    // without the TXT record line. Used by generate() and compute_config_hash().
-    void generate_directives(std::ostream& out);
-
-    // Iterate every (domain, list_name) pair for all ipset-backed lists in output order,
-    // calling callback once per domain per list.
-    void for_each_ipset_domain(
-        std::function<void(const std::string& domain,
-                           const std::string& list_name)> callback);
+    // Emit dnsmasq directives to out when provided and update the canonical
+    // hash payload via the optional callback in the same pass over the lists.
+    void generate_directives(
+        std::ostream* out,
+        const std::function<void(const std::string&)>& hash_record_callback = {});
 
     // Strip wildcard prefix from domain (*.example.com -> example.com).
     static std::string strip_wildcard(const std::string& domain);
@@ -82,6 +76,7 @@ private:
     const DnsConfig& dns_config_;
     const std::map<std::string, ListConfig>& lists_;
     ResolverType resolver_type_;
+    std::string hash_version_;
 };
 
 } // namespace keen_pbr3
