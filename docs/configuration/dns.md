@@ -122,6 +122,7 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `enabled` | boolean | no | Whether this rule is active. `false` disables it. `true`, omitted, or `null` all mean enabled. |
 | `list` | array of string | yes | List names whose domains should be resolved by this server |
 | `server` | string | yes | DNS server tag to use for matched domains |
 
@@ -130,6 +131,7 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
   "dns": {
     "rules": [
       {
+        "enabled": true,
         "list": ["my_domains", "remote_list"],
         "server": "vpn_dns"
       }
@@ -137,6 +139,8 @@ Rules map list names to a DNS server tag. Domains from the specified lists are r
   }
 }
 ```
+
+If `enabled` is omitted or set to `null`, the DNS rule is still treated as enabled.
 
 ## dnsmasq Integration
 

@@ -55,7 +55,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
   <meta itemprop="description" content="Route rules connect your lists to your outbounds.
 Most users only need one simple rule for each list, for example:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule is left unmarked and follows normal system routing.">
-  <meta itemprop="wordCount" content="599">
+  <meta itemprop="wordCount" content="656">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Route Rules">
   <meta name="twitter:description" content="Route rules connect your lists to your outbounds.
@@ -768,6 +768,10 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#disable-a-rule-temporarily-without-deleting-it">Disable a rule temporarily without deleting it
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#ingress-interface-filter--process-only-packets-from-br0">Ingress interface filter — process only packets from br0
         </a>
       </li>
@@ -968,6 +972,12 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </thead>
   <tbody>
       <tr>
+          <td><code>enabled</code></td>
+          <td>boolean</td>
+          <td>no</td>
+          <td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
+      </tr>
+      <tr>
           <td><code>list</code></td>
           <td>array of string</td>
           <td>yes</td>
@@ -1019,6 +1029,7 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;my_ips&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
@@ -1036,6 +1047,32 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
+<h3>Disable a rule temporarily without deleting it<span class="hx:absolute hx:-mt-20" id="disable-a-rule-temporarily-without-deleting-it"></span>
+    <a href="#disable-a-rule-temporarily-without-deleting-it" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>When <code>enabled</code> is omitted or set to <code>null</code>, the rule is treated as enabled.</p>
 <h3>Ingress interface filter — process only packets from <code>br0</code><span class="hx:absolute hx:-mt-20" id="ingress-interface-filter--process-only-packets-from-br0"></span>
     <a href="#ingress-interface-filter--process-only-packets-from-br0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

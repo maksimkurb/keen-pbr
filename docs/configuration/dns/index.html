@@ -100,7 +100,7 @@ System Resolver
   <meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 system_resolver (keep the defaults) servers rules fallback Configuration config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;type&#34;: &#34;dnsmasq-nftset&#34;, &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.">
-  <meta itemprop="wordCount" content="715">
+  <meta itemprop="wordCount" content="751">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DNS">
   <meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
@@ -1177,6 +1177,12 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
   </thead>
   <tbody>
       <tr>
+          <td><code>enabled</code></td>
+          <td>boolean</td>
+          <td>no</td>
+          <td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
+      </tr>
+      <tr>
           <td><code>list</code></td>
           <td>array of string</td>
           <td>yes</td>
@@ -1196,6 +1202,7 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;enabled&#34;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;list&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;my_domains&#34;</span><span class="p">,</span> <span class="s2">&#34;remote_list&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">        <span class="nt">&#34;server&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn_dns&#34;</span>
 </span></span><span class="line"><span class="cl">      <span class="p">}</span>
@@ -1213,6 +1220,7 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
   </button>
 </div>
 </div>
+<p>If <code>enabled</code> is omitted or set to <code>null</code>, the DNS rule is still treated as enabled.</p>
 <h2>dnsmasq Integration<span class="hx:absolute hx:-mt-20" id="dnsmasq-integration"></span>
     <a href="#dnsmasq-integration" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>On packaged router installs, you usually do not need to configure dnsmasq manually.</p>
 <details class="hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group" >
