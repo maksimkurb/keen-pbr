@@ -3,6 +3,7 @@ import type { RouteRule } from "@/api/generated/model/routeRule"
 import { getApiErrorMessage as getSharedApiErrorMessage } from "@/lib/api-errors"
 
 export type RouteRuleDraft = {
+  enabled: boolean
   list: string[]
   outbound: string
   proto: string
@@ -15,6 +16,7 @@ export type RouteRuleDraft = {
 export const protoOptions = ["", "tcp", "udp", "tcp/udp"] as const
 
 export const emptyRouteRuleDraft: RouteRuleDraft = {
+  enabled: true,
   list: [],
   outbound: "",
   proto: "",
@@ -37,6 +39,7 @@ export function getRuleDetails(rule: RouteRule) {
 
 export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
   return {
+    enabled: rule.enabled ?? true,
     list: rule.list,
     outbound: rule.outbound,
     proto: rule.proto ?? "",
@@ -49,6 +52,7 @@ export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
 
 export function normalizeRouteRuleDraft(draft: RouteRuleDraft): RouteRule {
   return {
+    enabled: draft.enabled,
     list: draft.list,
     outbound: draft.outbound,
     proto: trimToUndefined(draft.proto),
@@ -68,6 +72,16 @@ export function reorderRules(
   const [movedRule] = nextRules.splice(fromIndex, 1)
   nextRules.splice(toIndex, 0, movedRule)
   return nextRules
+}
+
+export function setRouteRuleEnabled(
+  rules: RouteRule[],
+  index: number,
+  enabled: boolean
+) {
+  return rules.map((rule, ruleIndex) =>
+    ruleIndex === index ? { ...rule, enabled } : rule
+  )
 }
 
 export function getFirstFieldError(errors: unknown[]) {

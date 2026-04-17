@@ -408,7 +408,11 @@ export const enTranslation = {
           title: "Routing rules",
           description:
             "Rules that decide which outbound handles matching traffic. Evaluated top to bottom.",
-          actions: { addRule: "Add routing rule" },
+          actions: {
+            addRule: "Add routing rule",
+            enableRule: "Enable rule",
+            disableRule: "Disable rule",
+          },
           messages: {
             saved: "Routing rules staged. Apply new config to persist them.",
           },
@@ -418,6 +422,7 @@ export const enTranslation = {
               "Add a routing rule to direct matching traffic to an outbound.",
           },
           headers: {
+            enabled: "Enabled",
             order: "Order",
             criteria: "Match",
             outbound: "Outbound",
@@ -636,7 +641,11 @@ export const enTranslation = {
           title: "DNS Rules",
           description:
             "Control which DNS server is used for domains in your lists.",
-          actions: { add: "Add DNS rule" },
+          actions: {
+            add: "Add DNS rule",
+            enableRule: "Enable rule",
+            disableRule: "Disable rule",
+          },
           messages: {
             saved: "DNS configuration staged. Apply new config to persist it.",
           },
@@ -664,6 +673,7 @@ export const enTranslation = {
               "No rules yet - add a rule to route DNS lookups for specific lists through a chosen server.",
           },
           headers: {
+            enabled: "Enabled",
             lists: "Lists",
             serverTag: "DNS server",
             allowDomainRebinding: "Domain rebinding",

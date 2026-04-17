@@ -562,6 +562,13 @@ components:
       type: object
       required: [list, server]
       properties:
+        enabled:
+          type: boolean
+          nullable: true
+          description: >
+            Whether this DNS rule is active. `false` disables the rule.
+            `true`, omitted, or `null` all mean the rule is active.
+          example: true
         list:
           type: array
           description: List names whose domains should be resolved by this server.
@@ -642,6 +649,13 @@ components:
       type: object
       required: [outbound]
       properties:
+        enabled:
+          type: boolean
+          nullable: true
+          description: >
+            Whether this route rule is active. `false` disables the rule.
+            `true`, omitted, or `null` all mean the rule is active.
+          example: true
         list:
           type: array
           description: List names whose traffic this rule matches. Optional when another route condition is present.

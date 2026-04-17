@@ -7,8 +7,11 @@
  */
 
 export interface RouteRule {
-  /** List names whose traffic this rule matches. */
-  list: string[];
+  /** Whether this route rule is active. `false` disables the rule. `true`, omitted, or `null` all mean the rule is active.
+   */
+  enabled?: boolean | null;
+  /** List names whose traffic this rule matches. Optional when another route condition is present. */
+  list?: string[];
   /** Outbound tag to route matched traffic through. */
   outbound: string;
   /** Protocol to match ("tcp", "udp", or "tcp/udp"). Omit for any. */

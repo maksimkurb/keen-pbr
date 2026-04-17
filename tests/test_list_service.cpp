@@ -130,3 +130,49 @@ TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated me
 
     std::filesystem::remove_all(temp_dir);
 }
+
+TEST_CASE("collect_relevant_list_names: ignores disabled route and dns rules") {
+    Config config;
+
+    ListConfig remote;
+    remote.url = "https://example.com/remote.txt";
+    config.lists = std::map<std::string, ListConfig>{
+        {"route_disabled", remote},
+        {"route_enabled", remote},
+        {"dns_disabled", remote},
+        {"dns_enabled", remote},
+    };
+
+    RouteRule route_disabled;
+    route_disabled.enabled = false;
+    route_disabled.list = std::vector<std::string>{"route_disabled"};
+    route_disabled.outbound = "vpn";
+
+    RouteRule route_enabled;
+    route_enabled.list = std::vector<std::string>{"route_enabled"};
+    route_enabled.outbound = "vpn";
+
+    RouteConfig route_config;
+    route_config.rules = std::vector<RouteRule>{route_disabled, route_enabled};
+    config.route = route_config;
+
+    DnsRule dns_disabled;
+    dns_disabled.enabled = false;
+    dns_disabled.list = std::vector<std::string>{"dns_disabled"};
+    dns_disabled.server = "dns1";
+
+    DnsRule dns_enabled;
+    dns_enabled.list = std::vector<std::string>{"dns_enabled"};
+    dns_enabled.server = "dns1";
+
+    DnsConfig dns_config;
+    dns_config.rules = std::vector<DnsRule>{dns_disabled, dns_enabled};
+    config.dns = dns_config;
+
+    const auto relevant_lists = collect_relevant_list_names(config);
+
+    CHECK(relevant_lists.count("route_disabled") == 0);
+    CHECK(relevant_lists.count("dns_disabled") == 0);
+    CHECK(relevant_lists.count("route_enabled") == 1);
+    CHECK(relevant_lists.count("dns_enabled") == 1);
+}

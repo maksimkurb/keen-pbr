@@ -42,6 +42,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `enabled` | boolean | no | Whether this rule is active. `false` disables it. `true`, omitted, or `null` all mean enabled. |
 | `list` | array of string | yes | List names whose traffic this rule matches |
 | `outbound` | string | yes | Outbound tag to route matched traffic through |
 | `proto` | string | no | Protocol: `"tcp"`, `"udp"`, or `"tcp/udp"` |
@@ -59,6 +60,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
   "route": {
     "rules": [
       {
+        "enabled": true,
         "list": ["my_domains", "my_ips", "remote_list"],
         "outbound": "vpn"
       }
@@ -66,6 +68,24 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
   }
 }
 ```
+
+### Disable a rule temporarily without deleting it
+
+```json { filename="config.json" }
+{
+  "route": {
+    "rules": [
+      {
+        "enabled": false,
+        "list": ["my_domains"],
+        "outbound": "vpn"
+      }
+    ]
+  }
+}
+```
+
+When `enabled` is omitted or set to `null`, the rule is treated as enabled.
 
 ### Ingress interface filter — process only packets from `br0`
 

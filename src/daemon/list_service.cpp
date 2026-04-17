@@ -47,11 +47,17 @@ std::set<std::string> collect_relevant_list_names(const Config& config) {
     std::set<std::string> relevant_lists;
 
     for (const auto& rule : config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{})) {
+        if (!route_rule_enabled(rule)) {
+            continue;
+        }
         const auto& route_lists = route_rule_lists(rule);
         relevant_lists.insert(route_lists.begin(), route_lists.end());
     }
 
     for (const auto& rule : config.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{})) {
+        if (!dns_rule_enabled(rule)) {
+            continue;
+        }
         relevant_lists.insert(rule.list.begin(), rule.list.end());
     }
 

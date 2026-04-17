@@ -17,7 +17,12 @@ import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { getApiErrorMessage, reorderRules } from "@/pages/routing-rules-utils"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  getApiErrorMessage,
+  reorderRules,
+  setRouteRuleEnabled,
+} from "@/pages/routing-rules-utils"
 
 export function RoutingRulesPage() {
   const { t } = useTranslation()
@@ -115,6 +120,14 @@ export function RoutingRulesPage() {
     persistRules(loadedConfig, nextRules)
   }
 
+  const handleEnabledChange = (index: number, enabled: boolean) => {
+    if (!loadedConfig) {
+      return
+    }
+
+    persistRules(loadedConfig, setRouteRuleEnabled(routeRules, index, enabled))
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -158,13 +171,31 @@ export function RoutingRulesPage() {
       ) : (
         <DataTable
           headers={[
+            t("pages.routingRules.headers.enabled"),
             t("pages.routingRules.headers.order"),
             t("pages.routingRules.headers.criteria"),
             t("pages.routingRules.headers.outbound"),
             t("pages.routingRules.headers.actions"),
           ]}
-          narrowColumns={[0]}
+          narrowColumns={[0, 1]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
+            <Checkbox
+              aria-label={t(
+                row.enabled
+                  ? "pages.routingRules.actions.disableRule"
+                  : "pages.routingRules.actions.enableRule"
+              )}
+              checked={row.enabled}
+              key={`${row.id}-enabled`}
+              onCheckedChange={(checked) =>
+                handleEnabledChange(row.index, checked === true)
+              }
+              title={t(
+                row.enabled
+                  ? "pages.routingRules.actions.disableRule"
+                  : "pages.routingRules.actions.enableRule"
+              )}
+            />,
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
             </span>,
@@ -265,6 +296,7 @@ function getRouteRuleRow(
 
   return {
     id: `routing-rule-${index}`,
+    enabled: rule.enabled ?? true,
     index,
     order: index + 1,
     conditions,

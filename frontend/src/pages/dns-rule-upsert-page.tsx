@@ -106,6 +106,7 @@ export function DnsRuleUpsertPage({
 
   const defaultValues: { rule: DnsRuleDraft } = {
     rule: {
+      enabled: true,
       server: serverTags[0] ?? "",
       lists: [],
       allowDomainRebinding: false,
@@ -178,11 +179,12 @@ export function DnsRuleUpsertPage({
       return
     }
 
-    form.reset({
-      rule: {
-        server: serverTags[0] ?? "",
-        lists: [],
-        allowDomainRebinding: false,
+      form.reset({
+        rule: {
+          enabled: true,
+          server: serverTags[0] ?? "",
+          lists: [],
+          allowDomainRebinding: false,
       },
     })
     clearFormServerErrors(form)

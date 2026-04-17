@@ -7,6 +7,9 @@
  */
 
 export interface DnsRule {
+  /** Whether this DNS rule is active. `false` disables the rule. `true`, omitted, or `null` all mean the rule is active.
+   */
+  enabled?: boolean | null;
   /** List names whose domains should be resolved by this server. */
   list: string[];
   /** DNS server tag to use for matched domains. */

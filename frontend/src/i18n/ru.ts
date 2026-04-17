@@ -417,7 +417,11 @@ export const ruTranslation = {
           title: "Правила маршрутизации",
           description:
             "Правила, определяющие, какой outbound обрабатывает подходящий трафик. Проверяются сверху вниз.",
-          actions: { addRule: "Добавить правило маршрутизации" },
+          actions: {
+            addRule: "Добавить правило маршрутизации",
+            enableRule: "Включить правило",
+            disableRule: "Выключить правило",
+          },
           messages: {
             saved:
               "Правила маршрутизации сохранены в черновик. Примените новый конфиг, чтобы записать их.",
@@ -428,6 +432,7 @@ export const ruTranslation = {
               "Добавьте правило маршрутизации, чтобы направлять подходящий трафик в outbound.",
           },
           headers: {
+            enabled: "Включено",
             order: "Порядок",
             criteria: "Условие",
             outbound: "Outbound",
@@ -653,7 +658,11 @@ export const ruTranslation = {
           title: "DNS-правила",
           description:
             "Определяет, какой DNS-сервер используется для доменов из ваших списков.",
-          actions: { add: "Добавить DNS-правило" },
+          actions: {
+            add: "Добавить DNS-правило",
+            enableRule: "Включить правило",
+            disableRule: "Выключить правило",
+          },
           messages: {
             saved:
               "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
@@ -683,6 +692,7 @@ export const ruTranslation = {
               "Правил пока нет - добавьте правило, чтобы направлять DNS-запросы по спискам через выбранный сервер.",
           },
           headers: {
+            enabled: "Включено",
             lists: "Списки",
             serverTag: "DNS-сервер",
             allowDomainRebinding: "Разрешение rebind",

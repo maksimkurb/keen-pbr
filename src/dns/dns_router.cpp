@@ -34,6 +34,9 @@ DnsServerRegistry::DnsServerRegistry(const DnsConfig& dns_config)
 
     // Validate that all rule server tags exist
     for (const auto& rule : dns_config.rules.value_or(std::vector<DnsRule>{})) {
+        if (!dns_rule_enabled(rule)) {
+            continue;
+        }
         if (servers_.find(rule.server) == servers_.end()) {
             throw DnsError("DNS rule references unknown server tag: '" + rule.server + "'");
         }

@@ -471,6 +471,64 @@ TEST_CASE("generate-resolver-config omits rebind-domain-ok directives for dns ru
     CHECK(output.find("rebind-domain-ok=/example.com/\n") == std::string::npos);
 }
 
+TEST_CASE("generate-resolver-config ignores disabled dns rules") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
+    REQUIRE(dns_cfg.rules.has_value());
+    REQUIRE(dns_cfg.rules->size() == 1);
+    dns_cfg.rules->at(0).enabled = false;
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/example.com/8.8.8.8\n") == std::string::npos);
+    CHECK(output.find("rebind-domain-ok=/example.com/\n") == std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config ignores disabled route rules for ipset population") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    REQUIRE(route_cfg.rules.has_value());
+    REQUIRE(route_cfg.rules->size() == 1);
+    route_cfg.rules->at(0).enabled = false;
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("ipset=/example.com/") == std::string::npos);
+    CHECK(output.find("nftset=/4#inet#KeenPbrTable#") == std::string::npos);
+}
+
+TEST_CASE("dns server registry ignores disabled dns rules during server-tag validation") {
+    DnsServer fallback_server;
+    fallback_server.tag = "fallback";
+    fallback_server.address = "127.0.0.1";
+
+    DnsRule disabled_rule;
+    disabled_rule.enabled = false;
+    disabled_rule.list = std::vector<std::string>{"mylist"};
+    disabled_rule.server = "missing_server";
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{fallback_server};
+    dns_cfg.fallback = std::vector<std::string>{"fallback"};
+    dns_cfg.rules = std::vector<DnsRule>{disabled_rule};
+
+    CHECK_NOTHROW((void)DnsServerRegistry(dns_cfg));
+}
+
 TEST_CASE("hash changes when domain list content changes") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);

@@ -66,6 +66,14 @@ inline const std::vector<std::string>& route_rule_lists(const RouteRule& rule) {
     return rule.list ? *rule.list : empty;
 }
 
+inline bool route_rule_enabled(const RouteRule& rule) {
+    return rule.enabled.value_or(true);
+}
+
+inline bool dns_rule_enabled(const DnsRule& rule) {
+    return rule.enabled.value_or(true);
+}
+
 // --- JSON deserialization and validation ---
 
 Config parse_config(const std::string& json_str);

@@ -104,6 +104,9 @@ void DnsmasqGenerator::for_each_ipset_domain(
     // Collect all list names referenced in route rules that need ipset population.
     std::set<std::string> ipset_lists;
     for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {
+        if (!route_rule_enabled(rule)) {
+            continue;
+        }
         for (const auto& list_name : route_rule_lists(rule)) {
             ipset_lists.insert(list_name);
         }
@@ -193,6 +196,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
     // Collect all list names referenced in route rules that need ipset population.
     std::set<std::string> ipset_lists;
     for (const auto& rule : route_config_.rules.value_or(std::vector<RouteRule>{})) {
+        if (!route_rule_enabled(rule)) {
+            continue;
+        }
         for (const auto& list_name : route_rule_lists(rule)) {
             ipset_lists.insert(list_name);
         }
@@ -203,6 +209,9 @@ void DnsmasqGenerator::generate_directives(std::ostream& out) {
     std::map<std::string, std::string> dns_list_servers;
     std::map<std::string, bool> dns_list_allow_rebind;
     for (const auto& rule : dns_config_.rules.value_or(std::vector<DnsRule>{})) {
+        if (!dns_rule_enabled(rule)) {
+            continue;
+        }
         for (const auto& list_name : rule.list) {
             if (dns_list_servers.find(list_name) == dns_list_servers.end()) {
                 dns_list_servers[list_name] = rule.server;

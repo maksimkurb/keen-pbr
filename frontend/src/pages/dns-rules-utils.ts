@@ -2,6 +2,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import i18n from "@/i18n"
 
 export type DnsRuleDraft = {
+  enabled: boolean
   server: string
   lists: string[]
   allowDomainRebinding: boolean
@@ -14,11 +15,13 @@ export type RuleErrors = {
 }
 
 export function getRuleDraft(rule?: {
+  enabled?: boolean | null
   server?: string
   list?: string[]
   allow_domain_rebinding?: boolean
 }): DnsRuleDraft {
   return {
+    enabled: rule?.enabled ?? true,
     server: rule?.server ?? "",
     lists: rule?.list ?? [],
     allowDomainRebinding: rule?.allow_domain_rebinding ?? false,
@@ -36,12 +39,23 @@ export function buildUpdatedConfigWithRules(
       ...config.dns,
       fallback,
       rules: rules.map((rule) => ({
+        enabled: rule.enabled,
         server: rule.server,
         list: rule.lists,
         allow_domain_rebinding: rule.allowDomainRebinding,
       })),
     },
   }
+}
+
+export function setDnsRuleEnabled(
+  rules: DnsRuleDraft[],
+  index: number,
+  enabled: boolean
+) {
+  return rules.map((rule, ruleIndex) =>
+    ruleIndex === index ? { ...rule, enabled } : rule
+  )
 }
 
 export function validateRules(
@@ -56,6 +70,10 @@ export function validateRules(
   const seenRules = new Set<string>()
 
   for (const [index, rule] of rules.entries()) {
+    if (!rule.enabled) {
+      continue
+    }
+
     const nextRuleErrors: RuleErrors = {}
     const parsedLists = rule.lists
 

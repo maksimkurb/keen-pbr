@@ -88,6 +88,37 @@ TEST_CASE("build_fw_rule_states: ignore outbound becomes pass-through firewall r
     }));
 }
 
+TEST_CASE("build_fw_rule_states: disabled route rule is skipped while enabled rules stay active") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"direct","type":"ignore"}
+        ],
+        "lists":{
+            "disabled_list":{"ip_cidrs":["192.168.10.0/24"]},
+            "enabled_list":{"ip_cidrs":["192.168.20.0/24"]}
+        },
+        "route":{
+            "rules":[
+                {"enabled":false,"list":["disabled_list"],"outbound":"direct"},
+                {"list":["enabled_list"],"outbound":"direct"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    auto states = build_fw_rule_states(cfg, marks);
+
+    REQUIRE(states.size() == 2);
+    CHECK(states[0].action_type == RuleActionType::Skip);
+    CHECK(states[0].set_names.empty());
+    CHECK(states[0].outbound_tag == "direct");
+    CHECK(states[1].action_type == RuleActionType::Pass);
+    CHECK(states[1].set_names == std::vector<std::string>({
+        "kpbr4_enabled_list", "kpbr6_enabled_list", "kpbr4d_enabled_list", "kpbr6d_enabled_list"
+    }));
+}
+
 TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps interface restriction disabled") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[

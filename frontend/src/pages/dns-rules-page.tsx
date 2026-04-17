@@ -26,10 +26,12 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigWithRules,
   getRuleDraft,
+  setDnsRuleEnabled,
   validateRules,
 } from "@/pages/dns-rules-utils"
 
@@ -115,6 +117,32 @@ export function DnsRulesPage() {
     })
   }
 
+  const handleEnabledChange = (index: number, enabled: boolean) => {
+    if (!loadedConfig) {
+      return
+    }
+
+    const nextDraftRules = setDnsRuleEnabled(
+      rules.map((rule) => getRuleDraft(rule)),
+      index,
+      enabled
+    )
+
+    const validation = validateRules(nextDraftRules, serverTags, listOptions)
+    if (Object.keys(validation).length > 0) {
+      toast.error(t("pages.dnsRules.validation.invalidResult"))
+      return
+    }
+
+    postConfigMutation.mutate({
+      data: buildUpdatedConfigWithRules(
+        loadedConfig,
+        loadedConfig.dns?.fallback ?? [],
+        nextDraftRules
+      ),
+    })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -180,12 +208,30 @@ export function DnsRulesPage() {
           ) : (
             <DataTable
               headers={[
+                t("pages.dnsRules.headers.enabled"),
                 t("pages.dnsRules.headers.lists"),
                 t("pages.dnsRules.headers.serverTag"),
                 t("pages.dnsRules.headers.allowDomainRebinding"),
                 t("pages.dnsRules.headers.actions"),
               ]}
               rows={rules.map((rule, index) => [
+                <Checkbox
+                  aria-label={t(
+                    (rule.enabled ?? true)
+                      ? "pages.dnsRules.actions.disableRule"
+                      : "pages.dnsRules.actions.enableRule"
+                  )}
+                  checked={rule.enabled ?? true}
+                  key={`enabled-${index}`}
+                  onCheckedChange={(checked) =>
+                    handleEnabledChange(index, checked === true)
+                  }
+                  title={t(
+                    (rule.enabled ?? true)
+                      ? "pages.dnsRules.actions.disableRule"
+                      : "pages.dnsRules.actions.enableRule"
+                  )}
+                />,
                 <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
                   {rule.list.map((listName) => (
                     <Badge key={`${index}-${listName}`} variant="outline">

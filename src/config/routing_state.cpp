@@ -338,6 +338,16 @@ std::vector<RuleState> build_fw_rule_states(
     for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
         const auto& rule = route_rules[rule_idx];
 
+        if (!route_rule_enabled(rule)) {
+            RuleState rs;
+            rs.rule_index = rule_idx;
+            rs.list_names = route_rule_lists(rule);
+            rs.outbound_tag = rule.outbound;
+            rs.action_type = RuleActionType::Skip;
+            rule_states.push_back(std::move(rs));
+            continue;
+        }
+
         auto decision = resolve_route_action(rule.outbound, all_outbounds);
 
         if (decision.is_skip) {

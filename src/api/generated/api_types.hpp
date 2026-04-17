@@ -132,6 +132,7 @@ namespace api {
 
     struct DnsRuleElement {
         std::optional<bool> allow_domain_rebinding;
+        std::optional<bool> enabled;
         std::vector<std::string> list;
         std::string server;
     };
@@ -213,6 +214,7 @@ namespace api {
     struct RouteRuleElement {
         std::optional<std::string> dest_addr;
         std::optional<std::string> dest_port;
+        std::optional<bool> enabled;
         std::optional<std::vector<std::string>> list;
         std::string outbound;
         std::optional<std::string> proto;
@@ -759,6 +761,7 @@ namespace api {
 
     inline void from_json(const json & j, DnsRuleElement& x) {
         x.allow_domain_rebinding = get_stack_optional<bool>(j, "allow_domain_rebinding");
+        x.enabled = get_stack_optional<bool>(j, "enabled");
         x.list = j.at("list").get<std::vector<std::string>>();
         x.server = j.at("server").get<std::string>();
     }
@@ -766,6 +769,7 @@ namespace api {
     inline void to_json(json & j, const DnsRuleElement & x) {
         j = json::object();
         j["allow_domain_rebinding"] = x.allow_domain_rebinding;
+        j["enabled"] = x.enabled;
         j["list"] = x.list;
         j["server"] = x.server;
     }
@@ -919,6 +923,7 @@ namespace api {
     inline void from_json(const json & j, RouteRuleElement& x) {
         x.dest_addr = get_stack_optional<std::string>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
+        x.enabled = get_stack_optional<bool>(j, "enabled");
         x.list = get_stack_optional<std::vector<std::string>>(j, "list");
         x.outbound = j.at("outbound").get<std::string>();
         x.proto = get_stack_optional<std::string>(j, "proto");
@@ -930,6 +935,7 @@ namespace api {
         j = json::object();
         j["dest_addr"] = x.dest_addr;
         j["dest_port"] = x.dest_port;
+        j["enabled"] = x.enabled;
         j["list"] = x.list;
         j["outbound"] = x.outbound;
         j["proto"] = x.proto;

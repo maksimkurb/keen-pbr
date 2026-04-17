@@ -219,6 +219,106 @@ TEST_CASE("dns servers: duplicate tag is rejected") {
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
+TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {
+    const auto cfg_true = parse_test_config(R"({
+        "route":{"rules":[{"enabled":true,"list":["ads"],"outbound":"vpn"}]}
+    })");
+    REQUIRE(cfg_true.route.has_value());
+    REQUIRE(cfg_true.route->rules.has_value());
+    REQUIRE(cfg_true.route->rules->size() == 1);
+    CHECK(cfg_true.route->rules->at(0).enabled == std::optional<bool>(true));
+    const nlohmann::json json_true = cfg_true;
+    CHECK(json_true["route"]["rules"][0]["enabled"] == true);
+
+    const auto cfg_false = parse_test_config(R"({
+        "route":{"rules":[{"enabled":false,"list":["ads"],"outbound":"vpn"}]}
+    })");
+    REQUIRE(cfg_false.route.has_value());
+    REQUIRE(cfg_false.route->rules.has_value());
+    REQUIRE(cfg_false.route->rules->size() == 1);
+    CHECK(cfg_false.route->rules->at(0).enabled == std::optional<bool>(false));
+    const nlohmann::json json_false = cfg_false;
+    CHECK(json_false["route"]["rules"][0]["enabled"] == false);
+
+    const auto cfg_omitted = parse_test_config(R"({
+        "route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}
+    })");
+    REQUIRE(cfg_omitted.route.has_value());
+    REQUIRE(cfg_omitted.route->rules.has_value());
+    REQUIRE(cfg_omitted.route->rules->size() == 1);
+    CHECK_FALSE(cfg_omitted.route->rules->at(0).enabled.has_value());
+    const nlohmann::json json_omitted = cfg_omitted;
+    CHECK(json_omitted["route"]["rules"][0]["enabled"].is_null());
+
+    const auto cfg_null = parse_test_config(R"({
+        "route":{"rules":[{"enabled":null,"list":["ads"],"outbound":"vpn"}]}
+    })");
+    REQUIRE(cfg_null.route.has_value());
+    REQUIRE(cfg_null.route->rules.has_value());
+    REQUIRE(cfg_null.route->rules->size() == 1);
+    CHECK_FALSE(cfg_null.route->rules->at(0).enabled.has_value());
+    const nlohmann::json json_null = cfg_null;
+    CHECK(json_null["route"]["rules"][0]["enabled"].is_null());
+}
+
+TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and null") {
+    const auto cfg_true = parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
+            "fallback":["vpn_dns"],
+            "rules":[{"enabled":true,"list":["ads"],"server":"vpn_dns"}]
+        }
+    })");
+    REQUIRE(cfg_true.dns.has_value());
+    REQUIRE(cfg_true.dns->rules.has_value());
+    REQUIRE(cfg_true.dns->rules->size() == 1);
+    CHECK(cfg_true.dns->rules->at(0).enabled == std::optional<bool>(true));
+    const nlohmann::json json_true = cfg_true;
+    CHECK(json_true["dns"]["rules"][0]["enabled"] == true);
+
+    const auto cfg_false = parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
+            "fallback":["vpn_dns"],
+            "rules":[{"enabled":false,"list":["ads"],"server":"vpn_dns"}]
+        }
+    })");
+    REQUIRE(cfg_false.dns.has_value());
+    REQUIRE(cfg_false.dns->rules.has_value());
+    REQUIRE(cfg_false.dns->rules->size() == 1);
+    CHECK(cfg_false.dns->rules->at(0).enabled == std::optional<bool>(false));
+    const nlohmann::json json_false = cfg_false;
+    CHECK(json_false["dns"]["rules"][0]["enabled"] == false);
+
+    const auto cfg_omitted = parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
+            "fallback":["vpn_dns"],
+            "rules":[{"list":["ads"],"server":"vpn_dns"}]
+        }
+    })");
+    REQUIRE(cfg_omitted.dns.has_value());
+    REQUIRE(cfg_omitted.dns->rules.has_value());
+    REQUIRE(cfg_omitted.dns->rules->size() == 1);
+    CHECK_FALSE(cfg_omitted.dns->rules->at(0).enabled.has_value());
+    const nlohmann::json json_omitted = cfg_omitted;
+    CHECK(json_omitted["dns"]["rules"][0]["enabled"].is_null());
+
+    const auto cfg_null = parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
+            "fallback":["vpn_dns"],
+            "rules":[{"enabled":null,"list":["ads"],"server":"vpn_dns"}]
+        }
+    })");
+    REQUIRE(cfg_null.dns.has_value());
+    REQUIRE(cfg_null.dns->rules.has_value());
+    REQUIRE(cfg_null.dns->rules->size() == 1);
+    CHECK_FALSE(cfg_null.dns->rules->at(0).enabled.has_value());
+    const nlohmann::json json_null = cfg_null;
+    CHECK(json_null["dns"]["rules"][0]["enabled"].is_null());
+}
+
 TEST_CASE("dns servers: duplicate server definition is rejected") {
     std::string json = R"({
         "dns":{
