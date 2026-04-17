@@ -99,9 +99,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
   target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)
 endif()
 
-if(USE_KEENETIC_API)
-  target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
-endif()
+target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
 
 if(WITH_API)
   target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)

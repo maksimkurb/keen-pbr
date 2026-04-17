@@ -1,6 +1,7 @@
 #include "daemon.hpp"
 
 #include "../dns/dns_router.hpp"
+#include "../dns/keenetic_dns.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "../dns/dnsmasq_gen.hpp"
 #include "../lists/list_streamer.hpp"
@@ -10,6 +11,24 @@
 #include "scheduler.hpp"
 
 namespace keen_pbr3 {
+
+namespace {
+
+bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt) {
+    if (!dns_cfg_opt.has_value()) {
+        return false;
+    }
+
+    for (const auto& server : dns_cfg_opt->servers.value_or(std::vector<DnsServer>{})) {
+        if (server.type.value_or(api::DnsServerType::STATIC) == api::DnsServerType::KEENETIC) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+} // namespace
 
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(list_service_.cache_manager());
@@ -69,6 +88,66 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
             maybe_schedule_resolver_config_hash_actual_refresh();
         },
         "resolver-config-hash-actual");
+}
+
+void Daemon::schedule_keenetic_dns_refresh() {
+    if (keenetic_dns_refresh_task_id_ >= 0) {
+        scheduler_->cancel(keenetic_dns_refresh_task_id_);
+        keenetic_dns_refresh_task_id_ = -1;
+    }
+
+    if (!dns_config_uses_keenetic_server(config_.dns)) {
+        return;
+    }
+
+    keenetic_dns_refresh_task_id_ = scheduler_->schedule_repeating(
+        std::chrono::minutes{5},
+        [this]() {
+            post_control_task([this]() {
+                if (!routing_runtime_active_) {
+                    return;
+                }
+                if (refresh_keenetic_dns_cache(true)) {
+                    update_resolver_config_hash();
+                    publish_runtime_state();
+                }
+            }, "keenetic-dns-refresh");
+        },
+        "keenetic-dns-refresh");
+}
+
+bool Daemon::refresh_keenetic_dns_cache(bool force_refresh) {
+    if (!dns_config_uses_keenetic_server(config_.dns)) {
+        return false;
+    }
+
+    const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(force_refresh);
+    auto& log = Logger::instance();
+
+    switch (result.status) {
+    case KeeneticDnsRefreshStatus::UPDATED:
+        if (result.address.has_value()) {
+            log.info("Keenetic DNS refreshed: {}", *result.address);
+        }
+        return true;
+    case KeeneticDnsRefreshStatus::UNCHANGED:
+        return false;
+    case KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE:
+        log.warn("Keenetic DNS refresh failed; reusing cached value{}{}",
+                 result.address.has_value() ? " " : "",
+                 result.address.has_value() ? *result.address : "");
+        if (!result.error.empty()) {
+            log.warn("Keenetic DNS refresh error: {}", result.error);
+        }
+        return false;
+    case KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE:
+        if (!result.error.empty()) {
+            log.warn("Keenetic DNS refresh failed with no cached value: {}", result.error);
+        }
+        return false;
+    }
+
+    return false;
 }
 
 void Daemon::schedule_resolver_config_hash_actual_retry() {

@@ -84,6 +84,10 @@ void Daemon::stop_routing_runtime() {
     route_table_.clear();
     policy_rules_.clear();
     firewall_->cleanup();
+    if (keenetic_dns_refresh_task_id_ >= 0) {
+        scheduler_->cancel(keenetic_dns_refresh_task_id_);
+        keenetic_dns_refresh_task_id_ = -1;
+    }
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
         const auto args = build_system_resolver_hook_args(config_, "deactivate");
@@ -110,6 +114,7 @@ void Daemon::start_routing_runtime() {
 
     setup_static_routing();
     register_urltest_outbounds();
+    (void)refresh_keenetic_dns_cache(true);
     apply_firewall();
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
@@ -129,6 +134,7 @@ void Daemon::start_routing_runtime() {
 
     routing_runtime_active_ = true;
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+    schedule_keenetic_dns_refresh();
     refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
     log.info("Routing runtime started.");
@@ -636,6 +642,10 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
         scheduler_->cancel(lists_autoupdate_task_id_);
         lists_autoupdate_task_id_ = -1;
     }
+    if (keenetic_dns_refresh_task_id_ >= 0) {
+        scheduler_->cancel(keenetic_dns_refresh_task_id_);
+        keenetic_dns_refresh_task_id_ = -1;
+    }
     if (resolver_config_hash_actual_task_id_ >= 0) {
         scheduler_->cancel(resolver_config_hash_actual_task_id_);
         resolver_config_hash_actual_task_id_ = -1;
@@ -660,7 +670,9 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
 
     setup_static_routing();
     register_urltest_outbounds();
+    (void)refresh_keenetic_dns_cache(true);
     apply_firewall();
+    schedule_keenetic_dns_refresh();
     schedule_lists_autoupdate();
     update_resolver_config_hash();
     setup_dns_probe();
