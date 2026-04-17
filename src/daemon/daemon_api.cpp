@@ -14,6 +14,7 @@
 #include "../health/runtime_outbound_state.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "../util/time_utils.hpp"
 #include "resolver_health.hpp"
 
 #ifndef KEEN_PBR_FRONTEND_ROOT
@@ -23,11 +24,6 @@
 namespace keen_pbr3 {
 
 namespace {
-
-std::int64_t unix_timestamp_now_seconds() {
-    return std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-}
 
 const char* config_operation_state_name(ConfigOperationState state) {
     switch (state) {

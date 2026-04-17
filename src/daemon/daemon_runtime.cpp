@@ -15,6 +15,7 @@
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
 #include "system_resolver_hook.hpp"
@@ -127,6 +128,7 @@ void Daemon::start_routing_runtime() {
     }
 
     routing_runtime_active_ = true;
+    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
     log.info("Routing runtime started.");
@@ -137,6 +139,7 @@ void Daemon::restart_routing_runtime() {
         throw DaemonError("Routing runtime is stopped");
     }
 
+    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     stop_routing_runtime();
     start_routing_runtime();
 }

@@ -5,19 +5,11 @@
 #include "../dns/dnsmasq_gen.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "../util/time_utils.hpp"
 #include "resolver_health.hpp"
 #include "scheduler.hpp"
 
 namespace keen_pbr3 {
-
-namespace {
-
-std::int64_t unix_timestamp_now_seconds() {
-    return std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-}
-
-} // namespace
 
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(list_service_.cache_manager());
