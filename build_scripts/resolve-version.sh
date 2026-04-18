@@ -14,7 +14,7 @@ resolve_release() {
     fi
 
     if command -v git >/dev/null 2>&1 && git -C "$WORKSPACE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        git -C "$WORKSPACE" log -1 --format=%cd --date=format:%Y%m%d%H%M%S
+        TZ=UTC git -C "$WORKSPACE" log -1 --format=%cd --date=format-local:%Y%m%d%H%M%S
         return
     fi
 
