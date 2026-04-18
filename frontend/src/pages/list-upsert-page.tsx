@@ -1,9 +1,11 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { useStore } from "@tanstack/react-store"
 import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
+import { toast } from "sonner"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
@@ -32,6 +34,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { getApiValidationErrors } from "@/lib/api-errors"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
@@ -84,12 +87,7 @@ export function ListUpsertPage({
   const loadedConfig = selectConfig(configQuery.data)
   const listsMap = loadedConfig?.lists ?? {}
 
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
-    null
-  )
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
+  // use toasts instead of inline messages
   const [apiError, setApiError] = useState<ApiError | null>(null)
 
   const draft =
@@ -100,12 +98,11 @@ export function ListUpsertPage({
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async () => {
-        setSaveSuccessMessage(
+        toast.success(
           mode === "create"
             ? t("pages.listUpsert.messages.created")
             : t("pages.listUpsert.messages.updated")
         )
-        setMutationErrorMessage(null)
         setApiError(null)
 
         await Promise.all([
@@ -116,8 +113,13 @@ export function ListUpsertPage({
         navigate("/lists")
       },
       onError: (error) => {
-        setSaveSuccessMessage(null)
-        setApiError(error as ApiError)
+        const apiErr = error as ApiError
+        setApiError(apiErr)
+        const validationErrors = getApiValidationErrors(apiErr)
+        if (validationErrors.length === 0) {
+          const msg = apiErr?.message ?? t("pages.listUpsert.messages.saveError")
+          toast.error(msg, { richColors: true })
+        }
       },
     },
   })
@@ -156,14 +158,7 @@ export function ListUpsertPage({
           : t("pages.listUpsert.editTitle")
       }
     >
-      {saveSuccessMessage ? (
-        <Alert className="border-success/30 bg-success/5 text-success">
-          <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-
       <ListForm
-        apiErrorMessage={mutationErrorMessage}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
         isConfigLoaded={Boolean(loadedConfig)}
@@ -171,7 +166,6 @@ export function ListUpsertPage({
         mode={mode}
         apiError={apiError}
         onCancel={() => navigate("/lists")}
-        onErrorMessageChange={setMutationErrorMessage}
         onSubmit={(nextDraft) => {
           if (!loadedConfig) {
             return
@@ -184,8 +178,6 @@ export function ListUpsertPage({
             listId
           )
 
-          setSaveSuccessMessage(null)
-          setMutationErrorMessage(null)
           setApiError(null)
           postConfigMutation.mutate({ data: updatedConfig })
         }}
@@ -197,24 +189,20 @@ export function ListUpsertPage({
 function ListForm({
   mode,
   draft,
-  apiErrorMessage,
   existingListNames,
   isConfigLoaded,
   isPending,
   onCancel,
   apiError,
-  onErrorMessageChange,
   onSubmit,
 }: {
   mode: "create" | "edit"
   draft: ListDraft
-  apiErrorMessage: string | null
   existingListNames: string[]
   isConfigLoaded: boolean
   isPending: boolean
   onCancel: () => void
   apiError: ApiError | null
-  onErrorMessageChange: (message: string | null) => void
   onSubmit: (draft: ListDraft) => void
 }) {
   const { t } = useTranslation()
@@ -225,21 +213,24 @@ function ListForm({
     defaultValues: draft,
     onSubmit: ({ value }) => {
       clearFormServerErrors(form)
-      onErrorMessageChange(null)
       onSubmit(value)
     },
   })
 
+  const apiErrorMessage = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as { form?: string } | undefined)?.form ?? null)
+  )
+
   useEffect(() => {
-    onErrorMessageChange(
-      applyFormApiErrors({
-        error: apiError,
-        form,
-        resolvePath: (path) =>
-          resolveListFieldPath(path, form.state.values.name || draft.name),
-      }) ?? null
-    )
-  }, [apiError, draft.name, form, onErrorMessageChange])
+    applyFormApiErrors({
+      error: apiError,
+      form,
+      resolvePath: (path) =>
+        resolveListFieldPath(path, form.state.values.name || draft.name),
+    })
+  }, [apiError, draft.name, form])
 
   const isCreate = mode === "create"
 
@@ -268,7 +259,7 @@ function ListForm({
     }
 
     setActiveSourceGroups([group])
-    onErrorMessageChange(null)
+    clearFormServerErrors(form)
 
     for (const sourceGroup of LIST_SOURCE_GROUPS) {
       if (sourceGroup === group) {

@@ -1,5 +1,4 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -22,7 +21,7 @@ import {
   RuntimeOutboundEntry,
 } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -47,9 +46,7 @@ export function OutboundsPage() {
     },
   })
   const loadedConfig = selectConfig(configQuery.data)
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
+  // using toasts for mutation errors
 
   const runtimeOutboundByTag = new Map(
     (runtimeOutboundsQuery.data?.status === 200
@@ -64,7 +61,7 @@ export function OutboundsPage() {
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async () => {
-        setMutationErrorMessage(null)
+        // success — nothing to show here (toasts handled on error)
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
           queryClient.invalidateQueries({
@@ -79,7 +76,9 @@ export function OutboundsPage() {
         ])
       },
       onError: (error) => {
-        setMutationErrorMessage(getApiErrorMessage(error as ApiError))
+        toast.error(getApiErrorMessage(error as ApiError), {
+          richColors: true,
+        })
       },
     },
   })
@@ -95,7 +94,7 @@ export function OutboundsPage() {
     const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds, t)
 
     if (urltestReferencesError) {
-      setMutationErrorMessage(urltestReferencesError)
+      toast.error(urltestReferencesError, { richColors: true })
       return
     }
 
@@ -104,7 +103,7 @@ export function OutboundsPage() {
       outbounds: nextOutbounds,
     }
 
-    setMutationErrorMessage(null)
+    // proceed with mutation
     postConfigMutation.mutate({ data: updatedConfig })
   }
 
@@ -120,14 +119,6 @@ export function OutboundsPage() {
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
       />
-
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       {configQuery.isLoading ? (
         <TableSkeleton />

@@ -35,6 +35,12 @@ jobs:
           pattern: packages-*
           path: downloaded-artifacts
 
+      - name: Download debug symbol artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: debug-symbols-*
+          path: downloaded-artifacts
+
       - name: Show downloaded artifact tree
         run: |
           if command -v tree >/dev/null 2>&1; then
@@ -48,7 +54,9 @@ jobs:
           set -euo pipefail
           rm -rf "$GITHUB_WORKSPACE/src/build/packages"
           mkdir -p "$GITHUB_WORKSPACE/src/build/packages/openwrt" \
+                   "$GITHUB_WORKSPACE/src/build/packages/openwrt-debug" \
                    "$GITHUB_WORKSPACE/src/build/packages/keenetic" \
+                   "$GITHUB_WORKSPACE/src/build/packages/keenetic-debug" \
                    "$GITHUB_WORKSPACE/src/build/packages/debian"
 
           shopt -s nullglob
@@ -57,8 +65,16 @@ jobs:
             cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/openwrt"/
           done
 
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/debug-symbols-openwrt-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/openwrt-debug"/
+          done
+
           for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-keenetic-*; do
             cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/keenetic"/
+          done
+
+          for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/debug-symbols-keenetic-*; do
+            cp -a "$artifact_dir"/. "$GITHUB_WORKSPACE/src/build/packages/keenetic-debug"/
           done
 
           for artifact_dir in "$GITHUB_WORKSPACE"/downloaded-artifacts/packages-debian-*; do

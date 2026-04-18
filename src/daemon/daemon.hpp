@@ -194,6 +194,8 @@ private:
     void refresh_resolver_config_hash_actual_async();
     void maybe_schedule_resolver_config_hash_actual_refresh();
     void schedule_resolver_config_hash_actual_retry();
+    void schedule_keenetic_dns_refresh();
+    bool refresh_keenetic_dns_cache(bool force_refresh);
     void reset_resolver_actual_state();
     void commit_resolver_hash_probe_result(const std::string& resolver_addr,
                                            std::uint64_t generation,
@@ -249,6 +251,8 @@ private:
 
     // Lists autoupdate state
     int lists_autoupdate_task_id_{-1};
+    // Periodic refresh task for cached Keenetic DNS server values.
+    int keenetic_dns_refresh_task_id_{-1};
     // Periodic refresh task for the actual resolver config hash / live status.
     int resolver_config_hash_actual_task_id_{-1};
     // Short-interval retry while resolver hash is converging after apply.

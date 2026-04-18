@@ -24,10 +24,11 @@ SUBTARGET="${6:?}"
 FIXED_PKGARCH="${7:-}"
 APK_SIGNING_MARKER="$RELEASE_DIR/openwrt/.apk-signed"
 
-. "$WORKSPACE/version.mk"
-VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
+VERSION_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" full "$WORKSPACE")"
+DEBUG_DEST_ROOT="$RELEASE_DIR/openwrt-debug/${TAG}"
 
 mkdir -p "$RELEASE_DIR"
+mkdir -p "$DEBUG_DEST_ROOT"
 ARCH_PREFIX="${TARGET}_${SUBTARGET}"
 
 # ── Copy and rename packages ──────────────────────────────────────────────────
@@ -52,6 +53,11 @@ _copy_pkg() {
 
 _copy_pkg "keen-pbr"
 _copy_pkg "keen-pbr-headless"
+
+find "$SDK_DIR/build_dir" -type f -path '*/debug-artifacts/*/keen-pbr.debug' | while read -r f; do
+    variant="$(basename "$(dirname "$f")")"
+    cp "$f" "$DEBUG_DEST_ROOT/keen-pbr_${VERSION_RELEASE}_openwrt_${TAG}_${ARCH_PREFIX}_${variant}.debug"
+done
 
 # ── IPK: generate Packages index per architecture ────────────────────────────
 

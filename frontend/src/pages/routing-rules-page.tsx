@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -15,9 +15,9 @@ import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import {
   getApiErrorMessage,
   reorderRules,
@@ -27,12 +27,7 @@ import {
 export function RoutingRulesPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
-    null
-  )
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
+
 
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
@@ -66,13 +61,11 @@ export function RoutingRulesPage() {
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: () => {
-        setSaveSuccessMessage(t("pages.routingRules.messages.saved"))
-        setMutationErrorMessage(null)
+        toast.success(t("pages.routingRules.messages.saved"))
       },
       onError: (error) => {
         const apiError = error as ApiError
-        setSaveSuccessMessage(null)
-        setMutationErrorMessage(getApiErrorMessage(apiError))
+        toast.error(getApiErrorMessage(apiError), { richColors: true })
       },
     },
   })
@@ -81,9 +74,6 @@ export function RoutingRulesPage() {
     config: NonNullable<typeof loadedConfig>,
     nextRules: RouteRule[]
   ) => {
-    setSaveSuccessMessage(null)
-    setMutationErrorMessage(null)
-
     postConfigMutation.mutate({
       data: {
         ...config,
@@ -141,19 +131,7 @@ export function RoutingRulesPage() {
         title={t("pages.routingRules.title")}
       />
 
-      {saveSuccessMessage ? (
-        <Alert className="border-success/30 bg-success/5 text-success">
-          <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -171,7 +149,7 @@ export function RoutingRulesPage() {
       ) : (
         <DataTable
           headers={[
-            t("pages.routingRules.headers.enabled"),
+            "",
             t("pages.routingRules.headers.order"),
             t("pages.routingRules.headers.criteria"),
             t("pages.routingRules.headers.outbound"),
@@ -179,23 +157,22 @@ export function RoutingRulesPage() {
           ]}
           narrowColumns={[0, 1]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
-            <Checkbox
-              aria-label={t(
-                row.enabled
-                  ? "pages.routingRules.actions.disableRule"
-                  : "pages.routingRules.actions.enableRule"
-              )}
-              checked={row.enabled}
-              key={`${row.id}-enabled`}
-              onCheckedChange={(checked) =>
-                handleEnabledChange(row.index, checked === true)
-              }
-              title={t(
-                row.enabled
-                  ? "pages.routingRules.actions.disableRule"
-                  : "pages.routingRules.actions.enableRule"
-              )}
-            />,
+            <div className="flex items-center" key={`${row.id}-enabled`}>
+              <Switch
+                aria-label={t(
+                  row.enabled
+                    ? "pages.routingRules.actions.disableRule"
+                    : "pages.routingRules.actions.enableRule"
+                )}
+                checked={row.enabled}
+                onCheckedChange={(checked) => handleEnabledChange(row.index, checked)}
+                title={t(
+                  row.enabled
+                    ? "pages.routingRules.actions.disableRule"
+                    : "pages.routingRules.actions.enableRule"
+                )}
+              />
+            </div>,
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
             </span>,

@@ -5,18 +5,37 @@ file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/version.mk" KEEN_PBR_VERSION_LINES
 
 foreach(line IN LISTS KEEN_PBR_VERSION_LINES)
   if(line MATCHES "^KEEN_PBR_VERSION=([0-9]+\\.[0-9]+\\.[0-9]+)$")
-    set(KEEN_PBR_VERSION "${CMAKE_MATCH_1}")
+    set(KEEN_PBR_VERSION_FROM_FILE "${CMAKE_MATCH_1}")
   elseif(line MATCHES "^KEEN_PBR_RELEASE=([0-9]+)$")
-    set(KEEN_PBR_RELEASE "${CMAKE_MATCH_1}")
+    set(KEEN_PBR_RELEASE_FROM_FILE "${CMAKE_MATCH_1}")
   endif()
 endforeach()
 
-if(NOT DEFINED KEEN_PBR_VERSION OR NOT DEFINED KEEN_PBR_RELEASE)
+if(NOT DEFINED KEEN_PBR_VERSION OR KEEN_PBR_VERSION STREQUAL "")
+  set(KEEN_PBR_VERSION "${KEEN_PBR_VERSION_FROM_FILE}")
+endif()
+
+if((NOT DEFINED KEEN_PBR_RELEASE OR KEEN_PBR_RELEASE STREQUAL "") AND
+   DEFINED ENV{KEEN_PBR_RELEASE_OVERRIDE} AND
+   NOT "$ENV{KEEN_PBR_RELEASE_OVERRIDE}" STREQUAL "")
+  set(KEEN_PBR_RELEASE "$ENV{KEEN_PBR_RELEASE_OVERRIDE}")
+endif()
+
+if(NOT DEFINED KEEN_PBR_RELEASE OR KEEN_PBR_RELEASE STREQUAL "")
+  set(KEEN_PBR_RELEASE "${KEEN_PBR_RELEASE_FROM_FILE}")
+endif()
+
+if(NOT DEFINED KEEN_PBR_VERSION OR KEEN_PBR_VERSION STREQUAL "" OR
+   NOT DEFINED KEEN_PBR_RELEASE OR KEEN_PBR_RELEASE STREQUAL "")
   message(FATAL_ERROR "Failed to read KEEN_PBR_VERSION/KEEN_PBR_RELEASE from version.mk")
 endif()
 
 if(NOT KEEN_PBR_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
   message(FATAL_ERROR "KEEN_PBR_VERSION must use semantic version format X.Y.Z")
+endif()
+
+if(NOT KEEN_PBR_RELEASE MATCHES "^[0-9]+$")
+  message(FATAL_ERROR "KEEN_PBR_RELEASE must contain only digits")
 endif()
 
 set(KEEN_PBR_VERSION_MAJOR "${CMAKE_MATCH_1}")
@@ -55,6 +74,8 @@ set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CAC
   "Default frontend static root served by API (SPA assets)")
 set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq.sh" CACHE STRING
   "System resolver hook command path compiled into keen-pbr")
+set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
+  "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 
 # Dependencies
 find_package(CURL REQUIRED)
@@ -171,6 +192,7 @@ set(SOURCES
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/util/blocking_executor.cpp
+  src/util/system_info.cpp
   src/util/traced_mutex.cpp
   src/main.cpp
 )
@@ -214,6 +236,7 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
+  KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
 )
 if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)

@@ -13,6 +13,13 @@ export interface HealthResponse {
   /** Daemon version string. */
   version: string;
   status: HealthResponseStatus;
+  /** Normalized host OS family used by the running daemon. */
+  os_type: string;
+  /** Host OS version string reported by the system. */
+  os_version: string;
+  /** Host platform build variant. On OpenWrt this includes `target/subtarget`; on other OSes it contains the detected target.
+   */
+  build_variant: string;
   /** MD5 hex digest of the current domain-to-ipset mapping. Matches the txt-record written by generate-resolver-config; use to verify the dnsmasq config is up to date.
    */
   resolver_config_hash?: string;

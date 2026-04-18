@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react"
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -145,7 +145,6 @@ export function OutboundUpsertPage({
   const draft =
     getOutboundDraft(loadedConfig, mode === "edit" ? outboundId : undefined) ??
     sampleNewOutbound
-
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async () => {
@@ -325,6 +324,12 @@ function OutboundForm({
   const interfaceOutboundOptions = existingOutbounds
     .filter((item) => item.type === "interface" && item.tag !== draft.tag)
     .map((item) => item.tag)
+
+  useEffect(() => {
+    setOutboundType(draft.type)
+    setStrictEnforcement(draft.strictEnforcement)
+    setUrltestGroups(getInitialUrltestGroups(draft.urltestGroups))
+  }, [draft])
 
   return (
     <form

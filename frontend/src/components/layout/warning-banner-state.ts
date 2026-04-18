@@ -26,6 +26,12 @@ export type WarningBannerState = {
 
 export function useWarningBannerState(): WarningBannerState {
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [convergingStartedAtMs, setConvergingStartedAtMs] = useState<number | null>(
+    null
+  )
+  const [convergingApplyStartedTs, setConvergingApplyStartedTs] = useState<
+    number | null
+  >(null)
   const healthQuery = useGetHealthService({
     query: {
       refetchInterval: (query) => {
@@ -45,6 +51,10 @@ export function useWarningBannerState(): WarningBannerState {
   })
   const { anyPending, applyPending } = useRoutingControlPendingState()
   const serviceHealth = healthQuery.data?.status === 200 ? healthQuery.data.data : null
+  const applyStartedTs =
+    typeof serviceHealth?.apply_started_ts === "number"
+      ? serviceHealth.apply_started_ts
+      : null
   const referenceNowMs = useMemo(
     () => Math.max(nowMs, healthQuery.dataUpdatedAt || 0),
     [healthQuery.dataUpdatedAt, nowMs]
@@ -70,6 +80,35 @@ export function useWarningBannerState(): WarningBannerState {
   const mode = getWarningBannerMode(serviceHealth, effectiveNowMs)
 
   useEffect(() => {
+    const shouldReset =
+      mode !== "dnsmasq-converging" ||
+      convergingStartedAtMs === null ||
+      convergingApplyStartedTs !== applyStartedTs
+
+    if (!shouldReset) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (mode !== "dnsmasq-converging") {
+        setConvergingStartedAtMs(null)
+        setConvergingApplyStartedTs(null)
+        return
+      }
+
+      setConvergingStartedAtMs(Date.now())
+      setConvergingApplyStartedTs(applyStartedTs)
+    }, 0)
+
+    return () => window.clearTimeout(timeout)
+  }, [
+    applyStartedTs,
+    convergingApplyStartedTs,
+    convergingStartedAtMs,
+    mode,
+  ])
+
+  useEffect(() => {
     if (!shouldTrackNowMs) {
       return
     }
@@ -86,15 +125,14 @@ export function useWarningBannerState(): WarningBannerState {
       return 0
     }
 
-    const fallbackApplyStartedMs = effectiveNowMs
-    const applyStartedMs =
-      typeof serviceHealth?.apply_started_ts === "number"
-        ? serviceHealth.apply_started_ts * 1000
-        : fallbackApplyStartedMs
-    const elapsed = Math.max(0, effectiveNowMs - applyStartedMs)
+    if (convergingStartedAtMs === null) {
+      return 0
+    }
+
+    const elapsed = Math.max(0, effectiveNowMs - convergingStartedAtMs)
 
     return Math.min(95, (elapsed / CONVERGING_WINDOW_MS) * 100)
-  }, [effectiveNowMs, mode, serviceHealth?.apply_started_ts])
+  }, [convergingStartedAtMs, effectiveNowMs, mode])
 
   return {
     applyPending,

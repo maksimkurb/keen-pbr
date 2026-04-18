@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesNobxev data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes7Y1TeX data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -287,7 +287,10 @@ namespace api {
 
     struct HealthResponse {
         std::optional<int64_t> apply_started_ts;
+        std::string build_variant;
         bool config_is_draft;
+        std::string os_type;
+        std::string os_version;
         std::optional<std::string> resolver_config_hash;
         std::optional<std::string> resolver_config_hash_actual;
         std::optional<int64_t> resolver_config_hash_actual_ts;
@@ -442,7 +445,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesNobxev {
+    struct KeenPbrTypes7Y1TeX {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -634,8 +637,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesNobxev & x);
-    void to_json(json & j, const KeenPbrTypesNobxev & x);
+    void from_json(const json & j, KeenPbrTypes7Y1TeX & x);
+    void to_json(json & j, const KeenPbrTypes7Y1TeX & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1062,7 +1065,10 @@ namespace api {
 
     inline void from_json(const json & j, HealthResponse& x) {
         x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
+        x.build_variant = j.at("build_variant").get<std::string>();
         x.config_is_draft = j.at("config_is_draft").get<bool>();
+        x.os_type = j.at("os_type").get<std::string>();
+        x.os_version = j.at("os_version").get<std::string>();
         x.resolver_config_hash = get_stack_optional<std::string>(j, "resolver_config_hash");
         x.resolver_config_hash_actual = get_stack_optional<std::string>(j, "resolver_config_hash_actual");
         x.resolver_config_hash_actual_ts = get_stack_optional<int64_t>(j, "resolver_config_hash_actual_ts");
@@ -1076,7 +1082,10 @@ namespace api {
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
         j["apply_started_ts"] = x.apply_started_ts;
+        j["build_variant"] = x.build_variant;
         j["config_is_draft"] = x.config_is_draft;
+        j["os_type"] = x.os_type;
+        j["os_version"] = x.os_version;
         j["resolver_config_hash"] = x.resolver_config_hash;
         j["resolver_config_hash_actual"] = x.resolver_config_hash_actual;
         j["resolver_config_hash_actual_ts"] = x.resolver_config_hash_actual_ts;
@@ -1373,7 +1382,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesNobxev& x) {
+    inline void from_json(const json & j, KeenPbrTypes7Y1TeX& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1426,7 +1435,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesNobxev & x) {
+    inline void to_json(json & j, const KeenPbrTypes7Y1TeX & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

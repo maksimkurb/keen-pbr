@@ -125,6 +125,7 @@ export const ruTranslation = {
           description: "Управление policy-based routing.",
           loadError: "Не удалось загрузить состояние маршрутизации.",
           version: "Версия",
+          router: "Роутер",
           status: "Статус маршрутизации",
           dnsmasqHealthy: "dnsmasq исправен",
           dnsmasqWaiting: "dnsmasq перезагружается",
@@ -223,7 +224,7 @@ export const ruTranslation = {
             description:
               "Проверяет, что DNS-разрешение через keen-pbr работает корректно - из этого браузера или с другого устройства.",
             disabledDescription:
-              "Включите `config.dns.dns_test_server`, чтобы запустить встроенную самопроверку DNS.",
+              "Включите опцию `dns.dns_test_server` в конфигурационном файле, чтобы включить самопроверку DNS.",
             configuredServers: "Настроенные DNS-серверы",
             noServers:
               "На странице DNS-серверов не определено ни одного DNS-сервера.",
@@ -280,7 +281,7 @@ export const ruTranslation = {
           notInLists: "Нет в доменных/IP-списках",
           inIpsetAndLists: "Есть в IPSet и в списках",
           notInIpsetAndNotInLists: "Нет в IPSet и нет в списках",
-          inIpsetButShouldNotBe: "Есть в IPSet, хотя не должно",
+          inIpsetButShouldNotBe: "Есть в IPSet, хотя не должно быть",
           notInIpsetButShouldBe: "Нет в IPSet, хотя должно быть",
         },
       },
@@ -326,7 +327,7 @@ export const ruTranslation = {
               "Автоматически скачивать обновления удалённых списков и обновлять маршрутизацию при изменениях.",
             cronLabel: "Расписание обновления",
             cronHintPrefix:
-              "Как часто проверять обновления. Формат cron - используйте",
+              "Как часто проверять обновления. Формат cron. Используйте",
             cronHintSuffix: "для помощи.",
             openInGuru: "Открыть в Crontab Guru",
           },
@@ -353,6 +354,7 @@ export const ruTranslation = {
         dnsServers: {
           title: "DNS-серверы",
           description: "Upstream DNS-серверы для разрешения доменных имён.",
+          keeneticAddress: "Встроенный DNS Keenetic",
           actions: {
             add: "Добавить DNS-сервер",
           },
@@ -386,11 +388,27 @@ export const ruTranslation = {
           back: "Назад к DNS-серверам",
           description: "Этот сервер будет доступен в DNS-правилах и как fallback.",
           cardDescription:
-            "Настройте адрес сервера и необязательный detour outbound.",
+            "Выберите тип DNS-сервера и необязательный detour outbound.",
           editCardTitle: "Изменить {{tag}}",
           fields: {
             tag: "Название",
             tagHint: "Короткое название сервера для использования в DNS-правилах.",
+            type: "Тип DNS",
+            typeHint:
+              "Keenetic использует текущий встроенный DNS роутера. Plaintext DNS использует IP-адрес, введённый вручную.",
+            typeOptions: {
+              keenetic: "Keenetic DNS",
+              static: "Plaintext DNS",
+            },
+            keeneticNotice: {
+              description:
+                "Для этого режима DNS-серверы нужно настроить в веб-интерфейсе Keenetic.",
+              openLink: "Перейти к настройке",
+              navigation:
+                "Перейдите в Сетевые правила -> Интернет-фильтры -> Настройка DNS.",
+              dotDohOnly:
+                "Если там настроены DoT или DoH серверы, будут использоваться только они.",
+            },
             address: "Адрес",
             addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
             addressHint:
@@ -404,6 +422,7 @@ export const ruTranslation = {
           validation: {
             tagRequired: "Название обязательно.",
             tagUnique: "Название должно быть уникальным.",
+            typeRequired: "Тип DNS обязателен.",
             addressRequired: "Адрес обязателен.",
             addressInvalid:
               "Адрес должен быть корректным IPv4/IPv6 значением с необязательным портом.",
@@ -432,7 +451,6 @@ export const ruTranslation = {
               "Добавьте правило маршрутизации, чтобы направлять подходящий трафик в outbound.",
           },
           headers: {
-            enabled: "Включено",
             order: "Порядок",
             criteria: "Условие",
             outbound: "Outbound",
@@ -683,7 +701,7 @@ export const ruTranslation = {
             placeholderTitle: "Основные DNS сервера не выбраны",
             placeholderDescription:
               "Добавьте один или несколько DNS-серверов. Их порядок сохраняется и используется в сгенерированном конфиге dnsmasq.",
-            noneDefined: "В config.dns.servers не определены DNS-серверы.",
+            noneDefined: "На странице DNS-серверы не добавлено ни одного сервера.",
             noneAvailable: "Все DNS-серверы уже выбраны.",
           },
           empty: {
@@ -692,11 +710,13 @@ export const ruTranslation = {
               "Правил пока нет - добавьте правило, чтобы направлять DNS-запросы по спискам через выбранный сервер.",
           },
           headers: {
-            enabled: "Включено",
-            lists: "Списки",
+            criteria: "Условие",
             serverTag: "DNS-сервер",
             allowDomainRebinding: "Разрешение rebind",
             actions: "Действия",
+          },
+          criteriaLabels: {
+            lists: "Списки",
           },
           rebinding: {
             enabled: "Разрешён",
@@ -717,8 +737,8 @@ export const ruTranslation = {
             notFound: "Запрошенное DNS-правило не найдено.",
             fixErrors: "Исправьте ошибки валидации перед сохранением.",
             serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
-            listsRequired: "Правило должно содержать хотя бы одно имя списка.",
-            unknownLists: "Неизвестные имена списков: {{lists}}",
+            listsRequired: "Правило должно содержать хотя бы один список.",
+            unknownLists: "Неизвестные списки: {{lists}}",
             duplicate: "Дублирующееся правило.",
           },
           missing: {
@@ -732,8 +752,8 @@ export const ruTranslation = {
             serverTag: "DNS-сервер",
             selectServer: "Выберите DNS-сервер",
             dnsServers: "DNS-серверы",
-            noServers: "В config.dns.servers не определены DNS-серверы.",
-            listNames: "Имена списков",
+            noServers: "На странице DNS-серверы не добавлено ни одного сервера.",
+            listNames: "Списки доменов",
             allowDomainRebinding: "Разрешить DNS rebind для этих доменов",
             allowDomainRebindingHint:
               "Включайте только если вы точно знаете, что этот список доменов указывает на внутренние сервисы. Тогда ответы для подходящих доменов могут содержать внутренние/приватные IP-адреса (например, 192.168.0.0/16, 10.0.0.0/8 и другие диапазоны локальной сети).",
@@ -775,9 +795,9 @@ export const ruTranslation = {
           },
           refresh: {
             draftBlocked:
-              "Примените или сбросьте сохранённый черновик перед обновлением URL-списков.",
+              "Примените сохранённый черновик перед обновлением URL-списков.",
             updateDisabled:
-              "Примените или сбросьте черновик перед обновлением",
+              "Примените черновик перед обновлением",
           },
           rule: {
             configured: "Настроен",

@@ -92,3 +92,9 @@ jobs:
         with:
           name: packages-keenetic-${{ matrix.build_env.config_name }}
           path: build/packages/keenetic
+      - name: Upload debug symbol artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: debug-symbols-keenetic-${{ matrix.build_env.config_name }}
+          path: build/packages/keenetic-debug
+          if-no-files-found: error

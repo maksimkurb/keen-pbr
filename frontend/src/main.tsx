@@ -42,7 +42,11 @@ createRoot(document.getElementById("root")!).render(
         <LanguageProvider>
           <ThemeProvider>
             <App />
-            <Toaster richColors />
+            <Toaster
+              offset={{
+                bottom: "calc(var(--warning-banner-height, 0px) + 1rem)",
+              }}
+            />
           </ThemeProvider>
         </LanguageProvider>
       </TooltipProvider>

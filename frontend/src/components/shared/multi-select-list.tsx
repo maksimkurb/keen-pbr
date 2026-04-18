@@ -2,14 +2,7 @@ import { ChevronDown, ChevronUp, ListPlus, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
+import { FieldError } from "@/components/shared/field"
 import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
 import {
   Select,
@@ -30,6 +23,7 @@ export function MultiSelectList({
   placeholderTitle,
   placeholderDescription,
   allowReorder = false,
+  error,
 }: {
   options: string[]
   unavailable?: string[]
@@ -41,6 +35,7 @@ export function MultiSelectList({
   placeholderTitle?: string
   placeholderDescription?: string
   allowReorder?: boolean
+  error?: string | null
 }) {
   const { t } = useTranslation()
   const [selectValue, setSelectValue] = useState("")
@@ -71,6 +66,7 @@ export function MultiSelectList({
       value={selectValue}
     >
       <SelectTrigger
+        aria-invalid={Boolean(error)}
         className="w-full sm:w-auto sm:min-w-52 data-placeholder:text-foreground disabled:data-placeholder:text-muted-foreground"
         disabled={availableOptions.length === 0}
         size="sm"
@@ -99,7 +95,7 @@ export function MultiSelectList({
   return (
     <div className="space-y-2">
       {value.length ? (
-        <div className="space-y-2 rounded-xl border border-border p-3">
+        <div className={`space-y-2 rounded-xl border p-3 ${error ? "border-destructive" : "border-border"}`}>
           {value.map((item, index) => (
             <InputGroup key={`${item}-${index}`} className="cursor-default">
               <InputGroupAddon className="w-full justify-start text-foreground">
@@ -126,10 +122,10 @@ export function MultiSelectList({
                           return
                         }
                         const nextValue = [...value]
-                        ;[nextValue[index - 1], nextValue[index]] = [
-                          nextValue[index],
-                          nextValue[index - 1],
-                        ]
+                          ;[nextValue[index - 1], nextValue[index]] = [
+                            nextValue[index],
+                            nextValue[index - 1],
+                          ]
                         onChange(nextValue)
                       }}
                       size="icon-xs"
@@ -144,10 +140,10 @@ export function MultiSelectList({
                           return
                         }
                         const nextValue = [...value]
-                        ;[nextValue[index], nextValue[index + 1]] = [
-                          nextValue[index + 1],
-                          nextValue[index],
-                        ]
+                          ;[nextValue[index], nextValue[index + 1]] = [
+                            nextValue[index + 1],
+                            nextValue[index],
+                          ]
                         onChange(nextValue)
                       }}
                       size="icon-xs"
@@ -162,17 +158,22 @@ export function MultiSelectList({
           <div>{addSelect}</div>
         </div>
       ) : (
-        <Empty className="border border-border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ListPlus />
-            </EmptyMedia>
-            <EmptyTitle>{resolvedPlaceholderTitle}</EmptyTitle>
-            <EmptyDescription>{resolvedPlaceholderDescription}</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>{addSelect}</EmptyContent>
-        </Empty>
+        <div className={`space-y-3 rounded-xl border p-3 ${error ? "border-destructive" : "border-border"}`}>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+              <ListPlus className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-foreground">{resolvedPlaceholderTitle}</span>
+              {resolvedPlaceholderDescription ? (
+                <span className="text-sm text-muted-foreground">{resolvedPlaceholderDescription}</span>
+              ) : null}
+            </div>
+          </div>
+          <div>{addSelect}</div>
+        </div>
       )}
+      {error ? <FieldError>{error}</FieldError> : null}
     </div>
   )
 }

@@ -50,7 +50,7 @@ ROOT_DIR="$REPO_DIR/$TARGET_ROOT"
 rm -rf "$ROOT_DIR"
 mkdir -p "$ROOT_DIR"
 
-for platform in openwrt keenetic debian; do
+for platform in openwrt openwrt-debug keenetic keenetic-debug debian; do
     if [ -d "$RELEASE_DIR/$platform" ]; then
         mkdir -p "$ROOT_DIR/$platform"
         cp -a "$RELEASE_DIR/$platform"/. "$ROOT_DIR/$platform"/

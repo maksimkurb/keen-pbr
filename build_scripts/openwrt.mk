@@ -57,6 +57,7 @@ openwrt-packages: openwrt-sdk-prepare ## Build OpenWrt packages inside Docker co
 	docker run --rm \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
 	  -e OPENWRT_APK_PRIVATE_KEY \
+	  -e KEEN_PBR_RELEASE_OVERRIDE="$(KEEN_PBR_RELEASE)" \
 	  -v "$(abspath .):/workspace" \
 	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \

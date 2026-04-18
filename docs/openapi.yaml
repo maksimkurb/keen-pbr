@@ -1026,7 +1026,8 @@ components:
 
     HealthResponse:
       type: object
-      required: [version, status, resolver_live_status, config_is_draft]
+      required:
+        [version, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft]
       properties:
         version:
           type: string
@@ -1036,6 +1037,20 @@ components:
           type: string
           enum: [running, stopped]
           example: "running"
+        os_type:
+          type: string
+          description: Normalized host OS family used by the running daemon.
+          example: "keenetic"
+        os_version:
+          type: string
+          description: Host OS version string reported by the system.
+          example: "4.2.7"
+        build_variant:
+          type: string
+          description: >
+            Host platform build variant. On OpenWrt this includes
+            `target/subtarget`; on other OSes it contains the detected target.
+          example: "mediatek/filogic"
         resolver_config_hash:
           type: string
           description: >

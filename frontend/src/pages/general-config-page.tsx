@@ -23,7 +23,6 @@ import {
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { applyFormApiErrors, clearFormServerErrors } from "@/lib/form-api-errors"
+import { toast } from "sonner"
 
 type SettingsDraft = {
   strictEnforcement: boolean
@@ -105,14 +105,11 @@ function LoadedGeneralConfigPage({
   const [savedDraft, setSavedDraft] = useState<SettingsDraft>(() =>
     getDraftFromConfig(loadedConfig)
   )
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
-    null
-  )
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: async (_response, variables) => {
-        setSaveSuccessMessage(t("pages.settings.saved"))
+        toast.success(t("pages.settings.saved"))
         clearFormServerErrors(form)
 
         await Promise.all([
@@ -131,12 +128,14 @@ function LoadedGeneralConfigPage({
       },
       onError: (error) => {
         const apiError = error as ApiError
-        setSaveSuccessMessage(null)
-        applyFormApiErrors({
+        const formError = applyFormApiErrors({
           error: apiError,
           form,
           resolvePath: resolveSettingsFieldPath,
         })
+        if (formError) {
+          toast.error(formError, { richColors: true })
+        }
       },
     },
   })
@@ -145,24 +144,12 @@ function LoadedGeneralConfigPage({
     defaultValues: savedDraft,
     onSubmit: ({ value }) => {
       const updatedConfig = buildUpdatedConfig(loadedConfig, value)
-      setSaveSuccessMessage(null)
       clearFormServerErrors(form)
       postConfigMutation.mutate({ data: updatedConfig })
     },
   })
 
   const formValues = useStore(form.store, (state) => state.values)
-  const mutationErrorMessage = useStore(
-    form.store,
-    (state) =>
-      (
-        state.errorMap as {
-          onServer?: {
-            form?: string
-          }
-        }
-      ).onServer?.form
-  )
   const hasServerErrors = useStore(
     form.store,
     (state) =>
@@ -193,16 +180,10 @@ function LoadedGeneralConfigPage({
   const handleCancel = () => {
     form.reset(savedDraft)
     clearFormServerErrors(form)
-    setSaveSuccessMessage(null)
   }
 
   return (
     <>
-      {saveSuccessMessage ? (
-        <Alert className="border-success/30 bg-success/5 text-success">
-          <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <Card>
         <CardHeader>
@@ -243,8 +224,10 @@ function LoadedGeneralConfigPage({
             <FieldSeparator />
 
             <form.Field name="inboundInterfaces">
-              {(field) => (
-                <Field>
+              {(field) => {
+                const error = getFirstFieldError(field.state.meta.errors)
+                return (
+                <Field invalid={Boolean(error)}>
                   <FieldLabel htmlFor="inbound-interfaces">
                     {t("pages.settings.general.inboundInterfacesLabel")}
                   </FieldLabel>
@@ -260,6 +243,7 @@ function LoadedGeneralConfigPage({
                         placeholderDescription={t(
                           "pages.settings.general.inboundInterfacesEmptyDescription"
                         )}
+                        error={error}
                       />
                     </div>
                     <FieldDescription>
@@ -267,7 +251,7 @@ function LoadedGeneralConfigPage({
                     </FieldDescription>
                   </FieldContent>
                 </Field>
-              )}
+              )}}
             </form.Field>
           </FieldGroup>
         </CardContent>
@@ -481,13 +465,6 @@ function LoadedGeneralConfigPage({
         </CardContent>
       </Card>
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       <div className="flex justify-end gap-2">
         <Button

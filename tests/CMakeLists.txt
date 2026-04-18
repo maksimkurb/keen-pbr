@@ -19,6 +19,7 @@ add_executable(keen-pbr-tests
   test_api_runtime_interfaces.cpp
   test_resolver_health.cpp
   test_system_resolver_hook.cpp
+  test_system_info.cpp
   test_safe_exec.cpp
   test_trace_logging.cpp
   test_port_spec_util.cpp
@@ -50,6 +51,7 @@ add_executable(keen-pbr-tests
   ../src/http/http_client.cpp
   ../src/routing/netlink.cpp
   ../src/util/blocking_executor.cpp
+  ../src/util/system_info.cpp
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
   ../src/routing/route_table.cpp
@@ -99,9 +101,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_L
   target_link_libraries(keen-pbr-tests PRIVATE stdc++fs)
 endif()
 
-if(USE_KEENETIC_API)
-  target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
-endif()
+target_compile_definitions(keen-pbr-tests PRIVATE USE_KEENETIC_API)
 
 if(WITH_API)
   target_compile_definitions(keen-pbr-tests PRIVATE WITH_API)

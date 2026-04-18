@@ -21,6 +21,18 @@ KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/et
 KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/keen-pbr/config.headless.example.json
 KEEN_PBR_CMAKE_INSTALL_BINDIR ?= usr/bin
 KEEN_PBR_STAGED_BINDIR ?= opt/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
+KEEN_PBR_OBJCOPY ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)objcopy,objcopy)
+KEEN_PBR_DEBUG_ARTIFACT_DIR ?= $(PKG_BUILD_DIR)/debug-artifacts/$(BUILD_VARIANT)
+KEEN_PBR_STAGED_BIN ?= $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr
+
+define KeenPbr/EmitDebugSymbol
+	@if [ -f "$(KEEN_PBR_STAGED_BIN)" ] && command -v "$(KEEN_PBR_OBJCOPY)" >/dev/null 2>&1; then \
+		mkdir -p "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)"; \
+		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug \
+			"$(KEEN_PBR_STAGED_BIN)" \
+			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug"; \
+	fi
+endef
 
 #
 # Common blocks
@@ -43,6 +55,7 @@ endef
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
 	-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/opt/usr/lib/keen-pbr/dnsmasq.sh \
+	-DKEEN_PBR_TARGET_OS:STRING=keenetic \
 	-DCMAKE_INSTALL_BINDIR:PATH=$(KEEN_PBR_CMAKE_INSTALL_BINDIR) \
 	-DUSE_KEENETIC_API=ON \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
@@ -102,6 +115,7 @@ define Package/keen-pbr/install
 	chmod -R a=rX,u+w $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
+	$(call KeenPbr/EmitDebugSymbol)
 endef
 
 define Package/keen-pbr/postinst
@@ -159,6 +173,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
+	$(call KeenPbr/EmitDebugSymbol)
 endef
 
 define Package/keen-pbr-headless/postinst

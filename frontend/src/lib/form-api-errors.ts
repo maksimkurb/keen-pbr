@@ -14,12 +14,25 @@ type ApplyFormApiErrorsOptions = {
   resolvePath: ApiPathResolver
 }
 
-export function clearFormServerErrors(form: AnyFormApi) {
+export function setFormServerErrors(
+  form: AnyFormApi,
+  options: {
+    form?: string
+    fields?: Record<string, string>
+  }
+) {
   form.setErrorMap({
     onServer: {
-      form: undefined,
-      fields: {},
+      form: options.form,
+      fields: options.fields ?? {},
     },
+  })
+}
+
+export function clearFormServerErrors(form: AnyFormApi) {
+  setFormServerErrors(form, {
+    form: undefined,
+    fields: {},
   })
 }
 
@@ -36,11 +49,9 @@ export function applyFormApiErrors({
 
   const validationErrors = getApiValidationErrors(error)
   if (validationErrors.length === 0) {
-    form.setErrorMap({
-      onServer: {
-        form: error.message,
-        fields: {},
-      },
+    setFormServerErrors(form, {
+      form: error.message,
+      fields: {},
     })
     return error.message
   }
@@ -63,11 +74,9 @@ export function applyFormApiErrors({
   const formError =
     globalErrors.length === 0 ? undefined : formatValidationErrors(globalErrors)
 
-  form.setErrorMap({
-    onServer: {
-      form: formError,
-      fields: fieldErrors,
-    },
+  setFormServerErrors(form, {
+    form: formError,
+    fields: fieldErrors,
   })
 
   if (!formError) {

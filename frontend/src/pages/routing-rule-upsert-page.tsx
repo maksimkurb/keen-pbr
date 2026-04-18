@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -19,12 +19,14 @@ import {
 } from "@/components/shared/field"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { UpsertPage } from "@/components/shared/upsert-page"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   applyFormApiErrors,
   clearFormServerErrors,
+  setFormServerErrors,
 } from "@/lib/form-api-errors"
 import {
   Select,
@@ -61,12 +63,7 @@ export function RoutingRuleUpsertPage({
       ? rules[parsedRuleIndex]
       : undefined
 
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
-    null
-  )
-  const [mutationErrorMessage, setMutationErrorMessage] = useState<
-    string | null
-  >(null)
+
 
   const listOptions = useMemo(
     () =>
@@ -83,24 +80,31 @@ export function RoutingRuleUpsertPage({
         .sort((left: string, right: string) => left.localeCompare(right)),
     [loadedConfig]
   )
+  const protoSelectItems = protoOptions.map((option) => ({
+    value: option,
+    label: option || t("pages.routingRuleUpsert.fields.anyLower"),
+  }))
+  const outboundSelectItems = outboundOptions.map((option) => ({
+    value: option,
+    label: option,
+  }))
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
       onSuccess: () => {
-        setSaveSuccessMessage(t("pages.routingRuleUpsert.messages.saved"))
-        setMutationErrorMessage(null)
+        toast.success(t("pages.routingRuleUpsert.messages.saved"))
         clearFormServerErrors(form)
         navigate("/routing-rules")
       },
       onError: (error) => {
-        setSaveSuccessMessage(null)
-        setMutationErrorMessage(
-          applyFormApiErrors({
-            error: error as ApiError,
-            form,
-            resolvePath: resolveRoutingRuleFieldPath,
-          }) ?? null
-        )
+        const formError = applyFormApiErrors({
+          error: error as ApiError,
+          form,
+          resolvePath: resolveRoutingRuleFieldPath,
+        })
+        if (formError) {
+          toast.error(formError, { richColors: true })
+        }
       },
     },
   })
@@ -121,10 +125,10 @@ export function RoutingRuleUpsertPage({
         Boolean(nextRule.dest_addr)
 
       if (!hasRuleCondition) {
-        setSaveSuccessMessage(null)
-        setMutationErrorMessage(
-          t("pages.routingRuleUpsert.validation.atLeastOneCondition")
-        )
+        setFormServerErrors(form, {
+          form: t("pages.routingRuleUpsert.validation.atLeastOneCondition"),
+          fields: {},
+        })
         return
       }
 
@@ -135,8 +139,6 @@ export function RoutingRuleUpsertPage({
             )
           : [...rules, nextRule]
 
-      setSaveSuccessMessage(null)
-      setMutationErrorMessage(null)
       clearFormServerErrors(form)
 
       postConfigMutation.mutate({
@@ -202,11 +204,7 @@ export function RoutingRuleUpsertPage({
           : t("pages.routingRuleUpsert.editTitle")
       }
     >
-      {saveSuccessMessage ? (
-        <Alert className="mb-4 border-success/30 bg-success/5 text-success">
-          <AlertDescription>{saveSuccessMessage}</AlertDescription>
-        </Alert>
-      ) : null}
+
 
       <form
         className="space-y-6"
@@ -216,6 +214,30 @@ export function RoutingRuleUpsertPage({
         }}
       >
         <FieldGroup>
+          <form.Field name="enabled">
+            {(field) => (
+              <Field>
+                <FieldContent>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={field.state.value}
+                      id="routing-rule-enabled"
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked === true)
+                      }
+                    />
+                    <FieldLabel
+                      className="cursor-pointer flex-col items-start gap-0"
+                      htmlFor="routing-rule-enabled"
+                    >
+                      {t("pages.routingRules.headers.enabled")}
+                    </FieldLabel>
+                  </div>
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+
           <form.Field name="list">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
@@ -230,10 +252,10 @@ export function RoutingRuleUpsertPage({
                       placeholderDescription={t("pages.routingRuleUpsert.fields.listsPlaceholderDescription")}
                       placeholderTitle={t("pages.routingRuleUpsert.fields.noListsSelected")}
                       value={field.state.value}
+                      error={error}
                     />
                     <FieldHint
                       description={t("pages.routingRuleUpsert.fields.listsHint")}
-                      error={error}
                     />
                   </FieldContent>
                 </Field>
@@ -247,6 +269,7 @@ export function RoutingRuleUpsertPage({
                 <FieldLabel>{t("pages.routingRuleUpsert.fields.proto")}</FieldLabel>
                 <FieldContent>
                   <Select
+                    items={protoSelectItems}
                     onValueChange={(value) => field.handleChange(value ?? "")}
                     value={field.state.value}
                   >
@@ -397,6 +420,7 @@ export function RoutingRuleUpsertPage({
                   <FieldLabel>{t("pages.routingRuleUpsert.fields.outbound")}</FieldLabel>
                   <FieldContent>
                     <Select
+                      items={outboundSelectItems}
                       onValueChange={(value) => field.handleChange(value ?? "")}
                       value={field.state.value}
                     >
@@ -425,13 +449,7 @@ export function RoutingRuleUpsertPage({
           </form.Field>
         </FieldGroup>
 
-        {mutationErrorMessage ? (
-          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription className="whitespace-pre-wrap">
-              {mutationErrorMessage}
-            </AlertDescription>
-          </Alert>
-        ) : null}
+
 
         <div className="flex justify-end gap-3">
           <Button
