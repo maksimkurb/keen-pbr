@@ -26,7 +26,9 @@ aliases:
 | libcurl | Загрузка удалённых списков |
 | nlohmann_json | JSON-парсинг |
 | libnl | Коммуникация через сокеты Netlink (маршрутизация/правила) |
+| libunwind | Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен `libunwind.a` |
 | fmt | C++17 formatting polyfill |
+| cpptrace | Вендорная библиотека crash diagnostics |
 | cpp-httplib | Встроенный HTTP API сервер |
 
 ## Сборка
@@ -66,6 +68,7 @@ make build    # cmake --build cmake-build
 | Опция | По умолчанию | Описание |
 |---|---|---|
 | `WITH_API` | `ON` | Собирать со встроенным HTTP API сервером |
+| `KEEN_PBR_STATIC_LIBUNWIND` | `ON` | Предпочитать статическую линковку `libunwind`; установите `OFF`, чтобы принудительно использовать shared library |
 
 Пример:
 

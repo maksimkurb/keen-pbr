@@ -358,23 +358,14 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
 void Daemon::commit_urltest_probe_results(const std::string& urltest_tag,
                                           std::uint64_t probe_generation,
                                           std::map<std::string, URLTestResult> results,
-                                          TraceId trace_id,
-                                          std::uint64_t runtime_generation_snapshot) {
+                                          TraceId trace_id) {
     post_control_task(
         [this,
          urltest_tag,
          probe_generation,
          results = std::move(results),
-         trace_id,
-         runtime_generation_snapshot]() mutable {
+         trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
-            if (runtime_generation_snapshot != runtime_generation_.load(std::memory_order_acquire)) {
-                Logger::instance().trace("urltest_commit_skip",
-                                         "tag={} generation={} reason=stale_runtime",
-                                         urltest_tag,
-                                         probe_generation);
-                return;
-            }
             if (!urltest_manager_) {
                 Logger::instance().trace("urltest_commit_skip",
                                          "tag={} generation={} reason=missing_manager",
@@ -391,30 +382,29 @@ void Daemon::commit_urltest_probe_results(const std::string& urltest_tag,
 }
 
 void Daemon::register_urltest_outbounds() {
-    const auto runtime_generation = runtime_generation_.load(std::memory_order_acquire);
-    urltest_manager_ = std::make_unique<UrltestManager>(
-        url_tester_,
-        outbound_marks_,
-        *scheduler_,
-        blocking_executor_,
-        [this](const std::string& urltest_tag, const std::string& new_child_tag) {
-            handle_urltest_selection_change(urltest_tag, new_child_tag);
-        },
-        [this, runtime_generation](const std::string& urltest_tag,
-                                   std::uint64_t probe_generation,
-                                   std::map<std::string, URLTestResult> results,
-                                   TraceId trace_id) mutable {
-            Logger::instance().trace("urltest_commit_enqueue",
-                                     "tag={} generation={} runtime_generation={}",
-                                     urltest_tag,
-                                     probe_generation,
-                                     runtime_generation);
-            commit_urltest_probe_results(urltest_tag,
-                                         probe_generation,
-                                         std::move(results),
-                                         trace_id,
-                                         runtime_generation);
-        });
+    if (!urltest_manager_) {
+        urltest_manager_ = std::make_unique<UrltestManager>(
+            url_tester_,
+            outbound_marks_,
+            *scheduler_,
+            blocking_executor_,
+            [this](const std::string& urltest_tag, const std::string& new_child_tag) {
+                handle_urltest_selection_change(urltest_tag, new_child_tag);
+            },
+            [this](const std::string& urltest_tag,
+                   std::uint64_t probe_generation,
+                   std::map<std::string, URLTestResult> results,
+                   TraceId trace_id) mutable {
+                Logger::instance().trace("urltest_commit_enqueue",
+                                         "tag={} generation={}",
+                                         urltest_tag,
+                                         probe_generation);
+                commit_urltest_probe_results(urltest_tag,
+                                             probe_generation,
+                                             std::move(results),
+                                             trace_id);
+            });
+    }
 
     for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
         if (ob.type == OutboundType::URLTEST) {

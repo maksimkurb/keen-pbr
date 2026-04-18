@@ -23,7 +23,9 @@ add_executable(keen-pbr-tests
   test_safe_exec.cpp
   test_trace_logging.cpp
   test_port_spec_util.cpp
+  test_crash_diagnostics.cpp
   ../src/config/config.cpp
+  ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
@@ -86,12 +88,33 @@ target_link_libraries(keen-pbr-tests PRIVATE
   CURL::libcurl
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
+  cpptrace::cpptrace
   fmt::fmt-header-only
+  keen_pbr_libunwind
 )
 
 if(LIBRESOLV)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})
 endif()
+
+add_executable(crash-diagnostics-smoke
+  crash_diagnostics_smoke.cpp
+  ../src/crash/crash_diagnostics.cpp
+)
+set_target_properties(crash-diagnostics-smoke PROPERTIES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
+  CXX_EXTENSIONS NO
+)
+target_include_directories(crash-diagnostics-smoke PRIVATE
+  ${KEEN_PBR_GENERATED_INCLUDE_DIR}
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(crash-diagnostics-smoke PRIVATE
+  cpptrace::cpptrace
+  keen_pbr_libunwind
+)
 
 if(LIBATOMIC)
   target_link_libraries(keen-pbr-tests PRIVATE ${LIBATOMIC})

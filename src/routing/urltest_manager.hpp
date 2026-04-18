@@ -75,6 +75,11 @@ public:
     void clear();
 
 private:
+    // Check whether an async probe still belongs to the currently registered
+    // state for the given tag. Caller must hold at least a shared_lock.
+    bool is_probe_current(const std::string& tag,
+                          std::uint64_t generation) const REQUIRES_SHARED(mutex_);
+
     // Run URL tests for all child outbounds of the given urltest and update
     // the internal selection. Returns the new selection if it changed.
     // Must NOT be called while holding mutex_.

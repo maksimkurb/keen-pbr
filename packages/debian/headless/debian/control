@@ -2,7 +2,7 @@ Source: keen-pbr-headless
 Section: net
 Priority: optional
 Maintainer: Maxim Kurbatov <maxim+keen-pbr@kurb.me>
-Build-Depends: debhelper-compat (= 13), cmake, pkg-config, g++, ninja-build, libcurl4-openssl-dev | libcurl4-gnutls-dev, libnl-3-dev, libnl-route-3-dev, libfmt-dev, nlohmann-json3-dev
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, g++, ninja-build, libcurl4-openssl-dev | libcurl4-gnutls-dev, libnl-3-dev, libnl-route-3-dev, libfmt-dev, libunwind-dev, nlohmann-json3-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://github.com/maksimkurb/keen-pbr

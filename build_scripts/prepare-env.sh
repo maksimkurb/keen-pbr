@@ -45,6 +45,7 @@ DEV_PACKAGES=(
     libfmt-dev
     libnl-3-dev
     libnl-route-3-dev
+    libunwind-dev
     nlohmann-json3-dev
 )
 

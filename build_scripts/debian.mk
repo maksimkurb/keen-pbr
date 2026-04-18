@@ -14,9 +14,7 @@ DEBIAN_DOCKER_CACHE_TO   ?=
 
 deb-packages: ## Build Debian packages inside Docker container
 	@echo "[deb-packages] config: DEBIAN_VERSION=$(DEBIAN_VERSION) DEBIAN_DOCKER_IMAGE=$(DEBIAN_DOCKER_IMAGE)"
-	@if ! docker image inspect "$(DEBIAN_DOCKER_IMAGE)" >/dev/null 2>&1; then \
-	  $(MAKE) debian-builder-image; \
-	fi
+	@$(MAKE) debian-builder-image
 	mkdir -p build/packages
 	docker run --rm \
 	  -e KEEN_PBR_RELEASE_OVERRIDE="$(KEEN_PBR_RELEASE)" \

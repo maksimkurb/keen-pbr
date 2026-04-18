@@ -10,3 +10,6 @@
 [submodule "third_party/fmt"]
 	path = third_party/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "third_party/cpptrace"]
+	path = third_party/cpptrace
+	url = https://github.com/jeremy-rifkin/cpptrace.git

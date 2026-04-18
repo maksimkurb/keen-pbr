@@ -161,8 +161,7 @@ private:
     void commit_urltest_probe_results(const std::string& urltest_tag,
                                       std::uint64_t probe_generation,
                                       std::map<std::string, URLTestResult> results,
-                                      TraceId trace_id,
-                                      std::uint64_t runtime_generation_snapshot);
+                                      TraceId trace_id);
     void apply_config(Config config, bool refresh_remote_lists = true);
     void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared);
     PreparedRuntimeInputs prepare_runtime_inputs(const Config& config,
