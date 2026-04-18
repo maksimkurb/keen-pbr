@@ -24,8 +24,11 @@ public:
     LoggerCapture() : previous_level_(Logger::instance().level()) {
         Logger::instance().set_level(LogLevel::debug);
         Logger::instance().set_sink([this](const std::string& line) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            lines_.push_back(line);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                lines_.push_back(line);
+            }
+            cv_.notify_all();
         });
     }
 
@@ -41,8 +44,19 @@ public:
         });
     }
 
+    bool wait_for_contains(const std::string& needle,
+                           std::chrono::milliseconds timeout = std::chrono::milliseconds(250)) const {
+        std::unique_lock<std::mutex> lock(mutex_);
+        return cv_.wait_for(lock, timeout, [this, &needle]() {
+            return std::any_of(lines_.begin(), lines_.end(), [&needle](const std::string& line) {
+                return line.find(needle) != std::string::npos;
+            });
+        });
+    }
+
 private:
     LogLevel previous_level_;
+    mutable std::condition_variable cv_;
     mutable std::mutex mutex_;
     std::vector<std::string> lines_;
 };
@@ -74,10 +88,10 @@ TEST_CASE("blocking executor emits queue and completion trace events") {
         allocate_trace_id());
 
     CHECK(future.get() == 7);
-    CHECK(capture.contains("event=executor_queue"));
-    CHECK(capture.contains("label=trace-test-task"));
-    CHECK(capture.contains("event=executor_start"));
-    CHECK(capture.contains("event=executor_end"));
+    CHECK(capture.wait_for_contains("event=executor_queue"));
+    CHECK(capture.wait_for_contains("label=trace-test-task"));
+    CHECK(capture.wait_for_contains("event=executor_start"));
+    CHECK(capture.wait_for_contains("event=executor_end"));
 }
 
 TEST_CASE("blocking executor rejects new tasks after shutdown") {
