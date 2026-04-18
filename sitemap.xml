@@ -1,51 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-  xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>https://keen-pbr.fyi/docs/developer/build-from-source/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/installation/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/installation/keenetic/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/outbounds/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/concepts/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/lists/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/installation/openwrt/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/quick-start/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/getting-started/installation/debian/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/route-rules/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/dns/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/cli/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/configuration/advanced/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/rest-api/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/faq/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/troubleshooting/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/developer/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/categories/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/</loc>
-  </url><url>
-    <loc>https://keen-pbr.fyi/tags/</loc>
-  </url>
-</urlset>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <sitemap>
+    <loc>https://keen-pbr.fyi/en/sitemap.xml</loc>
+    
+  </sitemap>
+  
+  <sitemap>
+    <loc>https://keen-pbr.fyi/ru/sitemap.xml</loc>
+    
+  </sitemap>
+  
+</sitemapindex>

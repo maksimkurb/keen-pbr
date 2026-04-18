@@ -1,0 +1,440 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>keen-pbr – Разработка</title>
+    <link>https://keen-pbr.fyi/ru/docs/developer/</link>
+    <description>Recent content in Разработка on keen-pbr</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>ru</language>
+    
+	  <atom:link href="https://keen-pbr.fyi/ru/docs/developer/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+    <item>
+      <title>Сборка из исходного кода</title>
+      <link>https://keen-pbr.fyi/ru/docs/developer/build-from-source/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/ru/docs/developer/build-from-source/</guid>
+      <description>
+        
+        
+        &lt;p&gt;Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.&lt;/p&gt;
+&lt;h2&gt;Предварительные требования&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;предварительные-требования&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%b5%d0%b4%d0%b2%d0%b0%d1%80%d0%b8%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d1%82%d1%80%d0%b5%d0%b1%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Требование&lt;/th&gt;
+          &lt;th&gt;Версия&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;C++ компилятор&lt;/td&gt;
+          &lt;td&gt;Поддержка C++17 (GCC 8.4+, Clang 9+)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;CMake&lt;/td&gt;
+          &lt;td&gt;3.14+&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Make&lt;/td&gt;
+          &lt;td&gt;любой&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;pkg-config&lt;/td&gt;
+          &lt;td&gt;любой&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Docker (для кросс-компиляции)&lt;/td&gt;
+          &lt;td&gt;любой&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2&gt;Зависимости&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;зависимости&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b7%d0%b0%d0%b2%d0%b8%d1%81%d0%b8%d0%bc%d0%be%d1%81%d1%82%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Библиотека&lt;/th&gt;
+          &lt;th&gt;Назначение&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;libcurl&lt;/td&gt;
+          &lt;td&gt;Загрузка удалённых списков&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;nlohmann_json&lt;/td&gt;
+          &lt;td&gt;JSON-парсинг&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;libnl&lt;/td&gt;
+          &lt;td&gt;Коммуникация через сокеты Netlink (маршрутизация/правила)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;fmt&lt;/td&gt;
+          &lt;td&gt;C++17 formatting polyfill&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;cpp-httplib&lt;/td&gt;
+          &lt;td&gt;Встроенный HTTP API сервер&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2&gt;Сборка&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;сборка&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;code&gt;Makefile&lt;/code&gt; оборачивает все шаги сборки:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Клонировать репозиторий&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;git clone https://github.com/maksimkurb/keen-pbr.git
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nb&#34;&gt;cd&lt;/span&gt; keen-pbr
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Собрать&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Запустить тесты&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make &lt;span class=&#34;nb&#34;&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Очистить артефакты сборки&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make clean&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Пошаговые цели также доступны:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make setup    &lt;span class=&#34;c1&#34;&gt;# cmake -S . -B cmake-build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make build    &lt;span class=&#34;c1&#34;&gt;# cmake --build cmake-build&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Бинарный файл производится в &lt;code&gt;cmake-build/keen-pbr&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Запустите &lt;code&gt;make help&lt;/code&gt;, чтобы увидеть все доступные цели сборки и упаковки.&lt;/p&gt;
+&lt;h2&gt;Опции сборки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;опции-сборки&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%be%d0%bf%d1%86%d0%b8%d0%b8-%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Передавайте опции во время конфигурации &lt;code&gt;cmake&lt;/code&gt;:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Опция&lt;/th&gt;
+          &lt;th&gt;По умолчанию&lt;/th&gt;
+          &lt;th&gt;Описание&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;WITH_API&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Собирать со встроенным HTTP API сервером&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Пример:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;cmake -S . -B cmake-build -DWITH_API&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;OFF&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;h2&gt;Пакеты Debian / Ubuntu&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;пакеты-debian--ubuntu&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d1%8b-debian--ubuntu&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Для целей Debian/Ubuntu используйте поддерживаемые Docker-ом цели сборки пакетов из корневого &lt;code&gt;Makefile&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Собирайте пакеты Debian из корня репозитория:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Используйте явную метку выпуска Debian внутри &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make deb-packages &lt;span class=&#34;nv&#34;&gt;DEBIAN_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;bookworm&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Пересобирайте образ Debian builder явным образом:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make debian-builder-image&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Артефакты записываются в &lt;code&gt;build/packages/&lt;/code&gt;:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;build/packages/keen-pbr_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;build/packages/keen-pbr-headless_&amp;lt;version&amp;gt;_debian_amd64.deb&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Поток упаковки Debian:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;собирает фронтенд с &lt;code&gt;bun&lt;/code&gt; для полного пакета&lt;/li&gt;
+&lt;li&gt;компилирует нативные бинарники с путями установки Debian под &lt;code&gt;/etc/keen-pbr&lt;/code&gt; и &lt;code&gt;/usr/share/keen-pbr/frontend&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;устанавливает &lt;code&gt;systemd&lt;/code&gt; юнит в &lt;code&gt;/lib/systemd/system/keen-pbr.service&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;не автовключает и не автозапускает сервис во время установки пакета&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Сборка пакетов для роутеров&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;сборка-пакетов-для-роутеров&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%81%d0%b1%d0%be%d1%80%d0%ba%d0%b0-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Для целей роутеров используйте поддерживаемые Docker-ом цели сборки пакетов из корневого &lt;code&gt;Makefile&lt;/code&gt;. Они отражают рабочие процессы GitHub Actions и записывают нормализованные артефакты в &lt;code&gt;build/packages/&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;Entware (для роутеров Keenetic и Netcraze)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;entware-для-роутеров-keenetic-и-netcraze&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#entware-%d0%b4%d0%bb%d1%8f-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%be%d0%b2-keenetic-%d0%b8-netcraze&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Соберите пакет Entware:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make keenetic-packages &lt;span class=&#34;nv&#34;&gt;KEENETIC_CONFIG&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mipsel-3.4 &lt;span class=&#34;nv&#34;&gt;KEENETIC_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;current&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Параметры:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Переменная&lt;/th&gt;
+          &lt;th&gt;Обязательно&lt;/th&gt;
+          &lt;th&gt;Пример&lt;/th&gt;
+          &lt;th&gt;Описание&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;KEENETIC_VERSION&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;да&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;current&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Версия канала Keenetic, используемая в макете &lt;code&gt;build/packages&lt;/code&gt;.&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;KEENETIC_CONFIG&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;да&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;mipsel-3.4&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Тег архитектуры сборщика Entware.&lt;br&gt;Поддерживаемые значения: &lt;br&gt;&lt;code&gt;aarch64-3.10&lt;/code&gt;, &lt;br&gt;&lt;code&gt;mips-3.4&lt;/code&gt;, &lt;br&gt;&lt;code&gt;mipsel-3.4&lt;/code&gt;, &lt;br&gt;&lt;code&gt;armv7-3.2&lt;/code&gt;, &lt;br&gt;&lt;code&gt;x64-3.2&lt;/code&gt;.&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Поведение:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Использует предварительно собранный образ &lt;code&gt;ghcr.io/maksimkurb/entware-builder:&amp;lt;config&amp;gt;&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Монтирует репозиторий в контейнер в &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Собирает и собирает артефакты в &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;openwrt&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Сначала перечислите доступные цели:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Соберите пакет OpenWrt:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Или с явным выпуском:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# ещё один распространённый пример&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;rockchip &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;armv8&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Пересобирайте образ OpenWrt builder явным образом:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-builder-image&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Параметры:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Переменная&lt;/th&gt;
+          &lt;th&gt;Обязательно&lt;/th&gt;
+          &lt;th&gt;По умолчанию&lt;/th&gt;
+          &lt;th&gt;Пример&lt;/th&gt;
+          &lt;th&gt;Описание&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;OPENWRT_VERSION&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;да&lt;/td&gt;
+          &lt;td&gt;-&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;24.10.4&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Выпуск OpenWrt, используемый для обнаружения SDK.&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;OPENWRT_TARGET&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;да&lt;/td&gt;
+          &lt;td&gt;-&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;mediatek&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Имя цели OpenWrt.&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;OPENWRT_SUBTARGET&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;да&lt;/td&gt;
+          &lt;td&gt;-&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;filogic&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Имя подцели OpenWrt.&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Поведение:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Собирает &lt;code&gt;docker/Dockerfile.openwrt-builder&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Монтирует репозиторий в контейнер в &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Загружает и извлекает соответствующий OpenWrt SDK в смонтированный кэш SDK при первом запуске&lt;/li&gt;
+&lt;li&gt;Повторно использует кэш SDK при последующих запусках&lt;/li&gt;
+&lt;li&gt;Копирует полученные артефакты &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; в &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Примечания&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;примечания&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%87%d0%b0%d0%bd%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;Репозиторий монтируется в &lt;code&gt;/workspace&lt;/code&gt;, поэтому изменения исходного кода и скриптов упаковки подхватываются при следующей сборке.&lt;/li&gt;
+&lt;li&gt;Содержимое OpenWrt SDK кэшируется вне контейнера и повторно используется между запусками.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Развёртывание на роутер&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;развёртывание-на-роутер&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%80%d0%b0%d0%b7%d0%b2%d1%91%d1%80%d1%82%d1%8b%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Скопируйте собранный пакет и файл конфигурации на ваш роутер:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Пример для Keenetic&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/keenetic/&amp;lt;keenetic_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_keenetic_&amp;lt;config&amp;gt;.ipk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_keenetic_&amp;lt;config&amp;gt;.ipk
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Пример для OpenWrt .ipk&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.ipk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.ipk
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Пример для OpenWrt .apk&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.apk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p&gt;Запустите на роутере:&lt;/p&gt;
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# Keenetic&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr start
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Скопировать код&#34;
+    aria-label=&#34;Скопировать код&#34;
+    data-copied-label=&#34;Скопировано!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+
+      </description>
+    </item>
+    
+  </channel>
+</rss>
