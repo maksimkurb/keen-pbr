@@ -1,6 +1,16 @@
 baseURL: https://keen-pbr.fyi/
+defaultContentLanguage: en
+defaultContentLanguageInSubtitle: ""
 languageCode: en-us
 title: keen-pbr
+
+languages:
+  en:
+    languageName: English
+    weight: 1
+  ru:
+    languageName: Русский
+    weight: 2
 
 module:
   imports:

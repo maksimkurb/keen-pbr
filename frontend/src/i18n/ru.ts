@@ -68,7 +68,7 @@ export const ruTranslation = {
         items: {
           systemMonitor: "Обзор системы",
           settings: "Настройки",
-          outbounds: "Интерфейсы / выходы",
+          outbounds: "Outbounds (выходы)",
           dnsServers: "DNS-серверы",
           lists: "Списки",
           routingRules: "Правила маршрутизации",
@@ -138,10 +138,10 @@ export const ruTranslation = {
           },
         },
         outbounds: {
-          title: "Состояние выходов",
-          loadError: "Не удалось загрузить состояние выходов.",
-          emptyTitle: "Выходы не настроены",
-          emptyDescription: "Добавьте выходы, чтобы увидеть проверки состояния.",
+          title: "Состояние outbounds",
+          loadError: "Не удалось загрузить состояние outbounds.",
+          emptyTitle: "Outbounds не настроены",
+          emptyDescription: "Добавьте outbounds, чтобы увидеть проверки состояния.",
           inUse: "Используется",
           urltestTitle: "urltest",
           headers: {
@@ -153,7 +153,7 @@ export const ruTranslation = {
             interface: "Интерфейс {{name}}",
             interfaceWithGateway: "Интерфейс {{name}} (шлюз: {{gateway}})",
             table: "Таблица {{value}}",
-            outbound: "Выход {{name}}",
+            outbound: "Outbound {{name}}",
           },
         },
         routing: {
@@ -207,8 +207,8 @@ export const ruTranslation = {
                 "Ваш конфигурационный файл целиком (включая используемые списки)",
               serviceHealth: "Состояние сервиса",
               routingHealth: "Состояние маршрутизации",
-              outbounds: "Состояние выходов (outbounds)",
-              names: "Наименования списков, выходов, интерфейсов",
+              outbounds: "Состояние outbounds",
+              names: "Наименования списков, outbounds, интерфейсов",
             },
             trustWarning:
               "Пожалуйста, передавайте данный файл только тому, кому вы доверяете.",
@@ -399,7 +399,7 @@ export const ruTranslation = {
             detourEmpty: "Не выбрано",
             detourPlaceholder: "Необязательный тег outbound",
             detourHint:
-              "Необязательно: отправлять DNS-запросы к этому серверу через конкретный outbound (напр. VPN).",
+              "Необязательно: отправлять DNS-запросы к этому серверу через конкретный outbound (например, VPN).",
           },
           validation: {
             tagRequired: "Название обязательно.",
@@ -509,7 +509,7 @@ export const ruTranslation = {
           },
         },
         outbounds: {
-          title: "Интерфейсы / выходы",
+          title: "Outbounds (выходы)",
           description: "Настроенные outbounds и группы urltest.",
           actions: { new: "Добавить outbound" },
           empty: {
@@ -592,7 +592,7 @@ export const ruTranslation = {
           ignore: {
             title: "Поведение ignore",
             description:
-              "Outbounds типа ignore пропускают подходящий трафик без изменений policy-based routing.",
+              "Outbounds типа ignore пропускают подходящий трафик без изменения policy-based routing.",
           },
           urltest: {
             groupsTitle: "Группы outbound (urltest)",
@@ -724,7 +724,7 @@ export const ruTranslation = {
           missing: {
             cardDescription: "Запрошенное DNS-правило не найдено.",
             cardTitle: "DNS-правило не найдено",
-            description: "Вернитесь к DNS Rules и выберите корректную запись.",
+            description: "Вернитесь к DNS-правилам и выберите корректную запись.",
             back: "Назад к DNS-правилам",
           },
           actions: { create: "Создать правило", save: "Сохранить правило" },
