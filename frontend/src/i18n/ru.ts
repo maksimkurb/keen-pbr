@@ -224,7 +224,7 @@ export const ruTranslation = {
             description:
               "Проверяет, что DNS-разрешение через keen-pbr работает корректно - из этого браузера или с другого устройства.",
             disabledDescription:
-              "Включите `config.dns.dns_test_server`, чтобы запустить встроенную самопроверку DNS.",
+              "Включите опцию `dns.dns_test_server` в конфигурационном файле, чтобы включить самопроверку DNS.",
             configuredServers: "Настроенные DNS-серверы",
             noServers:
               "На странице DNS-серверов не определено ни одного DNS-сервера.",
@@ -327,7 +327,7 @@ export const ruTranslation = {
               "Автоматически скачивать обновления удалённых списков и обновлять маршрутизацию при изменениях.",
             cronLabel: "Расписание обновления",
             cronHintPrefix:
-              "Как часто проверять обновления. Формат cron - используйте",
+              "Как часто проверять обновления. Формат cron. Используйте",
             cronHintSuffix: "для помощи.",
             openInGuru: "Открыть в Crontab Guru",
           },
@@ -451,7 +451,6 @@ export const ruTranslation = {
               "Добавьте правило маршрутизации, чтобы направлять подходящий трафик в outbound.",
           },
           headers: {
-            enabled: "Включено",
             order: "Порядок",
             criteria: "Условие",
             outbound: "Outbound",
@@ -702,7 +701,7 @@ export const ruTranslation = {
             placeholderTitle: "Основные DNS сервера не выбраны",
             placeholderDescription:
               "Добавьте один или несколько DNS-серверов. Их порядок сохраняется и используется в сгенерированном конфиге dnsmasq.",
-            noneDefined: "В config.dns.servers не определены DNS-серверы.",
+            noneDefined: "На странице DNS-серверы не добавлено ни одного сервера.",
             noneAvailable: "Все DNS-серверы уже выбраны.",
           },
           empty: {
@@ -711,11 +710,13 @@ export const ruTranslation = {
               "Правил пока нет - добавьте правило, чтобы направлять DNS-запросы по спискам через выбранный сервер.",
           },
           headers: {
-            enabled: "Включено",
-            lists: "Списки",
+            criteria: "Условие",
             serverTag: "DNS-сервер",
             allowDomainRebinding: "Разрешение rebind",
             actions: "Действия",
+          },
+          criteriaLabels: {
+            lists: "Списки",
           },
           rebinding: {
             enabled: "Разрешён",
@@ -736,8 +737,8 @@ export const ruTranslation = {
             notFound: "Запрошенное DNS-правило не найдено.",
             fixErrors: "Исправьте ошибки валидации перед сохранением.",
             serverRequired: "Правило должно ссылаться на существующий DNS-сервер.",
-            listsRequired: "Правило должно содержать хотя бы одно имя списка.",
-            unknownLists: "Неизвестные имена списков: {{lists}}",
+            listsRequired: "Правило должно содержать хотя бы один список.",
+            unknownLists: "Неизвестные списки: {{lists}}",
             duplicate: "Дублирующееся правило.",
           },
           missing: {
@@ -751,8 +752,8 @@ export const ruTranslation = {
             serverTag: "DNS-сервер",
             selectServer: "Выберите DNS-сервер",
             dnsServers: "DNS-серверы",
-            noServers: "В config.dns.servers не определены DNS-серверы.",
-            listNames: "Имена списков",
+            noServers: "На странице DNS-серверы не добавлено ни одного сервера.",
+            listNames: "Списки доменов",
             allowDomainRebinding: "Разрешить DNS rebind для этих доменов",
             allowDomainRebindingHint:
               "Включайте только если вы точно знаете, что этот список доменов указывает на внутренние сервисы. Тогда ответы для подходящих доменов могут содержать внутренние/приватные IP-адреса (например, 192.168.0.0/16, 10.0.0.0/8 и другие диапазоны локальной сети).",
@@ -794,9 +795,9 @@ export const ruTranslation = {
           },
           refresh: {
             draftBlocked:
-              "Примените или сбросьте сохранённый черновик перед обновлением URL-списков.",
+              "Примените сохранённый черновик перед обновлением URL-списков.",
             updateDisabled:
-              "Примените или сбросьте черновик перед обновлением",
+              "Примените черновик перед обновлением",
           },
           rule: {
             configured: "Настроен",

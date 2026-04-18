@@ -220,10 +220,10 @@ export const enTranslation = {
             description:
               "Verifies that DNS resolution through keen-pbr is working correctly from this browser or another device.",
             disabledDescription:
-              "Enable `config.dns.dns_test_server` to run the built-in DNS self-check.",
+              "Enable `dns.dns_test_server` option in the config file to run the DNS self-check.",
             configuredServers: "Configured DNS servers",
             noServers:
-              "No upstream DNS servers are configured in `config.dns.servers`.",
+              "No upstream DNS servers are configured on the DNS Servers page.",
             via: "via {{detour}}",
             checking: "Checking...",
             runAgain: "Run again",
@@ -319,8 +319,8 @@ export const enTranslation = {
               "Automatically download the latest version of your remote lists and update routing when they change.",
             cronLabel: "Refresh schedule",
             cronHintPrefix:
-              "How often to check for updates. Uses cron format - use",
-            cronHintSuffix: "if you need help.",
+              "How often to check for updates. Uses cron format. Use",
+            cronHintSuffix: "for help.",
             openInGuru: "Open in Crontab Guru",
           },
           advanced: {
@@ -442,7 +442,6 @@ export const enTranslation = {
               "Add a routing rule to direct matching traffic to an outbound.",
           },
           headers: {
-            enabled: "Enabled",
             order: "Order",
             criteria: "Match",
             outbound: "Outbound",
@@ -684,7 +683,7 @@ export const enTranslation = {
             placeholderTitle: "No primary DNS servers selected",
             placeholderDescription:
               "Add one or more DNS servers. The order is preserved and used in generated dnsmasq config.",
-            noneDefined: "No DNS servers defined in config.dns.servers.",
+            noneDefined: "No DNS servers defined on the DNS Servers page.",
             noneAvailable: "All DNS servers are already selected.",
           },
           empty: {
@@ -693,11 +692,13 @@ export const enTranslation = {
               "No rules yet - add a rule to route DNS lookups for specific lists through a chosen server.",
           },
           headers: {
-            enabled: "Enabled",
-            lists: "Lists",
+            criteria: "Match",
             serverTag: "DNS server",
             allowDomainRebinding: "Domain rebinding",
             actions: "Actions",
+          },
+          criteriaLabels: {
+            lists: "Lists",
           },
           rebinding: {
             enabled: "Allowed",
@@ -715,8 +716,8 @@ export const enTranslation = {
             notFound: "The requested DNS rule was not found.",
             fixErrors: "Fix validation errors before saving.",
             serverRequired: "Rule must reference an existing DNS server.",
-            listsRequired: "Rule must include at least one list name.",
-            unknownLists: "Unknown list names: {{lists}}",
+            listsRequired: "Rule must include at least one list.",
+            unknownLists: "Unknown lists: {{lists}}",
             duplicate: "Duplicate rule entry.",
           },
           missing: {
@@ -731,7 +732,7 @@ export const enTranslation = {
             selectServer: "Select DNS server",
             dnsServers: "DNS servers",
             noServers: "No DNS servers defined on the DNS Servers page.",
-            listNames: "List names",
+            listNames: "Domain lists",
             allowDomainRebinding: "Allow domain rebinding for these domains",
             allowDomainRebindingHint:
               "Enable this only when you know this domain list points to internal services. Responses for matched domains will be allowed to contain internal/private IPs (for example 192.168.0.0/16, 10.0.0.0/8, and other local network ranges).",
@@ -773,8 +774,8 @@ export const enTranslation = {
           },
           refresh: {
             draftBlocked:
-              "Apply or discard the staged draft before refreshing URL-backed lists.",
-            updateDisabled: "Apply or discard the staged draft before refreshing",
+              "Apply the staged draft before refreshing URL-backed lists.",
+            updateDisabled: "Apply the staged draft before refreshing",
           },
           rule: {
             configured: "Configured",

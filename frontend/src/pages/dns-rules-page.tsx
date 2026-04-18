@@ -64,7 +64,7 @@ export function DnsRulesPage() {
       },
       onError: (error) => {
         const apiError = error as ApiError
-        toast.error(getApiErrorMessage(apiError))
+        toast.error(getApiErrorMessage(apiError), { richColors: true })
       },
     },
   })
@@ -77,14 +77,18 @@ export function DnsRulesPage() {
     }
 
     if (fallback.some((tag) => !serverTags.includes(tag))) {
-      toast.error(t("pages.dnsRules.validation.invalidFallback"))
+      toast.error(t("pages.dnsRules.validation.invalidFallback"), {
+        richColors: true,
+      })
       return
     }
 
     const draftRules = rules.map((rule) => getRuleDraft(rule))
     const validation = validateRules(draftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
-      toast.error(t("pages.dnsRules.validation.invalidFallbackChange"))
+      toast.error(t("pages.dnsRules.validation.invalidFallbackChange"), {
+        richColors: true,
+      })
       return
     }
 
@@ -104,7 +108,9 @@ export function DnsRulesPage() {
 
     const validation = validateRules(nextDraftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
-      toast.error(t("pages.dnsRules.validation.invalidResult"))
+      toast.error(t("pages.dnsRules.validation.invalidResult"), {
+        richColors: true,
+      })
       return
     }
 
@@ -130,7 +136,9 @@ export function DnsRulesPage() {
 
     const validation = validateRules(nextDraftRules, serverTags, listOptions)
     if (Object.keys(validation).length > 0) {
-      toast.error(t("pages.dnsRules.validation.invalidResult"))
+      toast.error(t("pages.dnsRules.validation.invalidResult"), {
+        richColors: true,
+      })
       return
     }
 
@@ -168,35 +176,35 @@ export function DnsRulesPage() {
         <>
           <Card>
             <CardContent>
-            <Field>
-              <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
-              <FieldContent>
-                <MultiSelectList
-                  addLabel={t("pages.dnsRules.fallback.add")}
-                  allowReorder
-                  emptyMessage={t("pages.dnsRules.fallback.noneAvailable")}
-                  onChange={handleFallbackChange}
-                  options={serverTags}
-                  placeholderDescription={t(
-                    "pages.dnsRules.fallback.placeholderDescription"
-                  )}
-                  placeholderTitle={t("pages.dnsRules.fallback.placeholderTitle")}
-                  value={loadedConfig?.dns?.fallback ?? []}
-                />
-                <FieldHint
-                  description={
-                    serverTags.length === 0 ? (
-                      <>
-                        {t("pages.dnsRules.fallback.description")}{" "}
-                        {t("pages.dnsRules.fallback.noneDefined")}
-                      </>
-                    ) : (
-                      t("pages.dnsRules.fallback.description")
-                    )
-                  }
-                />
-              </FieldContent>
-            </Field>
+              <Field>
+                <FieldLabel>{t("pages.dnsRules.fallback.title")}</FieldLabel>
+                <FieldContent>
+                  <MultiSelectList
+                    addLabel={t("pages.dnsRules.fallback.add")}
+                    allowReorder
+                    emptyMessage={t("pages.dnsRules.fallback.noneAvailable")}
+                    onChange={handleFallbackChange}
+                    options={serverTags}
+                    placeholderDescription={t(
+                      "pages.dnsRules.fallback.placeholderDescription"
+                    )}
+                    placeholderTitle={t("pages.dnsRules.fallback.placeholderTitle")}
+                    value={loadedConfig?.dns?.fallback ?? []}
+                  />
+                  <FieldHint
+                    description={
+                      serverTags.length === 0 ? (
+                        <>
+                          {t("pages.dnsRules.fallback.description")}{" "}
+                          {t("pages.dnsRules.fallback.noneDefined")}
+                        </>
+                      ) : (
+                        t("pages.dnsRules.fallback.description")
+                      )
+                    }
+                  />
+                </FieldContent>
+              </Field>
             </CardContent>
           </Card>
 
@@ -208,8 +216,8 @@ export function DnsRulesPage() {
           ) : (
             <DataTable
               headers={[
-                t("pages.dnsRules.headers.enabled"),
-                t("pages.dnsRules.headers.lists"),
+                "",
+                t("pages.dnsRules.headers.criteria"),
                 t("pages.dnsRules.headers.serverTag"),
                 t("pages.dnsRules.headers.allowDomainRebinding"),
                 t("pages.dnsRules.headers.actions"),
@@ -232,13 +240,14 @@ export function DnsRulesPage() {
                     )}
                   />
                 </div>,
-                <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
-                  {rule.list.map((listName) => (
-                    <Badge key={`${index}-${listName}`} variant="outline">
-                      {listName}
-                    </Badge>
-                  ))}
-                </div>,
+                <ul className="list-disc space-y-1 pl-5 text-sm" key={`criteria-${index}`}>
+                  <li className="text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {t("pages.dnsRules.criteriaLabels.lists")}:
+                    </span>{" "}
+                    {rule.list.join(", ")}
+                  </li>
+                </ul>,
                 <span className="font-medium" key={`server-${index}`}>
                   {rule.server}
                 </span>,

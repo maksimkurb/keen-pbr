@@ -43,7 +43,6 @@ createRoot(document.getElementById("root")!).render(
           <ThemeProvider>
             <App />
             <Toaster
-              richColors
               offset={{
                 bottom: "calc(var(--warning-banner-height, 0px) + 1rem)",
               }}

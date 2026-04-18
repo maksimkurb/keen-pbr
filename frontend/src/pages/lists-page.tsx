@@ -71,7 +71,7 @@ export function ListsPage() {
         )
       },
       onError: (error) => {
-        toast.error(getApiErrorMessage(error as ApiError))
+        toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
       },
     },
   })
@@ -81,7 +81,7 @@ export function ListsPage() {
     [loadedConfig?.lists, listRefreshState, t]
   )
   const hasRefreshableLists = tableRows.some((row) => row.canRefresh)
-  const refreshDisabled = isDraft || listRefreshMutation.isPending
+  const refreshDisabled = listRefreshMutation.isPending
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -128,10 +128,20 @@ export function ListsPage() {
   }
 
   const handleRefreshAll = () => {
+    if (isDraft) {
+      toast.warning(t("pages.lists.refresh.draftBlocked"), { richColors: true })
+      return
+    }
+
     listRefreshMutation.mutate({ data: {} })
   }
 
   const handleRefreshOne = (listId: string) => {
+    if (isDraft) {
+      toast.warning(t("pages.lists.refresh.draftBlocked"), { richColors: true })
+      return
+    }
+
     listRefreshMutation.mutate({ data: { name: listId } })
   }
 
@@ -163,14 +173,6 @@ export function ListsPage() {
         description={t("pages.lists.description")}
         title={t("pages.lists.title")}
       />
-
-      {isDraft && hasRefreshableLists ? (
-        <Alert>
-          <AlertDescription>
-            {t("pages.lists.refresh.draftBlocked")}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       {postConfigMutation.error ? (
         <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
@@ -260,9 +262,7 @@ export function ListsPage() {
                             }`}
                           />
                         ),
-                        label: isDraft
-                          ? t("pages.lists.refresh.updateDisabled")
-                          : t("pages.lists.actions.update"),
+                        label: t("pages.lists.actions.update"),
                         onClick: () => handleRefreshOne(list.id),
                       },
                     ]
