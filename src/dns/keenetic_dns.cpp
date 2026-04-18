@@ -9,6 +9,8 @@
 #include <chrono>
 #include <mutex>
 #include <sstream>
+#include <chrono>
+#include <functional>
 
 namespace keen_pbr3 {
 
