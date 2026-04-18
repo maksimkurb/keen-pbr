@@ -76,7 +76,7 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
@@ -128,7 +128,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 

@@ -48,6 +48,7 @@ CONFIG_PACKAGE_libmbedtls=y
 CONFIG_PACKAGE_libnl-core=y
 CONFIG_PACKAGE_libnl-route=y
 CONFIG_PACKAGE_libstdcpp=y
+CONFIG_PACKAGE_libunwind=y
 CONFIG_PACKAGE_zlib=y
 CONFIG_PACKAGE_libzstd=y
 EOF
@@ -61,6 +62,7 @@ make -j"$NJOBS" package/mbedtls/compile
 make -j"$NJOBS" package/curl/compile
 make -j"$NJOBS" package/libnl/compile
 make -j"$NJOBS" package/gcc/compile 2>/dev/null || true  # libstdcpp comes from GCC runtime
+make -j"$NJOBS" package/libunwind/compile
 make -j"$NJOBS" package/zstd/compile
 
 # ── 6. Symlink toolchain + target sysroot into TOOLCHAIN_DIR ──────────────────

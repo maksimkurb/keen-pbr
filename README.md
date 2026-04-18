@@ -51,6 +51,11 @@ This README is intentionally short. Full installation, configuration, packaging,
 
 Native host builds use top-level `cmake-build-*` directories:
 
+Native prerequisites:
+
+- initialize submodules with `git submodule update --init --recursive`
+- install build deps including `libunwind-dev`
+
 - `make` builds with GCC in `cmake-build-gcc`
 - `make test` builds and runs tests with GCC in `cmake-build-gcc`
 - `make clang-build` performs a compile-only Clang build in `cmake-build-clang`

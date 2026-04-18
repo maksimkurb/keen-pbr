@@ -47,8 +47,9 @@ generate: ## Regenerate src/api/generated/api_types.hpp from docs/openapi.yaml (
 
 test: ## Build and run unit tests (doctest)
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(GCC_BUILD_DIR) --target keen-pbr-tests
+	cmake --build $(GCC_BUILD_DIR) --target keen-pbr-tests crash-diagnostics-smoke
 	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
+	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 
 clang-build: ## Configure and compile with Clang in a host-only build dir
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS)
@@ -114,12 +115,12 @@ cross-build: $(CROSS_TOOLCHAIN_STAMP) ## Cross-compile for aarch64_cortex-a53 di
 	@mkdir -p $(DIST_DIR)
 	# Extract full debug symbols into a separate .debug file (stays on the host)
 	$(CROSS_OBJCOPY) --only-keep-debug $(CROSS_BUILD_DIR)/keen-pbr $(CROSS_DEBUG_BIN)
-	# Strip DWARF from the deployed binary (symbol table kept — backtrace() still resolves names)
+	# Strip DWARF from deployed binary; raw crash PCs still resolve against host-side .debug.
 	$(CROSS_OBJCOPY) --strip-debug --add-gnu-debuglink=$(CROSS_DEBUG_BIN) \
 		$(CROSS_BUILD_DIR)/keen-pbr $(CROSS_BIN)
 	@echo "Binary:        $(CROSS_BIN)"
 	@echo "Debug symbols: $(CROSS_DEBUG_BIN)"
-	@echo "Resolve crash addresses: addr2line -e $(CROSS_DEBUG_BIN) <address>"
+	@echo "Resolve crash addresses: addr2line -Cfpie $(CROSS_DEBUG_BIN) <addr...>"
 
 cross-deploy: cross-build ## Cross-compile and upload binary to router via SFTP (requires ROUTER_HOST)
 	@test -n "$(ROUTER_HOST)" || { echo "Error: ROUTER_HOST is not set"; exit 1; }

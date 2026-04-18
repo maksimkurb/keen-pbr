@@ -58,7 +58,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-ffunction-sections -fdata-sections)
 add_link_options(-Wl,--gc-sections)
 
-# Export symbols for backtrace() stack traces on crash
+# Export symbols so crash diagnostics can recover names in non-signal-safe paths.
 add_link_options(-rdynamic)
 
 # Enrich nlohmann::json exception messages with JSON Pointer context.
@@ -81,6 +81,18 @@ set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
 find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
+find_path(LIBUNWIND_INCLUDE_DIR
+  NAMES libunwind.h
+  PATH_SUFFIXES libunwind
+  REQUIRED
+)
+find_library(LIBUNWIND_LIBRARY
+  NAMES unwind libunwind libunwind.so.8
+  REQUIRED
+)
+get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
+list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
+list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
 find_library(LIBRESOLV resolv)
 find_library(LIBATOMIC atomic)
 if(LIBRESOLV)
@@ -97,6 +109,10 @@ pkg_check_modules(LIBNL REQUIRED IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 set(HTTPLIB_ANL_LIB "")
 
+add_library(keen_pbr_libunwind INTERFACE)
+target_include_directories(keen_pbr_libunwind INTERFACE "${LIBUNWIND_INCLUDE_DIR}")
+target_link_libraries(keen_pbr_libunwind INTERFACE "${LIBUNWIND_LIBRARY}")
+
 # nlohmann/json (bundled as git submodule)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
@@ -109,6 +125,17 @@ set(FMT_TEST OFF CACHE INTERNAL "")
 set(FMT_FUZZ OFF CACHE INTERNAL "")
 set(FMT_CUDA_TEST OFF CACHE INTERNAL "")
 add_subdirectory(third_party/fmt)
+
+# cpptrace (bundled as git submodule, crash diagnostics only)
+set(CPPTRACE_BUILD_SHARED OFF CACHE INTERNAL "")
+set(CPPTRACE_INSTALL OFF CACHE INTERNAL "")
+set(CPPTRACE_UNWIND_WITH_LIBUNWIND ON CACHE BOOL "" FORCE)
+set(CPPTRACE_UNWIND_WITH_UNWIND OFF CACHE BOOL "" FORCE)
+set(CPPTRACE_UNWIND_WITH_EXECINFO OFF CACHE BOOL "" FORCE)
+set(CPPTRACE_GET_SYMBOLS_WITH_LIBDL ON CACHE BOOL "" FORCE)
+set(CPPTRACE_GET_SYMBOLS_WITH_LIBDWARF OFF CACHE BOOL "" FORCE)
+set(CPPTRACE_GET_SYMBOLS_WITH_ADDR2LINE OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/cpptrace EXCLUDE_FROM_ALL)
 
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)
@@ -143,6 +170,7 @@ set(SOURCES
   src/log/logger.cpp
   src/log/trace.cpp
   src/http/http_client.cpp
+  src/crash/crash_diagnostics.cpp
   src/config/config.cpp
   src/config/routing_state.cpp
   src/config/list_parser.cpp
@@ -231,6 +259,7 @@ set_target_properties(keen-pbr PROPERTIES
 target_include_directories(keen-pbr PRIVATE
   "${KEEN_PBR_GENERATED_INCLUDE_DIR}"
   include
+  src
 )
 target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
@@ -246,7 +275,9 @@ target_link_libraries(keen-pbr PRIVATE
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   Threads::Threads
+  cpptrace::cpptrace
   fmt::fmt-header-only
+  keen_pbr_libunwind
   nlohmann_json::nlohmann_json
 )
 keen_pbr_apply_project_options(keen-pbr)
