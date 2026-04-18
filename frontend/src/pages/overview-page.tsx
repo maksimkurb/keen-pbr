@@ -196,13 +196,21 @@ export function OverviewPage() {
 
           {serviceHealth ? (
             <div className="flex h-full flex-1 flex-col">
-              <div className="grid gap-4 md:grid-cols-2 mb-2">
+              <div className="mb-2 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
                     {t("overview.runtime.version")}
                   </div>
                   <div className="text-lg font-semibold">
                     {serviceHealth.version}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 text-sm text-muted-foreground">
+                    {t("overview.runtime.router")}
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {`${serviceHealth.os_type} ${serviceHealth.os_version}`}
                   </div>
                 </div>
                 <div>

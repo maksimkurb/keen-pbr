@@ -123,6 +123,7 @@ export const enTranslation = {
           description: "Control policy-based routing.",
           loadError: "Failed to load routing runtime state.",
           version: "Version",
+          router: "Router",
           status: "Routing status",
           dnsmasqHealthy: "dnsmasq healthy",
           dnsmasqWaiting: "dnsmasq reloading",

@@ -125,6 +125,7 @@ export const ruTranslation = {
           description: "Управление policy-based routing.",
           loadError: "Не удалось загрузить состояние маршрутизации.",
           version: "Версия",
+          router: "Роутер",
           status: "Статус маршрутизации",
           dnsmasqHealthy: "dnsmasq исправен",
           dnsmasqWaiting: "dnsmasq перезагружается",
