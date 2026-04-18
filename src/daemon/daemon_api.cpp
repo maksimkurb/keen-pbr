@@ -283,15 +283,13 @@ void Daemon::setup_api() {
 
             ListStreamer streamer(list_service_.cache_manager());
             const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
-            const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
             DnsServerRegistry dns_registry(dns_cfg);
             (void)DnsmasqGenerator::compute_config_hash(
                 dns_registry,
                 streamer,
                 config.route.value_or(RouteConfig{}),
                 dns_cfg,
-                config.lists.value_or(std::map<std::string, ListConfig>{}),
-                resolver_type);
+                config.lists.value_or(std::map<std::string, ListConfig>{}));
         },
         [this]() {
             const auto runtime_snapshot = runtime_state_store_.snapshot();

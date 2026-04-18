@@ -50,7 +50,6 @@ using ListConfig           = api::ListConfigValue;
 using DnsServer            = api::DnsServerElement;
 using DnsTestServer        = api::DnsTestServer;
 using DnsRule              = api::DnsRuleElement;
-using DnsSystemResolverType = api::DnsSystemResolverType;
 using DnsConfig            = api::Dns;
 using RouteRule            = api::RouteRuleElement;
 using RouteConfig          = api::Route;

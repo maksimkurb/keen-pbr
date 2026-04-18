@@ -555,7 +555,7 @@ TEST_CASE("hash changes when domain list content changes") {
 }
 
 
-TEST_CASE("hash changes when resolver type changes") {
+TEST_CASE("hash is identical for ipset and nftset output modes") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);
     ListStreamer streamer2(cache);
@@ -569,13 +569,105 @@ TEST_CASE("hash changes when resolver type changes") {
     DnsServerRegistry reg2(dns_cfg);
 
     const std::string ipset_hash = DnsmasqGenerator::compute_config_hash(
-        reg1, streamer1, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+        reg1, streamer1, route_cfg, dns_cfg, lists);
     const std::string nftset_hash = DnsmasqGenerator::compute_config_hash(
-        reg2, streamer2, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_NFTSET);
+        reg2, streamer2, route_cfg, dns_cfg, lists);
 
     CHECK(!ipset_hash.empty());
     CHECK(!nftset_hash.empty());
-    CHECK(ipset_hash != nftset_hash);
+    CHECK(ipset_hash == nftset_hash);
+}
+
+TEST_CASE("generate output still differs between ipset and nftset modes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator ipset_gen(reg, streamer1, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_IPSET);
+    DnsmasqGenerator nftset_gen(reg, streamer2, route_cfg, dns_cfg, lists, ResolverType::DNSMASQ_NFTSET);
+
+    const std::string ipset_output = run_generate(ipset_gen);
+    const std::string nftset_output = run_generate(nftset_gen);
+
+    CHECK(ipset_output.find("ipset=/example.com/") != std::string::npos);
+    CHECK(nftset_output.find("nftset=/example.com/") != std::string::npos);
+    CHECK(ipset_output != nftset_output);
+}
+
+TEST_CASE("hash changes when allow_domain_rebinding changes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg1 = make_dns_cfg(list_name, "dns1", "8.8.8.8", false);
+    auto dns_cfg2 = make_dns_cfg(list_name, "dns1", "8.8.8.8", true);
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg1(dns_cfg1);
+    DnsServerRegistry reg2(dns_cfg2);
+    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
+    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
+
+    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
+}
+
+TEST_CASE("hash changes when dns probe server changes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+    ListStreamer streamer3(cache);
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    auto dns_cfg1 = make_empty_dns_cfg();
+    auto dns_cfg2 = make_empty_dns_cfg();
+    auto dns_cfg3 = make_empty_dns_cfg();
+
+    DnsTestServer probe1;
+    probe1.listen = "127.0.0.88:53";
+    dns_cfg2.dns_test_server = probe1;
+
+    DnsTestServer probe2;
+    probe2.listen = "127.0.0.99:5300";
+    dns_cfg3.dns_test_server = probe2;
+
+    DnsServerRegistry reg1(dns_cfg1);
+    DnsServerRegistry reg2(dns_cfg2);
+    DnsServerRegistry reg3(dns_cfg3);
+
+    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg1, lists);
+    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg2, lists);
+    DnsmasqGenerator gen3(reg3, streamer3, route_cfg, dns_cfg3, lists);
+
+    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
+    CHECK(gen2.compute_config_hash() != gen3.compute_config_hash());
+}
+
+TEST_CASE("hash changes when hash version changes") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+    DnsServerRegistry reg(dns_cfg);
+
+    const std::string hash1 = DnsmasqGenerator::compute_config_hash(
+        reg, streamer1, route_cfg, dns_cfg, lists, "3.0.0-1");
+    const std::string hash2 = DnsmasqGenerator::compute_config_hash(
+        reg, streamer2, route_cfg, dns_cfg, lists, "3.0.0-2");
+
+    CHECK(hash1 != hash2);
 }
 
 TEST_CASE("ip-only routed list produces no ipset or nftset directives") {
