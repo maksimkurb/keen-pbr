@@ -22,8 +22,7 @@ CONFIG_NAME="${4:?}"
 KEENETIC_VERSION="${5:-current}"
 ENTWARE_ROOT="$(dirname "$ENTWARE_BIN_DIR")"
 
-. "$WORKSPACE/version.mk"
-VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
+VERSION_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" full "$WORKSPACE")"
 PKG_ARCH=$(printf '%s' "$CONFIG_NAME" | cut -d'-' -f1)
 DEST_DIR="$RELEASE_DIR/keenetic/${KEENETIC_VERSION}/${PKG_ARCH}"
 DEBUG_DEST_DIR="$RELEASE_DIR/keenetic-debug/${KEENETIC_VERSION}/${PKG_ARCH}"

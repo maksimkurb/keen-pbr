@@ -15,6 +15,7 @@ set -eu
 WORKSPACE="${1:?Usage: $0 <workspace-dir> <entware-dir>}"
 ENTWARE_DIR="${2:?}"
 FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
+KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
 
 sh "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
@@ -26,4 +27,7 @@ FEED_PKG_DIR=$(find package -type d -path '*/keen-pbr' | grep '/package/feeds/' 
 cp "$WORKSPACE/version.mk" "$FEED_PKG_DIR/version.mk"
 cat "$WORKSPACE/packages/keenetic/packages.config" >> .config
 make defconfig
-make package/keen-pbr/compile V=s "-j$(nproc)" KEEN_PBR_SRC="$WORKSPACE" KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST"
+make package/keen-pbr/compile V=s "-j$(nproc)" \
+    KEEN_PBR_SRC="$WORKSPACE" \
+    KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
+    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE"

@@ -1,5 +1,7 @@
 include version.mk
 
+VERSION_RESOLVER := $(abspath build_scripts/resolve-version.sh)
+KEEN_PBR_RELEASE := $(shell bash $(VERSION_RESOLVER) release "$(CURDIR)")
 GCC_BUILD_DIR := cmake-build-gcc
 CLANG_BUILD_DIR := cmake-build-clang
 DIST_DIR := build/dist
@@ -9,12 +11,10 @@ KEEN_PBR_VERSION_RELEASE := $(KEEN_PBR_VERSION)-$(KEEN_PBR_RELEASE)
 # Prefer an explicitly installed compiler when available; C++17 is required.
 GCC_CXX ?= $(shell command -v g++-13 2>/dev/null || command -v g++-12 2>/dev/null || command -v g++ 2>/dev/null || echo g++)
 CLANG_CXX ?= clang++
-COMMON_CMAKE_FLAGS := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+COMMON_CMAKE_FLAGS := -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DKEEN_PBR_RELEASE=$(KEEN_PBR_RELEASE)
 GCC_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(GCC_CXX) $(COMMON_CMAKE_FLAGS)
 CLANG_CMAKE_FLAGS := -DCMAKE_CXX_COMPILER=$(CLANG_CXX) $(COMMON_CMAKE_FLAGS)
 CLANG_FEATURE_CMAKE_FLAGS := -DWITH_API=ON -DUSE_KEENETIC_API=ON
-
-SETUP_STAMP := $(GCC_BUILD_DIR)/.stamp-setup
 
 .PHONY: all build clean distclean setup \
         frontend-build \
@@ -29,13 +29,11 @@ SETUP_STAMP := $(GCC_BUILD_DIR)/.stamp-setup
 
 all: build ## Build for host (native)
 
-$(SETUP_STAMP): CMakeLists.txt version.mk include/keen-pbr/version.hpp.in
+setup: ## Configure CMake
 	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS)
-	@touch $@
 
-setup: $(SETUP_STAMP) ## Configure CMake
-
-build: $(SETUP_STAMP) ## Compile the project
+build: ## Compile the project
+	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS)
 	cmake --build $(GCC_BUILD_DIR)
 
 frontend-build: ## Build frontend assets with bun

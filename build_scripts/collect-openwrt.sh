@@ -24,8 +24,7 @@ SUBTARGET="${6:?}"
 FIXED_PKGARCH="${7:-}"
 APK_SIGNING_MARKER="$RELEASE_DIR/openwrt/.apk-signed"
 
-. "$WORKSPACE/version.mk"
-VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
+VERSION_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" full "$WORKSPACE")"
 DEBUG_DEST_ROOT="$RELEASE_DIR/openwrt-debug/${TAG}"
 
 mkdir -p "$RELEASE_DIR"
