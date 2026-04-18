@@ -4,6 +4,9 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#ifdef KEEN_PBR3_TESTING
+#include <functional>
+#endif
 
 namespace keen_pbr3 {
 
