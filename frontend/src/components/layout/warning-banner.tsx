@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react"
 import { SaveIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -21,6 +22,39 @@ export function WarningBanner({
   const { t } = useTranslation()
   const { isMobile, open } = useSidebar()
   const applyConfigMutation = useApplyConfigMutation()
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const rootStyle = document.documentElement.style
+
+    if (!state.isVisible) {
+      rootStyle.setProperty("--warning-banner-height", "0px")
+      return
+    }
+
+    const element = containerRef.current
+
+    if (!element) {
+      return
+    }
+
+    const updateHeight = () => {
+      rootStyle.setProperty(
+        "--warning-banner-height",
+        `${element.getBoundingClientRect().height}px`
+      )
+    }
+
+    updateHeight()
+
+    const resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(element)
+
+    return () => {
+      resizeObserver.disconnect()
+      rootStyle.setProperty("--warning-banner-height", "0px")
+    }
+  }, [state.isVisible])
 
   if (!state.isVisible) {
     return null
@@ -31,6 +65,7 @@ export function WarningBanner({
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-5",
         !isMobile && open ? "left-[calc(var(--sidebar-width)+1rem)] right-4" : null,
