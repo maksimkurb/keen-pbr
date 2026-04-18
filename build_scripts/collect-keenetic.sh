@@ -20,13 +20,16 @@ ENTWARE_BIN_DIR="${2:?}"
 RELEASE_DIR="${3:?}"
 CONFIG_NAME="${4:?}"
 KEENETIC_VERSION="${5:-current}"
+ENTWARE_ROOT="$(dirname "$ENTWARE_BIN_DIR")"
 
 . "$WORKSPACE/version.mk"
 VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
 PKG_ARCH=$(printf '%s' "$CONFIG_NAME" | cut -d'-' -f1)
 DEST_DIR="$RELEASE_DIR/keenetic/${KEENETIC_VERSION}/${PKG_ARCH}"
+DEBUG_DEST_DIR="$RELEASE_DIR/keenetic-debug/${KEENETIC_VERSION}/${PKG_ARCH}"
 
 mkdir -p "$DEST_DIR"
+mkdir -p "$DEBUG_DEST_DIR"
 
 # ── Copy and rename packages ──────────────────────────────────────────────────
 
@@ -35,6 +38,11 @@ find "$ENTWARE_BIN_DIR" -type f -path '*/packages/*.ipk' -name 'keen-pbr_*.ipk' 
 done
 find "$ENTWARE_BIN_DIR" -type f -path '*/packages/*.ipk' -name 'keen-pbr-headless_*.ipk' | while read -r f; do
     cp "$f" "$DEST_DIR/keen-pbr-headless_${VERSION_RELEASE}_keenetic_${CONFIG_NAME}.ipk"
+done
+
+find "$ENTWARE_ROOT" -type f -path '*/debug-artifacts/*/keen-pbr.debug' | while read -r f; do
+    variant="$(basename "$(dirname "$f")")"
+    cp "$f" "$DEBUG_DEST_DIR/keen-pbr_${VERSION_RELEASE}_keenetic_${CONFIG_NAME}_${variant}.debug"
 done
 
 # ── Generate IPK Packages index ───────────────────────────────────────────────

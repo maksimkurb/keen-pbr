@@ -44,11 +44,13 @@ prepare_tree headless "$HEADLESS_SRC"
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" dpkg-buildpackage -b -us -uc
 )
 find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr_*_*.deb' -exec cp -t "$RELEASE_DIR" {} +
+find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-dbgsym_*_*.ddeb' -exec cp -t "$RELEASE_DIR" {} +
 
 (
     cd "$HEADLESS_SRC"
     dpkg-buildpackage -b -us -uc
 )
 find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-headless_*_*.deb' -exec cp -t "$RELEASE_DIR" {} +
+find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-headless-dbgsym_*_*.ddeb' -exec cp -t "$RELEASE_DIR" {} +
 
 bash "$WORKSPACE/build_scripts/collect-debian.sh" "$RELEASE_DIR" "$DEBIAN_VERSION"

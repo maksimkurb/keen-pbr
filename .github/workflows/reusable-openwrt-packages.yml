@@ -125,6 +125,12 @@ jobs:
         with:
           name: staging-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
           path: build/packages/openwrt
+      - name: Upload debug symbol artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: debug-symbols-openwrt-${{ matrix.build_env.tag }}-${{ matrix.build_env.target }}-${{ matrix.build_env.subtarget }}
+          path: build/packages/openwrt-debug
+          if-no-files-found: error
 
   sign:
     if: ${{ inputs.use_signing_secrets }}

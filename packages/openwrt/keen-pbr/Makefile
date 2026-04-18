@@ -21,6 +21,18 @@ KEEN_PBR_FULL_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.full.example.jso
 KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.headless.example.json
 KEEN_PBR_CMAKE_INSTALL_BINDIR ?= sbin
 KEEN_PBR_STAGED_BINDIR ?= usr/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
+KEEN_PBR_OBJCOPY ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)objcopy,objcopy)
+KEEN_PBR_DEBUG_ARTIFACT_DIR ?= $(PKG_BUILD_DIR)/debug-artifacts/$(BUILD_VARIANT)
+KEEN_PBR_STAGED_BIN ?= $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr
+
+define KeenPbr/EmitDebugSymbol
+	@if [ -f "$(KEEN_PBR_STAGED_BIN)" ] && command -v "$(KEEN_PBR_OBJCOPY)" >/dev/null 2>&1; then \
+		mkdir -p "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)"; \
+		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug \
+			"$(KEEN_PBR_STAGED_BIN)" \
+			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug"; \
+	fi
+endef
 
 #
 # Common blocks
@@ -96,6 +108,7 @@ define Package/keen-pbr/install
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
+	$(call KeenPbr/EmitDebugSymbol)
 endef
 
 define Package/keen-pbr/postinst
@@ -144,6 +157,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
+	$(call KeenPbr/EmitDebugSymbol)
 endef
 
 define Package/keen-pbr-headless/postinst
