@@ -603,17 +603,12 @@ components:
 
     DnsSystemResolver:
       type: object
-      required: [type, address]
+      required: [address]
       description: >
         System resolver integration used by daemon runtime. This object is
         required for service startup, reload, and applied config updates,
         although non-daemon commands may still parse configs without it.
       properties:
-        type:
-          type: string
-          enum: [dnsmasq-ipset, dnsmasq-nftset]
-          description: Type of external system resolver integration.
-          example: "dnsmasq-nftset"
         address:
           type: string
           description: >
