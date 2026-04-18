@@ -68,6 +68,7 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
 option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
+option(KEEN_PBR_STATIC_LIBUNWIND "Prefer linking libunwind statically when a static archive is available" ON)
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
@@ -81,18 +82,41 @@ set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
 find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
+add_library(keen_pbr_libunwind INTERFACE)
+set(_keen_pbr_saved_find_library_suffixes "${CMAKE_FIND_LIBRARY_SUFFIXES}")
+if(KEEN_PBR_STATIC_LIBUNWIND)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so" ".so.8")
+endif()
+unset(LIBUNWIND_LIBRARY CACHE)
+unset(LIBUNWIND_INCLUDE_DIR CACHE)
+unset(LIBUNWIND CACHE)
+unset(LIBUNWIND_INCLUDE_DIRS CACHE)
+set(_keen_pbr_libunwind_include_hints
+  "$ENV{STAGING_DIR}/usr/include"
+  "$ENV{STAGING_DIR}/include"
+)
+set(_keen_pbr_libunwind_library_hints
+  "$ENV{STAGING_DIR}/usr/lib"
+  "$ENV{STAGING_DIR}/lib"
+)
 find_path(LIBUNWIND_INCLUDE_DIR
-  NAMES libunwind.h
+  NAMES libunwind.h libunwind/libunwind.h
+  HINTS ${_keen_pbr_libunwind_include_hints}
   PATH_SUFFIXES libunwind
-  REQUIRED
 )
 find_library(LIBUNWIND_LIBRARY
   NAMES unwind libunwind libunwind.so.8
-  REQUIRED
+  HINTS ${_keen_pbr_libunwind_library_hints}
 )
-get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
-list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
-list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
+set(KEEN_PBR_HAS_LIBUNWIND OFF)
+if(LIBUNWIND_INCLUDE_DIR AND LIBUNWIND_LIBRARY)
+  set(KEEN_PBR_HAS_LIBUNWIND ON)
+  get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
+  list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
+  list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
+  set(LIBUNWIND "${LIBUNWIND_LIBRARY}" CACHE FILEPATH "libunwind library path shared with cpptrace" FORCE)
+  set(LIBUNWIND_INCLUDE_DIRS "${LIBUNWIND_INCLUDE_DIR}" CACHE PATH "libunwind include path shared with cpptrace" FORCE)
+endif()
 find_library(LIBRESOLV resolv)
 find_library(LIBATOMIC atomic)
 if(LIBRESOLV)
@@ -109,9 +133,13 @@ pkg_check_modules(LIBNL REQUIRED IMPORTED_TARGET libnl-3.0)
 pkg_check_modules(LIBNL_ROUTE REQUIRED IMPORTED_TARGET libnl-route-3.0)
 set(HTTPLIB_ANL_LIB "")
 
-add_library(keen_pbr_libunwind INTERFACE)
-target_include_directories(keen_pbr_libunwind INTERFACE "${LIBUNWIND_INCLUDE_DIR}")
-target_link_libraries(keen_pbr_libunwind INTERFACE "${LIBUNWIND_LIBRARY}")
+if(KEEN_PBR_HAS_LIBUNWIND)
+  target_include_directories(keen_pbr_libunwind INTERFACE "${LIBUNWIND_INCLUDE_DIR}")
+  target_link_libraries(keen_pbr_libunwind INTERFACE "${LIBUNWIND_LIBRARY}")
+  message(STATUS "Using libunwind library: ${LIBUNWIND_LIBRARY}")
+else()
+  message(STATUS "libunwind headers/library not found; falling back to compiler _Unwind backend")
+endif()
 
 # nlohmann/json (bundled as git submodule)
 set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -129,13 +157,18 @@ add_subdirectory(third_party/fmt)
 # cpptrace (bundled as git submodule, crash diagnostics only)
 set(CPPTRACE_BUILD_SHARED OFF CACHE INTERNAL "")
 set(CPPTRACE_INSTALL OFF CACHE INTERNAL "")
-set(CPPTRACE_UNWIND_WITH_LIBUNWIND ON CACHE BOOL "" FORCE)
-set(CPPTRACE_UNWIND_WITH_UNWIND OFF CACHE BOOL "" FORCE)
+set(CPPTRACE_UNWIND_WITH_LIBUNWIND ${KEEN_PBR_HAS_LIBUNWIND} CACHE BOOL "" FORCE)
+if(KEEN_PBR_HAS_LIBUNWIND)
+  set(CPPTRACE_UNWIND_WITH_UNWIND OFF CACHE BOOL "" FORCE)
+else()
+  set(CPPTRACE_UNWIND_WITH_UNWIND ON CACHE BOOL "" FORCE)
+endif()
 set(CPPTRACE_UNWIND_WITH_EXECINFO OFF CACHE BOOL "" FORCE)
 set(CPPTRACE_GET_SYMBOLS_WITH_LIBDL ON CACHE BOOL "" FORCE)
 set(CPPTRACE_GET_SYMBOLS_WITH_LIBDWARF OFF CACHE BOOL "" FORCE)
 set(CPPTRACE_GET_SYMBOLS_WITH_ADDR2LINE OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/cpptrace EXCLUDE_FROM_ALL)
+set(CMAKE_FIND_LIBRARY_SUFFIXES "${_keen_pbr_saved_find_library_suffixes}")
 
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)

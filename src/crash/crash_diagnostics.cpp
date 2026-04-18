@@ -21,7 +21,7 @@
 namespace keen_pbr3::crash_diagnostics {
 namespace {
 
-constexpr std::size_t kAltStackSize = 64 * 1024;
+constexpr std::size_t kAltStackSize = std::size_t{64} * 1024;
 constexpr std::size_t kMaxFrames = 64;
 constexpr std::size_t kMaxRegisterCount = 16;
 constexpr int kFatalSignals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGILL};
