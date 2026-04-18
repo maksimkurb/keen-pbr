@@ -1,7 +1,8 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { useStore } from "@tanstack/react-store"
 import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 import { toast } from "sonner"
@@ -205,7 +206,6 @@ function ListForm({
   onSubmit: (draft: ListDraft) => void
 }) {
   const { t } = useTranslation()
-  const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
   const [activeSourceGroups, setActiveSourceGroups] = useState<ListSourceGroup[]>(
     () => getActiveSourceGroupsFromDraft(draft)
   )
@@ -213,20 +213,23 @@ function ListForm({
     defaultValues: draft,
     onSubmit: ({ value }) => {
       clearFormServerErrors(form)
-      setApiErrorMessage(null)
       onSubmit(value)
     },
   })
 
+  const apiErrorMessage = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as { form?: string } | undefined)?.form ?? null)
+  )
+
   useEffect(() => {
-    setApiErrorMessage(
-      applyFormApiErrors({
-        error: apiError,
-        form,
-        resolvePath: (path) =>
-          resolveListFieldPath(path, form.state.values.name || draft.name),
-      }) ?? null
-    )
+    applyFormApiErrors({
+      error: apiError,
+      form,
+      resolvePath: (path) =>
+        resolveListFieldPath(path, form.state.values.name || draft.name),
+    })
   }, [apiError, draft.name, form])
 
   const isCreate = mode === "create"
@@ -256,7 +259,7 @@ function ListForm({
     }
 
     setActiveSourceGroups([group])
-    setApiErrorMessage(null)
+    clearFormServerErrors(form)
 
     for (const sourceGroup of LIST_SOURCE_GROUPS) {
       if (sourceGroup === group) {

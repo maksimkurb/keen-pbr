@@ -1,5 +1,4 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
