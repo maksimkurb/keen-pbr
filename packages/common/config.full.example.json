@@ -36,7 +36,6 @@
 
   "dns": {
     "system_resolver": {
-      "type": "dnsmasq-nftset",
       "address": "127.0.0.1"
     },
     "dns_test_server": {

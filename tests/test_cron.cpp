@@ -24,7 +24,6 @@ Config parse_test_config(const std::string& json_str) {
     }
     if (!cfg.dns->system_resolver.has_value()) {
         api::SystemResolver resolver;
-        resolver.type = DnsSystemResolverType::DNSMASQ_NFTSET;
         resolver.address = "127.0.0.1";
         cfg.dns->system_resolver = resolver;
     }

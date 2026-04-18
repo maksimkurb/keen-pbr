@@ -146,11 +146,8 @@ namespace api {
         std::optional<DnsServerType> type;
     };
 
-    enum class DnsSystemResolverType : int { DNSMASQ_IPSET, DNSMASQ_NFTSET };
-
     struct SystemResolver {
         std::string address;
-        DnsSystemResolverType type;
     };
 
     struct Dns {
@@ -649,9 +646,6 @@ namespace api {
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
 
-    void from_json(const json & j, DnsSystemResolverType & x);
-    void to_json(json & j, const DnsSystemResolverType & x);
-
     void from_json(const json & j, OutboundType & x);
     void to_json(json & j, const OutboundType & x);
 
@@ -791,13 +785,11 @@ namespace api {
 
     inline void from_json(const json & j, SystemResolver& x) {
         x.address = j.at("address").get<std::string>();
-        x.type = j.at("type").get<DnsSystemResolverType>();
     }
 
     inline void to_json(json & j, const SystemResolver & x) {
         j = json::object();
         j["address"] = x.address;
-        j["type"] = x.type;
     }
 
     inline void from_json(const json & j, Dns& x) {
@@ -1531,20 +1523,6 @@ namespace api {
             case DnsServerType::KEENETIC: j = "keenetic"; break;
             case DnsServerType::STATIC: j = "static"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsServerType\": " + std::to_string(static_cast<int>(x)));
-        }
-    }
-
-    inline void from_json(const json & j, DnsSystemResolverType & x) {
-        if (j == "dnsmasq-ipset") x = DnsSystemResolverType::DNSMASQ_IPSET;
-        else if (j == "dnsmasq-nftset") x = DnsSystemResolverType::DNSMASQ_NFTSET;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
-    }
-
-    inline void to_json(json & j, const DnsSystemResolverType & x) {
-        switch (x) {
-            case DnsSystemResolverType::DNSMASQ_IPSET: j = "dnsmasq-ipset"; break;
-            case DnsSystemResolverType::DNSMASQ_NFTSET: j = "dnsmasq-nftset"; break;
-            default: throw std::runtime_error("Unexpected value in enumeration \"DnsSystemResolverType\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

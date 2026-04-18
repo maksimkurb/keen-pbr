@@ -772,16 +772,6 @@ void validate_config(const Config& cfg) {
                 add_issue(issues, "dns.system_resolver.address",
                           "dns.system_resolver.address must not be empty");
             }
-
-            switch (resolver.type) {
-                case DnsSystemResolverType::DNSMASQ_IPSET:
-                case DnsSystemResolverType::DNSMASQ_NFTSET:
-                    break;
-                default:
-                    add_issue(issues, "dns.system_resolver.type",
-                              "dns.system_resolver.type must be one of: dnsmasq-ipset, dnsmasq-nftset");
-                    break;
-            }
         } else {
             add_issue(issues, "dns.system_resolver",
                       "dns.system_resolver must be present");

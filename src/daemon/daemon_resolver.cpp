@@ -33,15 +33,13 @@ bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(list_service_.cache_manager());
     const DnsConfig dns_cfg = config_.dns.value_or(DnsConfig{});
-    const ResolverType resolver_type = resolver_type_from_dns_config(dns_cfg);
     DnsServerRegistry dns_registry(dns_cfg);
     resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
         dns_registry,
         streamer,
         config_.route.value_or(RouteConfig{}),
         dns_cfg,
-        config_.lists.value_or(std::map<std::string, ListConfig>{}),
-        resolver_type);
+        config_.lists.value_or(std::map<std::string, ListConfig>{}));
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 

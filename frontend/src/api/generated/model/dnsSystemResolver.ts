@@ -5,15 +5,11 @@
  * REST API for the keen-pbr policy-based routing daemon.
  * OpenAPI spec version: 3.0.0
  */
-import type { DnsSystemResolverType } from './dnsSystemResolverType';
-
 /**
  * System resolver integration used by daemon runtime. This object is required for service startup, reload, and applied config updates, although non-daemon commands may still parse configs without it.
 
  */
 export interface DnsSystemResolver {
-  /** Type of external system resolver integration. */
-  type: DnsSystemResolverType;
   /** IP address or host for the system resolver, with optional port. This is also the resolver endpoint used for TXT lookup of `config-hash.keen.pbr`; if the port is omitted, runtime behavior defaults to 53.
    */
   address: string;
