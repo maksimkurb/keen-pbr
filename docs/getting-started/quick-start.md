@@ -135,7 +135,6 @@ Example minimal config:
   },
   "dns": {
     "system_resolver": {
-      "type": "dnsmasq-nftset", // set to "dnsmasq-ipset" for Keenetic/Netcraze or if you use iptables instead of nftables
       "address": "127.0.0.1"
     },
     "servers": [

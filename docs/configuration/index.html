@@ -35,7 +35,7 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 Common config file locations:
 Keenetic / NetCraze: /opt/etc/keen-pbr/config.json OpenWrt: /etc/keen-pbr/config.json Debian: /etc/keen-pbr/config.json If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
 Outbounds — where matching traffic should go Lists — the sites or IP ranges you want to match Route Rules — which lists go through which outbound DNS — which DNS server should be used for those lists Practical Example This example routes google.com through vpn and leaves everything else on wan:">
-  <meta itemprop="wordCount" content="277">
+  <meta itemprop="wordCount" content="275">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Configuration">
   <meta name="twitter:description" content="keen-pbr reads its settings from one JSON config file.
@@ -864,7 +864,6 @@ Outbounds — where matching traffic should go Lists — the sites or IP ranges 
 </span></span><span class="line"><span class="cl">  <span class="p">},</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;dns&#34;</span><span class="p">:</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;system_resolver&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;dnsmasq-nftset&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="s2">&#34;127.0.0.1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;servers&#34;</span><span class="p">:</span> <span class="p">[</span>

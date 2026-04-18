@@ -15,7 +15,6 @@ On package-based router installs, keen-pbr normally takes care of dnsmasq integr
 {
   "dns": {
     "system_resolver": {
-      "type": "dnsmasq-nftset",
       "address": "127.0.0.1"
     },
     "servers": [...],
@@ -41,7 +40,6 @@ On normal router package installs, you usually should not change these settings.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `type` | string | yes | Resolver integration type: `dnsmasq-ipset` or `dnsmasq-nftset` |
 | `address` | string | yes | Resolver address used for integration and TXT health checks, for example `"127.0.0.1"` or `"127.0.0.1:5353"` |
 
 ## DNS Test Server
