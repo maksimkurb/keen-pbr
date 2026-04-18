@@ -11,7 +11,7 @@
 <title>Сборка из исходного кода – keen-pbr</title>
   <meta name="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/developer/build-from-source/" itemprop="url" />
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:" /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/developer/build-from-source/" itemprop="url" />
 
 <meta property="og:title" content="Сборка из исходного кода">
 <meta
@@ -73,8 +73,16 @@
           Коммуникация через сокеты Netlink (маршрутизация/правила)
       
       
+          libunwind
+          Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a
+      
+      
           fmt
           C&#43;&#43;17 formatting polyfill
+      
+      
+          cpptrace
+          Вендорная библиотека crash diagnostics
       
       
           cpp-httplib
@@ -99,13 +107,13 @@
   <meta itemprop="name" content="Сборка из исходного кода">
   <meta itemprop="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
-  <meta itemprop="wordCount" content="544">
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
+  <meta itemprop="wordCount" content="580">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Сборка из исходного кода">
   <meta name="twitter:description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
-Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
+Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1035,8 +1043,16 @@
           <td>Коммуникация через сокеты Netlink (маршрутизация/правила)</td>
       </tr>
       <tr>
+          <td>libunwind</td>
+          <td>Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен <code>libunwind.a</code></td>
+      </tr>
+      <tr>
           <td>fmt</td>
           <td>C++17 formatting polyfill</td>
+      </tr>
+      <tr>
+          <td>cpptrace</td>
+          <td>Вендорная библиотека crash diagnostics</td>
       </tr>
       <tr>
           <td>cpp-httplib</td>
@@ -1104,6 +1120,11 @@
           <td><code>WITH_API</code></td>
           <td><code>ON</code></td>
           <td>Собирать со встроенным HTTP API сервером</td>
+      </tr>
+      <tr>
+          <td><code>KEEN_PBR_STATIC_LIBUNWIND</code></td>
+          <td><code>ON</code></td>
+          <td>Предпочитать статическую линковку <code>libunwind</code>; установите <code>OFF</code>, чтобы принудительно использовать shared library</td>
       </tr>
   </tbody>
 </table>

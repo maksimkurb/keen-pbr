@@ -78,8 +78,16 @@
           &lt;td&gt;Netlink socket communication (routing/rules)&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
+          &lt;td&gt;libunwind&lt;/td&gt;
+          &lt;td&gt;Required build-time stack unwinding backend for crash diagnostics; linked statically by default when &lt;code&gt;libunwind.a&lt;/code&gt; is available&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
           &lt;td&gt;fmt&lt;/td&gt;
           &lt;td&gt;C++17 formatting polyfill&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;cpptrace&lt;/td&gt;
+          &lt;td&gt;Vendored crash diagnostics library&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;cpp-httplib&lt;/td&gt;
@@ -147,6 +155,11 @@
           &lt;td&gt;&lt;code&gt;WITH_API&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;Build with embedded HTTP API server&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;KEEN_PBR_STATIC_LIBUNWIND&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Prefer linking &lt;code&gt;libunwind&lt;/code&gt; statically; set to &lt;code&gt;OFF&lt;/code&gt; to force the shared library&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;

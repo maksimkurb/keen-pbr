@@ -641,8 +641,16 @@
           &lt;td&gt;Коммуникация через сокеты Netlink (маршрутизация/правила)&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
+          &lt;td&gt;libunwind&lt;/td&gt;
+          &lt;td&gt;Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен &lt;code&gt;libunwind.a&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
           &lt;td&gt;fmt&lt;/td&gt;
           &lt;td&gt;C++17 formatting polyfill&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;cpptrace&lt;/td&gt;
+          &lt;td&gt;Вендорная библиотека crash diagnostics&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;cpp-httplib&lt;/td&gt;
@@ -710,6 +718,11 @@
           &lt;td&gt;&lt;code&gt;WITH_API&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;Собирать со встроенным HTTP API сервером&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;KEEN_PBR_STATIC_LIBUNWIND&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;ON&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Предпочитать статическую линковку &lt;code&gt;libunwind&lt;/code&gt;; установите &lt;code&gt;OFF&lt;/code&gt;, чтобы принудительно использовать shared library&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;

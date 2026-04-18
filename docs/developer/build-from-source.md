@@ -21,7 +21,9 @@ Dependencies are bundled as git submodules or resolved from system packages duri
 | libcurl | Downloading remote lists |
 | nlohmann_json | JSON parsing |
 | libnl | Netlink socket communication (routing/rules) |
+| libunwind | Required build-time stack unwinding backend for crash diagnostics; linked statically by default when `libunwind.a` is available |
 | fmt | C++17 formatting polyfill |
+| cpptrace | Vendored crash diagnostics library |
 | cpp-httplib | Embedded HTTP API server |
 
 ## Build
@@ -61,6 +63,7 @@ Pass options during `cmake` configure:
 | Option | Default | Description |
 |---|---|---|
 | `WITH_API` | `ON` | Build with embedded HTTP API server |
+| `KEEN_PBR_STATIC_LIBUNWIND` | `ON` | Prefer linking `libunwind` statically; set to `OFF` to force the shared library |
 
 Example:
 

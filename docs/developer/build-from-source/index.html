@@ -11,7 +11,7 @@
 <title>Build from Source – keen-pbr</title>
   <meta name="description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any Docker (for cross-compilation) any Dependencies Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
-Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/developer/build-from-source/" itemprop="url" />
+Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) libunwind Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available fmt C&#43;&#43;17 formatting polyfill cpptrace Vendored crash diagnostics library cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/developer/build-from-source/" itemprop="url" />
 
 <meta property="og:title" content="Build from Source">
 <meta
@@ -73,8 +73,16 @@ Dependencies
           Netlink socket communication (routing/rules)
       
       
+          libunwind
+          Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available
+      
+      
           fmt
           C&#43;&#43;17 formatting polyfill
+      
+      
+          cpptrace
+          Vendored crash diagnostics library
       
       
           cpp-httplib
@@ -99,13 +107,13 @@ Build
   <meta itemprop="name" content="Build from Source">
   <meta itemprop="description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any Docker (for cross-compilation) any Dependencies Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
-Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
-  <meta itemprop="wordCount" content="571">
+Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) libunwind Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available fmt C&#43;&#43;17 formatting polyfill cpptrace Vendored crash diagnostics library cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
+  <meta itemprop="wordCount" content="607">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Build from Source">
   <meta name="twitter:description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any Docker (for cross-compilation) any Dependencies Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
-Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) fmt C&#43;&#43;17 formatting polyfill cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
+Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) libunwind Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available fmt C&#43;&#43;17 formatting polyfill cpptrace Vendored crash diagnostics library cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1035,8 +1043,16 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
           <td>Netlink socket communication (routing/rules)</td>
       </tr>
       <tr>
+          <td>libunwind</td>
+          <td>Required build-time stack unwinding backend for crash diagnostics; linked statically by default when <code>libunwind.a</code> is available</td>
+      </tr>
+      <tr>
           <td>fmt</td>
           <td>C++17 formatting polyfill</td>
+      </tr>
+      <tr>
+          <td>cpptrace</td>
+          <td>Vendored crash diagnostics library</td>
       </tr>
       <tr>
           <td>cpp-httplib</td>
@@ -1104,6 +1120,11 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
           <td><code>WITH_API</code></td>
           <td><code>ON</code></td>
           <td>Build with embedded HTTP API server</td>
+      </tr>
+      <tr>
+          <td><code>KEEN_PBR_STATIC_LIBUNWIND</code></td>
+          <td><code>ON</code></td>
+          <td>Prefer linking <code>libunwind</code> statically; set to <code>OFF</code> to force the shared library</td>
       </tr>
   </tbody>
 </table>
