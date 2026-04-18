@@ -6,9 +6,13 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#if defined(__unix__) || defined(__APPLE__)
+#include <syslog.h>
+#endif
 
 namespace keen_pbr3 {
 
@@ -40,6 +44,18 @@ std::string current_thread_id_string() {
     return out.str();
 }
 
+#if defined(__unix__) || defined(__APPLE__)
+void emit_syslog_line(const std::string& line, int priority) {
+    static std::once_flag openlog_once;
+    std::call_once(openlog_once, []() {
+        openlog("keen-pbr", LOG_PID, LOG_DAEMON);
+    });
+    syslog(priority, "%s", line.c_str());
+}
+#else
+void emit_syslog_line(const std::string&, int) {}
+#endif
+
 } // namespace
 
 LogLevel parse_log_level(std::string_view s) {
@@ -67,38 +83,68 @@ void Logger::clear_sink() {
     sink_ = nullptr;
 }
 
-void Logger::emit_line(const std::string& line) {
+void Logger::emit_line(const std::string& line, int syslog_priority) {
     std::lock_guard<std::mutex> lock(sink_mutex_);
+    std::cerr << line << "\n";
+    emit_syslog_line(line, syslog_priority);
     if (sink_) {
         sink_(line);
-        return;
     }
-    std::cerr << line << "\n";
 }
 
 void Logger::error(std::string_view msg) {
     if (is_enabled(LogLevel::error))
-        emit_line("[E] " + std::string(msg));
+        emit_line("[E] " + std::string(msg),
+#if defined(__unix__) || defined(__APPLE__)
+                  LOG_ERR
+#else
+                  0
+#endif
+        );
 }
 
 void Logger::warn(std::string_view msg) {
     if (is_enabled(LogLevel::warn))
-        emit_line("[W] " + std::string(msg));
+        emit_line("[W] " + std::string(msg),
+#if defined(__unix__) || defined(__APPLE__)
+                  LOG_WARNING
+#else
+                  0
+#endif
+        );
 }
 
 void Logger::info(std::string_view msg) {
     if (is_enabled(LogLevel::info))
-        emit_line(std::string(msg));
+        emit_line(std::string(msg),
+#if defined(__unix__) || defined(__APPLE__)
+                  LOG_INFO
+#else
+                  0
+#endif
+        );
 }
 
 void Logger::verbose(std::string_view msg) {
     if (is_enabled(LogLevel::verbose))
-        emit_line("[V] " + std::string(msg));
+        emit_line("[V] " + std::string(msg),
+#if defined(__unix__) || defined(__APPLE__)
+                  LOG_INFO
+#else
+                  0
+#endif
+        );
 }
 
 void Logger::debug(std::string_view msg) {
     if (is_enabled(LogLevel::debug))
-        emit_line("[D] " + std::string(msg));
+        emit_line("[D] " + std::string(msg),
+#if defined(__unix__) || defined(__APPLE__)
+                  LOG_DEBUG
+#else
+                  0
+#endif
+        );
 }
 
 void Logger::trace(std::string_view event, std::string_view details) {
@@ -118,7 +164,13 @@ void Logger::trace(std::string_view event, std::string_view details) {
     if (!details.empty()) {
         out << " " << details;
     }
-    emit_line(out.str());
+    emit_line(out.str(),
+#if defined(__unix__) || defined(__APPLE__)
+              LOG_DEBUG
+#else
+              0
+#endif
+    );
 }
 
 } // namespace keen_pbr3

@@ -73,7 +73,7 @@ public:
 private:
     Logger() = default;
 
-    void emit_line(const std::string& line);
+    void emit_line(const std::string& line, int syslog_priority);
 
     LogLevel level_{LogLevel::info};
     std::mutex sink_mutex_;
