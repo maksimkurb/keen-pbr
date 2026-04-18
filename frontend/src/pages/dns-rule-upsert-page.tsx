@@ -240,6 +240,30 @@ export function DnsRuleUpsertPage({
         }}
       >
         <FieldGroup>
+          <form.Field name="rule.enabled">
+            {(field) => (
+              <Field>
+                <FieldContent>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={field.state.value}
+                      id="dns-rule-enabled"
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked === true)
+                      }
+                    />
+                    <FieldLabel
+                      className="cursor-pointer flex-col items-start gap-0"
+                      htmlFor="dns-rule-enabled"
+                    >
+                      {t("pages.routingRules.headers.enabled")}
+                    </FieldLabel>
+                  </div>
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+
           <form.Field name="rule.server">
             {(field) => (
               <Field>

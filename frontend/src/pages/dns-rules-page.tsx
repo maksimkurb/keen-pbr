@@ -26,7 +26,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { getApiErrorMessage } from "@/lib/api-errors"
 import {
   buildUpdatedConfigWithRules,
@@ -214,24 +214,24 @@ export function DnsRulesPage() {
                 t("pages.dnsRules.headers.allowDomainRebinding"),
                 t("pages.dnsRules.headers.actions"),
               ]}
+              narrowColumns={[0]}
               rows={rules.map((rule, index) => [
-                <Checkbox
-                  aria-label={t(
-                    (rule.enabled ?? true)
-                      ? "pages.dnsRules.actions.disableRule"
-                      : "pages.dnsRules.actions.enableRule"
-                  )}
-                  checked={rule.enabled ?? true}
-                  key={`enabled-${index}`}
-                  onCheckedChange={(checked) =>
-                    handleEnabledChange(index, checked === true)
-                  }
-                  title={t(
-                    (rule.enabled ?? true)
-                      ? "pages.dnsRules.actions.disableRule"
-                      : "pages.dnsRules.actions.enableRule"
-                  )}
-                />,
+                <div className="flex items-center" key={`enabled-${index}`}>
+                  <Switch
+                    aria-label={t(
+                      (rule.enabled ?? true)
+                        ? "pages.dnsRules.actions.disableRule"
+                        : "pages.dnsRules.actions.enableRule"
+                    )}
+                    checked={rule.enabled ?? true}
+                    onCheckedChange={(checked) => handleEnabledChange(index, checked)}
+                    title={t(
+                      (rule.enabled ?? true)
+                        ? "pages.dnsRules.actions.disableRule"
+                        : "pages.dnsRules.actions.enableRule"
+                    )}
+                  />
+                </div>,
                 <div className="flex flex-wrap gap-2" key={`lists-${index}`}>
                   {rule.list.map((listName) => (
                     <Badge key={`${index}-${listName}`} variant="outline">

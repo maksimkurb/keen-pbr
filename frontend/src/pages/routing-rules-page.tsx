@@ -17,7 +17,7 @@ import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import {
   getApiErrorMessage,
   reorderRules,
@@ -179,23 +179,22 @@ export function RoutingRulesPage() {
           ]}
           narrowColumns={[0, 1]}
           rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
-            <Checkbox
-              aria-label={t(
-                row.enabled
-                  ? "pages.routingRules.actions.disableRule"
-                  : "pages.routingRules.actions.enableRule"
-              )}
-              checked={row.enabled}
-              key={`${row.id}-enabled`}
-              onCheckedChange={(checked) =>
-                handleEnabledChange(row.index, checked === true)
-              }
-              title={t(
-                row.enabled
-                  ? "pages.routingRules.actions.disableRule"
-                  : "pages.routingRules.actions.enableRule"
-              )}
-            />,
+            <div className="flex items-center" key={`${row.id}-enabled`}>
+              <Switch
+                aria-label={t(
+                  row.enabled
+                    ? "pages.routingRules.actions.disableRule"
+                    : "pages.routingRules.actions.enableRule"
+                )}
+                checked={row.enabled}
+                onCheckedChange={(checked) => handleEnabledChange(row.index, checked)}
+                title={t(
+                  row.enabled
+                    ? "pages.routingRules.actions.disableRule"
+                    : "pages.routingRules.actions.enableRule"
+                )}
+              />
+            </div>,
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
             </span>,

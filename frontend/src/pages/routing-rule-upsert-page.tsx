@@ -21,6 +21,7 @@ import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   applyFormApiErrors,
@@ -224,6 +225,30 @@ export function RoutingRuleUpsertPage({
         }}
       >
         <FieldGroup>
+          <form.Field name="enabled">
+            {(field) => (
+              <Field>
+                <FieldContent>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={field.state.value}
+                      id="routing-rule-enabled"
+                      onCheckedChange={(checked) =>
+                        field.handleChange(checked === true)
+                      }
+                    />
+                    <FieldLabel
+                      className="cursor-pointer flex-col items-start gap-0"
+                      htmlFor="routing-rule-enabled"
+                    >
+                      {t("pages.routingRules.headers.enabled")}
+                    </FieldLabel>
+                  </div>
+                </FieldContent>
+              </Field>
+            )}
+          </form.Field>
+
           <form.Field name="list">
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
