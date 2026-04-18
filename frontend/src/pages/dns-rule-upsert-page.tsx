@@ -76,6 +76,10 @@ export function DnsRuleUpsertPage({
         .filter(Boolean),
     [loadedConfig]
   )
+  const serverSelectItems = serverTags.map((serverTag) => ({
+    value: serverTag,
+    label: serverTag,
+  }))
 
   const listOptions = useMemo(
     () => Object.keys(loadedConfig?.lists ?? {}),
@@ -244,6 +248,7 @@ export function DnsRuleUpsertPage({
                 </FieldLabel>
                 <FieldContent>
                   <Select
+                    items={serverSelectItems}
                     onValueChange={(server) => field.handleChange(server ?? "")}
                     value={field.state.value}
                   >

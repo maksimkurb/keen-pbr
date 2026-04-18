@@ -83,6 +83,14 @@ export function RoutingRuleUpsertPage({
         .sort((left: string, right: string) => left.localeCompare(right)),
     [loadedConfig]
   )
+  const protoSelectItems = protoOptions.map((option) => ({
+    value: option,
+    label: option || t("pages.routingRuleUpsert.fields.anyLower"),
+  }))
+  const outboundSelectItems = outboundOptions.map((option) => ({
+    value: option,
+    label: option,
+  }))
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -247,6 +255,7 @@ export function RoutingRuleUpsertPage({
                 <FieldLabel>{t("pages.routingRuleUpsert.fields.proto")}</FieldLabel>
                 <FieldContent>
                   <Select
+                    items={protoSelectItems}
                     onValueChange={(value) => field.handleChange(value ?? "")}
                     value={field.state.value}
                   >
@@ -397,6 +406,7 @@ export function RoutingRuleUpsertPage({
                   <FieldLabel>{t("pages.routingRuleUpsert.fields.outbound")}</FieldLabel>
                   <FieldContent>
                     <Select
+                      items={outboundSelectItems}
                       onValueChange={(value) => field.handleChange(value ?? "")}
                       value={field.state.value}
                     >

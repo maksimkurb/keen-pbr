@@ -145,6 +145,14 @@ export function OutboundUpsertPage({
   const draft =
     getOutboundDraft(loadedConfig, mode === "edit" ? outboundId : undefined) ??
     sampleNewOutbound
+  const outboundTypeSelectItems = outboundTypeOptions.map((option) => ({
+    value: option,
+    label: t(`pages.outboundUpsert.fields.typeOptions.${option}`),
+  }))
+  const strictSelectItems = strictOptions.map((option) => ({
+    value: option,
+    label: getStrictOptionLabel(option, t),
+  }))
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -362,6 +370,7 @@ function OutboundForm({
           <FieldContent>
             <Select
               defaultValue={draft.type}
+              items={outboundTypeSelectItems}
               onValueChange={(value) =>
                 setOutboundType((value as Outbound["type"]) ?? draft.type)
               }
@@ -715,6 +724,7 @@ function OutboundForm({
           <FieldContent>
             <Select
               defaultValue={draft.strictEnforcement}
+              items={strictSelectItems}
               onValueChange={(value) =>
                 setStrictEnforcement(value ?? draft.strictEnforcement)
               }

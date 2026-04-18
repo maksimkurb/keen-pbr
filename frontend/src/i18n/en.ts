@@ -388,8 +388,17 @@ export const enTranslation = {
             typeHint:
               "Keenetic reuses the router's current built-in DNS. Plaintext DNS uses a manually entered IP address.",
             typeOptions: {
-              keenetic: "Keenetic",
+              keenetic: "Keenetic DNS",
               static: "Plaintext DNS",
+            },
+            keeneticNotice: {
+              description:
+                "Configure DNS servers in the Keenetic web interface for this mode.",
+              openLink: "Go to settings",
+              navigation:
+                "Go to Network Rules -> Internet safety -> DNS Configuration (Russian UI: Сетевые правила -> Интернет-фильтры -> Настройка DNS).",
+              dotDohOnly:
+                "If any DoT or DoH servers are configured there, only those servers will be used.",
             },
             address: "Address",
             addressPlaceholder: "1.1.1.1 or [2606:4700::1111]:53",
