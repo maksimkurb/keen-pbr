@@ -6,6 +6,7 @@
 #include <string>
 #ifdef KEEN_PBR3_TESTING
 #include <functional>
+#include <chrono>
 #endif
 
 namespace keen_pbr3 {
