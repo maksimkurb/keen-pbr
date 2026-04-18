@@ -5,8 +5,9 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { DnsServer } from "@/api/generated/model/dnsServer"
+import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetHealthService } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import {
   Field,
@@ -20,6 +21,14 @@ import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import i18n from "@/i18n"
 import {
   applyFormApiErrors,
@@ -29,12 +38,14 @@ import { useForm } from "@tanstack/react-form"
 
 type DnsServerDraft = {
   tag: string
+  type: typeof DnsServerType.static | typeof DnsServerType.keenetic
   address: string
   detour: string
 }
 
 const emptyDnsServerDraft: DnsServerDraft = {
   tag: "",
+  type: DnsServerType.static,
   address: "",
   detour: "",
 }
@@ -49,8 +60,16 @@ export function DnsServerUpsertPage({
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
+  const serviceHealthQuery = useGetHealthService({
+    query: {
+      staleTime: 60_000,
+    },
+  })
   const config = selectConfig(configQuery.data)
   const dnsServers = config?.dns?.servers ?? []
+  const serviceHealth =
+    serviceHealthQuery.data?.status === 200 ? serviceHealthQuery.data.data : undefined
+  const supportsKeeneticDns = serviceHealth?.os_type === "keenetic"
 
   const existingServer =
     mode === "edit"
@@ -102,6 +121,7 @@ export function DnsServerUpsertPage({
         onCancel={() => navigate("/dns-servers")}
         onSaved={() => navigate("/dns-servers")}
         serverTag={serverTag}
+        supportsKeeneticDns={supportsKeeneticDns}
       />
     </UpsertPage>
   )
@@ -114,6 +134,7 @@ function DnsServerForm({
   initialDraft,
   onCancel,
   onSaved,
+  supportsKeeneticDns,
 }: {
   mode: "create" | "edit"
   serverTag?: string
@@ -121,9 +142,12 @@ function DnsServerForm({
   initialDraft: DnsServerDraft
   onCancel: () => void
   onSaved: () => void
+  supportsKeeneticDns: boolean
 }) {
   const { t } = useTranslation()
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
+  const showTypeSelector =
+    supportsKeeneticDns || initialDraft.type === DnsServerType.keenetic
   const form = useForm({
     defaultValues: initialDraft,
     onSubmit: ({ value }) => {
@@ -132,15 +156,19 @@ function DnsServerForm({
       }
 
       const normalizedTag = value.tag.trim()
-      const normalizedAddress = normalizeDnsAddress(value.address)
-      if (!normalizedAddress) {
+      const isKeeneticDns = value.type === DnsServerType.keenetic
+      const normalizedAddress = isKeeneticDns
+        ? null
+        : normalizeDnsAddress(value.address)
+      if (!isKeeneticDns && !normalizedAddress) {
         return
       }
 
       const normalizedDetour = value.detour.trim()
       const nextServer: DnsServer = {
         tag: normalizedTag,
-        address: normalizedAddress,
+        type: value.type,
+        ...(normalizedAddress ? { address: normalizedAddress } : {}),
         ...(normalizedDetour ? { detour: normalizedDetour } : {}),
       }
 
@@ -244,13 +272,69 @@ function DnsServerForm({
         </form.Field>
 
         <form.Field
-          name="address"
+          name="type"
           validators={{
-            onChange: ({ value }) => getAddressError(value) ?? undefined,
+            onChange: ({ value }) => getDnsTypeError(value) ?? undefined,
           }}
         >
           {(field) => {
             const error = getFirstFieldError(field.state.meta.errors)
+
+            if (!showTypeSelector) {
+              return null
+            }
+
+            return (
+              <Field invalid={Boolean(error)}>
+                <FieldLabel>{t("pages.dnsServerUpsert.fields.type")}</FieldLabel>
+                <FieldContent>
+                  <Select
+                    onValueChange={(value) =>
+                      field.handleChange((value ?? DnsServerType.static) as DnsServerDraft["type"])
+                    }
+                    value={field.state.value}
+                  >
+                    <SelectTrigger aria-invalid={Boolean(error)}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value={DnsServerType.keenetic}>
+                          {t("pages.dnsServerUpsert.fields.typeOptions.keenetic")}
+                        </SelectItem>
+                        <SelectItem value={DnsServerType.static}>
+                          {t("pages.dnsServerUpsert.fields.typeOptions.static")}
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldHint
+                    description={t("pages.dnsServerUpsert.fields.typeHint")}
+                    error={error}
+                  />
+                </FieldContent>
+              </Field>
+            )
+          }}
+        </form.Field>
+
+        <form.Field
+          name="address"
+          validators={{
+            onChange: ({ value, fieldApi }) =>
+              fieldApi.form.getFieldValue("type") === DnsServerType.keenetic
+                ? undefined
+                : getAddressError(value) ?? undefined,
+          }}
+        >
+          {(field) => {
+            const error = getFirstFieldError(field.state.meta.errors)
+            const isKeeneticDns =
+              form.getFieldValue("type") === DnsServerType.keenetic
+
+            if (isKeeneticDns) {
+              return null
+            }
 
             return (
               <Field invalid={Boolean(error)}>
@@ -343,6 +427,7 @@ function getDnsServerDraft(server?: DnsServer): DnsServerDraft {
 
   return {
     tag: server.tag,
+    type: server.type ?? DnsServerType.static,
     address: server.address ?? "",
     detour: server.detour ?? "",
   }
@@ -368,6 +453,15 @@ function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
   }
 
   return undefined
+}
+
+function getDnsTypeError(value: string) {
+  const t = i18n.t.bind(i18n)
+  if (value === DnsServerType.static || value === DnsServerType.keenetic) {
+    return undefined
+  }
+
+  return t("pages.dnsServerUpsert.validation.typeRequired")
 }
 
 function getAddressError(value: string) {
@@ -473,6 +567,10 @@ function resolveDnsServerFieldPath(path: string, tag: string) {
 
   if (path === `dns.servers.${normalizedTag}.tag`) {
     return "tag"
+  }
+
+  if (path === `dns.servers.${normalizedTag}.type`) {
+    return "type"
   }
 
   if (path === `dns.servers.${normalizedTag}.address`) {

@@ -14,6 +14,7 @@
 #include "../health/runtime_outbound_state.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "../util/system_info.hpp"
 #include "../util/time_utils.hpp"
 #include "resolver_health.hpp"
 
@@ -293,10 +294,14 @@ void Daemon::setup_api() {
         },
         [this]() {
             const auto runtime_snapshot = runtime_state_store_.snapshot();
+            const auto& system_info = cached_system_info();
             ServiceHealthState service_health;
             service_health.status = runtime_snapshot.routing_runtime_active
                 ? api::HealthResponseStatus::RUNNING
                 : api::HealthResponseStatus::STOPPED;
+            service_health.os_type = system_info.os_type;
+            service_health.os_version = system_info.os_version;
+            service_health.build_variant = system_info.build_variant;
             service_health.resolver_config_hash = runtime_snapshot.resolver_config_hash;
             service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
             service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;

@@ -55,6 +55,8 @@ set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CAC
   "Default frontend static root served by API (SPA assets)")
 set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq.sh" CACHE STRING
   "System resolver hook command path compiled into keen-pbr")
+set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
+  "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 
 # Dependencies
 find_package(CURL REQUIRED)
@@ -171,6 +173,7 @@ set(SOURCES
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/util/blocking_executor.cpp
+  src/util/system_info.cpp
   src/util/traced_mutex.cpp
   src/main.cpp
 )
@@ -214,6 +217,7 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_DEFAULT_CONFIG_PATH="${KEEN_PBR_DEFAULT_CONFIG_PATH}"
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
+  KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
 )
 if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)

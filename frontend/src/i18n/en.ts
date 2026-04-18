@@ -345,6 +345,7 @@ export const enTranslation = {
         dnsServers: {
           title: "DNS Servers",
           description: "Upstream DNS servers used for domain name resolution.",
+          keeneticAddress: "Keenetic built-in DNS",
           actions: {
             add: "Add DNS server",
           },
@@ -377,11 +378,19 @@ export const enTranslation = {
           back: "Back to DNS servers",
           description:
             "This server will be available in your DNS rules and as a fallback.",
-          cardDescription: "Configure server address and optional detour outbound.",
+          cardDescription:
+            "Choose the DNS server type and optional detour outbound.",
           editCardTitle: "Edit {{tag}}",
           fields: {
             tag: "Name",
             tagHint: "A short name for this server, used in DNS rules.",
+            type: "DNS type",
+            typeHint:
+              "Keenetic reuses the router's current built-in DNS. Plaintext DNS uses a manually entered IP address.",
+            typeOptions: {
+              keenetic: "Keenetic",
+              static: "Plaintext DNS",
+            },
             address: "Address",
             addressPlaceholder: "1.1.1.1 or [2606:4700::1111]:53",
             addressHint:
@@ -395,6 +404,7 @@ export const enTranslation = {
           validation: {
             tagRequired: "Name is required.",
             tagUnique: "Name must be unique.",
+            typeRequired: "DNS type is required.",
             addressRequired: "Address is required.",
             addressInvalid:
               "Address must be a valid IPv4/IPv6 value with an optional port.",

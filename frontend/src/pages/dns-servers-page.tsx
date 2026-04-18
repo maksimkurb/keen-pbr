@@ -6,6 +6,7 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
@@ -131,7 +132,9 @@ export function DnsServersPage() {
               className="text-sm text-muted-foreground"
               key={`${server.tag}-address`}
             >
-              {server.address}
+              {server.type === DnsServerType.keenetic
+                ? t("pages.dnsServers.keeneticAddress")
+                : server.address}
             </span>,
             <Badge
               key={`${server.tag}-detour`}

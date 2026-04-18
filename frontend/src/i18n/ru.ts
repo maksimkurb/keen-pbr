@@ -280,7 +280,7 @@ export const ruTranslation = {
           notInLists: "Нет в доменных/IP-списках",
           inIpsetAndLists: "Есть в IPSet и в списках",
           notInIpsetAndNotInLists: "Нет в IPSet и нет в списках",
-          inIpsetButShouldNotBe: "Есть в IPSet, хотя не должно",
+          inIpsetButShouldNotBe: "Есть в IPSet, хотя не должно быть",
           notInIpsetButShouldBe: "Нет в IPSet, хотя должно быть",
         },
       },
@@ -353,6 +353,7 @@ export const ruTranslation = {
         dnsServers: {
           title: "DNS-серверы",
           description: "Upstream DNS-серверы для разрешения доменных имён.",
+          keeneticAddress: "Встроенный DNS Keenetic",
           actions: {
             add: "Добавить DNS-сервер",
           },
@@ -386,11 +387,18 @@ export const ruTranslation = {
           back: "Назад к DNS-серверам",
           description: "Этот сервер будет доступен в DNS-правилах и как fallback.",
           cardDescription:
-            "Настройте адрес сервера и необязательный detour outbound.",
+            "Выберите тип DNS-сервера и необязательный detour outbound.",
           editCardTitle: "Изменить {{tag}}",
           fields: {
             tag: "Название",
             tagHint: "Короткое название сервера для использования в DNS-правилах.",
+            type: "Тип DNS",
+            typeHint:
+              "Keenetic использует текущий встроенный DNS роутера. Plaintext DNS использует IP-адрес, введённый вручную.",
+            typeOptions: {
+              keenetic: "Keenetic",
+              static: "Plaintext DNS",
+            },
             address: "Адрес",
             addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
             addressHint:
@@ -404,6 +412,7 @@ export const ruTranslation = {
           validation: {
             tagRequired: "Название обязательно.",
             tagUnique: "Название должно быть уникальным.",
+            typeRequired: "Тип DNS обязателен.",
             addressRequired: "Адрес обязателен.",
             addressInvalid:
               "Адрес должен быть корректным IPv4/IPv6 значением с необязательным портом.",

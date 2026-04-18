@@ -15,6 +15,9 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
         resp.status = service_health.status;
+        resp.os_type = service_health.os_type;
+        resp.os_version = service_health.os_version;
+        resp.build_variant = service_health.build_variant;
         resp.resolver_config_hash = service_health.resolver_config_hash;
         resp.resolver_config_hash_actual = service_health.resolver_config_hash_actual;
         resp.resolver_config_hash_actual_ts = service_health.resolver_config_hash_actual_ts;
