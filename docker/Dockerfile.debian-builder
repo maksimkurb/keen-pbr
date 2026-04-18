@@ -17,6 +17,7 @@ RUN apt-get update && \
       libfmt-dev \
       libnl-3-dev \
       libnl-route-3-dev \
+      libunwind-dev \
       ninja-build \
       nlohmann-json3-dev \
       pkg-config \

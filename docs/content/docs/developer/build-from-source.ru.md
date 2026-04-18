@@ -26,7 +26,9 @@ aliases:
 | libcurl | Загрузка удалённых списков |
 | nlohmann_json | JSON-парсинг |
 | libnl | Коммуникация через сокеты Netlink (маршрутизация/правила) |
+| libunwind | Обязательный backend разворачивания стека для crash diagnostics |
 | fmt | C++17 formatting polyfill |
+| cpptrace | Вендорная библиотека crash diagnostics |
 | cpp-httplib | Встроенный HTTP API сервер |
 
 ## Сборка

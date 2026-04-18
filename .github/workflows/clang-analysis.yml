@@ -42,7 +42,8 @@ jobs:
             pkg-config \
             libcurl4-openssl-dev \
             libnl-3-dev \
-            libnl-route-3-dev
+            libnl-route-3-dev \
+            libunwind-dev
           export PATH="$HOME/.local/bin:$PATH"
           if pipx list 2>/dev/null | grep -Fq "package clangd-tidy "; then
             pipx upgrade --force clangd-tidy

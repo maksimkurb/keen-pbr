@@ -26,7 +26,9 @@ Dependencies are bundled as git submodules or resolved from system packages duri
 | libcurl | Downloading remote lists |
 | nlohmann_json | JSON parsing |
 | libnl | Netlink socket communication (routing/rules) |
+| libunwind | Required stack unwinding backend for crash diagnostics |
 | fmt | C++17 formatting polyfill |
+| cpptrace | Vendored crash diagnostics library |
 | cpp-httplib | Embedded HTTP API server |
 
 ## Build
