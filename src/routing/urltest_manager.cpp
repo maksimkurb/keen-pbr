@@ -190,6 +190,12 @@ void UrltestManager::run_tests(const std::string& tag) {
     queue_probe_unlocked(tag, "scheduled");
 }
 
+bool UrltestManager::is_probe_current(const std::string& tag,
+                                      std::uint64_t generation) const {
+    const auto it = states_.find(tag);
+    return it != states_.end() && it->second.generation == generation;
+}
+
 bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                                           const std::string& reason) {
     std::vector<TestCandidate> candidates;
@@ -269,6 +275,20 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
             results.clear();
 
             for (const auto& candidate : candidates_for_probe) {
+                {
+                    KPBR_SHARED_LOCK(lock, mutex_);
+                    if (!is_probe_current(tag, probe_generation)) {
+                        Logger::instance().trace(
+                            "urltest_probe_abort",
+                            "tag={} generation={} child={} trigger={} reason=stale_probe",
+                            tag,
+                            probe_generation,
+                            candidate.child_tag,
+                            reason);
+                        return;
+                    }
+                }
+
                 const auto started_at = std::chrono::steady_clock::now();
                 Logger::instance().trace("urltest_candidate_start",
                                          "tag={} generation={} child={} fwmark={} trigger={}",
