@@ -1,0 +1,1223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>keen-pbr Config Converter</title>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <script type="module">
+      import { parse as tomlParse } from "https://cdn.jsdelivr.net/npm/toml@3.0.0/+esm";
+      import {
+        parse as cjParse,
+        stringify as cjStringify,
+      } from "https://cdn.jsdelivr.net/npm/comment-json@4.2.3/+esm";
+      window.ConverterDeps = {
+        TOML: { parse: tomlParse },
+        parse: cjParse,
+        stringify: cjStringify,
+      };
+    </script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-alt: #f9fafb;
+        --border: #e5e7eb;
+        --border-accent: #dee9ff;
+        --text: #1f2937;
+        --text-muted: #6b7280;
+        --accent: #3b82f6;
+        --error: #ef4444;
+        --warning: #f59e0b;
+        --success: #10b981;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        color: var(--text);
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      header {
+        padding: 12px 20px;
+        background: var(--bg-alt);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .title {
+        font-weight: bold;
+        font-size: 1.1rem;
+      }
+      .badge {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: #e5e7eb;
+        color: #374151;
+      }
+      .lang-btn {
+        border: 1px solid var(--border);
+        background: white;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+      }
+      .lang-btn.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+      .flex-spacer {
+        flex: 1;
+      }
+      .content {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .workspace {
+        display: flex;
+        overflow: hidden;
+      }
+      .pane {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        min-width: 0;
+      }
+      .pane-input {
+        border-right: 1px solid var(--border);
+      }
+      .pane-output {
+        border-left: 1px solid var(--border);
+      }
+      .splitter {
+        flex: 0 0 10px;
+        position: relative;
+        background: var(--bg-alt);
+        cursor: col-resize;
+      }
+      .splitter::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 4px;
+        height: 36px;
+        border-radius: 999px;
+        background: #cbd5e1;
+        transform: translate(-50%, -50%);
+      }
+      .splitter:hover {
+        background: var(--border-accent);
+      }
+      .splitter:hover::before,
+      .splitter.active::before {
+        background: var(--accent);
+      }
+      .hsplitter {
+        flex: 0 0 10px;
+        position: relative;
+        background: var(--bg-alt);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        cursor: row-resize;
+      }
+      .hsplitter::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 36px;
+        height: 4px;
+        border-radius: 999px;
+        background: #cbd5e1;
+        transform: translate(-50%, -50%);
+      }
+      .hsplitter:hover {
+        background: var(--border-accent);
+      }
+      .hsplitter:hover::before,
+      .hsplitter.active::before {
+        background: var(--accent);
+      }
+      .pane-header {
+        padding: 8px 12px;
+        background: var(--bg-alt);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      textarea,
+      .output-view {
+        flex: 1;
+        width: 100%;
+        border: none;
+        resize: none;
+        padding: 12px;
+        font-family:
+          ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo,
+          monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        outline: none;
+        overflow: auto;
+        white-space: pre;
+        color: var(--text);
+      }
+      .editor-wrap {
+        position: relative;
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .output-wrap {
+        position: relative;
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .empty-state {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        padding: 24px;
+      }
+      .empty-state-card {
+        max-width: 460px;
+        padding: 24px 28px;
+        color: rgba(31, 41, 55, 0.55);
+        text-align: center;
+      }
+      .empty-state-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: pre-line;
+      }
+      .btn {
+        padding: 4px 12px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .btn:hover {
+        opacity: 0.9;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .btn-outline:hover {
+        background: var(--bg-alt);
+      }
+
+      .logs {
+        display: flex;
+        flex-direction: column;
+        background: white;
+        min-height: 120px;
+      }
+      .logs-header {
+        padding: 6px 12px;
+        background: var(--bg-alt);
+        border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .log-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0;
+        font-size: 0.85rem;
+      }
+      .log-item {
+        padding: 4px 12px;
+        display: flex;
+        gap: 8px;
+        border-left: 3px solid transparent;
+        align-items: flex-start;
+        line-height: 1.4;
+      }
+      .log-item.error {
+        border-left-color: var(--error);
+      }
+      .log-item.warning {
+        border-left-color: var(--warning);
+      }
+      .log-item.info {
+        border-left-color: var(--accent);
+      }
+      .log-tag {
+        font-weight: bold;
+        font-size: 0.75rem;
+        padding: 1px 4px;
+        border-radius: 3px;
+        margin-top: 1px;
+      }
+      .error .log-tag {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .warning .log-tag {
+        background: #fef3c7;
+        color: #b45309;
+      }
+      .info .log-tag {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+      .log-message a {
+        color: inherit;
+        text-decoration: underline;
+      }
+
+      /* Simple syntax highlighting */
+      .sc {
+        color: #008000;
+      } /* comments */
+      .sk {
+        color: #a31515;
+      } /* keys */
+      .ss {
+        color: #032f62;
+      } /* strings */
+      .sn {
+        color: #098658;
+      } /* numbers */
+      .sb {
+        color: #0000ff;
+      } /* booleans */
+
+      @media (max-width: 768px) {
+        .splitter {
+          flex-basis: 8px;
+        }
+        .hsplitter {
+          flex-basis: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body x-data="app()" x-init="init()">
+    <header>
+      <div class="title">keen-pbr Config Converter</div>
+      <div class="flex-spacer"></div>
+      <button
+        class="lang-btn"
+        :class="{active: lang==='en'}"
+        @click="setLang('en')"
+      >
+        EN
+      </button>
+      <button
+        class="lang-btn"
+        :class="{active: lang==='ru'}"
+        @click="setLang('ru')"
+      >
+        RU
+      </button>
+    </header>
+
+    <div class="content" x-ref="content">
+      <div
+        class="workspace"
+        x-ref="workspace"
+        :style="`height:${100 - bottomPaneHeight}%`"
+      >
+        <div class="pane pane-input" :style="`width:${leftPaneWidth}%`">
+          <div class="pane-header">
+            <span x-text="t('old_config')"></span>
+            <div>
+              <button
+                class="btn btn-outline"
+                @click="doClear()"
+                x-text="t('clear')"
+              ></button>
+            </div>
+          </div>
+          <div class="editor-wrap">
+            <textarea
+              x-model="input"
+              @input="requestConvert()"
+              spellcheck="false"
+            ></textarea>
+            <div
+              class="empty-state"
+              x-show="!input.trim()"
+              x-transition.opacity
+            >
+              <div class="empty-state-card">
+                <div class="empty-state-title" x-text="t('ph_in')"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="splitter"
+          :class="{active:isResizingX}"
+          @mousedown.prevent="startResizeX($event)"
+          @touchstart.prevent="startResizeX($event)"
+        ></div>
+        <div class="pane pane-output" :style="`width:${100 - leftPaneWidth}%`">
+          <div class="pane-header">
+            <span x-text="t('new_config')"></span>
+            <button
+              class="btn btn-outline"
+              @click="copy()"
+              x-text="copied ? t('copied') : t('copy')"
+            ></button>
+          </div>
+          <div class="output-wrap">
+            <div class="output-view" x-html="highlighted"></div>
+            <div
+              class="empty-state"
+              x-show="!output.trim()"
+              x-transition.opacity
+            >
+              <div class="empty-state-card">
+                <div class="empty-state-title" x-text="t('ph_out')"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="hsplitter"
+        :class="{active:isResizingY}"
+        @mousedown.prevent="startResizeY($event)"
+        @touchstart.prevent="startResizeY($event)"
+      ></div>
+      <div class="logs" :style="`height:${bottomPaneHeight}%`">
+        <div class="logs-header">
+          <span x-text="t('msgs')"></span>
+          <span
+            x-show="errN > 0"
+            style="color: var(--error)"
+            x-text="errN + ' ' + t('errs')"
+          ></span>
+          <span
+            x-show="wrnN > 0"
+            style="color: var(--warning)"
+            x-text="wrnN + ' ' + t('wrns')"
+          ></span>
+          <span
+            x-show="infN > 0"
+            style="color: var(--accent)"
+            x-text="infN + ' ' + t('infs')"
+          ></span>
+        </div>
+        <div class="log-list" x-ref="logList">
+          <div
+            style="padding: 4px 12px; color: var(--text-muted)"
+            x-show="logs.length===0"
+            x-text="t('log_empty')"
+          ></div>
+          <template x-for="(e,i) in logs" :key="i">
+            <div class="log-item" :class="e.level">
+              <span
+                class="log-tag"
+                x-text="e.level==='error' ? t('E') : e.level==='warning' ? t('W') : t('I')"
+              ></span>
+              <span class="log-message" x-html="formatLogMessage(e)"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function app() {
+        return {
+          lang: "en",
+          input: "",
+          output: "",
+          highlighted: "",
+          logs: [],
+          copied: false,
+          leftPaneWidth: 50,
+          bottomPaneHeight: 45,
+          isResizingX: false,
+          isResizingY: false,
+          resizeStartX: 0,
+          resizeStartY: 0,
+          resizeStartWidth: 50,
+          resizeStartHeight: 45,
+          convertTimer: null,
+
+          i18n: {
+            en: {
+              converter: "Config Converter",
+              old_config: "Old Config",
+              new_config: "New Config",
+              clear: "Clear",
+              convert: "Convert →",
+              copy: "Copy",
+              copied: "Copied!",
+              msgs: "Conversion Messages",
+              errs: "errors",
+              wrns: "warnings",
+              infs: "notes",
+              E: "ERROR",
+              W: "WARN",
+              I: "INFO",
+              ph_in:
+                "Paste keen-pbr v2.x TOML config here\n(/opt/etc/keen-pbr/keen-pbr.conf)",
+              ph_out: "Save it to\n/opt/etc/keen-pbr/config.json",
+              log_empty: "No messages yet — paste a config",
+              E_parse: "Failed to parse TOML (line {line}, col {col}): {msg}",
+              E_no_ipset:
+                "No [[ipset]] sections found. At least one is required.",
+              E_no_iface:
+                'ipset "{n}": no interfaces defined in [ipset.routing]. Cannot create outbound.',
+              E_no_src:
+                'List "{n}": no source defined (url, file, or hosts). Skipped.',
+              W_iptables:
+                'ipset "{n}": раздел [[ipset.iptables_rule]] is not supported in v3 and will be dropped.',
+              W_multi_if:
+                'ipset "{n}": multiple interfaces [{ifaces}] — v3 uses one interface per outbound. Only "{first}" was used. Create separate outbounds + a urltest outbound for failover.',
+              W_keenapi:
+                '"use_keenetic_api = true" is not supported in v3. A DNS server of type "keenetic" has been added as fallback. For interface health-checking, create urltest outbounds manually — see <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
+              W_keen_dns:
+                '"use_keenetic_dns" is enabled or omitted — a DNS server of type "keenetic" has been added as the first fallback resolver.',
+              W_cache_def:
+                '"lists_output_dir" was the old default path. The v3 default changed to "/opt/var/cache/keen-pbr". daemon.cache_dir has been updated.',
+              W_cache_cst:
+                '"lists_output_dir" was a custom path "{p}". Mapped to daemon.cache_dir.',
+              W_fwmark:
+                'ipset "{n}": custom fwmark/table/priority are not individually configurable in v3. keen-pbr v3 allocates them automatically via fwmark.start/mask.',
+              W_flush:
+                'ipset "{n}": flush_before_applying is the default behaviour in v3. No action needed.',
+              W_ip6:
+                'ipset "{n}": ip_version=6 — v3 supports IPv6. Ensure your interface outbound and gateway are IPv6-capable.',
+              W_odns:
+                'ipset "{n}": override_dns="{dns}" — DNS server "{tag}" and a DNS rule have been created for the lists in this ipset.',
+              W_renamed: 'Name "{old}" is invalid for v3. Renamed to "{nw}".',
+              W_fallback:
+                '"fallback_dns = {addr}" mapped to DNS server "{tag}" and added to dns.fallback.',
+              I_api:
+                "Added api section (enabled=true, listen=0.0.0.0:12121). New in v3 — enables the Web UI on port 12121.",
+              I_daemon:
+                "Added daemon section with defaults. New v3 settings: cache_dir, pid_file, strict_enforcement.",
+              I_fwmark:
+                "Added fwmark section (start=0x00010000, mask=0x00FF0000). v3 assigns fwmarks to outbounds automatically.",
+              I_iproute:
+                "Added iproute section (table_start=150). v3 allocates routing table IDs sequentially from this value.",
+              I_autoupd:
+                'Added lists_autoupdate (enabled=true, cron="0 4 * * *"). Set enabled=false to disable lists auto-refresh from remote sources.',
+              I_ttl:
+                'Lists with domains now support "ttl_ms" — how long a resolved IP stays in the routing ipset. Default value set: 3600000 ms (1 h).',
+              I_defout:
+                'Added outbound "default" → routing table 254 (main). Route lists to it for normal internet traffic.',
+              I_newformat:
+                "Config converted from TOML v2 to JSON v3. Review gateway IPs, DNS addresses, and ttl_ms values before deploying.",
+              I_cbr:
+                'v3 supports urltest outbounds with circuit-breaker for interface health-checking. See <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
+              I_keen_fb:
+                'DNS server of type "keenetic" added to dns.fallback because use_keenetic_api was enabled or use_keenetic_dns was not explicitly disabled.',
+              I_dns_test:
+                "Added dns.dns_test_server (listen 127.0.0.88:12153). New v3 feature — enables DNS diagnostics in the Web UI.",
+            },
+            ru: {
+              converter: "Конвертер конфига",
+              old_config: "Старый конфиг",
+              new_config: "Новый конфиг",
+              clear: "Очистить",
+              convert: "Конвертировать →",
+              copy: "Копировать",
+              copied: "Скопировано!",
+              msgs: "Сообщения конвертации",
+              errs: "ошибки",
+              wrns: "предупреждения",
+              infs: "заметки",
+              E: "ОШИБКА",
+              W: "ПРЕДУПР.",
+              I: "ИНФО",
+              ph_in:
+                "Вставьте конфиг keen-pbr v2.x сюда\n(/opt/etc/keen-pbr/keen-pbr.conf)",
+              ph_out: "Сохраните его в\n/opt/etc/keen-pbr/config.json",
+              log_empty: "Сообщений нет — вставьте конфиг.",
+              E_parse:
+                "Ошибка разбора TOML (строка {line}, столбец {col}): {msg}",
+              E_no_ipset:
+                "Секции [[ipset]] не найдены. Необходима хотя бы одна.",
+              E_no_iface:
+                'ipset "{n}": не указаны интерфейсы в [ipset.routing]. Невозможно создать outbound.',
+              E_no_src:
+                'Список "{n}": не указан источник (url, file или hosts). Пропущен.',
+              W_iptables:
+                'ipset "{n}": раздел [[ipset.iptables_rule]] не поддерживается в v3 и будет удалён.',
+              W_multi_if:
+                'ipset "{n}": несколько интерфейсов [{ifaces}] — в v3 один интерфейс на outbound. Используется только "{first}". Создайте отдельные outbound + urltest для failover.',
+              W_keenapi:
+                '"use_keenetic_api = true" не поддерживается в v3. Добавлен DNS-сервер типа "keenetic" как fallback. Для проверки доступности интерфейсов создайте urltest outbound вручную — см. <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
+              W_keen_dns:
+                '"use_keenetic_dns" включён или не задан — добавлен DNS-сервер типа "keenetic" как первый fallback-резолвер.',
+              W_cache_def:
+                '"lists_output_dir" был устаревшим путём. В v3 директория кэша изменилась на "/opt/var/cache/keen-pbr". daemon.cache_dir обновлён.',
+              W_cache_cst:
+                '"lists_output_dir" был нестандартным путём "{p}". Перенесён в daemon.cache_dir.',
+              W_fwmark:
+                'ipset "{n}": fwmark/table/priority не настраиваются индивидуально в v3. Управляются автоматически через fwmark.start/mask.',
+              W_flush:
+                'ipset "{n}": flush_before_applying — поведение по умолчанию в v3. Дополнительных действий не требуется.',
+              W_ip6:
+                'ipset "{n}": ip_version=6 — v3 поддерживает IPv6. Убедитесь, что ваш outbound-интерфейс и шлюз поддерживают IPv6.',
+              W_odns:
+                'ipset "{n}": override_dns="{dns}" — создан DNS-сервер "{tag}" и правило DNS для списков этого ipset.',
+              W_renamed:
+                'Имя "{old}" недопустимо для v3. Переименовано в "{nw}".',
+              W_fallback:
+                '"fallback_dns = {addr}" сопоставлен с DNS-сервером "{tag}" и добавлен в dns.fallback.',
+              I_api:
+                "Добавлена секция api (enabled=true, listen=0.0.0.0:12121). Новый раздел в v3 — включает Web UI на порту 12121.",
+              I_daemon:
+                "Добавлена секция daemon со значениями по умолчанию. Новые настройки v3: cache_dir, pid_file, strict_enforcement.",
+              I_fwmark:
+                "Добавлена секция fwmark (start=0x00010000, mask=0x00FF0000). В v3 fwmark назначаются автоматически.",
+              I_iproute:
+                "Добавлена секция iproute (table_start=150). В v3 ID таблиц маршрутизации выделяются последовательно с этого значения.",
+              I_autoupd:
+                'Добавлена секция lists_autoupdate (enabled=true, cron="0 4 * * *"). Установите enabled=false для отключения автообновления удалённых списков.',
+              I_ttl:
+                'Списки с доменами теперь поддерживают "ttl_ms" — как долго resolved IP остаётся в routing ipset. Установлено значение по умолчанию: 3600000 мс (1 ч).',
+              I_defout:
+                'Добавлен outbound "default" → таблица маршрутизации 254 (main). Направьте нужные списки на него для обычного интернет-трафика.',
+              I_newformat:
+                "Конфиг конвертирован из TOML v2 в JSON v3. Проверьте IP шлюзов, адреса DNS и ttl_ms перед применением.",
+              I_cbr:
+                'В v3 поддерживаются urltest outbound-ы с circuit-breaker. Подробнее: <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
+              I_keen_fb:
+                'DNS-сервер типа "keenetic" добавлен в dns.fallback, т.к. был включён use_keenetic_api или use_keenetic_dns не был явно отключён.',
+              I_dns_test:
+                "Добавлен dns.dns_test_server (listen 127.0.0.88:12153). Новая возможность v3 — диагностика DNS через Web UI.",
+            },
+          },
+
+          t(k, v = {}) {
+            let s = (this.i18n[this.lang] || this.i18n.en)[k] || k;
+            for (const [a, b] of Object.entries(v))
+              s = s.replaceAll(`{${a}}`, b);
+            return s;
+          },
+          get errN() {
+            return this.logs.filter((l) => l.level === "error").length;
+          },
+          get wrnN() {
+            return this.logs.filter((l) => l.level === "warning").length;
+          },
+          get infN() {
+            return this.logs.filter((l) => l.level === "info").length;
+          },
+
+          init() {
+            const p = new URLSearchParams(window.location.search);
+            if (p.get("lang") === "ru" || p.get("lang") === "en")
+              this.lang = p.get("lang");
+            this.onResizeMove = this.onResizeMove.bind(this);
+            this.stopResize = this.stopResize.bind(this);
+            window.addEventListener("mousemove", this.onResizeMove);
+            window.addEventListener("mouseup", this.stopResize);
+            window.addEventListener("touchmove", this.onResizeMove, {
+              passive: false,
+            });
+            window.addEventListener("touchend", this.stopResize);
+          },
+          setLang(l) {
+            this.lang = l;
+            const u = new URL(window.location);
+            u.searchParams.set("lang", l);
+            window.history.replaceState({}, "", u);
+            if (this.input.trim()) this.convert();
+          },
+          doClear() {
+            clearTimeout(this.convertTimer);
+            this.input = "";
+            this.output = "";
+            this.highlighted = "";
+            this.logs = [];
+          },
+          copy() {
+            if (!this.output) return;
+            navigator.clipboard.writeText(this.output).then(() => {
+              this.copied = true;
+              setTimeout(() => {
+                this.copied = false;
+              }, 2000);
+            });
+          },
+          log(level, key, v = {}) {
+            this.logs.push({ level, key, vars: v });
+          },
+          requestConvert() {
+            clearTimeout(this.convertTimer);
+            this.convertTimer = setTimeout(() => this.convert(), 150);
+          },
+          startResizeX(e) {
+            this.isResizingX = true;
+            this.resizeStartX = this.eventClientX(e);
+            this.resizeStartWidth = this.leftPaneWidth;
+          },
+          startResizeY(e) {
+            this.isResizingY = true;
+            this.resizeStartY = this.eventClientY(e);
+            this.resizeStartHeight = this.bottomPaneHeight;
+          },
+          onResizeMove(e) {
+            if (!this.isResizingX && !this.isResizingY) return;
+            if (e.cancelable) e.preventDefault();
+            if (this.isResizingX && this.$refs.workspace) {
+              const rect = this.$refs.workspace.getBoundingClientRect();
+              const delta = this.eventClientX(e) - this.resizeStartX;
+              const next = this.resizeStartWidth + (delta / rect.width) * 100;
+              this.leftPaneWidth = Math.min(80, Math.max(20, next));
+            }
+            if (this.isResizingY && this.$refs.content) {
+              const rect = this.$refs.content.getBoundingClientRect();
+              const delta = this.eventClientY(e) - this.resizeStartY;
+              const next = this.resizeStartHeight - (delta / rect.height) * 100;
+              this.bottomPaneHeight = Math.min(70, Math.max(20, next));
+            }
+          },
+          stopResize() {
+            this.isResizingX = false;
+            this.isResizingY = false;
+          },
+          eventClientX(e) {
+            return e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX;
+          },
+          eventClientY(e) {
+            return e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY;
+          },
+
+          sanitise(name, used) {
+            let s = String(name)
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, "_")
+              .replace(/^[^a-z]+/, "");
+            if (s.length > 24) s = s.slice(0, 24);
+            if (!s) s = "item";
+            let c = s,
+              i = 2;
+            while (used.has(c)) {
+              const suffix = "_" + i;
+              i++;
+              c = s.slice(0, 24 - suffix.length) + suffix;
+            }
+            used.add(c);
+            return c;
+          },
+
+          convert() {
+            clearTimeout(this.convertTimer);
+            if (!window.ConverterDeps) {
+              alert("Libraries are still loading, please wait a moment.");
+              return;
+            }
+            this.logs = [];
+            this.output = "";
+            this.highlighted = "";
+            const src = this.input.trim();
+            if (!src) return;
+
+            const { TOML, parse, stringify } = window.ConverterDeps;
+
+            let parsed;
+            try {
+              parsed = TOML.parse(src);
+            } catch (e) {
+              this.log("error", "E_parse", {
+                line: e.line || "?",
+                col: e.column || "?",
+                msg: e.message,
+              });
+              return;
+            }
+
+            const g = parsed.general || {};
+            const ipsets = Array.isArray(parsed.ipset) ? parsed.ipset : [];
+            const rawLists = Array.isArray(parsed.list) ? parsed.list : [];
+
+            if (ipsets.length === 0) {
+              this.log("error", "E_no_ipset");
+              return;
+            }
+
+            const useKeeneticApi = g.use_keenetic_api === true;
+            const useKeeneticDns = g.use_keenetic_dns !== false;
+            const fallbackDns = g.fallback_dns || "";
+            const listsDir = g.lists_output_dir || "";
+
+            if (useKeeneticApi) this.log("warning", "W_keenapi");
+            else if (useKeeneticDns) this.log("warning", "W_keen_dns");
+
+            const OLD_DEFAULT = "/opt/etc/keen-pbr/lists.d";
+            const NEW_DEFAULT = "/opt/var/cache/keen-pbr";
+            let cacheDir = NEW_DEFAULT;
+            if (listsDir) {
+              if (listsDir === OLD_DEFAULT) {
+                cacheDir = NEW_DEFAULT;
+                this.log("warning", "W_cache_def");
+              } else {
+                cacheDir = listsDir;
+                this.log("warning", "W_cache_cst", { p: listsDir });
+              }
+            }
+
+            const usedNames = new Set(["default", "keenetic", "wan", "block"]);
+
+            const listNameMap = {};
+            for (const lst of rawLists) {
+              const orig = lst.list_name || lst.name || "";
+              if (!orig) continue;
+              const san = this.sanitise(orig, usedNames);
+              if (san !== orig)
+                this.log("warning", "W_renamed", { old: orig, nw: san });
+              listNameMap[orig] = san;
+            }
+
+            const ipsetEntries = ipsets.map((ip, index) => {
+              const orig = ip.ipset_name || ip.name || "ipset";
+              const san = this.sanitise(orig, usedNames);
+              if (san !== orig)
+                this.log("warning", "W_renamed", { old: orig, nw: san });
+              return { ip, index, orig, tag: san, key: `${orig}#${index}` };
+            });
+
+            const listsObj = {};
+            for (const lst of rawLists) {
+              const orig = lst.list_name || lst.name;
+              if (!orig) continue;
+              const newName = listNameMap[orig];
+              if (!lst.url && !lst.file && !lst.hosts) {
+                this.log("error", "E_no_src", { n: orig });
+                continue;
+              }
+
+              if (lst.hosts) {
+                const domains = Array.isArray(lst.hosts)
+                  ? lst.hosts
+                  : [lst.hosts];
+                listsObj[newName] = parse(`{
+            "domains": ${JSON.stringify(domains)},
+            // IPs stay in ipset for 60 min
+            "ttl_ms": 3600000
+          }`);
+              } else if (lst.url) {
+                listsObj[newName] = parse(`{
+            "url": ${JSON.stringify(lst.url)},
+            "ttl_ms": 3600000
+          }`);
+              } else if (lst.file) {
+                listsObj[newName] = { file: lst.file, ttl_ms: 3600000 };
+              }
+            }
+            if (Object.keys(listsObj).length > 0) this.log("info", "I_ttl");
+
+            const outbounds = [];
+            outbounds.push(
+              parse(`{
+        // Linux routing table "main" (254) — normal internet
+        "tag": "default",
+        "type": "table",
+        "table": 254
+      }`),
+            );
+            this.log("info", "I_defout");
+
+            const outboundByIpset = {};
+            for (const entry of ipsetEntries) {
+              const { ip, orig, tag: newTag, key } = entry;
+              const routing = ip.routing || {};
+              const ifaces = Array.isArray(routing.interfaces)
+                ? routing.interfaces
+                : routing.interfaces
+                  ? [routing.interfaces]
+                  : [];
+
+              if (ifaces.length === 0) {
+                this.log("error", "E_no_iface", { n: orig });
+                return;
+              }
+              if (ifaces.length > 1)
+                this.log("warning", "W_multi_if", {
+                  n: orig,
+                  ifaces: ifaces.join(", "),
+                  first: ifaces[0],
+                });
+              if (
+                Array.isArray(ip.iptables_rule) &&
+                ip.iptables_rule.length > 0
+              )
+                this.log("warning", "W_iptables", { n: orig });
+              if (ip.flush_before_applying !== undefined)
+                this.log("warning", "W_flush", { n: orig });
+              if (ip.ip_version === 6)
+                this.log("warning", "W_ip6", { n: orig });
+              if (
+                routing.fwmark !== undefined ||
+                routing.table !== undefined ||
+                routing.priority !== undefined
+              )
+                this.log("warning", "W_fwmark", { n: orig });
+
+              outbounds.push(
+                parse(`{
+          "tag": ${JSON.stringify(newTag)},
+          "type": "interface",
+          "interface": ${JSON.stringify(ifaces[0])},
+          "strict_enforcement": ${routing.kill_switch === true ? "true" : "false"}
+          // TODO: add "gateway": "<vpn-gateway-ip>" if required
+        }`),
+              );
+              outboundByIpset[key] = newTag;
+            }
+
+            const dnsServers = [];
+            const dnsTagSet = new Set();
+            const addDns = (s) => {
+              if (!dnsTagSet.has(s.tag)) {
+                dnsServers.push(s);
+                dnsTagSet.add(s.tag);
+              }
+            };
+            const dnsTagsByAddr = {};
+            const dnsTagFor = (addr) => {
+              if (dnsTagsByAddr[addr]) return dnsTagsByAddr[addr];
+              let s = "dns_" + String(addr).replace(/[^a-z0-9]/gi, "_");
+              if (s.length > 24) s = s.slice(0, 24);
+              let c = s,
+                i = 2;
+              while (usedNames.has(c)) {
+                const suffix = "_" + i;
+                i++;
+                c = s.slice(0, 24 - suffix.length) + suffix;
+              }
+              usedNames.add(c);
+              dnsTagsByAddr[addr] = c;
+              return c;
+            };
+
+            const overrideDnsByAddr = {};
+            const overrideDnsByIpset = {};
+            for (const entry of ipsetEntries) {
+              const { ip, orig, key } = entry;
+              const routing = ip.routing || {};
+              const odns = routing.override_dns;
+              if (!odns) continue;
+              if (!overrideDnsByAddr[odns]) {
+                const base = dnsTagFor(odns);
+                overrideDnsByAddr[odns] = base;
+                addDns({ tag: base, address: odns });
+              }
+              overrideDnsByIpset[key] = overrideDnsByAddr[odns];
+              this.log("warning", "W_odns", {
+                n: orig,
+                dns: odns,
+                tag: overrideDnsByAddr[odns],
+              });
+            }
+
+            if (useKeeneticApi || useKeeneticDns) {
+              addDns({ tag: "keenetic", type: "keenetic" });
+              this.log("info", "I_keen_fb");
+            }
+
+            if (fallbackDns) {
+              const fallbackDnsTag = dnsTagFor(fallbackDns);
+              addDns({ tag: fallbackDnsTag, address: fallbackDns });
+              this.log("warning", "W_fallback", {
+                addr: fallbackDns,
+                tag: fallbackDnsTag,
+              });
+            }
+
+            const dnsFallback = [];
+            if (useKeeneticApi || useKeeneticDns) dnsFallback.push("keenetic");
+            if (fallbackDns) dnsFallback.push(dnsTagFor(fallbackDns));
+
+            const dnsRules = [];
+            for (const entry of ipsetEntries) {
+              const { ip, key } = entry;
+              if (!overrideDnsByIpset[key]) continue;
+              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).map(
+                (l) => listNameMap[l] || l,
+              );
+              if (ipLists.length > 0)
+                dnsRules.push({
+                  list: ipLists,
+                  server: overrideDnsByIpset[key],
+                });
+            }
+
+            const routeRules = [];
+            for (const entry of ipsetEntries) {
+              const { ip, key } = entry;
+              const obTag = outboundByIpset[key];
+              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).map(
+                (l) => listNameMap[l] || l,
+              );
+              if (ipLists.length > 0)
+                routeRules.push({ list: ipLists, outbound: obTag });
+            }
+
+            const templateStr = `{
+        // Web UI & REST API
+        "api": {
+          "enabled": true,
+          "listen": "0.0.0.0:12121"
+        },
+        // Daemon / service settings
+        "daemon": {
+          "cache_dir": "/opt/var/cache/keen-pbr",
+          "pid_file": "/opt/var/run/keen-pbr.pid",
+          "strict_enforcement": false
+        },
+        // Firewall mark range (auto-assigned per outbound)
+        "fwmark": {
+          "start": "0x00010000",
+          "mask": "0x00FF0000"
+        },
+        // ip rule / routing table IDs (auto-allocated)
+        "iproute": {
+          "table_start": 150
+        },
+        // Automatic remote-list refresh
+        "lists_autoupdate": {
+          // set true to activate
+          "enabled": true,
+          // every day at 04:00
+          "cron": "0 4 * * *"
+        },
+        // Outbounds — where matching traffic is sent
+        "outbounds":[],
+        // Lists: domains, IP CIDRs, remote URLs, or local files
+        "lists": {},
+        // DNS configuration
+        "dns": {
+          // local dnsmasq
+          "system_resolver": { "address": "127.0.0.1" },
+          // DNS probe listener for Web UI (or nslookup) diagnostics
+          "dns_test_server": { "listen": "127.0.0.88:12153" },
+          "servers":[],
+          "rules": [],
+          "fallback":[]
+        },
+        // Routing rules
+        "route": {
+          "rules":[]
+        }
+      }`;
+
+            // Build JSON AST with comments utilizing comment-json lib
+            const config = parse(templateStr);
+
+            config.daemon.cache_dir = cacheDir;
+            config.outbounds = outbounds;
+
+            if (Object.keys(listsObj).length === 0) {
+              config.lists = parse(`{\n  // No lists found in old config\n}`);
+            } else {
+              config.lists = listsObj;
+            }
+
+            if (dnsServers.length === 0) {
+              config.dns.servers = parse(
+                `[\n  // No DNS servers — add manually\n]`,
+              );
+            } else {
+              config.dns.servers = dnsServers;
+            }
+
+            if (dnsRules.length === 0) {
+              config.dns.rules = parse(
+                `[\n  // No DNS rules — add if you need per-list DNS servers\n]`,
+              );
+            } else {
+              config.dns.rules = dnsRules;
+            }
+
+            if (dnsFallback.length > 0) {
+              config.dns.fallback = dnsFallback;
+            } else {
+              config.dns.fallback = parse(
+                `[\n  // TODO: add a default DNS server tag\n]`,
+              );
+            }
+
+            if (routeRules.length === 0) {
+              config.route.rules = parse(`[\n  // No routing rules\n]`);
+            } else {
+              config.route.rules = routeRules;
+            }
+
+            this.log("info", "I_api");
+            this.log("info", "I_daemon");
+            this.log("info", "I_fwmark");
+            this.log("info", "I_iproute");
+            this.log("info", "I_autoupd");
+            this.log("info", "I_dns_test");
+            this.log("info", "I_cbr");
+            this.log("info", "I_newformat");
+
+            // Stringify the AST cleanly back to string, including all injected comments
+            this.output = stringify(config, null, 2);
+            this.highlighted = this.highlight(this.output);
+
+            this.$nextTick(() => {
+              this.$refs.logList.scrollTop = 0;
+            });
+          },
+
+          highlight(code) {
+            if (!code) return "";
+            const esc = (s) =>
+              s
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+            return code
+              .split("\n")
+              .map((line) => {
+                if (/^\s*\/\//.test(line))
+                  return `<span class="sc">${esc(line)}</span>`;
+                let out = "",
+                  i = 0;
+                while (i < line.length) {
+                  if (line[i] === "/" && line[i + 1] === "/") {
+                    out += `<span class="sc">${esc(line.slice(i))}</span>`;
+                    break;
+                  }
+                  if (line[i] === '"') {
+                    let j = i + 1;
+                    while (
+                      j < line.length &&
+                      !(line[j] === '"' && line[j - 1] !== "\\")
+                    )
+                      j++;
+                    const str = esc(line.slice(i, j + 1));
+                    const rest = line.slice(j + 1).trimStart();
+                    out += rest.startsWith(":")
+                      ? `<span class="sk">${str}</span>`
+                      : `<span class="ss">${str}</span>`;
+                    i = j + 1;
+                    continue;
+                  }
+                  if (
+                    /[0-9]/.test(line[i]) ||
+                    (line[i] === "-" && /[0-9]/.test(line[i + 1] || ""))
+                  ) {
+                    let j = i;
+                    while (j < line.length && /[0-9a-fx._\-]/i.test(line[j]))
+                      j++;
+                    out += `<span class="sn">${esc(line.slice(i, j))}</span>`;
+                    i = j;
+                    continue;
+                  }
+                  const kw = ["true", "false", "null"].find(
+                    (k) =>
+                      line.startsWith(k, i) &&
+                      !/[a-z0-9_]/.test(line[i + k.length] || ""),
+                  );
+                  if (kw) {
+                    out += `<span class="sb">${kw}</span>`;
+                    i += kw.length;
+                    continue;
+                  }
+                  out += esc(line[i]);
+                  i++;
+                }
+                return out;
+              })
+              .join("\n");
+          },
+          logMessage(e) {
+            return this.t(e.key, e.vars || {});
+          },
+          escapeHtml(s) {
+            return String(s)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+          },
+          localizeLinkHref(href) {
+            if (/^https?:\/\//i.test(href)) return href;
+            if (href.startsWith("/")) {
+              const path =
+                this.lang === "ru" && !href.startsWith("/ru/")
+                  ? `/ru${href}`
+                  : href;
+              return `https://keen-pbr.fyi${path}`;
+            }
+            return href;
+          },
+          localizeLinkText(text, href) {
+            if (this.lang !== "ru") return text;
+            if (
+              href.startsWith("/docs/") &&
+              text.startsWith("keen-pbr.fyi/docs/")
+            ) {
+              return text.replace(
+                "keen-pbr.fyi/docs/",
+                "keen-pbr.fyi/ru/docs/",
+              );
+            }
+            return text;
+          },
+          formatLogMessage(e) {
+            const msg = this.logMessage(e);
+            const linkRe = /<link href="([^"]+)">([\s\S]*?)<\/link>/g;
+            let out = "";
+            let last = 0;
+            for (const match of msg.matchAll(linkRe)) {
+              out += this.escapeHtml(msg.slice(last, match.index));
+              const href = this.localizeLinkHref(match[1]);
+              const text = this.escapeHtml(
+                this.localizeLinkText(match[2], match[1]),
+              );
+              out += `<a href="${this.escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+              last = match.index + match[0].length;
+            }
+            out += this.escapeHtml(msg.slice(last));
+            return out;
+          },
+        };
+      }
+    </script>
+  </body>
+</html>

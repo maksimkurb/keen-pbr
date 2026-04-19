@@ -219,6 +219,13 @@
     return "opkg update\nopkg install keen-pbr";
   }
 
+  function preRepositoryBlock(systemId) {
+    if (systemId === "keenetic") {
+      return "opkg update\nopkg install wget-ssl";
+    }
+    return "";
+  }
+
   function commandCard(title, code) {
     return [
       '<section class="command-card">',
@@ -233,6 +240,7 @@
 
   function renderInstallCard(systemId, entry, keysManifest, keysError) {
     var cards = [];
+    var needsPreRepositoryBlock = systemId === "keenetic";
 
     if (systemId !== "keenetic") {
       cards.push(
@@ -240,17 +248,21 @@
       );
     }
 
+    if (needsPreRepositoryBlock) {
+      cards.push(
+        commandCard("1. Install wget-ssl for HTTPS support", preRepositoryBlock(systemId))
+      );
+    }
+
     cards.push(
       commandCard(
-        systemId === "keenetic" ? "1. Add repository / feed" : "2. Add repository / feed",
+        "2. Add repository / feed",
         addRepositoryBlock(systemId, entry)
       )
     );
     cards.push(
       commandCard(
-        systemId === "keenetic"
-          ? "2. Update and install keen-pbr"
-          : "3. Update and install keen-pbr",
+        "3. Update and install keen-pbr",
         installBlock(systemId)
       )
     );
