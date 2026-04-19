@@ -370,6 +370,7 @@ function OutboundForm({
               onValueChange={(value) =>
                 setOutboundType((value as Outbound["type"]) ?? draft.type)
               }
+              items={outboundTypeOptions.map((type) => ({ value: type, label: t(`pages.outboundUpsert.fields.typeOptions.${type}`) }))}
             >
               <SelectTrigger>
                 <SelectValue />
