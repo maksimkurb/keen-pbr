@@ -5,24 +5,28 @@
     {
       id: "keenetic",
       label: "Keenetic / Netcraze",
+      name: "Keenetic",
       description: "Entware opkg feed for Keenetic and Netcraze routers.",
       catalogKey: "keenetic"
     },
     {
       id: "openwrtOpkg",
       label: "OpenWrt 24.x and lower",
+      name: "OpenWrt",
       description: "Classic opkg/ipk feed for older OpenWrt releases.",
       catalogKey: "openwrtOpkg"
     },
     {
       id: "openwrtApk",
       label: "OpenWrt 25.x+",
+      name: "OpenWrt",
       description: "APK repository for newer OpenWrt releases.",
       catalogKey: "openwrtApk"
     },
     {
       id: "debian",
       label: "Debian",
+      name: "Debian",
       description: "APT repository for Debian systems.",
       catalogKey: "debian"
     }
@@ -83,6 +87,10 @@
       return getEntries(config, system.id).length > 0;
     });
     return firstWithEntries ? firstWithEntries.id : SYSTEMS[0].id;
+  }
+
+  function buildPlaceholderOption(label, selected) {
+    return '<option value="" disabled="disabled"' + (selected ? ' selected="selected"' : "") + ">" + escapeHtml(label) + "</option>";
   }
 
   function copyText(text) {
@@ -269,14 +277,49 @@
 
     return [
       '<article class="install-card">',
-      "<h3>" + escapeHtml(entry.version) + "</h3>",
+      "<h3>OS: " + escapeHtml(SYSTEMS.find(function(s) { return s.id === systemId; }).name) + "; version: " + escapeHtml(entry.version) + "; architecture: " + escapeHtml(entry.arch) + "</h3>",
       "<p>Use these commands to trust the repository, register the feed, and install <code>keen-pbr</code>.</p>",
       '<div class="command-grid">' + cards.join("") + "</div>",
       "</article>"
     ].join("");
   }
 
-  function renderInstructions(systemId, entry, keysManifest, keysError) {
+  function renderSelectionPrompt(title, message) {
+    return [
+      '<div style="position: relative; padding-top: 3.5rem;">',
+      '<svg aria-hidden="true" viewBox="0 0 800 800" width="220" height="160" style="position: absolute; top: -3rem; left: -7rem; overflow: visible; pointer-events: none;">',
+      '<g stroke-width="18" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.28" transform="matrix(-0.9781476007338057,0.20791169081775931,-0.20791169081775931,-0.9781476007338057,869.423716620626,708.0943639664185)">',
+      '<path d="M253.40797424316406 247.5Q180.40797424316406 474.5 558.4079742431641 552.5" marker-end="url(#selectionPromptArrowhead)"></path>',
+      "</g>",
+      "<defs>",
+      '<marker markerWidth="3.5" markerHeight="3.5" refX="1.75" refY="1.75" viewBox="0 0 3.5 3.5" orient="auto" id="selectionPromptArrowhead">',
+      '<polygon points="0,3.5 1.1666666666666667,1.75 0,0 3.5,1.75" fill="currentColor"></polygon>',
+      "</marker>",
+      "</defs>",
+      "</svg>",
+      '<div class="empty-state">',
+      "<strong>" + escapeHtml(title) + "</strong>",
+      "<p>" + escapeHtml(message) + "</p>",
+      "</div>",
+      "</div>"
+    ].join("");
+  }
+
+  function renderInstructions(state, systemId, entry, keysManifest, keysError) {
+    if (!state.selectedSystem) {
+      return renderSelectionPrompt(
+        "Select OS",
+        "Choose an operating system on the left to generate installation commands."
+      );
+    }
+
+    if (!state.selectedVersion || !state.selectedArch) {
+      return renderSelectionPrompt(
+        "Select options",
+        "Finish choosing the version and architecture on the left to see the exact commands."
+      );
+    }
+
     if (!entry) {
       return '<div class="empty-state">No packages are currently published for this selection.</div>';
     }
@@ -334,16 +377,19 @@
   }
 
   function renderApp(root, state, config) {
-    var selectedSystem = getSystemDefinition(state.selectedSystem);
-    var systemEntries = getEntries(config, selectedSystem.id);
-    var versions = uniqueVersions(systemEntries);
+    var selectedSystem = state.selectedSystem ? getSystemDefinition(state.selectedSystem) : null;
+    var systemEntries = selectedSystem ? getEntries(config, selectedSystem.id) : [];
+    var versions = selectedSystem ? uniqueVersions(systemEntries) : [];
+
     if (!versions.includes(state.selectedVersion)) {
-      state.selectedVersion = versions[0] || "";
+      state.selectedVersion = versions.length === 1 ? versions[0] : "";
     }
-    var arches = uniqueArchitectures(systemEntries, state.selectedVersion);
+
+    var arches = state.selectedVersion ? uniqueArchitectures(systemEntries, state.selectedVersion) : [];
     if (!arches.includes(state.selectedArch)) {
-      state.selectedArch = arches[0] || "";
+      state.selectedArch = arches.length === 1 ? arches[0] : "";
     }
+
     var selectedEntry =
       systemEntries.find(function(entry) {
         return entry.version === state.selectedVersion && entry.arch === state.selectedArch;
@@ -354,20 +400,26 @@
       keysNote = '<div class="status-note">' + escapeHtml(state.keysError) + "</div>";
     }
 
-    var systemOptions = SYSTEMS.map(function(system) {
-      var selected = system.id === selectedSystem.id ? ' selected="selected"' : "";
+    var systemOptions = [buildPlaceholderOption("Select OS...", !state.selectedSystem)].concat(SYSTEMS.map(function(system) {
+      var selected = selectedSystem && system.id === selectedSystem.id ? ' selected="selected"' : "";
       var disabled = getEntries(config, system.id).length ? "" : ' disabled="disabled"';
       return '<option value="' + escapeHtml(system.id) + '"' + selected + disabled + ">" + escapeHtml(system.label) + "</option>";
-    }).join("");
+    })).join("");
 
-    var archOptions = arches.map(function(arch) {
+    var archOptions = [buildPlaceholderOption(
+      !state.selectedSystem ? "Select OS first..." : !state.selectedVersion ? "Select version first..." : "Select architecture...",
+      !state.selectedArch
+    )].concat(arches.map(function(arch) {
       var selected = arch === state.selectedArch ? ' selected="selected"' : "";
       return '<option value="' + escapeHtml(arch) + '"' + selected + ">" + escapeHtml(arch) + "</option>";
-    }).join("");
-    var versionOptions = versions.map(function(version) {
+    })).join("");
+    var versionOptions = [buildPlaceholderOption(
+      state.selectedSystem ? "Select version..." : "Select OS first...",
+      !state.selectedVersion
+    )].concat(versions.map(function(version) {
       var selected = version === state.selectedVersion ? ' selected="selected"' : "";
       return '<option value="' + escapeHtml(version) + '"' + selected + ">" + escapeHtml(version) + "</option>";
-    }).join("");
+    })).join("");
 
     root.innerHTML = [
       '<div class="page-shell">',
@@ -386,14 +438,18 @@
       "</div>",
       "<div>",
       '<label class="field-label" for="repository-version">Select version</label>',
-      '<div class="select-wrap"><select id="repository-version" data-version-select>' + versionOptions + "</select></div>",
+      '<div class="select-wrap"><select id="repository-version" data-version-select' + (state.selectedSystem ? "" : ' disabled="disabled"') + ">" + versionOptions + "</select></div>",
       "</div>",
       "<div>",
       '<label class="field-label" for="repository-arch">Select architecture</label>',
-      '<div class="select-wrap"><select id="repository-arch" data-arch-select>' + archOptions + "</select></div>",
+      '<div class="select-wrap"><select id="repository-arch" data-arch-select' + (state.selectedVersion ? "" : ' disabled="disabled"') + ">" + archOptions + "</select></div>",
       "</div>",
       "</div>",
-      '<div class="selector-note"><strong>' + escapeHtml(selectedSystem.label) + "</strong>" + escapeHtml(selectedSystem.description) + "</div>",
+      '<div class="selector-note">' + (
+        selectedSystem
+          ? "<strong>" + escapeHtml(selectedSystem.label) + "</strong>" + escapeHtml(selectedSystem.description)
+          : "Pick an operating system to unlock the matching version and architecture options."
+      ) + "</div>",
       keysNote,
       "</div></aside>",
       '<section class="panel"><div class="panel-content">',
@@ -403,7 +459,7 @@
       "<p>Commands update immediately when you change the operating system, version, or architecture selector.</p>",
       "</div>",
       "</div>",
-      '<div class="install-list">' + renderInstructions(selectedSystem.id, selectedEntry, state.keysManifest, state.keysError) + "</div>",
+      '<div class="install-list">' + renderInstructions(state, selectedSystem ? selectedSystem.id : "", selectedEntry, state.keysManifest, state.keysError) + "</div>",
       "</div></section>",
       "</div>",
       "</div>"
@@ -419,7 +475,7 @@
     }
 
     var state = {
-      selectedSystem: pickDefaultSystem(config),
+      selectedSystem: "",
       selectedArch: "",
       selectedVersion: "",
       keysManifest: null,
