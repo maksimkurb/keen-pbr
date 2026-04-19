@@ -8,23 +8,19 @@
 <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
-<title>Concepts – keen-pbr</title>
-  <meta name="description" content="You do not need this page to finish a normal setup.
-The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
-This page explains what happens under the hood for readers who want the deeper technical model.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/concepts/" itemprop="url" />
+<title>Support This Project – keen-pbr</title>
+  <meta name="description" content="If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:
+Every donation helps with development time, testing hardware, and keeping the project moving. Thank you." /><link rel="canonical" href="https://keen-pbr.fyi/docs/support-this-project/" itemprop="url" />
 
-<meta property="og:title" content="Concepts">
+<meta property="og:title" content="Support This Project">
 <meta
   property="og:description"
   content="
     
-      You do not need this page to finish a normal setup.
-The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
-This page explains what happens under the hood for readers who want the deeper technical model.
-Core Entities
-    Lists
-    Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:
+      If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:
+
+
+Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.
     
   ">
 <meta
@@ -32,23 +28,19 @@ Core Entities
   content="
     article
   ">
-<meta property="og:url" content="https://keen-pbr.fyi/docs/concepts/"><meta property="article:section" content="docs">
+<meta property="og:url" content="https://keen-pbr.fyi/docs/support-this-project/"><meta property="article:section" content="docs">
 
 
 
 
-  <meta itemprop="name" content="Concepts">
-  <meta itemprop="description" content="You do not need this page to finish a normal setup.
-The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
-This page explains what happens under the hood for readers who want the deeper technical model.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
-  <meta itemprop="wordCount" content="805">
+  <meta itemprop="name" content="Support This Project">
+  <meta itemprop="description" content="If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:
+Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.">
+  <meta itemprop="wordCount" content="40">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Concepts">
-  <meta name="twitter:description" content="You do not need this page to finish a normal setup.
-The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
-This page explains what happens under the hood for readers who want the deeper technical model.
-Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
+  <meta name="twitter:title" content="Support This Project">
+  <meta name="twitter:description" content="If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:
+Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -258,50 +250,17 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
               
             </li></ul>
       </div>
-            </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
-        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
       href="/docs/concepts/"
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Concepts</span>
     </a>
   </div>
-  
-    <ul class='hx:flex hx:flex-col hx:gap-1 hx:relative hx:before:absolute hx:before:inset-y-1 hx:before:w-px hx:before:bg-gray-200 hx:before:content-[""] hx:dark:before:bg-neutral-800 hx:ltr:pl-3 hx:ltr:before:left-0 hx:rtl:pr-3 hx:rtl:before:right-0 hx:ltr:ml-3 hx:rtl:mr-3'><li>
-              <a
-                href="#core-entities"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Core Entities</a>
-            </li>
-          <li>
-              <a
-                href="#how-it-works--startup-sequence"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >How It Works — Startup Sequence</a>
-            </li>
-          <li>
-              <a
-                href="#architecture-overview"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Architecture Overview</a>
-            </li>
-          <li>
-              <a
-                href="#runtime-packet-flow"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >Runtime Packet Flow</a>
-            </li>
-          <li>
-              <a
-                href="#dns-resolution-flow"
-                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >DNS Resolution Flow</a>
-            </li>
-          </ul>
-  
               
             </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
@@ -453,17 +412,18 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
               
             </li></ul>
       </div>
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+            </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
       href="/docs/support-this-project/"
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Support This Project</span>
     </a>
   </div>
+  
               
             </li></ul>
       </div></li>
@@ -560,11 +520,11 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
               
             </li></ul>
       </div></li>
-            <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
-        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
       href="/docs/concepts/"
       
     >
@@ -715,11 +675,11 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
               
             </li></ul>
       </div></li>
-            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+            <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
     <a
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
       href="/docs/support-this-project/"
       
     >
@@ -753,7 +713,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
         
         <li role="none" class="hx:flex hx:flex-col">
           <a
-            href="/docs/concepts/"
+            href="/docs/support-this-project/"
             role="menuitem"
             class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9"
           >English<span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span></a>
@@ -762,7 +722,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
         
         <li role="none" class="hx:flex hx:flex-col">
           <a
-            href="/ru/docs/concepts/"
+            href="/ru/docs/support-this-project/"
             role="menuitem"
             class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9"
           >Русский</a>
@@ -834,44 +794,8 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </div></aside>
     
 <nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents">
-    <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4"><p class="hx:mb-4 hx:font-semibold hx:tracking-tight">On this page</p><ul>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#core-entities">Core Entities
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#lists">Lists
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#outbounds">Outbounds
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#route-rules">Route Rules
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns">DNS
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#how-it-works--startup-sequence">How It Works — Startup Sequence
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#architecture-overview">Architecture Overview
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#runtime-packet-flow">Runtime Packet Flow
-        </a>
-      </li>
-      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dns-resolution-flow">DNS Resolution Flow
-        </a>
-      </li></ul>
-      <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
+    <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4">
+      <div class=" hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
         <button id="backToTop" tabindex="-1" onClick="scrollUp();" class="hx:cursor-pointer hx:transition-all hx:duration-75 hx:opacity-0 hx:text-xs hx:font-medium hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-100 hx:contrast-more:text-gray-800 hx:contrast-more:dark:text-gray-50">
           <span>Scroll to top</span>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:inline hx:ltr:ml-1 hx:rtl:mr-1 hx:h-3.5 hx:w-3.5 hx:rounded-full hx:border hx:border-gray-500 hx:hover:border-gray-900 hx:dark:border-gray-400 hx:dark:hover:border-gray-100 hx:contrast-more:border-gray-800 hx:contrast-more:dark:border-gray-50">
@@ -888,18 +812,18 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
         <div class="hx:mt-1.5 hx:flex hx:items-center hx:gap-1 hx:overflow-hidden hx:text-sm hx:text-gray-500 hx:dark:text-gray-400 hx:contrast-more:text-current">
         <div class="hx:whitespace-nowrap hx:transition-colors hx:min-w-[24px] hx:overflow-hidden hx:text-ellipsis hx:hover:text-gray-900 hx:dark:hover:text-gray-100">
           <a href="/docs/" class="hx:inline-block hx:rounded-sm hx:hextra-focus-visible-inset">Documentation</a>
-        </div><svg class="hx:w-3.5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx:whitespace-nowrap hx:transition-colors hx:font-medium hx:text-gray-700 hx:contrast-more:font-bold hx:contrast-more:text-current hx:dark:text-gray-100 hx:contrast-more:dark:text-current">Concepts</div>
+        </div><svg class="hx:w-3.5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx:whitespace-nowrap hx:transition-colors hx:font-medium hx:text-gray-700 hx:contrast-more:font-bold hx:contrast-more:text-current hx:dark:text-gray-100 hx:contrast-more:dark:text-current">Support This Project</div>
   </div>
 
         <div class="content">
           
           <div class="hx:flex hx:flex-col hx:sm:flex-row hx:items-start hx:sm:items-center hx:sm:justify-between hx:gap-4 hx:mb-4">
-            <h1 class="hx:mb-0">Concepts</h1>
+            <h1 class="hx:mb-0">Support This Project</h1>
             <div class="hextra-page-context-menu hx:relative hx:inline-flex hx:shrink-0">
       <div class="hx:inline-flex hx:rounded-lg hx:border hx:border-gray-200 hx:transition-colors hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700">
         <button
           class="hextra-page-context-menu-copy hx:group/copybtn hx:inline-flex hx:cursor-pointer hx:items-center hx:gap-1.5 hx:bg-transparent hx:px-2.5 hx:py-1 hx:text-sm hx:font-medium hx:text-gray-700 hx:transition-colors hx:hover:bg-slate-50 hx:dark:text-gray-300 hx:dark:hover:bg-neutral-900 hx:ltr:rounded-l-lg hx:rtl:rounded-r-lg hx:hextra-focus-visible-inset"
-          data-url="https://keen-pbr.fyi/docs/concepts.md"
+          data-url="https://keen-pbr.fyi/docs/support-this-project.md"
           title="Copy as Markdown"
           aria-label="Copy as Markdown"
         >
@@ -931,7 +855,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
         <li role="none">
           <button
             data-action="view"
-            data-url="https://keen-pbr.fyi/docs/concepts.md"
+            data-url="https://keen-pbr.fyi/docs/support-this-project.md"
             role="menuitem"
             class="hx:flex hx:w-full hx:cursor-pointer hx:select-none hx:items-center hx:gap-2 hx:whitespace-nowrap hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:text-gray-700 hx:outline-none hx:transition-colors hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-gray-300 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100"
           >
@@ -940,7 +864,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
           </button>
         </li><li class="hx:my-1 hx:h-px hx:bg-gray-200 hx:dark:bg-neutral-700" role="separator"></li><li role="none">
             <a
-              href="https://chatgpt.com/?hints=search&amp;q=I%27m&#43;looking&#43;at&#43;this&#43;documentation%3A&#43;https%3A%2F%2Fkeen-pbr.fyi%2Fdocs%2Fconcepts%2F%0AHelp&#43;me&#43;understand&#43;how&#43;to&#43;use&#43;it."
+              href="https://chatgpt.com/?hints=search&amp;q=I%27m&#43;looking&#43;at&#43;this&#43;documentation%3A&#43;https%3A%2F%2Fkeen-pbr.fyi%2Fdocs%2Fsupport-this-project%2F%0AHelp&#43;me&#43;understand&#43;how&#43;to&#43;use&#43;it."
               target="_blank"
               rel="noopener noreferrer"
               role="menuitem"
@@ -951,165 +875,17 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
     </div>
           </div>
           
-          <p>You do not need this page to finish a normal setup.</p>
-<p>The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.</p>
-<p>This page explains what happens under the hood for readers who want the deeper technical model.</p>
-<h2>Core Entities<span class="hx:absolute hx:-mt-20" id="core-entities"></span>
-    <a href="#core-entities" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Lists<span class="hx:absolute hx:-mt-20" id="lists"></span>
-    <a href="#lists" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:</p>
-<ul>
-<li><strong>Remote URL</strong> (<code>url</code>) — downloaded and cached at startup, refreshed on schedule</li>
-<li><strong>Inline IPs/CIDRs</strong> (<code>ip_cidrs</code>) — loaded directly from config</li>
-<li><strong>Inline domains</strong> (<code>domains</code>) — loaded directly from config</li>
-<li><strong>Local file</strong> (<code>file</code>) — read from disk</li>
-</ul>
-<p>At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>, no timeout on entries).</p>
-<p>Domain entries generate dnsmasq <code>ipset=</code>/<code>nftset=</code> directives so that when a domain is resolved, its IPs are dynamically added to the matching set (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>, entries are timing out after <code>ttl_ms</code> configured for domain list).</p>
-<p>See <a href="../configuration/lists/">Lists</a> for the full reference.</p>
-<h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
-    <a href="#outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named egress targets. Five types:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Type</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>interface</code></td>
-          <td>Route via a specific network interface and optional gateway</td>
-      </tr>
-      <tr>
-          <td><code>table</code></td>
-          <td>Defer to an existing kernel routing table</td>
-      </tr>
-      <tr>
-          <td><code>blackhole</code></td>
-          <td>Drop matching traffic</td>
-      </tr>
-      <tr>
-          <td><code>ignore</code></td>
-          <td>Pass through without modification (uses default route)</td>
-      </tr>
-      <tr>
-          <td><code>urltest</code></td>
-          <td>Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping</td>
-      </tr>
-  </tbody>
-</table>
-<p><code>interface</code> and <code>table</code> outbounds get fwmarks and policy-routing entries. <code>urltest</code> selects among child outbounds that do. <code>blackhole</code> becomes a firewall drop rule, and <code>ignore</code> becomes a firewall pass-through rule.</p>
-<p>When a rule points to <code>ignore</code>, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or <code>ip rule</code> is created for that match, so the packet continues through the system&rsquo;s normal routing path. Because route rules are first-match wins, <code>ignore</code> is mainly used to carve out exceptions before broader rules below it.</p>
-<p>See <a href="../configuration/outbounds/">Outbounds</a> for the full reference.</p>
-<h3>Route Rules<span class="hx:absolute hx:-mt-20" id="route-rules"></span>
-    <a href="#route-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>An ordered list of match → action pairs. Each rule can match traffic by:</p>
-<ul>
-<li><strong>List membership</strong> — IP is in a named ipset/nftset</li>
-<li><strong>Protocol</strong> (<code>proto</code>) — <code>tcp</code>, <code>udp</code></li>
-<li><strong>Port filters</strong> (<code>src_port</code>, <code>dest_port</code>) — single, list, range, or negation</li>
-<li><strong>Address filters</strong> (<code>src_addr</code>, <code>dest_addr</code>) — CIDR, list, or negation</li>
-</ul>
-<p>If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.</p>
-<p>First matching rule wins. Unmatched traffic is left unmarked and follows the system&rsquo;s normal routing.</p>
-<p>See <a href="../configuration/route-rules/">Route Rules</a> for the full reference.</p>
-<h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
-    <a href="#dns" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Maps domain lists to DNS servers via dnsmasq <code>server=</code> directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.</p>
-<p>Integration is via <code>conf-file=</code> (or <code>conf-script=</code>): keen-pbr writes <code>/tmp/keen-pbr-dnsmasq.conf</code> on startup; dnsmasq reads it on the next reload.</p>
-<p>See <a href="../configuration/dns/">DNS</a> for the full reference.</p>
-<hr>
-<h2>How It Works — Startup Sequence<span class="hx:absolute hx:-mt-20" id="how-it-works--startup-sequence"></span>
-    <a href="#how-it-works--startup-sequence" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
-<li><strong>Load lists</strong> — download remote URLs (using cache if unavailable), read local files and inline entries</li>
-<li><strong>Populate ipsets/nftsets</strong> — IP/CIDR entries from lists are inserted into kernel sets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>)</li>
-<li><strong>Install firewall rules</strong> — create rules in the <code>iptables</code> <code>mangle</code> table or the <code>nftables</code> <code>inet KeenPbrTable</code> table that match configured lists and filters, then set the appropriate fwmark in <code>PREROUTING</code> / <code>prerouting</code></li>
-<li><strong>Install routing</strong> — create routing tables and <code>ip rule</code> entries for each outbound based on assigned fwmarks</li>
-<li><strong>Generate resolver config</strong> — write <code>/tmp/keen-pbr-dnsmasq.conf</code> with <code>server=</code> + <code>ipset=</code>/<code>nftset=</code> directives; signal dnsmasq to reload</li>
-<li><strong>Start urltest probing</strong> — if any <code>urltest</code> outbounds are configured, begin periodic latency probes</li>
-</ol>
-<hr>
-<h2>Architecture Overview<span class="hx:absolute hx:-mt-20" id="architecture-overview"></span>
-    <a href="#architecture-overview" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div role="img" aria-label="Diagram">
-  <pre class="mermaid hx:mt-6">
-    flowchart TD
-    subgraph Config[&#34;config.json&#34;]
-        RoutingOutbounds[&#34;Routing outbounds\n(interface, table,\nurltest-selected child)&#34;]
-        Lists[&#34;Lists\n(IPs, CIDRs, domains)&#34;]
-        DNS[&#34;DNS\n(servers + rules)&#34;]
-        RouteRules[&#34;Route Rules\n(list + filters →\nrouting / drop / pass)&#34;]
-    end
+          <p>If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:</p>
+<p><a href="https://ko-fi.com/keen_pbr"target="_blank" rel="noopener"><img src="https://img.shields.io/badge/ko--fi-Donate-lightgreen?style=for-the-badge&amp;logo=ko-fi&amp;logoColor=FF6433&amp;labelColor=white" alt="ko-fi donate page badge"  loading="lazy" /></a></p>
+<p><a href="https://pay.cloudtips.ru/p/a633c47d"target="_blank" rel="noopener"><img src="https://img.shields.io/badge/cloudtips-Donate%20%28RU%29-lightgreen?style=for-the-badge&amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMjY2LjE4IDI2Ni4xOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj4KPHBhdGggZD0iTTEzMy4wOSAyNjYuMThDMjA2LjU5NCAyNjYuMTggMjY2LjE4IDIwNi41OTQgMjY2LjE4IDEzMy4wOUMyNjYuMTggNTkuNTg2NCAyMDYuNTk0IDAgMTMzLjA5IDBDNTkuNTg2NCAwIDAgNTkuNTg2NCAwIDEzMy4wOUMwIDIwNi41OTQgNTkuNTg2NCAyNjYuMTggMTMzLjA5IDI2Ni4xOFoiIGZpbGw9IiM2NDk2REMiLz4KPHBhdGggZD0ibTEwNC41IDE3MC4zIDg2LjE5LTg2LjE5YzIuMTMxLTIuMTMyOCA0LjY2MS0zLjgyNDkgNy40NDUtNC45NzkzIDIuNzg1LTEuMTU0NCA1Ljc3LTEuNzQ4NiA4Ljc4NS0xLjc0ODZzNiAwLjU5NDIgOC43ODUgMS43NDg2YzIuNzg0IDEuMTU0NCA1LjMxNCAyLjg0NjUgNy40NDUgNC45NzkzIDIuMTMzIDIuMTMwNSAzLjgyNSA0LjY2MDUgNC45NzkgNy40NDU0IDEuMTU1IDIuNzg0OSAxLjc0OSA1Ljc3IDEuNzQ5IDguNzg0NiAwIDMuMDE1LTAuNTk0IDYtMS43NDkgOC43ODUtMS4xNTQgMi43ODUtMi44NDYgNS4zMTUtNC45NzkgNy40NDVsLTUzLjY1IDUzLjczYy04LjYyNCA4LjYxLTIwLjMxMyAxMy40NDYtMzIuNSAxMy40NDZzLTIzLjg3Ni00LjgzNi0zMi41LTEzLjQ0NnoiIGZpbGw9IiNmZmYiLz4KPHBhdGggZD0ibTE2MS42OCA5NS44OS04Ni4xOSA4Ni4xOWMtMi4xMzA1IDIuMTMzLTQuNjYwNiAzLjgyNS03LjQ0NTQgNC45NzktMi43ODQ5IDEuMTU1LTUuNzcgMS43NDktOC43ODQ2IDEuNzQ5LTMuMDE0NyAwLTUuOTk5OC0wLjU5NC04Ljc4NDctMS43NDktMi43ODQ4LTEuMTU0LTUuMzE0OC0yLjg0Ni03LjQ0NTMtNC45NzktNC4yOTI5LTQuMzExLTYuNzAzMi0xMC4xNDYtNi43MDMyLTE2LjIzczIuNDEwMy0xMS45MTkgNi43MDMyLTE2LjIzbDUzLjY1LTUzLjczYzguNjI0OS04LjYxMDIgMjAuMzEzLTEzLjQ0NiAzMi41LTEzLjQ0NnMyMy44NzYgNC44MzYgMzIuNSAxMy40NDZ6IiBmaWxsPSIjZmZmIi8%2BCjwvZz4KPGRlZnM%2BCjxjbGlwUGF0aCBpZD0iYSI%2BCjxyZWN0IHdpZHRoPSIxMTk4LjciIGhlaWdodD0iMjY2LjE5IiBmaWxsPSIjZmZmIi8%2BCjwvY2xpcFBhdGg%2BCjwvZGVmcz4KPC9zdmc%2BCg%3D%3D&amp;labelColor=white" alt="cloudtips donate page badge"  loading="lazy" /></a></p>
+<p>Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.</p>
 
-    subgraph Kernel[&#34;Linux Kernel&#34;]
-        Ipsets[&#34;ipsets / nftsets\n(kpbr4_&amp;lt;list&amp;gt;, kpbr6_&amp;lt;list&amp;gt;)&#34;]
-        FwmarkRules[&#34;Firewall rules\n(PREROUTING →\nmark, drop, or pass)&#34;]
-        IpRules[&#34;ip rules\n(fwmark → table)&#34;]
-        RoutingTables[&#34;Routing tables\n(table → interfaces)&#34;]
-        SystemRouting[&#34;System routing\n(default path)&#34;]
-    end
-
-    Dnsmasq[&#34;dnsmasq\n(ipset= / nftset=)&#34;]
-
-    Lists --&gt;|&#34;IP/CIDR entries&#34;| Ipsets
-    Lists --&gt;|&#34;domain entries&#34;| Dnsmasq
-    DNS --&gt; Dnsmasq
-    Ipsets --&gt; FwmarkRules
-    RouteRules --&gt; FwmarkRules
-    RoutingOutbounds --&gt; IpRules
-    RoutingOutbounds --&gt; RoutingTables
-    FwmarkRules --&gt; IpRules
-    FwmarkRules --&gt; SystemRouting
-    IpRules --&gt; RoutingTables
-    Dnsmasq --&gt;|&#34;resolved IPs → ipset&#34;| Ipsets
-  </pre>
-</div><hr>
-<h2>Runtime Packet Flow<span class="hx:absolute hx:-mt-20" id="runtime-packet-flow"></span>
-    <a href="#runtime-packet-flow" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div role="img" aria-label="Diagram">
-  <pre class="mermaid hx:mt-6">
-    flowchart TD
-    Packet([&#34;Incoming packet\n(e.g. dest: 93.184.216.34)&#34;])
-    PREROUTING[&#34;Firewall PREROUTING\n(netfilter mangle)&#34;]
-    IpsetCheck{&#34;IP in\nipset/nftset?&#34;}
-    NoMatch[&#34;No match →\nno fwmark\nsystem routing&#34;]
-    Fwmark[&#34;Set fwmark\n(e.g. 0x00010000)&#34;]
-    IpRule[&#34;ip rule lookup\n(fwmark → table 150)&#34;]
-    RoutingTable[&#34;Routing table 150\ndefault via tun0 10.8.0.1&#34;]
-    Egress([&#34;Packet exits via VPN\n(tun0)&#34;])
-
-    Packet --&gt; PREROUTING
-    PREROUTING --&gt; IpsetCheck
-    IpsetCheck --&gt;|&#34;no&#34;| NoMatch
-    IpsetCheck --&gt;|&#34;yes (list: my_domains)&#34;| Fwmark
-    Fwmark --&gt; IpRule
-    IpRule --&gt; RoutingTable
-    RoutingTable --&gt; Egress
-  </pre>
-</div><hr>
-<h2>DNS Resolution Flow<span class="hx:absolute hx:-mt-20" id="dns-resolution-flow"></span>
-    <a href="#dns-resolution-flow" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div role="img" aria-label="Diagram">
-  <pre class="mermaid hx:mt-6">
-    sequenceDiagram
-    participant Client
-    participant dnsmasq
-    participant VPN_DNS as VPN DNS (10.8.0.1)
-    participant Ipset as ipset kpbr4_my_domains
-    participant Firewall
-
-    Client-&gt;&gt;dnsmasq: query example.com
-    dnsmasq-&gt;&gt;VPN_DNS: forward (server=/example.com/10.8.0.1)
-    VPN_DNS--&gt;&gt;dnsmasq: 93.184.216.34
-    dnsmasq-&gt;&gt;Ipset: add 93.184.216.34 (nftset= directive)
-    dnsmasq--&gt;&gt;Client: 93.184.216.34
-
-    Note over Client,Firewall: Next packet to 93.184.216.34
-    Client-&gt;&gt;Firewall: packet dest 93.184.216.34
-    Firewall-&gt;&gt;Firewall: match ipset kpbr4_my_domains → set fwmark
-  </pre>
-</div>
         </div>
         <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a
-        href="/docs/cli/"
-        title="keen-pbr CLI usage"
-        class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:ml-auto hx:ltr:pl-4 hx:ltr:text-right hx:rtl:mr-auto hx:rtl:pr-4 hx:rtl:text-left"
-      >keen-pbr CLI usage<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
+        href="/docs/troubleshooting/"
+        title="Troubleshooting"
+        class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:pr-4 hx:rtl:pl-4"
+      ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>Troubleshooting</a></div>
       </main>
     </article>
   </div>
@@ -1120,35 +896,6 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </div><div>Made by <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Maxim Kurbatov</a> | Website is powered by <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script><script defer src="/js/mermaid.min.217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87.js" integrity="sha256-IXtm70J5wzwUG0r&#43;Iu/60QqRwCVY3HCRe&#43;LAmB547Yc=" crossorigin="anonymous"></script><script>
-  document.addEventListener("DOMContentLoaded", () => {
-    
-    document.querySelectorAll(".mermaid").forEach((el) => {
-      el.dataset.original = el.innerHTML;
-    });
-
-    const theme = document.documentElement.classList.contains("dark") ? "dark" : "default";
-    mermaid.initialize({ startOnLoad: true, theme: theme });
-
-    let timeout;
-    new MutationObserver(() => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        const theme = document.documentElement.classList.contains("dark") ? "dark" : "default";
-        document.querySelectorAll(".mermaid").forEach((el) => {
-          
-          el.innerHTML = el.dataset.original;
-          el.removeAttribute("data-processed");
-        });
-        mermaid.initialize({ startOnLoad: true, theme: theme });
-        mermaid.init();
-      }, 150);
-    }).observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-  });
-</script>
-
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script>
   </body>
 </html>

@@ -1413,7 +1413,7 @@
     </item>
     
     <item>
-      <title>Концепции</title>
+      <title>Принцип работы</title>
       <link>https://keen-pbr.fyi/ru/docs/concepts/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
@@ -1421,9 +1421,9 @@
       <description>
         
         
-        &lt;p&gt;Вам не нужна эта страница для завершения обычной настройки.&lt;/p&gt;
+        &lt;p&gt;Вам не обязательно погружаться в эту страницу для обычной настройки.&lt;/p&gt;
 &lt;p&gt;Коротко: вы создаёте список сайтов, выбираете какое соединение должно их переносить, и keen-pbr поддерживает DNS и маршрутизацию в синхронизации, чтобы правильный трафик использовал правильный путь.&lt;/p&gt;
-&lt;p&gt;Эта страница объясняет, что происходит «под капотом» для читателей, которые хотят более глубокую техническую модель.&lt;/p&gt;
+&lt;p&gt;Эта страница объясняет, что происходит «под капотом» для читателей, которые хотят более глубокое понимание, как всё работает.&lt;/p&gt;
 &lt;h2&gt;Основные сущности&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;основные-сущности&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-%d1%81%d1%83%d1%89%d0%bd%d0%be%d1%81%d1%82%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;Списки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;списки&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные коллекции IP, CIDR и имён доменов. Источники могут свободно комбинироваться:&lt;/p&gt;
@@ -4027,9 +4027,9 @@
 
 &lt;h2&gt;Что произойдёт, если URL удалённого списка недоступен при запуске?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;что-произойдёт-если-url-удалённого-списка-недоступен-при-запуске&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%87%d1%82%d0%be-%d0%bf%d1%80%d0%be%d0%b8%d0%b7%d0%be%d0%b9%d0%b4%d1%91%d1%82-%d0%b5%d1%81%d0%bb%d0%b8-url-%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d0%be%d0%b3%d0%be-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%bd%d0%b5%d0%b4%d0%be%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd-%d0%bf%d1%80%d0%b8-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr использует кэшированную копию из &lt;code&gt;daemon.cache_dir&lt;/code&gt;, если она доступна. Если кэша не существует и URL недоступен, удалённый источник не вносит никаких записей для этого запуска. Для списка только с URL это означает, что список фактически пуст и никакой набор или правило firewall не создаётся.&lt;/p&gt;
-&lt;h2&gt;Как urltest outbound выбирает лучшего дочерний?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-urltest-outbound-выбирает-лучшего-дочерний&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b5%d0%b3%d0%be-%d0%b4%d0%be%d1%87%d0%b5%d1%80%d0%bd%d0%b8%d0%b9&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;На каждом интервале проверки keen-pbr отправляет HTTP-запрос на настроенный &lt;code&gt;url&lt;/code&gt; от каждого дочернего outbound и измеряет задержку (RTT). Выбирается дочерний outbound с наименьшей задержкой. Дочерние outbounds в пределах &lt;code&gt;tolerance_ms&lt;/code&gt; от лучшего считаются эквивалентными и выбираются по весу.&lt;/p&gt;
-&lt;p&gt;Circuit breaker предотвращает флаппинг: после &lt;code&gt;failure_threshold&lt;/code&gt; последовательных сбоев circuit открывается и этот дочерний обходится во время охлаждения &lt;code&gt;timeout_ms&lt;/code&gt;. После охлаждения он входит в состояние half-open и получает ограниченные попытки проверки для восстановления.&lt;/p&gt;
+&lt;h2&gt;Как urltest outbound выбирает лучший интерфейс?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-urltest-outbound-выбирает-лучший-интерфейс&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-urltest-outbound-%d0%b2%d1%8b%d0%b1%d0%b8%d1%80%d0%b0%d0%b5%d1%82-%d0%bb%d1%83%d1%87%d1%88%d0%b8%d0%b9-%d0%b8%d0%bd%d1%82%d0%b5%d1%80%d1%84%d0%b5%d0%b9%d1%81&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Раз в указанный интервал keen-pbr отправляет HTTP-запрос на настроенный &lt;code&gt;url&lt;/code&gt; от каждого дочернего outbound и измеряет задержку (RTT). Выбирается дочерний outbound с наименьшей задержкой. Дочерние outbounds в пределах &lt;code&gt;tolerance_ms&lt;/code&gt; от лучшего считаются эквивалентными и выбираются по весу.&lt;/p&gt;
+&lt;p&gt;Circuit breaker предотвращает использование нестабильного соединения: после &lt;code&gt;failure_threshold&lt;/code&gt; последовательных сбоев circuit переходит в статус OPEN и этот дочерний outbound игнорируются в течение &lt;code&gt;timeout_ms&lt;/code&gt; (период охлаждения). После охлаждения он входит в состояние HALF-OPEN и получает ограниченные попытки проверки для восстановления.&lt;/p&gt;
 &lt;h2&gt;Можно ли маршрутизировать DNS-запросы через VPN?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;можно-ли-маршрутизировать-dns-запросы-через-vpn&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d1%82%d1%8c-dns-%d0%b7%d0%b0%d0%bf%d1%80%d0%be%d1%81%d1%8b-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Да. Используйте поле &lt;code&gt;detour&lt;/code&gt; в &lt;code&gt;dns.servers&lt;/code&gt;, чтобы привязать DNS-запросы к этому серверу к конкретному outbound:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -4409,6 +4409,23 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;p&gt;&lt;code&gt;mask&lt;/code&gt; должна быть точно двумя смежными hex-нибблами. Используйте hex-строки, такие как &lt;code&gt;&amp;quot;0x00FF0000&amp;quot;&lt;/code&gt; и &lt;code&gt;&amp;quot;0x00020000&amp;quot;&lt;/code&gt;.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>Поддержать проект</title>
+      <link>https://keen-pbr.fyi/ru/docs/support-this-project/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/ru/docs/support-this-project/</guid>
+      <description>
+        
+        
+        &lt;p&gt;Если keen-pbr экономит вам время, упрощает настройку роутера или просто оказался полезным, поддержать проект можно здесь:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://ko-fi.com/keen_pbr&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/ko--fi-Donate-lightgreen?style=for-the-badge&amp;amp;logo=ko-fi&amp;amp;logoColor=FF6433&amp;amp;labelColor=white&#34; alt=&#34;ko-fi donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/cloudtips-Donate%20%28RU%29-lightgreen?style=for-the-badge&amp;amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMjY2LjE4IDI2Ni4xOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj4KPHBhdGggZD0iTTEzMy4wOSAyNjYuMThDMjA2LjU5NCAyNjYuMTggMjY2LjE4IDIwNi41OTQgMjY2LjE4IDEzMy4wOUMyNjYuMTggNTkuNTg2NCAyMDYuNTk0IDAgMTMzLjA5IDBDNTkuNTg2NCAwIDAgNTkuNTg2NCAwIDEzMy4wOUMwIDIwNi41OTQgNTkuNTg2NCAyNjYuMTggMTMzLjA5IDI2Ni4xOFoiIGZpbGw9IiM2NDk2REMiLz4KPHBhdGggZD0ibTEwNC41IDE3MC4zIDg2LjE5LTg2LjE5YzIuMTMxLTIuMTMyOCA0LjY2MS0zLjgyNDkgNy40NDUtNC45NzkzIDIuNzg1LTEuMTU0NCA1Ljc3LTEuNzQ4NiA4Ljc4NS0xLjc0ODZzNiAwLjU5NDIgOC43ODUgMS43NDg2YzIuNzg0IDEuMTU0NCA1LjMxNCAyLjg0NjUgNy40NDUgNC45NzkzIDIuMTMzIDIuMTMwNSAzLjgyNSA0LjY2MDUgNC45NzkgNy40NDU0IDEuMTU1IDIuNzg0OSAxLjc0OSA1Ljc3IDEuNzQ5IDguNzg0NiAwIDMuMDE1LTAuNTk0IDYtMS43NDkgOC43ODUtMS4xNTQgMi43ODUtMi44NDYgNS4zMTUtNC45NzkgNy40NDVsLTUzLjY1IDUzLjczYy04LjYyNCA4LjYxLTIwLjMxMyAxMy40NDYtMzIuNSAxMy40NDZzLTIzLjg3Ni00LjgzNi0zMi41LTEzLjQ0NnoiIGZpbGw9IiNmZmYiLz4KPHBhdGggZD0ibTE2MS42OCA5NS44OS04Ni4xOSA4Ni4xOWMtMi4xMzA1IDIuMTMzLTQuNjYwNiAzLjgyNS03LjQ0NTQgNC45NzktMi43ODQ5IDEuMTU1LTUuNzcgMS43NDktOC43ODQ2IDEuNzQ5LTMuMDE0NyAwLTUuOTk5OC0wLjU5NC04Ljc4NDctMS43NDktMi43ODQ4LTEuMTU0LTUuMzE0OC0yLjg0Ni03LjQ0NTMtNC45NzktNC4yOTI5LTQuMzExLTYuNzAzMi0xMC4xNDYtNi43MDMyLTE2LjIzczIuNDEwMy0xMS45MTkgNi43MDMyLTE2LjIzbDUzLjY1LTUzLjczYzguNjI0OS04LjYxMDIgMjAuMzEzLTEzLjQ0NiAzMi41LTEzLjQ0NnMyMy44NzYgNC44MzYgMzIuNSAxMy40NDZ6IiBmaWxsPSIjZmZmIi8%2BCjwvZz4KPGRlZnM%2BCjxjbGlwUGF0aCBpZD0iYSI%2BCjxyZWN0IHdpZHRoPSIxMTk4LjciIGhlaWdodD0iMjY2LjE5IiBmaWxsPSIjZmZmIi8%2BCjwvY2xpcFBhdGg%2BCjwvZGVmcz4KPC9zdmc%2BCg%3D%3D&amp;amp;labelColor=white&#34; alt=&#34;cloudtips donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Любая поддержка помогает уделять больше времени разработке, тестировать на реальном железе и двигать проект дальше. Спасибо.&lt;/p&gt;
 
       </description>
     </item>

@@ -16,3 +16,5 @@ If something is not working yet, see [Troubleshooting](troubleshooting/) or [FAQ
 
 If you are building packages or compiling from source, see [Developer](developer/).
 
+If you want to help keep keen-pbr moving, see [Support This Project](support-this-project/).
+

@@ -230,6 +230,18 @@
                 href="https://keen-pbr.fyi/docs/developer/"
                 />
   </url><url>
+    <loc>https://keen-pbr.fyi/docs/support-this-project/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/support-this-project/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/support-this-project/"
+                />
+  </url><url>
     <loc>https://keen-pbr.fyi/categories/</loc>
     <xhtml:link
                 rel="alternate"
