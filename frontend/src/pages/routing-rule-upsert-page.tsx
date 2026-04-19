@@ -230,7 +230,7 @@ export function RoutingRuleUpsertPage({
                       className="cursor-pointer flex-col items-start gap-0"
                       htmlFor="routing-rule-enabled"
                     >
-                      {t("pages.routingRules.headers.enabled")}
+                      {t("common.enabled")}
                     </FieldLabel>
                   </div>
                 </FieldContent>

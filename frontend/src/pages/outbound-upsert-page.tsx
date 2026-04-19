@@ -941,10 +941,10 @@ function getStrictOptionLabel(
   }
 
   if (value === strictOptions[1]) {
-    return t("pages.outboundUpsert.strictEnforcement.enabled")
+    return t("common.enabled")
   }
 
-  return t("pages.outboundUpsert.strictEnforcement.disabled")
+  return t("common.disabled")
 }
 
 function validateTagUniqueness(

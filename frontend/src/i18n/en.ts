@@ -2,6 +2,8 @@ export const enTranslation = {
       common: {
         language: "Language",
         theme: "Theme",
+        enabled: "Enabled",
+        disabled: "Disabled",
         close: "Close",
         cancel: "Cancel",
         copy: "Copy",
@@ -647,8 +649,6 @@ export const enTranslation = {
             label: "Kill-switch override",
             hint: "Override the global kill-switch setting for this outbound.",
             default: "Default (as in global config)",
-            enabled: "Enabled",
-            disabled: "Disabled",
           },
           validation: {
             duplicateTag: 'Outbound tag "{{tag}}" already exists.',

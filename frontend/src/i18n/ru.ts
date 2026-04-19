@@ -2,6 +2,8 @@ export const ruTranslation = {
       common: {
         language: "Язык",
         theme: "Тема",
+        enabled: "Включено",
+        disabled: "Выключено",
         close: "Закрыть",
         cancel: "Отмена",
         copy: "Копировать",
@@ -663,8 +665,6 @@ export const ruTranslation = {
             label: "Переопределение kill-switch",
             hint: "Переопределяет глобальную настройку kill-switch для этого outbound.",
             default: "По умолчанию (как в глобальном конфиге)",
-            enabled: "Включено",
-            disabled: "Выключено",
           },
           validation: {
             duplicateTag: 'Тег outbound "{{tag}}" уже существует.',

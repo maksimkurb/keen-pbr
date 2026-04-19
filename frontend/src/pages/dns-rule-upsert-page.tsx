@@ -250,7 +250,7 @@ export function DnsRuleUpsertPage({
                       className="cursor-pointer flex-col items-start gap-0"
                       htmlFor="dns-rule-enabled"
                     >
-                      {t("pages.routingRules.headers.enabled")}
+                      {t("common.enabled")}
                     </FieldLabel>
                   </div>
                 </FieldContent>
