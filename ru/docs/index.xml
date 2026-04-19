@@ -2606,6 +2606,15 @@
 &lt;/div&gt;
 &lt;h3&gt;&lt;code&gt;type: keenetic&lt;/code&gt; (встроенный DNS роутера через RCI)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;type-keenetic-встроенный-dns-роутера-через-rci&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#type-keenetic-%d0%b2%d1%81%d1%82%d1%80%d0%be%d0%b5%d0%bd%d0%bd%d1%8b%d0%b9-dns-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b0-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-rci&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;На роутерах Keenetic, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; сообщает keen-pbr повторно использовать текущие встроенные настройки DNS роутера автоматически.&lt;/p&gt;
+&lt;p&gt;Правила и поведение:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Разрешён максимум один элемент в &lt;code&gt;dns.servers&lt;/code&gt; с &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Для &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; поле &lt;code&gt;address&lt;/code&gt; не должно быть задано (адреса берутся из RCI).&lt;/li&gt;
+&lt;li&gt;keen-pbr читает неспециализированные (unscoped) строки &lt;code&gt;dns_server = ...&lt;/code&gt; из политики прокси &lt;strong&gt;System&lt;/strong&gt;.&lt;/li&gt;
+&lt;li&gt;Если есть неспециализированные зашифрованные апстримы (DoH/DoT), используются все такие серверы по порядку.&lt;/li&gt;
+&lt;li&gt;Иначе используются все неспециализированные plaintext-апстримы по порядку.&lt;/li&gt;
+&lt;li&gt;Записи &lt;code&gt;static_a&lt;/code&gt; / &lt;code&gt;static_aaaa&lt;/code&gt; из политики System также попадают в сгенерированную конфигурацию dnsmasq.&lt;/li&gt;
+&lt;/ul&gt;
 &lt;h3&gt;Как работает &lt;code&gt;detour&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-работает-detour&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82-detour&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Когда &lt;code&gt;detour&lt;/code&gt; установлен, keen-pbr гарантирует, что DNS-запросы к этому серверу выходят через выбранный outbound; keen-pbr автоматически создаёт правило firewall для указанного IP и порта DNS. Это также может влиять на других клиентов в вашей сети, которые пытаются связаться с этим DNS-сервером напрямую.&lt;/p&gt;
 &lt;p&gt;Например, если &lt;code&gt;vpn_dns&lt;/code&gt; имеет &lt;code&gt;detour: &amp;quot;vpn&amp;quot;&lt;/code&gt;, тогда DNS-запросы к &lt;code&gt;vpn_dns&lt;/code&gt; также пойдут через &lt;code&gt;vpn&lt;/code&gt;.&lt;/p&gt;

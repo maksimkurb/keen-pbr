@@ -2598,6 +2598,15 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/div&gt;
 &lt;h3&gt;&lt;code&gt;type: keenetic&lt;/code&gt; (built-in router DNS via RCI)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;type-keenetic-built-in-router-dns-via-rci&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#type-keenetic-built-in-router-dns-via-rci&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;On Keenetic routers, &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; tells keen-pbr to reuse the router&amp;rsquo;s current built-in DNS settings automatically.&lt;/p&gt;
+&lt;p&gt;Rules and behavior:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;At most one &lt;code&gt;dns.servers&lt;/code&gt; entry may use &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;address&lt;/code&gt; must not be set for &lt;code&gt;type: &amp;quot;keenetic&amp;quot;&lt;/code&gt; (resolved from RCI).&lt;/li&gt;
+&lt;li&gt;keen-pbr reads unscoped &lt;code&gt;dns_server = ...&lt;/code&gt; entries from the &lt;strong&gt;System&lt;/strong&gt; proxy policy.&lt;/li&gt;
+&lt;li&gt;If unscoped encrypted upstreams (DoH/DoT) are present, all of them are used in order.&lt;/li&gt;
+&lt;li&gt;Otherwise, all unscoped plaintext upstreams are used in order.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;static_a&lt;/code&gt; / &lt;code&gt;static_aaaa&lt;/code&gt; entries from the System policy are also propagated to generated dnsmasq config.&lt;/li&gt;
+&lt;/ul&gt;
 &lt;h3&gt;How &lt;code&gt;detour&lt;/code&gt; works&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-detour-works&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-detour-works&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;When &lt;code&gt;detour&lt;/code&gt; is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound; keen-pbr would automatically create firewall rule for specified DNS IP and port. This can also affect other clients in your network that trying to contact this DNS server directly.&lt;/p&gt;
 &lt;p&gt;For example, if &lt;code&gt;vpn_dns&lt;/code&gt; has &lt;code&gt;detour: &amp;quot;vpn&amp;quot;&lt;/code&gt;, then the DNS requests to &lt;code&gt;vpn_dns&lt;/code&gt; will also go through &lt;code&gt;vpn&lt;/code&gt;.&lt;/p&gt;

@@ -99,7 +99,7 @@ System Resolver
   <meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 system_resolver (keep the defaults) servers rules fallback Configuration config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.">
-  <meta itemprop="wordCount" content="740">
+  <meta itemprop="wordCount" content="813">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DNS">
   <meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
@@ -1190,6 +1190,15 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
 </div>
 <h3><code>type: keenetic</code> (built-in router DNS via RCI)<span class="hx:absolute hx:-mt-20" id="type-keenetic-built-in-router-dns-via-rci"></span>
     <a href="#type-keenetic-built-in-router-dns-via-rci" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>On Keenetic routers, <code>type: &quot;keenetic&quot;</code> tells keen-pbr to reuse the router&rsquo;s current built-in DNS settings automatically.</p>
+<p>Rules and behavior:</p>
+<ul>
+<li>At most one <code>dns.servers</code> entry may use <code>type: &quot;keenetic&quot;</code>.</li>
+<li><code>address</code> must not be set for <code>type: &quot;keenetic&quot;</code> (resolved from RCI).</li>
+<li>keen-pbr reads unscoped <code>dns_server = ...</code> entries from the <strong>System</strong> proxy policy.</li>
+<li>If unscoped encrypted upstreams (DoH/DoT) are present, all of them are used in order.</li>
+<li>Otherwise, all unscoped plaintext upstreams are used in order.</li>
+<li><code>static_a</code> / <code>static_aaaa</code> entries from the System policy are also propagated to generated dnsmasq config.</li>
+</ul>
 <h3>How <code>detour</code> works<span class="hx:absolute hx:-mt-20" id="how-detour-works"></span>
     <a href="#how-detour-works" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>When <code>detour</code> is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound; keen-pbr would automatically create firewall rule for specified DNS IP and port. This can also affect other clients in your network that trying to contact this DNS server directly.</p>
 <p>For example, if <code>vpn_dns</code> has <code>detour: &quot;vpn&quot;</code>, then the DNS requests to <code>vpn_dns</code> will also go through <code>vpn</code>.</p>
