@@ -40,10 +40,14 @@
       {
         "tag": "quad9",
         "address": "9.9.9.9"
+      },
+      {
+        "tag": "keenetic_dns",
+        "type": "keenetic"
       }
     ],
     "rules": [],
-    "fallback": ["quad9"]
+    "fallback": ["keenetic_dns"]
   },
 
   "fwmark": {

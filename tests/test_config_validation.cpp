@@ -218,6 +218,21 @@ TEST_CASE("dns servers: duplicate tag is rejected") {
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
 }
 
+#ifdef USE_KEENETIC_API
+TEST_CASE("dns servers: at most one keenetic type server is allowed") {
+    std::string json = R"({
+        "dns":{
+            "servers":[
+                {"tag":"keen_a","type":"keenetic"},
+                {"tag":"keen_b","type":"keenetic"}
+            ],
+            "fallback":["keen_a"]
+        }
+    })";
+    CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+#endif
+
 TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {
     const auto cfg_true = parse_test_config(R"({
         "route":{"rules":[{"enabled":true,"list":["ads"],"outbound":"vpn"}]}

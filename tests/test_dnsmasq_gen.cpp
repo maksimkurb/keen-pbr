@@ -2,6 +2,7 @@
 
 #include "../src/dns/dnsmasq_gen.hpp"
 #include "../src/dns/dns_router.hpp"
+#include "../src/dns/keenetic_dns.hpp"
 #include "../src/cache/cache_manager.hpp"
 #include "../src/lists/list_streamer.hpp"
 
@@ -14,6 +15,15 @@
 #include <vector>
 
 using namespace keen_pbr3;
+
+namespace {
+
+struct KeeneticDnsTestStateGuard {
+    KeeneticDnsTestStateGuard() { reset_keenetic_dns_test_state(); }
+    ~KeeneticDnsTestStateGuard() { reset_keenetic_dns_test_state(); }
+};
+
+} // namespace
 
 // =============================================================================
 // Test helpers
@@ -439,6 +449,126 @@ TEST_CASE("generate-resolver-config omits dns probe server directive when disabl
     CHECK(output.find("server=/check.keen.pbr/") == std::string::npos);
 }
 
+TEST_CASE("generate-resolver-config includes keenetic static dns entries") {
+    KeeneticDnsTestStateGuard guard;
+    set_keenetic_dns_fetcher_for_tests([]() {
+        return std::string(R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\nstatic_aaaa = my.keenetic.net 2001:db8::125 1\nstatic_a = *.lan.example 192.168.1.10 0\n"
+            }
+          ]
+        })");
+    });
+
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    DnsServer keenetic_server;
+    keenetic_server.tag = "keenetic";
+    keenetic_server.type = api::DnsServerType::KEENETIC;
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
+    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("# Keenetic static DNS entries\n") != std::string::npos);
+    CHECK(output.find("address=/my.keenetic.net/78.47.125.180\n") != std::string::npos);
+    CHECK(output.find("address=/my.keenetic.net/2001:db8::125\n") != std::string::npos);
+    CHECK(output.find("address=/lan.example/192.168.1.10\n") != std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config includes all keenetic fallback servers in selected order") {
+    KeeneticDnsTestStateGuard guard;
+    set_keenetic_dns_fetcher_for_tests([]() {
+        return std::string(R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 198.51.100.10 .\ndns_server = 127.0.0.1:40500 . # tls://resolver.example\ndns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\n"
+            }
+          ]
+        })");
+    });
+
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    DnsServer keenetic_server;
+    keenetic_server.tag = "keenetic";
+    keenetic_server.type = api::DnsServerType::KEENETIC;
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
+    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    const auto dot_pos = output.find("server=127.0.0.1#40500\n");
+    const auto doh_pos = output.find("server=127.0.0.1#40508\n");
+    CHECK(dot_pos != std::string::npos);
+    CHECK(doh_pos != std::string::npos);
+    CHECK(dot_pos < doh_pos);
+    CHECK(output.find("server=198.51.100.10\n") == std::string::npos);
+    CHECK(output.find("# Keenetic DNS is used:\n") != std::string::npos);
+    CHECK(output.find("# 127.0.0.1:40500 -> DoT | tls://resolver.example\n") != std::string::npos);
+    CHECK(output.find("# 127.0.0.1:40508 -> DoH | https://resolver.example/dns-query\n") != std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config includes all keenetic dns rule servers") {
+    KeeneticDnsTestStateGuard guard;
+    set_keenetic_dns_fetcher_for_tests([]() {
+        return std::string(R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 198.51.100.10 .\ndns_server = 127.0.0.1:40500 . # tls://resolver.example\ndns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\n"
+            }
+          ]
+        })");
+    });
+
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    DnsServer keenetic_server;
+    keenetic_server.tag = "keenetic";
+    keenetic_server.type = api::DnsServerType::KEENETIC;
+
+    DnsRule rule;
+    rule.list = std::vector<std::string>{"mylist"};
+    rule.server = "keenetic";
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
+    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
+    dns_cfg.rules = std::vector<DnsRule>{rule};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg(dns_cfg);
+    DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+    const std::string output = run_generate(gen);
+
+    CHECK(output.find("server=/example.com/127.0.0.1#40500\n") != std::string::npos);
+    CHECK(output.find("server=/example.com/127.0.0.1#40508\n") != std::string::npos);
+    CHECK(output.find("server=/example.com/198.51.100.10\n") == std::string::npos);
+}
+
 TEST_CASE("generate-resolver-config includes rebind-domain-ok directives for dns rules with allow_domain_rebinding enabled") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);
@@ -650,6 +780,53 @@ TEST_CASE("hash changes when dns probe server changes") {
 
     CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
     CHECK(gen2.compute_config_hash() != gen3.compute_config_hash());
+}
+
+TEST_CASE("hash changes when keenetic static dns entries change") {
+    KeeneticDnsTestStateGuard guard;
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    DnsServer keenetic_server;
+    keenetic_server.tag = "keenetic";
+    keenetic_server.type = api::DnsServerType::KEENETIC;
+
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{keenetic_server};
+    dns_cfg.fallback = std::vector<std::string>{"keenetic"};
+
+    auto route_cfg = make_route_cfg("mylist");
+    auto lists = std::map<std::string, ListConfig>{{"mylist", make_list_cfg({"example.com"})}};
+
+    set_keenetic_dns_fetcher_for_tests([]() {
+        return std::string(R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\n"
+            }
+          ]
+        })");
+    });
+    DnsServerRegistry reg1(dns_cfg);
+    DnsmasqGenerator gen1(reg1, streamer1, route_cfg, dns_cfg, lists);
+
+    reset_keenetic_dns_test_state();
+    set_keenetic_dns_fetcher_for_tests([]() {
+        return std::string(R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://resolver.example/dns-query@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\nstatic_aaaa = my.keenetic.net 2001:db8::125 1\n"
+            }
+          ]
+        })");
+    });
+    DnsServerRegistry reg2(dns_cfg);
+    DnsmasqGenerator gen2(reg2, streamer2, route_cfg, dns_cfg, lists);
+
+    CHECK(gen1.compute_config_hash() != gen2.compute_config_hash());
 }
 
 TEST_CASE("hash changes when hash version changes") {

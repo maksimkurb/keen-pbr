@@ -10,6 +10,8 @@
 #include "resolver_health.hpp"
 #include "scheduler.hpp"
 
+#include <fmt/ranges.h>
+
 namespace keen_pbr3 {
 
 namespace {
@@ -124,20 +126,24 @@ bool Daemon::refresh_keenetic_dns_cache(bool force_refresh) {
 
     switch (result.status) {
     case KeeneticDnsRefreshStatus::UPDATED:
-        if (result.address.has_value()) {
-            log.info("Keenetic DNS refreshed: {}", *result.address);
+        if (!result.addresses.empty()) {
+            log.info("Keenetic DNS refreshed: {}", fmt::join(result.addresses, ", "));
         }
         return true;
     case KeeneticDnsRefreshStatus::UNCHANGED:
         return false;
-    case KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE:
+    case KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE: {
+        const std::string value_suffix =
+            result.addresses.size() > 1 ? "s: "
+            : (result.addresses.empty() ? "" : ": ");
         log.warn("Keenetic DNS refresh failed; reusing cached value{}{}",
-                 result.address.has_value() ? " " : "",
-                 result.address.has_value() ? *result.address : "");
+                 value_suffix,
+                 fmt::join(result.addresses, ", "));
         if (!result.error.empty()) {
             log.warn("Keenetic DNS refresh error: {}", result.error);
         }
         return false;
+    }
     case KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE:
         if (!result.error.empty()) {
             log.warn("Keenetic DNS refresh failed with no cached value: {}", result.error);

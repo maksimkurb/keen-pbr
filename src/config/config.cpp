@@ -668,6 +668,7 @@ void validate_config(const Config& cfg) {
         const auto& dns_servers = cfg.dns->servers.value_or(std::vector<DnsServer>{});
         std::set<std::string> dns_server_tags;
         std::set<std::string> dns_server_identities;
+        size_t keenetic_servers_count = 0;
         for (const auto& srv : dns_servers) {
             validate_tag(issues, "dns.servers." + srv.tag + ".tag", "DNS server tag", srv.tag);
             if (!dns_server_tags.insert(srv.tag).second) {
@@ -687,6 +688,7 @@ void validate_config(const Config& cfg) {
             }
 
             if (srv_type == api::DnsServerType::KEENETIC) {
+                ++keenetic_servers_count;
 #ifndef USE_KEENETIC_API
                 add_issue(issues, "dns.servers." + srv.tag + ".type",
                           "dns.servers[\"" + srv.tag +
@@ -737,6 +739,12 @@ void validate_config(const Config& cfg) {
                     "dns.servers[\"" + srv.tag + "\"].detour: unknown outbound tag \""
                         + dtag + "\"");
             }
+        }
+        if (keenetic_servers_count > 1) {
+            add_issue(
+                issues,
+                "dns.servers",
+                "at most one dns.servers entry may use type='keenetic'");
         }
 
         if (cfg.dns->fallback.has_value()) {

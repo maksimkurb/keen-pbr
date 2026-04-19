@@ -18,24 +18,52 @@ struct KeeneticDnsTestStateGuard {
 } // namespace
 
 TEST_CASE("keenetic dns: parse address from RCI System policy") {
-    SUBCASE("extracts first dns_server from real System payload shape") {
+    SUBCASE("ignores domain-scoped entries in real System payload shape") {
         const std::string json = R"({
           "proxy-status": [
             {
               "proxy-name": "System",
-              "proxy-config": "rpc_port = 54321\nrpc_ttl = 10000\nrpc_wait = 10000\ntimeout = 7000\nproceed = 500\nstat_file = /var/ndnproxymain.stat\nstat_time = 10000\nrr_port = 40901\ndns_server = 203.0.113.10 provider.example\ndns_server = 203.0.113.11 provider.example\ndns_server = 127.0.0.1:40508 . # https://dns.example/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://resolver.example/uncensored@dnsm\nstatic_a = my.keenetic.net 78.47.125.180 1\nnorebind_ctl = on\ndns_tcp_port = 53\ndns_udp_port = 53\n"
+              "proxy-config": "rpc_port = 54321\nrpc_ttl = 10000\nrpc_wait = 10000\ntimeout = 7000\nproceed = 500\nstat_file = /var/ndnproxymain.stat\nstat_time = 10000\nrr_port = 40901\ndns_server = 203.0.113.10 provider.example\ndns_server = 203.0.113.11 provider.example\ndns_server = 127.0.0.1:40508 . # https://dns-a.example/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://dns-b.example/dns-query@dnsm\nstatic_a = host.example 198.51.100.180 1\nnorebind_ctl = on\ndns_tcp_port = 53\ndns_udp_port = 53\n"
             },
             {
               "proxy-name": "Policy0",
-              "proxy-config": "timeout = 7000\ndns_server = 127.0.0.1:40524 . # https://dns.example/dns-query@dnsm\n"
+              "proxy-config": "timeout = 7000\ndns_server = 127.0.0.1:40524 . # https://dns-a.example/dns-query@dnsm\n"
             }
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "203.0.113.10");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40508", "127.0.0.1:40509"});
     }
 
-    SUBCASE("ignores routing domain suffix after dns_server address") {
+    SUBCASE("extracts static a and aaaa entries from System policy") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 127.0.0.1:40508 . # https://dns-b.example/dns-query@dnsm\nstatic_a = host.example 198.51.100.180 1\nstatic_aaaa = host.example 2001:db8::125 1\nstatic_a = *.lan.example 192.0.2.10 0\nstatic_a = *.x 192.0.2.11 0\n"
+            }
+          ]
+        })";
+
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(json);
+        REQUIRE(snapshot.addresses.size() == 1);
+        CHECK(snapshot.addresses[0] == "127.0.0.1:40508");
+        REQUIRE(snapshot.upstreams.size() == 1);
+        CHECK(snapshot.upstreams[0].kind == "DoH");
+        CHECK(snapshot.upstreams[0].target == "https://dns-b.example/dns-query");
+        REQUIRE(snapshot.static_entries.size() == 4);
+        CHECK(snapshot.static_entries[0].domain == "host.example");
+        CHECK(snapshot.static_entries[0].address == "198.51.100.180");
+        CHECK(snapshot.static_entries[1].domain == "host.example");
+        CHECK(snapshot.static_entries[1].address == "2001:db8::125");
+        CHECK(snapshot.static_entries[2].domain == "*.lan.example");
+        CHECK(snapshot.static_entries[2].address == "192.0.2.10");
+        CHECK(snapshot.static_entries[3].domain == "*.x");
+        CHECK(snapshot.static_entries[3].address == "192.0.2.11");
+    }
+
+    SUBCASE("rejects System policy with only domain-scoped dns_server entries") {
         const std::string json = R"({
           "proxy-status": [
             {
@@ -45,18 +73,19 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "203.0.113.11");
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(json), KeeneticDnsError);
     }
 
     SUBCASE("extracts ipv4 dns_server line with trailing doh comment") {
         const std::string json = R"({
           "proxy-status": [
-            {"proxy-name":"Guest","proxy-config":"dns_server = 8.8.8.8\n"},
-            {"proxy-name":"System","proxy-config":"dns_server = 127.0.0.1:40500 # https://dns.example/dns-query@dnsm\n"}
+            {"proxy-name":"Guest","proxy-config":"dns_server = 192.0.2.8\n"},
+            {"proxy-name":"System","proxy-config":"dns_server = 127.0.0.1:40500 # https://dns-a.example/dns-query@dnsm\n"}
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "127.0.0.1:40500");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40500"});
     }
 
     SUBCASE("extracts first dns_server directive from realistic multi-line policy") {
@@ -65,16 +94,17 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
             {
               "proxy-name": "System",
               "proxy-enabled": true,
-              "proxy-config": "# system dns policy\ncache-size = 2048\nlisten = 127.0.0.1:53\n  dns_server = 127.0.0.1:40500   # https://dns.adguard-dns.com/dns-query@adguard\nbootstrap_server = 1.1.1.1\n"
+              "proxy-config": "# system dns policy\ncache-size = 2048\nlisten = 127.0.0.1:53\n  dns_server = 127.0.0.1:40500   # https://bootstrap-dns.example/dns-query@bootstrap\nbootstrap_server = 192.0.2.1\n"
             },
             {
               "proxy-name": "Guest",
-              "proxy-config": "dns_server = 9.9.9.9\n"
+              "proxy-config": "dns_server = 192.0.2.9\n"
             }
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "127.0.0.1:40500");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40500"});
     }
 
     SUBCASE("extracts bracketed ipv6 address with port") {
@@ -87,20 +117,22 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "[2001:db8::53]:853");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"[2001:db8::53]:853"});
     }
 
-    SUBCASE("extracts bare ipv6 address followed by routing domain") {
+    SUBCASE("skips bare ipv6 address followed by routing domain in favor of unscoped doh") {
         const std::string json = R"({
           "proxy-status": [
             {
               "proxy-name": "System",
-              "proxy-config": "dns_server = 2001:db8::8888 provider.example\ndns_server = 127.0.0.1:40508 . # https://dns.example/dns-query@dnsm\n"
+              "proxy-config": "dns_server = 2001:db8::8888 provider.example\ndns_server = 127.0.0.1:40508 . # https://dns-a.example/dns-query@dnsm\n"
             }
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "2001:db8::8888");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40508"});
     }
 
     SUBCASE("extracts plain dns_server line with dot routing suffix") {
@@ -113,7 +145,8 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "198.51.100.10");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"198.51.100.10", "198.51.100.11"});
     }
 
     SUBCASE("extracts localhost dot server with dot comment") {
@@ -121,40 +154,102 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
           "proxy-status": [
             {
               "proxy-name": "System",
-              "proxy-config": "dns_server = 127.0.0.1:40500 . # tls.resolver.example\ndns_server = 127.0.0.1:40508 . # https://resolver.example/uncensored@dnsm\n"
+              "proxy-config": "dns_server = 127.0.0.1:40500 . # tls://dot.example\ndns_server = 127.0.0.1:40508 . # https://dns-b.example/dns-query@dnsm\n"
             }
           ]
         })";
 
-        CHECK(extract_keenetic_dns_address_from_rci(json) == "127.0.0.1:40500");
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40500", "127.0.0.1:40508"});
+    }
+
+    SUBCASE("prefers all unscoped dot and doh servers over plaintext servers") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 198.51.100.10 .\ndns_server = 127.0.0.1:40500 . # tls://dot.example\ndns_server = 127.0.0.1:40508 . # https://dns-b.example/dns-query@dnsm\n"
+            }
+          ]
+        })";
+
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(json);
+        REQUIRE(snapshot.addresses == std::vector<std::string>{"127.0.0.1:40500", "127.0.0.1:40508"});
+        REQUIRE(snapshot.upstreams.size() == 2);
+        CHECK(snapshot.upstreams[0].kind == "DoT");
+        CHECK(snapshot.upstreams[0].target == "tls://dot.example");
+        CHECK(snapshot.upstreams[1].kind == "DoH");
+        CHECK(snapshot.upstreams[1].target == "https://dns-b.example/dns-query");
+    }
+
+    SUBCASE("falls back to all unscoped plaintext servers when no unscoped encrypted servers exist") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "dns_server = 198.51.100.10 .\ndns_server = 198.51.100.11 .\ndns_server = 127.0.0.1:40500 domain.example.com # tls://dot.example\n"
+            }
+          ]
+        })";
+
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(json);
+        REQUIRE(snapshot.addresses == std::vector<std::string>{"198.51.100.10", "198.51.100.11"});
+    }
+
+    SUBCASE("ignores domain-scoped plaintext and dot entries from real RCI payload") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "rpc_port = 54321\nrpc_ttl = 10000\nrpc_wait = 10000\ntimeout = 7000\nproceed = 500\nstat_file = /var/ndnproxymain.stat\nstat_time = 10000\nrr_port = 40901\ndns_server = 198.51.100.20 scoped-a.example\ndns_server = 198.51.100.21 scoped-a.example\ndns_server = 127.0.0.1:40500 domain.example.com # dot-scoped.example\ndns_server = 127.0.0.1:40508 . # https://doh-a.example/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://doh-b.example/dns-query@dnsm\nstatic_a = host.example 198.51.100.180 1\nnorebind_ctl = on\ndns_tcp_port = 53\ndns_udp_port = 53\n"
+            },
+            {
+              "proxy-name": "Policy0",
+              "proxy-config": "timeout = 7000\ndns_server = 127.0.0.1:40516 domain.example.com # dot-scoped.example\ndns_server = 127.0.0.1:40524 . # https://doh-a.example/dns-query@dnsm\ndns_server = 127.0.0.1:40525 . # https://doh-b.example/dns-query@dnsm\n"
+            },
+            {
+              "proxy-name": "Policy1",
+              "proxy-config": "timeout = 7000\ndns_server = 198.51.100.20 scoped-a.example\ndns_server = 198.51.100.21 scoped-a.example\ndns_server = 127.0.0.1:40532 domain.example.com # dot-scoped.example\ndns_server = 127.0.0.1:40540 . # https://doh-a.example/dns-query@dnsm\ndns_server = 127.0.0.1:40541 . # https://doh-b.example/dns-query@dnsm\n"
+            }
+          ]
+        })";
+
+        CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
+              == std::vector<std::string>{"127.0.0.1:40508", "127.0.0.1:40509"});
     }
 }
 
 TEST_CASE("keenetic dns: invalid RCI response is rejected") {
     SUBCASE("empty proxy-status array") {
-        CHECK_THROWS_AS(extract_keenetic_dns_address_from_rci(R"({"proxy-status":[]})"),
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(R"({"proxy-status":[]})"),
                         KeeneticDnsError);
     }
 
     SUBCASE("missing proxy-status array") {
-        CHECK_THROWS_AS(extract_keenetic_dns_address_from_rci(R"({"status":[]})"),
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(R"({"status":[]})"),
                         KeeneticDnsError);
     }
 
     SUBCASE("System policy without proxy-config string") {
-        CHECK_THROWS_AS(extract_keenetic_dns_address_from_rci(
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(
                             R"({"proxy-status":[{"proxy-name":"System","proxy-config":{}}]})"),
                         KeeneticDnsError);
     }
 
     SUBCASE("System policy without dns_server directive") {
-        CHECK_THROWS_AS(extract_keenetic_dns_address_from_rci(
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(
                             R"({"proxy-status":[{"proxy-name":"System","proxy-config":"listen = 127.0.0.1:53\ncache-size = 2048\n"}]})"),
                         KeeneticDnsError);
     }
 
+    SUBCASE("System policy with only domain-scoped dns_server directives") {
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(
+                            R"({"proxy-status":[{"proxy-name":"System","proxy-config":"dns_server = 203.0.113.10 provider.example\ndns_server = 127.0.0.1:40500 domain.example.com # tls://resolver.example\n"}]})"),
+                        KeeneticDnsError);
+    }
+
     SUBCASE("System policy with invalid dns_server address") {
-        CHECK_THROWS_AS(extract_keenetic_dns_address_from_rci(
+        CHECK_THROWS_AS(extract_keenetic_dns_snapshot_from_rci(
                             R"({"proxy-status":[{"proxy-name":"System","proxy-config":"dns_server = not-an-ip"}]})"),
                         KeeneticDnsError);
     }
@@ -175,23 +270,23 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
           "proxy-status": [
             {
               "proxy-name": "System",
-              "proxy-config": "dns_server = 203.0.113.10 provider.example\n"
+              "proxy-config": "dns_server = 203.0.113.10 .\n"
             }
           ]
         })");
     });
 
     SUBCASE("uses cached value while ttl is fresh") {
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.10");
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
         CHECK(fetch_count == 1);
 
         now += std::chrono::minutes(4);
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.10");
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
         CHECK(fetch_count == 1);
     }
 
     SUBCASE("falls back to cached value when stale refresh fails") {
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.10");
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
         CHECK(fetch_count == 1);
 
         now += std::chrono::minutes(6);
@@ -202,14 +297,13 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
 
         const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(false);
         CHECK(result.status == KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE);
-        REQUIRE(result.address.has_value());
-        CHECK(*result.address == "203.0.113.10");
+        CHECK(result.addresses == std::vector<std::string>{"203.0.113.10"});
         CHECK(fetch_count == 2);
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.10");
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
     }
 
     SUBCASE("reports updated only when forced refresh changes address") {
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.10");
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
         CHECK(fetch_count == 1);
 
         set_keenetic_dns_fetcher_for_tests([&fetch_count]() {
@@ -218,7 +312,7 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
               "proxy-status": [
                 {
                   "proxy-name": "System",
-                  "proxy-config": "dns_server = 203.0.113.11 provider.example\n"
+                  "proxy-config": "dns_server = 203.0.113.11 .\n"
                 }
               ]
             })");
@@ -226,9 +320,33 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
 
         const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(true);
         CHECK(result.status == KeeneticDnsRefreshStatus::UPDATED);
-        REQUIRE(result.address.has_value());
-        CHECK(*result.address == "203.0.113.11");
-        CHECK(resolve_keenetic_dns_address() == "203.0.113.11");
+        CHECK(result.addresses == std::vector<std::string>{"203.0.113.11"});
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.11"});
+    }
+
+    SUBCASE("reports updated when forced refresh changes static entries") {
+        CHECK(resolve_keenetic_dns_addresses() == std::vector<std::string>{"203.0.113.10"});
+        CHECK(fetch_count == 1);
+        CHECK(get_keenetic_static_dns_entries().empty());
+
+        set_keenetic_dns_fetcher_for_tests([&fetch_count]() {
+            ++fetch_count;
+            return std::string(R"({
+              "proxy-status": [
+                {
+                  "proxy-name": "System",
+                  "proxy-config": "dns_server = 203.0.113.10 .\nstatic_a = host.example 198.51.100.180 1\n"
+                }
+              ]
+            })");
+        });
+
+        const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(true);
+        CHECK(result.status == KeeneticDnsRefreshStatus::UPDATED);
+        CHECK(result.addresses == std::vector<std::string>{"203.0.113.10"});
+        REQUIRE(get_keenetic_static_dns_entries().size() == 1);
+        CHECK(get_keenetic_static_dns_entries()[0].domain == "host.example");
+        CHECK(get_keenetic_static_dns_entries()[0].address == "198.51.100.180");
     }
 
     SUBCASE("fails without cache when initial fetch fails") {
@@ -238,8 +356,8 @@ TEST_CASE("keenetic dns: cache refresh semantics") {
 
         const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(true);
         CHECK(result.status == KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE);
-        CHECK_FALSE(result.address.has_value());
-        CHECK_THROWS_AS(resolve_keenetic_dns_address(true), KeeneticDnsError);
+        CHECK(result.addresses.empty());
+        CHECK_THROWS_AS(resolve_keenetic_dns_addresses(true), KeeneticDnsError);
     }
 }
 

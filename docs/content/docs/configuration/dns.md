@@ -111,6 +111,15 @@ The `detour` field is useful when a DNS server must be reached through a specifi
 
 On Keenetic routers, `type: "keenetic"` tells keen-pbr to reuse the router's current built-in DNS settings automatically.
 
+Rules and behavior:
+
+- At most one `dns.servers` entry may use `type: "keenetic"`.
+- `address` must not be set for `type: "keenetic"` (resolved from RCI).
+- keen-pbr reads unscoped `dns_server = ...` entries from the **System** proxy policy.
+- If unscoped encrypted upstreams (DoH/DoT) are present, all of them are used in order.
+- Otherwise, all unscoped plaintext upstreams are used in order.
+- `static_a` / `static_aaaa` entries from the System policy are also propagated to generated dnsmasq config.
+
 ### How `detour` works
 
 When `detour` is set, keen-pbr makes sure DNS queries for that server leave through the selected outbound; keen-pbr would automatically create firewall rule for specified DNS IP and port. This can also affect other clients in your network that trying to contact this DNS server directly.

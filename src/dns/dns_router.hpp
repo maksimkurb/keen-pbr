@@ -14,14 +14,13 @@ public:
     // Parses all DNS server definitions and validates tags.
     explicit DnsServerRegistry(const DnsConfig& dns_config);
 
-    // Get a server config by tag. Returns nullptr if not found.
-    const DnsServerConfig* get_server(const std::string& tag) const;
+    std::vector<const DnsServerConfig*> get_servers(const std::string& tag) const;
 
     // Get fallback server configs in configured order.
     std::vector<const DnsServerConfig*> fallback_servers() const;
 
 private:
-    std::map<std::string, DnsServerConfig> servers_;
+    std::map<std::string, std::vector<DnsServerConfig>> servers_;
     std::vector<std::string> fallback_tags_;
 };
 

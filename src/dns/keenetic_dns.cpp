@@ -7,10 +7,10 @@
 
 #include <cctype>
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <sstream>
-#include <functional>
-#include <chrono>
+#include <vector>
 
 namespace keen_pbr3 {
 
@@ -20,7 +20,7 @@ constexpr const char* kRciDnsProxyEndpoint = "http://127.0.0.1:79/rci/show/dns-p
 constexpr auto kKeeneticDnsCacheTtl = std::chrono::minutes(5);
 
 struct KeeneticDnsCacheState {
-    std::optional<std::string> address;
+    std::optional<KeeneticDnsSnapshot> snapshot;
     std::chrono::steady_clock::time_point fetched_at{};
 };
 
@@ -55,7 +55,7 @@ NowFn& keenetic_dns_now_fn() {
 
 bool is_cache_fresh(const KeeneticDnsCacheState& state,
                     const std::chrono::steady_clock::time_point now) {
-    return state.address.has_value() && now - state.fetched_at < kKeeneticDnsCacheTtl;
+    return state.snapshot.has_value() && now - state.fetched_at < kKeeneticDnsCacheTtl;
 }
 
 std::string trim_copy(const std::string& s) {
@@ -70,31 +70,168 @@ std::string trim_copy(const std::string& s) {
     return s.substr(begin, end - begin);
 }
 
-std::string extract_address_from_dns_server_line(const std::string& line) {
+struct ParsedDnsServerLine {
+    std::string address;
+    bool has_specific_domains{false};
+    bool is_encrypted{false};
+    std::string kind;
+    std::string target;
+};
+
+struct ParsedStaticDnsLine {
+    std::string domain;
+    std::string address;
+};
+
+ParsedDnsServerLine parse_dns_server_line(const std::string& line) {
     constexpr const char* kPrefix = "dns_server = ";
     if (line.rfind(kPrefix, 0) != 0) {
-        return "";
+        return {};
     }
 
-    std::string rest = trim_copy(line.substr(std::char_traits<char>::length(kPrefix)));
+    const std::string after_prefix =
+        trim_copy(line.substr(std::char_traits<char>::length(kPrefix)));
+    std::string rest = after_prefix;
+    std::string comment;
     const auto comment_pos = rest.find('#');
     if (comment_pos != std::string::npos) {
+        comment = trim_copy(rest.substr(comment_pos + 1));
         rest = trim_copy(rest.substr(0, comment_pos));
     }
     if (rest.empty()) {
-        return "";
+        return {};
     }
 
+    ParsedDnsServerLine parsed;
     const auto first_space = rest.find_first_of(" \t");
-    if (first_space != std::string::npos) {
-        rest = rest.substr(0, first_space);
+    if (first_space == std::string::npos) {
+        parsed.address = trim_copy(rest);
+    } else {
+        parsed.address = trim_copy(rest.substr(0, first_space));
+        const std::string suffix = trim_copy(rest.substr(first_space + 1));
+        parsed.has_specific_domains = !suffix.empty() && suffix != ".";
     }
-    return trim_copy(rest);
+    if (parsed.address.empty()) {
+        return {};
+    }
+
+    if (comment.rfind("https://", 0) == 0) {
+        parsed.is_encrypted = true;
+        parsed.kind = "DoH";
+        const auto suffix_pos = comment.find('@');
+        parsed.target = comment.substr(0, suffix_pos);
+    } else if (comment.rfind("tls://", 0) == 0) {
+        parsed.is_encrypted = true;
+        parsed.kind = "DoT";
+        const auto suffix_pos = comment.find('@');
+        parsed.target = comment.substr(0, suffix_pos);
+    } else if (comment.rfind("tls.", 0) == 0) {
+        parsed.is_encrypted = true;
+        parsed.kind = "DoT";
+        parsed.target = comment;
+    } else {
+        parsed.kind = "Plain";
+    }
+    return parsed;
+}
+
+ParsedStaticDnsLine parse_static_dns_line(const std::string& line) {
+    constexpr const char* kStaticAPrefix = "static_a = ";
+    constexpr const char* kStaticAAAAPrefix = "static_aaaa = ";
+
+    std::string rest;
+    if (line.rfind(kStaticAPrefix, 0) == 0) {
+        rest = trim_copy(line.substr(std::char_traits<char>::length(kStaticAPrefix)));
+    } else if (line.rfind(kStaticAAAAPrefix, 0) == 0) {
+        rest = trim_copy(line.substr(std::char_traits<char>::length(kStaticAAAAPrefix)));
+    } else {
+        return {};
+    }
+
+    if (rest.empty()) {
+        return {};
+    }
+
+    std::istringstream parts(rest);
+    ParsedStaticDnsLine parsed;
+    std::string ttl;
+    if (!(parts >> parsed.domain >> parsed.address >> ttl)) {
+        return {};
+    }
+    return parsed;
+}
+
+bool is_supported_static_dns_domain(const std::string& domain) {
+    if (domain.empty() || domain.size() > 255) {
+        return false;
+    }
+    if (domain == "*") {
+        return false;
+    }
+    if (domain.size() >= 2 && domain[0] == '*' && domain[1] == '.') {
+        return domain.size() > 2;
+    }
+    return true;
+}
+
+bool keenetic_dns_snapshots_equal(const KeeneticDnsSnapshot& lhs,
+                                  const KeeneticDnsSnapshot& rhs) {
+    if (lhs.addresses.size() != rhs.addresses.size() ||
+        lhs.upstreams.size() != rhs.upstreams.size() ||
+        lhs.static_entries.size() != rhs.static_entries.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < lhs.addresses.size(); ++i) {
+        if (lhs.addresses[i] != rhs.addresses[i]) {
+            return false;
+        }
+    }
+    for (size_t i = 0; i < lhs.upstreams.size(); ++i) {
+        if (lhs.upstreams[i].address != rhs.upstreams[i].address ||
+            lhs.upstreams[i].kind != rhs.upstreams[i].kind ||
+            lhs.upstreams[i].target != rhs.upstreams[i].target) {
+            return false;
+        }
+    }
+    for (size_t i = 0; i < lhs.static_entries.size(); ++i) {
+        if (lhs.static_entries[i].domain != rhs.static_entries[i].domain ||
+            lhs.static_entries[i].address != rhs.static_entries[i].address) {
+            return false;
+        }
+    }
+    return true;
+}
+
+KeeneticDnsSnapshot build_keenetic_dns_snapshot(std::vector<ParsedDnsServerLine> selected_servers,
+                                                std::vector<KeeneticStaticDnsEntry> static_entries) {
+    if (selected_servers.empty()) {
+        throw KeeneticDnsError(
+            "Built-in DNS proxy appears disabled or has no unscoped 'dns_server = ...' directives in System policy");
+    }
+
+    KeeneticDnsSnapshot snapshot;
+    snapshot.addresses.reserve(selected_servers.size());
+    snapshot.upstreams.reserve(selected_servers.size());
+    for (const auto& server : selected_servers) {
+        snapshot.addresses.push_back(server.address);
+        snapshot.upstreams.push_back({server.address, server.kind, server.target});
+    }
+    snapshot.static_entries = std::move(static_entries);
+    return snapshot;
+}
+
+std::vector<ParsedDnsServerLine> collect_selected_keenetic_dns_servers(
+    const std::vector<ParsedDnsServerLine>& unscoped_plaintext_servers,
+    const std::vector<ParsedDnsServerLine>& unscoped_encrypted_servers) {
+    if (!unscoped_encrypted_servers.empty()) {
+        return unscoped_encrypted_servers;
+    }
+    return unscoped_plaintext_servers;
 }
 
 } // namespace
 
-std::string extract_keenetic_dns_address_from_rci(const std::string& response_body) {
+KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& response_body) {
     using json = nlohmann::json;
 
     json doc;
@@ -129,25 +266,60 @@ std::string extract_keenetic_dns_address_from_rci(const std::string& response_bo
                 "RCI response has 'System' DNS proxy but missing string field 'proxy-config'");
         }
 
+        std::vector<ParsedDnsServerLine> unscoped_plaintext_servers;
+        std::vector<ParsedDnsServerLine> unscoped_encrypted_servers;
+        std::vector<KeeneticStaticDnsEntry> static_entries;
         std::istringstream in(cfg_it->get<std::string>());
         std::string line;
         while (std::getline(in, line)) {
-            const std::string address = extract_address_from_dns_server_line(trim_copy(line));
-            if (address.empty()) {
+            const std::string trimmed = trim_copy(line);
+
+            const ParsedStaticDnsLine static_parsed = parse_static_dns_line(trimmed);
+            if (!static_parsed.domain.empty() || !static_parsed.address.empty()) {
+                if (!is_supported_static_dns_domain(static_parsed.domain)) {
+                    continue;
+                }
+                try {
+                    (void)parse_dns_address_str(static_parsed.address);
+                } catch (const DnsError& e) {
+                    throw KeeneticDnsError(
+                        "RCI returned invalid static dns address '" + static_parsed.address + "': " + e.what());
+                }
+                static_entries.push_back({static_parsed.domain, static_parsed.address});
+                continue;
+            }
+
+            const ParsedDnsServerLine parsed = parse_dns_server_line(trimmed);
+            if (parsed.address.empty()) {
                 continue;
             }
 
             try {
-                (void)parse_dns_address_str(address);
+                (void)parse_dns_address_str(parsed.address);
             } catch (const DnsError& e) {
                 throw KeeneticDnsError(
-                    "RCI returned invalid dns_server address '" + address + "': " + e.what());
+                    "RCI returned invalid dns_server address '" + parsed.address + "': " + e.what());
             }
-            return address;
+
+            if (parsed.has_specific_domains) {
+                continue;
+            }
+            if (parsed.is_encrypted) {
+                unscoped_encrypted_servers.push_back(parsed);
+            } else {
+                unscoped_plaintext_servers.push_back(parsed);
+            }
         }
 
+        if (!unscoped_plaintext_servers.empty() || !unscoped_encrypted_servers.empty()) {
+            return build_keenetic_dns_snapshot(
+                collect_selected_keenetic_dns_servers(
+                    unscoped_plaintext_servers,
+                    unscoped_encrypted_servers),
+                std::move(static_entries));
+        }
         throw KeeneticDnsError(
-            "Built-in DNS proxy appears disabled or has no 'dns_server = ...' directives in System policy");
+            "Built-in DNS proxy appears disabled or has no unscoped 'dns_server = ...' directives in System policy");
     }
 
     throw KeeneticDnsError(
@@ -163,42 +335,44 @@ KeeneticDnsRefreshResult refresh_keenetic_dns_address_cache(bool force_refresh) 
     if (!force_refresh && is_cache_fresh(cache, now)) {
         return {
             KeeneticDnsRefreshStatus::UNCHANGED,
-            cache.address,
+            cache.snapshot->addresses,
             ""
         };
     }
 
     try {
         const std::string response = keenetic_dns_fetch_fn()();
-        const std::string address = extract_keenetic_dns_address_from_rci(response);
-        const bool changed = !cache.address.has_value() || *cache.address != address;
-        cache.address = address;
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(response);
+        const bool changed =
+            !cache.snapshot.has_value() ||
+            !keenetic_dns_snapshots_equal(*cache.snapshot, snapshot);
+        cache.snapshot = snapshot;
         cache.fetched_at = now;
         return {
             changed ? KeeneticDnsRefreshStatus::UPDATED
                     : KeeneticDnsRefreshStatus::UNCHANGED,
-            cache.address,
+            cache.snapshot->addresses,
             ""
         };
     } catch (const HttpError& e) {
         const std::string error =
             "Failed to query Keenetic RCI endpoint /rci/show/dns-proxy: " +
             std::string(e.what());
-        if (cache.address.has_value()) {
-            return {KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE, cache.address, error};
+        if (cache.snapshot.has_value()) {
+            return {KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE, cache.snapshot->addresses, error};
         }
-        return {KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE, std::nullopt, error};
+        return {KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE, {}, error};
     } catch (const KeeneticDnsError& e) {
-        if (cache.address.has_value()) {
+        if (cache.snapshot.has_value()) {
             return {
                 KeeneticDnsRefreshStatus::FETCH_FAILED_USED_CACHE,
-                cache.address,
+                cache.snapshot->addresses,
                 e.what()
             };
         }
         return {
             KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE,
-            std::nullopt,
+            {},
             e.what()
         };
     }
@@ -206,18 +380,45 @@ KeeneticDnsRefreshResult refresh_keenetic_dns_address_cache(bool force_refresh) 
     (void)force_refresh;
     return {
         KeeneticDnsRefreshStatus::FETCH_FAILED_NO_CACHE,
-        std::nullopt,
+        {},
         "DNS server type 'keenetic' requires build with USE_KEENETIC_API=ON"
     };
 #endif
 }
 
-std::string resolve_keenetic_dns_address(bool force_refresh) {
+std::vector<std::string> resolve_keenetic_dns_addresses(bool force_refresh) {
     const KeeneticDnsRefreshResult result = refresh_keenetic_dns_address_cache(force_refresh);
-    if (result.address.has_value()) {
-        return *result.address;
+    if (!result.addresses.empty()) {
+        return result.addresses;
     }
     throw KeeneticDnsError(result.error);
+}
+
+std::vector<KeeneticStaticDnsEntry> get_keenetic_static_dns_entries() {
+    std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
+    const KeeneticDnsCacheState& cache = keenetic_dns_cache_state();
+    if (!cache.snapshot.has_value()) {
+        return {};
+    }
+    return cache.snapshot->static_entries;
+}
+
+std::vector<std::string> get_keenetic_dns_addresses() {
+    std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
+    const KeeneticDnsCacheState& cache = keenetic_dns_cache_state();
+    if (!cache.snapshot.has_value()) {
+        return {};
+    }
+    return cache.snapshot->addresses;
+}
+
+std::vector<KeeneticDnsUpstreamEntry> get_keenetic_dns_upstreams() {
+    std::lock_guard<std::mutex> lock(keenetic_dns_cache_mutex());
+    const KeeneticDnsCacheState& cache = keenetic_dns_cache_state();
+    if (!cache.snapshot.has_value()) {
+        return {};
+    }
+    return cache.snapshot->upstreams;
 }
 
 #ifdef KEEN_PBR3_TESTING

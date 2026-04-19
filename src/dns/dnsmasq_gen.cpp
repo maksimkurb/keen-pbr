@@ -1,4 +1,5 @@
 #include "dnsmasq_gen.hpp"
+#include "keenetic_dns.hpp"
 #include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 
@@ -23,6 +24,22 @@ static constexpr const char* kNftSetMiddle = ",6#inet#KeenPbrTable#";
 static constexpr size_t kNftSetPrefixLen = sizeof("/4#inet#KeenPbrTable#") - 1;
 static constexpr size_t kNftSetMiddleLen = sizeof(",6#inet#KeenPbrTable#") - 1;
 
+bool dns_config_uses_keenetic_server(const DnsConfig& dns_config) {
+    for (const auto& server : dns_config.servers.value_or(std::vector<DnsServer>{})) {
+        if (server.type.value_or(api::DnsServerType::STATIC) == api::DnsServerType::KEENETIC) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string keenetic_static_domain_pattern(const std::string& domain) {
+    if (domain.size() > 2 && domain[0] == '*' && domain[1] == '.') {
+        return "/" + domain.substr(2);
+    }
+    return "/" + domain;
+}
+
 } // anonymous namespace
 
 DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
@@ -37,6 +54,12 @@ DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
       route_config_(route_config),
       dns_config_(dns_config),
       lists_(lists),
+      keenetic_static_entries_(dns_config_uses_keenetic_server(dns_config)
+                                   ? get_keenetic_static_dns_entries()
+                                   : std::vector<KeeneticStaticDnsEntry>{}),
+      keenetic_dns_upstreams_(dns_config_uses_keenetic_server(dns_config)
+                                  ? get_keenetic_dns_upstreams()
+                                  : std::vector<KeeneticDnsUpstreamEntry>{}),
       resolver_type_(resolver_type),
       hash_version_(std::move(hash_version)) {}
 
@@ -90,6 +113,43 @@ void DnsmasqGenerator::generate_directives(
             *out << "rebind-domain-ok=keen.pbr\n";
             *out << "server=/" << kDnsProbeZone << "/" << parsed.ip << "#" << parsed.port << "\n\n";
         }
+    }
+
+    if (!keenetic_static_entries_.empty()) {
+        std::set<std::string> emitted_static_entries;
+        bool wrote_header = false;
+        for (const auto& entry : keenetic_static_entries_) {
+            const std::string domain_pattern = keenetic_static_domain_pattern(entry.domain);
+            const std::string dedupe_key = domain_pattern + "|" + entry.address;
+            if (!emitted_static_entries.insert(dedupe_key).second) {
+                continue;
+            }
+            if (hash_record_callback) {
+                hash_record_callback("keenetic-static|" + domain_pattern + "|" + entry.address);
+            }
+            if (out != nullptr) {
+                if (!wrote_header) {
+                    *out << "# Keenetic static DNS entries\n";
+                    wrote_header = true;
+                }
+                *out << "address=" << domain_pattern << "/" << entry.address << "\n";
+            }
+        }
+        if (out != nullptr && wrote_header) {
+            *out << "\n";
+        }
+    }
+
+    if (out != nullptr && !keenetic_dns_upstreams_.empty()) {
+        *out << "# Keenetic DNS is used:\n";
+        for (const auto& upstream : keenetic_dns_upstreams_) {
+            *out << "# " << upstream.address << " -> " << upstream.kind;
+            if (!upstream.target.empty()) {
+                *out << " | " << upstream.target;
+            }
+            *out << "\n";
+        }
+        *out << "\n";
     }
 
     size_t fallback_index = 0;
@@ -152,25 +212,15 @@ void DnsmasqGenerator::generate_directives(
 
         const bool needs_ipset = ipset_lists.count(list_name) > 0;
 
-        std::string dns_ip;
-        uint16_t dns_port = 53;
+        std::vector<const DnsServerConfig*> dns_servers;
         auto dns_it = dns_list_servers.find(list_name);
         if (dns_it != dns_list_servers.end()) {
-            const DnsServerConfig* server = dns_registry_.get_server(dns_it->second);
-            if (server) {
-                dns_ip = server->resolved_ip;
-                dns_port = server->port;
-            }
+            dns_servers = dns_registry_.get_servers(dns_it->second);
         }
 
         const bool allow_domain_rebinding =
             dns_list_allow_rebind.find(list_name) != dns_list_allow_rebind.end()
             && dns_list_allow_rebind[list_name];
-
-        std::string server_addr = dns_ip;
-        if (!server_addr.empty() && dns_port != 53) {
-            server_addr += "#" + std::to_string(dns_port);
-        }
 
         bool wrote_list_header = false;
         auto ensure_list_header = [&]() {
@@ -264,16 +314,25 @@ void DnsmasqGenerator::generate_directives(
             };
         }
 
-        BatchState server_batch;
-        if (out != nullptr && !server_addr.empty()) {
-            server_batch.enabled = true;
-            server_batch.directive_name = "server";
-            server_batch.prefix_len = kServerPrefixLen;
-            server_batch.suffix_len = 1 + server_addr.size();
-            server_batch.emit_line =
-                [server_addr](std::ostream& stream, const std::string& domain_path) {
-                    stream << "server=" << domain_path << "/" << server_addr << "\n";
-                };
+        std::vector<BatchState> server_batches;
+        server_batches.reserve(dns_servers.size());
+        for (const DnsServerConfig* server : dns_servers) {
+            std::string server_addr = server->resolved_ip;
+            if (server->port != 53) {
+                server_addr += "#" + std::to_string(server->port);
+            }
+            BatchState server_batch;
+            if (out != nullptr) {
+                server_batch.enabled = true;
+                server_batch.directive_name = "server";
+                server_batch.prefix_len = kServerPrefixLen;
+                server_batch.suffix_len = 1 + server_addr.size();
+                server_batch.emit_line =
+                    [server_addr](std::ostream& stream, const std::string& domain_path) {
+                        stream << "server=" << domain_path << "/" << server_addr << "\n";
+                    };
+            }
+            server_batches.push_back(std::move(server_batch));
         }
 
         FunctionalVisitor collector([&](EntryType type, std::string_view entry) {
@@ -292,42 +351,43 @@ void DnsmasqGenerator::generate_directives(
                 return;
             }
 
-            std::string flags;
             if (needs_ipset) {
-                flags = "route";
+                if (hash_record_callback) {
+                    hash_record_callback("domain-route|" + list_name + "|" + bare);
+                }
             }
             if (allow_domain_rebinding) {
-                if (!flags.empty()) {
-                    flags += ",";
+                if (hash_record_callback) {
+                    hash_record_callback("domain-rebind|" + list_name + "|" + bare);
                 }
-                flags += "rebind";
             }
-            if (!dns_ip.empty()) {
-                if (!flags.empty()) {
-                    flags += ",";
+            for (size_t server_index = 0; server_index < dns_servers.size(); ++server_index) {
+                const DnsServerConfig* server = dns_servers[server_index];
+                if (hash_record_callback) {
+                    hash_record_callback(
+                        "domain-server|" + list_name + "|" + bare + "|" +
+                        std::to_string(server_index) + "|" + server->resolved_ip + "|" +
+                        std::to_string(server->port));
                 }
-                flags += "server";
             }
-            if (flags.empty()) {
+            if (!needs_ipset && !allow_domain_rebinding && dns_servers.empty()) {
                 return;
-            }
-
-            if (hash_record_callback) {
-                hash_record_callback(
-                    "domain|" + list_name + "|" + bare + "|" + flags +
-                    (dns_ip.empty() ? std::string{} : "|" + dns_ip + "|" + std::to_string(dns_port)));
             }
 
             ensure_list_header();
             push_batch(ipset_batch, bare);
             push_batch(rebind_batch, bare);
-            push_batch(server_batch, bare);
+            for (auto& server_batch : server_batches) {
+                push_batch(server_batch, bare);
+            }
         });
         list_streamer_.stream_list(list_name, list_cfg_it->second, collector);
 
         flush_batch(ipset_batch);
         flush_batch(rebind_batch);
-        flush_batch(server_batch);
+        for (auto& server_batch : server_batches) {
+            flush_batch(server_batch);
+        }
         if (out != nullptr && wrote_list_header) {
             *out << "\n";
         }

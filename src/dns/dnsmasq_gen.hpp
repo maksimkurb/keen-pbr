@@ -3,11 +3,13 @@
 #include "../config/config.hpp"
 #include "../lists/list_streamer.hpp"
 #include "dns_router.hpp"
+#include "keenetic_dns.hpp"
 #include <keen-pbr/version.hpp>
 
 #include <functional>
 #include <ostream>
 #include <string>
+#include <vector>
 
 namespace keen_pbr3 {
 
@@ -75,6 +77,8 @@ private:
     const RouteConfig& route_config_;
     const DnsConfig& dns_config_;
     const std::map<std::string, ListConfig>& lists_;
+    std::vector<KeeneticStaticDnsEntry> keenetic_static_entries_;
+    std::vector<KeeneticDnsUpstreamEntry> keenetic_dns_upstreams_;
     ResolverType resolver_type_;
     std::string hash_version_;
 };

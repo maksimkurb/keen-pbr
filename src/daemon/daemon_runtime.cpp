@@ -316,15 +316,17 @@ void Daemon::apply_firewall() {
             auto mark_it = outbound_marks_.find(effective_tag);
             if (mark_it == outbound_marks_.end()) continue;
 
-            const DnsServerConfig* resolved_server = dns_registry.get_server(srv.tag);
-            if (!resolved_server) {
+            const auto resolved_servers = dns_registry.get_servers(srv.tag);
+            if (resolved_servers.empty()) {
                 throw DaemonError("DNS server tag not found during detour setup: " + srv.tag);
             }
-            ProtoPortFilter filter;
-            filter.proto = "tcp/udp";
-            filter.dst_port = std::to_string(resolved_server->port);
-            filter.dst_addr = {resolved_server->resolved_ip};
-            firewall_->create_direct_mark_rule(mark_it->second, filter);
+            for (const DnsServerConfig* resolved_server : resolved_servers) {
+                ProtoPortFilter filter;
+                filter.proto = "tcp/udp";
+                filter.dst_port = std::to_string(resolved_server->port);
+                filter.dst_addr = {resolved_server->resolved_ip};
+                firewall_->create_direct_mark_rule(mark_it->second, filter);
+            }
         }
     }
 
