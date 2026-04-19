@@ -27,7 +27,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto hx:max-md:min-h-[280px]" style="background: radial-gradient(ellipse at 50% 80%,rgba(59,130,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Выборочная маршрутизация</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку, трафик без совпадений идёт через обычную системную маршрутизацию.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Маршрутизация трафика на основе списков доменов, IP-адресов, портов и адресов. Правила проверяются по порядку; трафик, не попавший ни под одно правило, идёт через обычную системную маршрутизацию.</p>
 <div style="flex:1;"></div>
 <div class="hx:mt-4">
 <svg id="kpbr-sr" viewBox="0 30 300 100" style="width:100%;height:auto;display:block;" aria-hidden="true">
@@ -104,7 +104,7 @@ toc: false
 <div class="hextra-feature-card not-prose hx:block hx:relative hx:overflow-hidden hx:rounded-3xl hx:border hx:border-gray-200 hx:dark:border-neutral-800 hx:aspect-auto" style="background: radial-gradient(ellipse at 50% 80%,rgba(139,92,246,0.15),hsla(0,0%,100%,0));display:flex;flex-direction:column;max-height:300px;">
 <div class="hx:relative hx:w-full hx:p-6" style="flex:1;display:flex;flex-direction:column;">
 <h3 class="hx:text-2xl hx:font-medium hx:leading-6 hx:mb-2">Веб-интерфейс</h3>
-<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через веб-интерфейс — SSH не требуется.</p>
+<p class="hx:text-gray-500 hx:dark:text-gray-400 hx:text-sm hx:leading-6">Управление правилами маршрутизации, мониторинг состояния outbounds и перезагрузка конфигурации через браузер — без SSH.</p>
 <div style="flex:1;position:relative;overflow:hidden;border-radius:12px 0 0 0;margin:16px -24px -24px 0;min-height:120px;">
 
 <style>
@@ -332,12 +332,12 @@ toc: false
   {{< hextra/feature-card
     title="Несколько типов outbound"
     icon="switch-horizontal"
-    subtitle="Маршрутизация трафика на конкретный интерфейс, в существующую таблицу маршрутизации (например, WAN) или полная блокировка. Используйте <code>urltest</code> для мониторинга задержки и автоматического выбора лучшего интерфейса."
+    subtitle="Трафик можно направить на конкретный интерфейс, в существующую таблицу маршрутизации (например, WAN) или полностью заблокировать. Тип <code>urltest</code> измеряет задержку и автоматически выбирает лучший интерфейс."
   >}}
   {{< hextra/feature-card
     title="Интеграция с DNS"
     icon="server"
-    subtitle="Генерирует директивы dnsmasq <code>server=</code> и <code>ipset=</code>, чтобы разрешённые IP-адреса доменов мгновенно маршрутизировались через правильный outbound."
+    subtitle="Генерирует директивы dnsmasq <code>server=</code> и <code>ipset=</code>/<code>nftset=</code>, чтобы разрешённые IP-адреса доменов сразу маршрутизировались через нужный outbound."
   >}}
   {{< hextra/feature-card
     title="Два firewall-бэкенда"
@@ -347,11 +347,11 @@ toc: false
   {{< hextra/feature-card
     title="REST API"
     icon="code"
-    subtitle="Встроенный HTTP API для проверок состояния, верификации маршрутизации ядра в реальном времени и перезагрузки конфигурации без перезапуска демона."
+    subtitle="Встроенный HTTP API для проверки состояния, верификации маршрутизации ядра в реальном времени и перезагрузки конфигурации без перезапуска демона."
   >}}
   {{< hextra/feature-card
     title="Автообновление списков"
     icon="refresh"
-    subtitle="Удалённые списки доменов и IP загружаются при запуске и обновляются по настраиваемому расписанию cron, с локальным кэшем как запасным вариантом."
+    subtitle="Удалённые списки доменов и IP загружаются при запуске и обновляются по настраиваемому расписанию, с локальным кэшем в качестве резервного источника."
   >}}
 {{< /hextra/feature-grid >}}
