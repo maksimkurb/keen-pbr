@@ -39,3 +39,8 @@ log-async           # Non-blocking logging
 # Configure upstream DNS servers in keen-pbr itself and in:
 #   /etc/keen-pbr/dnsmasq-fallback.conf
 # The fallback file is used when keen-pbr is stopped or disabled.
+
+# BEGIN keen-pbr managed block
+# Do not remove the following line, it is required for keen-pbr to function properly.
+conf-dir=/tmp/dnsmasq.d,*.conf
+# END keen-pbr managed block

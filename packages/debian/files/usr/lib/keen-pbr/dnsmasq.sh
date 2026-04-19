@@ -12,6 +12,17 @@ BLOCK_START="# BEGIN keen-pbr managed block"
 BLOCK_END="# END keen-pbr managed block"
 BLOCK_LINE="conf-dir=/tmp/dnsmasq.d,*.conf"
 
+log_message() {
+    local level="$1"
+    local message="$2"
+
+    logger -s -t "keen-pbr" -p "user.${level}" "$message"
+}
+
+log_warn() {
+    log_message warn "$1"
+}
+
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
         echo "dnsmasq-nftset"
@@ -29,22 +40,26 @@ fallback_conf_line() {
     printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
 }
 
-append_managed_block() {
-    mkdir -p "$(dirname "$DNSMASQ_CONF")"
-    touch "$DNSMASQ_CONF"
-    if [ -s "$DNSMASQ_CONF" ]; then
-        printf '\n' >> "$DNSMASQ_CONF"
-    fi
-    printf '%s\n%s\n%s\n' "$BLOCK_START" "$BLOCK_LINE" "$BLOCK_END" >> "$DNSMASQ_CONF"
-}
+has_managed_block() {
+    [ -f "$DNSMASQ_CONF" ] || return 1
 
-remove_managed_block() {
-    [ -f "$DNSMASQ_CONF" ] || return 0
-    awk -v start="$BLOCK_START" -v end="$BLOCK_END" '
-        $0 == start { skip = 1; next }
-        $0 == end { skip = 0; next }
-        !skip { print }
-    ' "$DNSMASQ_CONF" > "${DNSMASQ_CONF}.tmp" && mv "${DNSMASQ_CONF}.tmp" "$DNSMASQ_CONF"
+    awk -v start="$BLOCK_START" -v line="$BLOCK_LINE" -v end="$BLOCK_END" '
+        $0 == start {
+            found = 1
+            if (getline next_line <= 0) {
+                exit 1
+            }
+            if (getline final_line <= 0) {
+                exit 1
+            }
+            exit !(next_line == line && final_line == end)
+        }
+        END {
+            if (!found) {
+                exit 1
+            }
+        }
+    ' "$DNSMASQ_CONF"
 }
 
 install_persistent() {
@@ -56,10 +71,8 @@ install_persistent() {
 
 ensure_runtime_prereqs() {
     install_persistent
-    touch "$DNSMASQ_CONF"
-    if ! grep -Fqx "$BLOCK_LINE" "$DNSMASQ_CONF"; then
-        remove_managed_block
-        append_managed_block
+    if ! has_managed_block; then
+        log_warn "Missing keen-pbr dnsmasq include block in ${DNSMASQ_CONF}; expected block pointing to ${DNSMASQ_TMP_DIR}"
     fi
 }
 
@@ -79,8 +92,6 @@ deactivate_dnsmasq() {
 }
 
 uninstall_persistent() {
-    remove_managed_block
-    rm -f /etc/dnsmasq.d/keen-pbr-tmpdir.conf
     rm -f "$DNSMASQ_TMP_FILE"
 }
 
@@ -98,10 +109,10 @@ Usage: $0 <command>
 
 Commands:
   install-persistent     Seed fallback dnsmasq config and install persistent integration.
-  ensure-runtime-prereqs Create runtime directories and ensure dnsmasq includes the managed conf-dir.
+  ensure-runtime-prereqs Create runtime directories and warn if dnsmasq lacks the managed conf-dir block.
   activate               Switch dnsmasq to keen-pbr dynamic resolver config and restart dnsmasq.
   deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
-  uninstall-persistent   Remove persistent integration and managed runtime config.
+  uninstall-persistent   Remove helper-managed runtime config.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
   reload                 Alias for restart-dnsmasq; used by the system resolver hook.
   help                   Show this help text.

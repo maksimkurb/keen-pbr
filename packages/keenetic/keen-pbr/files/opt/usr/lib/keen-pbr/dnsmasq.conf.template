@@ -46,3 +46,8 @@ address=/my.keenetic.net/my.netcraze.net/2001:2:7847:1251:feee:ed78:4712:5180
 # Configure upstream DNS servers in keen-pbr itself and in:
 #   /opt/etc/keen-pbr/dnsmasq-fallback.conf
 # The fallback file is used when keen-pbr is stopped or disabled.
+
+# BEGIN keen-pbr managed block
+# Do not remove the following line, it is required for keen-pbr to function properly.
+conf-dir=/tmp/dnsmasq.d,*.conf
+# END keen-pbr managed block

@@ -7,8 +7,6 @@ if [ -x /opt/usr/lib/keen-pbr/dnsmasq.sh ]; then
     /opt/usr/lib/keen-pbr/dnsmasq.sh uninstall-persistent || true
     /opt/usr/lib/keen-pbr/dnsmasq.sh restart-dnsmasq || true
 else
-    rm -f /opt/etc/dnsmasq.d/dnsmasq.keen-pbr.conf
-    rm -f /etc/dnsmasq.d/keen-pbr.conf
     rm -f /tmp/dnsmasq.d/keen-pbr.conf
 fi
 

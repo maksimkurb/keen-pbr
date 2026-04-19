@@ -53,7 +53,6 @@ case "$answer" in
         printf "Ignoring invalid KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS value: %s. Use Y or N.\n" "$answer"
         ;;
 esac
-fi
 
 if [ -x "$DNSMASQ_HELPER" ]; then
     "$DNSMASQ_HELPER" install-persistent || true
