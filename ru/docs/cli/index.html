@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Использование CLI keen-pbr – keen-pbr</title>
-  <meta name="description" content="keen-pbr может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.
+  <meta name="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
 Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/cli/" itemprop="url" />
 
 <meta property="og:title" content="Использование CLI keen-pbr">
@@ -17,7 +17,7 @@
   property="og:description"
   content="
     
-      keen-pbr может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.
+      keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
 Использование
     
 
@@ -57,12 +57,12 @@ Commands:
 
 
   <meta itemprop="name" content="Использование CLI keen-pbr">
-  <meta itemprop="description" content="keen-pbr может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.
+  <meta itemprop="description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
 Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
-  <meta itemprop="wordCount" content="443">
+  <meta itemprop="wordCount" content="444">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Использование CLI keen-pbr">
-  <meta name="twitter:description" content="keen-pbr может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.
+  <meta name="twitter:description" content="keen-pbr умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.
 Использование Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Путь к JSON файлу конфигурации --log-level &lt;lvl&gt; Уровень логов: error, warn, info, verbose, debug --no-api Отключить REST API во время выполнения --version Показать версию и выйти --help Показать эту справку и выйти Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; Файл конфигурации обычно /etc/keen-pbr/config.json на OpenWrt и Debian, и /opt/etc/keen-pbr/config.json на Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -950,7 +950,7 @@ Commands:
     </div>
           </div>
           
-          <p><code>keen-pbr</code> может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.</p>
+          <p><code>keen-pbr</code> умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.</p>
 <h2>Использование<span class="hx:absolute hx:-mt-20" id="использование"></span>
     <a href="#%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1049,7 +1049,7 @@ Commands:
   </tbody>
 </table>
 <h2>Сигналы<span class="hx:absolute hx:-mt-20" id="сигналы"></span>
-    <a href="#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Когда <code>keen-pbr</code> запущен как управляемый сервис (демон), вы также можете управлять им с помощью Unix-сигналов:</p>
+    <a href="#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Когда <code>keen-pbr</code> работает как управляемый сервис (демон), им также можно управлять через Unix-сигналы:</p>
 <table>
   <thead>
       <tr>
@@ -1060,19 +1060,19 @@ Commands:
   <tbody>
       <tr>
           <td><code>SIGUSR1</code></td>
-          <td>Повторная верификация таблиц маршрутизации и немедленный запуск проверок задержки <code>urltest</code></td>
+          <td>Повторная проверка таблиц маршрутизации и немедленный запуск urltest-замеров задержки</td>
       </tr>
       <tr>
           <td><code>SIGHUP</code></td>
-          <td>Полная перезагрузка: повторная загрузка списков при изменении, повторное применение правил firewall и маршрутизации</td>
+          <td>Полная перезагрузка: повторная загрузка списков при изменениях, повторное применение правил firewall и маршрутизации</td>
       </tr>
       <tr>
           <td><code>SIGTERM</code> / <code>SIGINT</code></td>
-          <td>Корректное завершение</td>
+          <td>Корректное завершение работы</td>
       </tr>
   </tbody>
 </table>
-<p>Пример полной перезагрузки через сигнал:</p>
+<p>Пример полной перезагрузки через сигнал SIGHUP:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">kill</span> -HUP <span class="k">$(</span>cat /var/run/keen-pbr.pid<span class="k">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1237,7 +1237,7 @@ Commands:
   </button>
 </div>
 </div>
-<p>Тестировать ожидаемую vs фактическую маршрутизацию:</p>
+<p>Протестировать совпадение ожидаемой и фактической маршрутизации:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">keen-pbr test-routing google.com</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

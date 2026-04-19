@@ -119,15 +119,15 @@
       <description>
         
         
-        &lt;p&gt;Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.&lt;/p&gt;
-&lt;p&gt;Каждый outbound &lt;code&gt;tag&lt;/code&gt; должен соответствовать &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; и быть не более 24 символов.&lt;/p&gt;
-&lt;p&gt;Большинству пользователей нужно только:&lt;/p&gt;
+        &lt;p&gt;Outbounds сообщают keen-pbr, куда отправить совпавший трафик.&lt;/p&gt;
+&lt;p&gt;Каждый outbound &lt;code&gt;tag&lt;/code&gt; должен соответствовать маске &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; и быть не длиннее 24 символов.&lt;/p&gt;
+&lt;p&gt;Большинству пользователей достаточно:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;один outbound типа &lt;code&gt;interface&lt;/code&gt; для VPN-соединения&lt;/li&gt;
-&lt;li&gt;один outbound типа &lt;code&gt;interface&lt;/code&gt; для обычного соединения, часто &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;опционально один outbound типа &lt;code&gt;urltest&lt;/code&gt;, если нужно автоматическое переключение между несколькими соединениями&lt;/li&gt;
+&lt;li&gt;одного outbound типа &lt;code&gt;interface&lt;/code&gt; для VPN-соединения&lt;/li&gt;
+&lt;li&gt;одного outbound типа &lt;code&gt;table&lt;/code&gt; с &lt;code&gt;id=254&lt;/code&gt; для прямого соединения, как правило &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;при необходимости — одного outbound типа &lt;code&gt;urltest&lt;/code&gt; для автоматического выбора лучшего из нескольких соединений&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Если не уверены, начните с outbound типа &lt;code&gt;interface&lt;/code&gt; и вернитесь к другим позже.&lt;/p&gt;
+&lt;p&gt;Если не знаете, с чего начать, возьмите тип &lt;code&gt;interface&lt;/code&gt; и вернитесь к остальным позже.&lt;/p&gt;
 &lt;h2&gt;Общий пример&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;общий-пример&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d0%b1%d1%89%d0%b8%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -140,10 +140,9 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth0&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;192.168.1.1&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;254&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -1421,23 +1420,23 @@
       <description>
         
         
-        &lt;p&gt;Вам не обязательно погружаться в эту страницу для обычной настройки.&lt;/p&gt;
-&lt;p&gt;Коротко: вы создаёте список сайтов, выбираете какое соединение должно их переносить, и keen-pbr поддерживает DNS и маршрутизацию в синхронизации, чтобы правильный трафик использовал правильный путь.&lt;/p&gt;
-&lt;p&gt;Эта страница объясняет, что происходит «под капотом» для читателей, которые хотят более глубокое понимание, как всё работает.&lt;/p&gt;
+        &lt;p&gt;Для обычной настройки эту страницу читать необязательно.&lt;/p&gt;
+&lt;p&gt;Коротко: вы создаёте список сайтов, выбираете, какое соединение должно их обслуживать, а keen-pbr сам следит за тем, чтобы DNS и маршрутизация оставались согласованы и нужный трафик шёл нужным путём.&lt;/p&gt;
+&lt;p&gt;Эта страница объясняет, что происходит «под капотом», — для тех, кто хочет разобраться глубже.&lt;/p&gt;
 &lt;h2&gt;Основные сущности&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;основные-сущности&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d1%81%d0%bd%d0%be%d0%b2%d0%bd%d1%8b%d0%b5-%d1%81%d1%83%d1%89%d0%bd%d0%be%d1%81%d1%82%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;h3&gt;Списки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;списки&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные коллекции IP, CIDR и имён доменов. Источники могут свободно комбинироваться:&lt;/p&gt;
+    &lt;a href=&#34;#%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные наборы IP-адресов, CIDR-диапазонов и доменных имён. Источники можно комбинировать в любых сочетаниях:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Удалённый URL&lt;/strong&gt; (&lt;code&gt;url&lt;/code&gt;) — загружается и кэшируется при запуске, обновляется по расписанию&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Встроенные IP/CIDR&lt;/strong&gt; (&lt;code&gt;ip_cidrs&lt;/code&gt;) — загружаются напрямую из конфига&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Встроенные домены&lt;/strong&gt; (&lt;code&gt;domains&lt;/code&gt;) — загружаются напрямую из конфига&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;IP/CIDR напрямую&lt;/strong&gt; (&lt;code&gt;ip_cidrs&lt;/code&gt;) — берутся прямо из конфига&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Домены напрямую&lt;/strong&gt; (&lt;code&gt;domains&lt;/code&gt;) — берутся прямо из конфига&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Локальный файл&lt;/strong&gt; (&lt;code&gt;file&lt;/code&gt;) — читается с диска&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;При запуске записи IP/CIDR загружаются в ядерные ipsets или nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;, без таймаута записей).&lt;/p&gt;
-&lt;p&gt;Записи доменов генерируют директивы dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt;, чтобы при разрешении домена его IP динамически добавлялись в соответствующий набор (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;, записи истекают после &lt;code&gt;ttl_ms&lt;/code&gt;, настроенного для списка доменов).&lt;/p&gt;
+&lt;p&gt;При запуске IP/CIDR-записи загружаются в ipsets или nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;) без ограничения времени жизни записей.&lt;/p&gt;
+&lt;p&gt;Домены превращаются в директивы dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt;: при разрешении домена его IP динамически добавляются в соответствующий набор (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;) и хранятся там до истечения &lt;code&gt;ttl_ms&lt;/code&gt;, заданного для этого списка.&lt;/p&gt;
 &lt;p&gt;См. &lt;a href=&#34;../configuration/lists/&#34;&gt;Списки&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;Outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;outbounds&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные цели для исходящего трафика. Пять типов:&lt;/p&gt;
+    &lt;a href=&#34;#outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные цели для исходящего трафика. Доступны пять типов:&lt;/p&gt;
 &lt;table&gt;
   &lt;thead&gt;
       &lt;tr&gt;
@@ -1448,53 +1447,53 @@
   &lt;tbody&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;interface&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Маршрутизация через конкретный сетевой интерфейс и опциональный шлюз&lt;/td&gt;
+          &lt;td&gt;Маршрутизация через конкретный сетевой интерфейс с необязательным шлюзом&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;table&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Отложить к существующей таблице маршрутизации ядра&lt;/td&gt;
+          &lt;td&gt;Передать трафик в существующую таблицу маршрутизации ядра Linux&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;blackhole&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Отбросить соответствующий трафик&lt;/td&gt;
+          &lt;td&gt;Отбросить совпавший трафик&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;ignore&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Пропустить без модификации (использует маршрут по умолчанию)&lt;/td&gt;
+          &lt;td&gt;Пропустить без изменений (пакет идёт по системной маршрутизации)&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;urltest&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Адаптивный выбор: проверяет кандидаты outbound по задержке, выбирает самый быстрый в пределах допуска; включает circuit breaker для предотвращения флаппинга&lt;/td&gt;
+          &lt;td&gt;Адаптивный выбор: проверяет кандидаты по задержке и выбирает наилучший в рамках заданного допуска; включает circuit breaker для предотвращения флаппинга&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;&lt;code&gt;interface&lt;/code&gt; и &lt;code&gt;table&lt;/code&gt; outbounds получают fwmarks и записи политической маршрутизации. &lt;code&gt;urltest&lt;/code&gt; выбирает среди дочерних outbounds. &lt;code&gt;blackhole&lt;/code&gt; становится правилом отбрасывания firewall, а &lt;code&gt;ignore&lt;/code&gt; становится правилом пропускания firewall.&lt;/p&gt;
-&lt;p&gt;Когда правило указывает на &lt;code&gt;ignore&lt;/code&gt;, keen-pbr устанавливает соответствующий вердикт firewall, который останавливает дальнейшую обработку правил keen-pbr и оставляет пакет немаркированным. Ни таблица маршрутизации, ни &lt;code&gt;ip rule&lt;/code&gt; не создаются для этого совпадения, поэтому пакет продолжает свой путь через обычную системную маршрутизацию. Поскольку правила маршрутизации первое совпадение выигрывает, &lt;code&gt;ignore&lt;/code&gt; в основном используется для создания исключений перед более широкими правилами ниже.&lt;/p&gt;
+&lt;p&gt;Outbounds типа &lt;code&gt;interface&lt;/code&gt; и &lt;code&gt;table&lt;/code&gt; получают fwmark и запись в таблице маршрутизации. &lt;code&gt;urltest&lt;/code&gt; выбирает из дочерних outbounds. &lt;code&gt;blackhole&lt;/code&gt; создаёт правило сброса пакетов в firewall, &lt;code&gt;ignore&lt;/code&gt; — правило пропуска.&lt;/p&gt;
+&lt;p&gt;Когда правило указывает на &lt;code&gt;ignore&lt;/code&gt;, keen-pbr выставляет вердикт «пропустить» в firewall — дальнейшая обработка правил keen-pbr прекращается, а пакет остаётся без метки. Ни таблица маршрутизации, ни запись &lt;code&gt;ip rule&lt;/code&gt; для такого совпадения не создаются, поэтому пакет продолжает путь через обычную системную маршрутизацию. Поскольку правила обрабатываются по принципу «первое совпадение побеждает», &lt;code&gt;ignore&lt;/code&gt; чаще всего применяется для исключений, которые ставятся перед более широкими перехватывающими правилами.&lt;/p&gt;
 &lt;p&gt;См. &lt;a href=&#34;../configuration/outbounds/&#34;&gt;Outbounds&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;Правила маршрутизации&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;правила-маршрутизации&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Упорядоченный список пар совпадение → действие. Каждое правило может сопоставлять трафик по:&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Упорядоченный список пар «условие → действие». Каждое правило может фильтровать трафик по:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;Членство в списке&lt;/strong&gt; — IP в именованном ipset/nftset&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Протокол&lt;/strong&gt; (&lt;code&gt;proto&lt;/code&gt;) — &lt;code&gt;tcp&lt;/code&gt;, &lt;code&gt;udp&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Фильтры портов&lt;/strong&gt; (&lt;code&gt;src_port&lt;/code&gt;, &lt;code&gt;dest_port&lt;/code&gt;) — одиночный, список, диапазон или отрицание&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Фильтры адресов&lt;/strong&gt; (&lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;dest_addr&lt;/code&gt;) — CIDR, список или отрицание&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Принадлежности к списку&lt;/strong&gt; — IP входит в именованный ipset/nftset&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Протоколу&lt;/strong&gt; (&lt;code&gt;proto&lt;/code&gt;) — &lt;code&gt;tcp&lt;/code&gt;, &lt;code&gt;udp&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Портам&lt;/strong&gt; (&lt;code&gt;src_port&lt;/code&gt;, &lt;code&gt;dest_port&lt;/code&gt;) — одиночный, список, диапазон или отрицание&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Адресам&lt;/strong&gt; (&lt;code&gt;src_addr&lt;/code&gt;, &lt;code&gt;dest_addr&lt;/code&gt;) — CIDR, список или отрицание&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Если правило указывает несколько полей совпадения, пакет должен удовлетворять ВСЕМ указанным условиям для сопоставления правила.&lt;/p&gt;
-&lt;p&gt;Первое совпадшее правило выигрывает. Несопоставленный трафик остаётся немаркированным и следует системной маршрутизации.&lt;/p&gt;
+&lt;p&gt;Если в правиле указано несколько условий, пакет должен удовлетворять им ВСЕМ.&lt;/p&gt;
+&lt;p&gt;Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, остаётся без метки и идёт через обычную системную маршрутизацию.&lt;/p&gt;
 &lt;p&gt;См. &lt;a href=&#34;../configuration/route-rules/&#34;&gt;Правила маршрутизации&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;DNS&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Сопоставляет списки доменов DNS-серверам через директивы dnsmasq &lt;code&gt;server=&lt;/code&gt;. Когда запрашивается домен в списке, dnsmasq перенаправляет запрос назначенному DNS-серверу. IP-адреса ответа одновременно внедряются в соответствующий ipset/nftset, чтобы последующие пакеты маршрутизировались правильно.&lt;/p&gt;
-&lt;p&gt;Интеграция через &lt;code&gt;conf-file=&lt;/code&gt; (или &lt;code&gt;conf-script=&lt;/code&gt;): keen-pbr записывает &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; при запуске; dnsmasq читает его при следующей перезагрузке.&lt;/p&gt;
+    &lt;a href=&#34;#dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Связывает списки доменов с DNS-серверами через директивы dnsmasq &lt;code&gt;server=&lt;/code&gt;. Когда запрашивается домен из списка, dnsmasq переадресует запрос назначенному серверу. Полученные IP-адреса одновременно добавляются в соответствующий ipset/nftset, чтобы последующие пакеты шли через правильный outbound.&lt;/p&gt;
+&lt;p&gt;Интеграция выполняется через &lt;code&gt;conf-file=&lt;/code&gt; (или &lt;code&gt;conf-script=&lt;/code&gt;): keen-pbr при запуске записывает файл &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt;, который dnsmasq читает при следующей перезагрузке.&lt;/p&gt;
 &lt;p&gt;См. &lt;a href=&#34;../configuration/dns/&#34;&gt;DNS&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2&gt;Как это работает — последовательность запуска&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает--последовательность-запуска&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;Загрузка списков&lt;/strong&gt; — загрузка удалённых URL (с использованием кэша, если недоступны), чтение локальных файлов и встроенных записей&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Заполнение ipsets/nftsets&lt;/strong&gt; — записи IP/CIDR из списков вставляются в ядерные наборы (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;)&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Установка правил firewall&lt;/strong&gt; — создание правил в таблице &lt;code&gt;mangle&lt;/code&gt; iptables или таблице &lt;code&gt;inet KeenPbrTable&lt;/code&gt; nftables, которые сопоставляют настроенные списки и фильтры, затем установка соответствующего fwmark в &lt;code&gt;PREROUTING&lt;/code&gt; / &lt;code&gt;prerouting&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Установка маршрутизации&lt;/strong&gt; — создание таблиц маршрутизации и записей &lt;code&gt;ip rule&lt;/code&gt; для каждого outbound на основе назначенных fwmarks&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Генерация конфигурации резолвера&lt;/strong&gt; — запись &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; с директивами &lt;code&gt;server=&lt;/code&gt; + &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt;; сигнал dnsmasq для перезагрузки&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Начало проверок urltest&lt;/strong&gt; — если настроены какие-либо outbounds типа &lt;code&gt;urltest&lt;/code&gt;, начинаются периодические проверки задержки&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Загрузка списков&lt;/strong&gt; — скачиваются удалённые URL (при недоступности берётся кэш), читаются локальные файлы и встроенные записи&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Заполнение ipsets/nftsets&lt;/strong&gt; — IP/CIDR-записи из списков загружаются в ядерные наборы (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Настройка правил firewall&lt;/strong&gt; — в таблице &lt;code&gt;mangle&lt;/code&gt; iptables или в таблице &lt;code&gt;inet KeenPbrTable&lt;/code&gt; nftables создаются правила сопоставления по спискам и фильтрам, после чего в &lt;code&gt;PREROUTING&lt;/code&gt; / &lt;code&gt;prerouting&lt;/code&gt; проставляются нужные fwmark&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Настройка маршрутизации&lt;/strong&gt; — под каждый outbound создаются таблица маршрутизации и запись &lt;code&gt;ip rule&lt;/code&gt; на основе назначенных fwmark&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Генерация конфигурации резолвера&lt;/strong&gt; — файл &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; с директивами &lt;code&gt;server=&lt;/code&gt; и &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt; записывается на диск; dnsmasq получает сигнал перезагрузки&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Запуск urltest-проверок&lt;/strong&gt; — если настроены outbounds типа &lt;code&gt;urltest&lt;/code&gt;, начинаются периодические замеры задержки&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
 &lt;h2&gt;Обзор архитектуры&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;обзор-архитектуры&#34;&gt;&lt;/span&gt;
@@ -2384,8 +2383,8 @@
       <description>
         
         
-        &lt;p&gt;Используйте настройки DNS, когда хотите, чтобы домены в списке разрешались через конкретный DNS-сервер, обычно тот же VPN, который будет переносить соответствующий трафик.&lt;/p&gt;
-&lt;p&gt;При установке пакета на роутеры, keen-pbr обычно заботится об интеграции с dnsmasq за вас. Большинству пользователей нужно только определить:&lt;/p&gt;
+        &lt;p&gt;Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.&lt;/p&gt;
+&lt;p&gt;При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;system_resolver&lt;/code&gt; (оставьте значения по умолчанию)&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;servers&lt;/code&gt;&lt;/li&gt;
@@ -2783,7 +2782,7 @@
       <description>
         
         
-        &lt;p&gt;&lt;code&gt;keen-pbr&lt;/code&gt; может запускать сервис, проверять состояние маршрутизации в реальном времени, загружать данные списков и печатать сгенерированную конфигурацию резолвера.&lt;/p&gt;
+        &lt;p&gt;&lt;code&gt;keen-pbr&lt;/code&gt; умеет запускать сервис маршрутизации, проверять его состояние в реальном времени, скачивать данные списков и выводить сгенерированную конфигурацию резолвера.&lt;/p&gt;
 &lt;h2&gt;Использование&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;использование&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -2882,7 +2881,7 @@
   &lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h2&gt;Сигналы&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;сигналы&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Когда &lt;code&gt;keen-pbr&lt;/code&gt; запущен как управляемый сервис (демон), вы также можете управлять им с помощью Unix-сигналов:&lt;/p&gt;
+    &lt;a href=&#34;#%d1%81%d0%b8%d0%b3%d0%bd%d0%b0%d0%bb%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Когда &lt;code&gt;keen-pbr&lt;/code&gt; работает как управляемый сервис (демон), им также можно управлять через Unix-сигналы:&lt;/p&gt;
 &lt;table&gt;
   &lt;thead&gt;
       &lt;tr&gt;
@@ -2893,19 +2892,19 @@
   &lt;tbody&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;SIGUSR1&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Повторная верификация таблиц маршрутизации и немедленный запуск проверок задержки &lt;code&gt;urltest&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Повторная проверка таблиц маршрутизации и немедленный запуск urltest-замеров задержки&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;SIGHUP&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Полная перезагрузка: повторная загрузка списков при изменении, повторное применение правил firewall и маршрутизации&lt;/td&gt;
+          &lt;td&gt;Полная перезагрузка: повторная загрузка списков при изменениях, повторное применение правил firewall и маршрутизации&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;SIGTERM&lt;/code&gt; / &lt;code&gt;SIGINT&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Корректное завершение&lt;/td&gt;
+          &lt;td&gt;Корректное завершение работы&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;Пример полной перезагрузки через сигнал:&lt;/p&gt;
+&lt;p&gt;Пример полной перезагрузки через сигнал SIGHUP:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;nb&#34;&gt;kill&lt;/span&gt; -HUP &lt;span class=&#34;k&#34;&gt;$(&lt;/span&gt;cat /var/run/keen-pbr.pid&lt;span class=&#34;k&#34;&gt;)&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -3070,7 +3069,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Тестировать ожидаемую vs фактическую маршрутизацию:&lt;/p&gt;
+&lt;p&gt;Протестировать совпадение ожидаемой и фактической маршрутизации:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;keen-pbr test-routing google.com&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -3119,12 +3118,12 @@
       <description>
         
         
-        &lt;p&gt;Эта страница документирует встроенный HTTP REST API.&lt;/p&gt;
-&lt;p&gt;REST API доступен, когда:&lt;/p&gt;
+        &lt;p&gt;Эта страница описывает встроенный HTTP REST API.&lt;/p&gt;
+&lt;p&gt;REST API доступен, если:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;Установлена полная версия пакета (&lt;code&gt;keen-pbr&lt;/code&gt;, не &lt;code&gt;keen-pbr-headless&lt;/code&gt;)&lt;/li&gt;
 &lt;li&gt;В конфиге включён &lt;code&gt;api.enabled: true&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Флаг &lt;code&gt;--no-api&lt;/code&gt; не был передан при запуске&lt;/li&gt;
+&lt;li&gt;При запуске не был передан флаг &lt;code&gt;--no-api&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Конфигурация&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;конфигурация&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -3191,9 +3190,9 @@
 &lt;h2&gt;POST /api/lists/refresh&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;post-apilistsrefresh&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#post-apilistsrefresh&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Обновляет списки с удалёнными URL из активной конфигурации демона.&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Если указан &lt;code&gt;name&lt;/code&gt;, обновляется только этот список с URL.&lt;/li&gt;
-&lt;li&gt;Если &lt;code&gt;name&lt;/code&gt; опущен, обновляются все списки с URL.&lt;/li&gt;
-&lt;li&gt;Если обновлённые данные изменились и влияют на активную маршрутизацию/DNS во время выполнения, keen-pbr перестраивает состояние выполнения, чтобы обновления вступили в силу немедленно.&lt;/li&gt;
+&lt;li&gt;Если &lt;code&gt;name&lt;/code&gt; указан, обновляется только этот список.&lt;/li&gt;
+&lt;li&gt;Если &lt;code&gt;name&lt;/code&gt; не указан, обновляются все списки с URL.&lt;/li&gt;
+&lt;li&gt;Если обновлённые данные изменились и затрагивают активную маршрутизацию/DNS, keen-pbr перестраивает состояние выполнения, чтобы изменения вступили в силу немедленно.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3273,12 +3272,12 @@
 &lt;li&gt;&lt;code&gt;changed_lists&lt;/code&gt; &lt;em&gt;(array[string])&lt;/em&gt;: Обновлённые списки, содержимое которых изменилось.&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;reloaded&lt;/code&gt; &lt;em&gt;(boolean)&lt;/em&gt;: Была ли перестроена среда выполнения маршрутизации, потому что изменённые списки использовались.&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3&gt;Статус / Поведение при ошибке&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;статус--поведение-при-ошибке&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81--%d0%bf%d0%be%d0%b2%d0%b5%d0%b4%d0%b5%d0%bd%d0%b8%d0%b5-%d0%bf%d1%80%d0%b8-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
+&lt;h3&gt;Коды статуса / ошибки&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;коды-статуса--ошибки&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%ba%d0%be%d0%b4%d1%8b-%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81%d0%b0--%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;code&gt;200&lt;/code&gt;: Операция обновления завершена.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;400&lt;/code&gt;: Запрошенный список существует, но не имеет URL.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;404&lt;/code&gt;: Запрошенный список не найден.&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;409&lt;/code&gt;: Обновление отклонено, потому что существует отложенный черновик или уже выполняется другая операция конфигурации/выполнения.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;400&lt;/code&gt;: Указанный список существует, но не имеет URL.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;404&lt;/code&gt;: Указанный список не найден.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;409&lt;/code&gt;: Обновление отклонено, потому что есть незафиксированный черновик или уже находится в процессе другая операция конфигурации/выполнения.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;Тело ответа об ошибке:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
@@ -3338,7 +3337,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;code&gt;is_draft&lt;/code&gt; — &lt;code&gt;true&lt;/code&gt;, когда конфигурация была отложена через &lt;code&gt;POST /api/config&lt;/code&gt;, но ещё не сохранена на диск.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;is_draft&lt;/code&gt; — &lt;code&gt;true&lt;/code&gt;, если конфигурация была подготовлена через &lt;code&gt;POST /api/config&lt;/code&gt;, но ещё не сохранена на диск.&lt;/p&gt;
 &lt;h3&gt;Ответ об ошибке (500)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;ответ-об-ошибке-500&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d1%82%d0%b2%d0%b5%d1%82-%d0%be%d0%b1-%d0%be%d1%88%d0%b8%d0%b1%d0%ba%d0%b5-500&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -3569,7 +3568,7 @@
 &lt;/div&gt;
 &lt;hr&gt;
 &lt;h2&gt;GET /api/health/routing&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;get-apihealthrouting&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#get-apihealthrouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Проверяет живые маршрутизацию и состояние firewall ядра против ожидаемой конфигурации. Проверяет, что цепочка firewall существует, все правила на месте, таблицы маршрутизации заполнены и политические правила на месте.&lt;/p&gt;
+    &lt;a href=&#34;#get-apihealthrouting&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Проверяет текущее состояние маршрутизации и firewall ядра против ожидаемой конфигурации: проверяет, что цепочка firewall существует, все правила на месте, ip table заполнены и ip rule установлены.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;curl http://127.0.0.1:12121/api/health/routing&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -3719,8 +3718,8 @@
       <description>
         
         
-        &lt;p&gt;Большинство пользователей могут пропустить эту страницу.&lt;/p&gt;
-&lt;p&gt;Эти настройки для расширенных конфигураций и настройки уровня сервиса: &lt;code&gt;daemon&lt;/code&gt;, &lt;code&gt;api&lt;/code&gt;, &lt;code&gt;fwmark&lt;/code&gt;, &lt;code&gt;iproute&lt;/code&gt; и &lt;code&gt;lists_autoupdate&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Большинству пользователей эта страница не понадобится.&lt;/p&gt;
+&lt;p&gt;Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: &lt;code&gt;daemon&lt;/code&gt;, &lt;code&gt;api&lt;/code&gt;, &lt;code&gt;fwmark&lt;/code&gt;, &lt;code&gt;iproute&lt;/code&gt; и &lt;code&gt;lists_autoupdate&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;daemon&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;daemon&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#daemon&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.&lt;/p&gt;
 &lt;table&gt;
@@ -3737,7 +3736,7 @@
           &lt;td&gt;&lt;code&gt;pid_file&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;string&lt;/td&gt;
           &lt;td&gt;—&lt;/td&gt;
-          &lt;td&gt;Путь для записи PID-файла&lt;/td&gt;
+          &lt;td&gt;Путь к PID-файлу&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;cache_dir&lt;/code&gt;&lt;/td&gt;
@@ -3749,25 +3748,25 @@
           &lt;td&gt;&lt;code&gt;firewall_backend&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;string&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;&amp;quot;auto&amp;quot;&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Выбор бэкенда firewall: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Бэкенд firewall: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;strict_enforcement&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;boolean&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;false&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Строгое применение маршрутизации по умолчанию для интерфейсных outbounds. Когда включено, недостижимый маршрут по умолчанию устанавливается, если шлюз/интерфейс outbound не подтверждается достижимым. Может быть переопределено для каждого outbound.&lt;/td&gt;
+          &lt;td&gt;Строгое применение маршрутизации для outbound типа &lt;code&gt;interface&lt;/code&gt;: если включено, при недоступности шлюза или интерфейса устанавливается недостижимый маршрут по умолчанию. Можно переопределить для каждого outbound отдельно.&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;max_file_size_bytes&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;integer&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;8388608&lt;/code&gt; (8 MiB)&lt;/td&gt;
-          &lt;td&gt;Максимально допустимый размер в байтах для загруженного содержимого удалённых списков&lt;/td&gt;
+          &lt;td&gt;Максимальный размер загруженного удалённого списка в байтах&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;firewall_verify_max_bytes&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;integer&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;262144&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Максимумstdout-байт, захваченных за одну команду верификации firewall (&lt;code&gt;0&lt;/code&gt; = без ограничений)&lt;/td&gt;
+          &lt;td&gt;Максимальное число байт stdout, захватываемых за одну команду проверки firewall (&lt;code&gt;0&lt;/code&gt; = без ограничений)&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
@@ -4016,15 +4015,15 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Это запускает полную перезагрузку: он повторно загружает все удалённые списки и повторно применяет правила firewall и маршрутизации.&lt;/p&gt;
-&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
-  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
-  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;code&gt;SIGUSR1&lt;/code&gt; отличается — он повторно верифицирует таблицы маршрутизации и запускает немедленные URL-тесты, но НЕ перезагружает списки.&lt;/div&gt;
+&lt;p&gt;Это запускает полную перезагрузку: заново скачиваются все удалённые списки и повторно применяются правила firewall и маршрутизации.&lt;/p&gt;
+&lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; open&gt;
+  &lt;summary class=&#34;hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[&#39;&#39;] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90&#34;&gt;
+    &lt;strong class=&#34;hx:text-lg&#34;&gt;Чем отличается SIGUSR1&lt;/strong&gt;
+  &lt;/summary&gt;
+  &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
+    &lt;code&gt;SIGUSR1&lt;/code&gt; работает иначе: он заново проверяет таблицы маршрутизации и запускает URL-тесты немедленно, но СПИСКИ НЕ перезагружает.
   &lt;/div&gt;
-&lt;/div&gt;
-
+&lt;/details&gt;
 &lt;h2&gt;Что произойдёт, если URL удалённого списка недоступен при запуске?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;что-произойдёт-если-url-удалённого-списка-недоступен-при-запуске&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%87%d1%82%d0%be-%d0%bf%d1%80%d0%be%d0%b8%d0%b7%d0%be%d0%b9%d0%b4%d1%91%d1%82-%d0%b5%d1%81%d0%bb%d0%b8-url-%d1%83%d0%b4%d0%b0%d0%bb%d1%91%d0%bd%d0%bd%d0%be%d0%b3%d0%be-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b0-%d0%bd%d0%b5%d0%b4%d0%be%d1%81%d1%82%d1%83%d0%bf%d0%b5%d0%bd-%d0%bf%d1%80%d0%b8-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;keen-pbr использует кэшированную копию из &lt;code&gt;daemon.cache_dir&lt;/code&gt;, если она доступна. Если кэша не существует и URL недоступен, удалённый источник не вносит никаких записей для этого запуска. Для списка только с URL это означает, что список фактически пуст и никакой набор или правило firewall не создаётся.&lt;/p&gt;
 &lt;h2&gt;Как urltest outbound выбирает лучший интерфейс?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-urltest-outbound-выбирает-лучший-интерфейс&#34;&gt;&lt;/span&gt;
@@ -4069,7 +4068,7 @@
 &lt;li&gt;Пустые строки игнорируются&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Как проверить, что маршрутизация правильно применена?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-проверить-что-маршрутизация-правильно-применена&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Используйте эндпоинт проверки здоровья маршрутизации:&lt;/p&gt;
+    &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%b8%d1%82%d1%8c-%d1%87%d1%82%d0%be-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d1%8c%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d0%bd%d0%b5%d0%bd%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Используйте эндпоинт проверки маршрутизации:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;curl http://127.0.0.1:12121/api/health/routing&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -4086,7 +4085,7 @@
 &lt;/div&gt;
 &lt;p&gt;Это проверяет живое состояние ядра (цепочка firewall, правила firewall, таблицы маршрутизации, политические правила) против ожидаемой конфигурации и сообщает &lt;code&gt;ok&lt;/code&gt;, &lt;code&gt;missing&lt;/code&gt; или &lt;code&gt;mismatch&lt;/code&gt; для каждого элемента.&lt;/p&gt;
 &lt;h2&gt;Можно ли объединить несколько источников в одном списке?&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;можно-ли-объединить-несколько-источников-в-одном-списке&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Да. &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt; и &lt;code&gt;file&lt;/code&gt; могут быть все установлены в одной записи списка и объединяются:&lt;/p&gt;
+    &lt;a href=&#34;#%d0%bc%d0%be%d0%b6%d0%bd%d0%be-%d0%bb%d0%b8-%d0%be%d0%b1%d1%8a%d0%b5%d0%b4%d0%b8%d0%bd%d0%b8%d1%82%d1%8c-%d0%bd%d0%b5%d1%81%d0%ba%d0%be%d0%bb%d1%8c%d0%ba%d0%be-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%be%d0%b2-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%81%d0%bf%d0%b8%d1%81%d0%ba%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Да. Можно объединять &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt; и &lt;code&gt;file&lt;/code&gt; в одной записи списка — все данные сольются воедино:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
@@ -4131,10 +4130,10 @@
       <description>
         
         
-        &lt;p&gt;Начните с симптома, который соответствует тому, что вы видите. Каждый раздел начинается с самых простых проверок, затем даёт более продвинутые проверки, если они всё ещё нужны.&lt;/p&gt;
+        &lt;p&gt;Начните с симптома, который наблюдаете. Каждый раздел начинается с простых проверок; если они не помогают — переходите к расширенной диагностике.&lt;/p&gt;
 &lt;h2&gt;Сервис не запускается&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;сервис-не-запускается&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81-%d0%bd%d0%b5-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0%d0%b5%d1%82%d1%81%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
-&lt;li&gt;Подтвердите, что файл конфигурации существует в обычном месте для вашей платформы.
+&lt;li&gt;Убедитесь, что файл конфигурации находится в стандартном месте для вашей платформы.
 &lt;ul&gt;
 &lt;li&gt;Для OpenWRT/Debian это &lt;code&gt;/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Для Keenetic/NetCraze это &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
@@ -4408,7 +4407,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;&lt;code&gt;mask&lt;/code&gt; должна быть точно двумя смежными hex-нибблами. Используйте hex-строки, такие как &lt;code&gt;&amp;quot;0x00FF0000&amp;quot;&lt;/code&gt; и &lt;code&gt;&amp;quot;0x00020000&amp;quot;&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;mask&lt;/code&gt; должна состоять ровно из двух смежных hex-нибблов. Используйте hex-строки, например &lt;code&gt;&amp;quot;0x00FF0000&amp;quot;&lt;/code&gt; и &lt;code&gt;&amp;quot;0x00020000&amp;quot;&lt;/code&gt;.&lt;/p&gt;
 
       </description>
     </item>

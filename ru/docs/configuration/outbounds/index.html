@@ -9,26 +9,26 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 <title>Outbounds – keen-pbr</title>
-  <meta name="description" content="Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.
-Каждый outbound tag должен соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
-Большинству пользователей нужно только:
-один outbound типа interface для VPN-соединения один outbound типа interface для обычного соединения, часто wan опционально один outbound типа urltest, если нужно автоматическое переключение между несколькими соединениями Если не уверены, начните с outbound типа interface и вернитесь к другим позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
+  <meta name="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+Большинству пользователей достаточно:
+одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
   property="og:description"
   content="
     
-      Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.
-Каждый outbound tag должен соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
-Большинству пользователей нужно только:
+      Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+Большинству пользователей достаточно:
 
-один outbound типа interface для VPN-соединения
-один outbound типа interface для обычного соединения, часто wan
-опционально один outbound типа urltest, если нужно автоматическое переключение между несколькими соединениями
+одного outbound типа interface для VPN-соединения
+одного outbound типа table с id=254 для прямого соединения, как правило wan
+при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений
 
-Если не уверены, начните с outbound типа interface и вернитесь к другим позже.
+Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
 Общий пример
     
 
@@ -41,10 +41,9 @@ config.json{
       &#34;gateway&#34;: &#34;10.8.0.1&#34;
     },
     {
-      &#34;type&#34;: &#34;interface&#34;,
+      &#34;type&#34;: &#34;table&#34;,
       &#34;tag&#34;: &#34;wan&#34;,
-      &#34;interface&#34;: &#34;eth0&#34;,
-      &#34;gateway&#34;: &#34;192.168.1.1&#34;
+      &#34;table&#34;: 254
     }
   ]
 }
@@ -70,19 +69,19 @@ config.json{
 
 
   <meta itemprop="name" content="Outbounds">
-  <meta itemprop="description" content="Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.
-Каждый outbound tag должен соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
-Большинству пользователей нужно только:
-один outbound типа interface для VPN-соединения один outbound типа interface для обычного соединения, часто wan опционально один outbound типа urltest, если нужно автоматическое переключение между несколькими соединениями Если не уверены, начните с outbound типа interface и вернитесь к другим позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
-  <meta itemprop="wordCount" content="709">
+  <meta itemprop="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+Большинству пользователей достаточно:
+одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
+  <meta itemprop="wordCount" content="712">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Outbounds">
-  <meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.
-Каждый outbound tag должен соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
-Большинству пользователей нужно только:
-один outbound типа interface для VPN-соединения один outbound типа interface для обычного соединения, часто wan опционально один outbound типа urltest, если нужно автоматическое переключение между несколькими соединениями Если не уверены, начните с outbound типа interface и вернитесь к другим позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
+  <meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
+Большинству пользователей достаточно:
+одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1004,15 +1003,15 @@ config.json{
     </div>
           </div>
           
-          <p>Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.</p>
-<p>Каждый outbound <code>tag</code> должен соответствовать <code>^[a-z][a-z0-9_]*$</code> и быть не более 24 символов.</p>
-<p>Большинству пользователей нужно только:</p>
+          <p>Outbounds сообщают keen-pbr, куда отправить совпавший трафик.</p>
+<p>Каждый outbound <code>tag</code> должен соответствовать маске <code>^[a-z][a-z0-9_]*$</code> и быть не длиннее 24 символов.</p>
+<p>Большинству пользователей достаточно:</p>
 <ul>
-<li>один outbound типа <code>interface</code> для VPN-соединения</li>
-<li>один outbound типа <code>interface</code> для обычного соединения, часто <code>wan</code></li>
-<li>опционально один outbound типа <code>urltest</code>, если нужно автоматическое переключение между несколькими соединениями</li>
+<li>одного outbound типа <code>interface</code> для VPN-соединения</li>
+<li>одного outbound типа <code>table</code> с <code>id=254</code> для прямого соединения, как правило <code>wan</code></li>
+<li>при необходимости — одного outbound типа <code>urltest</code> для автоматического выбора лучшего из нескольких соединений</li>
 </ul>
-<p>Если не уверены, начните с outbound типа <code>interface</code> и вернитесь к другим позже.</p>
+<p>Если не знаете, с чего начать, возьмите тип <code>interface</code> и вернитесь к остальным позже.</p>
 <h2>Общий пример<span class="hx:absolute hx:-mt-20" id="общий-пример"></span>
     <a href="#%d0%be%d0%b1%d1%89%d0%b8%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1025,10 +1024,9 @@ config.json{
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;wan&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;eth0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;192.168.1.1&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;table&#34;</span><span class="p">:</span> <span class="mi">254</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">

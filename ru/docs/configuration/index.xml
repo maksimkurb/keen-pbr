@@ -23,15 +23,15 @@
       <description>
         
         
-        &lt;p&gt;Outbounds сообщают keen-pbr, куда должен идти соответствующий трафик.&lt;/p&gt;
-&lt;p&gt;Каждый outbound &lt;code&gt;tag&lt;/code&gt; должен соответствовать &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; и быть не более 24 символов.&lt;/p&gt;
-&lt;p&gt;Большинству пользователей нужно только:&lt;/p&gt;
+        &lt;p&gt;Outbounds сообщают keen-pbr, куда отправить совпавший трафик.&lt;/p&gt;
+&lt;p&gt;Каждый outbound &lt;code&gt;tag&lt;/code&gt; должен соответствовать маске &lt;code&gt;^[a-z][a-z0-9_]*$&lt;/code&gt; и быть не длиннее 24 символов.&lt;/p&gt;
+&lt;p&gt;Большинству пользователей достаточно:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;один outbound типа &lt;code&gt;interface&lt;/code&gt; для VPN-соединения&lt;/li&gt;
-&lt;li&gt;один outbound типа &lt;code&gt;interface&lt;/code&gt; для обычного соединения, часто &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;опционально один outbound типа &lt;code&gt;urltest&lt;/code&gt;, если нужно автоматическое переключение между несколькими соединениями&lt;/li&gt;
+&lt;li&gt;одного outbound типа &lt;code&gt;interface&lt;/code&gt; для VPN-соединения&lt;/li&gt;
+&lt;li&gt;одного outbound типа &lt;code&gt;table&lt;/code&gt; с &lt;code&gt;id=254&lt;/code&gt; для прямого соединения, как правило &lt;code&gt;wan&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;при необходимости — одного outbound типа &lt;code&gt;urltest&lt;/code&gt; для автоматического выбора лучшего из нескольких соединений&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;Если не уверены, начните с outbound типа &lt;code&gt;interface&lt;/code&gt; и вернитесь к другим позже.&lt;/p&gt;
+&lt;p&gt;Если не знаете, с чего начать, возьмите тип &lt;code&gt;interface&lt;/code&gt; и вернитесь к остальным позже.&lt;/p&gt;
 &lt;h2&gt;Общий пример&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;общий-пример&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%be%d0%b1%d1%89%d0%b8%d0%b9-%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -44,10 +44,9 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;10.8.0.1&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;},&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;tag&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;wan&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;interface&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;eth0&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;gateway&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;192.168.1.1&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;      &lt;span class=&#34;nt&#34;&gt;&amp;#34;table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;254&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;]&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
@@ -1209,8 +1208,8 @@
       <description>
         
         
-        &lt;p&gt;Используйте настройки DNS, когда хотите, чтобы домены в списке разрешались через конкретный DNS-сервер, обычно тот же VPN, который будет переносить соответствующий трафик.&lt;/p&gt;
-&lt;p&gt;При установке пакета на роутеры, keen-pbr обычно заботится об интеграции с dnsmasq за вас. Большинству пользователей нужно только определить:&lt;/p&gt;
+        &lt;p&gt;Настройки DNS используйте, если хотите, чтобы домены из списка разрешались через определённый DNS-сервер — как правило, тот же VPN, который пропускает соответствующий трафик.&lt;/p&gt;
+&lt;p&gt;При установке пакета на роутере keen-pbr обычно сам заботится об интеграции с dnsmasq. Большинству пользователей достаточно задать:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;system_resolver&lt;/code&gt; (оставьте значения по умолчанию)&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;servers&lt;/code&gt;&lt;/li&gt;
@@ -1608,8 +1607,8 @@
       <description>
         
         
-        &lt;p&gt;Большинство пользователей могут пропустить эту страницу.&lt;/p&gt;
-&lt;p&gt;Эти настройки для расширенных конфигураций и настройки уровня сервиса: &lt;code&gt;daemon&lt;/code&gt;, &lt;code&gt;api&lt;/code&gt;, &lt;code&gt;fwmark&lt;/code&gt;, &lt;code&gt;iproute&lt;/code&gt; и &lt;code&gt;lists_autoupdate&lt;/code&gt;.&lt;/p&gt;
+        &lt;p&gt;Большинству пользователей эта страница не понадобится.&lt;/p&gt;
+&lt;p&gt;Здесь описаны настройки для продвинутых сценариев и на уровне сервиса: &lt;code&gt;daemon&lt;/code&gt;, &lt;code&gt;api&lt;/code&gt;, &lt;code&gt;fwmark&lt;/code&gt;, &lt;code&gt;iproute&lt;/code&gt; и &lt;code&gt;lists_autoupdate&lt;/code&gt;.&lt;/p&gt;
 &lt;h2&gt;daemon&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;daemon&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#daemon&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Управляет путём к PID-файлу, каталогом кэша и глобальным поведением маршрутизации.&lt;/p&gt;
 &lt;table&gt;
@@ -1626,7 +1625,7 @@
           &lt;td&gt;&lt;code&gt;pid_file&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;string&lt;/td&gt;
           &lt;td&gt;—&lt;/td&gt;
-          &lt;td&gt;Путь для записи PID-файла&lt;/td&gt;
+          &lt;td&gt;Путь к PID-файлу&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;cache_dir&lt;/code&gt;&lt;/td&gt;
@@ -1638,25 +1637,25 @@
           &lt;td&gt;&lt;code&gt;firewall_backend&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;string&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;&amp;quot;auto&amp;quot;&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Выбор бэкенда firewall: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;Бэкенд firewall: &lt;code&gt;auto&lt;/code&gt;, &lt;code&gt;iptables&lt;/code&gt; или &lt;code&gt;nftables&lt;/code&gt;&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;strict_enforcement&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;boolean&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;false&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Строгое применение маршрутизации по умолчанию для интерфейсных outbounds. Когда включено, недостижимый маршрут по умолчанию устанавливается, если шлюз/интерфейс outbound не подтверждается достижимым. Может быть переопределено для каждого outbound.&lt;/td&gt;
+          &lt;td&gt;Строгое применение маршрутизации для outbound типа &lt;code&gt;interface&lt;/code&gt;: если включено, при недоступности шлюза или интерфейса устанавливается недостижимый маршрут по умолчанию. Можно переопределить для каждого outbound отдельно.&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;max_file_size_bytes&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;integer&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;8388608&lt;/code&gt; (8 MiB)&lt;/td&gt;
-          &lt;td&gt;Максимально допустимый размер в байтах для загруженного содержимого удалённых списков&lt;/td&gt;
+          &lt;td&gt;Максимальный размер загруженного удалённого списка в байтах&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
           &lt;td&gt;&lt;code&gt;firewall_verify_max_bytes&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;integer&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;262144&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;Максимумstdout-байт, захваченных за одну команду верификации firewall (&lt;code&gt;0&lt;/code&gt; = без ограничений)&lt;/td&gt;
+          &lt;td&gt;Максимальное число байт stdout, захватываемых за одну команду проверки firewall (&lt;code&gt;0&lt;/code&gt; = без ограничений)&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
