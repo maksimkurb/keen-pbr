@@ -277,5 +277,17 @@
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/docs/"
                 />
+  </url><url>
+    <loc>https://keen-pbr.fyi/ru/docs/getting-started/upgrade-from-2x/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/getting-started/upgrade-from-2x/"
+                />
   </url>
 </urlset>
