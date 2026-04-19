@@ -6,18 +6,18 @@ toc: false
 
 <div class="hx:mt-4 hx:mb-6">
 {{< hextra/hero-headline >}}
-  Политики маршрутизации&nbsp;<br class="hx:sm:block hx:hidden" />для Linux-роутеров
+  Выборочная маршрутизация&nbsp;<br class="hx:sm:block hx:hidden" />для Linux-роутеров
 {{< /hextra/hero-headline >}}
 </div>
 
 <div class="hx:mb-12">
 {{< hextra/hero-subtitle >}}
-  Выборочная маршрутизация трафика через VPN, WAN или пользовательские таблицы.&nbsp;<br class="hx:sm:block hx:hidden" />Разработано для роутеров OpenWRT, Keenetic® и Netcraze®.
+  Направляйте нужный трафик через VPN, WAN или пользовательские таблицы маршрутизации.&nbsp;<br class="hx:sm:block hx:hidden" />Разработано для роутеров OpenWRT, Keenetic® и Netcraze®.
 {{< /hextra/hero-subtitle >}}
 </div>
 
 <div class="hx:mb-6">
-{{< hextra/hero-button text="Начать" link="docs/getting-started/" >}}
+{{< hextra/hero-button text="Перейти к документации" link="docs/getting-started/" >}}
 </div>
 
 <div class="hx:mt-6"></div>

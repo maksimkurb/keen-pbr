@@ -4,20 +4,20 @@
   <h1>keen-pbr</h1>
 
   <p><strong>Policy-based routing for Linux routers.</strong></p>
-  <p>Route selected traffic through VPN, WAN, or custom tables on OpenWrt, Keenetic, and similar systems.</p>
+  <p>Route selected traffic through VPN, WAN, or custom IP tables on <strong>OpenWrt</strong>, <strong>Keenetic</strong>, and <strong>Debian</strong> systems.</p>
 
   <p>
     <a href="https://github.com/maksimkurb/keen-pbr/actions/workflows/build-ci.yml">
-      <img src="https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?branch=main" alt="Build status" />
+      <img src="https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?style=for-the-badge&branch=main" alt="Build status" />
     </a>
     <a href="https://github.com/maksimkurb/keen-pbr/releases">
-      <img src="https://img.shields.io/github/v/release/maksimkurb/keen-pbr?sort=date" alt="Latest release" />
+      <img src="https://img.shields.io/github/v/release/maksimkurb/keen-pbr?style=for-the-badge&sort=date" alt="Latest release" />
     </a>
     <a href="https://keen-pbr.fyi/">
-      <img src="https://img.shields.io/badge/docs-keen--pbr.fyi-0f766e" alt="Documentation" />
+      <img src="https://img.shields.io/badge/docs-keen--pbr.fyi-0f766e?style=for-the-badge" alt="Documentation" />
     </a>
     <a href="https://t.me/keen_pbr">
-      <img src="https://img.shields.io/badge/Telegram-Community-229ED9?logo=telegram&logoColor=white" alt="Telegram community" />
+      <img src="https://img.shields.io/badge/Telegram-Community-229ED9?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram community" />
     </a>
   </p>
 </div>
@@ -30,37 +30,21 @@ keen-pbr is a policy-based routing daemon that selectively sends traffic through
 
 It is built for embedded Linux routers and can:
 
-- route traffic through VPN, WAN, blackhole, ignore, or custom routing tables
+- route traffic through VPN, WAN, blackhole, or custom routing tables
 - use failover chains and health checks to keep traffic on healthy outbounds
 - integrate with `dnsmasq` for domain-based routing
 - provide an optional web UI and HTTP API for management and diagnostics
 
-## Start Here
+## Documentation & Installation
 
-This README is intentionally short. Full installation, configuration, packaging, and API guides live in the documentation:
+### <a href="https://keen-pbr.fyi/">&gt; Documentation in English &lt;</a>
+### <a href="https://keen-pbr.fyi/ru/">&gt; Документация на русском &lt;</a>
 
-| Docs | Link |
-|---|---|
-| Documentation home | https://keen-pbr.fyi/ |
-| Getting started | https://keen-pbr.fyi/docs/getting-started/ |
-| Quick start | https://keen-pbr.fyi/docs/getting-started/quick-start/ |
-| Configuration reference | https://keen-pbr.fyi/docs/configuration/ |
-| API reference | https://keen-pbr.fyi/docs/api/ |
+## Upgrade from keen-pbr 2.x
 
-## Development
+* [Upgrade from 2.x (in English)](http://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/)
+* [Обновление с версии 2.x (на русском)](http://keen-pbr.fyi/ru/docs/getting-started/upgrade-from-2x/)
 
-Native host builds use top-level `cmake-build-*` directories:
-
-Native prerequisites:
-
-- initialize submodules with `git submodule update --init --recursive`
-- install build deps including `libunwind-dev`
-
-- `make` builds with GCC in `cmake-build-gcc`
-- `make test` builds and runs tests with GCC in `cmake-build-gcc`
-- `make clang-build` performs a compile-only Clang build in `cmake-build-clang`
-- `make clang-check` compiles app and tests with Clang thread-safety analysis enabled, but does not run any Clang-built binary
-- `make clang-tidy` runs static analysis on project-owned `src/`, `tests/`, and `include/` code via the Clang compilation database
 
 ## Community
 
