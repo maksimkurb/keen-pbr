@@ -627,7 +627,7 @@ function getDraftFromMapEntry(
 
   return {
     name,
-    ttlMs: String(listConfig.ttl_ms ?? 300000),
+    ttlMs: String(listConfig.ttl_ms ?? 0),
     domains: (listConfig.domains ?? []).join("\n"),
     ipCidrs: (listConfig.ip_cidrs ?? []).join("\n"),
     url: listConfig.url ?? "",
@@ -660,12 +660,13 @@ function getListConfigFromDraft(draft: ListDraft): ListConfig {
   const ipCidrs = splitLines(draft.ipCidrs)
   const trimmedUrl = draft.url.trim()
   const trimmedFile = draft.file.trim()
+  const ttlMs = Number.parseInt(draft.ttlMs.trim(), 10)
 
   const listConfig: ListConfig = {}
+  listConfig.ttl_ms = Number.isNaN(ttlMs) ? 0 : ttlMs
 
   if (trimmedUrl) {
     listConfig.url = trimmedUrl
-    listConfig.ttl_ms = Number.parseInt(draft.ttlMs.trim(), 10)
   }
 
   if (trimmedFile) {

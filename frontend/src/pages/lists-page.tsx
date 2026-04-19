@@ -301,7 +301,7 @@ function getTableRowsFromListMap(
       id: name,
       draft: {
         name,
-        ttlMs: String(listConfig.ttl_ms ?? 300000),
+        ttlMs: String(listConfig.ttl_ms ?? 0),
         domains: domains.join("\n"),
         ipCidrs: ipCidrs.join("\n"),
         url: listConfig.url ?? "",
