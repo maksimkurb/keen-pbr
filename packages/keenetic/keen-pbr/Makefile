@@ -95,7 +95,6 @@ endef
 
 define Package/keen-pbr/install
 	$(INSTALL_DIR) $(1)/opt/etc/init.d
-	$(INSTALL_DIR) $(1)/opt/etc/dnsmasq.d
 	$(INSTALL_DIR) $(1)/opt/etc/keen-pbr
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/usr/bin
@@ -152,7 +151,6 @@ endef
 
 define Package/keen-pbr-headless/install
 	$(INSTALL_DIR) $(1)/opt/etc/init.d
-	$(INSTALL_DIR) $(1)/opt/etc/dnsmasq.d
 	$(INSTALL_DIR) $(1)/opt/etc/keen-pbr
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/usr/bin

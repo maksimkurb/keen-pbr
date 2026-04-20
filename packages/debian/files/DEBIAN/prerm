@@ -9,9 +9,4 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl disable keen-pbr >/dev/null 2>&1 || true
 fi
 
-if [ -x "$DNSMASQ_HELPER" ]; then
-    "$DNSMASQ_HELPER" uninstall-persistent || true
-    "$DNSMASQ_HELPER" restart-dnsmasq || true
-fi
-
 exit 0

@@ -39,9 +39,6 @@ signal_service() {
 
 prepare_start() {
     disable_hwnat
-    if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" ensure-runtime-prereqs || return 1
-    fi
 }
 
 prepare_stop() {
@@ -53,7 +50,6 @@ prepare_stop() {
 
 reapply_dnsmasq_config() {
     if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" ensure-runtime-prereqs || return 1
         "$DNSMASQ_HELPER" activate || return 1
     fi
 }

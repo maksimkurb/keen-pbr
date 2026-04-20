@@ -4,13 +4,9 @@ set -eu
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_PATH="/etc/keen-pbr/config.json"
-DNSMASQ_CONF="/etc/dnsmasq.conf"
-DNSMASQ_TMP_DIR="/tmp/dnsmasq.d"
-DNSMASQ_TMP_FILE="${DNSMASQ_TMP_DIR}/keen-pbr.conf"
 DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
-BLOCK_START="# BEGIN keen-pbr managed block"
-BLOCK_END="# END keen-pbr managed block"
-BLOCK_LINE="conf-dir=/tmp/dnsmasq.d,*.conf"
+STATE_DIR="/tmp/keen-pbr"
+ACTIVE_FILE="${STATE_DIR}/active"
 
 log_message() {
     local level="$1"
@@ -23,6 +19,10 @@ log_warn() {
     log_message warn "$1"
 }
 
+log_info() {
+    log_message info "$1"
+}
+
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
         echo "dnsmasq-nftset"
@@ -31,68 +31,47 @@ resolver_type() {
     fi
 }
 
-conf_script_line() {
-    printf 'conf-script=%s --config %s generate-resolver-config %s\n' \
-        "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
-}
-
 fallback_conf_line() {
     printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
 }
 
-has_managed_block() {
-    [ -f "$DNSMASQ_CONF" ] || return 1
-
-    awk -v start="$BLOCK_START" -v line="$BLOCK_LINE" -v end="$BLOCK_END" '
-        $0 == start {
-            found = 1
-            if (getline next_line <= 0) {
-                exit 1
-            }
-            if (getline final_line <= 0) {
-                exit 1
-            }
-            exit !(next_line == line && final_line == end)
-        }
-        END {
-            if (!found) {
-                exit 1
-            }
-        }
-    ' "$DNSMASQ_CONF"
+active_conf_line() {
+    printf 'conf-script=%s --config %s generate-resolver-config %s\n' \
+        "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
 }
 
-install_persistent() {
-    mkdir -p "$DNSMASQ_TMP_DIR"
-    if [ -f "$DNSMASQ_FALLBACK_FILE" ] && [ ! -f "$DNSMASQ_TMP_FILE" ]; then
-        fallback_conf_line > "$DNSMASQ_TMP_FILE"
-    fi
+is_active() {
+    [ -r "$ACTIVE_FILE" ] || return 1
+
+    active_state="$(tr -d '[:space:]' < "$ACTIVE_FILE" 2>/dev/null || true)"
+    [ "$active_state" = "Y" ]
 }
 
-ensure_runtime_prereqs() {
-    install_persistent
-    if ! has_managed_block; then
-        log_warn "Missing keen-pbr dnsmasq include block in ${DNSMASQ_CONF}; expected block pointing to ${DNSMASQ_TMP_DIR}"
+set_active_state() {
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$1" > "$ACTIVE_FILE"
+}
+
+emit_dnsmasq_config_entry() {
+    if is_active; then
+        active_conf_line
+        log_info "Produced dnsmasq working config entry"
+    else
+        fallback_conf_line
+        log_info "Produced dnsmasq fallback config entry"
     fi
 }
 
 activate_dnsmasq() {
-    mkdir -p "$DNSMASQ_TMP_DIR"
-    conf_script_line > "$DNSMASQ_TMP_FILE"
+    set_active_state "Y"
+    log_info "Marked keen-pbr dnsmasq state as active"
     restart_dnsmasq
 }
 
 deactivate_dnsmasq() {
-    if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        fallback_conf_line > "$DNSMASQ_TMP_FILE"
-    else
-        rm -f "$DNSMASQ_TMP_FILE"
-    fi
+    set_active_state "N"
+    log_info "Marked keen-pbr dnsmasq state as inactive"
     restart_dnsmasq
-}
-
-uninstall_persistent() {
-    rm -f "$DNSMASQ_TMP_FILE"
 }
 
 restart_dnsmasq() {
@@ -108,11 +87,9 @@ print_help() {
 Usage: $0 <command>
 
 Commands:
-  install-persistent     Seed fallback dnsmasq config and install persistent integration.
-  ensure-runtime-prereqs Create runtime directories and warn if dnsmasq lacks the managed conf-dir block.
-  activate               Switch dnsmasq to keen-pbr dynamic resolver config and restart dnsmasq.
-  deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
-  uninstall-persistent   Remove helper-managed runtime config.
+  dnsmasq-config-entry   Print the dnsmasq config entry for the current active state.
+  activate               Mark keen-pbr dnsmasq state active and restart dnsmasq.
+  deactivate             Mark keen-pbr dnsmasq state inactive and restart dnsmasq.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
   reload                 Alias for restart-dnsmasq; used by the system resolver hook.
   help                   Show this help text.
@@ -120,20 +97,14 @@ EOF
 }
 
 case "${1:-}" in
-    install-persistent)
-        install_persistent
-        ;;
-    ensure-runtime-prereqs)
-        ensure_runtime_prereqs
+    dnsmasq-config-entry)
+        emit_dnsmasq_config_entry
         ;;
     activate)
         activate_dnsmasq
         ;;
     deactivate)
         deactivate_dnsmasq
-        ;;
-    uninstall-persistent)
-        uninstall_persistent
         ;;
     restart-dnsmasq)
         restart_dnsmasq

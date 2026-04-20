@@ -5,10 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStartPre=/usr/lib/keen-pbr/dnsmasq.sh ensure-runtime-prereqs
 ExecStartPre=/usr/lib/keen-pbr/dnsmasq.sh activate
 ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json service
-ExecReload=/usr/lib/keen-pbr/dnsmasq.sh ensure-runtime-prereqs
 ExecReload=/usr/lib/keen-pbr/dnsmasq.sh activate
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStopPost=/usr/lib/keen-pbr/dnsmasq.sh deactivate

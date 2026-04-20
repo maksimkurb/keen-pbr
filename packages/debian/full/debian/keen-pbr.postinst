@@ -11,10 +11,6 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload >/dev/null 2>&1 || true
 fi
 
-if [ -x "$DNSMASQ_HELPER" ]; then
-    "$DNSMASQ_HELPER" install-persistent || true
-fi
-
 answer=""
 if [ -f "$DNSMASQ_TEMPLATE" ]; then
     if [ -n "${KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS:-}" ]; then

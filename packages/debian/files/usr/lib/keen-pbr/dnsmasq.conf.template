@@ -42,5 +42,5 @@ log-async           # Non-blocking logging
 
 # BEGIN keen-pbr managed block
 # Do not remove the following line, it is required for keen-pbr to function properly.
-conf-dir=/tmp/dnsmasq.d,*.conf
+conf-script=/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry
 # END keen-pbr managed block

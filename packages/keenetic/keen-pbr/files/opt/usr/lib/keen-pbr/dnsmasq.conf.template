@@ -49,5 +49,5 @@ address=/my.keenetic.net/my.netcraze.net/2001:2:7847:1251:feee:ed78:4712:5180
 
 # BEGIN keen-pbr managed block
 # Do not remove the following line, it is required for keen-pbr to function properly.
-conf-dir=/tmp/dnsmasq.d,*.conf
+conf-script=/opt/usr/lib/keen-pbr/dnsmasq.sh dnsmasq-config-entry
 # END keen-pbr managed block

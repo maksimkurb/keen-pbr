@@ -2,13 +2,11 @@
 
 DNSMASQ_CONF="/opt/etc/dnsmasq.conf"
 DNSMASQ_TEMPLATE="/opt/usr/lib/keen-pbr/dnsmasq.conf.template"
-DNSMASQ_HELPER="/opt/usr/lib/keen-pbr/dnsmasq.sh"
 DNSMASQ_BACKUP="/opt/etc/dnsmasq.conf.backup-pre-keen-pbr"
 
 echo "keen-pbr installation"
 echo "------------------------"
 
-mkdir -p /opt/etc/dnsmasq.d
 mkdir -p /opt/usr/lib/keen-pbr
 
 answer=""
@@ -52,10 +50,6 @@ case "$answer" in
         printf "Ignoring invalid KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS value: %s. Use Y or N.\n" "$answer"
         ;;
 esac
-
-if [ -x "$DNSMASQ_HELPER" ]; then
-    "$DNSMASQ_HELPER" install-persistent || true
-fi
 
 echo ""
 /opt/etc/init.d/S80keen-pbr start || echo "Failed to start keen-pbr service"
