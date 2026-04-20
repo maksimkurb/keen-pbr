@@ -29,6 +29,7 @@ log_info() {
 write_managed_conf() {
     local target="$1"
     local line="$2"
+    local description="$3"
     local existing=""
 
     if [ -f "$target" ]; then
@@ -39,7 +40,7 @@ write_managed_conf() {
     fi
 
     printf '%s\n' "$line" > "$target"
-    log_info "Created $target"
+    log_info "Created $target with $description configuration"
 }
 
 resolver_type() {
@@ -207,7 +208,7 @@ write_temp_conf_for_section() {
 
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
-    write_managed_conf "${confdir}/${CONFFILE}" "$(conf_script_line)"
+    write_managed_conf "${confdir}/${CONFFILE}" "$(conf_script_line)" "working"
 }
 
 write_fallback_conf_for_section() {
@@ -217,7 +218,7 @@ write_fallback_conf_for_section() {
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
     if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        write_managed_conf "${confdir}/${CONFFILE}" "$(fallback_conf_line)"
+        write_managed_conf "${confdir}/${CONFFILE}" "$(fallback_conf_line)" "fallback"
     else
         rm -f "${confdir}/${CONFFILE}"
         log_info "Removed ${confdir}/${CONFFILE}"

@@ -19,7 +19,7 @@ on:
       source_repository:
         description: Repository that owns the workflow run
         required: false
-        default: maksimkurb/keenetic-pbr-go
+        default: maksimkurb/keen-pbr
         type: string
       artifact_pattern:
         description: Artifact name pattern to download
@@ -114,7 +114,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag_name }}
           name: ${{ inputs.release_name != '' && inputs.release_name || inputs.tag_name }}

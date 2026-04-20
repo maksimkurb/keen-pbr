@@ -48,18 +48,31 @@ has_managed_block() {
     [ -f "$DNSMASQ_CONF" ] || return 1
 
     awk -v start="$BLOCK_START" -v line="$BLOCK_LINE" -v end="$BLOCK_END" '
-        $0 == start {
-            found = 1
-            if (getline next_line <= 0) {
-                exit 1
-            }
-            if (getline final_line <= 0) {
-                exit 1
-            }
-            exit !(next_line == line && final_line == end)
+        function trim(value) {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+            return value
         }
+
+        {
+            current = trim($0)
+        }
+
+        current == start {
+            found = 1
+            in_block = 1
+            next
+        }
+
+        in_block && current == end {
+            exit !line_found
+        }
+
+        in_block && current == line {
+            line_found = 1
+        }
+
         END {
-            if (!found) {
+            if (!found || !line_found) {
                 exit 1
             }
         }
