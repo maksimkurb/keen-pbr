@@ -23,6 +23,35 @@ log_info() {
     log_message info "$1"
 }
 
+log_error() {
+    log_message err "$1"
+}
+
+ensure_xt_multiport_loaded() {
+    if command -v nft >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if lsmod | grep -q '^xt_multiport[[:space:]]'; then
+        return 0
+    fi
+
+    if command -v modprobe >/dev/null 2>&1 && modprobe xt_multiport 2>/dev/null; then
+        return 0
+    fi
+
+    module_path="$(find "/lib/modules/$(uname -r)" -type f \
+        -name 'xt_multiport.ko*' 2>/dev/null | head -n 1 || true)"
+
+    if [ -n "$module_path" ]; then
+        log_error "Failed to load xt_multiport from $module_path"
+    else
+        log_error "xt_multiport module not loaded and not found under /lib/modules/$(uname -r)"
+    fi
+
+    return 0
+}
+
 resolver_type() {
     if command -v nft >/dev/null 2>&1; then
         echo "dnsmasq-nftset"
@@ -62,6 +91,7 @@ emit_dnsmasq_config_entry() {
 }
 
 activate_dnsmasq() {
+    ensure_xt_multiport_loaded
     set_active_state "Y"
     log_info "Marked keen-pbr dnsmasq state as active"
     restart_dnsmasq
