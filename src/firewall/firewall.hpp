@@ -11,10 +11,32 @@ namespace keen_pbr3 {
 
 class ListEntryVisitor;
 
-// Protocol + port + address filter for firewall mark/drop/pass rules.
+enum class L4Proto : uint8_t {
+    Any,
+    Tcp,
+    Udp,
+    TcpUdp,
+};
+
+inline const char* l4_proto_name(L4Proto proto) {
+    switch (proto) {
+    case L4Proto::Any:
+        return "";
+    case L4Proto::Tcp:
+        return "tcp";
+    case L4Proto::Udp:
+        return "udp";
+    case L4Proto::TcpUdp:
+        return "tcp/udp";
+    }
+    return "";
+}
+
+// Match criteria for firewall mark/drop/pass rules.
 // All fields default to empty meaning "any".
-struct ProtoPortFilter {
-    std::string proto;                  // "tcp", "udp", "tcp/udp", or "" (any)
+struct FirewallRuleCriteria {
+    std::optional<std::string> dst_set_name; // named destination set matcher, if any
+    L4Proto proto = L4Proto::Any;
     std::string src_port;              // port spec or "" (any)
     std::string dst_port;              // port spec or "" (any)
     std::vector<std::string> src_addr; // CIDR list, empty = any source address
@@ -24,10 +46,19 @@ struct ProtoPortFilter {
     bool negate_src_addr = false;      // if true, match packets NOT from src_addr
     bool negate_dst_addr = false;      // if true, match packets NOT to dst_addr
     bool empty() const {
-        return proto.empty() && src_port.empty() && dst_port.empty()
+        return !dst_set_name.has_value() && proto == L4Proto::Any
+            && src_port.empty() && dst_port.empty()
             && src_addr.empty() && dst_addr.empty();
     }
+
+    bool has_rule_selector() const {
+        return dst_set_name.has_value()
+            || !src_port.empty() || !dst_port.empty()
+            || !src_addr.empty() || !dst_addr.empty();
+    }
 };
+
+using ProtoPortFilter = FirewallRuleCriteria;
 
 struct FirewallGlobalPrefilter {
     std::optional<std::vector<std::string>> inbound_interfaces;
@@ -79,34 +110,20 @@ public:
     virtual void create_ipset(const std::string& set_name, int family,
                               uint32_t timeout = 0) = 0;
 
-    // Create a firewall rule that marks packets matching the given IP set
+    // Create a firewall rule that marks packets matching the given criteria
     // with the specified firewall mark (fwmark).
-    // set_name: IP set to match against
     // fwmark: mark value to apply to matching packets
-    // filter: optional proto/port filter (default = any proto, any port)
-    virtual void create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                                  const ProtoPortFilter& filter = {}) = 0;
+    // criteria: optional match criteria (default = any packet)
+    virtual void create_mark_rule(uint32_t fwmark,
+                                  const FirewallRuleCriteria& criteria = {}) = 0;
 
-    // Create a firewall rule that drops packets matching the given IP set.
+    // Create a firewall rule that drops packets matching the given criteria.
     // Used for blackhole outbounds that don't need routing tables or fwmarks.
-    // set_name: IP set to match against
-    // filter: optional proto/port filter (default = any proto, any port)
-    virtual void create_drop_rule(const std::string& set_name,
-                                  const ProtoPortFilter& filter = {}) = 0;
+    virtual void create_drop_rule(const FirewallRuleCriteria& criteria = {}) = 0;
 
     // Create a firewall rule that stops keen-pbr processing for matching packets
     // and leaves them unmodified for normal system routing.
-    // set_name: IP set to match against
-    // filter: optional proto/port filter (default = any proto, any port)
-    virtual void create_pass_rule(const std::string& set_name,
-                                  const ProtoPortFilter& filter = {}) = 0;
-
-    // Create a firewall rule that marks packets matching the filter's dst_addr
-    // with the specified fwmark, WITHOUT requiring an IP set.
-    // Used for DNS server detour (single IP + port 53).
-    // When filter is empty (all fields default), acts as a catch-all mark rule.
-    virtual void create_direct_mark_rule(uint32_t fwmark,
-                                         const ProtoPortFilter& filter) = 0;
+    virtual void create_pass_rule(const FirewallRuleCriteria& criteria = {}) = 0;
 
     // Create a batch loader visitor for streaming IP/CIDR entries into a set.
     // Returns a ListEntryVisitor that buffers entries for atomic application.

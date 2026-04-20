@@ -8,10 +8,27 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 
+#include <algorithm>
+#include <array>
+#include <set>
+#include <sstream>
+
 // NftablesBuilderTest must be in the same namespace as the friend declaration
 // (keen_pbr3::NftablesBuilderTest matches the friend class NftablesBuilderTest
 // declared inside namespace keen_pbr3).
 namespace keen_pbr3 {
+
+namespace {
+
+L4Proto parse_test_proto(const std::string& proto) {
+  if (proto.empty()) return L4Proto::Any;
+  if (proto == "tcp") return L4Proto::Tcp;
+  if (proto == "udp") return L4Proto::Udp;
+  if (proto == "tcp/udp") return L4Proto::TcpUdp;
+  throw std::invalid_argument("unexpected proto in test: " + proto);
+}
+
+} // namespace
 
 // Friend class with test access to NftablesFirewall private methods.
 // Helper methods take plain parameters and build the private structs
@@ -54,9 +71,7 @@ public:
     rules.reserve(descs.size());
     for (const auto &d : descs) {
       NftablesFirewall::PendingRule pr;
-      pr.set_name = d.set_name;
       pr.family = d.family;
-      pr.direct = d.direct;
       if (d.action == RuleDesc::Mark) {
         pr.action = NftablesFirewall::PendingRule::Mark;
       } else if (d.action == RuleDesc::Drop) {
@@ -65,10 +80,35 @@ public:
         pr.action = NftablesFirewall::PendingRule::Pass;
       }
       pr.fwmark = d.fwmark;
-      pr.filter = d.filter;
+      pr.criteria = d.filter;
+      if (!d.set_name.empty()) {
+        pr.criteria.dst_set_name = d.set_name;
+      }
       rules.push_back(std::move(pr));
     }
     return NftablesFirewall::build_rule_add_commands(prefilter, rules);
+  }
+
+  static nlohmann::json build_rule_add_commands_for_rule(
+      int family, RuleDesc::Action action, uint32_t fwmark,
+      FirewallRuleCriteria criteria, bool list_backed,
+      FirewallGlobalPrefilter prefilter = {}) {
+    NftablesFirewall fw;
+    if (list_backed) {
+      criteria.dst_set_name = "pairwise_set";
+      fw.created_sets_["pairwise_set"] = family;
+    }
+
+    NftablesFirewall::PendingRule::Action mapped_action =
+        NftablesFirewall::PendingRule::Mark;
+    if (action == RuleDesc::Drop) {
+      mapped_action = NftablesFirewall::PendingRule::Drop;
+    } else if (action == RuleDesc::Pass) {
+      mapped_action = NftablesFirewall::PendingRule::Pass;
+    }
+
+    fw.append_rules_for_family(family, mapped_action, fwmark, criteria);
+    return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
 
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
@@ -76,12 +116,13 @@ public:
                                              ProtoPortFilter filter = {},
                                              bool direct = false) {
     NftablesFirewall::PendingRule pr;
-    pr.set_name = set_name;
     pr.family = family;
-    pr.direct = direct;
     pr.action = NftablesFirewall::PendingRule::Mark;
     pr.fwmark = fwmark;
-    pr.filter = filter;
+    pr.criteria = filter;
+    if (!direct && !set_name.empty()) {
+      pr.criteria.dst_set_name = set_name;
+    }
     return NftablesFirewall::build_mark_rule_json(pr);
   }
 
@@ -89,11 +130,13 @@ public:
                                              int family,
                                              ProtoPortFilter filter = {}) {
     NftablesFirewall::PendingRule pr;
-    pr.set_name = set_name;
     pr.family = family;
     pr.action = NftablesFirewall::PendingRule::Drop;
     pr.fwmark = 0;
-    pr.filter = filter;
+    pr.criteria = filter;
+    if (!set_name.empty()) {
+      pr.criteria.dst_set_name = set_name;
+    }
     return NftablesFirewall::build_drop_rule_json(pr);
   }
 
@@ -101,11 +144,13 @@ public:
                                              int family,
                                              ProtoPortFilter filter = {}) {
     NftablesFirewall::PendingRule pr;
-    pr.set_name = set_name;
     pr.family = family;
     pr.action = NftablesFirewall::PendingRule::Pass;
     pr.fwmark = 0;
-    pr.filter = filter;
+    pr.criteria = filter;
+    if (!set_name.empty()) {
+      pr.criteria.dst_set_name = set_name;
+    }
     return NftablesFirewall::build_pass_rule_json(pr);
   }
 
@@ -114,7 +159,7 @@ public:
                                                const std::string &dst_port,
                                                bool negate_src = false,
                                                bool negate_dst = false) {
-    return NftablesFirewall::build_port_match_exprs(proto, src_port, dst_port,
+    return NftablesFirewall::build_port_match_exprs(parse_test_proto(proto), src_port, dst_port,
                                                     negate_src, negate_dst);
   }
 
@@ -566,7 +611,7 @@ TEST_CASE("build_port_match_exprs: src_port + dest_port → two port exprs") {
 TEST_CASE(
     "build_mark_rule_json: tcp + dest_port=443 → port match expr present") {
   ProtoPortFilter f;
-  f.proto = "tcp";
+  f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
   const auto &expr = j["add"]["rule"]["expr"];
@@ -843,7 +888,7 @@ TEST_CASE("build_mark_rule_json: negated src_addr → != in saddr expr") {
 
 TEST_CASE("build_mark_rule_json: negated dest_port → != in dport expr") {
   ProtoPortFilter f;
-  f.proto = "tcp";
+  f.proto = L4Proto::Tcp;
   f.dst_port = "443";
   f.negate_dst_port = true;
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
@@ -884,7 +929,7 @@ TEST_CASE("build_mark_rule_json: multiple negated src_addrs → != with set "
 TEST_CASE(
     "build_mark_rule_json: negated dst port list → != with set {80,443}") {
   ProtoPortFilter f;
-  f.proto = "tcp";
+  f.proto = L4Proto::Tcp;
   f.dst_port = "80,443";
   f.negate_dst_port = true;
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
@@ -995,7 +1040,7 @@ TEST_CASE("nft dual-set IPv6: kpbr6_ and kpbr6d_ both produce ip6 rules") {
 
 TEST_CASE("build_mark_rule_json: direct=true → no @set match in expr") {
   ProtoPortFilter f;
-  f.proto = "udp";
+  f.proto = L4Proto::Udp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
   auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
@@ -1010,7 +1055,7 @@ TEST_CASE("build_mark_rule_json: direct=true → no @set match in expr") {
 
 TEST_CASE("build_mark_rule_json: direct=true IPv4 UDP port 53 → daddr, l4proto, dport, counter, mangle") {
   ProtoPortFilter f;
-  f.proto = "udp";
+  f.proto = L4Proto::Udp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
   auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
@@ -1037,7 +1082,7 @@ TEST_CASE("build_mark_rule_json: direct=true IPv4 UDP port 53 → daddr, l4proto
 
 TEST_CASE("build_mark_rule_json: direct=true → daddr matches server IP") {
   ProtoPortFilter f;
-  f.proto = "tcp";
+  f.proto = L4Proto::Tcp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
   auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
@@ -1058,4 +1103,443 @@ TEST_CASE("build_mark_rule_json: direct=false → first expr is @set match (regr
   const auto &expr = j["add"]["rule"]["expr"];
   REQUIRE(!expr.empty());
   CHECK(expr[0]["match"]["right"] == "@myset");
+}
+
+namespace {
+
+enum class PairwiseRuleMode {
+  ListBacked,
+  Direct,
+};
+
+enum class PairwiseAction {
+  Mark,
+  Drop,
+  Pass,
+};
+
+struct ProtoVariant {
+  const char *name;
+  L4Proto proto;
+};
+
+enum class PortShape {
+  Empty,
+  Single,
+  Multi,
+  Range,
+};
+
+struct PortVariant {
+  const char *name;
+  PortShape shape;
+  const char *spec;
+  bool negated;
+};
+
+struct AddrVariant {
+  const char *name;
+  std::vector<std::string> addrs;
+  bool negated;
+};
+
+struct PairwiseNftCase {
+  std::string name;
+  PairwiseRuleMode mode;
+  PairwiseAction action;
+  ProtoVariant proto;
+  PortVariant src_port;
+  PortVariant dst_port;
+  AddrVariant src_addr;
+  AddrVariant dst_addr;
+};
+
+constexpr std::array<ProtoVariant, 4> kProtoVariants{{
+    {"any", L4Proto::Any},
+    {"tcp", L4Proto::Tcp},
+    {"udp", L4Proto::Udp},
+    {"tcp_udp", L4Proto::TcpUdp},
+}};
+
+constexpr std::array<PortVariant, 7> kPortVariants{{
+    {"empty", PortShape::Empty, "", false},
+    {"single", PortShape::Single, "443", false},
+    {"multi", PortShape::Multi, "80,443", false},
+    {"range", PortShape::Range, "8000-9000", false},
+    {"neg_single", PortShape::Single, "53", true},
+    {"neg_multi", PortShape::Multi, "53,123", true},
+    {"neg_range", PortShape::Range, "10000-10010", true},
+}};
+
+const std::array<AddrVariant, 5> kAddrVariants{{
+    {"empty", {}, false},
+    {"single", {"192.0.2.0/24"}, false},
+    {"multi", {"192.0.2.0/24", "198.51.100.0/24"}, false},
+    {"neg_single", {"203.0.113.0/24"}, true},
+    {"neg_multi", {"203.0.113.0/24", "198.18.0.0/15"}, true},
+}};
+
+constexpr std::array<const char *, 2> kModeNames{{"list", "direct"}};
+constexpr std::array<const char *, 3> kActionNames{{"mark", "drop", "pass"}};
+
+using PairwiseIndex = std::array<size_t, 7>;
+
+size_t selector_count(const PairwiseNftCase &tc) {
+  size_t count = 0;
+  count += tc.src_port.shape != PortShape::Empty ? 1 : 0;
+  count += tc.dst_port.shape != PortShape::Empty ? 1 : 0;
+  count += tc.src_addr.addrs.empty() ? 0 : 1;
+  count += tc.dst_addr.addrs.empty() ? 0 : 1;
+  return count;
+}
+
+bool has_negated_selector(const PairwiseNftCase &tc) {
+  return tc.src_port.negated || tc.dst_port.negated || tc.src_addr.negated ||
+         tc.dst_addr.negated;
+}
+
+bool has_positive_selector(const PairwiseNftCase &tc) {
+  return (tc.src_port.shape != PortShape::Empty && !tc.src_port.negated) ||
+         (tc.dst_port.shape != PortShape::Empty && !tc.dst_port.negated) ||
+         (!tc.src_addr.addrs.empty() && !tc.src_addr.negated) ||
+         (!tc.dst_addr.addrs.empty() && !tc.dst_addr.negated);
+}
+
+std::string pairwise_combo_name(const PairwiseIndex &idx) {
+  std::ostringstream os;
+  os << kModeNames[idx[0]] << "__" << kActionNames[idx[1]] << "__"
+     << kProtoVariants[idx[2]].name << "__srcp_" << kPortVariants[idx[3]].name
+     << "__dstp_" << kPortVariants[idx[4]].name << "__srca_"
+     << kAddrVariants[idx[5]].name << "__dsta_" << kAddrVariants[idx[6]].name;
+  return os.str();
+}
+
+FirewallRuleCriteria build_pairwise_filter(const PairwiseNftCase &tc) {
+  FirewallRuleCriteria filter;
+  filter.proto = tc.proto.proto;
+  filter.src_port = tc.src_port.spec;
+  filter.dst_port = tc.dst_port.spec;
+  filter.src_addr = tc.src_addr.addrs;
+  filter.dst_addr = tc.dst_addr.addrs;
+  filter.negate_src_port = tc.src_port.negated;
+  filter.negate_dst_port = tc.dst_port.negated;
+  filter.negate_src_addr = tc.src_addr.negated;
+  filter.negate_dst_addr = tc.dst_addr.negated;
+  return filter;
+}
+
+std::vector<L4Proto> expand_proto(L4Proto proto) {
+  if (proto == L4Proto::TcpUdp) {
+    return {L4Proto::Tcp, L4Proto::Udp};
+  }
+  return {proto};
+}
+
+nlohmann::json port_rhs(const PortVariant &variant) {
+  if (variant.shape == PortShape::Single) {
+    return std::stoi(variant.spec);
+  }
+  if (variant.shape == PortShape::Range) {
+    const std::string spec = variant.spec;
+    const auto dash = spec.find('-');
+    return {{"range",
+             nlohmann::json::array({std::stoi(spec.substr(0, dash)),
+                                    std::stoi(spec.substr(dash + 1))})}};
+  }
+
+  nlohmann::json elems = nlohmann::json::array();
+  std::istringstream parts(variant.spec);
+  std::string token;
+  while (std::getline(parts, token, ',')) {
+    elems.push_back(std::stoi(token));
+  }
+  return {{"set", elems}};
+}
+
+nlohmann::json addr_rhs(const AddrVariant &variant) {
+  if (variant.addrs.size() == 1) {
+    return variant.addrs.front();
+  }
+  nlohmann::json elems = nlohmann::json::array();
+  for (const auto &addr : variant.addrs) {
+    elems.push_back(addr);
+  }
+  return {{"set", elems}};
+}
+
+nlohmann::json match_expr(const nlohmann::json &left, const nlohmann::json &right,
+                         const std::string &op = "==") {
+  return {{"match", {{"op", op}, {"left", left}, {"right", right}}}};
+}
+
+nlohmann::json expected_rule_exprs(const PairwiseNftCase &tc, int family,
+                                   uint32_t fwmark, L4Proto proto) {
+  const std::string ip_proto = family == AF_INET6 ? "ip6" : "ip";
+  const std::string payload_proto =
+      proto == L4Proto::Any ? "th" : l4_proto_name(proto);
+
+  nlohmann::json expr = nlohmann::json::array();
+
+  if (tc.mode == PairwiseRuleMode::ListBacked) {
+    expr.push_back(match_expr(
+        {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}},
+        "@pairwise_set"));
+  }
+  if (!tc.src_addr.addrs.empty()) {
+    expr.push_back(match_expr(
+        {{"payload", {{"protocol", ip_proto}, {"field", "saddr"}}}},
+        addr_rhs(tc.src_addr), tc.src_addr.negated ? "!=" : "=="));
+  }
+  if (!tc.dst_addr.addrs.empty()) {
+    expr.push_back(match_expr(
+        {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}},
+        addr_rhs(tc.dst_addr), tc.dst_addr.negated ? "!=" : "=="));
+  }
+  if (proto != L4Proto::Any) {
+    expr.push_back(match_expr({{"meta", {{"key", "l4proto"}}}},
+                              l4_proto_name(proto)));
+  }
+  if (tc.src_port.shape != PortShape::Empty) {
+    expr.push_back(match_expr(
+        {{"payload", {{"protocol", payload_proto}, {"field", "sport"}}}},
+        port_rhs(tc.src_port), tc.src_port.negated ? "!=" : "=="));
+  }
+  if (tc.dst_port.shape != PortShape::Empty) {
+    expr.push_back(match_expr(
+        {{"payload", {{"protocol", payload_proto}, {"field", "dport"}}}},
+        port_rhs(tc.dst_port), tc.dst_port.negated ? "!=" : "=="));
+  }
+
+  expr.push_back({{"counter", nullptr}});
+  if (tc.action == PairwiseAction::Mark) {
+    expr.push_back(
+        {{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}}, {"value", fwmark}}}});
+    expr.push_back({{"accept", nullptr}});
+  } else if (tc.action == PairwiseAction::Drop) {
+    expr.push_back({{"drop", nullptr}});
+  } else {
+    expr.push_back({{"accept", nullptr}});
+  }
+
+  return expr;
+}
+
+nlohmann::json expected_rule_commands(const PairwiseNftCase &tc, int family,
+                                      uint32_t fwmark) {
+  nlohmann::json commands = nlohmann::json::array();
+  for (L4Proto proto : expand_proto(tc.proto.proto)) {
+    commands.push_back({{"add",
+                         {{"rule",
+                           {{"family", "inet"},
+                            {"table", "KeenPbrTable"},
+                            {"chain", "prerouting"},
+                            {"expr", expected_rule_exprs(tc, family, fwmark, proto)}}}}}});
+  }
+  return commands;
+}
+
+std::set<std::string> build_uncovered_pairs() {
+  const std::array<size_t, 7> axis_sizes{
+      kModeNames.size(),      kActionNames.size(), kProtoVariants.size(),
+      kPortVariants.size(),   kPortVariants.size(), kAddrVariants.size(),
+      kAddrVariants.size(),
+  };
+
+  std::set<std::string> uncovered;
+  for (size_t a = 0; a < axis_sizes.size(); ++a) {
+    for (size_t b = a + 1; b < axis_sizes.size(); ++b) {
+      for (size_t va = 0; va < axis_sizes[a]; ++va) {
+        for (size_t vb = 0; vb < axis_sizes[b]; ++vb) {
+          uncovered.insert(std::to_string(a) + ":" + std::to_string(va) + "|" +
+                           std::to_string(b) + ":" + std::to_string(vb));
+        }
+      }
+    }
+  }
+  return uncovered;
+}
+
+std::vector<std::string> coverage_keys(const PairwiseIndex &idx) {
+  std::vector<std::string> keys;
+  for (size_t a = 0; a < idx.size(); ++a) {
+    for (size_t b = a + 1; b < idx.size(); ++b) {
+      keys.push_back(std::to_string(a) + ":" + std::to_string(idx[a]) + "|" +
+                     std::to_string(b) + ":" + std::to_string(idx[b]));
+    }
+  }
+  return keys;
+}
+
+std::vector<PairwiseIndex> generate_pairwise_indices() {
+  std::vector<PairwiseIndex> all_combos;
+  for (size_t mode = 0; mode < kModeNames.size(); ++mode) {
+    for (size_t action = 0; action < kActionNames.size(); ++action) {
+      for (size_t proto = 0; proto < kProtoVariants.size(); ++proto) {
+        for (size_t src_port = 0; src_port < kPortVariants.size(); ++src_port) {
+          for (size_t dst_port = 0; dst_port < kPortVariants.size(); ++dst_port) {
+            for (size_t src_addr = 0; src_addr < kAddrVariants.size(); ++src_addr) {
+              for (size_t dst_addr = 0; dst_addr < kAddrVariants.size(); ++dst_addr) {
+                all_combos.push_back(
+                    {mode, action, proto, src_port, dst_port, src_addr, dst_addr});
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  std::set<std::string> uncovered = build_uncovered_pairs();
+  std::vector<PairwiseIndex> selected;
+  std::set<std::string> seen;
+
+  const std::vector<PairwiseIndex> seeds{
+      {0, 0, 1, 0, 1, 0, 0},
+      {1, 1, 2, 0, 3, 1, 0},
+      {0, 2, 3, 5, 1, 3, 2},
+      {1, 0, 1, 4, 2, 3, 1},
+  };
+
+  auto add_combo = [&](const PairwiseIndex &combo) {
+    const std::string key = pairwise_combo_name(combo);
+    if (!seen.insert(key).second) {
+      return;
+    }
+    selected.push_back(combo);
+    for (const auto &coverage : coverage_keys(combo)) {
+      uncovered.erase(coverage);
+    }
+  };
+
+  for (const auto &seed : seeds) {
+    add_combo(seed);
+  }
+
+  while (!uncovered.empty()) {
+    size_t best_score = 0;
+    size_t best_index = 0;
+    for (size_t i = 0; i < all_combos.size(); ++i) {
+      if (seen.count(pairwise_combo_name(all_combos[i])) != 0) {
+        continue;
+      }
+      size_t score = 0;
+      for (const auto &coverage : coverage_keys(all_combos[i])) {
+        score += uncovered.count(coverage);
+      }
+      if (score > best_score) {
+        best_score = score;
+        best_index = i;
+      }
+    }
+    add_combo(all_combos[best_index]);
+  }
+
+  return selected;
+}
+
+std::vector<PairwiseNftCase> generate_pairwise_cases() {
+  std::vector<PairwiseNftCase> cases;
+  for (const auto &idx : generate_pairwise_indices()) {
+    cases.push_back({
+        pairwise_combo_name(idx),
+        idx[0] == 0 ? PairwiseRuleMode::ListBacked : PairwiseRuleMode::Direct,
+        idx[1] == 0 ? PairwiseAction::Mark
+                    : (idx[1] == 1 ? PairwiseAction::Drop : PairwiseAction::Pass),
+        kProtoVariants[idx[2]],
+        kPortVariants[idx[3]],
+        kPortVariants[idx[4]],
+        kAddrVariants[idx[5]],
+        kAddrVariants[idx[6]],
+    });
+  }
+  return cases;
+}
+
+bool pairwise_is_complete(const std::vector<PairwiseIndex> &cases) {
+  std::set<std::string> uncovered = build_uncovered_pairs();
+  for (const auto &combo : cases) {
+    for (const auto &coverage : coverage_keys(combo)) {
+      uncovered.erase(coverage);
+    }
+  }
+  return uncovered.empty();
+}
+
+} // namespace
+
+TEST_CASE("nft pairwise matrix guard: deterministic bounded and complete") {
+  const auto first = generate_pairwise_indices();
+  const auto second = generate_pairwise_indices();
+
+  CHECK(first == second);
+  CHECK(pairwise_is_complete(first));
+  CHECK(first.size() <= 120);
+
+  const auto cases = generate_pairwise_cases();
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.mode == PairwiseRuleMode::ListBacked;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.mode == PairwiseRuleMode::Direct;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.action == PairwiseAction::Mark;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.action == PairwiseAction::Drop;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.action == PairwiseAction::Pass;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return selector_count(tc) == 1;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return selector_count(tc) == 2;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return selector_count(tc) >= 3;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return has_negated_selector(tc) && has_positive_selector(tc);
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.src_addr.addrs.size() > 1 || tc.dst_addr.addrs.size() > 1;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.src_addr.addrs.size() == 1 || tc.dst_addr.addrs.size() == 1;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.src_port.shape == PortShape::Single ||
+           tc.dst_port.shape == PortShape::Single;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.src_port.shape == PortShape::Multi ||
+           tc.dst_port.shape == PortShape::Multi;
+  }));
+  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
+    return tc.src_port.shape == PortShape::Range ||
+           tc.dst_port.shape == PortShape::Range;
+  }));
+}
+
+TEST_CASE("build_rule_add_commands: pairwise parametrized rule matrix") {
+  static constexpr uint32_t kPairwiseMark = 0x1234;
+  const auto cases = generate_pairwise_cases();
+
+  for (const auto &tc : cases) {
+    const auto filter = build_pairwise_filter(tc);
+    const auto action = tc.action == PairwiseAction::Mark
+                            ? Rule::Mark
+                            : (tc.action == PairwiseAction::Drop ? Rule::Drop
+                                                                 : Rule::Pass);
+
+    const auto actual = T::build_rule_add_commands_for_rule(
+        AF_INET, action, kPairwiseMark, filter,
+        tc.mode == PairwiseRuleMode::ListBacked);
+    const auto expected = expected_rule_commands(tc, AF_INET, kPairwiseMark);
+
+    CAPTURE(tc.name);
+    CHECK(actual == expected);
+  }
 }

@@ -23,16 +23,12 @@ public:
                       uint32_t timeout = 0) override;
 
     // Buffer an iptables/ip6tables -j MARK --set-mark rule for the given ipset.
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer an iptables/ip6tables -j DROP rule for the given ipset.
-    void create_drop_rule(const std::string& set_name,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer an iptables/ip6tables -j RETURN rule for the given ipset.
-    void create_pass_rule(const std::string& set_name,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer a direct iptables/ip6tables -j MARK rule matching dst IP/port (no ipset).
-    void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
+    void create_mark_rule(uint32_t fwmark,
+                          const FirewallRuleCriteria& criteria = {}) override;
+    // Buffer an iptables/ip6tables -j DROP rule for the given criteria.
+    void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
+    // Buffer an iptables/ip6tables -j RETURN rule for the given criteria.
+    void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
 
     // Return an IpsetRestoreVisitor that appends 'add' lines to the pending
     // element buffer for set_name; entries are flushed during apply().
@@ -68,10 +64,9 @@ private:
     struct PendingRule {
         std::string set_name; // ipset name to match with --match-set
         bool ipv6;            // true → ip6tables, false → iptables
-        bool direct = false;  // if true, no --match-set; dst comes from filter.dst_addr
         enum Action { Mark, Drop, Pass } action; // MARK, DROP, or RETURN target
         uint32_t fwmark; // only for Mark
-        ProtoPortFilter filter; // optional proto/port filter
+        FirewallRuleCriteria criteria; // optional packet match criteria
     };
 
     // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
@@ -84,7 +79,7 @@ private:
     static std::string build_prefilter_lines(
         const FirewallGlobalPrefilter& prefilter);
     // Build the proto/port fragment for a single rule (single proto, not tcp/udp).
-    static std::string build_proto_port_fragment(const std::string& proto,
+    static std::string build_proto_port_fragment(L4Proto proto,
                                                  const std::string& src_port,
                                                  const std::string& dst_port,
                                                  bool negate_src_port = false,
@@ -96,10 +91,10 @@ private:
     // Expand filter (proto, src_addr, dst_addr) into cross-product of PendingRules
     // and append them to out.  tcp/udp is split into two entries.  Multiple CIDRs
     // in src_addr / dst_addr each become separate rules (OR semantics when combined).
-    static void expand_and_push(std::vector<PendingRule>& out,
-                                const std::string& set_name, bool ipv6,
-                                PendingRule::Action action, uint32_t fwmark,
-                                const ProtoPortFilter& filter);
+    void append_rules_for_family(bool ipv6,
+                                 PendingRule::Action action,
+                                 uint32_t fwmark,
+                                 const FirewallRuleCriteria& criteria);
 
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;

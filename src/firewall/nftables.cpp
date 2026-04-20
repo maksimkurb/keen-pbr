@@ -12,6 +12,32 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+bool is_ipv6_addr(const std::string& addr) {
+    return addr.find(':') != std::string::npos;
+}
+
+std::vector<std::string> filter_addrs_by_family(const std::vector<std::string>& addrs,
+                                                bool ipv6) {
+    std::vector<std::string> filtered;
+    for (const auto& addr : addrs) {
+        if (is_ipv6_addr(addr) == ipv6) {
+            filtered.push_back(addr);
+        }
+    }
+    return filtered;
+}
+
+std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
+    if (proto == L4Proto::TcpUdp) {
+        return {L4Proto::Tcp, L4Proto::Udp};
+    }
+    return {proto};
+}
+
+} // namespace
+
 NftablesFirewall::NftablesFirewall() = default;
 
 NftablesFirewall::~NftablesFirewall() {
@@ -36,105 +62,71 @@ void NftablesFirewall::create_ipset(const std::string& set_name, int family,
     created_sets_[set_name] = family;
 }
 
-void NftablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    int family = (it != created_sets_.end()) ? it->second : AF_INET;
+void NftablesFirewall::append_rules_for_family(int family,
+                                               PendingRule::Action action,
+                                               uint32_t fwmark,
+                                               const FirewallRuleCriteria& criteria) {
+    const bool ipv6 = family == AF_INET6;
+    const auto filtered_src_addrs = criteria.src_addr.empty()
+        ? std::vector<std::string>{}
+        : filter_addrs_by_family(criteria.src_addr, ipv6);
+    const auto filtered_dst_addrs = criteria.dst_addr.empty()
+        ? std::vector<std::string>{}
+        : filter_addrs_by_family(criteria.dst_addr, ipv6);
+    if ((!criteria.src_addr.empty() && filtered_src_addrs.empty())
+        || (!criteria.dst_addr.empty() && filtered_dst_addrs.empty())) {
+        return;
+    }
 
-    if (filter.proto == "tcp/udp") {
-        for (const char* p : {"tcp", "udp"}) {
-            PendingRule pr;
-            pr.set_name = set_name;
-            pr.family = family;
-            pr.action = PendingRule::Mark;
-            pr.fwmark = fwmark;
-            pr.filter = filter;
-            pr.filter.proto = p;
-            pending_rules_.push_back(std::move(pr));
-        }
-    } else {
+    for (const auto proto : expand_l4_protos(criteria.proto)) {
         PendingRule pr;
-        pr.set_name = set_name;
         pr.family = family;
-        pr.action = PendingRule::Mark;
+        pr.action = action;
         pr.fwmark = fwmark;
-        pr.filter = filter;
-        pending_rules_.push_back(std::move(pr));
-    }
-}
-
-void NftablesFirewall::create_direct_mark_rule(uint32_t fwmark,
-                                                const ProtoPortFilter& filter) {
-    bool is_v6 = !filter.dst_addr.empty() &&
-                 filter.dst_addr[0].find(':') != std::string::npos;
-    int family = is_v6 ? AF_INET6 : AF_INET;
-    std::vector<std::string> protos = (filter.proto == "tcp/udp")
-        ? std::vector<std::string>{"tcp", "udp"}
-        : std::vector<std::string>{filter.proto};
-    for (const auto& proto : protos) {
-        PendingRule pr;
-        pr.direct  = true;
-        pr.family  = family;
-        pr.action  = PendingRule::Mark;
-        pr.fwmark  = fwmark;
-        pr.filter  = filter;
-        pr.filter.proto = proto;
-        pending_rules_.push_back(std::move(pr));
-    }
-}
-
-void NftablesFirewall::create_drop_rule(const std::string& set_name,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    int family = (it != created_sets_.end()) ? it->second : AF_INET;
-
-    if (filter.proto == "tcp/udp") {
-        for (const char* p : {"tcp", "udp"}) {
-            PendingRule pr;
-            pr.set_name = set_name;
-            pr.family = family;
-            pr.action = PendingRule::Drop;
-            pr.fwmark = 0;
-            pr.filter = filter;
-            pr.filter.proto = p;
-            pending_rules_.push_back(std::move(pr));
+        pr.criteria = criteria;
+        pr.criteria.proto = proto;
+        if (!criteria.src_addr.empty()) {
+            pr.criteria.src_addr = filtered_src_addrs;
         }
-    } else {
-        PendingRule pr;
-        pr.set_name = set_name;
-        pr.family = family;
-        pr.action = PendingRule::Drop;
-        pr.fwmark = 0;
-        pr.filter = filter;
+        if (!criteria.dst_addr.empty()) {
+            pr.criteria.dst_addr = filtered_dst_addrs;
+        }
         pending_rules_.push_back(std::move(pr));
     }
 }
 
-void NftablesFirewall::create_pass_rule(const std::string& set_name,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    int family = (it != created_sets_.end()) ? it->second : AF_INET;
-
-    if (filter.proto == "tcp/udp") {
-        for (const char* p : {"tcp", "udp"}) {
-            PendingRule pr;
-            pr.set_name = set_name;
-            pr.family = family;
-            pr.action = PendingRule::Pass;
-            pr.fwmark = 0;
-            pr.filter = filter;
-            pr.filter.proto = p;
-            pending_rules_.push_back(std::move(pr));
-        }
-    } else {
-        PendingRule pr;
-        pr.set_name = set_name;
-        pr.family = family;
-        pr.action = PendingRule::Pass;
-        pr.fwmark = 0;
-        pr.filter = filter;
-        pending_rules_.push_back(std::move(pr));
+void NftablesFirewall::create_mark_rule(uint32_t fwmark,
+                                        const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        int family = (it != created_sets_.end()) ? it->second : AF_INET;
+        append_rules_for_family(family, PendingRule::Mark, fwmark, criteria);
+        return;
     }
+    append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria);
+    append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria);
+}
+
+void NftablesFirewall::create_drop_rule(const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        int family = (it != created_sets_.end()) ? it->second : AF_INET;
+        append_rules_for_family(family, PendingRule::Drop, 0, criteria);
+        return;
+    }
+    append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria);
+    append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria);
+}
+
+void NftablesFirewall::create_pass_rule(const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        int family = (it != created_sets_.end()) ? it->second : AF_INET;
+        append_rules_for_family(family, PendingRule::Pass, 0, criteria);
+        return;
+    }
+    append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria);
+    append_rules_for_family(AF_INET6, PendingRule::Pass, 0, criteria);
 }
 
 std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
@@ -293,23 +285,23 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
     return commands;
 }
 
-nlohmann::json NftablesFirewall::build_port_match_exprs(const std::string& proto,
+nlohmann::json NftablesFirewall::build_port_match_exprs(L4Proto proto,
                                                           const std::string& src_port,
                                                           const std::string& dst_port,
                                                           bool negate_src_port,
                                                           bool negate_dst_port) {
     nlohmann::json exprs = nlohmann::json::array();
-    if (proto.empty() && src_port.empty() && dst_port.empty()) {
+    if (proto == L4Proto::Any && src_port.empty() && dst_port.empty()) {
         return exprs;
     }
     // proto match (next-header) — never negated
-    if (!proto.empty()) {
-        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"meta", {{"key", "l4proto"}}}}}, {"right", proto}}}});
+    if (proto != L4Proto::Any) {
+        exprs.push_back({{"match", {{"op", "=="}, {"left", {{"meta", {{"key", "l4proto"}}}}}, {"right", l4_proto_name(proto)}}}});
     }
     // For port payload fields, nft expects a transport-header payload protocol.
     // When proto is unspecified, use "th" (transport header) so expressions like
     // dport/sport are still valid.
-    const std::string payload_proto = proto.empty() ? "th" : proto;
+    const std::string payload_proto = proto == L4Proto::Any ? "th" : l4_proto_name(proto);
     // src_port match
     if (!src_port.empty()) {
         std::string op = negate_src_port ? "!=" : "==";
@@ -352,18 +344,18 @@ nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_pr
 nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
-    if (!pr.direct) {
+    if (pr.criteria.dst_set_name.has_value()) {
         // set-membership match
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
     }
     // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
-                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
+                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
         expr.push_back(e);
     }
     // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
-                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
+    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
+                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});
@@ -380,17 +372,17 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
 nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
-    if (!pr.direct) {
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    if (pr.criteria.dst_set_name.has_value()) {
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
     }
     // Append src/dst address constraints
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
-                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
+                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
         expr.push_back(e);
     }
     // Append proto/port match expressions
-    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
-                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
+    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
+                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});
@@ -406,15 +398,15 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
 nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
-    if (!pr.direct) {
-        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + pr.set_name}}}});
+    if (pr.criteria.dst_set_name.has_value()) {
+        expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
     }
-    for (const auto& e : build_addr_match_exprs(ip_proto, pr.filter.src_addr, pr.filter.dst_addr,
-                                                 pr.filter.negate_src_addr, pr.filter.negate_dst_addr)) {
+    for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
+                                                 pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
         expr.push_back(e);
     }
-    for (const auto& e : build_port_match_exprs(pr.filter.proto, pr.filter.src_port, pr.filter.dst_port,
-                                                  pr.filter.negate_src_port, pr.filter.negate_dst_port)) {
+    for (const auto& e : build_port_match_exprs(pr.criteria.proto, pr.criteria.src_port, pr.criteria.dst_port,
+                                                  pr.criteria.negate_src_port, pr.criteria.negate_dst_port)) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});

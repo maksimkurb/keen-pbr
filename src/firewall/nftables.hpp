@@ -22,17 +22,13 @@ public:
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
 
-    // Buffer a meta mark set rule that matches the given named set.
-    void create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer a drop verdict rule that matches the given named set.
-    void create_drop_rule(const std::string& set_name,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer a pass-through verdict rule that matches the given named set.
-    void create_pass_rule(const std::string& set_name,
-                          const ProtoPortFilter& filter = {}) override;
-    // Buffer a direct meta mark set rule matching dst IP/port (no named set).
-    void create_direct_mark_rule(uint32_t fwmark, const ProtoPortFilter& filter) override;
+    // Buffer a meta mark set rule that matches the given criteria.
+    void create_mark_rule(uint32_t fwmark,
+                          const FirewallRuleCriteria& criteria = {}) override;
+    // Buffer a drop verdict rule that matches the given criteria.
+    void create_drop_rule(const FirewallRuleCriteria& criteria = {}) override;
+    // Buffer a pass-through verdict rule that matches the given criteria.
+    void create_pass_rule(const FirewallRuleCriteria& criteria = {}) override;
 
     // Return an NftBatchVisitor that appends element values to the pending
     // element buffer for set_name; elements are flushed during apply().
@@ -65,12 +61,10 @@ private:
 
     // Describes a rule to be added to the prerouting chain.
     struct PendingRule {
-        std::string set_name; // nftables set name to match (without '@' prefix)
         int family;  // AF_INET or AF_INET6
-        bool direct = false;  // if true, no @set match; dst comes from filter.dst_addr
         enum Action { Mark, Drop, Pass } action; // meta mark, drop, or accept verdict
         uint32_t fwmark; // only for Mark
-        ProtoPortFilter filter; // optional proto/port filter
+        FirewallRuleCriteria criteria; // optional packet match criteria
     };
 
     // Build the nftables JSON object for creating the inet KeenPbrTable table.
@@ -91,7 +85,7 @@ private:
     static nlohmann::json build_pass_rule_json(const PendingRule& pr);
     // Build nftables match expression(s) for proto/port filter.
     // Returns a (possibly empty) array of JSON match expressions.
-    static nlohmann::json build_port_match_exprs(const std::string& proto,
+    static nlohmann::json build_port_match_exprs(L4Proto proto,
                                                   const std::string& src_port,
                                                   const std::string& dst_port,
                                                   bool negate_src_port = false,
@@ -106,6 +100,10 @@ private:
     // Build the JSON element-add object for bulk-loading elems into a named set.
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems);
+    void append_rules_for_family(int family,
+                                 PendingRule::Action action,
+                                 uint32_t fwmark,
+                                 const FirewallRuleCriteria& criteria);
 
     // Sets queued for creation, flushed by apply().
     std::vector<PendingSet> pending_sets_;

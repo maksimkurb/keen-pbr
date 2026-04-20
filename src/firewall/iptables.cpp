@@ -11,6 +11,32 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+bool is_ipv6_addr(const std::string& addr) {
+    return addr.find(':') != std::string::npos;
+}
+
+std::vector<std::string> filter_addrs_by_family(const std::vector<std::string>& addrs,
+                                                bool ipv6) {
+    std::vector<std::string> filtered;
+    for (const auto& addr : addrs) {
+        if (is_ipv6_addr(addr) == ipv6) {
+            filtered.push_back(addr);
+        }
+    }
+    return filtered;
+}
+
+std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
+    if (proto == L4Proto::TcpUdp) {
+        return {L4Proto::Tcp, L4Proto::Udp};
+    }
+    return {proto};
+}
+
+} // namespace
+
 IptablesFirewall::IptablesFirewall() = default;
 
 IptablesFirewall::~IptablesFirewall() {
@@ -35,75 +61,77 @@ void IptablesFirewall::create_ipset(const std::string& set_name, int family,
     created_sets_[set_name] = family;
 }
 
-void IptablesFirewall::expand_and_push(std::vector<PendingRule>& out,
-                                        const std::string& set_name, bool ipv6,
-                                        PendingRule::Action action, uint32_t fwmark,
-                                        const ProtoPortFilter& filter) {
-    std::vector<std::string> protos = (filter.proto == "tcp/udp")
-        ? std::vector<std::string>{"tcp", "udp"}
-        : std::vector<std::string>{filter.proto};
+void IptablesFirewall::append_rules_for_family(bool ipv6,
+                                               PendingRule::Action action,
+                                               uint32_t fwmark,
+                                               const FirewallRuleCriteria& criteria) {
     const std::vector<std::string> any_addr{""};
-    const std::vector<std::string>& src_addrs =
-        filter.src_addr.empty() ? any_addr : filter.src_addr;
-    const std::vector<std::string>& dst_addrs =
-        filter.dst_addr.empty() ? any_addr : filter.dst_addr;
+    const auto filtered_src_addrs = criteria.src_addr.empty()
+        ? any_addr
+        : filter_addrs_by_family(criteria.src_addr, ipv6);
+    const auto filtered_dst_addrs = criteria.dst_addr.empty()
+        ? any_addr
+        : filter_addrs_by_family(criteria.dst_addr, ipv6);
+    if ((!criteria.src_addr.empty() && filtered_src_addrs.empty())
+        || (!criteria.dst_addr.empty() && filtered_dst_addrs.empty())) {
+        return;
+    }
 
-    for (const auto& proto : protos) {
+    for (const auto proto : expand_l4_protos(criteria.proto)) {
+        const std::vector<std::string>& src_addrs = filtered_src_addrs;
+        const std::vector<std::string>& dst_addrs = filtered_dst_addrs;
         for (const auto& src : src_addrs) {
             for (const auto& dst : dst_addrs) {
                 PendingRule pr;
-                pr.set_name = set_name;
                 pr.ipv6     = ipv6;
                 pr.action   = action;
                 pr.fwmark   = fwmark;
-                pr.filter   = filter;
-                pr.filter.proto = proto;
-                pr.filter.src_addr = src.empty() ? std::vector<std::string>{} : std::vector<std::string>{src};
-                pr.filter.dst_addr = dst.empty() ? std::vector<std::string>{} : std::vector<std::string>{dst};
-                out.push_back(std::move(pr));
+                pr.criteria = criteria;
+                pr.criteria.proto = proto;
+                pr.criteria.src_addr = src.empty()
+                    ? std::vector<std::string>{}
+                    : std::vector<std::string>{src};
+                pr.criteria.dst_addr = dst.empty()
+                    ? std::vector<std::string>{}
+                    : std::vector<std::string>{dst};
+                pending_rules_.push_back(std::move(pr));
             }
         }
     }
 }
 
-void IptablesFirewall::create_mark_rule(const std::string& set_name, uint32_t fwmark,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Mark, fwmark, filter);
-}
-
-void IptablesFirewall::create_drop_rule(const std::string& set_name,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Drop, 0, filter);
-}
-
-void IptablesFirewall::create_pass_rule(const std::string& set_name,
-                                         const ProtoPortFilter& filter) {
-    auto it = created_sets_.find(set_name);
-    bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
-    expand_and_push(pending_rules_, set_name, ipv6, PendingRule::Pass, 0, filter);
-}
-
-void IptablesFirewall::create_direct_mark_rule(uint32_t fwmark,
-                                                const ProtoPortFilter& filter) {
-    bool is_v6 = !filter.dst_addr.empty() &&
-                 filter.dst_addr[0].find(':') != std::string::npos;
-    std::vector<std::string> protos = (filter.proto == "tcp/udp")
-        ? std::vector<std::string>{"tcp", "udp"}
-        : std::vector<std::string>{filter.proto};
-    for (const auto& proto : protos) {
-        PendingRule pr;
-        pr.direct  = true;
-        pr.ipv6    = is_v6;
-        pr.action  = PendingRule::Mark;
-        pr.fwmark  = fwmark;
-        pr.filter  = filter;
-        pr.filter.proto = proto;
-        pending_rules_.push_back(std::move(pr));
+void IptablesFirewall::create_mark_rule(uint32_t fwmark,
+                                        const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
+        append_rules_for_family(ipv6, PendingRule::Mark, fwmark, criteria);
+        return;
     }
+    append_rules_for_family(false, PendingRule::Mark, fwmark, criteria);
+    append_rules_for_family(true, PendingRule::Mark, fwmark, criteria);
+}
+
+void IptablesFirewall::create_drop_rule(const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
+        append_rules_for_family(ipv6, PendingRule::Drop, 0, criteria);
+        return;
+    }
+    append_rules_for_family(false, PendingRule::Drop, 0, criteria);
+    append_rules_for_family(true, PendingRule::Drop, 0, criteria);
+}
+
+void IptablesFirewall::create_pass_rule(const FirewallRuleCriteria& criteria) {
+    if (criteria.dst_set_name.has_value()) {
+        auto it = created_sets_.find(*criteria.dst_set_name);
+        bool ipv6 = (it != created_sets_.end() && it->second == AF_INET6);
+        append_rules_for_family(ipv6, PendingRule::Pass, 0, criteria);
+        return;
+    }
+    append_rules_for_family(false, PendingRule::Pass, 0, criteria);
+    append_rules_for_family(true, PendingRule::Pass, 0, criteria);
 }
 
 std::unique_ptr<ListEntryVisitor> IptablesFirewall::create_batch_loader(
@@ -130,20 +158,21 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
     }
 }
 
-std::string IptablesFirewall::build_proto_port_fragment(const std::string& proto,
+std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
                                                          const std::string& src_port,
                                                          const std::string& dst_port,
                                                          bool negate_src_port,
                                                          bool negate_dst_port) {
-    if (proto.empty() && src_port.empty() && dst_port.empty()) {
+    if (proto == L4Proto::Any && src_port.empty() && dst_port.empty()) {
         return "";
     }
 
     std::string frag;
 
     // -p flag (required if we have any port matching)
-    if (!proto.empty()) {
-        frag += " -p " + proto;
+    if (proto != L4Proto::Any) {
+        frag += " -p ";
+        frag += l4_proto_name(proto);
     }
 
     bool has_src = !src_port.empty();
@@ -215,20 +244,20 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
     }
 
     std::string addr_frag;
-    if (!pr.filter.src_addr.empty())
-        addr_frag += std::string(pr.filter.negate_src_addr ? " !" : "") + " -s " + pr.filter.src_addr[0];
-    if (!pr.filter.dst_addr.empty())
-        addr_frag += std::string(pr.filter.negate_dst_addr ? " !" : "") + " -d " + pr.filter.dst_addr[0];
-    std::string pp = build_proto_port_fragment(pr.filter.proto,
-                                               pr.filter.src_port,
-                                               pr.filter.dst_port,
-                                               pr.filter.negate_src_port,
-                                               pr.filter.negate_dst_port);
+    if (!pr.criteria.src_addr.empty())
+        addr_frag += std::string(pr.criteria.negate_src_addr ? " !" : "") + " -s " + pr.criteria.src_addr[0];
+    if (!pr.criteria.dst_addr.empty())
+        addr_frag += std::string(pr.criteria.negate_dst_addr ? " !" : "") + " -d " + pr.criteria.dst_addr[0];
+    std::string pp = build_proto_port_fragment(pr.criteria.proto,
+                                               pr.criteria.src_port,
+                                               pr.criteria.dst_port,
+                                               pr.criteria.negate_src_port,
+                                               pr.criteria.negate_dst_port);
 
     std::vector<std::string> lines;
     lines.reserve(iface_frags.size());
     for (const auto& iface_frag : iface_frags) {
-        if (pr.direct) {
+        if (!pr.criteria.dst_set_name.has_value()) {
             if (pr.action == PendingRule::Mark) {
                 lines.push_back(keen_pbr3::format(
                     "-A {}{}{}{} -j MARK --set-mark {:#x}\n",
@@ -263,7 +292,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                 lines.push_back(keen_pbr3::format(
                     "-A {} -m set --match-set {} dst{}{}{} -j MARK --set-mark {:#x}\n",
                     CHAIN_NAME,
-                    pr.set_name,
+                    *pr.criteria.dst_set_name,
                     iface_frag,
                     addr_frag,
                     pp,
@@ -271,7 +300,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                 lines.push_back(keen_pbr3::format(
                     "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
                     CHAIN_NAME,
-                    pr.set_name,
+                    *pr.criteria.dst_set_name,
                     iface_frag,
                     addr_frag,
                     pp));
@@ -279,7 +308,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                 lines.push_back(keen_pbr3::format(
                     "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",
                     CHAIN_NAME,
-                    pr.set_name,
+                    *pr.criteria.dst_set_name,
                     iface_frag,
                     addr_frag,
                     pp));
@@ -287,7 +316,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                 lines.push_back(keen_pbr3::format(
                     "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
                     CHAIN_NAME,
-                    pr.set_name,
+                    *pr.criteria.dst_set_name,
                     iface_frag,
                     addr_frag,
                     pp));
