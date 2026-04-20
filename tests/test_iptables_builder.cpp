@@ -943,7 +943,13 @@ std::string format_fwmark(uint32_t fwmark) {
   return os.str();
 }
 
-std::vector<L4Proto> expand_proto(L4Proto proto) {
+std::vector<L4Proto> expand_proto(L4Proto proto,
+                                  const PortVariant &src_port,
+                                  const PortVariant &dst_port) {
+  if (proto == L4Proto::Any &&
+      (src_port.shape != PortShape::Empty || dst_port.shape != PortShape::Empty)) {
+    return {L4Proto::Tcp, L4Proto::Udp};
+  }
   if (proto == L4Proto::TcpUdp) {
     return {L4Proto::Tcp, L4Proto::Udp};
   }
@@ -1018,7 +1024,7 @@ std::vector<std::string> expected_rule_lines(const PairwiseIptablesCase &tc,
       tc.dst_addr.addrs.empty() ? std::vector<std::string>{""}
                                 : tc.dst_addr.addrs;
 
-  for (L4Proto proto : expand_proto(tc.proto.proto)) {
+  for (L4Proto proto : expand_proto(tc.proto.proto, tc.src_port, tc.dst_port)) {
     const std::string proto_port_frag =
         expected_proto_port_fragment(proto, tc.src_port, tc.dst_port);
     for (const auto &src_addr : src_addrs) {

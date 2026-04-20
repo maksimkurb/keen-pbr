@@ -36,6 +36,12 @@ std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
     return {proto};
 }
 
+bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
+    return criteria.dst_set_name.has_value()
+        || !criteria.src_addr.empty()
+        || !criteria.dst_addr.empty();
+}
+
 } // namespace
 
 NftablesFirewall::NftablesFirewall() = default;
@@ -103,6 +109,10 @@ void NftablesFirewall::create_mark_rule(uint32_t fwmark,
         append_rules_for_family(family, PendingRule::Mark, fwmark, criteria);
         return;
     }
+    if (!needs_family_specific_rule(criteria)) {
+        append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria);
+        return;
+    }
     append_rules_for_family(AF_INET, PendingRule::Mark, fwmark, criteria);
     append_rules_for_family(AF_INET6, PendingRule::Mark, fwmark, criteria);
 }
@@ -114,6 +124,10 @@ void NftablesFirewall::create_drop_rule(const FirewallRuleCriteria& criteria) {
         append_rules_for_family(family, PendingRule::Drop, 0, criteria);
         return;
     }
+    if (!needs_family_specific_rule(criteria)) {
+        append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria);
+        return;
+    }
     append_rules_for_family(AF_INET, PendingRule::Drop, 0, criteria);
     append_rules_for_family(AF_INET6, PendingRule::Drop, 0, criteria);
 }
@@ -123,6 +137,10 @@ void NftablesFirewall::create_pass_rule(const FirewallRuleCriteria& criteria) {
         auto it = created_sets_.find(*criteria.dst_set_name);
         int family = (it != created_sets_.end()) ? it->second : AF_INET;
         append_rules_for_family(family, PendingRule::Pass, 0, criteria);
+        return;
+    }
+    if (!needs_family_specific_rule(criteria)) {
+        append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria);
         return;
     }
     append_rules_for_family(AF_INET, PendingRule::Pass, 0, criteria);

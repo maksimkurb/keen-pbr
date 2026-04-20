@@ -111,6 +111,14 @@ public:
     return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
 
+  static nlohmann::json build_rule_add_commands_via_create_mark_rule(
+      uint32_t fwmark, const FirewallRuleCriteria &criteria,
+      FirewallGlobalPrefilter prefilter = {}) {
+    NftablesFirewall fw;
+    fw.create_mark_rule(fwmark, criteria);
+    return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
+  }
+
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
                                              int family, uint32_t fwmark,
                                              ProtoPortFilter filter = {},
@@ -359,6 +367,22 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+}
+
+TEST_CASE("create_mark_rule: port-only tcp/udp rule emits one tcp and one udp entry") {
+  FirewallRuleCriteria criteria;
+  criteria.proto = L4Proto::TcpUdp;
+  criteria.src_port = "1111";
+
+  const auto cmds =
+      T::build_rule_add_commands_via_create_mark_rule(0x10000, criteria);
+
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 2);
+  CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
+  CHECK(cmds[0]["add"]["rule"]["expr"][1]["match"]["right"] == 1111);
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
+  CHECK(cmds[1]["add"]["rule"]["expr"][1]["match"]["right"] == 1111);
 }
 
 // =============================================================================
