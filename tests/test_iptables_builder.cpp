@@ -430,9 +430,9 @@ TEST_CASE("build_proto_port_fragment: tcp + port list → multiport") {
   CHECK(frag == " -p tcp -m multiport --dports 80,443");
 }
 
-TEST_CASE("build_proto_port_fragment: src_port + dest_port → multiport") {
+TEST_CASE("build_proto_port_fragment: src_port + dest_port → sport and dport") {
   auto frag = T::build_proto_port_fragment("tcp", "1024-65535", "80");
-  CHECK(frag == " -p tcp -m multiport --sports 1024:65535 --dports 80");
+  CHECK(frag == " -p tcp --sport 1024:65535 --dport 80");
 }
 
 TEST_CASE("build_proto_port_fragment: proto only, no ports") {
@@ -478,6 +478,19 @@ TEST_CASE("build_ipt_script: tcp/udp + port list → two rules") {
                                        mark_rule("s", false, 0x10, fudp)});
   CHECK(s.find("-p tcp -m multiport --dports 80,443") != std::string::npos);
   CHECK(s.find("-p udp -m multiport --dports 80,443") != std::string::npos);
+}
+
+TEST_CASE("build_ipt_script: any proto + src_port expands to tcp and udp rules") {
+  ProtoPortFilter f;
+  f.proto = L4Proto::Any;
+  f.src_port = "11111";
+  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p tcp --sport "
+               "11111 -j MARK --set-mark 0x100") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -p udp --sport "
+               "11111 -j MARK --set-mark 0x100") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst --sport 11111")
+        == std::string::npos);
 }
 
 TEST_CASE(
@@ -567,17 +580,16 @@ TEST_CASE("build_proto_port_fragment: negated src_port only → ! --sport 1024")
 }
 
 TEST_CASE(
-    "build_proto_port_fragment: both ports negated → single multiport clause") {
+    "build_proto_port_fragment: both ports negated → sport and dport") {
   auto frag =
       T::build_proto_port_fragment("tcp", "1024-65535", "80", true, true);
-  CHECK(frag == " -p tcp -m multiport ! --sports 1024:65535 ! --dports 80");
+  CHECK(frag == " -p tcp ! --sport 1024:65535 ! --dport 80");
 }
 
 TEST_CASE(
-    "build_proto_port_fragment: mixed negation → separate multiport clauses") {
+    "build_proto_port_fragment: mixed negation → sport and dport") {
   auto frag = T::build_proto_port_fragment("tcp", "1024", "443", true, false);
-  CHECK(frag.find("-m multiport ! --sports 1024") != std::string::npos);
-  CHECK(frag.find("-m multiport --dports 443") != std::string::npos);
+  CHECK(frag == " -p tcp ! --sport 1024 --dport 443");
 }
 
 // =============================================================================
@@ -958,28 +970,26 @@ std::string expected_proto_port_fragment(L4Proto proto,
   const bool dst_list = dst_port.shape == PortShape::Multi;
 
   if (has_src || has_dst) {
-    if (src_list || dst_list || (has_src && has_dst)) {
-      if (has_src && has_dst && src_port.negated != dst_port.negated) {
+    if (src_list || dst_list) {
+      if (src_list) {
         frag += " -m multiport";
         if (src_port.negated) frag += " !";
         frag += " --sports ";
         frag += src_port.iptables_spec;
+      } else if (has_src) {
+        if (src_port.negated) frag += " !";
+        frag += " --sport ";
+        frag += src_port.iptables_spec;
+      }
+      if (dst_list) {
         frag += " -m multiport";
         if (dst_port.negated) frag += " !";
         frag += " --dports ";
         frag += dst_port.iptables_spec;
-      } else {
-        frag += " -m multiport";
-        if (has_src) {
-          if (src_port.negated) frag += " !";
-          frag += " --sports ";
-          frag += src_port.iptables_spec;
-        }
-        if (has_dst) {
-          if (dst_port.negated) frag += " !";
-          frag += " --dports ";
-          frag += dst_port.iptables_spec;
-        }
+      } else if (has_dst) {
+        if (dst_port.negated) frag += " !";
+        frag += " --dport ";
+        frag += dst_port.iptables_spec;
       }
     } else {
       if (has_src) {

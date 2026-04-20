@@ -35,6 +35,15 @@ std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
     return {proto};
 }
 
+std::vector<L4Proto> expand_l4_protos_for_iptables(const FirewallRuleCriteria& criteria) {
+    if (criteria.proto == L4Proto::Any
+        && (!criteria.src_port.empty() || !criteria.dst_port.empty())) {
+        // iptables requires an explicit L4 protocol whenever port matchers are used.
+        return {L4Proto::Tcp, L4Proto::Udp};
+    }
+    return expand_l4_protos(criteria.proto);
+}
+
 } // namespace
 
 IptablesFirewall::IptablesFirewall() = default;
@@ -77,7 +86,7 @@ void IptablesFirewall::append_rules_for_family(bool ipv6,
         return;
     }
 
-    for (const auto proto : expand_l4_protos(criteria.proto)) {
+    for (const auto proto : expand_l4_protos_for_iptables(criteria)) {
         const std::vector<std::string>& src_addrs = filtered_src_addrs;
         const std::vector<std::string>& dst_addrs = filtered_dst_addrs;
         for (const auto& src : src_addrs) {
@@ -182,21 +191,22 @@ std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
     std::string normalized_src = has_src ? normalize_port_spec_for_iptables(src_port) : "";
     std::string normalized_dst = has_dst ? normalize_port_spec_for_iptables(dst_port) : "";
 
-    // Use -m multiport when: both ports present, or either is a comma list
+    // Use -m multiport only for comma-separated port lists. Single ports and
+    // ranges are natively supported by the protocol matcher.
     if (has_src || has_dst) {
-        if (src_list || dst_list || (has_src && has_dst)) {
-            // When negation differs between src and dst, emit separate -m multiport clauses
-            // (iptables cannot mix negated and non-negated flags in one multiport call).
-            if (has_src && has_dst && negate_src_port != negate_dst_port) {
+        if (src_list || dst_list) {
+            if (src_list) {
                 frag += " -m multiport" + std::string(negate_src_port ? " !" : "") + " --sports " + normalized_src;
+            } else if (has_src) {
+                frag += std::string(negate_src_port ? " !" : "") + " --sport " + normalized_src;
+            }
+
+            if (dst_list) {
                 frag += " -m multiport" + std::string(negate_dst_port ? " !" : "") + " --dports " + normalized_dst;
-            } else {
-                frag += " -m multiport";
-                if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sports " + normalized_src;
-                if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dports " + normalized_dst;
+            } else if (has_dst) {
+                frag += std::string(negate_dst_port ? " !" : "") + " --dport " + normalized_dst;
             }
         } else {
-            // Single port or range, single direction — use --sport/--dport
             if (has_src) frag += std::string(negate_src_port ? " !" : "") + " --sport " + normalized_src;
             if (has_dst) frag += std::string(negate_dst_port ? " !" : "") + " --dport " + normalized_dst;
         }
@@ -248,78 +258,80 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
         addr_frag += std::string(pr.criteria.negate_src_addr ? " !" : "") + " -s " + pr.criteria.src_addr[0];
     if (!pr.criteria.dst_addr.empty())
         addr_frag += std::string(pr.criteria.negate_dst_addr ? " !" : "") + " -d " + pr.criteria.dst_addr[0];
-    std::string pp = build_proto_port_fragment(pr.criteria.proto,
-                                               pr.criteria.src_port,
-                                               pr.criteria.dst_port,
-                                               pr.criteria.negate_src_port,
-                                               pr.criteria.negate_dst_port);
-
     std::vector<std::string> lines;
-    lines.reserve(iface_frags.size());
-    for (const auto& iface_frag : iface_frags) {
-        if (!pr.criteria.dst_set_name.has_value()) {
-            if (pr.action == PendingRule::Mark) {
-                lines.push_back(keen_pbr3::format(
-                    "-A {}{}{}{} -j MARK --set-mark {:#x}\n",
-                    CHAIN_NAME,
-                    iface_frag,
-                    addr_frag,
-                    pp,
-                    pr.fwmark));
-                lines.push_back(keen_pbr3::format(
-                    "-A {}{}{}{} -j RETURN\n",
-                    CHAIN_NAME,
-                    iface_frag,
-                    addr_frag,
-                    pp));
-            } else if (pr.action == PendingRule::Drop) {
-                lines.push_back(keen_pbr3::format(
-                    "-A {}{}{}{} -j DROP\n",
-                    CHAIN_NAME,
-                    iface_frag,
-                    addr_frag,
-                    pp));
+    lines.reserve(iface_frags.size() * 2);
+    for (const auto proto : expand_l4_protos_for_iptables(pr.criteria)) {
+        std::string pp = build_proto_port_fragment(proto,
+                                                   pr.criteria.src_port,
+                                                   pr.criteria.dst_port,
+                                                   pr.criteria.negate_src_port,
+                                                   pr.criteria.negate_dst_port);
+
+        for (const auto& iface_frag : iface_frags) {
+            if (!pr.criteria.dst_set_name.has_value()) {
+                if (pr.action == PendingRule::Mark) {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {}{}{}{} -j MARK --set-mark {:#x}\n",
+                        CHAIN_NAME,
+                        iface_frag,
+                        addr_frag,
+                        pp,
+                        pr.fwmark));
+                    lines.push_back(keen_pbr3::format(
+                        "-A {}{}{}{} -j RETURN\n",
+                        CHAIN_NAME,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                } else if (pr.action == PendingRule::Drop) {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {}{}{}{} -j DROP\n",
+                        CHAIN_NAME,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                } else {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {}{}{}{} -j RETURN\n",
+                        CHAIN_NAME,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                }
             } else {
-                lines.push_back(keen_pbr3::format(
-                    "-A {}{}{}{} -j RETURN\n",
-                    CHAIN_NAME,
-                    iface_frag,
-                    addr_frag,
-                    pp));
-            }
-        } else {
-            if (pr.action == PendingRule::Mark) {
-                lines.push_back(keen_pbr3::format(
-                    "-A {} -m set --match-set {} dst{}{}{} -j MARK --set-mark {:#x}\n",
-                    CHAIN_NAME,
-                    *pr.criteria.dst_set_name,
-                    iface_frag,
-                    addr_frag,
-                    pp,
-                    pr.fwmark));
-                lines.push_back(keen_pbr3::format(
-                    "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
-                    CHAIN_NAME,
-                    *pr.criteria.dst_set_name,
-                    iface_frag,
-                    addr_frag,
-                    pp));
-            } else if (pr.action == PendingRule::Drop) {
-                lines.push_back(keen_pbr3::format(
-                    "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",
-                    CHAIN_NAME,
-                    *pr.criteria.dst_set_name,
-                    iface_frag,
-                    addr_frag,
-                    pp));
-            } else {
-                lines.push_back(keen_pbr3::format(
-                    "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
-                    CHAIN_NAME,
-                    *pr.criteria.dst_set_name,
-                    iface_frag,
-                    addr_frag,
-                    pp));
+                if (pr.action == PendingRule::Mark) {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {} -m set --match-set {} dst{}{}{} -j MARK --set-mark {:#x}\n",
+                        CHAIN_NAME,
+                        *pr.criteria.dst_set_name,
+                        iface_frag,
+                        addr_frag,
+                        pp,
+                        pr.fwmark));
+                    lines.push_back(keen_pbr3::format(
+                        "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                        CHAIN_NAME,
+                        *pr.criteria.dst_set_name,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                } else if (pr.action == PendingRule::Drop) {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",
+                        CHAIN_NAME,
+                        *pr.criteria.dst_set_name,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                } else {
+                    lines.push_back(keen_pbr3::format(
+                        "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                        CHAIN_NAME,
+                        *pr.criteria.dst_set_name,
+                        iface_frag,
+                        addr_frag,
+                        pp));
+                }
             }
         }
     }
