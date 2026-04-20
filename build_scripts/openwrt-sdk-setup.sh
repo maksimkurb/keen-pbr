@@ -12,6 +12,26 @@ VERSION="${1:?Usage: $0 <version> <target> <subtarget> <sdk-stamp-dir>}"
 TARGET="${2:?}"
 SUBTARGET="${3:?}"
 SDK_STAMP_DIR="${4:?}"
+SDK_DOWNLOAD_RETRIES="${SDK_DOWNLOAD_RETRIES:-3}"
+SDK_DOWNLOAD_RETRY_DELAY="${SDK_DOWNLOAD_RETRY_DELAY:-5}"
+
+retry() {
+    local attempts="${1:?attempt count required}"
+    local delay="${2:?delay required}"
+    shift 2
+    local try=1
+    while true; do
+        if "$@"; then
+            return 0
+        fi
+        if [ "$try" -ge "$attempts" ]; then
+            return 1
+        fi
+        echo "[openwrt-sdk-setup] Command failed on attempt $try/$attempts: $*" >&2
+        sleep "$delay"
+        try=$((try + 1))
+    done
+}
 
 STAMP="$SDK_STAMP_DIR/.stamp-sdk-ready"
 if [ -f "$STAMP" ]; then
@@ -42,7 +62,14 @@ PYEOF
 
 echo "[openwrt-sdk-setup] Downloading $SDK_FILE ..."
 mkdir -p "$SDK_STAMP_DIR"
-wget --show-progress -O "$SDK_STAMP_DIR/$SDK_FILE" "${BASE_URL}${SDK_FILE}"
+rm -f "$SDK_STAMP_DIR/$SDK_FILE"
+retry "$SDK_DOWNLOAD_RETRIES" "$SDK_DOWNLOAD_RETRY_DELAY" \
+    wget --show-progress --tries=1 --timeout=30 --waitretry=1 \
+    -O "$SDK_STAMP_DIR/$SDK_FILE" "${BASE_URL}${SDK_FILE}" || {
+        rm -f "$SDK_STAMP_DIR/$SDK_FILE" || true
+        echo "[openwrt-sdk-setup] SDK download failed after $SDK_DOWNLOAD_RETRIES attempts." >&2
+        exit 1
+    }
 
 echo "[openwrt-sdk-setup] Extracting SDK ..."
 tar --zstd -xf "$SDK_STAMP_DIR/$SDK_FILE" -C "$SDK_STAMP_DIR"
