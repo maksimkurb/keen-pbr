@@ -36,8 +36,7 @@ fallback_conf_line() {
 }
 
 active_conf_line() {
-    printf 'conf-script=%s --config %s generate-resolver-config %s\n' \
-        "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
+    "$KEEN_PBR_BIN" --config "$CONFIG_PATH" generate-resolver-config "$(resolver_type)"
 }
 
 is_active() {
@@ -55,7 +54,7 @@ set_active_state() {
 emit_dnsmasq_config_entry() {
     if is_active; then
         active_conf_line
-        log_info "Produced dnsmasq working config entry"
+        log_info "Produced dnsmasq keen-pbr managed config"
     else
         fallback_conf_line
         log_info "Produced dnsmasq fallback config entry"
