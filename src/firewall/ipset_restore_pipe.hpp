@@ -17,7 +17,7 @@ public:
     // set_name: target ipset name
     explicit IpsetRestoreVisitor(std::ostringstream& buffer, const std::string& set_name);
 
-    // Appends 'add <setname> <entry>\n' for Ip and Cidr types.
+    // Appends 'add <setname> <entry> -exist\n' for Ip and Cidr types.
     // Domain entries are ignored.
     void on_entry(EntryType type, std::string_view entry) override;
 

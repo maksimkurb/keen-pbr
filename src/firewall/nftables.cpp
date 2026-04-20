@@ -431,7 +431,31 @@ nlohmann::json NftablesFirewall::build_elements_json(const std::string& set_name
 
 // --- apply / cleanup ---
 
-void NftablesFirewall::apply() {
+bool NftablesFirewall::table_exists() const {
+    return safe_exec({"nft", "list", "table", "inet", std::string(TABLE_NAME)},
+                     /*suppress_output=*/true) == 0;
+}
+
+bool NftablesFirewall::set_exists(const std::string& set_name) const {
+    return safe_exec({"nft", "list", "set", "inet", std::string(TABLE_NAME), set_name},
+                     /*suppress_output=*/true) == 0;
+}
+
+void NftablesFirewall::cleanup_chain_impl() {
+    safe_exec({"nft", "delete", "chain", "inet", std::string(TABLE_NAME), std::string(CHAIN_NAME)},
+              /*suppress_output=*/true);
+}
+
+void NftablesFirewall::apply(FirewallApplyMode mode) {
+    const bool preserve_sets = mode == FirewallApplyMode::PreserveSets;
+    const bool live_table_exists = preserve_sets && table_exists();
+
+    if (mode == FirewallApplyMode::Destructive) {
+        cleanup_impl();
+    } else if (live_table_exists) {
+        cleanup_chain_impl();
+    }
+
     nlohmann::json doc;
     auto& arr = doc["nftables"];
     arr = nlohmann::json::array();
@@ -439,12 +463,16 @@ void NftablesFirewall::apply() {
     // metainfo
     arr.push_back({{"metainfo", {{"json_schema_version", 1}}}});
 
-    // Ensure table exists, then flush for a clean slate.
-    arr.push_back(build_table_json());
-    arr.push_back({{"flush", {{"table", {{"family", "inet"}, {"name", TABLE_NAME}}}}}});
+    const bool emit_full_table = !preserve_sets || !live_table_exists;
+    if (emit_full_table) {
+        arr.push_back(build_table_json());
+    }
 
     // Sets
     for (const auto& ps : pending_sets_) {
+        if (!emit_full_table && set_exists(ps.name)) {
+            continue;
+        }
         arr.push_back(build_set_json(ps));
     }
 
@@ -458,6 +486,9 @@ void NftablesFirewall::apply() {
 
     // Elements
     for (const auto& [set_name, elems] : pending_elements_) {
+        if (!emit_full_table && set_exists(set_name)) {
+            continue;
+        }
         if (!elems.empty()) {
             arr.push_back(build_elements_json(set_name, elems));
         }
@@ -480,7 +511,7 @@ void NftablesFirewall::apply() {
 }
 
 void NftablesFirewall::cleanup_impl() {
-    if (table_created_) {
+    if (table_created_ || table_exists()) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
         safe_exec({"nft", "delete", "table", "inet", std::string(TABLE_NAME)}, /*suppress_output=*/true);
         table_created_ = false;

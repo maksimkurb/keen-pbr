@@ -44,7 +44,7 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
     if (args.empty()) return -1;
     const std::string command = safe_exec_command_string(args);
     const auto started_at = std::chrono::steady_clock::now();
-    Logger::instance().trace("safe_exec_start",
+    Logger::instance().verbose("safe_exec_start",
                              "cmd={} suppress_output={}",
                              command,
                              suppress_output ? "true" : "false");
@@ -58,7 +58,7 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
 
     const pid_t pid = fork();
     if (pid == -1) {
-        Logger::instance().trace("safe_exec_error",
+        Logger::instance().verbose("safe_exec_error",
                                  "cmd={} duration_ms={} reason=fork_failed errno={}",
                                  command,
                                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -84,7 +84,7 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
 
     int status = 0;
     if (waitpid(pid, &status, 0) == -1) {
-        Logger::instance().trace("safe_exec_error",
+        Logger::instance().verbose("safe_exec_error",
                                  "cmd={} duration_ms={} reason=waitpid_failed errno={}",
                                  command,
                                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -103,10 +103,10 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
                                  duration_ms);
         return exit_code;
     }
-    Logger::instance().trace("safe_exec_error",
-                             "cmd={} duration_ms={} reason=abnormal_exit",
-                             command,
-                             duration_ms);
+    Logger::instance().verbose("safe_exec_error",
+                                    "cmd={} duration_ms={} reason=abnormal_exit",
+                                    command,
+                                    duration_ms);
     return -1;
 }
 

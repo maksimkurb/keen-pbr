@@ -37,7 +37,7 @@ public:
 
     // Atomically apply all pending table/set/rule/element operations via
     // a single 'nft -j -f -' invocation with a JSON batch.
-    void apply() override;
+    void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Delete the inet KeenPbrTable table, removing all sets and rules within it.
     void cleanup() override;
     // Returns FirewallBackend::nftables.
@@ -51,6 +51,9 @@ private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
     void cleanup_impl();
+    void cleanup_chain_impl();
+    bool table_exists() const;
+    bool set_exists(const std::string& set_name) const;
 
     // Describes an nftables named set to be created.
     struct PendingSet {

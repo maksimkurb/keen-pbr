@@ -123,7 +123,7 @@ void Daemon::start_routing_runtime() {
     setup_static_routing();
     register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
-    apply_firewall();
+    apply_firewall(FirewallApplyMode::Destructive);
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
         auto args = build_system_resolver_hook_args(config_, "ensure-runtime-prereqs");
@@ -170,13 +170,11 @@ void Daemon::setup_static_routing() {
         &firewall_state_.get_urltest_selections());
 }
 
-void Daemon::apply_firewall() {
+void Daemon::apply_firewall(FirewallApplyMode mode) {
     ListStreamer list_streamer(list_service_.cache_manager());
     auto rule_states =
         build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
     const RouteConfig route_config = config_.route.value_or(RouteConfig{});
-
-    firewall_->cleanup();
     firewall_->set_global_prefilter(build_firewall_global_prefilter(config_));
 
     const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
@@ -342,7 +340,7 @@ void Daemon::apply_firewall() {
         }
     }
 
-    firewall_->apply();
+    firewall_->apply(mode);
     firewall_state_.set_rules(std::move(rule_states));
 }
 
@@ -360,7 +358,7 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
             route_table_.clear();
             policy_rules_.clear();
             setup_static_routing();
-            apply_firewall();
+            apply_firewall(FirewallApplyMode::PreserveSets);
             publish_runtime_state();
             log.info("Routing and firewall rebuilt after urltest change.");
         } catch (const std::exception& e) {
@@ -670,12 +668,10 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     }
     route_table_.clear();
     policy_rules_.clear();
-    firewall_->cleanup();
-
     setup_static_routing();
     register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
-    apply_firewall();
+    apply_firewall(FirewallApplyMode::Destructive);
     schedule_keenetic_dns_refresh();
     schedule_lists_autoupdate();
     update_resolver_config_hash();

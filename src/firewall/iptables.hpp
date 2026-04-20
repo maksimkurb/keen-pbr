@@ -38,7 +38,7 @@ public:
     // Atomically apply all pending ipsets (via ipset restore) and rules
     // (via iptables-restore / ip6tables-restore), always materializing the
     // KeenPbrTable chain scaffold and PREROUTING jump for diagnostics.
-    void apply() override;
+    void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Destroy all buffered ipsets (ipset destroy) and flush/delete the
     // KeenPbrTable chain from both iptables and ip6tables mangle tables.
     void cleanup() override;
@@ -52,6 +52,7 @@ public:
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
     void cleanup_impl();
+    void cleanup_rules_impl();
 
     // Describes a set to be created via 'ipset restore'.
     struct PendingSet {

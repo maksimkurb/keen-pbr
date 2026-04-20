@@ -344,7 +344,13 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
     return s;
 }
 
-void IptablesFirewall::apply() {
+void IptablesFirewall::apply(FirewallApplyMode mode) {
+    if (mode == FirewallApplyMode::Destructive) {
+        cleanup_impl();
+    } else {
+        cleanup_rules_impl();
+    }
+
     // Phase 1: ipsets via 'ipset restore -exist'
     {
         std::string ipset_script;
@@ -389,7 +395,7 @@ void IptablesFirewall::apply() {
     pending_rules_.clear();
 }
 
-void IptablesFirewall::cleanup_impl() {
+void IptablesFirewall::cleanup_rules_impl() {
     auto& log = Logger::instance();
 
     // Remove jump rules, flush and delete custom chain for IPv4
@@ -409,6 +415,12 @@ void IptablesFirewall::cleanup_impl() {
         safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME}, /*suppress_output=*/true);
         chain_v6_created_ = false;
     }
+}
+
+void IptablesFirewall::cleanup_impl() {
+    auto& log = Logger::instance();
+
+    cleanup_rules_impl();
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {

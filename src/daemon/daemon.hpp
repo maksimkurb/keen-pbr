@@ -22,6 +22,7 @@
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
+#include "../firewall/firewall.hpp"
 #include "../util/blocking_executor.hpp"
 #include "../util/traced_mutex.hpp"
 #include "list_service.hpp"
@@ -154,7 +155,7 @@ private:
 
     // lifecycle and runtime apply
     void setup_static_routing();
-    void apply_firewall();
+    void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive);
     void download_uncached_lists();
     void register_urltest_outbounds();
     void handle_urltest_selection_change(const std::string& urltest_tag,

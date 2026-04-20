@@ -91,14 +91,21 @@ enum class FirewallBackendPreference : uint8_t {
     nftables
 };
 
+// How pending firewall changes should be applied.
+enum class FirewallApplyMode : uint8_t {
+    // Recreate backend-owned firewall state from scratch, including sets.
+    Destructive,
+    // Refresh chains/rules while preserving existing set contents when possible.
+    PreserveSets
+};
+
 // Abstract firewall interface for managing IP sets and packet marking rules.
 // Both iptables and nftables backends implement this interface.
 //
 // Usage pattern (transactional rebuild):
-//   cleanup()  — remove all previous state
 //   create_ipset() / create_mark_rule() / create_drop_rule() / create_pass_rule() — buffer operations
 //   create_batch_loader() → stream entries → finish()
-//   apply()    — atomically commit everything
+//   apply()    — atomically commit everything using the requested apply mode
 class Firewall {
 public:
     virtual ~Firewall() = default;
@@ -132,7 +139,7 @@ public:
         const std::string& set_name) = 0;
 
     // Apply all pending changes atomically (where supported by the backend).
-    virtual void apply() = 0;
+    virtual void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) = 0;
 
     // Configure a backend-wide prefilter emitted ahead of mark/drop/pass rules.
     void set_global_prefilter(FirewallGlobalPrefilter prefilter) {

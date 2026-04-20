@@ -12,7 +12,7 @@ void IpsetRestoreVisitor::on_entry(EntryType type, std::string_view entry) {
         return; // Ignore domain entries
     }
 
-    buffer_ << "add " << set_name_ << " " << entry;
+    buffer_ << "add " << set_name_ << " " << entry << " -exist";
     buffer_ << "\n";
     ++count_;
 }

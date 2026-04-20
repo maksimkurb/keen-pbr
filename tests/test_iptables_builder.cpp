@@ -194,7 +194,7 @@ TEST_CASE("IpsetRestoreVisitor: IP entry without timeout") {
   std::ostringstream buf;
   IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Ip, "10.0.0.1");
-  CHECK(buf.str() == "add myset 10.0.0.1\n");
+  CHECK(buf.str() == "add myset 10.0.0.1 -exist\n");
   CHECK(v.count() == 1);
 }
 
@@ -202,7 +202,7 @@ TEST_CASE("IpsetRestoreVisitor: CIDR entry") {
   std::ostringstream buf;
   IpsetRestoreVisitor v(buf, "myset");
   v.on_entry(EntryType::Cidr, "192.168.0.0/24");
-  CHECK(buf.str() == "add myset 192.168.0.0/24\n");
+  CHECK(buf.str() == "add myset 192.168.0.0/24 -exist\n");
   CHECK(v.count() == 1);
 }
 

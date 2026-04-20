@@ -407,7 +407,7 @@ void Daemon::refresh_iproute_and_firewall_runtime() {
         route_table_.clear();
         policy_rules_.clear();
         setup_static_routing();
-        apply_firewall();
+        apply_firewall(FirewallApplyMode::PreserveSets);
         publish_runtime_state();
         log.info("Runtime iproute and firewall refresh complete.");
     } catch (const std::exception& e) {
@@ -539,7 +539,7 @@ void Daemon::run() {
     log.info("Static routing tables and ip rules installed.");
 
     register_urltest_outbounds();
-    apply_firewall();
+    apply_firewall(FirewallApplyMode::Destructive);
     log.info("Firewall rules and routing applied.");
 
     schedule_lists_autoupdate();

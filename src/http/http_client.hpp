@@ -52,7 +52,7 @@ public:
         const HttpRequestOptions& options = {});
 
 private:
-    std::chrono::seconds timeout_{30};
+    std::chrono::seconds timeout_{10};
     std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
     size_t max_response_size_{size_t{8} * 1024U * 1024U}; // 8 MiB
 };
