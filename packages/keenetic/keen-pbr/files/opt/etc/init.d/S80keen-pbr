@@ -11,8 +11,54 @@ DESC="keen-pbr"
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 log() {
-    logger -t "keen-pbr" "$1"
-    echo "[keen-pbr] $1" >&2
+    logger -s -t "keen-pbr" "$1"
+}
+
+log_error() {
+    logger -s -t "keen-pbr" -p "user.err" "$1"
+}
+
+check_netfilter_addons_component() {
+    local components
+
+    if ! components="$(wget -O - localhost:79/rci/show/version/ndw/components 2>/dev/null)"; then
+        log_error "Failed to fetch installed Keenetic components"
+        return 0
+    fi
+
+    case ",$components," in
+        *,opkg-kmod-netfilter-addons,*)
+            return 0
+            ;;
+        *)
+            log_error "Missing Keenetic component opkg-kmod-netfilter-addons"
+            return 0
+            ;;
+    esac
+}
+
+ensure_xt_multiport_loaded() {
+    local module_path
+
+    if lsmod | grep -q '^xt_multiport[[:space:]]'; then
+        return 0
+    fi
+
+    module_path="/lib/modules/$(uname -r)/xt_multiport.ko"
+    if [ ! -f "$module_path" ]; then
+        log_error "xt_multiport module not loaded and not found at $module_path"
+        return 0
+    fi
+
+    if ! insmod "$module_path" 2>/dev/null; then
+        log_error "Failed to load xt_multiport from $module_path"
+        return 0
+    fi
+}
+
+check_runtime_dependencies() {
+    check_netfilter_addons_component
+    ensure_xt_multiport_loaded
 }
 
 enable_hwnat() {
@@ -38,6 +84,7 @@ signal_service() {
 }
 
 prepare_start() {
+    check_runtime_dependencies
     disable_hwnat
 }
 
