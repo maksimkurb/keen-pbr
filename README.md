@@ -8,11 +8,12 @@
 
   <p>
     <a href="https://github.com/maksimkurb/keen-pbr/actions/workflows/build-ci.yml">
-      <img src="https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fbuild-ci.yml?style=for-the-badge&branch=main" alt="Build status" />
+      <img src="https://img.shields.io/github/actions/workflow/status/maksimkurb/keen-pbr/.github%2Fworkflows%2Fci-packages.yml?style=for-the-badge&branch=main" alt="Build status" />
     </a>
     <a href="https://github.com/maksimkurb/keen-pbr/releases">
       <img src="https://img.shields.io/github/v/release/maksimkurb/keen-pbr?style=for-the-badge&sort=date" alt="Latest release" />
     </a>
+    <br>
     <a href="https://keen-pbr.fyi/">
       <img src="https://img.shields.io/badge/docs-keen--pbr.fyi-0f766e?style=for-the-badge" alt="Documentation" />
     </a>

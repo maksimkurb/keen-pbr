@@ -45,7 +45,8 @@ _copy_pkg() {
             BASENAME=$(basename "$f")
             PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
         fi
-        DEST_DIR="$RELEASE_DIR/openwrt/${TAG}/${PKG_ARCH}"
+        ARCH_DIR_NAME="${PKG_ARCH}_${ARCH_PREFIX}"
+        DEST_DIR="$RELEASE_DIR/openwrt/${TAG}/${ARCH_DIR_NAME}"
         mkdir -p "$DEST_DIR"
         cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
     done
@@ -77,7 +78,8 @@ EOF
     fi
 
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
-        PKG_ARCH=$(basename "$ARCH_DIR")
+        ARCH_DIR_NAME=$(basename "$ARCH_DIR")
+        PKG_ARCH="${ARCH_DIR_NAME%_${ARCH_PREFIX}}"
         mapfile -t ARCH_IPKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
             -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.ipk" -printf '%f\n' | sort)
         if [ "${#ARCH_IPKS[@]}" -gt 0 ]; then
@@ -129,7 +131,8 @@ if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
         -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_*.apk" 2>/dev/null | grep -q .; then
     rm -f "$APK_SIGNING_MARKER"
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d | sort); do
-        PKG_ARCH=$(basename "$ARCH_DIR")
+        ARCH_DIR_NAME=$(basename "$ARCH_DIR")
+        PKG_ARCH="${ARCH_DIR_NAME%_${ARCH_PREFIX}}"
         mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
             -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
         if [ "${#ARCH_APKS[@]}" -gt 0 ]; then

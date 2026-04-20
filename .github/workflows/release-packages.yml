@@ -2,7 +2,7 @@ name: Release packages
 
 on:
   push:
-    tags: ["v-*"]
+    tags: ["v*"]
 
 permissions:
   contents: write
