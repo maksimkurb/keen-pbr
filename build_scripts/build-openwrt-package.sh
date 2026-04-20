@@ -20,15 +20,8 @@ cp "$WORKSPACE/version.mk" "$SDK_DIR/package/keen-pbr/version.mk"
 
 cd "$SDK_DIR"
 ./scripts/feeds update -a
-# Install only the package deps we actually need from feeds to avoid unrelated
-# target/feed prereq churn in the SDK job.
-./scripts/feeds install \
-    libcurl \
-    libmbedtls \
-    libnl-core \
-    libnl-route \
-    libzstd \
-    zlib
+./scripts/feeds install -a
+
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig
 make package/keen-pbr/compile V=s "-j$(nproc)" \
