@@ -197,107 +197,112 @@ void Daemon::apply_firewall() {
 
         const bool is_blackhole = (rs.action_type == RuleActionType::Drop);
         const bool is_pass = (rs.action_type == RuleActionType::Pass);
+        auto strip_neg = [](const std::string& s) -> std::pair<std::string, bool> {
+            if (!s.empty() && s[0] == '!') return {s.substr(1), true};
+            return {s, false};
+        };
 
-        for (const auto& list_name : route_rule_lists(rule)) {
-            auto list_cfg_it = lists_map.find(list_name);
-            if (list_cfg_it == lists_map.end()) continue;
+        FirewallRuleCriteria criteria;
+        criteria.proto = parse_rule_proto(rule.proto);
 
-            const auto& list_cfg = list_cfg_it->second;
-            auto usage_it = list_usage_cache.find(list_name);
-            if (usage_it == list_usage_cache.end()) {
-                usage_it = list_usage_cache.emplace(
-                    list_name,
-                    analyze_list_set_usage(list_name, list_cfg, list_streamer)).first;
+        {
+            auto [port, neg] = strip_neg(rule.src_port.value_or(""));
+            criteria.src_port = port;
+            criteria.negate_src_port = neg;
+        }
+        {
+            auto [port, neg] = strip_neg(rule.dest_port.value_or(""));
+            criteria.dst_port = port;
+            criteria.negate_dst_port = neg;
+        }
+        {
+            AddrSpec s = parse_addr_spec(rule.src_addr.value_or(""));
+            criteria.negate_src_addr = s.negate;
+            criteria.src_addr = std::move(s.addrs);
+        }
+        {
+            AddrSpec s = parse_addr_spec(rule.dest_addr.value_or(""));
+            criteria.negate_dst_addr = s.negate;
+            criteria.dst_addr = std::move(s.addrs);
+        }
+
+        auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
+            FirewallRuleCriteria rule_criteria = criteria;
+            rule_criteria.dst_set_name = dst_set_name;
+
+            if (is_blackhole) {
+                firewall_->create_drop_rule(rule_criteria);
+            } else if (is_pass) {
+                firewall_->create_pass_rule(rule_criteria);
+            } else if (rs.fwmark != 0) {
+                firewall_->create_mark_rule(rs.fwmark, rule_criteria);
             }
-            const auto& usage = usage_it->second;
+        };
 
-            const std::string set4 = "kpbr4_"  + list_name;
-            const std::string set6 = "kpbr6_"  + list_name;
-            const std::string set4d = "kpbr4d_" + list_name;
-            const std::string set6d = "kpbr6d_" + list_name;
-
-            if (usage.has_static_entries) {
-                firewall_->create_ipset(set4, AF_INET, 0);
-                firewall_->create_ipset(set6, AF_INET6, 0);
-                rs.set_names.push_back(set4);
-                rs.set_names.push_back(set6);
-
-                auto loader4 = firewall_->create_batch_loader(set4);
-                auto loader6 = firewall_->create_batch_loader(set6);
-                FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-                    if (type == EntryType::Domain) return;
-                    bool is_v6 = entry.find(':') != std::string_view::npos;
-                    if (is_v6) loader6->on_entry(type, entry);
-                    else       loader4->on_entry(type, entry);
-                });
-                list_streamer.stream_list(list_name, list_cfg, splitter);
-                loader4->finish();
-                loader6->finish();
-            }
-
-            if (usage.has_domain_entries) {
-                firewall_->create_ipset(set4d, AF_INET, usage.dynamic_timeout);
-                firewall_->create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
-                rs.set_names.push_back(set4d);
-                rs.set_names.push_back(set6d);
-            }
-
-            auto strip_neg = [](const std::string& s) -> std::pair<std::string, bool> {
-                if (!s.empty() && s[0] == '!') return {s.substr(1), true};
-                return {s, false};
-            };
-
-            FirewallRuleCriteria criteria;
-            criteria.proto = parse_rule_proto(rule.proto);
-
-            {
-                auto [port, neg] = strip_neg(rule.src_port.value_or(""));
-                criteria.src_port = port;
-                criteria.negate_src_port = neg;
-            }
-            {
-                auto [port, neg] = strip_neg(rule.dest_port.value_or(""));
-                criteria.dst_port = port;
-                criteria.negate_dst_port = neg;
-            }
-            {
-                AddrSpec s = parse_addr_spec(rule.src_addr.value_or(""));
-                criteria.negate_src_addr = s.negate;
-                criteria.src_addr = std::move(s.addrs);
-            }
-            {
-                AddrSpec s = parse_addr_spec(rule.dest_addr.value_or(""));
-                criteria.negate_dst_addr = s.negate;
-                criteria.dst_addr = std::move(s.addrs);
-            }
-
-            auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
-                FirewallRuleCriteria rule_criteria = criteria;
-                rule_criteria.dst_set_name = dst_set_name;
-
-                if (is_blackhole) {
-                    firewall_->create_drop_rule(rule_criteria);
-                } else if (is_pass) {
-                    firewall_->create_pass_rule(rule_criteria);
-                } else if (rs.fwmark != 0) {
-                    firewall_->create_mark_rule(rs.fwmark, rule_criteria);
-                }
-            };
-
+        const auto& list_names = route_rule_lists(rule);
+        if (!list_names.empty()) {
             bool emitted_rule = false;
-            if (usage.has_static_entries) {
-                apply_rule(set4);
-                apply_rule(set6);
-                emitted_rule = true;
+
+            for (const auto& list_name : list_names) {
+                auto list_cfg_it = lists_map.find(list_name);
+                if (list_cfg_it == lists_map.end()) continue;
+
+                const auto& list_cfg = list_cfg_it->second;
+                auto usage_it = list_usage_cache.find(list_name);
+                if (usage_it == list_usage_cache.end()) {
+                    usage_it = list_usage_cache.emplace(
+                        list_name,
+                        analyze_list_set_usage(list_name, list_cfg, list_streamer)).first;
+                }
+                const auto& usage = usage_it->second;
+
+                const std::string set4 = "kpbr4_"  + list_name;
+                const std::string set6 = "kpbr6_"  + list_name;
+                const std::string set4d = "kpbr4d_" + list_name;
+                const std::string set6d = "kpbr6d_" + list_name;
+
+                if (usage.has_static_entries) {
+                    firewall_->create_ipset(set4, AF_INET, 0);
+                    firewall_->create_ipset(set6, AF_INET6, 0);
+                    rs.set_names.push_back(set4);
+                    rs.set_names.push_back(set6);
+
+                    auto loader4 = firewall_->create_batch_loader(set4);
+                    auto loader6 = firewall_->create_batch_loader(set6);
+                    FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
+                        if (type == EntryType::Domain) return;
+                        bool is_v6 = entry.find(':') != std::string_view::npos;
+                        if (is_v6) loader6->on_entry(type, entry);
+                        else       loader4->on_entry(type, entry);
+                    });
+                    list_streamer.stream_list(list_name, list_cfg, splitter);
+                    loader4->finish();
+                    loader6->finish();
+                }
+
+                if (usage.has_domain_entries) {
+                    firewall_->create_ipset(set4d, AF_INET, usage.dynamic_timeout);
+                    firewall_->create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
+                    rs.set_names.push_back(set4d);
+                    rs.set_names.push_back(set6d);
+                }
+                if (usage.has_static_entries) {
+                    apply_rule(set4);
+                    apply_rule(set6);
+                    emitted_rule = true;
+                }
+                if (usage.has_domain_entries) {
+                    apply_rule(set4d);
+                    apply_rule(set6d);
+                    emitted_rule = true;
+                }
             }
-            if (usage.has_domain_entries) {
-                apply_rule(set4d);
-                apply_rule(set6d);
-                emitted_rule = true;
-            }
+
             if (!emitted_rule && criteria.has_rule_selector()) {
                 apply_rule(std::nullopt);
             }
+        } else if (criteria.has_rule_selector()) {
+            apply_rule(std::nullopt);
         }
     }
 

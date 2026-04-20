@@ -211,6 +211,29 @@ TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rul
     CHECK(states[0].action_type == RuleActionType::Drop);
 }
 
+TEST_CASE("build_fw_rule_states: selector-only route rule without list still becomes mark rule") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"cloudflare","type":"interface","interface":"wg0","gateway":"10.0.0.1"}
+        ],
+        "route":{
+            "rules":[
+                {"dest_port":"443,80","outbound":"cloudflare"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    auto states = build_fw_rule_states(cfg, marks);
+
+    REQUIRE(states.size() == 1);
+    CHECK(states[0].action_type == RuleActionType::Mark);
+    CHECK(states[0].set_names.empty());
+    CHECK(states[0].outbound_tag == "cloudflare");
+    CHECK(states[0].fwmark != 0);
+}
+
 TEST_CASE("prune_fw_rule_states_to_realized_sets: removes nonexistent pass-through set variants") {
     auto cfg = parse_minimal_config(R"({
         "outbounds":[
