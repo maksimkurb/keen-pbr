@@ -532,11 +532,11 @@ void Daemon::run() {
 
     write_pid_file();
 
-    log.info("Loading lists...");
-    (void)list_service_.refresh_remote_lists(config_, outbound_marks_);
-
     setup_static_routing();
     log.info("Static routing tables and ip rules installed.");
+
+    log.info("Loading lists...");
+    list_service_.download_uncached(config_, outbound_marks_);
 
     register_urltest_outbounds();
     apply_firewall(FirewallApplyMode::Destructive);
