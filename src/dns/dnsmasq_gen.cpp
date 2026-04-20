@@ -381,7 +381,7 @@ void DnsmasqGenerator::generate_directives(
                 push_batch(server_batch, bare);
             }
         });
-        list_streamer_.stream_list(list_name, list_cfg_it->second, collector);
+        list_streamer_.stream_list_preferring_cache(list_name, list_cfg_it->second, collector);
 
         flush_batch(ipset_batch);
         flush_batch(rebind_batch);

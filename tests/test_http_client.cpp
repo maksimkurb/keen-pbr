@@ -18,7 +18,8 @@ bool is_network_unavailable(const keen_pbr3::HttpError& error) {
     const std::string message = error.what();
     return message.find("Couldn't resolve host name") != std::string::npos ||
            message.find("Could not resolve host") != std::string::npos ||
-           message.find("Couldn't connect to server") != std::string::npos;
+           message.find("Couldn't connect to server") != std::string::npos ||
+           message.find("Timeout was reached") != std::string::npos;
 }
 
 } // namespace

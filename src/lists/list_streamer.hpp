@@ -16,6 +16,12 @@ public:
     // through the visitor. Calls visitor.on_list_complete(name) when done.
     void stream_list(const std::string& name, const ListConfig& config, ListEntryVisitor& visitor);
 
+    // Stream cached content only when present; otherwise fall back to all list
+    // sources. Calls visitor.on_list_complete(name) when done.
+    void stream_list_preferring_cache(const std::string& name,
+                                     const ListConfig& config,
+                                     ListEntryVisitor& visitor);
+
     // Stream only the cached file for a named list through the visitor.
     void stream_cache(const std::string& name, ListEntryVisitor& visitor);
 

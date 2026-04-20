@@ -33,6 +33,18 @@ void ListStreamer::stream_list(const std::string& name, const ListConfig& config
     visitor.on_list_complete(name);
 }
 
+void ListStreamer::stream_list_preferring_cache(const std::string& name,
+                                                const ListConfig& config,
+                                                ListEntryVisitor& visitor) {
+    if (cache_.has_cache(name)) {
+        stream_file(cache_.cache_path(name), visitor);
+        visitor.on_list_complete(name);
+        return;
+    }
+
+    stream_list(name, config, visitor);
+}
+
 void ListStreamer::stream_cache(const std::string& name, ListEntryVisitor& visitor) {
     if (cache_.has_cache(name)) {
         stream_file(cache_.cache_path(name), visitor);

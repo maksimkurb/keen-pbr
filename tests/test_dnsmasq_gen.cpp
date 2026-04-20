@@ -9,6 +9,8 @@
 #include <map>
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -1001,4 +1003,56 @@ TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
 
     CHECK(output.find("valid.example.com") != std::string::npos);
     CHECK(output.find(invalid) == std::string::npos);
+}
+
+TEST_CASE("generate-resolver-config prefers cached list content over file and inline entries") {
+    const auto temp_root =
+        std::filesystem::temp_directory_path() / "keen-pbr-test-dnsmasq-cache-preferred";
+    std::filesystem::remove_all(temp_root);
+    std::filesystem::create_directories(temp_root);
+
+    const auto cleanup = [&]() {
+        std::error_code ec;
+        std::filesystem::remove_all(temp_root, ec);
+    };
+
+    try {
+        const auto local_file = temp_root / "list.txt";
+        {
+            std::ofstream local(local_file);
+            REQUIRE(local.is_open());
+            local << "from-file.example\n";
+        }
+
+        CacheManager cache(temp_root);
+        {
+            std::ofstream cached(cache.cache_path("mylist"));
+            REQUIRE(cached.is_open());
+            cached << "from-cache.example\n";
+        }
+
+        ListConfig list_cfg;
+        list_cfg.url = "https://example.com/list.txt";
+        list_cfg.file = local_file;
+        list_cfg.domains = std::vector<std::string>{"from-inline.example"};
+
+        const std::string list_name = "mylist";
+        auto route_cfg = make_route_cfg(list_name);
+        auto dns_cfg = make_empty_dns_cfg();
+        auto lists = std::map<std::string, ListConfig>{{list_name, list_cfg}};
+
+        ListStreamer streamer(cache);
+        DnsServerRegistry reg(dns_cfg);
+        DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
+        const std::string output = run_generate(gen);
+
+        CHECK(output.find("from-cache.example") != std::string::npos);
+        CHECK(output.find("from-file.example") == std::string::npos);
+        CHECK(output.find("from-inline.example") == std::string::npos);
+
+        cleanup();
+    } catch (...) {
+        cleanup();
+        throw;
+    }
 }
