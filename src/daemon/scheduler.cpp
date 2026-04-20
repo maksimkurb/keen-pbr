@@ -26,16 +26,31 @@ Scheduler::~Scheduler() {
     }
 }
 
-int Scheduler::create_timerfd(std::chrono::seconds initial, std::chrono::seconds interval) {
+namespace {
+
+timespec duration_to_timespec(std::chrono::milliseconds duration) {
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
+    const auto remainder = duration - seconds;
+
+    timespec spec{};
+    spec.tv_sec = seconds.count();
+    spec.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(remainder).count();
+    return spec;
+}
+
+} // namespace
+
+int Scheduler::create_timerfd(std::chrono::milliseconds initial,
+                              std::chrono::milliseconds interval) {
     int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
     if (fd < 0) {
         throw SchedulerError("timerfd_create failed: " + std::string(strerror(errno)));
     }
 
     struct itimerspec spec{};
-    spec.it_value.tv_sec = initial.count();
+    spec.it_value = duration_to_timespec(initial);
     // interval of {0,0} means one-shot (no repeat)
-    spec.it_interval.tv_sec = interval.count();
+    spec.it_interval = duration_to_timespec(interval);
 
     if (timerfd_settime(fd, 0, &spec, nullptr) < 0) {
         close(fd);
@@ -45,7 +60,7 @@ int Scheduler::create_timerfd(std::chrono::seconds initial, std::chrono::seconds
     return fd;
 }
 
-int Scheduler::schedule_repeating(std::chrono::seconds interval,
+int Scheduler::schedule_repeating(std::chrono::milliseconds interval,
                                   TaskCallback cb,
                                   std::string label) {
     int fd = create_timerfd(interval, interval);
@@ -70,10 +85,10 @@ int Scheduler::schedule_repeating(std::chrono::seconds interval,
     return id;
 }
 
-int Scheduler::schedule_oneshot(std::chrono::seconds delay,
+int Scheduler::schedule_oneshot(std::chrono::milliseconds delay,
                                 TaskCallback cb,
                                 std::string label) {
-    int fd = create_timerfd(delay, std::chrono::seconds{0});
+    int fd = create_timerfd(delay, std::chrono::milliseconds{0});
     int id = 0;
     {
         KPBR_LOCK_GUARD(entries_mutex_);

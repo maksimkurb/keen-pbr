@@ -30,6 +30,8 @@ namespace keen_pbr3 {
 
 namespace {
 
+constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
+
 std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started_at).count();
@@ -358,19 +360,34 @@ void Daemon::handle_signal() {
 
 void Daemon::handle_sigusr1() {
     auto& log = Logger::instance();
-    log.info("SIGUSR1: verifying routing tables and triggering URL tests...");
+    log.info("SIGUSR1: scheduling firewall refresh...");
+    schedule_sigusr1_runtime_refresh();
+}
 
-    refresh_iproute_and_firewall_runtime();
-
-    if (urltest_manager_) {
-        for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
-            if (ob.type == OutboundType::URLTEST) {
-                urltest_manager_->trigger_immediate_test(ob.tag);
-            }
-        }
+void Daemon::schedule_sigusr1_runtime_refresh() {
+    if (sigusr1_refresh_task_id_ >= 0) {
+        scheduler_->cancel(sigusr1_refresh_task_id_);
+        sigusr1_refresh_task_id_ = -1;
     }
 
-    log.info("SIGUSR1: complete.");
+    sigusr1_refresh_task_id_ = scheduler_->schedule_oneshot(
+        SIGUSR1_DEBOUNCE_DELAY,
+        [this]() {
+            sigusr1_refresh_task_id_ = -1;
+            Logger::instance().info("SIGUSR1: applying firewall refresh...");
+            refresh_iproute_and_firewall_runtime();
+            
+            if (urltest_manager_) {
+                Logger::instance().info("SIGUSR1: probing urltest endpoints...");
+                for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
+                    if (ob.type == OutboundType::URLTEST) {
+                        urltest_manager_->trigger_immediate_test(ob.tag);
+                    }
+                }
+            }
+            Logger::instance().info("SIGUSR1: firewall refresh complete.");
+        },
+        "sigusr1-runtime-refresh");
 }
 
 void Daemon::handle_sighup() {

@@ -36,13 +36,13 @@ public:
 
     // Schedule a repeating task. Returns a task ID for later cancellation.
     // The first invocation fires after `interval` elapses.
-    int schedule_repeating(std::chrono::seconds interval,
+    int schedule_repeating(std::chrono::milliseconds interval,
                            TaskCallback cb,
                            std::string label = "");
 
     // Schedule a one-shot task. Returns a task ID for later cancellation.
     // The callback fires once after `delay` elapses.
-    int schedule_oneshot(std::chrono::seconds delay,
+    int schedule_oneshot(std::chrono::milliseconds delay,
                          TaskCallback cb,
                          std::string label = "");
 
@@ -64,7 +64,7 @@ private:
         std::string label;
     };
 
-    int create_timerfd(std::chrono::seconds initial, std::chrono::seconds interval);
+    int create_timerfd(std::chrono::milliseconds initial, std::chrono::milliseconds interval);
     void on_timer(int timer_fd, uint32_t events);
     void remove_entry(int timer_fd);
 

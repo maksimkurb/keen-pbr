@@ -143,6 +143,7 @@ private:
 
     // Signal handlers
     void handle_sigusr1();
+    void schedule_sigusr1_runtime_refresh();
     void handle_sighup();
     void handle_interface_monitor_events(uint32_t events);
     void handle_interface_state_change(const std::string& interface_name, bool is_up);
@@ -256,6 +257,8 @@ private:
     int resolver_config_hash_actual_task_id_{-1};
     // Short-interval retry while resolver hash is converging after apply.
     int resolver_config_hash_actual_retry_task_id_{-1};
+    // Debounced runtime refresh triggered by SIGUSR1.
+    int sigusr1_refresh_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};
