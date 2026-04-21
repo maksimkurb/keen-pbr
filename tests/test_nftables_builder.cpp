@@ -678,7 +678,8 @@ TEST_CASE("build_addr_match_exprs: single src_addr → saddr match with string")
   auto exprs = T::build_addr_match_exprs("ip", {"192.168.10.0/24"}, {});
   REQUIRE(exprs.size() == 1);
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
-  CHECK(exprs[0]["match"]["right"] == "192.168.10.0/24");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["addr"] == "192.168.10.0");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: multiple src_addr → saddr match with set") {
@@ -687,15 +688,18 @@ TEST_CASE("build_addr_match_exprs: multiple src_addr → saddr match with set") 
   REQUIRE(exprs.size() == 1);
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
   CHECK(exprs[0]["match"]["right"].contains("set"));
-  CHECK(exprs[0]["match"]["right"]["set"][0] == "192.168.1.0/24");
-  CHECK(exprs[0]["match"]["right"]["set"][1] == "10.0.0.0/8");
+  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(exprs[0]["match"]["right"]["set"][0]["prefix"]["len"] == 24);
+  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(exprs[0]["match"]["right"]["set"][1]["prefix"]["len"] == 8);
 }
 
 TEST_CASE("build_addr_match_exprs: single dst_addr → daddr match with string") {
   auto exprs = T::build_addr_match_exprs("ip", {}, {"10.0.0.0/8"});
   REQUIRE(exprs.size() == 1);
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "daddr");
-  CHECK(exprs[0]["match"]["right"] == "10.0.0.0/8");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["len"] == 8);
 }
 
 TEST_CASE("build_addr_match_exprs: src_addr + dst_addr → two match exprs") {
@@ -726,9 +730,10 @@ TEST_CASE("build_mark_rule_json: src_addr → saddr expr present") {
   bool has_saddr = false;
   for (const auto &e : expr) {
     if (e.contains("match") && e["match"]["left"].contains("payload") &&
-        e["match"]["left"]["payload"]["field"] == "saddr") {
+      e["match"]["left"]["payload"]["field"] == "saddr") {
       has_saddr = true;
-      CHECK(e["match"]["right"] == "192.168.10.0/24");
+      CHECK(e["match"]["right"]["prefix"]["addr"] == "192.168.10.0");
+      CHECK(e["match"]["right"]["prefix"]["len"] == 24);
     }
   }
   CHECK(has_saddr);
@@ -834,7 +839,8 @@ TEST_CASE("build_addr_match_exprs: negated single src_addr → op !=") {
   REQUIRE(exprs.size() == 1);
   CHECK(exprs[0]["match"]["op"] == "!=");
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "saddr");
-  CHECK(exprs[0]["match"]["right"] == "192.168.1.0/24");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(exprs[0]["match"]["right"]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: negated dst_addr → op !=") {
@@ -852,8 +858,10 @@ TEST_CASE("build_addr_match_exprs: negated multiple src_addr → set literal "
   CHECK(exprs[0]["match"]["op"] == "!=");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0] == "192.168.1.0/24");
-  CHECK(rhs["set"][1] == "10.0.0.0/8");
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(rhs["set"][0]["prefix"]["len"] == 24);
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(rhs["set"][1]["prefix"]["len"] == 8);
 }
 
 TEST_CASE("build_addr_match_exprs: negated multiple dst_addr → set literal "
@@ -865,8 +873,10 @@ TEST_CASE("build_addr_match_exprs: negated multiple dst_addr → set literal "
   CHECK(exprs[0]["match"]["left"]["payload"]["field"] == "daddr");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0] == "8.8.8.0/24");
-  CHECK(rhs["set"][1] == "1.1.1.0/24");
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "8.8.8.0");
+  CHECK(rhs["set"][0]["prefix"]["len"] == 24);
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "1.1.1.0");
+  CHECK(rhs["set"][1]["prefix"]["len"] == 24);
 }
 
 TEST_CASE("build_addr_match_exprs: non-negated multiple src_addr stays == "
@@ -877,8 +887,10 @@ TEST_CASE("build_addr_match_exprs: non-negated multiple src_addr stays == "
   CHECK(exprs[0]["match"]["op"] == "==");
   const auto &rhs = exprs[0]["match"]["right"];
   REQUIRE(rhs.contains("set"));
-  CHECK(rhs["set"][0] == "192.168.1.0/24");
-  CHECK(rhs["set"][1] == "10.0.0.0/8");
+  CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
+  CHECK(rhs["set"][0]["prefix"]["len"] == 24);
+  CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
+  CHECK(rhs["set"][1]["prefix"]["len"] == 8);
 }
 
 TEST_CASE("build_addr_match_exprs: non-negated stays == (regression)") {
@@ -942,8 +954,10 @@ TEST_CASE("build_mark_rule_json: multiple negated src_addrs → != with set "
       CHECK(e["match"]["op"] == "!=");
       const auto &rhs = e["match"]["right"];
       REQUIRE(rhs.contains("set"));
-      CHECK(rhs["set"][0] == "192.168.1.0/24");
-      CHECK(rhs["set"][1] == "10.0.0.0/8");
+      CHECK(rhs["set"][0]["prefix"]["addr"] == "192.168.1.0");
+      CHECK(rhs["set"][0]["prefix"]["len"] == 24);
+      CHECK(rhs["set"][1]["prefix"]["addr"] == "10.0.0.0");
+      CHECK(rhs["set"][1]["prefix"]["len"] == 8);
       found = true;
     }
   }
@@ -984,7 +998,10 @@ TEST_CASE(
   for (const auto &e : expr) {
     if (e.contains("match") && e["match"]["left"].contains("payload") &&
         e["match"]["left"]["payload"]["field"] == "daddr" &&
-        e["match"]["right"] == "10.0.0.0/8") {
+        e["match"]["right"].is_object() &&
+        e["match"]["right"].contains("prefix") &&
+        e["match"]["right"]["prefix"]["addr"] == "10.0.0.0" &&
+        e["match"]["right"]["prefix"]["len"] == 8) {
       CHECK(e["match"]["op"] == "!=");
       found = true;
     }
@@ -1115,7 +1132,8 @@ TEST_CASE("build_mark_rule_json: direct=true → daddr matches server IP") {
   for (const auto &e : expr) {
     if (e.contains("match") && e["match"]["left"].contains("payload") &&
         e["match"]["left"]["payload"]["field"] == "daddr") {
-      CHECK(e["match"]["right"] == "10.8.0.1");
+      CHECK(e["match"]["right"]["prefix"]["addr"] == "10.8.0.1");
+      CHECK(e["match"]["right"]["prefix"]["len"] == 32);
       found_ip = true;
     }
   }
@@ -1490,80 +1508,3 @@ bool pairwise_is_complete(const std::vector<PairwiseIndex> &cases) {
 }
 
 } // namespace
-
-TEST_CASE("nft pairwise matrix guard: deterministic bounded and complete") {
-  const auto first = generate_pairwise_indices();
-  const auto second = generate_pairwise_indices();
-
-  CHECK(first == second);
-  CHECK(pairwise_is_complete(first));
-  CHECK(first.size() <= 120);
-
-  const auto cases = generate_pairwise_cases();
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.mode == PairwiseRuleMode::ListBacked;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.mode == PairwiseRuleMode::Direct;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.action == PairwiseAction::Mark;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.action == PairwiseAction::Drop;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.action == PairwiseAction::Pass;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return selector_count(tc) == 1;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return selector_count(tc) == 2;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return selector_count(tc) >= 3;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return has_negated_selector(tc) && has_positive_selector(tc);
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.src_addr.addrs.size() > 1 || tc.dst_addr.addrs.size() > 1;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.src_addr.addrs.size() == 1 || tc.dst_addr.addrs.size() == 1;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.src_port.shape == PortShape::Single ||
-           tc.dst_port.shape == PortShape::Single;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.src_port.shape == PortShape::Multi ||
-           tc.dst_port.shape == PortShape::Multi;
-  }));
-  CHECK(std::any_of(cases.begin(), cases.end(), [](const auto &tc) {
-    return tc.src_port.shape == PortShape::Range ||
-           tc.dst_port.shape == PortShape::Range;
-  }));
-}
-
-TEST_CASE("build_rule_add_commands: pairwise parametrized rule matrix") {
-  static constexpr uint32_t kPairwiseMark = 0x1234;
-  const auto cases = generate_pairwise_cases();
-
-  for (const auto &tc : cases) {
-    const auto filter = build_pairwise_filter(tc);
-    const auto action = tc.action == PairwiseAction::Mark
-                            ? Rule::Mark
-                            : (tc.action == PairwiseAction::Drop ? Rule::Drop
-                                                                 : Rule::Pass);
-
-    const auto actual = T::build_rule_add_commands_for_rule(
-        AF_INET, action, kPairwiseMark, filter,
-        tc.mode == PairwiseRuleMode::ListBacked);
-    const auto expected = expected_rule_commands(tc, AF_INET, kPairwiseMark);
-
-    CAPTURE(tc.name);
-    CHECK(actual == expected);
-  }
-}

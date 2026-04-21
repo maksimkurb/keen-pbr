@@ -38,5 +38,15 @@ for backend in iptables nftables; do
     --setup "$fixtures_dir/urltest-reachable.setup.sh" \
     --run-urltest-probes
 
+  docker exec "$container" /opt/keen-pbr/firewall-it/scripts/run-in-netns.sh \
+    --backend "$backend" \
+    --config "$fixtures_dir/firewall-rule-shapes.json" \
+    --setup "$fixtures_dir/firewall-rule-shapes.setup.sh"
+
+  docker exec "$container" /opt/keen-pbr/firewall-it/scripts/run-in-netns.sh \
+    --backend "$backend" \
+    --config "$fixtures_dir/firewall-table-interface.json" \
+    --setup "$fixtures_dir/firewall-table-interface.setup.sh"
+
   docker rm -f "$container" >/dev/null
 done

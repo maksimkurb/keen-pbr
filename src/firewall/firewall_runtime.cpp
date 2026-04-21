@@ -100,6 +100,8 @@ std::vector<RuleState> apply_runtime_firewall(
             criteria.dst_addr = std::move(spec.addrs);
         }
 
+        rule_state.criteria = criteria;
+
         auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
             FirewallRuleCriteria rule_criteria = criteria;
             rule_criteria.dst_set_name = dst_set_name;

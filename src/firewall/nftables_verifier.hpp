@@ -13,6 +13,7 @@ namespace keen_pbr3 {
 // A single parsed rule from nft -j list table inet KeenPbrTable output (within KeenPbrTable/prerouting chain).
 struct ParsedNftRule {
     std::string set_name;  // Named set referenced in the match expression (without '@' prefix)
+    FirewallRuleCriteria criteria;
     bool is_mark{false};   // true if rule has a mangle/meta mark action
     bool is_drop{false};   // true if rule has a drop verdict
     bool is_pass{false};   // true if rule has an accept/return verdict

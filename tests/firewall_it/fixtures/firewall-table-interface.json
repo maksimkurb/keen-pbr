@@ -1,0 +1,76 @@
+{
+  "daemon": {
+    "cache_dir": "/tmp/keen-pbr-firewall-it-cache",
+    "firewall_backend": "iptables",
+    "strict_enforcement": false
+  },
+  "dns": {
+    "fallback": [
+      "quad9"
+    ],
+    "rules": [],
+    "servers": [
+      {
+        "address": "9.9.9.9",
+        "tag": "quad9"
+      }
+    ],
+    "system_resolver": {
+      "address": "127.0.0.1"
+    }
+  },
+  "fwmark": {
+    "mask": "0x00FF0000",
+    "start": "0x00010000"
+  },
+  "iproute": {
+    "table_start": 150
+  },
+  "lists": {
+    "ifconfig": {
+      "domains": [
+        "ifconfig.test"
+      ]
+    }
+  },
+  "outbounds": [
+    {
+      "table": 254,
+      "tag": "wan",
+      "type": "table"
+    },
+    {
+      "tag": "block",
+      "type": "blackhole"
+    },
+    {
+      "tag": "ignore",
+      "type": "ignore"
+    },
+    {
+      "interface": "awg1",
+      "tag": "cloudflare",
+      "type": "interface"
+    }
+  ],
+  "route": {
+    "inbound_interfaces": [
+      "awg0"
+    ],
+    "rules": [
+      {
+        "list": [
+          "ifconfig"
+        ],
+        "outbound": "wan"
+      },
+      {
+        "dest_port": "443,80",
+        "enabled": true,
+        "list": [],
+        "outbound": "cloudflare",
+        "proto": "tcp/udp"
+      }
+    ]
+  }
+}

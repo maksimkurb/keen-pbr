@@ -42,7 +42,7 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
 // Missing or empty inbound_interfaces leaves interface restriction disabled.
 FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg);
 
-// Build firewall rule state (set names + actions) from config without touching firewall.
+// Build firewall rule state (set names, actions, selectors) from config without touching firewall.
 // urltest_selections optionally overrides URLTEST outbounds to a selected child tag.
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,

@@ -38,9 +38,8 @@ public:
     // Verify that the KeenPbrTable chain exists and is hooked into PREROUTING.
     virtual FirewallChainCheck verify_chain() = 0;
 
-    // Verify that firewall rules match the expected RuleState list.
-    // Returns one FirewallRuleCheck per (RuleState, set_name) pair where
-    // action_type != Skip.
+    // Verify live firewall rules against realized rule state, including direct
+    // selectors and per-family/per-proto expansions.
     virtual std::vector<FirewallRuleCheck> verify_rules(
         const std::vector<RuleState>& expected) = 0;
 

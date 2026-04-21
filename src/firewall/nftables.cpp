@@ -336,9 +336,21 @@ nlohmann::json NftablesFirewall::build_port_match_exprs(L4Proto proto,
 // Convert a CIDR list to an nftables JSON right-hand side value.
 // Single CIDR → plain string.  Multiple CIDRs → {"set": ["cidr1", "cidr2"]}.
 static nlohmann::json cidr_list_to_nft_rhs(const std::vector<std::string>& addrs) {
-    if (addrs.size() == 1) return addrs[0];
+    auto addr_to_rhs = [](const std::string& addr) -> nlohmann::json {
+        const auto slash = addr.find('/');
+        if (slash != std::string::npos) {
+            const std::string base = addr.substr(0, slash);
+            const int len = std::stoi(addr.substr(slash + 1));
+            return {{"prefix", {{"addr", base}, {"len", len}}}};
+        }
+
+        const bool ipv6 = addr.find(':') != std::string::npos;
+        return {{"prefix", {{"addr", addr}, {"len", ipv6 ? 128 : 32}}}};
+    };
+
+    if (addrs.size() == 1) return addr_to_rhs(addrs[0]);
     nlohmann::json arr = nlohmann::json::array();
-    for (const auto& a : addrs) arr.push_back(a);
+    for (const auto& a : addrs) arr.push_back(addr_to_rhs(a));
     return {{"set", arr}};
 }
 

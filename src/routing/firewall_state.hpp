@@ -25,6 +25,7 @@ struct RuleState {
     std::string outbound_tag;           // Resolved outbound tag
     RuleActionType action_type;
     uint32_t fwmark{0};                 // Only valid if action_type == Mark
+    FirewallRuleCriteria criteria;      // Realized selector criteria for live rules
 };
 
 // In-memory state of the firewall configuration.

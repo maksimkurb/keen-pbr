@@ -130,6 +130,33 @@ Topology:
 - dummy `wan_dead` interface in the client namespace
 - local HTTP server bound to `10.203.0.1:18080`
 
+### `firewall-rule-shapes`
+
+Files:
+
+- [`fixtures/firewall-rule-shapes.json`](./fixtures/firewall-rule-shapes.json)
+- [`fixtures/firewall-rule-shapes.setup.sh`](./fixtures/firewall-rule-shapes.setup.sh)
+
+Purpose:
+
+- exercise real list-backed and direct firewall rules
+- cover mark, drop, and pass actions through live backends
+- verify proto/port selectors, negation, and IPv4/IPv6 family splits
+
+### `firewall-table-interface`
+
+Files:
+
+- [`fixtures/firewall-table-interface.json`](./fixtures/firewall-table-interface.json)
+- [`fixtures/firewall-table-interface.setup.sh`](./fixtures/firewall-table-interface.setup.sh)
+
+Purpose:
+
+- adapt table-outbound plus interface-outbound config into offline fixture form
+- verify inbound interface prefilter with `awg0`
+- verify direct tcp/udp port-list marking toward interface outbound `awg1`
+- verify list-backed dynamic-set marking toward routing table outbound `wan`
+
 ## How The Runner Works
 
 [`scripts/run-suite.sh`](./scripts/run-suite.sh) does this:

@@ -13,6 +13,8 @@ namespace keen_pbr3 {
 // A single parsed rule from `iptables -t mangle -S` output (within KeenPbrTable chain).
 struct ParsedIptablesRule {
     std::string set_name;  // IP set name from --match-set
+    FirewallRuleCriteria criteria;
+    bool ipv6{false};      // true if the rule came from ip6tables
     bool is_mark{false};   // true if -j MARK --set-mark / --set-xmark
     bool is_drop{false};   // true if -j DROP
     bool is_pass{false};   // true if -j RETURN

@@ -1,0 +1,85 @@
+{
+  "daemon": {
+    "cache_dir": "/tmp/keen-pbr-firewall-it-cache",
+    "firewall_backend": "iptables",
+    "strict_enforcement": true
+  },
+  "fwmark": {
+    "start": "0x00010000",
+    "mask": "0x00ff0000"
+  },
+  "outbounds": [
+    {
+      "tag": "wan0",
+      "type": "interface",
+      "interface": "wan0"
+    },
+    {
+      "tag": "null0",
+      "type": "blackhole"
+    },
+    {
+      "tag": "direct",
+      "type": "ignore"
+    }
+  ],
+  "lists": {
+    "hybrid": {
+      "ip_cidrs": [
+        "10.10.0.0/24",
+        "2001:db8:10::/64"
+      ],
+      "domains": [
+        "example.com"
+      ]
+    }
+  },
+  "route": {
+    "rules": [
+      {
+        "list": [
+          "hybrid"
+        ],
+        "outbound": "wan0",
+        "proto": "tcp",
+        "dest_port": "443"
+      },
+      {
+        "list": [
+          "hybrid"
+        ],
+        "outbound": "null0",
+        "proto": "udp",
+        "src_addr": "!10.0.0.0/8",
+        "dest_port": "53"
+      },
+      {
+        "outbound": "direct",
+        "proto": "udp",
+        "dest_addr": "8.8.8.8",
+        "dest_port": "53"
+      },
+      {
+        "outbound": "wan0",
+        "src_port": "1111"
+      },
+      {
+        "outbound": "null0",
+        "proto": "tcp",
+        "src_addr": "192.168.1.0/24",
+        "dest_port": "!443"
+      },
+      {
+        "outbound": "wan0",
+        "proto": "udp",
+        "dest_addr": "2001:db8:53::53",
+        "dest_port": "53"
+      }
+    ]
+  },
+  "dns": {
+    "system_resolver": {
+      "address": "127.0.0.1"
+    }
+  }
+}
