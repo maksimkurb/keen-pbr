@@ -66,9 +66,7 @@ for backend in iptables nftables; do
   container="keen-pbr-firewall-it-${backend}"
   docker rm -f "$container" >/dev/null 2>&1 || true
   docker run -d --name "$container" \
-    --cap-add NET_ADMIN \
-    --cap-add NET_RAW \
-    --cap-add SYS_ADMIN \
+    --privileged \
     "${images[$backend]}" >/dev/null
 
   run_case "$container" "$backend" "firewall-smoke.json" "firewall-smoke.setup.sh"
