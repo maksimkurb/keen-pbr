@@ -126,14 +126,8 @@ void Daemon::start_routing_runtime() {
     apply_firewall(FirewallApplyMode::Destructive);
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        auto args = build_system_resolver_hook_args(config_, "ensure-runtime-prereqs");
-        int exit_code = hook_command_executor_(args);
-        if (exit_code != 0) {
-            throw DaemonError("System resolver ensure-runtime-prereqs hook failed with exit code " +
-                              std::to_string(exit_code));
-        }
-        args = build_system_resolver_hook_args(config_, "activate");
-        exit_code = hook_command_executor_(args);
+        auto args = build_system_resolver_hook_args(config_, "activate");
+        const int exit_code = hook_command_executor_(args);
         if (exit_code != 0) {
             throw DaemonError("System resolver activate hook failed with exit code " +
                               std::to_string(exit_code));

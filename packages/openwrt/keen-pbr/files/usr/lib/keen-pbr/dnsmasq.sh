@@ -285,6 +285,8 @@ ensure_runtime_prereqs() {
 activate_dnsmasq() {
     local section
 
+    ensure_runtime_prereqs
+
     for section in $(dnsmasq_sections); do
         write_temp_conf_for_section "$section" || true
     done
@@ -337,8 +339,7 @@ Usage: $0 <command>
 
 Commands:
   install-persistent     Seed fallback dnsmasq config and install persistent integration.
-  ensure-runtime-prereqs Ensure dnsmasq jail/runtime prerequisites are configured.
-  activate               Switch dnsmasq to keen-pbr dynamic resolver config and restart dnsmasq.
+  activate               Switch dnsmasq to keen-pbr dynamic resolver config, and restart dnsmasq.
   deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
   uninstall-persistent   Remove persistent integration and helper-managed runtime config.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
@@ -350,9 +351,6 @@ EOF
 case "$1" in
     install-persistent)
         install_persistent
-        ;;
-    ensure-runtime-prereqs)
-        ensure_runtime_prereqs
         ;;
     activate)
         activate_dnsmasq

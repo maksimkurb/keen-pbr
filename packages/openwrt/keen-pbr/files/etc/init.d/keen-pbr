@@ -72,7 +72,6 @@ start_service() {
     mkdir -p /var/cache/keen-pbr
 
     if [ -x "$HELPER" ]; then
-        "$HELPER" ensure-runtime-prereqs || return 1
         "$HELPER" activate || return 1
     fi
 
@@ -108,7 +107,6 @@ reapply_firewall() {
 
 reapply_dnsmasq_config() {
     if [ -x "$HELPER" ]; then
-        "$HELPER" ensure-runtime-prereqs || return 1
         "$HELPER" activate || return 1
     fi
 }
