@@ -469,7 +469,7 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     const bool live_table_exists = preserve_sets && table_exists();
 
     if (mode == FirewallApplyMode::Destructive) {
-        cleanup_impl();
+        cleanup_live_impl();
     } else if (live_table_exists) {
         cleanup_chain_impl();
     }
@@ -528,12 +528,16 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     table_created_ = true;
 }
 
-void NftablesFirewall::cleanup_impl() {
+void NftablesFirewall::cleanup_live_impl() {
     if (table_created_ || table_exists()) {
         Logger::instance().verbose("nft delete table inet {}", TABLE_NAME);
         safe_exec({"nft", "delete", "table", "inet", std::string(TABLE_NAME)}, /*suppress_output=*/true);
         table_created_ = false;
     }
+}
+
+void NftablesFirewall::cleanup_impl() {
+    cleanup_live_impl();
 
     created_sets_.clear();
     pending_sets_.clear();

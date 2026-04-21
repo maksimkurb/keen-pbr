@@ -1,0 +1,48 @@
+{
+  "daemon": {
+    "cache_dir": "/tmp/keen-pbr-firewall-it-cache",
+    "firewall_backend": "iptables",
+    "strict_enforcement": true
+  },
+  "fwmark": {
+    "start": "0x00010000",
+    "mask": "0x00ff0000"
+  },
+  "outbounds": [
+    {
+      "tag": "wan0",
+      "type": "interface",
+      "interface": "wan0"
+    },
+    {
+      "tag": "null0",
+      "type": "blackhole"
+    }
+  ],
+  "lists": {
+    "local": {
+      "ip_cidrs": [
+        "10.10.0.0/24",
+        "2001:db8:1::/64"
+      ]
+    }
+  },
+  "route": {
+    "inbound_interfaces": [
+      "lan0"
+    ],
+    "rules": [
+      {
+        "list": [
+          "local"
+        ],
+        "outbound": "wan0"
+      }
+    ]
+  },
+  "dns": {
+    "system_resolver": {
+      "address": "127.0.0.1"
+    }
+  }
+}

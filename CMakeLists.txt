@@ -233,6 +233,7 @@ set(SOURCES
   src/routing/urltest_manager.cpp
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp
+  src/firewall/firewall_runtime.cpp
   src/firewall/port_spec_util.cpp
   src/firewall/iptables.cpp
   src/firewall/nftables.cpp

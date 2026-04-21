@@ -51,6 +51,7 @@ public:
 
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
+    void cleanup_live_impl();
     void cleanup_impl();
     void cleanup_rules_impl();
 

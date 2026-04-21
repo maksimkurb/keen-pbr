@@ -34,9 +34,11 @@ ParsedIptablesState parse_iptables_s(const std::string& output) {
     // Prefix for PREROUTING jump rule
     const std::string prerouting_jump =
         std::string("-A PREROUTING -j ") + CHAIN_NAME;
-    // Prefix for rules in the KeenPbrTable chain
+    // Prefix for any rule in the KeenPbrTable chain. iptables may normalize
+    // token ordering, so the set matcher is not guaranteed to be the first
+    // matcher after the chain name.
     const std::string chain_rule_prefix =
-        std::string("-A ") + CHAIN_NAME + " -m set --match-set ";
+        std::string("-A ") + CHAIN_NAME + " ";
 
     std::istringstream stream(output);
     std::string line;
@@ -54,10 +56,15 @@ ParsedIptablesState parse_iptables_s(const std::string& output) {
             continue;
         }
 
-        // Rules in KeenPbrTable chain: "-A KeenPbrTable -m set --match-set <set> dst -j ..."
+        // Rules in KeenPbrTable chain with a set matcher somewhere in the rule:
+        // "-A KeenPbrTable ... -m set --match-set <set> dst ... -j ..."
         if (line.rfind(chain_rule_prefix, 0) == 0) {
-            size_t set_start = chain_rule_prefix.size();
-            size_t set_end = line.find(' ', set_start);
+            const std::string match_set_token = "--match-set ";
+            const size_t match_set_pos = line.find(match_set_token);
+            if (match_set_pos == std::string::npos) continue;
+
+            const size_t set_start = match_set_pos + match_set_token.size();
+            const size_t set_end = line.find(' ', set_start);
             if (set_end == std::string::npos) continue;
 
             std::string set_name = line.substr(set_start, set_end - set_start);

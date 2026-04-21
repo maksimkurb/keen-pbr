@@ -10,6 +10,7 @@
 #include "../dns/dns_router.hpp"
 #include "../dns/dns_server.hpp"
 #include "../firewall/firewall.hpp"
+#include "../firewall/firewall_runtime.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"
@@ -37,14 +38,6 @@ std::string format_list_names(const std::vector<std::string>& list_names) {
         out << list_names[i];
     }
     return out.str();
-}
-
-L4Proto parse_rule_proto(const std::optional<std::string>& proto) {
-    if (!proto.has_value() || proto->empty()) return L4Proto::Any;
-    if (*proto == "tcp") return L4Proto::Tcp;
-    if (*proto == "udp") return L4Proto::Udp;
-    if (*proto == "tcp/udp") return L4Proto::TcpUdp;
-    throw DaemonError("Unsupported route rule protocol: " + *proto);
 }
 
 } // namespace
@@ -165,177 +158,13 @@ void Daemon::setup_static_routing() {
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode) {
-    ListStreamer list_streamer(list_service_.cache_manager());
-    auto rule_states =
-        build_fw_rule_states(config_, outbound_marks_, &firewall_state_.get_urltest_selections());
-    const RouteConfig route_config = config_.route.value_or(RouteConfig{});
-    firewall_->set_global_prefilter(build_firewall_global_prefilter(config_));
-
-    const auto& all_outbounds = config_.outbounds.value_or(std::vector<Outbound>{});
-    static const std::map<std::string, ListConfig> empty_lists;
-    const auto& lists_map = config_.lists ? *config_.lists : empty_lists;
-    const auto& route_rules = route_config.rules.value_or(std::vector<RouteRule>{});
-    std::map<std::string, ListSetUsage> list_usage_cache;
-
-    for (size_t rule_idx = 0; rule_idx < route_rules.size(); ++rule_idx) {
-        const auto& rule = route_rules[rule_idx];
-        RuleState& rs = rule_states[rule_idx];
-
-        if (rs.action_type == RuleActionType::Skip) {
-            continue;
-        }
-
-        rs.set_names.clear();
-
-        const bool is_blackhole = (rs.action_type == RuleActionType::Drop);
-        const bool is_pass = (rs.action_type == RuleActionType::Pass);
-        auto strip_neg = [](const std::string& s) -> std::pair<std::string, bool> {
-            if (!s.empty() && s[0] == '!') return {s.substr(1), true};
-            return {s, false};
-        };
-
-        FirewallRuleCriteria criteria;
-        criteria.proto = parse_rule_proto(rule.proto);
-
-        {
-            auto [port, neg] = strip_neg(rule.src_port.value_or(""));
-            criteria.src_port = port;
-            criteria.negate_src_port = neg;
-        }
-        {
-            auto [port, neg] = strip_neg(rule.dest_port.value_or(""));
-            criteria.dst_port = port;
-            criteria.negate_dst_port = neg;
-        }
-        {
-            AddrSpec s = parse_addr_spec(rule.src_addr.value_or(""));
-            criteria.negate_src_addr = s.negate;
-            criteria.src_addr = std::move(s.addrs);
-        }
-        {
-            AddrSpec s = parse_addr_spec(rule.dest_addr.value_or(""));
-            criteria.negate_dst_addr = s.negate;
-            criteria.dst_addr = std::move(s.addrs);
-        }
-
-        auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {
-            FirewallRuleCriteria rule_criteria = criteria;
-            rule_criteria.dst_set_name = dst_set_name;
-
-            if (is_blackhole) {
-                firewall_->create_drop_rule(rule_criteria);
-            } else if (is_pass) {
-                firewall_->create_pass_rule(rule_criteria);
-            } else if (rs.fwmark != 0) {
-                firewall_->create_mark_rule(rs.fwmark, rule_criteria);
-            }
-        };
-
-        const auto& list_names = route_rule_lists(rule);
-        if (!list_names.empty()) {
-            bool emitted_rule = false;
-
-            for (const auto& list_name : list_names) {
-                auto list_cfg_it = lists_map.find(list_name);
-                if (list_cfg_it == lists_map.end()) continue;
-
-                const auto& list_cfg = list_cfg_it->second;
-                auto usage_it = list_usage_cache.find(list_name);
-                if (usage_it == list_usage_cache.end()) {
-                    usage_it = list_usage_cache.emplace(
-                        list_name,
-                        analyze_list_set_usage(list_name, list_cfg, list_streamer)).first;
-                }
-                const auto& usage = usage_it->second;
-
-                const std::string set4 = "kpbr4_"  + list_name;
-                const std::string set6 = "kpbr6_"  + list_name;
-                const std::string set4d = "kpbr4d_" + list_name;
-                const std::string set6d = "kpbr6d_" + list_name;
-
-                if (usage.has_static_entries) {
-                    firewall_->create_ipset(set4, AF_INET, 0);
-                    firewall_->create_ipset(set6, AF_INET6, 0);
-                    rs.set_names.push_back(set4);
-                    rs.set_names.push_back(set6);
-
-                    auto loader4 = firewall_->create_batch_loader(set4);
-                    auto loader6 = firewall_->create_batch_loader(set6);
-                    FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
-                        if (type == EntryType::Domain) return;
-                        bool is_v6 = entry.find(':') != std::string_view::npos;
-                        if (is_v6) loader6->on_entry(type, entry);
-                        else       loader4->on_entry(type, entry);
-                    });
-                    list_streamer.stream_list(list_name, list_cfg, splitter);
-                    loader4->finish();
-                    loader6->finish();
-                }
-
-                if (usage.has_domain_entries) {
-                    firewall_->create_ipset(set4d, AF_INET, usage.dynamic_timeout);
-                    firewall_->create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
-                    rs.set_names.push_back(set4d);
-                    rs.set_names.push_back(set6d);
-                }
-                if (usage.has_static_entries) {
-                    apply_rule(set4);
-                    apply_rule(set6);
-                    emitted_rule = true;
-                }
-                if (usage.has_domain_entries) {
-                    apply_rule(set4d);
-                    apply_rule(set6d);
-                    emitted_rule = true;
-                }
-            }
-
-            if (!emitted_rule && criteria.has_rule_selector()) {
-                apply_rule(std::nullopt);
-            }
-        } else if (criteria.has_rule_selector()) {
-            apply_rule(std::nullopt);
-        }
-    }
-
-    if (config_.dns.has_value()) {
-        const auto& dns_servers = config_.dns->servers.value_or(std::vector<DnsServer>{});
-        const DnsServerRegistry dns_registry(config_.dns.value_or(DnsConfig{}));
-        for (const auto& srv : dns_servers) {
-            if (!srv.detour.has_value()) continue;
-
-            const Outbound* detour_ob = find_outbound(all_outbounds, srv.detour.value());
-            if (!detour_ob) continue;
-
-            std::string effective_tag = detour_ob->tag;
-            if (detour_ob->type == OutboundType::URLTEST) {
-                auto selections = firewall_state_.get_urltest_selections();
-                auto sel_it = selections.find(effective_tag);
-                if (sel_it != selections.end() && !sel_it->second.empty()) {
-                    const Outbound* child = find_outbound(all_outbounds, sel_it->second);
-                    if (child) effective_tag = child->tag;
-                }
-            }
-
-            auto mark_it = outbound_marks_.find(effective_tag);
-            if (mark_it == outbound_marks_.end()) continue;
-
-            const auto resolved_servers = dns_registry.get_servers(srv.tag);
-            if (resolved_servers.empty()) {
-                throw DaemonError("DNS server tag not found during detour setup: " + srv.tag);
-            }
-            for (const DnsServerConfig* resolved_server : resolved_servers) {
-                FirewallRuleCriteria criteria;
-                criteria.proto = L4Proto::TcpUdp;
-                criteria.dst_port = std::to_string(resolved_server->port);
-                criteria.dst_addr = {resolved_server->resolved_ip};
-                firewall_->create_mark_rule(mark_it->second, criteria);
-            }
-        }
-    }
-
-    firewall_->apply(mode);
-    firewall_state_.set_rules(std::move(rule_states));
+    firewall_state_.set_rules(apply_runtime_firewall(
+        config_,
+        outbound_marks_,
+        firewall_state_.get_urltest_selections(),
+        list_service_.cache_manager(),
+        *firewall_,
+        mode));
 }
 
 void Daemon::download_uncached_lists() {

@@ -358,7 +358,7 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
 
 void IptablesFirewall::apply(FirewallApplyMode mode) {
     if (mode == FirewallApplyMode::Destructive) {
-        cleanup_impl();
+        cleanup_live_impl();
     } else {
         cleanup_rules_impl();
     }
@@ -429,7 +429,7 @@ void IptablesFirewall::cleanup_rules_impl() {
     }
 }
 
-void IptablesFirewall::cleanup_impl() {
+void IptablesFirewall::cleanup_live_impl() {
     auto& log = Logger::instance();
 
     cleanup_rules_impl();
@@ -440,6 +440,11 @@ void IptablesFirewall::cleanup_impl() {
         safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
         safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
     }
+}
+
+void IptablesFirewall::cleanup_impl() {
+    cleanup_live_impl();
+
     created_sets_.clear();
 
     pending_sets_.clear();

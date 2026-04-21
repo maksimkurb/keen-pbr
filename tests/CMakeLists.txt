@@ -30,6 +30,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/firewall_runtime.cpp
   ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
   ../src/firewall/nft_batch_pipe.cpp
@@ -141,6 +142,80 @@ if(WITH_API)
   if(HTTPLIB_ANL_LIB)
     target_link_libraries(keen-pbr-tests PRIVATE ${HTTPLIB_ANL_LIB})
   endif()
+endif()
+
+add_executable(keen-pbr-firewall-it
+  firewall_integration_main.cpp
+  ../src/cache/cache_manager.cpp
+  ../src/config/config.cpp
+  ../src/config/list_parser.cpp
+  ../src/config/routing_state.cpp
+  ../src/dns/dns_router.cpp
+  ../src/dns/dns_probe_server.cpp
+  ../src/dns/dns_server.cpp
+  ../src/dns/keenetic_dns.cpp
+  ../src/firewall/firewall.cpp
+  ../src/firewall/firewall_runtime.cpp
+  ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/iptables.cpp
+  ../src/firewall/iptables_verifier.cpp
+  ../src/firewall/ipset_restore_pipe.cpp
+  ../src/firewall/nft_batch_pipe.cpp
+  ../src/firewall/nftables.cpp
+  ../src/firewall/nftables_verifier.cpp
+  ../src/firewall/port_spec_util.cpp
+  ../src/health/circuit_breaker.cpp
+  ../src/health/routing_health_checker.cpp
+  ../src/health/url_tester.cpp
+  ../src/http/http_client.cpp
+  ../src/lists/list_set_usage.cpp
+  ../src/lists/list_streamer.cpp
+  ../src/log/logger.cpp
+  ../src/log/trace.cpp
+  ../src/routing/firewall_state.cpp
+  ../src/routing/netlink.cpp
+  ../src/routing/policy_rule.cpp
+  ../src/routing/route_table.cpp
+  ../src/routing/routing_verifier.cpp
+  ../src/routing/target.cpp
+  ../src/util/blocking_executor.cpp
+  ../src/util/traced_mutex.cpp
+)
+set_target_properties(keen-pbr-firewall-it PROPERTIES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
+  CXX_EXTENSIONS NO
+)
+target_include_directories(keen-pbr-firewall-it PRIVATE
+  $<TARGET_PROPERTY:keen-pbr,INCLUDE_DIRECTORIES>
+)
+target_include_directories(keen-pbr-firewall-it PRIVATE
+  ${KEEN_PBR_GENERATED_INCLUDE_DIR}
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/third_party/nlohmann_json/include
+  ${LIBNL_INCLUDE_DIRS}
+  ${LIBNL_ROUTE_INCLUDE_DIRS}
+)
+target_link_libraries(keen-pbr-firewall-it PRIVATE
+  nlohmann_json::nlohmann_json
+  CURL::libcurl
+  PkgConfig::LIBNL
+  PkgConfig::LIBNL_ROUTE
+  cpptrace::cpptrace
+  fmt::fmt-header-only
+  keen_pbr_libunwind
+  Threads::Threads
+)
+target_compile_definitions(keen-pbr-firewall-it PRIVATE USE_KEENETIC_API)
+if(LIBATOMIC)
+  target_link_libraries(keen-pbr-firewall-it PRIVATE ${LIBATOMIC})
+endif()
+if(LIBRESOLV)
+  target_link_libraries(keen-pbr-firewall-it PRIVATE ${LIBRESOLV})
+endif()
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+  target_link_libraries(keen-pbr-firewall-it PRIVATE stdc++fs)
 endif()
 
 if(ENABLE_THREAD_SAFETY_ANALYSIS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")

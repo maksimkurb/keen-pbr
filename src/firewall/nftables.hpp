@@ -50,6 +50,7 @@ public:
 private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
+    void cleanup_live_impl();
     void cleanup_impl();
     void cleanup_chain_impl();
     bool table_exists() const;

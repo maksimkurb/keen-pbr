@@ -1,0 +1,36 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      iproute2 \
+      iptables \
+      ipset \
+      nftables \
+      libc6 \
+      libcurl4t64 \
+      libgcc-s1 \
+      libnl-3-200 \
+      libnl-route-3-200 \
+      libstdc++6 \
+      libunwind-18 \
+      python3 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN if [ ! -e /lib/x86_64-linux-gnu/libunwind.so.1 ] && [ -e /usr/lib/llvm-18/lib/libunwind.so.1.0 ]; then \
+      ln -s /usr/lib/llvm-18/lib/libunwind.so.1.0 /lib/x86_64-linux-gnu/libunwind.so.1; \
+    fi
+
+WORKDIR /opt/keen-pbr
+
+COPY cmake-build-gcc/tests/keen-pbr-firewall-it /opt/keen-pbr/bin/keen-pbr-firewall-it
+COPY tests/firewall_it /opt/keen-pbr/firewall-it
+
+RUN chmod +x /opt/keen-pbr/bin/keen-pbr-firewall-it \
+    /opt/keen-pbr/firewall-it/scripts/run-in-netns.sh && \
+    ldd /opt/keen-pbr/bin/keen-pbr-firewall-it | tee /tmp/keen-pbr-firewall-it.ldd && \
+    ! grep -q "not found" /tmp/keen-pbr-firewall-it.ldd
+
+ENTRYPOINT ["sleep", "infinity"]

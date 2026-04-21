@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  doctest:
     name: doctest
     runs-on: ubuntu-latest
     steps:
@@ -45,3 +45,26 @@ jobs:
 
       - name: Run doctest
         run: make test
+
+  firewall-it:
+    name: firewall integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            pkg-config \
+            libcurl4-openssl-dev \
+            libnl-3-dev \
+            libnl-route-3-dev \
+            libunwind-dev
+
+      - name: Run firewall integration suite
+        run: make firewall-it

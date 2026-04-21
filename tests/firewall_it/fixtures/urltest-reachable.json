@@ -1,0 +1,61 @@
+{
+  "daemon": {
+    "cache_dir": "/tmp/keen-pbr-firewall-it-cache",
+    "firewall_backend": "iptables",
+    "strict_enforcement": true
+  },
+  "fwmark": {
+    "start": "0x00010000",
+    "mask": "0x00ff0000"
+  },
+  "outbounds": [
+    {
+      "tag": "wan_fast",
+      "type": "interface",
+      "interface": "wan_fast"
+    },
+    {
+      "tag": "wan_dead",
+      "type": "interface",
+      "interface": "wan_dead"
+    },
+    {
+      "tag": "auto",
+      "type": "urltest",
+      "url": "http://10.203.0.1:18080/fast",
+      "tolerance_ms": 50,
+      "strict_enforcement": true,
+      "outbound_groups": [
+        {
+          "weight": 1,
+          "outbounds": [
+            "wan_fast",
+            "wan_dead"
+          ]
+        }
+      ]
+    }
+  ],
+  "lists": {
+    "probe": {
+      "ip_cidrs": [
+        "1.1.1.1"
+      ]
+    }
+  },
+  "route": {
+    "rules": [
+      {
+        "list": [
+          "probe"
+        ],
+        "outbound": "auto"
+      }
+    ]
+  },
+  "dns": {
+    "system_resolver": {
+      "address": "127.0.0.1"
+    }
+  }
+}
