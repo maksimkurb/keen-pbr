@@ -163,44 +163,25 @@ std::unique_ptr<ListEntryVisitor> NftablesFirewall::create_batch_loader(
 // "443"       → 443  (integer)
 // "8000-9000" → {"range": [8000, 9000]}
 // "80,443"    → {"set": [80, 443]}
-static nlohmann::json port_spec_to_nft_rhs(const std::string& spec) {
+static nlohmann::json port_spec_to_nft_rhs(const PortSpec& spec) {
     PortSpecKind kind = classify_port_spec(spec);
     if (kind == PortSpecKind::List) {
         nlohmann::json arr = nlohmann::json::array();
-        for (const auto& token : split_port_spec_tokens(spec)) {
-            PortSpecKind token_kind = classify_port_spec(token);
-            if (token_kind == PortSpecKind::Range) {
-                int lo = 0;
-                int hi = 0;
-                if (!parse_port_range(token, lo, hi)) {
-                    throw std::invalid_argument(keen_pbr3::format("Invalid port token '{}' in port spec '{}'", token, spec));
-                }
-                arr.push_back({{"range", nlohmann::json::array({lo, hi})}});
+        for (const auto& range : spec.ranges) {
+            if (range.from != range.to) {
+                arr.push_back({{"range", nlohmann::json::array({range.from, range.to})}});
             } else {
-                int port = 0;
-                if (!parse_port_value(token, port)) {
-                    throw std::invalid_argument(keen_pbr3::format("Invalid port token '{}' in port spec '{}'", token, spec));
-                }
-                arr.push_back(port);
+                arr.push_back(range.from);
             }
         }
         return {{"set", arr}};
     }
 
     if (kind == PortSpecKind::Range) {
-        int lo = 0;
-        int hi = 0;
-        if (!parse_port_range(spec, lo, hi)) {
-            throw std::invalid_argument(keen_pbr3::format("Invalid port range '{}'", spec));
-        }
-        return {{"range", nlohmann::json::array({lo, hi})}};
+        return {{"range", nlohmann::json::array({spec.ranges[0].from, spec.ranges[0].to})}};
     }
 
-    int port = 0;
-    if (!parse_port_value(spec, port)) {
-        throw std::invalid_argument(keen_pbr3::format("Invalid port '{}'", spec));
-    }
-    return port;
+    return spec.ranges[0].from;
 }
 
 // --- Private static helpers ---
@@ -304,8 +285,8 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
 }
 
 nlohmann::json NftablesFirewall::build_port_match_exprs(L4Proto proto,
-                                                          const std::string& src_port,
-                                                          const std::string& dst_port,
+                                                          const PortSpec& src_port,
+                                                          const PortSpec& dst_port,
                                                           bool negate_src_port,
                                                           bool negate_dst_port) {
     nlohmann::json exprs = nlohmann::json::array();

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "port_spec_util.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -10,7 +12,6 @@
 namespace keen_pbr3 {
 
 class ListEntryVisitor;
-
 enum class L4Proto : uint8_t {
     Any,
     Tcp,
@@ -37,8 +38,8 @@ inline const char* l4_proto_name(L4Proto proto) {
 struct FirewallRuleCriteria {
     std::optional<std::string> dst_set_name; // named destination set matcher, if any
     L4Proto proto = L4Proto::Any;
-    std::string src_port;              // port spec or "" (any)
-    std::string dst_port;              // port spec or "" (any)
+    PortSpec src_port;                 // parsed source port selector
+    PortSpec dst_port;                 // parsed destination port selector
     std::vector<std::string> src_addr; // CIDR list, empty = any source address
     std::vector<std::string> dst_addr; // CIDR list, empty = any destination address
     bool negate_src_port = false;      // if true, match packets NOT from src_port

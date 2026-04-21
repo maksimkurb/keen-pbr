@@ -167,7 +167,9 @@ public:
                                                const std::string &dst_port,
                                                bool negate_src = false,
                                                bool negate_dst = false) {
-    return NftablesFirewall::build_port_match_exprs(parse_test_proto(proto), src_port, dst_port,
+    return NftablesFirewall::build_port_match_exprs(parse_test_proto(proto),
+                                                    PortSpec(src_port),
+                                                    PortSpec(dst_port),
                                                     negate_src, negate_dst);
   }
 

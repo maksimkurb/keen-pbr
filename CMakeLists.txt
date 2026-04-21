@@ -79,9 +79,19 @@ set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
 
 # Dependencies
-find_package(CURL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
+pkg_check_modules(LIBCURL IMPORTED_TARGET libcurl)
+if(TARGET PkgConfig::LIBCURL)
+  # Prefer the distro-provided libcurl discovered via pkg-config so CI does not
+  # accidentally link against a runner-local /usr/local curl build.
+  set(KEEN_PBR_CURL_TARGET PkgConfig::LIBCURL)
+  message(STATUS "Using pkg-config libcurl target: ${LIBCURL_LINK_LIBRARIES}")
+else()
+  find_package(CURL REQUIRED)
+  set(KEEN_PBR_CURL_TARGET CURL::libcurl)
+  message(STATUS "Using CMake libcurl target: ${CURL_LIBRARY_RELEASE}")
+endif()
 add_library(keen_pbr_libunwind INTERFACE)
 set(_keen_pbr_saved_find_library_suffixes "${CMAKE_FIND_LIBRARY_SUFFIXES}")
 set(_keen_pbr_prefer_static_libunwind ${KEEN_PBR_STATIC_LIBUNWIND})
@@ -311,7 +321,7 @@ if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)
 endif()
 target_link_libraries(keen-pbr PRIVATE
-  CURL::libcurl
+  ${KEEN_PBR_CURL_TARGET}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   Threads::Threads

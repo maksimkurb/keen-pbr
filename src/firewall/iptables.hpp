@@ -82,8 +82,8 @@ private:
         const FirewallGlobalPrefilter& prefilter);
     // Build the proto/port fragment for a single rule (single proto, not tcp/udp).
     static std::string build_proto_port_fragment(L4Proto proto,
-                                                 const std::string& src_port,
-                                                 const std::string& dst_port,
+                                                 const PortSpec& src_port,
+                                                 const PortSpec& dst_port,
                                                  bool negate_src_port = false,
                                                  bool negate_dst_port = false);
     // Build one or more iptables-restore lines for a queued rule.

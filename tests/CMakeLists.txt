@@ -86,7 +86,7 @@ target_include_directories(keen-pbr-tests PRIVATE
 
 target_link_libraries(keen-pbr-tests PRIVATE
   nlohmann_json::nlohmann_json
-  CURL::libcurl
+  ${KEEN_PBR_CURL_TARGET}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   cpptrace::cpptrace
@@ -199,7 +199,7 @@ target_include_directories(keen-pbr-firewall-it PRIVATE
 )
 target_link_libraries(keen-pbr-firewall-it PRIVATE
   nlohmann_json::nlohmann_json
-  CURL::libcurl
+  ${KEEN_PBR_CURL_TARGET}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   cpptrace::cpptrace

@@ -90,8 +90,8 @@ private:
     // Build nftables match expression(s) for proto/port filter.
     // Returns a (possibly empty) array of JSON match expressions.
     static nlohmann::json build_port_match_exprs(L4Proto proto,
-                                                  const std::string& src_port,
-                                                  const std::string& dst_port,
+                                                  const PortSpec& src_port,
+                                                  const PortSpec& dst_port,
                                                   bool negate_src_port = false,
                                                   bool negate_dst_port = false);
     // Build nftables match expression(s) for source/destination CIDR constraints.

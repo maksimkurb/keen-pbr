@@ -5,7 +5,6 @@
 
 #include <arpa/inet.h>
 #include <algorithm>
-#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -68,7 +67,7 @@ std::vector<L4Proto> expand_l4_protos_for_iptables(
 
 std::string normalize_iptables_port_spec(const std::string& spec) {
     if (spec.empty()) return {};
-    return normalize_port_spec_for_iptables(spec);
+    return parse_port_spec(spec).to_iptables_string();
 }
 
 std::string normalize_addr_value(const std::string& addr) {
@@ -98,10 +97,8 @@ std::vector<std::string> normalize_addr_list(const std::vector<std::string>& add
 bool criteria_equal(const FirewallRuleCriteria& lhs,
                     const FirewallRuleCriteria& rhs) {
     return lhs.proto == rhs.proto &&
-           normalize_iptables_port_spec(lhs.src_port) ==
-               normalize_iptables_port_spec(rhs.src_port) &&
-           normalize_iptables_port_spec(lhs.dst_port) ==
-               normalize_iptables_port_spec(rhs.dst_port) &&
+           lhs.src_port.to_iptables_string() == rhs.src_port.to_iptables_string() &&
+           lhs.dst_port.to_iptables_string() == rhs.dst_port.to_iptables_string() &&
            normalize_addr_list(lhs.src_addr) == normalize_addr_list(rhs.src_addr) &&
            normalize_addr_list(lhs.dst_addr) == normalize_addr_list(rhs.dst_addr) &&
            lhs.negate_src_port == rhs.negate_src_port &&
@@ -126,11 +123,11 @@ std::string criteria_summary(const FirewallRuleCriteria& criteria) {
     };
 
     auto append_port = [&parts](const char* label,
-                                const std::string& spec,
+                                const PortSpec& spec,
                                 bool negated) {
         if (spec.empty()) return;
         parts.push_back(keen_pbr3::format("{}={}{}", label, negated ? "!" : "",
-                                          normalize_iptables_port_spec(spec)));
+                                          spec.to_iptables_string()));
     };
 
     if (criteria.proto != L4Proto::Any) {

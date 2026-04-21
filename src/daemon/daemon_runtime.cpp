@@ -5,15 +5,9 @@
 #include <set>
 #include <sstream>
 
-#include "../config/addr_spec.hpp"
 #include "../config/routing_state.hpp"
-#include "../dns/dns_router.hpp"
-#include "../dns/dns_server.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_runtime.hpp"
-#include "../lists/list_entry_visitor.hpp"
-#include "../lists/list_set_usage.hpp"
-#include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
 #include "../util/time_utils.hpp"

@@ -81,12 +81,12 @@ std::vector<RuleState> apply_runtime_firewall(
 
         {
             auto [port, negated] = strip_neg(rule.src_port.value_or(""));
-            criteria.src_port = std::move(port);
+            criteria.src_port = port;
             criteria.negate_src_port = negated;
         }
         {
             auto [port, negated] = strip_neg(rule.dest_port.value_or(""));
-            criteria.dst_port = std::move(port);
+            criteria.dst_port = port;
             criteria.negate_dst_port = negated;
         }
         {

@@ -107,7 +107,8 @@ public:
                                                bool negate_src = false,
                                                bool negate_dst = false) {
     return IptablesFirewall::build_proto_port_fragment(
-        parse_test_proto(proto), src_port, dst_port, negate_src, negate_dst);
+        parse_test_proto(proto), PortSpec(src_port), PortSpec(dst_port),
+        negate_src, negate_dst);
   }
 };
 

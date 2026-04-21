@@ -4,7 +4,6 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
-#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -53,42 +52,24 @@ std::optional<L4Proto> parse_l4proto(const std::string& token) {
     return std::nullopt;
 }
 
-std::string parse_nft_port_spec(const nlohmann::json& rhs) {
+PortSpec parse_nft_port_spec(const nlohmann::json& rhs) {
     if (rhs.is_number_integer() || rhs.is_number_unsigned()) {
-        return std::to_string(rhs.get<int64_t>());
+        return PortSpec(std::to_string(rhs.get<int64_t>()));
     }
     if (rhs.is_object() && rhs.contains("range") && rhs["range"].is_array() &&
         rhs["range"].size() == 2) {
-        return keen_pbr3::format("{}-{}", rhs["range"][0].get<int64_t>(),
-                                 rhs["range"][1].get<int64_t>());
+        return PortSpec(keen_pbr3::format("{}-{}", rhs["range"][0].get<int64_t>(),
+                                          rhs["range"][1].get<int64_t>()));
     }
     if (rhs.is_object() && rhs.contains("set") && rhs["set"].is_array()) {
         std::string out;
         for (size_t i = 0; i < rhs["set"].size(); ++i) {
             if (i != 0) out += ",";
-            out += parse_nft_port_spec(rhs["set"][i]);
+            out += parse_nft_port_spec(rhs["set"][i]).to_config_string();
         }
-        return out;
+        return PortSpec(out);
     }
     return {};
-}
-
-std::string normalize_port_spec(const std::string& spec) {
-    if (spec.empty()) return {};
-
-    if (spec.find(',') == std::string::npos) {
-        return spec;
-    }
-
-    auto tokens = split_port_spec_tokens(spec);
-    std::sort(tokens.begin(), tokens.end());
-
-    std::string out;
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        if (i != 0) out += ",";
-        out += tokens[i];
-    }
-    return out;
 }
 
 std::vector<std::string> parse_nft_addr_list(const nlohmann::json& rhs) {
@@ -136,8 +117,8 @@ std::vector<std::string> parse_nft_addr_list(const nlohmann::json& rhs) {
 bool criteria_equal(const FirewallRuleCriteria& lhs,
                     const FirewallRuleCriteria& rhs) {
     return lhs.proto == rhs.proto &&
-           normalize_port_spec(lhs.src_port) == normalize_port_spec(rhs.src_port) &&
-           normalize_port_spec(lhs.dst_port) == normalize_port_spec(rhs.dst_port) &&
+           lhs.src_port == rhs.src_port &&
+           lhs.dst_port == rhs.dst_port &&
            lhs.src_addr == rhs.src_addr &&
            lhs.dst_addr == rhs.dst_addr &&
            lhs.negate_src_port == rhs.negate_src_port &&
@@ -162,10 +143,11 @@ std::string criteria_summary(const FirewallRuleCriteria& criteria) {
     };
 
     auto append_port = [&parts](const char* label,
-                                const std::string& spec,
+                                const PortSpec& spec,
                                 bool negated) {
         if (spec.empty()) return;
-        parts.push_back(keen_pbr3::format("{}={}{}", label, negated ? "!" : "", spec));
+        parts.push_back(keen_pbr3::format("{}={}{}", label, negated ? "!" : "",
+                                          spec.to_config_string()));
     };
 
     if (criteria.proto != L4Proto::Any) {

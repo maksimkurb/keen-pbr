@@ -168,8 +168,8 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
 }
 
 std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
-                                                         const std::string& src_port,
-                                                         const std::string& dst_port,
+                                                         const PortSpec& src_port,
+                                                         const PortSpec& dst_port,
                                                          bool negate_src_port,
                                                          bool negate_dst_port) {
     if (proto == L4Proto::Any && src_port.empty() && dst_port.empty()) {
@@ -188,8 +188,8 @@ std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
     bool has_dst = !dst_port.empty();
     bool src_list = has_src && classify_port_spec(src_port) == PortSpecKind::List;
     bool dst_list = has_dst && classify_port_spec(dst_port) == PortSpecKind::List;
-    std::string normalized_src = has_src ? normalize_port_spec_for_iptables(src_port) : "";
-    std::string normalized_dst = has_dst ? normalize_port_spec_for_iptables(dst_port) : "";
+    std::string normalized_src = has_src ? src_port.to_iptables_string() : "";
+    std::string normalized_dst = has_dst ? dst_port.to_iptables_string() : "";
 
     // Use -m multiport only for comma-separated port lists. Single ports and
     // ranges are natively supported by the protocol matcher.
