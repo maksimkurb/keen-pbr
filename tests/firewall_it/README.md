@@ -157,6 +157,19 @@ Purpose:
 - verify direct tcp/udp port-list marking toward interface outbound `awg1`
 - verify list-backed dynamic-set marking toward routing table outbound `wan`
 
+### `firewall-iptables-multiport`
+
+Files:
+
+- [`fixtures/firewall-iptables-multiport.json`](./fixtures/firewall-iptables-multiport.json)
+- [`fixtures/firewall-iptables-multiport.setup.sh`](./fixtures/firewall-iptables-multiport.setup.sh)
+
+Purpose:
+
+- cover a rule that mixes `src_port` and `dest_port`
+- verify the shape still applies under `nftables`
+- verify the same shape is rejected up front for `iptables` with a validation error
+
 ## How The Runner Works
 
 [`scripts/run-suite.sh`](./scripts/run-suite.sh) does this:

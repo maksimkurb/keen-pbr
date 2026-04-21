@@ -53,6 +53,33 @@ static std::vector<ConfigValidationIssue> parse_issues(const std::string& json) 
     }
 }
 
+static std::vector<ConfigValidationIssue> validate_issues(const std::string& json) {
+    try {
+        auto cfg = parse_config(json);
+        if (!cfg.dns.has_value()) {
+            cfg.dns = DnsConfig{};
+        }
+        if (!cfg.dns->servers.has_value()) {
+            DnsServer fallback_server;
+            fallback_server.tag = "default_dns";
+            fallback_server.address = "127.0.0.1";
+            cfg.dns->servers = std::vector<DnsServer>{fallback_server};
+        }
+        if (!cfg.dns->fallback.has_value()) {
+            cfg.dns->fallback = std::vector<std::string>{"default_dns"};
+        }
+        if (!cfg.dns->system_resolver.has_value()) {
+            api::SystemResolver resolver;
+            resolver.address = "127.0.0.1";
+            cfg.dns->system_resolver = resolver;
+        }
+        validate_config(cfg);
+        return {};
+    } catch (const ConfigValidationError& e) {
+        return e.issues();
+    }
+}
+
 // =============================================================================
 // List name: length validation
 // =============================================================================
@@ -612,6 +639,47 @@ TEST_CASE("route rule: invalid dest_addr reports route.rules[0].dest_addr") {
     const auto issues = parse_issues(json);
     REQUIRE_FALSE(issues.empty());
     CHECK(issues.front().path == "route.rules[0].dest_addr");
+}
+
+TEST_CASE("route rule: iptables rejects multiport src_port combined with dest_port") {
+    const auto issues = validate_issues(R"({
+        "daemon":{"firewall_backend":"iptables"},
+        "route":{"rules":[
+            {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
+        ]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0]");
+    CHECK(issues[0].message.find("This is a xt_multiport module limitation") != std::string::npos);
+}
+
+TEST_CASE("route rule: iptables rejects multiport dest_port combined with src_port") {
+    const auto issues = validate_issues(R"({
+        "daemon":{"firewall_backend":"iptables"},
+        "route":{"rules":[
+            {"outbound":"vpn","src_port":"555-666","dest_port":"555,666"}
+        ]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0]");
+}
+
+TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") {
+    CHECK_NOTHROW(parse_test_config(R"({
+        "daemon":{"firewall_backend":"iptables"},
+        "route":{"rules":[
+            {"outbound":"vpn","src_port":"555-666","dest_port":"777-888"}
+        ]}
+    })"));
+}
+
+TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
+    CHECK_NOTHROW(parse_test_config(R"({
+        "daemon":{"firewall_backend":"nftables"},
+        "route":{"rules":[
+            {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
+        ]}
+    })"));
 }
 
 TEST_CASE("route inbound_interfaces: omitted is accepted") {

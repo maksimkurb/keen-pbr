@@ -394,11 +394,12 @@ int run_firewall_integration(int argc, char* argv[]) {
     auto& logger = Logger::instance();
     logger.set_level(parse_log_level(options.log_level));
 
-    Config config = parse_and_validate_config(read_file(options.config_path));
+    Config config = parse_config(read_file(options.config_path));
     if (!config.daemon.has_value()) {
         config.daemon = DaemonConfig{};
     }
     config.daemon->firewall_backend = parse_backend_config_value(options.backend);
+    validate_config(config);
 
     const auto mode = parse_apply_mode(options.mode);
     const auto marks = allocate_outbound_marks(

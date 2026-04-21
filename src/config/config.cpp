@@ -290,6 +290,25 @@ bool rule_has_string_condition(const json& rule, const char* key) {
     return value.has_value() && !trim_copy(*value).empty();
 }
 
+std::optional<PortSpecKind> classify_optional_port_spec(const std::optional<std::string>& value) {
+    if (!value.has_value()) {
+        return std::nullopt;
+    }
+
+    const std::string normalized = trim_copy(*value);
+    if (normalized.empty()) {
+        return std::nullopt;
+    }
+
+    const std::string content =
+        normalized[0] == '!' ? trim_copy(normalized.substr(1)) : normalized;
+    if (content.empty()) {
+        return std::nullopt;
+    }
+
+    return parse_port_spec(content).kind();
+}
+
 void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIssue>& issues) {
     const auto route_it = root.find("route");
     if (route_it == root.end() || !route_it->is_object()) {
@@ -337,6 +356,16 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
             add_issue(issues, rule_path + ".dest_addr", *error);
         }
     }
+}
+
+bool route_rule_uses_unsupported_iptables_multiport_combo(const RouteRule& rule) {
+    const auto src_kind = classify_optional_port_spec(rule.src_port);
+    const auto dst_kind = classify_optional_port_spec(rule.dest_port);
+    if (!src_kind.has_value() || !dst_kind.has_value()) {
+        return false;
+    }
+
+    return *src_kind == PortSpecKind::List || *dst_kind == PortSpecKind::List;
 }
 
 void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValidationIssue>& issues) {
@@ -661,6 +690,22 @@ void validate_config(const Config& cfg) {
             add_issue(issues, "iproute.table_start",
                       "iproute.table_start " + std::to_string(table_start) +
                           " is reserved. Use a different value (e.g. 100).");
+        }
+    }
+
+    if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
+        const auto& route_rules =
+            cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+        for (size_t i = 0; i < route_rules.size(); ++i) {
+            const auto& rule = route_rules[i];
+            if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
+                continue;
+            }
+
+            add_issue(
+                issues,
+                "route.rules[" + std::to_string(i) + "]",
+                "When you use port lists (e.g. 444,555) you can't combine src_port and dest_port condition. This is a xt_multiport module limitation. Consider using nftables firewall backend or create multiple rules.");
         }
     }
 

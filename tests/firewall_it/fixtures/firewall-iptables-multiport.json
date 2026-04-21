@@ -1,0 +1,29 @@
+{
+  "daemon": {
+    "cache_dir": "/tmp/keen-pbr-firewall-it-cache",
+    "firewall_backend": "iptables"
+  },
+  "outbounds": [
+    {
+      "tag": "wan0",
+      "type": "interface",
+      "interface": "wan0"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "outbound": "wan0",
+        "proto": "tcp",
+        "dest_addr": "2.2.2.2",
+        "src_port": "555,666",
+        "dest_port": "555-666"
+      }
+    ]
+  },
+  "dns": {
+    "system_resolver": {
+      "address": "127.0.0.1"
+    }
+  }
+}
