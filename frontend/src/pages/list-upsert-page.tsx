@@ -10,10 +10,12 @@ import { toast } from "sonner"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ListConfig } from "@/api/generated/model/listConfig"
+import type { Outbound } from "@/api/generated/model/outbound"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
+import { OutboundSelect } from "@/components/shared/outbound-select"
 import {
   Field,
   FieldContent,
@@ -43,6 +45,7 @@ import {
 type ListDraft = {
   name: string
   ttlMs: string
+  detour: string
   domains: string
   ipCidrs: string
   url: string
@@ -67,6 +70,7 @@ const LIST_SOURCE_GROUP_FIELDS = {
 const sampleNewList: ListDraft = {
   name: "",
   ttlMs: "300000",
+  detour: "",
   domains: "",
   ipCidrs: "",
   url: "",
@@ -159,6 +163,7 @@ export function ListUpsertPage({
       }
     >
       <ListForm
+        outbounds={loadedConfig?.outbounds ?? []}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
         isConfigLoaded={Boolean(loadedConfig)}
@@ -188,6 +193,7 @@ export function ListUpsertPage({
 
 function ListForm({
   mode,
+  outbounds,
   draft,
   existingListNames,
   isConfigLoaded,
@@ -197,6 +203,7 @@ function ListForm({
   onSubmit,
 }: {
   mode: "create" | "edit"
+  outbounds: Outbound[]
   draft: ListDraft
   existingListNames: string[]
   isConfigLoaded: boolean
@@ -445,6 +452,33 @@ function ListForm({
                 )}
               </form.Field>
 
+              <form.Field name="detour">
+                {(field) => {
+                  const error = getFirstFieldError(field.state.meta.errors)
+
+                  return (
+                    <Field invalid={Boolean(error)}>
+                      <FieldLabel>{t("pages.listUpsert.fields.detour")}</FieldLabel>
+                      <FieldContent>
+                        <OutboundSelect
+                          allowEmpty
+                          ariaInvalid={Boolean(error)}
+                          emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
+                          onValueChange={field.handleChange}
+                          outbounds={outbounds}
+                          placeholder={t("pages.listUpsert.fields.detourPlaceholder")}
+                          value={field.state.value}
+                        />
+                        <FieldHint
+                          description={t("pages.listUpsert.fields.detourHint")}
+                          error={error}
+                        />
+                      </FieldContent>
+                    </Field>
+                  )
+                }}
+              </form.Field>
+
             </FieldGroup>
           </CardContent>
         </Card>
@@ -628,6 +662,7 @@ function getDraftFromMapEntry(
   return {
     name,
     ttlMs: String(listConfig.ttl_ms ?? 0),
+    detour: listConfig.detour ?? "",
     domains: (listConfig.domains ?? []).join("\n"),
     ipCidrs: (listConfig.ip_cidrs ?? []).join("\n"),
     url: listConfig.url ?? "",
@@ -660,6 +695,7 @@ function getListConfigFromDraft(draft: ListDraft): ListConfig {
   const ipCidrs = splitLines(draft.ipCidrs)
   const trimmedUrl = draft.url.trim()
   const trimmedFile = draft.file.trim()
+  const trimmedDetour = draft.detour.trim()
   const ttlMs = Number.parseInt(draft.ttlMs.trim(), 10)
 
   const listConfig: ListConfig = {}
@@ -679,6 +715,10 @@ function getListConfigFromDraft(draft: ListDraft): ListConfig {
 
   if (ipCidrs.length > 0) {
     listConfig.ip_cidrs = ipCidrs
+  }
+
+  if (trimmedDetour) {
+    listConfig.detour = trimmedDetour
   }
 
   return listConfig
@@ -754,6 +794,10 @@ function resolveListFieldPath(path: string, name: string) {
 
   if (normalizedName && path === `lists.${normalizedName}.file`) {
     return "file"
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}.detour`) {
+    return "detour"
   }
 
   return undefined

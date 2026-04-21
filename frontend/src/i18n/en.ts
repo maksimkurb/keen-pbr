@@ -407,7 +407,7 @@ export const enTranslation = {
             addressPlaceholder: "1.1.1.1 or [2606:4700::1111]:53",
             addressHint:
               "The server's IP address, e.g. `1.1.1.1` or `[2606:4700::1111]:53`.",
-            detour: "Outbound",
+            detour: "Make requests via Outbound",
             detourEmpty: "Not selected",
             detourPlaceholder: "Optional outbound tag",
             detourHint:
@@ -854,6 +854,11 @@ export const enTranslation = {
             ttlMs: "IP cache duration (ms)",
             ttlMsHint:
               "How long to keep resolved IPs in the ipset. `0` = no timeout.",
+            detour: "Make requests via Outbound",
+            detourEmpty: "Not selected",
+            detourPlaceholder: "Optional outbound tag",
+            detourHint:
+              "Optional outbound to use when downloading this list from a remote URL.",
             url: "Remote URL",
             urlHint:
               "Optional: a URL to download entries from. Combined with anything you add below.",

@@ -415,7 +415,7 @@ export const ruTranslation = {
             addressPlaceholder: "1.1.1.1 или [2606:4700::1111]:53",
             addressHint:
               "IP-адрес сервера, напр. `1.1.1.1` или `[2606:4700::1111]:53`.",
-            detour: "Outbound",
+            detour: "Делать запросы через Outbound",
             detourEmpty: "Не выбрано",
             detourPlaceholder: "Необязательный тег outbound",
             detourHint:
@@ -879,6 +879,11 @@ export const ruTranslation = {
             ttlMs: "Время жизни IP-кэша (мс)",
             ttlMsHint:
               "Как долго хранить разрешённые IP в ipset. `0` = без таймаута.",
+            detour: "Делать запросы через Outbound",
+            detourEmpty: "Не выбрано",
+            detourPlaceholder: "Необязательный тег outbound",
+            detourHint:
+              "Необязательный outbound для загрузки этого списка по удалённому URL.",
             url: "Удалённый URL",
             urlHint:
               "Необязательно: URL для загрузки записей. Объединяется с остальным содержимым.",
