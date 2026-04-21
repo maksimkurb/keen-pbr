@@ -225,9 +225,12 @@ std::vector<ExpectedIptablesRule> expand_expected_rule_states(
 }
 
 bool action_matches(const ParsedIptablesRule& actual,
-                    const ExpectedIptablesRule& expected) {
+                    const ExpectedIptablesRule& expected,
+                    uint32_t expected_fwmark_mask) {
     if (expected.action_type == RuleActionType::Mark) {
-        return actual.is_mark && actual.mark_is_exact && actual.fwmark == expected.fwmark;
+        return actual.is_mark &&
+               actual.fwmark == expected.fwmark &&
+               actual.xmark_mask == expected_fwmark_mask;
     }
     if (expected.action_type == RuleActionType::Drop) {
         return actual.is_drop;
@@ -236,10 +239,11 @@ bool action_matches(const ParsedIptablesRule& actual,
 }
 
 bool rule_matches(const ParsedIptablesRule& actual,
-                  const ExpectedIptablesRule& expected) {
+                  const ExpectedIptablesRule& expected,
+                  uint32_t expected_fwmark_mask) {
     return actual.ipv6 == expected.ipv6 &&
            actual.set_name == expected.set_name &&
-           action_matches(actual, expected) &&
+           action_matches(actual, expected, expected_fwmark_mask) &&
            criteria_equal(actual.criteria, expected.criteria);
 }
 
@@ -462,7 +466,8 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
                                [&](const ParsedIptablesRule& actual) {
                                    const size_t index =
                                        static_cast<size_t>(&actual - actual_rules.data());
-                                   return !used[index] && rule_matches(actual, exp);
+                                   return !used[index] &&
+                                          rule_matches(actual, exp, expected_fwmark_mask_);
                                });
 
         if (it != actual_rules.end()) {
@@ -504,10 +509,11 @@ std::vector<FirewallRuleCheck> IptablesFirewallVerifier::verify_rules(
         if (exp.action_type == RuleActionType::Mark) {
             if (same_shape->is_mark) {
                 check.status = CheckStatus::mismatch;
-                check.detail = !same_shape->mark_is_exact
+                check.detail = same_shape->xmark_mask != expected_fwmark_mask_
                     ? keen_pbr3::format(
-                          "live rule uses partial xmark mask: got {:#x}/{:#x}, expected exact mark {:#x}",
-                          same_shape->fwmark, same_shape->xmark_mask, exp.fwmark)
+                          "fwmark mask mismatch: expected {:#x}/{:#x} got {:#x}/{:#x}",
+                          exp.fwmark, expected_fwmark_mask_, same_shape->fwmark,
+                          same_shape->xmark_mask)
                     : keen_pbr3::format(
                           "fwmark mismatch: expected {:#x} got {:#x}",
                           exp.fwmark, same_shape->fwmark);

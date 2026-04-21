@@ -477,6 +477,7 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
     firewall_state_.set_outbound_marks(outbound_marks_);
+    firewall_state_.set_fwmark_mask(fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{})));
 
     teardown_dns_probe();
 

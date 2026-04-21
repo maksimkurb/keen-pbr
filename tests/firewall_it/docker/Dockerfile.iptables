@@ -1,3 +1,26 @@
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      cmake \
+      g++ \
+      make \
+      pkg-config \
+      libcurl4-openssl-dev \
+      libnl-3-dev \
+      libnl-route-3-dev \
+      libunwind-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+COPY . /src
+
+RUN cmake -S . -B /tmp/keen-pbr-firewall-it-build -DCMAKE_CXX_COMPILER=g++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TESTS=ON && \
+    cmake --build /tmp/keen-pbr-firewall-it-build --target keen-pbr-firewall-it
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,17 +38,13 @@ RUN apt-get update && \
       libnl-3-200 \
       libnl-route-3-200 \
       libstdc++6 \
-      libunwind-18 \
+      libunwind8 \
       python3 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN if [ ! -e /lib/x86_64-linux-gnu/libunwind.so.1 ] && [ -e /usr/lib/llvm-18/lib/libunwind.so.1.0 ]; then \
-      ln -s /usr/lib/llvm-18/lib/libunwind.so.1.0 /lib/x86_64-linux-gnu/libunwind.so.1; \
-    fi
-
 WORKDIR /opt/keen-pbr
 
-COPY cmake-build-gcc/tests/keen-pbr-firewall-it /opt/keen-pbr/bin/keen-pbr-firewall-it
+COPY --from=builder /tmp/keen-pbr-firewall-it-build/tests/keen-pbr-firewall-it /opt/keen-pbr/bin/keen-pbr-firewall-it
 COPY tests/firewall_it /opt/keen-pbr/firewall-it
 
 RUN chmod +x /opt/keen-pbr/bin/keen-pbr-firewall-it \

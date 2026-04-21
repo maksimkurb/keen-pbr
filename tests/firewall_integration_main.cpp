@@ -422,6 +422,7 @@ int run_firewall_integration(int argc, char* argv[]) {
 
     FirewallState firewall_state;
     firewall_state.set_outbound_marks(marks);
+    firewall_state.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
     for (const auto& [tag, child] : urltest_selections) {
         firewall_state.set_urltest_selection(tag, child);
     }

@@ -89,6 +89,7 @@ void NftablesFirewall::append_rules_for_family(int family,
         pr.family = family;
         pr.action = action;
         pr.fwmark = fwmark;
+        pr.fwmark_mask = fwmark_mask();
         pr.criteria = criteria;
         pr.criteria.proto = proto;
         if (!criteria.src_addr.empty()) {
@@ -243,6 +244,23 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         }}}}});
     }
 
+    if (prefilter.skip_marked_packets) {
+        nlohmann::json marked_expr = nlohmann::json::array();
+        marked_expr.push_back({{"match", {
+            {"op", "!="},
+            {"left", {{"meta", {{"key", "mark"}}}}},
+            {"right", 0}
+        }}});
+        marked_expr.push_back({{"counter", nullptr}});
+        marked_expr.push_back({{"accept", nullptr}});
+        commands.push_back({{"add", {{"rule", {
+            {"family", "inet"},
+            {"table", TABLE_NAME},
+            {"chain", CHAIN_NAME},
+            {"expr", marked_expr}
+        }}}}});
+    }
+
     if (prefilter.has_inbound_interfaces()
         && prefilter.inbound_interfaces.has_value()) {
         nlohmann::json iface_rhs;
@@ -370,7 +388,23 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
         expr.push_back(e);
     }
     expr.push_back({{"counter", nullptr}});
-    expr.push_back({{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}}, {"value", pr.fwmark}}}});
+    if (pr.fwmark_mask == 0xFFFFFFFFu) {
+        expr.push_back({{"mangle", {
+            {"key", {{"meta", {{"key", "mark"}}}}},
+            {"value", pr.fwmark}
+        }}});
+    } else {
+        expr.push_back({{"mangle", {
+            {"key", {{"meta", {{"key", "mark"}}}}},
+            {"value", {{"|", nlohmann::json::array({
+                {{"&", nlohmann::json::array({
+                    {{"meta", {{"key", "mark"}}}},
+                    static_cast<uint32_t>(~pr.fwmark_mask)
+                })}},
+                pr.fwmark
+            })}}}
+        }}});
+    }
     expr.push_back({{"accept", nullptr}});
     return {{"add", {{"rule", {
         {"family", "inet"},

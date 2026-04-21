@@ -51,6 +51,12 @@ public:
     // Set outbound mark assignments
     void set_outbound_marks(OutboundMarkMap marks);
 
+    // Get the configured fwmark mask used by mark rules and policy rules.
+    uint32_t get_fwmark_mask() const;
+
+    // Set the configured fwmark mask used by mark rules and policy rules.
+    void set_fwmark_mask(uint32_t fwmark_mask);
+
     // Get urltest selections (urltest_tag -> selected child tag)
     const std::map<std::string, std::string>& get_urltest_selections() const;
 
@@ -61,6 +67,7 @@ public:
 
 private:
     OutboundMarkMap outbound_marks_;
+    uint32_t fwmark_mask_{0xFFFFFFFFu};
     std::vector<RuleState> rules_;
     std::map<std::string, std::string> urltest_selections_;
 };

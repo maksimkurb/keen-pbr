@@ -925,3 +925,35 @@ TEST_CASE("daemon.firewall_backend: rejects non-string value") {
 TEST_CASE("daemon.firewall_backend: rejects unsupported value") {
     CHECK_THROWS_AS(parse_test_config(R"({"daemon":{"firewall_backend":"pf"}})"), ConfigError);
 }
+
+TEST_CASE("daemon.skip_marked_packets: defaults to true behavior when absent") {
+    auto cfg = parse_test_config(R"({"daemon":{}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->skip_marked_packets.has_value());
+}
+
+TEST_CASE("daemon.skip_marked_packets: accepts true") {
+    auto cfg = parse_test_config(R"({"daemon":{"skip_marked_packets":true}})");
+    REQUIRE(cfg.daemon.has_value());
+    REQUIRE(cfg.daemon->skip_marked_packets.has_value());
+    CHECK(*cfg.daemon->skip_marked_packets);
+}
+
+TEST_CASE("daemon.skip_marked_packets: accepts false") {
+    auto cfg = parse_test_config(R"({"daemon":{"skip_marked_packets":false}})");
+    REQUIRE(cfg.daemon.has_value());
+    REQUIRE(cfg.daemon->skip_marked_packets.has_value());
+    CHECK_FALSE(*cfg.daemon->skip_marked_packets);
+}
+
+TEST_CASE("daemon.skip_marked_packets: accepts null") {
+    auto cfg = parse_test_config(R"({"daemon":{"skip_marked_packets":null}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->skip_marked_packets.has_value());
+}
+
+TEST_CASE("daemon.skip_marked_packets: rejects non-boolean value") {
+    const auto issues = parse_issues(R"({"daemon":{"skip_marked_packets":"yes"}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.skip_marked_packets");
+}

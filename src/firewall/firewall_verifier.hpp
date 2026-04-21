@@ -43,12 +43,18 @@ public:
     virtual std::vector<FirewallRuleCheck> verify_rules(
         const std::vector<RuleState>& expected) = 0;
 
+    void set_expected_fwmark_mask(uint32_t fwmark_mask) {
+        expected_fwmark_mask_ = fwmark_mask;
+    }
+
     // Non-copyable
     FirewallVerifier(const FirewallVerifier&) = delete;
     FirewallVerifier& operator=(const FirewallVerifier&) = delete;
 
 protected:
     FirewallVerifier() = default;
+
+    uint32_t expected_fwmark_mask_{0xFFFFFFFFu};
 };
 
 // Factory: create a verifier for the given backend.

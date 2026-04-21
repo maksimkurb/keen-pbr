@@ -122,6 +122,7 @@ namespace api {
         std::optional<int64_t> firewall_verify_max_bytes;
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
+        std::optional<bool> skip_marked_packets;
         std::optional<bool> strict_enforcement;
     };
 
@@ -732,6 +733,7 @@ namespace api {
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
+        x.skip_marked_packets = get_stack_optional<bool>(j, "skip_marked_packets");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
     }
 
@@ -742,6 +744,7 @@ namespace api {
         j["firewall_verify_max_bytes"] = x.firewall_verify_max_bytes;
         j["max_file_size_bytes"] = x.max_file_size_bytes;
         j["pid_file"] = x.pid_file;
+        j["skip_marked_packets"] = x.skip_marked_packets;
         j["strict_enforcement"] = x.strict_enforcement;
     }
 

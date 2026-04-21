@@ -59,6 +59,7 @@ RoutingHealthReport build_routing_health_report(
     try {
         // 1. Create firewall verifier
         auto verifier = create_firewall_verifier(firewall_backend);
+        verifier->set_expected_fwmark_mask(firewall_state.get_fwmark_mask());
 
         // 2. Verify firewall chain
         report.firewall_chain = verifier->verify_chain();

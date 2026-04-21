@@ -95,6 +95,7 @@ void IptablesFirewall::append_rules_for_family(bool ipv6,
                 pr.ipv6     = ipv6;
                 pr.action   = action;
                 pr.fwmark   = fwmark;
+                pr.fwmark_mask = fwmark_mask();
                 pr.criteria = criteria;
                 pr.criteria.proto = proto;
                 pr.criteria.src_addr = src.empty()
@@ -224,6 +225,12 @@ std::string IptablesFirewall::build_prefilter_lines(
             CHAIN_NAME);
     }
 
+    if (prefilter.skip_marked_packets) {
+        lines += keen_pbr3::format(
+            "-A {} -m mark ! --mark 0x0/0xffffffff -j ACCEPT\n",
+            CHAIN_NAME);
+    }
+
     if (prefilter.has_inbound_interfaces()
         && prefilter.inbound_interfaces.has_value()
         && prefilter.inbound_interfaces->size() == 1) {
@@ -270,13 +277,17 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
         for (const auto& iface_frag : iface_frags) {
             if (!pr.criteria.dst_set_name.has_value()) {
                 if (pr.action == PendingRule::Mark) {
+                    const std::string mark_target = keen_pbr3::format(
+                        "-j MARK --set-xmark {:#x}/{:#x}",
+                        pr.fwmark,
+                        pr.fwmark_mask);
                     lines.push_back(keen_pbr3::format(
-                        "-A {}{}{}{} -j MARK --set-mark {:#x}\n",
+                        "[0:0] -A {}{}{}{} {}\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
                         pp,
-                        pr.fwmark));
+                        mark_target));
                     lines.push_back(keen_pbr3::format(
                         "-A {}{}{}{} -j RETURN\n",
                         CHAIN_NAME,
@@ -300,14 +311,18 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                 }
             } else {
                 if (pr.action == PendingRule::Mark) {
+                    const std::string mark_target = keen_pbr3::format(
+                        "-j MARK --set-xmark {:#x}/{:#x}",
+                        pr.fwmark,
+                        pr.fwmark_mask);
                     lines.push_back(keen_pbr3::format(
-                        "-A {} -m set --match-set {} dst{}{}{} -j MARK --set-mark {:#x}\n",
+                        "[0:0] -A {} -m set --match-set {} dst{}{}{} {}\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
                         addr_frag,
                         pp,
-                        pr.fwmark));
+                        mark_target));
                     lines.push_back(keen_pbr3::format(
                         "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
                         CHAIN_NAME,
@@ -391,12 +406,12 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     }
 
     if (has_v4) {
-        pipe_to_cmd({"iptables-restore", "--noflush"},
+        pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
                     build_ipt_script(false, pending_rules_, global_prefilter_));
         chain_v4_created_ = true;
     }
     if (has_v6) {
-        pipe_to_cmd({"ip6tables-restore", "--noflush"},
+        pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
                     build_ipt_script(true, pending_rules_, global_prefilter_));
         chain_v6_created_ = true;
     }

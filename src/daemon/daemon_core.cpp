@@ -94,6 +94,7 @@ Daemon::Daemon(Config config,
     set_firewall_verifier_capture_max_bytes(static_cast<size_t>(verify_max_bytes));
 
     firewall_state_.set_outbound_marks(outbound_marks_);
+    firewall_state_.set_fwmark_mask(fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{})));
     list_service_.ensure_dir();
     scheduler_ = std::make_unique<Scheduler>(*this);
 

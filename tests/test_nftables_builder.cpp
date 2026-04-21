@@ -113,8 +113,10 @@ public:
 
   static nlohmann::json build_rule_add_commands_via_create_mark_rule(
       uint32_t fwmark, const FirewallRuleCriteria &criteria,
+      uint32_t fwmark_mask = 0xFFFFFFFFu,
       FirewallGlobalPrefilter prefilter = {}) {
     NftablesFirewall fw;
+    fw.set_fwmark_mask(fwmark_mask);
     fw.create_mark_rule(fwmark, criteria);
     return NftablesFirewall::build_rule_add_commands(prefilter, fw.pending_rules_);
   }
@@ -122,11 +124,13 @@ public:
   static nlohmann::json build_mark_rule_json(const std::string &set_name,
                                              int family, uint32_t fwmark,
                                              ProtoPortFilter filter = {},
+                                             uint32_t fwmark_mask = 0xFFFFFFFFu,
                                              bool direct = false) {
     NftablesFirewall::PendingRule pr;
     pr.family = family;
     pr.action = NftablesFirewall::PendingRule::Mark;
     pr.fwmark = fwmark;
+    pr.fwmark_mask = fwmark_mask;
     pr.criteria = filter;
     if (!direct && !set_name.empty()) {
       pr.criteria.dst_set_name = set_name;
@@ -238,6 +242,7 @@ static FirewallGlobalPrefilter prefilter_with_interfaces(
     bool skip_established_or_dnat = true) {
   FirewallGlobalPrefilter prefilter;
   prefilter.skip_established_or_dnat = skip_established_or_dnat;
+  prefilter.skip_marked_packets = true;
   prefilter.inbound_interfaces = std::move(interfaces);
   return prefilter;
 }
@@ -295,14 +300,20 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 3);
+  REQUIRE(cmds.size() == 4);
 
   const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
   CHECK(dnat_expr[0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(dnat_expr[0]["match"]["right"] == "dnat");
   CHECK(dnat_expr[2].contains("accept"));
 
-  const auto &iface_expr = cmds[1]["add"]["rule"]["expr"];
+  const auto &marked_expr = cmds[1]["add"]["rule"]["expr"];
+  CHECK(marked_expr[0]["match"]["left"]["meta"]["key"] == "mark");
+  CHECK(marked_expr[0]["match"]["op"] == "!=");
+  CHECK(marked_expr[0]["match"]["right"] == 0);
+  CHECK(marked_expr[2].contains("accept"));
+
+  const auto &iface_expr = cmds[2]["add"]["rule"]["expr"];
   CHECK(iface_expr[0]["match"]["op"] == "!=");
   CHECK(iface_expr[0]["match"]["left"]["meta"]["key"] == "iifname");
   CHECK(iface_expr[0]["match"]["right"]["set"][0] == "br0");
@@ -311,7 +322,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
 
   CHECK(cmds.dump().find("\"state\"") == std::string::npos);
 
-  const auto &mark_expr = cmds[2]["add"]["rule"]["expr"];
+  const auto &mark_expr = cmds[3]["add"]["rule"]["expr"];
   CHECK(mark_expr[0]["match"]["left"]["payload"]["protocol"] == "ip");
   CHECK(mark_expr[0]["match"]["right"] == "@myset");
   CHECK(mark_expr[2]["mangle"]["value"] == 256);
@@ -339,9 +350,10 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 2);
+  REQUIRE(cmds.size() == 3);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
-  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface guard before route rule") {
@@ -365,10 +377,11 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter inserts interface g
       {mark_rule("myset", AF_INET, 256)});
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 3);
-  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
-  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
-  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
+  REQUIRE(cmds.size() == 4);
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "iifname");
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "br0");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("create_mark_rule: port-only tcp/udp rule emits one tcp and one udp entry") {
@@ -414,6 +427,28 @@ TEST_CASE("build_mark_rule_json: zero fwmark is valid") {
   auto j = T::build_mark_rule_json("zeroset", AF_INET, 0);
   CHECK(j["add"]["rule"]["expr"][2]["mangle"]["value"] == 0);
   CHECK(j["add"]["rule"]["expr"][3].contains("accept"));
+}
+
+TEST_CASE("build_mark_rule_json: masked mark rule preserves non-fwmark bits") {
+  auto j = T::build_mark_rule_json("myset", AF_INET, 0x00010000, {},
+                                   0x00FF0000);
+  const auto& value = j["add"]["rule"]["expr"][2]["mangle"]["value"];
+  CHECK(value["|"][0]["&"][0]["meta"]["key"] == "mark");
+  CHECK(value["|"][0]["&"][1] == 0xFF00FFFFu);
+  CHECK(value["|"][1] == 0x00010000u);
+}
+
+TEST_CASE("build_rule_add_commands: skip_marked_packets prefilter can be disabled") {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.skip_established_or_dnat = true;
+  prefilter.skip_marked_packets = false;
+
+  const auto cmds = T::build_rule_add_commands(prefilter,
+                                               {mark_rule("myset", AF_INET, 256)});
+  REQUIRE(cmds.is_array());
+  REQUIRE(cmds.size() == 2);
+  CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
+  CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 // =============================================================================

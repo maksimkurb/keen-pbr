@@ -280,6 +280,37 @@ TEST_CASE("parse_nft_json: mark rule with fwmark") {
     CHECK(state.rules[0].fwmark == 65536u);
 }
 
+TEST_CASE("parse_nft_json: masked mark rule extracts explicit fwmark bits") {
+    const std::string input = R"({
+        "nftables": [
+            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
+                       "type": "filter", "hook": "prerouting"}},
+            {"rule": {
+                "family": "inet",
+                "table": "KeenPbrTable",
+                "chain": "prerouting",
+                "expr": [
+                    {"match": {"op": "==", "left": {"payload": {"protocol": "ip", "field": "daddr"}},
+                               "right": "@myset"}},
+                    {"mangle": {"key": {"meta": {"key": "mark"}},
+                                "value": {"|": [
+                                    {"&": [
+                                        {"meta": {"key": "mark"}},
+                                        4278321151
+                                    ]},
+                                    65536
+                                ]}}}
+                ]
+            }}
+        ]
+    })";
+    auto state = parse_nft_json(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].set_name == "myset");
+    CHECK(state.rules[0].is_mark);
+    CHECK(state.rules[0].fwmark == 65536u);
+}
+
 TEST_CASE("parse_nft_json: drop rule") {
     const std::string input = R"({
         "nftables": [
@@ -499,7 +530,37 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: partial xmark mask reports mi
     CHECK(checks[0].actual_fwmark.has_value());
     CHECK(*checks[0].actual_fwmark == 0x20000u);
     CHECK(checks[0].detail ==
-          "live rule uses partial xmark mask: got 0x20000/0xff0000, expected exact mark 0x20000");
+          "fwmark mask mismatch: expected 0x20000/0xffffffff got 0x20000/0xff0000");
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_rules: matching partial xmark mask is accepted") {
+    const std::string chain_rules =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -m set --match-set set1 dst -j MARK --set-xmark 0x20000/0xff0000\n";
+
+    auto runner = [&chain_rules](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(chain_rules);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+    verifier.set_expected_fwmark_mask(0x00ff0000u);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.set_names = {"set1"};
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 0x20000u;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+    CHECK(checks[0].actual_fwmark.has_value());
+    CHECK(*checks[0].actual_fwmark == 0x20000u);
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: drop rule ok") {

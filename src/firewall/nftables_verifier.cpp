@@ -52,6 +52,43 @@ std::optional<L4Proto> parse_l4proto(const std::string& token) {
     return std::nullopt;
 }
 
+std::optional<uint32_t> parse_nft_mark_value(const nlohmann::json& value) {
+    if (value.is_number_integer() || value.is_number_unsigned()) {
+        return static_cast<uint32_t>(value.get<uint64_t>());
+    }
+
+    if (!value.is_object()) {
+        return std::nullopt;
+    }
+
+    if (value.contains("meta") && value["meta"].is_object() &&
+        value["meta"].value("key", "") == "mark") {
+        // Reading the existing mark preserves prior bits; it does not contribute
+        // new fwmark bits on its own.
+        return 0u;
+    }
+
+    if (value.contains("|") && value["|"].is_array() && value["|"].size() == 2) {
+        const auto lhs = parse_nft_mark_value(value["|"][0]);
+        const auto rhs = parse_nft_mark_value(value["|"][1]);
+        if (lhs.has_value() && rhs.has_value()) {
+            return *lhs | *rhs;
+        }
+        return std::nullopt;
+    }
+
+    if (value.contains("&") && value["&"].is_array() && value["&"].size() == 2) {
+        const auto lhs = parse_nft_mark_value(value["&"][0]);
+        const auto rhs = parse_nft_mark_value(value["&"][1]);
+        if (lhs.has_value() && rhs.has_value()) {
+            return *lhs & *rhs;
+        }
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
 PortSpec parse_nft_port_spec(const nlohmann::json& rhs) {
     if (rhs.is_number_integer() || rhs.is_number_unsigned()) {
         return PortSpec(std::to_string(rhs.get<int64_t>()));
@@ -404,8 +441,11 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                     mangle["key"]["meta"].is_object() &&
                     mangle["key"]["meta"].value("key", "") == "mark" &&
                     mangle.contains("value")) {
-                    nr.is_mark = true;
-                    nr.fwmark = static_cast<uint32_t>(mangle["value"].get<int64_t>());
+                    const auto parsed_mark = parse_nft_mark_value(mangle["value"]);
+                    if (parsed_mark.has_value()) {
+                        nr.is_mark = true;
+                        nr.fwmark = *parsed_mark;
+                    }
                 }
                 continue;
             }

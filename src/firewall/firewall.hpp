@@ -64,13 +64,14 @@ using ProtoPortFilter = FirewallRuleCriteria;
 struct FirewallGlobalPrefilter {
     std::optional<std::vector<std::string>> inbound_interfaces;
     bool skip_established_or_dnat{false};
+    bool skip_marked_packets{false};
 
     bool has_inbound_interfaces() const {
         return inbound_interfaces.has_value() && !inbound_interfaces->empty();
     }
 
     bool empty() const {
-        return !skip_established_or_dnat && !has_inbound_interfaces();
+        return !skip_established_or_dnat && !skip_marked_packets && !has_inbound_interfaces();
     }
 };
 
@@ -151,6 +152,14 @@ public:
         return global_prefilter_;
     }
 
+    void set_fwmark_mask(uint32_t fwmark_mask) {
+        fwmark_mask_ = fwmark_mask;
+    }
+
+    uint32_t fwmark_mask() const {
+        return fwmark_mask_;
+    }
+
     // Remove all firewall rules and IP sets created by this instance.
     // Should be called on daemon shutdown.
     virtual void cleanup() = 0;
@@ -173,6 +182,7 @@ protected:
     Firewall() = default;
 
     FirewallGlobalPrefilter global_prefilter_;
+    uint32_t fwmark_mask_{0xFFFFFFFFu};
 };
 
 // Detect which firewall backend is available on the system.

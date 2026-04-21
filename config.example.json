@@ -3,6 +3,7 @@
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
+    "skip_marked_packets": true,
     "strict_enforcement": false
   },
 

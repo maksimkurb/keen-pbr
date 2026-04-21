@@ -20,7 +20,7 @@ CLANG_FEATURE_CMAKE_FLAGS := -DWITH_API=ON -DUSE_KEENETIC_API=ON
         frontend-build \
         frontend-api-generate \
         test \
-        firewall-it-build firewall-it-images firewall-it \
+        firewall-it-images firewall-it \
         clang-build clang-check clang-tidy \
         generate \
         cross-setup cross-build cross-deploy \
@@ -52,15 +52,11 @@ test: ## Build and run unit tests (doctest)
 	$(GCC_BUILD_DIR)/tests/keen-pbr-tests
 	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 
-firewall-it-build: ## Build the firewall integration harness used by the Docker/netns suite
-	cmake -S . -B $(GCC_BUILD_DIR) $(GCC_CMAKE_FLAGS) -DBUILD_TESTS=ON
-	cmake --build $(GCC_BUILD_DIR) --target keen-pbr-firewall-it
-
-firewall-it-images: firewall-it-build ## Build the Docker images for firewall integration tests
+firewall-it-images: ## Build the Docker images for firewall integration tests (also compiles the harness inside Docker)
 	docker build -t keen-pbr-firewall-it:iptables -f tests/firewall_it/docker/Dockerfile.iptables .
 	docker build -t keen-pbr-firewall-it:nftables -f tests/firewall_it/docker/Dockerfile.nftables .
 
-firewall-it: firewall-it-build ## Run the Docker + netns firewall integration suite
+firewall-it: ## Run the Docker + netns firewall integration suite (builds images first)
 	bash tests/firewall_it/scripts/run-suite.sh
 
 clang-build: ## Configure and compile with Clang in a host-only build dir

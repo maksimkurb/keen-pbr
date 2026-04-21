@@ -23,6 +23,14 @@ void FirewallState::set_outbound_marks(OutboundMarkMap marks) {
     outbound_marks_ = std::move(marks);
 }
 
+uint32_t FirewallState::get_fwmark_mask() const {
+    return fwmark_mask_;
+}
+
+void FirewallState::set_fwmark_mask(uint32_t fwmark_mask) {
+    fwmark_mask_ = fwmark_mask;
+}
+
 const std::map<std::string, std::string>& FirewallState::get_urltest_selections() const {
     return urltest_selections_;
 }

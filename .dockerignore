@@ -1,6 +1,8 @@
 build/
 CMakeCache.txt
 cmake-build/
+cmake-build-gcc/
+cmake-build-clang/
 cmake-build-aarch64/
 cross-toolchain/
 dist/

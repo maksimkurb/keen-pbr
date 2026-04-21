@@ -313,6 +313,7 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
 FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
     FirewallGlobalPrefilter prefilter;
     prefilter.skip_established_or_dnat = true;
+    prefilter.skip_marked_packets = cfg.daemon.value_or(DaemonConfig{}).skip_marked_packets.value_or(true);
 
     const auto route_cfg = cfg.route.value_or(RouteConfig{});
     if (route_cfg.inbound_interfaces.has_value()

@@ -27,6 +27,9 @@ which performs these steps for one fixture:
 The firewall apply path is shared with the daemon through
 [`src/firewall/firewall_runtime.cpp`](../../src/firewall/firewall_runtime.cpp).
 
+The integration harness is compiled inside the backend Docker images, so there
+is no separate host-side `make firewall-it-build` step.
+
 ## Directory Layout
 
 - [`docker/`](./docker): backend-specific Dockerfiles
@@ -175,9 +178,10 @@ Purpose:
 [`scripts/run-suite.sh`](./scripts/run-suite.sh) does this:
 
 1. Build the `iptables` and `nftables` Docker images.
-2. Start one long-lived container for each backend.
-3. For each fixture/backend pair, call `run-in-netns.sh` inside that container.
-4. Remove the container after that backend finishes.
+2. Compile `keen-pbr-firewall-it` inside each image's builder stage.
+3. Start one long-lived container for each backend.
+4. For each fixture/backend pair, call `run-in-netns.sh` inside that container.
+5. Remove the container after that backend finishes.
 
 [`scripts/run-in-netns.sh`](./scripts/run-in-netns.sh) does this for one case:
 
@@ -196,8 +200,7 @@ Use this checklist:
 2. Add `tests/firewall_it/fixtures/<name>.setup.sh` if the case needs interfaces, routes, or a local server.
 3. Keep the fixture offline and deterministic.
 4. Add the case to [`scripts/run-suite.sh`](./scripts/run-suite.sh).
-5. Run `make firewall-it-build`.
-6. Run the suite or the specific `docker exec ... run-in-netns.sh` command for your case.
+5. Run `make firewall-it`, or run `make firewall-it-images` first if you only want to prebuild the backend images for manual case execution.
 
 ### JSON Fixture Guidelines
 
@@ -254,22 +257,19 @@ ip netns exec "$KPBR_CLIENT_NS" ip link set wan0 up
 
 ## Running The Suite
 
-Build the harness:
-
-```sh
-make firewall-it-build
-```
-
-Build images:
-
-```sh
-make firewall-it-images
-```
-
-Run the full suite:
+Normal path:
 
 ```sh
 make firewall-it
+```
+
+That command builds both backend images and runs the full suite.
+
+If you only want to prebuild the backend images, for example before repeated
+manual `docker exec` runs, use:
+
+```sh
+make firewall-it-images
 ```
 
 Run one case manually inside a backend container:

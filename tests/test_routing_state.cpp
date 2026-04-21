@@ -135,6 +135,7 @@ TEST_CASE("build_firewall_global_prefilter: missing inbound_interfaces keeps int
 
     const auto prefilter = build_firewall_global_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
+    CHECK(prefilter.skip_marked_packets);
     CHECK_FALSE(prefilter.has_inbound_interfaces());
     CHECK_FALSE(prefilter.inbound_interfaces.has_value());
 }
@@ -157,6 +158,7 @@ TEST_CASE("build_firewall_global_prefilter: empty inbound_interfaces keeps inter
 
     const auto prefilter = build_firewall_global_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
+    CHECK(prefilter.skip_marked_packets);
     CHECK_FALSE(prefilter.has_inbound_interfaces());
     CHECK_FALSE(prefilter.inbound_interfaces.has_value());
 }
@@ -179,9 +181,52 @@ TEST_CASE("build_firewall_global_prefilter: inbound_interfaces enables interface
 
     const auto prefilter = build_firewall_global_prefilter(cfg);
     CHECK(prefilter.skip_established_or_dnat);
+    CHECK(prefilter.skip_marked_packets);
     REQUIRE(prefilter.inbound_interfaces.has_value());
     CHECK(prefilter.has_inbound_interfaces());
     CHECK(*prefilter.inbound_interfaces == std::vector<std::string>({"br0", "wg0"}));
+}
+
+TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets false disables marked-packet bypass") {
+    auto cfg = parse_minimal_config(R"({
+        "daemon":{"skip_marked_packets":false},
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"wan"}
+            ]
+        }
+    })");
+
+    const auto prefilter = build_firewall_global_prefilter(cfg);
+    CHECK(prefilter.skip_established_or_dnat);
+    CHECK_FALSE(prefilter.skip_marked_packets);
+}
+
+TEST_CASE("build_firewall_global_prefilter: daemon.skip_marked_packets null keeps marked-packet bypass enabled") {
+    auto cfg = parse_minimal_config(R"({
+        "daemon":{"skip_marked_packets":null},
+        "outbounds":[
+            {"tag":"wan","type":"interface","interface":"eth0","gateway":"192.0.2.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"outbound":"wan"}
+            ]
+        }
+    })");
+
+    const auto prefilter = build_firewall_global_prefilter(cfg);
+    CHECK(prefilter.skip_established_or_dnat);
+    CHECK(prefilter.skip_marked_packets);
 }
 
 TEST_CASE("build_fw_rule_states: urltest selection to blackhole becomes drop rule") {

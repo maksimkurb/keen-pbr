@@ -65,6 +65,26 @@ void validate_optional_string_field(const json& root,
     }
 }
 
+void validate_optional_boolean_field(const json& root,
+                                     const char* parent_key,
+                                     const char* child_key,
+                                     const std::string& path,
+                                     std::vector<ConfigValidationIssue>& issues) {
+    const auto parent_it = root.find(parent_key);
+    if (parent_it == root.end() || !parent_it->is_object()) {
+        return;
+    }
+
+    const auto child_it = parent_it->find(child_key);
+    if (child_it == parent_it->end() || child_it->is_null()) {
+        return;
+    }
+
+    if (!child_it->is_boolean()) {
+        add_issue(issues, path, path + " must be a boolean");
+    }
+}
+
 void validate_optional_hex_string_field(const json& root,
                                         const char* parent_key,
                                         const char* child_key,
@@ -529,6 +549,8 @@ Config parse_config(const std::string& json_str) {
         parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
     validate_optional_string_field(
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
+    validate_optional_boolean_field(
+        parsed_json, "daemon", "skip_marked_packets", "daemon.skip_marked_packets", issues);
     validate_route_rule_specs(parsed_json, issues);
     validate_route_inbound_interfaces(parsed_json, issues);
 

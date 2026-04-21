@@ -518,6 +518,7 @@ int run_status_command(const Config& config, const std::string& config_path) {
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
+    fw_state.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
     fw_state.set_rules(std::move(fw_rules));
 
     auto firewall = create_firewall(firewall_backend_preference(config));

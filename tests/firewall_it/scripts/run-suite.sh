@@ -85,7 +85,7 @@ for backend in iptables nftables; do
       "$container" "$backend" \
       "firewall-iptables-multiport.json" \
       "firewall-iptables-multiport.setup.sh" \
-      "iptables backend does not support combining src_port and dest_port"
+      "When you use port lists (e.g. 444,555) you can't combine src_port and dest_port condition. This is a xt_multiport module limitation."
   else
     run_case "$container" "$backend" \
       "firewall-iptables-multiport.json" \

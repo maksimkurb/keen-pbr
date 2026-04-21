@@ -68,6 +68,7 @@ private:
         bool ipv6;            // true → ip6tables, false → iptables
         enum Action { Mark, Drop, Pass } action; // MARK, DROP, or RETURN target
         uint32_t fwmark; // only for Mark
+        uint32_t fwmark_mask{0xFFFFFFFFu}; // only for Mark
         FirewallRuleCriteria criteria; // optional packet match criteria
     };
 
