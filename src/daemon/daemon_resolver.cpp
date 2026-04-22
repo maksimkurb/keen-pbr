@@ -215,7 +215,7 @@ void Daemon::commit_resolver_hash_probe_result(
                 apply_started_ts > 0 && (now_ts - apply_started_ts) <= 15;
 
             if (resolver_live_status_ == api::ResolverLiveStatus::HEALTHY) {
-                Logger::instance().info("Resolver config hash (actual): {}",
+                Logger::instance().verbose("Resolver config hash (actual): {}",
                                         resolver_config_hash_actual_);
                 if (resolver_config_hash_actual_ts_.has_value() &&
                     apply_started_ts > 0 &&
