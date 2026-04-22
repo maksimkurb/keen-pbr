@@ -81,7 +81,7 @@ const LIST_SOURCE_GROUP_FIELDS = {
 
 const sampleNewList: ListDraft = {
   name: "",
-  ttlMs: "300000",
+  ttlMs: "7200000",
   detour: "",
   domains: "",
   ipCidrs: "",

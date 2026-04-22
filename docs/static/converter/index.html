@@ -539,7 +539,7 @@
               I_autoupd:
                 'Added lists_autoupdate (enabled=true, cron="0 4 * * *"). Set enabled=false to disable lists auto-refresh from remote sources.',
               I_ttl:
-                'Lists with domains now support "ttl_ms" — how long a resolved IP stays in the routing ipset. Default value set: 3600000 ms (1 h).',
+                'Lists with domains now support "ttl_ms" — how long a resolved IP stays in the routing ipset. Default value set: 7200000 ms (1 h).',
               I_defout:
                 'Added outbound "default" → routing table 254 (main). Route lists to it for normal internet traffic.',
               I_newformat:
@@ -550,6 +550,8 @@
                 'DNS server of type "keenetic" added to dns.fallback because use_keenetic_api was enabled or use_keenetic_dns was not explicitly disabled.',
               I_dns_test:
                 "Added dns.dns_test_server (listen 127.0.0.88:12153). New v3 feature — enables DNS diagnostics in the Web UI.",
+              I_split:
+                'List "{n}" contained both domains and IPs. Domains and IPs were splitted into separate keys: domains and ip_cidrs.',
             },
             ru: {
               converter: "Конвертер конфига",
@@ -613,7 +615,7 @@
               I_autoupd:
                 'Добавлена секция lists_autoupdate (enabled=true, cron="0 4 * * *"). Установите enabled=false для отключения автообновления удалённых списков.',
               I_ttl:
-                'Списки с доменами теперь поддерживают "ttl_ms" — как долго resolved IP остаётся в routing ipset. Установлено значение по умолчанию: 3600000 мс (1 ч).',
+                'Списки с доменами теперь поддерживают "ttl_ms" — как долго resolved IP остаётся в routing ipset. Установлено значение по умолчанию: 7200000 мс (1 ч).',
               I_defout:
                 'Добавлен outbound "default" → таблица маршрутизации 254 (main). Направьте нужные списки на него для обычного интернет-трафика.',
               I_newformat:
@@ -624,6 +626,8 @@
                 'DNS-сервер типа "keenetic" добавлен в dns.fallback, т.к. был включён use_keenetic_api или use_keenetic_dns не был явно отключён.',
               I_dns_test:
                 "Добавлен dns.dns_test_server (listen 127.0.0.88:12153). Новая возможность v3 — диагностика DNS через Web UI.",
+              I_split:
+                'Список "{n}" содержал домены и IP. Домены и IP разнесены по разным ключам: domains и ip_cidrs.',
             },
           },
 
@@ -828,26 +832,54 @@
               }
 
               if (lst.hosts) {
-                const domains = Array.isArray(lst.hosts)
+                const hostsArr = Array.isArray(lst.hosts)
                   ? lst.hosts
                   : [lst.hosts];
-                listsObj[newName] = parse(`{
+                const domains =[];
+                const ips =[];
+                
+                for (const h of hostsArr) {
+                  const s = String(h).trim();
+                  if (/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(s) || (s.includes(':') && /^[0-9a-fA-F:\/]+$/.test(s))) {
+                    ips.push(s);
+                  } else {
+                    domains.push(s);
+                  }
+                }
+
+                if (domains.length > 0 && ips.length > 0) {
+                  listNameMap[orig] = newName;
+                  
+                  listsObj[newName] = parse(`{
+            "ip_cidrs": ${JSON.stringify(ips)},
             "domains": ${JSON.stringify(domains)},
-            // IPs stay in ipset for 60 min
-            "ttl_ms": 3600000
+            // IPs stay in ipset for 120 min
+            "ttl_ms": 7200000
           }`);
+                  this.log("info", "I_split", { n: orig, d: newName });
+                } else if (ips.length > 0) {
+                  listsObj[newName] = parse(`{
+            "ip_cidrs": ${JSON.stringify(ips)}
+          }`);
+                } else {
+                  listsObj[newName] = parse(`{
+            "domains": ${JSON.stringify(domains)},
+            // IPs stay in ipset for 120 min
+            "ttl_ms": 7200000
+          }`);
+                }
               } else if (lst.url) {
                 listsObj[newName] = parse(`{
             "url": ${JSON.stringify(lst.url)},
-            "ttl_ms": 3600000
+            "ttl_ms": 7200000
           }`);
               } else if (lst.file) {
-                listsObj[newName] = { file: lst.file, ttl_ms: 3600000 };
+                listsObj[newName] = { file: lst.file, ttl_ms: 7200000 };
               }
             }
             if (Object.keys(listsObj).length > 0) this.log("info", "I_ttl");
 
-            const outbounds = [];
+            const outbounds =[];
             outbounds.push(
               parse(`{
         // Linux routing table "main" (254) — normal internet
@@ -973,22 +1005,30 @@
             for (const entry of ipsetEntries) {
               const { ip, key } = entry;
               if (!overrideDnsByIpset[key]) continue;
-              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).map(
-                (l) => listNameMap[l] || l,
+              
+              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).flatMap(
+                (l) => listNameMap[l] || [l]
               );
-              if (ipLists.length > 0)
+              
+              const dnsIpLists = ipLists.filter((l) => {
+                const listData = listsObj[l];
+                if (!listData) return true;
+                return !!(listData.domains || listData.url || listData.file);
+              });
+
+              if (dnsIpLists.length > 0)
                 dnsRules.push({
-                  list: ipLists,
+                  list: dnsIpLists,
                   server: overrideDnsByIpset[key],
                 });
             }
 
-            const routeRules = [];
+            const routeRules =[];
             for (const entry of ipsetEntries) {
               const { ip, key } = entry;
               const obTag = outboundByIpset[key];
-              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).map(
-                (l) => listNameMap[l] || l,
+              const ipLists = (Array.isArray(ip.lists) ? ip.lists : []).flatMap(
+                (l) => listNameMap[l] || [l]
               );
               if (ipLists.length > 0)
                 routeRules.push({ list: ipLists, outbound: obTag });

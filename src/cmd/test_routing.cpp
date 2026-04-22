@@ -14,14 +14,19 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <array>
+#include <cerrno>
 #include <cctype>
+#include <cstring>
 #include <iostream>
 #include <map>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <resolv.h>
 #include <set>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -172,62 +177,114 @@ std::optional<std::string> query_dns_record_with_resolver(
     const std::string& domain,
     int record_type,
     std::vector<std::string>& ips) {
-    struct __res_state state {};
-    if (res_ninit(&state) != 0) {
-        return "Failed to initialize libresolv resolver state";
-    }
+    std::array<unsigned char, NS_PACKETSZ * 8> answer {};
+    int response_len = -1;
 
-    bool using_ipv6_resolver = false;
-    sockaddr_in6 resolver_addr6 {};
-    const auto close_state = [&state, &using_ipv6_resolver]() {
-        if (using_ipv6_resolver) {
-            state._u._ext.nsaddrs[0] = nullptr;
-        }
-        res_nclose(&state);
-    };
+    if (!server.has_value()) {
+        response_len = res_query(domain.c_str(),
+                                 ns_c_in,
+                                 record_type,
+                                 answer.data(),
+                                 static_cast<int>(answer.size()));
+    } else {
+        sockaddr_storage resolver_addr {};
+        socklen_t resolver_addr_len = 0;
+        int address_family = AF_UNSPEC;
 
-    state.retrans = 2;
-    state.retry = 1;
-
-    if (server.has_value()) {
-        state.nscount = 1;
         if (is_ipv6_address(server->resolved_ip)) {
-            using_ipv6_resolver = true;
-            resolver_addr6.sin6_family = AF_INET6;
-            resolver_addr6.sin6_port = htons(server->port);
-            if (inet_pton(AF_INET6, server->resolved_ip.c_str(), &resolver_addr6.sin6_addr) != 1) {
-                close_state();
+            auto* addr6 = reinterpret_cast<sockaddr_in6*>(&resolver_addr);
+            addr6->sin6_family = AF_INET6;
+            addr6->sin6_port = htons(server->port);
+            if (inet_pton(AF_INET6, server->resolved_ip.c_str(), &addr6->sin6_addr) != 1) {
                 return keen_pbr3::format("Resolver '{}' has invalid IPv6 address", server->address);
             }
-
-            state.nsaddr_list[0].sin_family = AF_INET6;
-            state._u._ext.nsaddrs[0] = &resolver_addr6;
-            state._u._ext.nsmap[0] = 0;
-            state._u._ext.nscount = 1;
-            state._u._ext.nscount6 = 1;
-            state._u._ext.nsinit = 1;
+            address_family = AF_INET6;
+            resolver_addr_len = sizeof(sockaddr_in6);
         } else {
-            state.nsaddr_list[0].sin_family = AF_INET;
-            state.nsaddr_list[0].sin_port = htons(server->port);
-            if (inet_pton(AF_INET, server->resolved_ip.c_str(), &state.nsaddr_list[0].sin_addr) != 1) {
-                close_state();
+            auto* addr4 = reinterpret_cast<sockaddr_in*>(&resolver_addr);
+            addr4->sin_family = AF_INET;
+            addr4->sin_port = htons(server->port);
+            if (inet_pton(AF_INET, server->resolved_ip.c_str(), &addr4->sin_addr) != 1) {
                 return keen_pbr3::format("Resolver '{}' has invalid IPv4 address", server->address);
             }
+            address_family = AF_INET;
+            resolver_addr_len = sizeof(sockaddr_in);
         }
-    }
 
-    std::array<unsigned char, NS_PACKETSZ * 8> answer {};
-    h_errno = NETDB_INTERNAL;
-    const int response_len = res_nquery(&state,
-                                        domain.c_str(),
-                                        ns_c_in,
-                                        record_type,
-                                        answer.data(),
-                                        static_cast<int>(answer.size()));
+        std::array<unsigned char, NS_PACKETSZ * 2> query {};
+        const int query_len = res_mkquery(ns_o_query,
+                                          domain.c_str(),
+                                          ns_c_in,
+                                          record_type,
+                                          nullptr,
+                                          0,
+                                          nullptr,
+                                          query.data(),
+                                          static_cast<int>(query.size()));
+        if (query_len < 0) {
+            return keen_pbr3::format("Failed to build DNS {} query",
+                                     record_type == ns_t_a ? "A" : "AAAA");
+        }
+
+        const int socket_fd = socket(address_family, SOCK_DGRAM, 0);
+        if (socket_fd < 0) {
+            return keen_pbr3::format("Failed to create DNS socket: {}", std::strerror(errno));
+        }
+        const auto close_socket = [socket_fd]() { close(socket_fd); };
+
+        timeval socket_timeout {};
+        socket_timeout.tv_sec = 2;
+        socket_timeout.tv_usec = 0;
+        if (setsockopt(socket_fd,
+                       SOL_SOCKET,
+                       SO_SNDTIMEO,
+                       &socket_timeout,
+                       sizeof(socket_timeout)) != 0 ||
+            setsockopt(socket_fd,
+                       SOL_SOCKET,
+                       SO_RCVTIMEO,
+                       &socket_timeout,
+                       sizeof(socket_timeout)) != 0) {
+            const std::string error = std::strerror(errno);
+            close_socket();
+            return keen_pbr3::format("Failed to configure DNS socket timeout: {}", error);
+        }
+
+        const ssize_t sent = sendto(socket_fd,
+                                    query.data(),
+                                    static_cast<size_t>(query_len),
+                                    0,
+                                    reinterpret_cast<const sockaddr*>(&resolver_addr),
+                                    resolver_addr_len);
+        if (sent != static_cast<ssize_t>(query_len)) {
+            const std::string error = std::strerror(errno);
+            close_socket();
+            return keen_pbr3::format("Failed to send DNS {} query via '{}': {}",
+                                     record_type == ns_t_a ? "A" : "AAAA",
+                                     server->address,
+                                     error);
+        }
+
+        const ssize_t received = recvfrom(socket_fd,
+                                          answer.data(),
+                                          answer.size(),
+                                          0,
+                                          nullptr,
+                                          nullptr);
+        if (received <= 0) {
+            const std::string error = std::strerror(errno);
+            close_socket();
+            return keen_pbr3::format("DNS {} query via '{}' failed: {}",
+                                     record_type == ns_t_a ? "A" : "AAAA",
+                                     server->address,
+                                     error);
+        }
+        response_len = static_cast<int>(received);
+        close_socket();
+    }
 
     if (response_len < 0) {
         const char* reason = hstrerror(h_errno);
-        close_state();
         return keen_pbr3::format("DNS {} query via '{}' failed: {}",
                                  record_type == ns_t_a ? "A" : "AAAA",
                                  server.has_value() ? server->address : "resolv.conf",
@@ -237,14 +294,12 @@ std::optional<std::string> query_dns_record_with_resolver(
     std::string parse_error;
     if (!extract_ips_from_dns_answer(answer.data(), response_len, record_type, ips, &parse_error) &&
         !parse_error.empty()) {
-        close_state();
         return keen_pbr3::format("DNS {} query via '{}' failed: {}",
                                  record_type == ns_t_a ? "A" : "AAAA",
                                  server.has_value() ? server->address : "resolv.conf",
                                  parse_error);
     }
 
-    close_state();
     return std::nullopt;
 }
 
