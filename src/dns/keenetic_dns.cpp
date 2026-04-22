@@ -129,6 +129,12 @@ ParsedDnsServerLine parse_dns_server_line(const std::string& line) {
         parsed.is_encrypted = true;
         parsed.kind = "DoT";
         parsed.target = comment;
+    } else if (comment.find('@') != std::string::npos &&
+               comment.find("://") == std::string::npos) {
+        parsed.is_encrypted = true;
+        parsed.kind = "DoT";
+        const auto suffix_pos = comment.find('@');
+        parsed.target = "tls://" + comment.substr(suffix_pos + 1);
     } else {
         parsed.kind = "Plain";
     }
@@ -154,8 +160,7 @@ ParsedStaticDnsLine parse_static_dns_line(const std::string& line) {
 
     std::istringstream parts(rest);
     ParsedStaticDnsLine parsed;
-    std::string ttl;
-    if (!(parts >> parsed.domain >> parsed.address >> ttl)) {
+    if (!(parts >> parsed.domain >> parsed.address)) {
         return {};
     }
     return parsed;
@@ -172,6 +177,26 @@ bool is_supported_static_dns_domain(const std::string& domain) {
         return domain.size() > 2;
     }
     return true;
+}
+
+bool looks_like_ipv6_dns_server_address(const std::string& address) {
+    if (address.empty()) {
+        return false;
+    }
+    if (address.front() == '[') {
+        return true;
+    }
+
+    size_t colon_count = 0;
+    for (char c : address) {
+        if (c == ':') {
+            ++colon_count;
+            if (colon_count > 1) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 bool keenetic_dns_snapshots_equal(const KeeneticDnsSnapshot& lhs,
@@ -265,7 +290,6 @@ KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& re
             throw KeeneticDnsError(
                 "RCI response has 'System' DNS proxy but missing string field 'proxy-config'");
         }
-
         std::vector<ParsedDnsServerLine> unscoped_plaintext_servers;
         std::vector<ParsedDnsServerLine> unscoped_encrypted_servers;
         std::vector<KeeneticStaticDnsEntry> static_entries;
@@ -289,8 +313,11 @@ KeeneticDnsSnapshot extract_keenetic_dns_snapshot_from_rci(const std::string& re
                 continue;
             }
 
-            const ParsedDnsServerLine parsed = parse_dns_server_line(trimmed);
+            ParsedDnsServerLine parsed = parse_dns_server_line(trimmed);
             if (parsed.address.empty()) {
+                continue;
+            }
+            if (looks_like_ipv6_dns_server_address(parsed.address)) {
                 continue;
             }
 

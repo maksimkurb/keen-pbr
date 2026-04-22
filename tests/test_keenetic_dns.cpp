@@ -107,18 +107,18 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
               == std::vector<std::string>{"127.0.0.1:40500"});
     }
 
-    SUBCASE("extracts bracketed ipv6 address with port") {
+    SUBCASE("ignores bracketed ipv6 dns_server address with port") {
         const std::string json = R"({
           "proxy-status": [
             {
               "proxy-name": "System",
-              "proxy-config": "dns_server = [2001:db8::53]:853 # tls://resolver.example\n"
+              "proxy-config": "dns_server = [2001:db8::53]:853 # tls://resolver.example\ndns_server = 127.0.0.1:40508 . # https://dns-a.example/dns-query@dnsm\n"
             }
           ]
         })";
 
         CHECK(extract_keenetic_dns_snapshot_from_rci(json).addresses
-              == std::vector<std::string>{"[2001:db8::53]:853"});
+              == std::vector<std::string>{"127.0.0.1:40508"});
     }
 
     SUBCASE("skips bare ipv6 address followed by routing domain in favor of unscoped doh") {
@@ -180,6 +180,91 @@ TEST_CASE("keenetic dns: parse address from RCI System policy") {
         CHECK(snapshot.upstreams[0].target == "tls://dot.example");
         CHECK(snapshot.upstreams[1].kind == "DoH");
         CHECK(snapshot.upstreams[1].target == "https://dns-b.example/dns-query");
+    }
+
+    SUBCASE("treats dns_server comment as the only upstream metadata source") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "rpc_port = 54321\nrr_port = 40901\ndns_server = 127.0.0.1:40500 . # 8.8.8.8@dns.google\ndns_server = 127.0.0.1:40501 . # 8.8.4.4@dns.google\ndns_server = 127.0.0.1:40508 . # https://dns.google/dns-query@dnsm\ndns_server = 127.0.0.1:40509 . # https://dns.quad9.net/dns-query@dnsm\n",
+              "proxy-tls": {
+                "server-tls": [
+                  {
+                    "address": "8.8.8.8",
+                    "sni": "dns.google",
+                    "spki": "",
+                    "interface": "",
+                    "domain": ""
+                  },
+                  {
+                    "address": "8.8.4.4",
+                    "sni": "dns.google",
+                    "spki": "",
+                    "interface": "",
+                    "domain": ""
+                  }
+                ]
+              },
+              "proxy-https": {
+                "server-https": [
+                  {
+                    "uri": "https://dns.google/dns-query",
+                    "format": "dnsm",
+                    "spki": "",
+                    "interface": "",
+                    "domain": ""
+                  },
+                  {
+                    "uri": "https://dns.quad9.net/dns-query",
+                    "format": "dnsm",
+                    "spki": "",
+                    "interface": "",
+                    "domain": ""
+                  }
+                ]
+              }
+            }
+          ]
+        })";
+
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(json);
+        REQUIRE(snapshot.addresses == std::vector<std::string>{
+                                        "127.0.0.1:40500",
+                                        "127.0.0.1:40501",
+                                        "127.0.0.1:40508",
+                                        "127.0.0.1:40509"});
+        REQUIRE(snapshot.upstreams.size() == 4);
+        CHECK(snapshot.upstreams[0].kind == "DoT");
+        CHECK(snapshot.upstreams[0].target == "tls://dns.google");
+        CHECK(snapshot.upstreams[1].kind == "DoT");
+        CHECK(snapshot.upstreams[1].target == "tls://dns.google");
+        CHECK(snapshot.upstreams[2].kind == "DoH");
+        CHECK(snapshot.upstreams[2].target == "https://dns.google/dns-query");
+        CHECK(snapshot.upstreams[3].kind == "DoH");
+        CHECK(snapshot.upstreams[3].target == "https://dns.quad9.net/dns-query");
+    }
+
+    SUBCASE("ignores ipv6 dns_server upstreams but keeps static aaaa entries") {
+        const std::string json = R"({
+          "proxy-status": [
+            {
+              "proxy-name": "System",
+              "proxy-config": "rpc_port = 54321\nrpc_ttl = 10000\nrpc_wait = 10000\ntimeout = 7000\nproceed = 500\nstat_file = /var/ndnproxymain.stat\nstat_time = 10000\ndns_server = 192.168.0.1 .\ndns_server = fe80::1%10 .\nstatic_a = my.keenetic.net 78.47.125.180\nstatic_aaaa = my.keenetic.net 2001:2:7847:1251:feee:ed78:4712:5180\nstatic_aaaa = host-a.keenetic.name 2001:2:7847:1251:feee:ed78:4712:5180\nstatic_a = host-a.keenetic.name 78.47.125.180\nstatic_a = ha.host-a.keenetic.name 78.47.125.180\nstatic_aaaa = ha.host-a.keenetic.name 2001:2:7847:1251:feee:ed78:4712:5180\nstatic_a = tokenized-host.keenetic.io 78.47.125.180\nstatic_aaaa = tokenized-host.keenetic.io 2001:2:7847:1251:feee:ed78:4712:5180\nnorebind_ctl = on\nnorebind_ip4net = 10.1.30.1:24\nnorebind_ip4net = 192.168.2.1:24\nnorebind_ip4net = 192.168.7.1:24\nnorebind_ip4net = 255.255.255.255:32\nset-profile-ip 127.0.0.1 0\nset-profile-ip ::1 0\ndns_tcp_port = 53\ndns_udp_port = 53\n"
+            }
+          ]
+        })";
+
+        const KeeneticDnsSnapshot snapshot = extract_keenetic_dns_snapshot_from_rci(json);
+        REQUIRE(snapshot.addresses == std::vector<std::string>{"192.168.0.1"});
+        REQUIRE(snapshot.upstreams.size() == 1);
+        CHECK(snapshot.upstreams[0].address == "192.168.0.1");
+        CHECK(snapshot.upstreams[0].kind == "Plain");
+        REQUIRE(snapshot.static_entries.size() == 8);
+        CHECK(snapshot.static_entries[0].domain == "my.keenetic.net");
+        CHECK(snapshot.static_entries[0].address == "78.47.125.180");
+        CHECK(snapshot.static_entries[1].domain == "my.keenetic.net");
+        CHECK(snapshot.static_entries[1].address == "2001:2:7847:1251:feee:ed78:4712:5180");
     }
 
     SUBCASE("falls back to all unscoped plaintext servers when no unscoped encrypted servers exist") {
