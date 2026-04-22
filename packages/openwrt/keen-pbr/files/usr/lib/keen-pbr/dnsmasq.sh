@@ -9,11 +9,7 @@ CACHE_DIR="/var/cache/keen-pbr"
 DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
 PACKAGE_NAME="keen-pbr"
 CONFFILE="${PACKAGE_NAME}.conf"
-
-# Paths to bind-mount read-only into the dnsmasq procd jail
-JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
-
-[ -r /lib/functions.sh ] && . /lib/functions.sh
+UCI_HELPER="/usr/lib/keen-pbr/uci.sh"
 
 log_message() {
     local level="$1"
@@ -60,146 +56,12 @@ fallback_conf_line() {
     printf 'conf-file=%s' "$DNSMASQ_FALLBACK_FILE"
 }
 
-uci_add_list_if_new() {
-    local package="$1"
-    local config="$2"
-    local option="$3"
-    local value="$4"
-    local current item
-
-    current="$(uci -q get "${package}.${config}.${option}" || true)"
-    for item in $current; do
-        [ "$item" = "$value" ] && return 1
-    done
-
-    uci -q add_list "${package}.${config}.${option}=${value}"
-    log_info "UCI add_list ${package}.${config}.${option}=${value}"
-    return 0
-}
-
-uci_list_contains() {
-    local package="$1"
-    local config="$2"
-    local option="$3"
-    local value="$4"
-    local current item
-
-    current="$(uci -q get "${package}.${config}.${option}" || true)"
-    for item in $current; do
-        [ "$item" = "$value" ] && return 0
-    done
-
-    return 1
-}
-
-uci_option_exists() {
-    local package="$1"
-    local config="$2"
-    local option="$3"
-
-    uci -q get "${package}.${config}.${option}" >/dev/null 2>&1
+dnsmasq_confdir() {
+    "$UCI_HELPER" dnsmasq-confdir "$1"
 }
 
 dnsmasq_sections() {
-    local section section_type
-
-    config_load dhcp
-    for section in $CONFIG_SECTIONS; do
-        config_get section_type "$section" TYPE
-        [ "$section_type" = "dnsmasq" ] && printf '%s\n' "$section"
-    done
-}
-
-dnsmasq_confdir() {
-    local section="$1"
-    local confdir
-    config_get confdir "$section" confdir
-    printf '%s' "${confdir:-/tmp/dnsmasq.${section}.d}"
-}
-
-install_mounts_for_section() {
-    local section="$1"
-    local path
-    local changed=1
-
-    for path in $JAIL_MOUNTS; do
-        if uci_add_list_if_new dhcp "$section" addnmount "$path"; then
-            changed=0
-        fi
-    done
-    return "$changed"
-}
-
-remove_mounts_for_section() {
-    local section="$1"
-    local path
-    local changed=1
-
-    for path in $JAIL_MOUNTS; do
-        if uci_list_contains dhcp "$section" addnmount "$path"; then
-            if uci -q del_list "dhcp.${section}.addnmount=${path}"; then
-                log_info "UCI del_list dhcp.${section}.addnmount=${path}"
-                changed=0
-            fi
-        fi
-    done
-    return "$changed"
-}
-
-backup_list_option_for_section() {
-    local section="$1"
-    local option="$2"
-    local backup_option="$3"
-    local values value
-    local copied=1
-
-    values="$(uci -q get "dhcp.${section}.${option}" || true)"
-    [ -n "$values" ] || return 1
-
-    if uci_option_exists dhcp "$section" "$backup_option" && uci -q delete "dhcp.${section}.${backup_option}"; then
-        log_info "UCI delete dhcp.${section}.${backup_option}"
-        copied=0
-    fi
-    for value in $values; do
-        if uci -q add_list "dhcp.${section}.${backup_option}=${value}"; then
-            log_info "UCI add_list dhcp.${section}.${backup_option}=${value}"
-            copied=0
-        fi
-    done
-    if uci_option_exists dhcp "$section" "$option" && uci -q delete "dhcp.${section}.${option}"; then
-        log_info "UCI delete dhcp.${section}.${option}"
-        copied=0
-    fi
-
-    return "$copied"
-}
-
-restore_list_option_for_section() {
-    local section="$1"
-    local option="$2"
-    local backup_option="$3"
-    local values value
-    local restored=1
-
-    values="$(uci -q get "dhcp.${section}.${backup_option}" || true)"
-    [ -n "$values" ] || return 1
-
-    if uci_option_exists dhcp "$section" "$option" && uci -q delete "dhcp.${section}.${option}"; then
-        log_info "UCI delete dhcp.${section}.${option}"
-        restored=0
-    fi
-    for value in $values; do
-        if uci -q add_list "dhcp.${section}.${option}=${value}"; then
-            log_info "UCI add_list dhcp.${section}.${option}=${value}"
-            restored=0
-        fi
-    done
-    if uci_option_exists dhcp "$section" "$backup_option" && uci -q delete "dhcp.${section}.${backup_option}"; then
-        log_info "UCI delete dhcp.${section}.${backup_option}"
-        restored=0
-    fi
-
-    return "$restored"
+    "$UCI_HELPER" dnsmasq-sections
 }
 
 write_temp_conf_for_section() {
@@ -246,40 +108,16 @@ remove_all_temp_confs() {
 
 install_persistent() {
     local section
-    local changed=1
 
     for section in $(dnsmasq_sections); do
         write_fallback_conf_for_section "$section" || true
-        if backup_list_option_for_section "$section" server kpbr_server; then
-            changed=0
-        fi
-        if install_mounts_for_section "$section"; then
-            changed=0
-        fi
     done
 
-    if [ "$changed" -eq 0 ]; then
-        if uci -q commit dhcp; then
-            log_info "Committed UCI package dhcp"
-        fi
-    fi
+    "$UCI_HELPER" dnsmasq-install-persistent
 }
 
 ensure_runtime_prereqs() {
-    local section
-    local changed=1
-
-    for section in $(dnsmasq_sections); do
-        if install_mounts_for_section "$section"; then
-            changed=0
-        fi
-    done
-
-    if [ "$changed" -eq 0 ]; then
-        if uci -q commit dhcp; then
-            log_info "Committed UCI package dhcp"
-        fi
-    fi
+    "$UCI_HELPER" dnsmasq-ensure-runtime-prereqs
 }
 
 activate_dnsmasq() {
@@ -306,23 +144,12 @@ deactivate_dnsmasq() {
 
 uninstall_persistent() {
     local section
-    local changed=1
 
     for section in $(dnsmasq_sections); do
         remove_temp_conf_for_section "$section" || true
-        if restore_list_option_for_section "$section" server kpbr_server; then
-            changed=0
-        fi
-        if remove_mounts_for_section "$section"; then
-            changed=0
-        fi
     done
 
-    if [ "$changed" -eq 0 ]; then
-        if uci -q commit dhcp; then
-            log_info "Committed UCI package dhcp"
-        fi
-    fi
+    "$UCI_HELPER" dnsmasq-uninstall-persistent
 
     remove_all_temp_confs || true
 

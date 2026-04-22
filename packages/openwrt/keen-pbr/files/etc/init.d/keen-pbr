@@ -7,15 +7,20 @@ STOP=10
 if type extra_command >/dev/null 2>&1; then
     extra_command "reapply_firewall" " Send SIGUSR1 to the running service"
     extra_command "reapply_dnsmasq_config" " Regenerate keen-pbr dnsmasq config and restart dnsmasq"
+    extra_command "sync_firewall_hook" " Ensure the fw4 include exists for keen-pbr"
+    extra_command "remove_firewall_hook" " Remove the fw4 include for keen-pbr"
 else
-    EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config"
+    EXTRA_COMMANDS="reapply_firewall reapply_dnsmasq_config sync_firewall_hook remove_firewall_hook"
     EXTRA_HELP="        reapply_firewall        Send SIGUSR1 to the running service
-        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and restart dnsmasq"
+        reapply_dnsmasq_config  Regenerate keen-pbr dnsmasq config and restart dnsmasq
+        sync_firewall_hook      Ensure the fw4 include exists for keen-pbr
+        remove_firewall_hook    Remove the fw4 include for keen-pbr"
 fi
 
 PROG=/usr/sbin/keen-pbr
 CONFIG=/etc/keen-pbr/config.json
 HELPER=/usr/lib/keen-pbr/dnsmasq.sh
+UCI_HELPER=/usr/lib/keen-pbr/uci.sh
 PIDFILE=/var/run/keen-pbr.pid
 
 script_name() {
@@ -34,6 +39,16 @@ stop_link_path() {
     printf '%s/etc/rc.d/K%02d%s' "$(rc_root)" "$STOP" "$(script_name)"
 }
 
+ensure_fw4_include() {
+    [ -x "$UCI_HELPER" ] || return 1
+    "$UCI_HELPER" firewall-sync
+}
+
+remove_fw4_include() {
+    [ -x "$UCI_HELPER" ] || return 1
+    "$UCI_HELPER" firewall-remove
+}
+
 is_enabled() {
     [ -L "$(start_link_path)" ] || [ -L "$(stop_link_path)" ]
 }
@@ -50,6 +65,8 @@ enable() {
 
     [ -n "$IPKG_INSTROOT" ] && return 0
 
+    ensure_fw4_include || return 1
+
     if [ -x "$HELPER" ]; then
         "$HELPER" install-persistent || return 1
     fi
@@ -60,6 +77,8 @@ disable() {
 
     [ -n "$IPKG_INSTROOT" ] && return 0
 
+    remove_fw4_include || return 1
+
     if [ -x "$HELPER" ]; then
         "$HELPER" uninstall-persistent || return 1
     fi
@@ -68,6 +87,8 @@ disable() {
 start_service() {
     [ -x "$PROG" ] || return 1
     [ -f "$CONFIG" ] || return 1
+
+    ensure_fw4_include || return 1
 
     mkdir -p /var/cache/keen-pbr
 
@@ -109,4 +130,12 @@ reapply_dnsmasq_config() {
     if [ -x "$HELPER" ]; then
         "$HELPER" activate || return 1
     fi
+}
+
+sync_firewall_hook() {
+    ensure_fw4_include
+}
+
+remove_firewall_hook() {
+    remove_fw4_include
 }

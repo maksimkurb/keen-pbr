@@ -1,6 +1,9 @@
 #!/bin/sh
 
 [ "$PKG_UPGRADE" = "1" ] && exit 0
+[ -n "$IPKG_INSTROOT" ] && exit 0
+
+/etc/init.d/keen-pbr disable >/dev/null 2>&1 || true
 
 cat <<'EOF'
 keen-pbr has restored the dnsmasq configuration.
