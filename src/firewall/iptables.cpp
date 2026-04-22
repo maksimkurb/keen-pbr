@@ -475,13 +475,6 @@ FirewallBackend IptablesFirewall::backend() const {
     return FirewallBackend::iptables;
 }
 
-std::optional<bool> IptablesFirewall::test_ip_in_set(const std::string& set_name,
-                                                       const std::string& ip) const {
-    int exit_code = safe_exec({"ipset", "test", set_name, ip}, /*suppress_output=*/true);
-    if (exit_code == 127) return std::nullopt; // ipset not installed
-    return exit_code == 0;
-}
-
 std::unique_ptr<Firewall> create_iptables_firewall() {
     return std::make_unique<IptablesFirewall>();
 }

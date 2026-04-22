@@ -659,14 +659,6 @@ FirewallBackend NftablesFirewall::backend() const {
     return FirewallBackend::nftables;
 }
 
-std::optional<bool> NftablesFirewall::test_ip_in_set(const std::string& set_name,
-                                                       const std::string& ip) const {
-    int exit_code = safe_exec({"nft", "get", "element", "inet", std::string(TABLE_NAME),
-                               set_name, "{", ip, "}"}, /*suppress_output=*/true);
-    if (exit_code == 127) return std::nullopt; // nft not installed
-    return exit_code == 0;
-}
-
 std::unique_ptr<Firewall> create_nftables_firewall() {
     return std::make_unique<NftablesFirewall>();
 }

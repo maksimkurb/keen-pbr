@@ -2,7 +2,6 @@
 
 #include "../cache/cache_manager.hpp"
 #include "../config/routing_state.hpp"
-#include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../lists/list_streamer.hpp"
@@ -12,6 +11,7 @@
 #include "../routing/policy_rule.hpp"
 #include "../routing/route_table.hpp"
 #include "../util/format_compat.hpp"
+#include "../util/firewall_backend_utils.hpp"
 #include "../util/string_compat.hpp"
 
 #include <cstdint>
@@ -521,9 +521,12 @@ int run_status_command(const Config& config, const std::string& config_path) {
     fw_state.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
     fw_state.set_rules(std::move(fw_rules));
 
-    auto firewall = create_firewall(firewall_backend_preference(config));
-    RoutingHealthChecker checker(*firewall, fw_state, routes, rules, netlink);
-    RoutingHealthReport report = checker.check();
+    RoutingHealthReport report = build_routing_health_report(
+        resolve_firewall_backend(firewall_backend_preference(config)),
+        fw_state,
+        routes.get_routes(),
+        rules.get_rules(),
+        netlink);
     const auto display_firewall_rules = build_display_firewall_rules(config, marks, report.firewall_rules);
 
     print_header(report, config_path);

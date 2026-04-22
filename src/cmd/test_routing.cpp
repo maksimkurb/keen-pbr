@@ -2,11 +2,12 @@
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_server.hpp"
-#include "../firewall/firewall.hpp"
 #include "../lists/ipset.hpp"
+#include "../lists/kernel_set_tester.hpp"
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../util/format_compat.hpp"
+#include "../util/firewall_backend_utils.hpp"
 #include "../util/string_compat.hpp"
 
 #include <algorithm>
@@ -358,7 +359,7 @@ std::string outbound_interface_name(const Config& config, const std::string& out
     return "-";
 }
 
-std::optional<bool> test_rule_ipset_membership(const Firewall& firewall,
+std::optional<bool> test_rule_ipset_membership(const KernelSetTester& set_tester,
                                                const RuleState& rule_state,
                                                const std::string& ip,
                                                bool is_v4) {
@@ -370,7 +371,7 @@ std::optional<bool> test_rule_ipset_membership(const Firewall& firewall,
         if (is_v4 && !v4_set) continue;
         if (!is_v4 && !v6_set) continue;
 
-        auto result = firewall.test_ip_in_set(set_name, ip);
+        auto result = set_tester.contains(set_name, ip);
         if (!result.has_value()) {
             continue;
         }
@@ -382,7 +383,7 @@ std::optional<bool> test_rule_ipset_membership(const Firewall& firewall,
     return false;
 }
 
-std::string find_actual_outbound(const Firewall& firewall,
+std::string find_actual_outbound(const KernelSetTester& set_tester,
                                    const std::vector<RuleState>& rule_states,
                                    const std::string& ip,
                                    bool is_v4) {
@@ -398,7 +399,7 @@ std::string find_actual_outbound(const Firewall& firewall,
             if (is_v4 && !v4_set) continue;
             if (!is_v4 && !v6_set) continue;
 
-            auto result = firewall.test_ip_in_set(set_name, ip);
+            auto result = set_tester.contains(set_name, ip);
             if (result.has_value()) {
                 any_answer = true;
                 if (*result) return rs.outbound_tag;
@@ -441,9 +442,9 @@ TestRoutingResult compute_test_routing(const Config& config,
     const auto& route_rules =
         config.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
 
-    std::unique_ptr<Firewall> firewall;
+    std::optional<KernelSetTester> set_tester;
     try {
-        firewall = create_firewall(firewall_backend_preference(config));
+        set_tester.emplace(resolve_firewall_backend(firewall_backend_preference(config)));
     } catch (const std::exception& e) {
         result.warnings.push_back(
             keen_pbr3::format("Cannot check actual outbound (firewall tool unavailable): {}", e.what()));
@@ -478,8 +479,8 @@ TestRoutingResult compute_test_routing(const Config& config,
         auto [expected, match] = find_expected_outbound(config, lookups, ip, domain_cands);
         entry.expected_outbound = expected;
         entry.list_match = match;
-        entry.actual_outbound = firewall
-            ? find_actual_outbound(*firewall, rule_states, ip, is_ipv4_address(ip))
+        entry.actual_outbound = set_tester.has_value()
+            ? find_actual_outbound(*set_tester, rule_states, ip, is_ipv4_address(ip))
             : "(unknown)";
         entry.ok = (entry.expected_outbound == entry.actual_outbound);
         result.entries.push_back(std::move(entry));
@@ -487,9 +488,9 @@ TestRoutingResult compute_test_routing(const Config& config,
         for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
             RuleIpDiagnostic ip_diag;
             ip_diag.ip = ip;
-            if (firewall && idx < rule_states.size()) {
+            if (set_tester.has_value() && idx < rule_states.size()) {
                 ip_diag.in_ipset = test_rule_ipset_membership(
-                    *firewall, rule_states[idx], ip, is_ipv4_address(ip));
+                    *set_tester, rule_states[idx], ip, is_ipv4_address(ip));
             }
             result.rule_diagnostics[idx].ip_rows.push_back(std::move(ip_diag));
         }

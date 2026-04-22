@@ -44,10 +44,6 @@ public:
     // Returns FirewallBackend::nftables.
     FirewallBackend backend() const override;
 
-    // Tests membership via `nft get element inet KeenPbrTable <set_name> { <ip> }`.
-    std::optional<bool> test_ip_in_set(const std::string& set_name,
-                                        const std::string& ip) const override;
-
 private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";

@@ -49,6 +49,7 @@ add_executable(keen-pbr-tests
   ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
   ../src/lists/ipset.cpp
+  ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp
   ../src/lists/list_set_usage.cpp
   ../src/config/list_parser.cpp
@@ -170,6 +171,7 @@ add_executable(keen-pbr-firewall-it
   ../src/health/routing_health_checker.cpp
   ../src/health/url_tester.cpp
   ../src/http/http_client.cpp
+  ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_set_usage.cpp
   ../src/lists/list_streamer.cpp
   ../src/log/logger.cpp
