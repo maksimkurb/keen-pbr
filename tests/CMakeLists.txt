@@ -8,6 +8,7 @@ add_executable(keen-pbr-tests
   test_dnsmasq_gen.cpp
   test_dns_txt_client.cpp
   test_dns_server.cpp
+  test_test_routing.cpp
   test_keenetic_dns.cpp
   test_dns_probe_server.cpp
   test_list_set_usage.cpp
@@ -30,6 +31,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/firewall.cpp
   ../src/firewall/firewall_runtime.cpp
   ../src/firewall/port_spec_util.cpp
   ../src/firewall/nftables.cpp
@@ -46,14 +48,17 @@ add_executable(keen-pbr-tests
   ../src/daemon/system_resolver_hook.cpp
   ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
+  ../src/lists/ipset.cpp
   ../src/lists/list_streamer.cpp
   ../src/lists/list_set_usage.cpp
   ../src/config/list_parser.cpp
+  ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
   ../src/daemon/resolver_health.cpp
   ../src/http/http_client.cpp
   ../src/routing/netlink.cpp
   ../src/util/blocking_executor.cpp
+  ../src/util/firewall_backend_utils.cpp
   ../src/util/system_info.cpp
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
@@ -92,11 +97,8 @@ target_link_libraries(keen-pbr-tests PRIVATE
   cpptrace::cpptrace
   fmt::fmt-header-only
   keen_pbr_libunwind
+  ${LIBRESOLV}
 )
-
-if(LIBRESOLV)
-  target_link_libraries(keen-pbr-tests PRIVATE ${LIBRESOLV})
-endif()
 
 add_executable(crash-diagnostics-smoke
   crash_diagnostics_smoke.cpp
@@ -207,14 +209,12 @@ target_link_libraries(keen-pbr-firewall-it PRIVATE
   cpptrace::cpptrace
   fmt::fmt-header-only
   keen_pbr_libunwind
+  ${LIBRESOLV}
   Threads::Threads
 )
 target_compile_definitions(keen-pbr-firewall-it PRIVATE USE_KEENETIC_API)
 if(LIBATOMIC)
   target_link_libraries(keen-pbr-firewall-it PRIVATE ${LIBATOMIC})
-endif()
-if(LIBRESOLV)
-  target_link_libraries(keen-pbr-firewall-it PRIVATE ${LIBRESOLV})
 endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   target_link_libraries(keen-pbr-firewall-it PRIVATE stdc++fs)

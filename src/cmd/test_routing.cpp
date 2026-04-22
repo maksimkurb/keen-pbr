@@ -1,6 +1,7 @@
 #include "test_routing.hpp"
 
 #include "../config/routing_state.hpp"
+#include "../dns/dns_server.hpp"
 #include "../firewall/firewall.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/list_entry_visitor.hpp"
@@ -10,9 +11,13 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <arpa/nameser.h>
+#include <array>
+#include <cctype>
 #include <iostream>
 #include <map>
 #include <netdb.h>
+#include <resolv.h>
 #include <set>
 #include <string>
 #include <sys/socket.h>
@@ -36,41 +41,6 @@ bool is_ip_address(const std::string& s) {
     return is_ipv4_address(s) || is_ipv6_address(s);
 }
 
-std::vector<std::string> resolve_domain(const std::string& domain,
-                                         std::vector<std::string>& warnings) {
-    std::vector<std::string> ips;
-    struct addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    struct addrinfo* result = nullptr;
-
-    int rc = getaddrinfo(domain.c_str(), nullptr, &hints, &result);
-    if (rc != 0) {
-        warnings.push_back(
-            keen_pbr3::format("DNS resolution failed for '{}': {}", domain, gai_strerror(rc)));
-        return ips;
-    }
-
-    for (auto* p = result; p != nullptr; p = p->ai_next) {
-        char buf[INET6_ADDRSTRLEN] = {};
-        if (p->ai_family == AF_INET) {
-            inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(p->ai_addr)->sin_addr,
-                      buf, sizeof(buf));
-        } else if (p->ai_family == AF_INET6) {
-            inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6*>(p->ai_addr)->sin6_addr,
-                      buf, sizeof(buf));
-        } else {
-            continue;
-        }
-        std::string ip(buf);
-        if (std::find(ips.begin(), ips.end(), ip) == ips.end()) {
-            ips.push_back(ip);
-        }
-    }
-    freeaddrinfo(result);
-    return ips;
-}
-
 // "www.google.com" → ["www.google.com", "google.com", "com"]
 std::vector<std::string> domain_candidates(const std::string& domain) {
     std::vector<std::string> candidates;
@@ -82,6 +52,13 @@ std::vector<std::string> domain_candidates(const std::string& domain) {
         d = d.substr(dot + 1);
     }
     return candidates;
+}
+
+std::string lowercase_copy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
 }
 
 struct ListLookupData {
@@ -140,6 +117,171 @@ std::map<std::string, ListLookupData> build_all_lookups(const Config& config,
         result.emplace(list_name, std::move(builder.data));
     }
     return result;
+}
+
+bool append_unique_ip(std::vector<std::string>& ips, const std::string& ip) {
+    if (ip.empty() || std::find(ips.begin(), ips.end(), ip) != ips.end()) {
+        return false;
+    }
+    ips.push_back(ip);
+    return true;
+}
+
+bool extract_ips_from_dns_answer(const unsigned char* answer,
+                                 int answer_len,
+                                 int expected_type,
+                                 std::vector<std::string>& ips,
+                                 std::string* error_out) {
+    ns_msg handle {};
+    if (ns_initparse(answer, answer_len, &handle) < 0) {
+        if (error_out) {
+            *error_out = "Failed to parse DNS response";
+        }
+        return false;
+    }
+
+    const int answer_count = ns_msg_count(handle, ns_s_an);
+    bool found = false;
+    for (int i = 0; i < answer_count; ++i) {
+        ns_rr rr {};
+        if (ns_parserr(&handle, ns_s_an, i, &rr) < 0) {
+            continue;
+        }
+        if (ns_rr_class(rr) != ns_c_in || ns_rr_type(rr) != expected_type) {
+            continue;
+        }
+
+        char buf[INET6_ADDRSTRLEN] = {};
+        if (expected_type == ns_t_a && ns_rr_rdlen(rr) == 4) {
+            if (inet_ntop(AF_INET, ns_rr_rdata(rr), buf, sizeof(buf)) != nullptr) {
+                found = append_unique_ip(ips, buf) || found;
+            }
+        } else if (expected_type == ns_t_aaaa && ns_rr_rdlen(rr) == 16) {
+            if (inet_ntop(AF_INET6, ns_rr_rdata(rr), buf, sizeof(buf)) != nullptr) {
+                found = append_unique_ip(ips, buf) || found;
+            }
+        }
+    }
+
+    return found;
+}
+
+std::optional<std::string> query_dns_record_with_resolver(
+    const std::optional<DnsServerConfig>& server,
+    const std::string& domain,
+    int record_type,
+    std::vector<std::string>& ips) {
+    struct __res_state state {};
+    if (res_ninit(&state) != 0) {
+        return "Failed to initialize libresolv resolver state";
+    }
+
+    bool using_ipv6_resolver = false;
+    sockaddr_in6 resolver_addr6 {};
+    const auto close_state = [&state, &using_ipv6_resolver]() {
+        if (using_ipv6_resolver) {
+            state._u._ext.nsaddrs[0] = nullptr;
+        }
+        res_nclose(&state);
+    };
+
+    state.retrans = 2;
+    state.retry = 1;
+
+    if (server.has_value()) {
+        state.nscount = 1;
+        if (is_ipv6_address(server->resolved_ip)) {
+            using_ipv6_resolver = true;
+            resolver_addr6.sin6_family = AF_INET6;
+            resolver_addr6.sin6_port = htons(server->port);
+            if (inet_pton(AF_INET6, server->resolved_ip.c_str(), &resolver_addr6.sin6_addr) != 1) {
+                close_state();
+                return keen_pbr3::format("Resolver '{}' has invalid IPv6 address", server->address);
+            }
+
+            state.nsaddr_list[0].sin_family = AF_INET6;
+            state._u._ext.nsaddrs[0] = &resolver_addr6;
+            state._u._ext.nsmap[0] = 0;
+            state._u._ext.nscount = 1;
+            state._u._ext.nscount6 = 1;
+            state._u._ext.nsinit = 1;
+        } else {
+            state.nsaddr_list[0].sin_family = AF_INET;
+            state.nsaddr_list[0].sin_port = htons(server->port);
+            if (inet_pton(AF_INET, server->resolved_ip.c_str(), &state.nsaddr_list[0].sin_addr) != 1) {
+                close_state();
+                return keen_pbr3::format("Resolver '{}' has invalid IPv4 address", server->address);
+            }
+        }
+    }
+
+    std::array<unsigned char, NS_PACKETSZ * 8> answer {};
+    h_errno = NETDB_INTERNAL;
+    const int response_len = res_nquery(&state,
+                                        domain.c_str(),
+                                        ns_c_in,
+                                        record_type,
+                                        answer.data(),
+                                        static_cast<int>(answer.size()));
+
+    if (response_len < 0) {
+        const char* reason = hstrerror(h_errno);
+        close_state();
+        return keen_pbr3::format("DNS {} query via '{}' failed: {}",
+                                 record_type == ns_t_a ? "A" : "AAAA",
+                                 server.has_value() ? server->address : "resolv.conf",
+                                 reason != nullptr ? reason : "unknown resolver error");
+    }
+
+    std::string parse_error;
+    if (!extract_ips_from_dns_answer(answer.data(), response_len, record_type, ips, &parse_error) &&
+        !parse_error.empty()) {
+        close_state();
+        return keen_pbr3::format("DNS {} query via '{}' failed: {}",
+                                 record_type == ns_t_a ? "A" : "AAAA",
+                                 server.has_value() ? server->address : "resolv.conf",
+                                 parse_error);
+    }
+
+    close_state();
+    return std::nullopt;
+}
+
+std::vector<std::string> resolve_domain_with_system_resolver(const Config& config,
+                                                             const std::string& domain,
+                                                             std::vector<std::string>& warnings) {
+    std::vector<std::string> ips;
+
+    const DnsConfig dns_config = config.dns.value_or(DnsConfig{});
+    std::optional<DnsServerConfig> resolver;
+    if (dns_config.system_resolver.has_value() &&
+        !dns_config.system_resolver->address.empty()) {
+        try {
+            resolver = parse_dns_server("system_resolver",
+                                        dns_config.system_resolver->address,
+                                        std::nullopt);
+        } catch (const std::exception& e) {
+            warnings.push_back(keen_pbr3::format("DNS system resolver '{}' is invalid: {}",
+                                                 dns_config.system_resolver->address,
+                                                 e.what()));
+            return ips;
+        }
+    }
+
+    std::optional<std::string> a_error =
+        query_dns_record_with_resolver(resolver, domain, ns_t_a, ips);
+    std::optional<std::string> aaaa_error =
+        query_dns_record_with_resolver(resolver, domain, ns_t_aaaa, ips);
+
+    if (ips.empty() && a_error.has_value() && aaaa_error.has_value()) {
+        warnings.push_back(keen_pbr3::format("DNS resolution failed for '{}' via system resolver '{}': {}; {}",
+                                             domain,
+                                             resolver.has_value() ? resolver->address : "resolv.conf",
+                                             *a_error,
+                                             *aaaa_error));
+    }
+
+    return ips;
 }
 
 // Walk route rules in order; return first matching outbound and match info.
@@ -276,21 +418,21 @@ TestRoutingResult compute_test_routing(const Config& config,
     result.target = target;
     result.is_domain = !is_ip_address(target);
 
+    const auto lookups = build_all_lookups(config, cache);
+
     std::vector<std::string> ips;
     std::vector<std::string> domain_cands;
 
     if (result.is_domain) {
-        ips = resolve_domain(target, result.warnings);
+        domain_cands = domain_candidates(lowercase_copy(target));
+        ips = resolve_domain_with_system_resolver(config, target, result.warnings);
         if (ips.empty() && !result.warnings.empty()) {
             result.dns_error = result.warnings.front();
         }
-        domain_cands = domain_candidates(target);
         result.resolved_ips = ips;
     } else {
         ips.push_back(target);
     }
-
-    const auto lookups = build_all_lookups(config, cache);
 
     const auto marks = allocate_outbound_marks(
         config.fwmark.value_or(FwmarkConfig{}),
