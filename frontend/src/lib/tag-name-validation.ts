@@ -1,7 +1,7 @@
 export const TAG_NAME_PATTERN = /^[a-z][a-z0-9_]{0,23}$/
 
 type TagNameValidationOptions = {
-  duplicateError?: string
+  duplicateError?: string | null
   invalidError?: string
   requiredError?: string
 }
@@ -22,5 +22,5 @@ export function getTagNameValidationError(
     )
   }
 
-  return options.duplicateError ?? null
+  return options.duplicateError ?? undefined
 }
