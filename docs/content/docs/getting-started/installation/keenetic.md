@@ -22,7 +22,7 @@ Open your router configuration page, navigate to **Management** -> **System sett
 - OPKG Packages / **Netfilter Subsystem Kernel Modules**
 - OPKG Packages / **Xtables-addons Extension Package for Netfilter**
 
-## 3. Install from the repository page
+## 3. Install from the repository
 
 Open the repository instructions page, select **Keenetic / NetCraze** in the OS selector on the left, and use the generated commands:
 
@@ -36,6 +36,12 @@ opkg install keen-pbr
 # or if you want headless version (without API and without WebUI)
 # opkg install keen-pbr-headless
 ```
+
+After installing `keen-pbr`, enable `dns-override`:
+
+1. Open http://my.keenetic.net/a
+2. Run the commands `opkg dns-override` and `system configuration save`
+3. Reboot the router. **This is very important: without a reboot, the option will not work.**
 
 The package installs its config at `/opt/etc/keen-pbr/config.json` and enables the init script automatically.
 
