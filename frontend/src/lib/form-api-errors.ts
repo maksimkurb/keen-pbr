@@ -1,30 +1,47 @@
 import type { AnyFormApi } from "@tanstack/react-form"
 
 import type { ApiError } from "@/api/client"
-import {
-  formatValidationErrors,
-  getApiValidationErrors,
-} from "@/lib/api-errors"
+import { getApiValidationErrors, type ValidationErrorEntry } from "@/lib/api-errors"
 
-export type ApiPathResolver = (path: string) => string | undefined
+export type ApiPathResolver = (
+  path: string,
+  message: string
+) => string | undefined
+
+export type FormServerErrorMap = {
+  form?: string
+  fields?: Record<string, string>
+  unmapped?: ValidationErrorEntry[]
+}
 
 type ApplyFormApiErrorsOptions = {
   error: ApiError | null
   form: AnyFormApi
+  fieldNames?: readonly string[]
   resolvePath: ApiPathResolver
+}
+
+type SplitFormApiErrorsOptions = {
+  error: ApiError | null
+  fieldNames?: readonly string[]
+  resolvePath: ApiPathResolver
+}
+
+export type SplitFormApiErrorsResult = {
+  fieldErrors: Record<string, string>
+  formError: string | null
+  unmappedErrors: ValidationErrorEntry[]
 }
 
 export function setFormServerErrors(
   form: AnyFormApi,
-  options: {
-    form?: string
-    fields?: Record<string, string>
-  }
+  options: FormServerErrorMap
 ) {
   form.setErrorMap({
     onServer: {
       form: options.form,
       fields: options.fields ?? {},
+      unmapped: options.unmapped ?? [],
     },
   })
 }
@@ -33,36 +50,40 @@ export function clearFormServerErrors(form: AnyFormApi) {
   setFormServerErrors(form, {
     form: undefined,
     fields: {},
+    unmapped: [],
   })
 }
 
-export function applyFormApiErrors({
+export function splitFormApiErrors({
   error,
-  form,
+  fieldNames,
   resolvePath,
-}: ApplyFormApiErrorsOptions): string | null {
-  clearFormServerErrors(form)
-
+}: SplitFormApiErrorsOptions): SplitFormApiErrorsResult {
   if (!error) {
-    return null
+    return {
+      fieldErrors: {},
+      formError: null,
+      unmappedErrors: [],
+    }
   }
 
   const validationErrors = getApiValidationErrors(error)
   if (validationErrors.length === 0) {
-    setFormServerErrors(form, {
-      form: error.message,
-      fields: {},
-    })
-    return error.message
+    return {
+      fieldErrors: {},
+      formError: error.message,
+      unmappedErrors: [],
+    }
   }
 
   const fieldErrors: Record<string, string> = {}
-  const globalErrors: typeof validationErrors = []
+  const allowedFieldNames = fieldNames ? new Set(fieldNames) : null
+  const unmappedErrors: ValidationErrorEntry[] = []
 
   for (const item of validationErrors) {
-    const fieldPath = resolvePath(item.path)
-    if (!fieldPath) {
-      globalErrors.push(item)
+    const fieldPath = resolvePath(item.path, item.message)
+    if (!fieldPath || (allowedFieldNames && !allowedFieldNames.has(fieldPath))) {
+      unmappedErrors.push(item)
       continue
     }
 
@@ -71,17 +92,32 @@ export function applyFormApiErrors({
       : item.message
   }
 
-  const formError =
-    globalErrors.length === 0 ? undefined : formatValidationErrors(globalErrors)
+  return {
+    fieldErrors,
+    formError: null,
+    unmappedErrors,
+  }
+}
 
-  setFormServerErrors(form, {
-    form: formError,
-    fields: fieldErrors,
+export function applyFormApiErrors({
+  error,
+  form,
+  fieldNames,
+  resolvePath,
+}: ApplyFormApiErrorsOptions): string | null {
+  clearFormServerErrors(form)
+
+  const { fieldErrors, formError, unmappedErrors } = splitFormApiErrors({
+    error,
+    fieldNames,
+    resolvePath,
   })
 
-  if (!formError) {
-    return null
-  }
+  setFormServerErrors(form, {
+    form: formError ?? undefined,
+    fields: fieldErrors,
+    unmapped: unmappedErrors,
+  })
 
   return formError
 }

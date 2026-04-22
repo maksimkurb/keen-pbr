@@ -23,6 +23,7 @@ import {
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
+import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -58,6 +59,20 @@ const fallbackDraft: SettingsDraft = {
   fwmarkMask: "0xffff0000",
   tableStart: "150",
 }
+
+const SETTINGS_FIELD_NAMES = {
+  strictEnforcement: "strictEnforcement",
+  skipMarkedPackets: "skipMarkedPackets",
+  inboundInterfaces: "inboundInterfaces",
+  listsAutoupdateEnabled: "listsAutoupdateEnabled",
+  cron: "cron",
+  fwmarkStart: "fwmarkStart",
+  fwmarkMask: "fwmarkMask",
+  tableStart: "tableStart",
+} as const
+
+type SettingsFieldName =
+  (typeof SETTINGS_FIELD_NAMES)[keyof typeof SETTINGS_FIELD_NAMES]
 
 export function GeneralConfigPage() {
   const { t } = useTranslation()
@@ -132,6 +147,7 @@ function LoadedGeneralConfigPage({
         const apiError = error as ApiError
         const formError = applyFormApiErrors({
           error: apiError,
+          fieldNames: Object.values(SETTINGS_FIELD_NAMES),
           form,
           resolvePath: resolveSettingsFieldPath,
         })
@@ -159,6 +175,12 @@ function LoadedGeneralConfigPage({
       Object.values(state.fieldMetaBase).some(
         (fieldMeta) => fieldMeta?.errorMap?.onServer !== undefined
       )
+  )
+  const unmappedServerErrors = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
+        ?.unmapped ?? [])
   )
   const previousValuesRef = useRef(formValues)
 
@@ -196,7 +218,7 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name="strictEnforcement">
+            <form.Field name={SETTINGS_FIELD_NAMES.strictEnforcement}>
               {(field) => (
                 <Field>
                   <FieldContent>
@@ -225,7 +247,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field name="skipMarkedPackets">
+            <form.Field name={SETTINGS_FIELD_NAMES.skipMarkedPackets}>
               {(field) => (
                 <Field>
                   <FieldContent>
@@ -254,7 +276,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field name="inboundInterfaces">
+            <form.Field name={SETTINGS_FIELD_NAMES.inboundInterfaces}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
                 return (
@@ -265,6 +287,7 @@ function LoadedGeneralConfigPage({
                   <FieldContent>
                     <div id="inbound-interfaces">
                       <MultiSelectList
+                        name={SETTINGS_FIELD_NAMES.inboundInterfaces}
                         options={runtimeInterfaces.map((i) => i.name)}
                         value={field.state.value}
                         onChange={field.handleChange}
@@ -297,7 +320,7 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name="listsAutoupdateEnabled">
+            <form.Field name={SETTINGS_FIELD_NAMES.listsAutoupdateEnabled}>
               {(field) => (
                 <Field>
                   <FieldContent>
@@ -326,7 +349,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field name="cron">
+            <form.Field name={SETTINGS_FIELD_NAMES.cron}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -396,7 +419,7 @@ function LoadedGeneralConfigPage({
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <form.Field name="fwmarkStart">
+            <form.Field name={SETTINGS_FIELD_NAMES.fwmarkStart}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -427,7 +450,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field name="fwmarkMask">
+            <form.Field name={SETTINGS_FIELD_NAMES.fwmarkMask}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -464,7 +487,7 @@ function LoadedGeneralConfigPage({
 
             <FieldSeparator />
 
-            <form.Field name="tableStart">
+            <form.Field name={SETTINGS_FIELD_NAMES.tableStart}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
 
@@ -496,6 +519,8 @@ function LoadedGeneralConfigPage({
         </CardContent>
       </Card>
 
+
+      <ServerValidationAlert errors={unmappedServerErrors} />
 
       <div className="flex justify-end gap-2">
         <Button
@@ -711,29 +736,29 @@ function getCrontabGuruUrl(value: string) {
   return `https://crontab.guru/#${getCronHash(value)}`
 }
 
-function resolveSettingsFieldPath(path: string) {
+function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
   if (
     path === "route.inbound_interfaces" ||
     path.startsWith("route.inbound_interfaces[")
   ) {
-    return "inboundInterfaces"
+    return SETTINGS_FIELD_NAMES.inboundInterfaces
   }
 
   switch (path) {
     case "daemon.strict_enforcement":
-      return "strictEnforcement"
+      return SETTINGS_FIELD_NAMES.strictEnforcement
     case "daemon.skip_marked_packets":
-      return "skipMarkedPackets"
+      return SETTINGS_FIELD_NAMES.skipMarkedPackets
     case "lists_autoupdate.enabled":
-      return "listsAutoupdateEnabled"
+      return SETTINGS_FIELD_NAMES.listsAutoupdateEnabled
     case "lists_autoupdate.cron":
-      return "cron"
+      return SETTINGS_FIELD_NAMES.cron
     case "fwmark.start":
-      return "fwmarkStart"
+      return SETTINGS_FIELD_NAMES.fwmarkStart
     case "fwmark.mask":
-      return "fwmarkMask"
+      return SETTINGS_FIELD_NAMES.fwmarkMask
     case "iproute.table_start":
-      return "tableStart"
+      return SETTINGS_FIELD_NAMES.tableStart
     default:
       return undefined
   }

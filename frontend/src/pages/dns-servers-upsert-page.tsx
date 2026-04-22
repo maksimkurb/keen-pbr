@@ -19,6 +19,7 @@ import {
 } from "@/components/shared/field"
 import { OutboundSelect } from "@/components/shared/outbound-select"
 import { UpsertPage } from "@/components/shared/upsert-page"
+import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,9 @@ import {
   applyFormApiErrors,
   clearFormServerErrors,
 } from "@/lib/form-api-errors"
+import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import { useForm } from "@tanstack/react-form"
+import { useStore } from "@tanstack/react-store"
 
 type DnsServerDraft = {
   tag: string
@@ -50,6 +53,16 @@ const emptyDnsServerDraft: DnsServerDraft = {
   address: "",
   detour: "",
 }
+
+const DNS_SERVER_FIELD_NAMES = {
+  tag: "tag",
+  type: "type",
+  address: "address",
+  detour: "detour",
+} as const
+
+type DnsServerFieldName =
+  (typeof DNS_SERVER_FIELD_NAMES)[keyof typeof DNS_SERVER_FIELD_NAMES]
 
 export function DnsServerUpsertPage({
   mode,
@@ -204,6 +217,12 @@ function DnsServerForm({
       postConfigMutation.mutate({ data: updatedConfig })
     },
   })
+  const unmappedServerErrors = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
+        ?.unmapped ?? [])
+  )
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -216,6 +235,7 @@ function DnsServerForm({
         setApiErrorMessage(
           applyFormApiErrors({
             error: error as ApiError,
+            fieldNames: Object.values(DNS_SERVER_FIELD_NAMES),
             form,
             resolvePath: (path) =>
               resolveDnsServerFieldPath(
@@ -246,7 +266,7 @@ function DnsServerForm({
     >
       <FieldGroup>
         <form.Field
-          name="tag"
+          name={DNS_SERVER_FIELD_NAMES.tag}
           validators={{
             onChange: ({ value }) =>
               getTagError(
@@ -283,7 +303,7 @@ function DnsServerForm({
         </form.Field>
 
         <form.Field
-          name="type"
+          name={DNS_SERVER_FIELD_NAMES.type}
           validators={{
             onChange: ({ value }) => getDnsTypeError(value) ?? undefined,
           }}
@@ -370,7 +390,7 @@ function DnsServerForm({
                 ) : null}
 
                 <form.Field
-                  name="address"
+                  name={DNS_SERVER_FIELD_NAMES.address}
                   validators={{
                     onChange: ({ value, fieldApi }) =>
                       fieldApi.form.getFieldValue("type") === DnsServerType.keenetic
@@ -409,7 +429,7 @@ function DnsServerForm({
                   }}
                 </form.Field>
 
-                <form.Field name="detour">
+                <form.Field name={DNS_SERVER_FIELD_NAMES.detour}>
                   {(field) => {
                     if (isKeeneticDns) {
                       return null
@@ -446,6 +466,8 @@ function DnsServerForm({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <ServerValidationAlert errors={unmappedServerErrors} />
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
@@ -500,18 +522,17 @@ function getFirstFieldError(errors: unknown[]) {
 function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
   const t = i18n.t.bind(i18n)
   const normalizedTag = value.trim()
-  if (!normalizedTag) {
-    return t("pages.dnsServerUpsert.validation.tagRequired")
-  }
-
   const duplicate = servers.some(
     (server) => server.tag === normalizedTag && server.tag !== editingTag
   )
-  if (duplicate) {
-    return t("pages.dnsServerUpsert.validation.tagUnique")
-  }
 
-  return undefined
+  return getTagNameValidationError(value, {
+    requiredError: t("pages.dnsServerUpsert.validation.tagRequired"),
+    invalidError: t("common.validation.tagNamePattern"),
+    duplicateError: duplicate
+      ? t("pages.dnsServerUpsert.validation.tagUnique")
+      : null,
+  }) ?? undefined
 }
 
 function getDnsTypeError(value: string) {
@@ -613,31 +634,34 @@ function isValidPort(value?: string) {
   return port >= 1 && port <= 65535
 }
 
-function resolveDnsServerFieldPath(path: string, tag: string) {
+function resolveDnsServerFieldPath(
+  path: string,
+  tag: string
+): DnsServerFieldName | undefined {
   const normalizedTag = tag.trim()
 
   if (path === "dns.servers") {
-    return "tag"
+    return DNS_SERVER_FIELD_NAMES.tag
   }
 
   if (path === `dns.servers.${normalizedTag}`) {
-    return "tag"
+    return DNS_SERVER_FIELD_NAMES.tag
   }
 
   if (path === `dns.servers.${normalizedTag}.tag`) {
-    return "tag"
+    return DNS_SERVER_FIELD_NAMES.tag
   }
 
   if (path === `dns.servers.${normalizedTag}.type`) {
-    return "type"
+    return DNS_SERVER_FIELD_NAMES.type
   }
 
   if (path === `dns.servers.${normalizedTag}.address`) {
-    return "address"
+    return DNS_SERVER_FIELD_NAMES.address
   }
 
   if (path === `dns.servers.${normalizedTag}.detour`) {
-    return "detour"
+    return DNS_SERVER_FIELD_NAMES.detour
   }
 
   return undefined

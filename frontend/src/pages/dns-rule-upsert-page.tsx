@@ -5,6 +5,7 @@ import { useLocation } from "wouter"
 
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import { usePostConfigMutation } from "@/api/mutations"
@@ -19,6 +20,7 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
+import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -42,6 +44,16 @@ import {
   type DnsRuleDraft,
   validateRules,
 } from "@/pages/dns-rules-utils"
+
+const DNS_RULE_FIELD_NAMES = {
+  enabled: "rule.enabled",
+  server: "rule.server",
+  lists: "rule.lists",
+  allowDomainRebinding: "rule.allowDomainRebinding",
+} as const
+
+type DnsRuleFieldName =
+  (typeof DNS_RULE_FIELD_NAMES)[keyof typeof DNS_RULE_FIELD_NAMES]
 
 export function DnsRuleUpsertPage({
   mode,
@@ -91,6 +103,7 @@ export function DnsRuleUpsertPage({
       onError: (error) => {
         const formError = applyFormApiErrors({
           error: error as ApiError,
+          fieldNames: Object.values(DNS_RULE_FIELD_NAMES),
           form,
           resolvePath: resolveDnsRuleFieldPath,
         })
@@ -140,10 +153,10 @@ export function DnsRuleUpsertPage({
         if (currentError) {
           const fieldErrors: Record<string, string> = {}
           if (currentError.server) {
-            fieldErrors["rule.server"] = currentError.server
+            fieldErrors[DNS_RULE_FIELD_NAMES.server] = currentError.server
           }
           if (currentError.lists) {
-            fieldErrors["rule.lists"] = currentError.lists
+            fieldErrors[DNS_RULE_FIELD_NAMES.lists] = currentError.lists
           }
 
           setFormServerErrors(form, {
@@ -165,6 +178,12 @@ export function DnsRuleUpsertPage({
       })
     },
   })
+  const unmappedServerErrors = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
+        ?.unmapped ?? [])
+  )
 
   useEffect(() => {
     if (!loadedConfig) {
@@ -234,7 +253,7 @@ export function DnsRuleUpsertPage({
         }}
       >
         <FieldGroup>
-          <form.Field name="rule.enabled">
+          <form.Field name={DNS_RULE_FIELD_NAMES.enabled}>
             {(field) => (
               <Field>
                 <FieldContent>
@@ -258,7 +277,7 @@ export function DnsRuleUpsertPage({
             )}
           </form.Field>
 
-          <form.Field name="rule.server">
+          <form.Field name={DNS_RULE_FIELD_NAMES.server}>
             {(field) => {
               const error = field.state.meta.errors[0] as string | undefined
               return (
@@ -304,7 +323,7 @@ export function DnsRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="rule.lists">
+          <form.Field name={DNS_RULE_FIELD_NAMES.lists}>
             {(field) => {
               const error = field.state.meta.errors[0] as string | undefined
               return (
@@ -314,6 +333,7 @@ export function DnsRuleUpsertPage({
                   </FieldLabel>
                   <FieldContent>
                     <MultiSelectList
+                      name={DNS_RULE_FIELD_NAMES.lists}
                       onChange={field.handleChange}
                       options={listOptions}
                       placeholderDescription={t(
@@ -336,7 +356,7 @@ export function DnsRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="rule.allowDomainRebinding">
+          <form.Field name={DNS_RULE_FIELD_NAMES.allowDomainRebinding}>
             {(field) => (
               <Field>
                 <FieldContent>
@@ -365,6 +385,8 @@ export function DnsRuleUpsertPage({
             )}
           </form.Field>
         </FieldGroup>
+
+        <ServerValidationAlert errors={unmappedServerErrors} />
 
         <div className="flex justify-end gap-3">
           <Button
@@ -404,17 +426,17 @@ export function DnsRuleUpsertPage({
   )
 }
 
-function resolveDnsRuleFieldPath(path: string) {
+function resolveDnsRuleFieldPath(path: string): DnsRuleFieldName | undefined {
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.server$/.test(path)) {
-    return "rule.server"
+    return DNS_RULE_FIELD_NAMES.server
   }
 
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
-    return "rule.lists"
+    return DNS_RULE_FIELD_NAMES.lists
   }
 
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.allow_domain_rebinding$/.test(path)) {
-    return "rule.allowDomainRebinding"
+    return DNS_RULE_FIELD_NAMES.allowDomainRebinding
   }
 
   return undefined

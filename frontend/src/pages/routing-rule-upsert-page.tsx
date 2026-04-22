@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
-import { useForm } from "@tanstack/react-form"
+import { revalidateLogic, useForm } from "@tanstack/react-form"
+import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { Outbound } from "@/api/generated/model/outbound"
@@ -18,15 +19,16 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
+import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
-  applyFormApiErrors,
   clearFormServerErrors,
   setFormServerErrors,
+  splitFormApiErrors,
 } from "@/lib/form-api-errors"
 import {
   Select,
@@ -44,6 +46,20 @@ import {
   protoOptions,
   toRouteRuleDraft,
 } from "@/pages/routing-rules-utils"
+
+const ROUTING_RULE_FIELD_NAMES = {
+  enabled: "enabled",
+  list: "list",
+  proto: "proto",
+  srcPort: "src_port",
+  destPort: "dest_port",
+  srcAddr: "src_addr",
+  destAddr: "dest_addr",
+  outbound: "outbound",
+} as const
+
+type RoutingRuleFieldName =
+  (typeof ROUTING_RULE_FIELD_NAMES)[keyof typeof ROUTING_RULE_FIELD_NAMES]
 
 export function RoutingRuleUpsertPage({
   mode,
@@ -89,69 +105,121 @@ export function RoutingRuleUpsertPage({
     label: option,
   }))
 
-  const postConfigMutation = usePostConfigMutation({
-    mutation: {
-      onSuccess: () => {
-        toast.success(t("pages.routingRuleUpsert.messages.saved"))
-        clearFormServerErrors(form)
-        navigate("/routing-rules")
-      },
-      onError: (error) => {
-        const formError = applyFormApiErrors({
-          error: error as ApiError,
-          form,
-          resolvePath: resolveRoutingRuleFieldPath,
-        })
-        if (formError) {
-          toast.error(formError, { richColors: true })
-        }
-      },
-    },
-  })
+  const postConfigMutation = usePostConfigMutation()
 
   const form = useForm({
     defaultValues: emptyRouteRuleDraft,
-    onSubmit: ({ value }) => {
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "change",
+    }),
+    validators: {
+      onSubmitAsync: async ({ value }) => {
+        if (!loadedConfig) {
+          return undefined
+        }
+
+        const nextRule = normalizeRouteRuleDraft(value)
+        const hasRuleCondition =
+          (nextRule.list ?? []).length > 0 ||
+          Boolean(nextRule.src_port) ||
+          Boolean(nextRule.dest_port) ||
+          Boolean(nextRule.src_addr) ||
+          Boolean(nextRule.dest_addr)
+
+        if (!hasRuleCondition) {
+          clearFormServerErrors(form)
+          return {
+            form: t("pages.routingRuleUpsert.validation.atLeastOneCondition"),
+            fields: {},
+          }
+        }
+
+        const nextRules =
+          mode === "edit"
+            ? rules.map((rule: RouteRule, index: number) =>
+                index === parsedRuleIndex ? nextRule : rule
+              )
+            : [...rules, nextRule]
+
+        try {
+          clearFormServerErrors(form)
+          await postConfigMutation.mutateAsync({
+            data: {
+              ...loadedConfig,
+              route: {
+                ...loadedConfig.route,
+                rules: nextRules,
+              },
+            },
+          })
+          toast.success(t("pages.routingRuleUpsert.messages.saved"))
+          clearFormServerErrors(form)
+          navigate("/routing-rules")
+          return undefined
+        } catch (error) {
+          const result = splitFormApiErrors({
+            error: error as ApiError,
+            fieldNames: Object.values(ROUTING_RULE_FIELD_NAMES),
+            resolvePath: resolveRoutingRuleFieldPath,
+          })
+
+          setFormServerErrors(form, {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+            unmapped: result.unmappedErrors,
+          })
+
+          return {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+          }
+        }
+      },
+    },
+    onSubmit: () => {
       if (!loadedConfig) {
         return
       }
-
-      const nextRule = normalizeRouteRuleDraft(value)
-      const hasRuleCondition =
-        (nextRule.list ?? []).length > 0 ||
-        Boolean(nextRule.src_port) ||
-        Boolean(nextRule.dest_port) ||
-        Boolean(nextRule.src_addr) ||
-        Boolean(nextRule.dest_addr)
-
-      if (!hasRuleCondition) {
-        setFormServerErrors(form, {
-          form: t("pages.routingRuleUpsert.validation.atLeastOneCondition"),
-          fields: {},
-        })
-        return
-      }
-
-      const nextRules =
-        mode === "edit"
-          ? rules.map((rule: RouteRule, index: number) =>
-              index === parsedRuleIndex ? nextRule : rule
-            )
-          : [...rules, nextRule]
-
-      clearFormServerErrors(form)
-
-      postConfigMutation.mutate({
-        data: {
-          ...loadedConfig,
-          route: {
-            ...loadedConfig.route,
-            rules: nextRules,
-          },
-        },
-      })
     },
   })
+  const submitErrorMessage = useStore(form.store, (state) => {
+    const onSubmitError = state.errorMap.onSubmit
+    if (typeof onSubmitError === "string") {
+      return onSubmitError
+    }
+
+    const firstError = state.errors[0]
+    return typeof firstError === "string" ? firstError : null
+  })
+  const formValues = useStore(form.store, (state) => state.values)
+  const hasServerErrors = useStore(
+    form.store,
+    (state) =>
+      state.errorMap.onServer !== undefined ||
+      Object.values(state.fieldMetaBase).some(
+        (fieldMeta) => fieldMeta?.errorMap?.onServer !== undefined
+      )
+  )
+  const unmappedServerErrors = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as {
+        unmapped?: { path: string; message: string }[]
+      } | undefined)?.unmapped ?? [])
+  )
+  const previousValuesRef = useRef(formValues)
+
+  useEffect(() => {
+    const previousValues = previousValuesRef.current
+    previousValuesRef.current = formValues
+
+    if (previousValues === formValues || !hasServerErrors) {
+      return
+    }
+
+    clearFormServerErrors(form)
+  }, [form, formValues, hasServerErrors])
 
   useEffect(() => {
     if (!loadedConfig) {
@@ -214,7 +282,7 @@ export function RoutingRuleUpsertPage({
         }}
       >
         <FieldGroup>
-          <form.Field name="enabled">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.enabled}>
             {(field) => (
               <Field>
                 <FieldContent>
@@ -238,7 +306,7 @@ export function RoutingRuleUpsertPage({
             )}
           </form.Field>
 
-          <form.Field name="list">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.list}>
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -247,6 +315,7 @@ export function RoutingRuleUpsertPage({
                   <FieldLabel>{t("pages.routingRuleUpsert.fields.lists")}</FieldLabel>
                   <FieldContent>
                     <MultiSelectList
+                      name={ROUTING_RULE_FIELD_NAMES.list}
                       onChange={field.handleChange}
                       options={listOptions}
                       placeholderDescription={t("pages.routingRuleUpsert.fields.listsPlaceholderDescription")}
@@ -263,7 +332,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="proto">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.proto}>
             {(field) => (
               <Field>
                 <FieldLabel>{t("pages.routingRuleUpsert.fields.proto")}</FieldLabel>
@@ -293,7 +362,7 @@ export function RoutingRuleUpsertPage({
             )}
           </form.Field>
 
-          <form.Field name="src_port">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.srcPort}>
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -319,7 +388,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="dest_port">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.destPort}>
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -347,7 +416,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="src_addr">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.srcAddr}>
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -375,7 +444,7 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
 
-          <form.Field name="dest_addr">
+          <form.Field name={ROUTING_RULE_FIELD_NAMES.destAddr}>
             {(field) => {
               const error = getFirstFieldError(field.state.meta.errors)
 
@@ -404,7 +473,7 @@ export function RoutingRuleUpsertPage({
           </form.Field>
 
           <form.Field
-            name="outbound"
+            name={ROUTING_RULE_FIELD_NAMES.outbound}
             validators={{
                   onChange: ({ value }) =>
                     value.trim().length > 0
@@ -448,8 +517,10 @@ export function RoutingRuleUpsertPage({
             }}
           </form.Field>
         </FieldGroup>
-
-
+        <ServerValidationAlert
+          errors={unmappedServerErrors}
+          message={submitErrorMessage}
+        />
 
         <div className="flex justify-end gap-3">
           <Button
@@ -489,33 +560,35 @@ export function RoutingRuleUpsertPage({
   )
 }
 
-function resolveRoutingRuleFieldPath(path: string) {
+function resolveRoutingRuleFieldPath(
+  path: string
+): RoutingRuleFieldName | undefined {
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
-    return "list"
+    return ROUTING_RULE_FIELD_NAMES.list
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.outbound$/.test(path)) {
-    return "outbound"
+    return ROUTING_RULE_FIELD_NAMES.outbound
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.proto$/.test(path)) {
-    return "proto"
+    return ROUTING_RULE_FIELD_NAMES.proto
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_port$/.test(path)) {
-    return "src_port"
+    return ROUTING_RULE_FIELD_NAMES.srcPort
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_port$/.test(path)) {
-    return "dest_port"
+    return ROUTING_RULE_FIELD_NAMES.destPort
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_addr$/.test(path)) {
-    return "src_addr"
+    return ROUTING_RULE_FIELD_NAMES.srcAddr
   }
 
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dest_addr$/.test(path)) {
-    return "dest_addr"
+    return ROUTING_RULE_FIELD_NAMES.destAddr
   }
 
   return undefined

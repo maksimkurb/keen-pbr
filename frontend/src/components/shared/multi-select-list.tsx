@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 
 export function MultiSelectList({
+  name,
   options,
   unavailable = [],
   value,
@@ -25,6 +26,7 @@ export function MultiSelectList({
   allowReorder = false,
   error,
 }: {
+  name?: string
   options: string[]
   unavailable?: string[]
   value: string[]
@@ -93,7 +95,7 @@ export function MultiSelectList({
   )
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-field-name={name}>
       {value.length ? (
         <div className={`space-y-2 rounded-xl border p-3 ${error ? "border-destructive" : "border-border"}`}>
           {value.map((item, index) => (

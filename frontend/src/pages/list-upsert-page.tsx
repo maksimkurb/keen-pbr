@@ -24,6 +24,7 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { ButtonGroup } from "@/components/shared/button-group"
+import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,7 @@ import {
   applyFormApiErrors,
   clearFormServerErrors,
 } from "@/lib/form-api-errors"
+import { getTagNameValidationError } from "@/lib/tag-name-validation"
 
 type ListDraft = {
   name: string
@@ -53,19 +55,29 @@ type ListDraft = {
 }
 
 type ListSourceGroup = "url" | "file" | "inline"
+type ListFieldName = (typeof LIST_FIELD_NAMES)[keyof typeof LIST_FIELD_NAMES]
 
 const LIST_SOURCE_GROUPS: ListSourceGroup[] = ["url", "file", "inline"]
 const DEFAULT_SOURCE_GROUP: ListSourceGroup = "url"
+const LIST_FIELD_NAMES = {
+  name: "name",
+  ttlMs: "ttlMs",
+  detour: "detour",
+  domains: "domains",
+  ipCidrs: "ipCidrs",
+  url: "url",
+  file: "file",
+} as const
 const LIST_SOURCE_GROUP_ICONS = {
   url: CloudIcon,
   file: FileTextIcon,
   inline: ScrollTextIcon,
 } satisfies Record<ListSourceGroup, typeof CloudIcon>
 const LIST_SOURCE_GROUP_FIELDS = {
-  url: ["url"],
-  file: ["file"],
-  inline: ["domains", "ipCidrs"],
-} satisfies Record<ListSourceGroup, (keyof ListDraft)[]>
+  url: [LIST_FIELD_NAMES.url],
+  file: [LIST_FIELD_NAMES.file],
+  inline: [LIST_FIELD_NAMES.domains, LIST_FIELD_NAMES.ipCidrs],
+} satisfies Record<ListSourceGroup, ListFieldName[]>
 
 const sampleNewList: ListDraft = {
   name: "",
@@ -229,13 +241,20 @@ function ListForm({
     (state) =>
       ((state.errorMap.onServer as { form?: string } | undefined)?.form ?? null)
   )
+  const unmappedServerErrors = useStore(
+    form.store,
+    (state) =>
+      ((state.errorMap.onServer as {
+        unmapped?: { path: string; message: string }[]
+      } | undefined)?.unmapped ?? [])
+  )
 
   useEffect(() => {
     applyFormApiErrors({
       error: apiError,
       form,
-      resolvePath: (path) =>
-        resolveListFieldPath(path, form.state.values.name || draft.name),
+      fieldNames: Object.values(LIST_FIELD_NAMES),
+      resolvePath: (path) => resolveListFieldPath(path, form.state.values.name || draft.name),
     })
   }, [apiError, draft.name, form])
 
@@ -279,8 +298,8 @@ function ListForm({
     }
 
     if (group !== "inline") {
-      form.setFieldValue("domains", "")
-      form.setFieldValue("ipCidrs", "")
+      form.setFieldValue(LIST_FIELD_NAMES.domains, "")
+      form.setFieldValue(LIST_FIELD_NAMES.ipCidrs, "")
     }
 
   }
@@ -303,15 +322,8 @@ function ListForm({
         <CardContent>
           <FieldGroup>
             <form.Field
-              name="name"
+              name={LIST_FIELD_NAMES.name}
               validators={{
-                onMount: ({ value }) =>
-                  getListNameError(
-                    value,
-                    existingListNames,
-                    isCreate ? undefined : draft.name,
-                    t
-                  ) ?? undefined,
                 onChange: ({ value }) =>
                   getListNameError(
                     value,
@@ -351,7 +363,7 @@ function ListForm({
             </form.Field>
 
             <form.Field
-              name="ttlMs"
+              name={LIST_FIELD_NAMES.ttlMs}
               validators={{
                 onMount: ({ value }) => getTtlError(value, t) ?? undefined,
                 onChange: ({ value }) => getTtlError(value, t) ?? undefined,
@@ -429,7 +441,7 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name="url">
+              <form.Field name={LIST_FIELD_NAMES.url}>
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor="list-url">
@@ -452,7 +464,7 @@ function ListForm({
                 )}
               </form.Field>
 
-              <form.Field name="detour">
+              <form.Field name={LIST_FIELD_NAMES.detour}>
                 {(field) => {
                   const error = getFirstFieldError(field.state.meta.errors)
 
@@ -496,7 +508,7 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name="file">
+              <form.Field name={LIST_FIELD_NAMES.file}>
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor="list-file">
@@ -535,7 +547,7 @@ function ListForm({
           </CardHeader>
           <CardContent>
             <FieldGroup>
-              <form.Field name="domains">
+              <form.Field name={LIST_FIELD_NAMES.domains}>
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor="list-domains">
@@ -558,7 +570,7 @@ function ListForm({
                   </Field>
                 )}
               </form.Field>
-              <form.Field name="ipCidrs">
+              <form.Field name={LIST_FIELD_NAMES.ipCidrs}>
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor="list-ip-cidrs">
@@ -593,6 +605,8 @@ function ListForm({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <ServerValidationAlert errors={unmappedServerErrors} />
 
       <div className="flex justify-end gap-3">
         <Button onClick={onCancel} size="xl" type="button" variant="outline">
@@ -743,18 +757,19 @@ function getListNameError(
   t?: (key: string) => string
 ) {
   const trimmedName = value.trim()
-  if (!trimmedName) {
-    return t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required."
-  }
+  const duplicateError =
+    existingListNames.includes(trimmedName) && trimmedName !== currentName
+      ? (t?.("pages.listUpsert.validation.duplicateName") ??
+        "A list with this name already exists.")
+      : null
 
-  if (existingListNames.includes(trimmedName) && trimmedName !== currentName) {
-    return (
-      t?.("pages.listUpsert.validation.duplicateName") ??
-      "A list with this name already exists."
-    )
-  }
-
-  return null
+  return getTagNameValidationError(value, {
+    requiredError: t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required.",
+    invalidError:
+      t?.("common.validation.tagNamePattern") ??
+      "Must match [a-z][a-z0-9_]{0,23}.",
+    duplicateError,
+  })
 }
 
 function getTtlError(value: string, t?: (key: string) => string) {
@@ -769,35 +784,38 @@ function getTtlError(value: string, t?: (key: string) => string) {
   return null
 }
 
-function resolveListFieldPath(path: string, name: string) {
+function resolveListFieldPath(
+  path: string,
+  name: string
+): ListFieldName | undefined {
   const normalizedName = name.trim()
 
   if (path === "lists") {
-    return "name"
+    return LIST_FIELD_NAMES.name
   }
 
   if (normalizedName && path === `lists.${normalizedName}.ttl_ms`) {
-    return "ttlMs"
+    return LIST_FIELD_NAMES.ttlMs
   }
 
   if (normalizedName && path === `lists.${normalizedName}.domains`) {
-    return "domains"
+    return LIST_FIELD_NAMES.domains
   }
 
   if (normalizedName && path === `lists.${normalizedName}.ip_cidrs`) {
-    return "ipCidrs"
+    return LIST_FIELD_NAMES.ipCidrs
   }
 
   if (normalizedName && path === `lists.${normalizedName}.url`) {
-    return "url"
+    return LIST_FIELD_NAMES.url
   }
 
   if (normalizedName && path === `lists.${normalizedName}.file`) {
-    return "file"
+    return LIST_FIELD_NAMES.file
   }
 
   if (normalizedName && path === `lists.${normalizedName}.detour`) {
-    return "detour"
+    return LIST_FIELD_NAMES.detour
   }
 
   return undefined

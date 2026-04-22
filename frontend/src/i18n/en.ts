@@ -25,6 +25,9 @@ export const enTranslation = {
           addFirstItem: "Add your first item to start building this list.",
           removeItem: "Remove {{item}}",
         },
+        validation: {
+          tagNamePattern: "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
+        },
       },
       runtime: {
         healthy: "Healthy",
@@ -655,6 +658,7 @@ export const enTranslation = {
             default: "Default (as in global config)",
           },
           validation: {
+            tagRequired: "Tag is required.",
             duplicateTag: 'Outbound tag "{{tag}}" already exists.',
             missingReference:
               'Outbound "{{outbound}}" references missing outbound tag "{{referenced}}".',

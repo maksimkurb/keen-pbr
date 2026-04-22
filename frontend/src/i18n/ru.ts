@@ -26,6 +26,9 @@ export const ruTranslation = {
             "Добавьте первый элемент, чтобы начать формировать этот список.",
           removeItem: "Удалить {{item}}",
         },
+        validation: {
+          tagNamePattern: "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
+        },
       },
       runtime: {
         healthy: "Исправен",
@@ -671,6 +674,7 @@ export const ruTranslation = {
             default: "По умолчанию (как в глобальном конфиге)",
           },
           validation: {
+            tagRequired: "Тег обязателен.",
             duplicateTag: 'Тег outbound "{{tag}}" уже существует.',
             missingReference:
               'Outbound "{{outbound}}" ссылается на отсутствующий тег "{{referenced}}".',
