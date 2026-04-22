@@ -2,6 +2,8 @@
 
 #include "../http/http_client.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -81,28 +83,98 @@ std::string value_or_unknown(const std::optional<std::string>& first,
     return "unknown";
 }
 
-std::optional<std::string> detect_keenetic_version() {
-    try {
-        HttpClient client;
-        client.set_timeout(std::chrono::seconds(2));
-        client.set_max_response_size(128);
-        const std::string response = trim(
-            client.download("http://127.0.0.1:79/rci/show/version/title"));
-        if (response.empty()) {
-            return std::nullopt;
-        }
-        return unquote(response);
-    } catch (const HttpError&) {
-        return std::nullopt;
-    }
-}
-
 bool path_exists(const std::filesystem::path& path) {
     std::error_code ec;
     return std::filesystem::exists(path, ec);
 }
 
+#ifdef KEEN_PBR3_TESTING
+std::optional<SystemInfo>& system_info_override_for_tests() {
+    static std::optional<SystemInfo> override;
+    return override;
+}
+#endif
+
 } // namespace
+
+std::optional<std::string> parse_keenetic_version_from_rci_response(
+    const std::string& response) {
+    const std::string trimmed = trim(response);
+    if (trimmed.empty()) {
+        return std::nullopt;
+    }
+
+    if (trimmed.front() != '{' && trimmed.front() != '[') {
+        const std::string value = unquote(trimmed);
+        return value.empty() ? std::nullopt : std::optional<std::string>(value);
+    }
+
+    try {
+        const auto doc = nlohmann::json::parse(trimmed);
+        if (doc.is_string()) {
+            const std::string value = trim(doc.get<std::string>());
+            return value.empty() ? std::nullopt : std::optional<std::string>(value);
+        }
+        if (!doc.is_object()) {
+            return std::nullopt;
+        }
+
+        for (const char* key : {"title", "release", "version"}) {
+            const auto it = doc.find(key);
+            if (it == doc.end() || !it->is_string()) {
+                continue;
+            }
+
+            const std::string value = trim(it->get<std::string>());
+            if (!value.empty()) {
+                return value;
+            }
+        }
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<int> parse_keenetic_major_version(const std::string& version) {
+    const std::string normalized = trim(version);
+    if (normalized.empty()) {
+        return std::nullopt;
+    }
+
+    size_t end = 0;
+    while (end < normalized.size() &&
+           std::isdigit(static_cast<unsigned char>(normalized[end]))) {
+        ++end;
+    }
+    if (end == 0) {
+        return std::nullopt;
+    }
+
+    try {
+        return std::stoi(normalized.substr(0, end));
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
+bool keenetic_version_supports_encrypted_dns(const std::string& version) {
+    const auto major = parse_keenetic_major_version(version);
+    return major.has_value() && *major >= 3;
+}
+
+std::optional<std::string> detect_keenetic_version() {
+    try {
+        HttpClient client;
+        client.set_timeout(std::chrono::seconds(2));
+        client.set_max_response_size(2048);
+        return parse_keenetic_version_from_rci_response(
+            client.download("http://127.0.0.1:79/rci/show/version"));
+    } catch (const HttpError&) {
+        return std::nullopt;
+    }
+}
 
 SystemInfo detect_system_info() {
     SystemInfo info;
@@ -138,8 +210,24 @@ SystemInfo detect_system_info() {
 }
 
 const SystemInfo& cached_system_info() {
+#ifdef KEEN_PBR3_TESTING
+    if (system_info_override_for_tests().has_value()) {
+        return *system_info_override_for_tests();
+    }
+#endif
+
     static const SystemInfo info = detect_system_info();
     return info;
 }
+
+#ifdef KEEN_PBR3_TESTING
+void set_system_info_for_tests(std::optional<SystemInfo> info) {
+    system_info_override_for_tests() = std::move(info);
+}
+
+void reset_system_info_for_tests() {
+    system_info_override_for_tests().reset();
+}
+#endif
 
 } // namespace keen_pbr3

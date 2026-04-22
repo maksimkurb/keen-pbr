@@ -2,6 +2,7 @@
 
 #include "../src/config/config.hpp"
 #include "../src/config/routing_state.hpp"
+#include "../src/util/system_info.hpp"
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -9,6 +10,10 @@
 using namespace keen_pbr3;
 
 namespace {
+
+struct SystemInfoTestGuard {
+    ~SystemInfoTestGuard() { reset_system_info_for_tests(); }
+};
 
 Config parse_test_config(const std::string& json_str) {
     Config cfg = parse_config(json_str);
@@ -243,6 +248,45 @@ TEST_CASE("dns servers: duplicate tag is rejected") {
         }
     })";
     CHECK_THROWS_AS(parse_test_config(json), ConfigError);
+}
+
+TEST_CASE("dns servers: keenetic type is rejected on KeeneticOS 2.x") {
+    SystemInfoTestGuard guard;
+    set_system_info_for_tests(SystemInfo{
+        .os_type = "keenetic",
+        .os_version = "2.16.D.12.0-12",
+        .build_variant = "keenetic",
+    });
+
+    const auto issues = validate_issues(R"({
+        "dns":{
+            "servers":[{"tag":"router_dns","type":"keenetic"}],
+            "fallback":["router_dns"],
+            "system_resolver":{"address":"127.0.0.1"}
+        }
+    })");
+
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.servers.router_dns.type");
+    CHECK(issues[0].message.find("requires KeeneticOS 3.x or newer") != std::string::npos);
+    CHECK(issues[0].message.find("2.16.D.12.0-12") != std::string::npos);
+}
+
+TEST_CASE("dns servers: keenetic type is accepted on KeeneticOS 3.x") {
+    SystemInfoTestGuard guard;
+    set_system_info_for_tests(SystemInfo{
+        .os_type = "keenetic",
+        .os_version = "3.9.0",
+        .build_variant = "keenetic",
+    });
+
+    CHECK_NOTHROW(parse_test_config(R"({
+        "dns":{
+            "servers":[{"tag":"router_dns","type":"keenetic"}],
+            "fallback":["router_dns"],
+            "system_resolver":{"address":"127.0.0.1"}
+        }
+    })"));
 }
 
 #ifdef USE_KEENETIC_API
