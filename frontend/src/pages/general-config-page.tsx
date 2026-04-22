@@ -39,6 +39,7 @@ import { toast } from "sonner"
 
 type SettingsDraft = {
   strictEnforcement: boolean
+  skipMarkedPackets: boolean
   inboundInterfaces: string[]
   listsAutoupdateEnabled: boolean
   cron: string
@@ -49,6 +50,7 @@ type SettingsDraft = {
 
 const fallbackDraft: SettingsDraft = {
   strictEnforcement: true,
+  skipMarkedPackets: true,
   inboundInterfaces: [],
   listsAutoupdateEnabled: true,
   cron: "0 */6 * * *",
@@ -215,6 +217,35 @@ function LoadedGeneralConfigPage({
                     </div>
                     <FieldHint
                       description={t("pages.settings.general.strictEnforcementHint")}
+                    />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name="skipMarkedPackets">
+              {(field) => (
+                <Field>
+                  <FieldContent>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={field.state.value}
+                        id="skip-marked-packets"
+                        onCheckedChange={(checked) =>
+                          field.handleChange(checked === true)
+                        }
+                      />
+                      <FieldLabel
+                        className="cursor-pointer flex-col items-start gap-0"
+                        htmlFor="skip-marked-packets"
+                      >
+                        {t("pages.settings.general.skipMarkedPacketsLabel")}
+                      </FieldLabel>
+                    </div>
+                    <FieldHint
+                      description={t("pages.settings.general.skipMarkedPacketsHint")}
                     />
                   </FieldContent>
                 </Field>
@@ -582,6 +613,8 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
   return {
     strictEnforcement:
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
+    skipMarkedPackets:
+      config.daemon?.skip_marked_packets ?? fallbackDraft.skipMarkedPackets,
     inboundInterfaces:
       config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
     listsAutoupdateEnabled:
@@ -607,6 +640,7 @@ function buildUpdatedConfig(
     daemon: {
       ...config.daemon,
       strict_enforcement: draft.strictEnforcement,
+      skip_marked_packets: draft.skipMarkedPackets,
     },
     route: {
       ...config.route,
@@ -688,6 +722,8 @@ function resolveSettingsFieldPath(path: string) {
   switch (path) {
     case "daemon.strict_enforcement":
       return "strictEnforcement"
+    case "daemon.skip_marked_packets":
+      return "skipMarkedPackets"
     case "lists_autoupdate.enabled":
       return "listsAutoupdateEnabled"
     case "lists_autoupdate.cron":

@@ -295,6 +295,10 @@ export const enTranslation = {
               "Block traffic when outbound drops (kill-switch)",
             strictEnforcementHint:
               "If a VPN or interface goes offline, traffic matching its rules is blocked instead of falling back to the main routing table. Can be overridden per outbound.",
+            skipMarkedPacketsLabel:
+              "Skip packets that are already marked",
+            skipMarkedPacketsHint:
+              "Ignore packets that already have a fwmark set by other firewall rules so policy routing does not process them again.",
             inboundInterfacesLabel: "Inbound interfaces",
             inboundInterfacesHint:
               "Only packets arriving on the selected interfaces will be processed by policy routing. Leave this empty to match traffic from any interface.",

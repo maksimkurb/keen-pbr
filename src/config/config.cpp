@@ -457,22 +457,37 @@ std::string ConfigValidationError::build_message(
     return "Config validation failed with " + std::to_string(issues.size()) + " errors";
 }
 
-// Validate that the fwmark mask has exactly two adjacent hex nibbles set to F.
+static uint32_t normalized_fwmark_mask(uint32_t mask) {
+    const uint32_t lowest = mask & (~mask + 1);
+    return mask / lowest;
+}
+
+static bool has_consecutive_full_f_nibbles(uint32_t normalized_mask) {
+    if (normalized_mask == 0) {
+        return false;
+    }
+
+    while (normalized_mask != 0) {
+        if ((normalized_mask & 0xF) != 0xF) {
+            return false;
+        }
+        normalized_mask >>= 4;
+    }
+
+    return true;
+}
+
+static uint32_t fwmark_mask_mark_capacity(uint32_t mask) {
+    return normalized_fwmark_mask(mask) + 1;
+}
+
+// Validate that the fwmark mask has one or more consecutive hex nibbles set to F.
 static void validate_fwmark_mask(uint32_t mask) {
     if (mask == 0) {
         throw ConfigError("fwmark.mask must not be zero");
     }
 
-    uint32_t lowest = mask & (~mask + 1);
-    uint32_t shifted = mask / lowest;
-
-    if (shifted != 0xFF) {
-        std::ostringstream oss;
-        oss << "fwmark.mask must have exactly two adjacent hex nibbles set to F "
-            << "(e.g. 0x00FF0000, 0x0000FF00), got 0x"
-            << std::hex << std::setfill('0') << std::setw(8) << mask;
-        throw ConfigError(oss.str());
-    }
+    const uint32_t lowest = mask & (~mask + 1);
 
     int bit_pos = 0;
     uint32_t tmp = lowest;
@@ -483,7 +498,15 @@ static void validate_fwmark_mask(uint32_t mask) {
     if (bit_pos % 4 != 0) {
         std::ostringstream oss;
         oss << "fwmark.mask must be aligned to nibble boundaries "
-            << "(e.g. 0x00FF0000, 0x0000FF00), got 0x"
+            << "(e.g. 0x000F0000, 0x00FF0000), got 0x"
+            << std::hex << std::setfill('0') << std::setw(8) << mask;
+        throw ConfigError(oss.str());
+    }
+
+    if (!has_consecutive_full_f_nibbles(normalized_fwmark_mask(mask))) {
+        std::ostringstream oss;
+        oss << "fwmark.mask must have one or more consecutive hex nibbles set to F "
+            << "(e.g. 0x000F0000, 0x00FF0000, 0x0FFF0000), got 0x"
             << std::hex << std::setfill('0') << std::setw(8) << mask;
         throw ConfigError(oss.str());
     }
@@ -914,7 +937,7 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     uint32_t lowest_bit = mask & (~mask + 1);
     uint32_t step = lowest_bit;
 
-    constexpr uint32_t max_marks = 256;
+    const uint32_t max_marks = fwmark_mask_mark_capacity(mask);
 
     OutboundMarkMap mark_map;
     uint32_t current_mark = start;

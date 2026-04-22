@@ -333,6 +333,13 @@ components:
           description: Max stdout bytes captured per firewall verification command (0 = unlimited).
           default: 262144
           example: 262144
+        skip_marked_packets:
+          type: boolean
+          nullable: true
+          description: >
+            Whether firewall prefilter rules should bypass packets that already carry
+            a fwmark. Defaults to `true` when omitted or set to `null`.
+          example: true
         strict_enforcement:
           type: boolean
           description: >
@@ -726,7 +733,7 @@ components:
         mask:
           type: string
           description: >
-            Fwmark bitmask as hex string. Must be exactly two adjacent hex nibbles (e.g. 0x00FF0000).
+            Fwmark bitmask as hex string. Must contain one or more consecutive F nibbles (e.g. 0x000F0000, 0x00FF0000).
           default: "0x00FF0000"
           example: "0x00FF0000"
 
@@ -787,6 +794,7 @@ components:
           cache_dir: "/var/cache/keen-pbr"
           firewall_backend: auto
           firewall_verify_max_bytes: 262144
+          skip_marked_packets: true
           strict_enforcement: true
           max_file_size_bytes: 8388608
         api:
@@ -1378,7 +1386,7 @@ components:
         message:
           type: string
           description: Human-readable validation message.
-          example: "fwmark.mask must have exactly two adjacent hex nibbles set to F (e.g. 0x00FF0000, 0x0000FF00), got 0xffff0001"
+          example: "fwmark.mask must have one or more consecutive hex nibbles set to F (e.g. 0x000F0000, 0x00FF0000, 0x0FFF0000), got 0x0f0f0000"
 
     # -------------------------------------------------------------------------
     # /api/health/routing

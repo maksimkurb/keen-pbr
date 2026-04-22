@@ -122,6 +122,17 @@ nlohmann::json make_validation_error_json(const ConfigValidationError& error) {
     };
 }
 
+Config normalize_config_for_api_response(Config config) {
+    if (!config.daemon.has_value()) {
+        config.daemon = DaemonConfig{};
+    }
+
+    config.daemon->skip_marked_packets =
+        config.daemon->skip_marked_packets.value_or(true);
+
+    return config;
+}
+
 std::string serialize_config_pretty(const Config& config) {
     nlohmann::json json = config;
     std::function<bool(nlohmann::json&)> prune_json = [&](nlohmann::json& value) -> bool {
@@ -155,7 +166,8 @@ std::string serialize_config_pretty(const Config& config) {
 void register_config_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/config - return current config and whether it is staged in memory
     server.get("/api/config", [&ctx]() -> std::string {
-        const Config visible_config = ctx.get_visible_config();
+        const Config visible_config =
+            normalize_config_for_api_response(ctx.get_visible_config());
         const bool is_draft = ctx.config_is_draft();
         const auto list_refresh_state = ctx.get_list_refresh_state_map(visible_config);
         nlohmann::json response = {

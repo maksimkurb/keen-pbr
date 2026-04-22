@@ -832,14 +832,68 @@ TEST_CASE("iproute.table_start: non-integer value is rejected") {
 
 // =============================================================================
 
-TEST_CASE("fwmark mask: invalid value is rejected during config parsing") {
+TEST_CASE("fwmark mask: single F nibble is accepted during config parsing") {
     const std::string json = R"({
         "fwmark": {
-            "mask": "0xFFFF0001"
+            "mask": "0x000F0000"
+        }
+    })";
+
+    CHECK_NOTHROW(parse_test_config(json));
+}
+
+TEST_CASE("fwmark mask: multiple consecutive F nibbles are accepted during config parsing") {
+    const std::string json = R"({
+        "fwmark": {
+            "mask": "0x0FFF0000"
+        }
+    })";
+
+    CHECK_NOTHROW(parse_test_config(json));
+}
+
+TEST_CASE("fwmark mask: non-consecutive F nibbles are rejected during config parsing") {
+    const std::string json = R"({
+        "fwmark": {
+            "mask": "0x0F0F0000"
         }
     })";
 
     CHECK_THROWS_AS(parse_test_config(json), ConfigValidationError);
+}
+
+TEST_CASE("fwmark mask: validator rejects more routable outbounds than mask allows") {
+    nlohmann::json config;
+    config["fwmark"] = {
+        {"mask", "0x0000F000"}
+    };
+    config["outbounds"] = nlohmann::json::array();
+
+    for (int i = 0; i < 17; ++i) {
+        config["outbounds"].push_back({
+            {"tag", "wan" + std::to_string(i)},
+            {"type", "interface"},
+            {"interface", "wg" + std::to_string(i)}
+        });
+    }
+
+    const auto issues = validate_issues(config.dump());
+    REQUIRE_FALSE(issues.empty());
+
+    bool saw_capacity_error = false;
+    for (const auto& issue : issues) {
+        if (issue.path != "outbounds") {
+            continue;
+        }
+
+        if (issue.message.find("maximum 16 supported with current fwmark.mask") !=
+            std::string::npos) {
+            saw_capacity_error = true;
+            break;
+        }
+    }
+
+    CHECK(saw_capacity_error);
 }
 
 TEST_CASE("fwmark start and mask: non-string values are rejected during config parsing") {

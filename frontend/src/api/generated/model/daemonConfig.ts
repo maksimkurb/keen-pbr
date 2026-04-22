@@ -19,6 +19,9 @@ export interface DaemonConfig {
      * @minimum 0
      */
   firewall_verify_max_bytes?: number;
+  /** Whether firewall prefilter rules should bypass packets that already carry a fwmark. Defaults to `true` when omitted or set to `null`.
+   */
+  skip_marked_packets?: boolean | null;
   /** Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable.
    */
   strict_enforcement?: boolean;

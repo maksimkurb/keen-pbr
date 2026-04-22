@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes7Y1TeX data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesAbG7Jk data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -446,7 +446,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypes7Y1TeX {
+    struct KeenPbrTypesAbG7Jk {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -638,8 +638,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes7Y1TeX & x);
-    void to_json(json & j, const KeenPbrTypes7Y1TeX & x);
+    void from_json(const json & j, KeenPbrTypesAbG7Jk & x);
+    void to_json(json & j, const KeenPbrTypesAbG7Jk & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1385,7 +1385,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes7Y1TeX& x) {
+    inline void from_json(const json & j, KeenPbrTypesAbG7Jk& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1438,7 +1438,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes7Y1TeX & x) {
+    inline void to_json(json & j, const KeenPbrTypesAbG7Jk & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
