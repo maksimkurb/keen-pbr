@@ -317,6 +317,7 @@ TEST_CASE("prune_fw_rule_states_to_realized_sets: removes nonexistent pass-throu
 
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":true},
         "outbounds":[
             {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"}
@@ -340,6 +341,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs unreachable defau
 
 TEST_CASE("populate_routing_state: strict enforcement installs real default when up") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":true},
         "outbounds":[
             {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"}
@@ -366,6 +368,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
 
 TEST_CASE("populate_routing_state: unreachable interface outbound remains unavailable when strict is disabled") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":true},
         "outbounds":[
             {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1","strict_enforcement":false}
@@ -390,6 +393,7 @@ TEST_CASE("populate_routing_state: unreachable interface outbound remains unavai
 
 TEST_CASE("populate_routing_state: outbound true overrides daemon false") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1","strict_enforcement":true}
@@ -412,6 +416,7 @@ TEST_CASE("populate_routing_state: outbound true overrides daemon false") {
 
 TEST_CASE("populate_routing_state: strict urltest installs selected primary, weighted fallbacks, and unreachable terminal") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
@@ -454,6 +459,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary, wei
 
 TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
@@ -489,6 +495,7 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
 
 TEST_CASE("populate_routing_state: urltest without completed probe does not install child routes") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
@@ -519,6 +526,7 @@ TEST_CASE("populate_routing_state: urltest without completed probe does not inst
 
 TEST_CASE("populate_routing_state: strict urltest without completed probe keeps only terminal unreachable route") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
@@ -634,6 +642,7 @@ TEST_CASE("populate_routing_state: no allocated table falls in reserved range") 
 
 TEST_CASE("populate_routing_state: non-strict urltest has no terminal fallback route") {
     auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
         "outbounds":[
             {"tag":"vpn1","type":"interface","interface":"wg1","gateway":"10.0.1.1"},
