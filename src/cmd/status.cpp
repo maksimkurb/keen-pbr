@@ -142,7 +142,7 @@ std::map<std::string, std::string> infer_urltest_selections(const Config& config
     std::map<std::string, std::string> selections;
     const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     const uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
 
     uint32_t table_offset = 0;
     for (const auto& ob : outbounds) {
@@ -350,7 +350,7 @@ void print_outbound_section(const Config& config,
     std::cout << "\nOutbounds:\n";
 
     uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
     uint32_t table_offset = 0;
 
     const auto& outbounds = config.outbounds.value_or(std::vector<Outbound>{});

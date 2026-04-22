@@ -740,11 +740,11 @@ void validate_config(const Config& cfg) {
 
     {
         const uint32_t table_start = static_cast<uint32_t>(
-            cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+            cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
         if (is_reserved_table(table_start)) {
             add_issue(issues, "iproute.table_start",
                       "iproute.table_start " + std::to_string(table_start) +
-                          " is reserved. Use a different value (e.g. 100).");
+                          " is reserved. Use a different value (e.g. 150).");
         }
     }
 

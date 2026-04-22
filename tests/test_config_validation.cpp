@@ -779,8 +779,8 @@ TEST_CASE("iproute.table_start: default (no iproute section) is accepted") {
     CHECK_NOTHROW(parse_test_config(R"({})"));
 }
 
-TEST_CASE("iproute.table_start: value 100 is accepted") {
-    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":100}})"));
+TEST_CASE("iproute.table_start: value 150 is accepted") {
+    CHECK_NOTHROW(parse_test_config(R"({"iproute":{"table_start":150}})"));
 }
 
 TEST_CASE("iproute.table_start: value 249 is accepted") {

@@ -193,7 +193,7 @@ void populate_routing_state(const Config& cfg,
                             const std::map<std::string, std::string>* urltest_selections) {
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     const uint32_t table_start = static_cast<uint32_t>(
-        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+        cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
     const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
 
     uint32_t table_offset = 0;

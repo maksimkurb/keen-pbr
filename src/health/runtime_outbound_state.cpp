@@ -196,7 +196,7 @@ std::optional<uint32_t> outbound_table_id(const Config& config,
                                           const std::vector<Outbound>& outbounds,
                                           const std::string& outbound_tag) {
     const uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(100));
+        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
 
     uint32_t table_offset = 0;
     for (const auto& outbound : outbounds) {
