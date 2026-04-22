@@ -89,6 +89,7 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
 These settings are optional for most users:
 
 - [Advanced](advanced/) — API, service paths, automatic list refresh, and low-level routing options
+- [Full Reference Config](full-reference-config/) — commented config example with every supported config option
 
 {{< callout type="info" >}}
 List names, outbound tags, and DNS server tags must all follow the same convention: `^[a-z][a-z0-9_]*$` and must be at most 24 characters.

@@ -5,8 +5,8 @@ info:
   version: "3.0.0"
 
 servers:
-  - url: http://localhost:8080
-    description: Default listen address (configurable)
+  - url: http://127.0.0.1:12121
+    description: Example local API address. Runtime default listen is `0.0.0.0:12121`.
 
 paths:
   /api/health/service:
@@ -366,8 +366,8 @@ components:
         listen:
           type: string
           description: Address and port for the HTTP API.
-          default: "127.0.0.1:8080"
-          example: "127.0.0.1:8080"
+          default: "0.0.0.0:12121"
+          example: "0.0.0.0:12121"
 
     RetryConfig:
       type: object
@@ -799,7 +799,7 @@ components:
           max_file_size_bytes: 8388608
         api:
           enabled: true
-          listen: "127.0.0.1:8080"
+          listen: "0.0.0.0:12121"
         outbounds:
           - type: "interface"
             tag: "vpn"

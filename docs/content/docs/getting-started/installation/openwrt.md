@@ -16,7 +16,7 @@ The repository page automatically shows the correct flow for your target:
 
 Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture:
 
-{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
 
 Example install commands:
 

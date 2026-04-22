@@ -9,7 +9,7 @@ keen-pbr can be installed on Debian systems from the keen-pbr APT repository.
 
 Open the repository instructions page, select **Debian** in the OS selector on the left, and use the generated commands for your release and architecture:
 
-{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
 
 The generated instructions include the signing key and the `apt` source entry.
 
