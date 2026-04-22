@@ -11,7 +11,8 @@
 <title>OpenWrt – keen-pbr</title>
   <meta name="description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
 1. Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/openwrt/" itemprop="url" />
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Replace dnsmasq with dnsmasq-full Install dnsmasq-full before installing keen-pbr:
+OpenWrt 25.x and newer also need dnsmasq-full instead of the default dnsmasq. I do not have an apk-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs. bash# OpenWrt 25.x and newer apk --update-cache add dnsmasq-full # OpenWrt 24.x and older opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; 3. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:" /><link rel="canonical" href="https://keen-pbr.fyi/docs/getting-started/installation/openwrt/" itemprop="url" />
 
 <meta property="og:title" content="OpenWrt">
 <meta
@@ -25,7 +26,32 @@ OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the rep
 OpenWrt 25.x and newer: apk
 OpenWrt 24.x and older: opkg
 
-2. Install from the repository page
+2. Replace dnsmasq with dnsmasq-full
+    Install dnsmasq-full before installing keen-pbr:
+
+  
+
+  
+    OpenWrt 25.x and newer also need dnsmasq-full instead of the default dnsmasq.
+I do not have an apk-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.
+  
+
+
+
+
+bash# OpenWrt 25.x and newer
+apk --update-cache add dnsmasq-full
+
+# OpenWrt 24.x and older
+opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full
+opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
+  
+    
+
+  
+
+
+3. Install from the repository page
     Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:
     
   ">
@@ -42,13 +68,15 @@ OpenWrt 24.x and older: opkg
   <meta itemprop="name" content="OpenWrt">
   <meta itemprop="description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
 1. Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:">
-  <meta itemprop="wordCount" content="263">
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Replace dnsmasq with dnsmasq-full Install dnsmasq-full before installing keen-pbr:
+OpenWrt 25.x and newer also need dnsmasq-full instead of the default dnsmasq. I do not have an apk-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs. bash# OpenWrt 25.x and newer apk --update-cache add dnsmasq-full # OpenWrt 24.x and older opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; 3. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:">
+  <meta itemprop="wordCount" content="347">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="OpenWrt">
   <meta name="twitter:description" content="keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
 1. Check which package manager your OpenWrt version uses The repository page automatically shows the correct flow for your target:
-OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:">
+OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Replace dnsmasq with dnsmasq-full Install dnsmasq-full before installing keen-pbr:
+OpenWrt 25.x and newer also need dnsmasq-full instead of the default dnsmasq. I do not have an apk-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs. bash# OpenWrt 25.x and newer apk --update-cache add dnsmasq-full # OpenWrt 24.x and older opkg update &amp;&amp; cd /tmp/ &amp;&amp; opkg download dnsmasq-full opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk; 3. Install from the repository page Open the repository instructions page, select OpenWrt in the OS selector on the left, and use the generated commands for your exact version and architecture:">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -226,9 +254,15 @@ OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the rep
             </li>
           <li>
               <a
-                href="#2-install-from-the-repository-page"
+                href="#2-replace-dnsmasq-with-dnsmasq-full"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
-              >2. Install from the repository page</a>
+              >2. Replace dnsmasq with dnsmasq-full</a>
+            </li>
+          <li>
+              <a
+                href="#3-install-from-the-repository-page"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >3. Install from the repository page</a>
             </li>
           </ul>
   
@@ -846,7 +880,11 @@ OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the rep
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
-        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-install-from-the-repository-page">2. Install from the repository page
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#2-replace-dnsmasq-with-dnsmasq-full">2. Replace dnsmasq with dnsmasq-full
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#3-install-from-the-repository-page">3. Install from the repository page
         </a>
       </li></ul>
       <div class="hx:mt-8 hx:border-t hx:bg-white hx:pt-8 hx:shadow-[0_-12px_16px_white] hx:dark:bg-dark hx:dark:shadow-[0_-12px_16px_#111] hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
@@ -942,8 +980,38 @@ OpenWrt 25.x and newer: apk OpenWrt 24.x and older: opkg 2. Install from the rep
 <li>OpenWrt 25.x and newer: <code>apk</code></li>
 <li>OpenWrt 24.x and older: <code>opkg</code></li>
 </ul>
-<h2>2. Install from the repository page<span class="hx:absolute hx:-mt-20" id="2-install-from-the-repository-page"></span>
-    <a href="#2-install-from-the-repository-page" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the repository instructions page, select <strong>OpenWrt</strong> in the OS selector on the left, and use the generated commands for your exact version and architecture:</p>
+<h2>2. Replace <code>dnsmasq</code> with <code>dnsmasq-full</code><span class="hx:absolute hx:-mt-20" id="2-replace-dnsmasq-with-dnsmasq-full"></span>
+    <a href="#2-replace-dnsmasq-with-dnsmasq-full" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Install <code>dnsmasq-full</code> before installing keen-pbr:</p>
+<div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200">
+  <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+
+  <div class="hx:w-full hx:min-w-0 hx:leading-7">
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">OpenWrt 25.x and newer also need <code>dnsmasq-full</code> instead of the default <code>dnsmasq</code>.
+I do not have an <code>apk</code>-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.</div>
+  </div>
+</div>
+
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># OpenWrt 25.x and newer</span>
+</span></span><span class="line"><span class="cl">apk --update-cache add dnsmasq-full
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># OpenWrt 24.x and older</span>
+</span></span><span class="line"><span class="cl">opkg update <span class="o">&amp;&amp;</span> <span class="nb">cd</span> /tmp/ <span class="o">&amp;&amp;</span> opkg download dnsmasq-full
+</span></span><span class="line"><span class="cl">opkg remove dnsmasq<span class="p">;</span> opkg install dnsmasq-full --cache /tmp/<span class="p">;</span> rm -f /tmp/dnsmasq-full*.ipk<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<h2>3. Install from the repository page<span class="hx:absolute hx:-mt-20" id="3-install-from-the-repository-page"></span>
+    <a href="#3-install-from-the-repository-page" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Open the repository instructions page, select <strong>OpenWrt</strong> in the OS selector on the left, and use the generated commands for your exact version and architecture:</p>
 <a
   href="https://repo.keen-pbr.fyi/repository/stable/?lang=en"
   class="not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200"
