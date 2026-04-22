@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -52,9 +53,17 @@ private:
     static constexpr const char* CHAIN_NAME = "prerouting";
     void cleanup_live_impl();
     void cleanup_impl();
-    void cleanup_chain_impl();
     bool table_exists() const;
-    bool set_exists(const std::string& set_name) const;
+
+    struct LiveTableState {
+        bool table_exists{false};
+        bool chain_exists{false};
+        std::set<std::string> set_names;
+    };
+
+    LiveTableState read_live_table_state() const;
+    nlohmann::json build_apply_document(const LiveTableState& live_state,
+                                        bool emit_full_table);
 
     // Describes an nftables named set to be created.
     struct PendingSet {
@@ -78,6 +87,8 @@ private:
     static nlohmann::json build_set_json(const PendingSet& ps);
     // Build the JSON object for the prerouting chain (type filter, hook prerouting).
     static nlohmann::json build_chain_json();
+    // Build the JSON object for deleting the prerouting chain.
+    static nlohmann::json build_delete_chain_json();
     // Build all prerouting rule add-commands, including global prefilter rules.
     static nlohmann::json build_rule_add_commands(
         const FirewallGlobalPrefilter& prefilter,

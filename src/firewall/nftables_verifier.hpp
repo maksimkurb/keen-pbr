@@ -21,7 +21,8 @@ struct ParsedNftRule {
     bool ipv6{false};      // true if the payload protocol is ip6
 };
 
-// Parsed state of the KeenPbrTable from nft -j list table inet KeenPbrTable output.
+// Parsed state of KeenPbrTable from `nft -j list chain ...` output, or from
+// `nft -t -j list table ...` fallback output when the chain is missing.
 struct ParsedNftablesState {
     bool has_table{false};              // inet KeenPbrTable table was found
     bool has_prerouting_chain{false};   // prerouting chain in KeenPbrTable was found
@@ -29,7 +30,7 @@ struct ParsedNftablesState {
     std::vector<ParsedNftRule> rules;   // rules in the prerouting chain
 };
 
-// Parse nft JSON from `nft -j list chain ...` or `nft -j list table ...`.
+// Parse nft JSON from `nft -j list chain ...` or `nft -t -j list table ...`.
 // Returns the parsed state of KeenPbrTable entries present in the document.
 // On any JSON parse error or invalid input, returns a default (empty) state.
 ParsedNftablesState parse_nft_json(const std::string& json_output);

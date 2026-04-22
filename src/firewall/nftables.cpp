@@ -222,6 +222,14 @@ nlohmann::json NftablesFirewall::build_chain_json() {
     }}}}};
 }
 
+nlohmann::json NftablesFirewall::build_delete_chain_json() {
+    return {{"delete", {{"chain", {
+        {"family", "inet"},
+        {"table", TABLE_NAME},
+        {"name", CHAIN_NAME}
+    }}}}};
+}
+
 nlohmann::json NftablesFirewall::build_rule_add_commands(
     const FirewallGlobalPrefilter& prefilter,
     const std::vector<PendingRule>& rules) {
@@ -481,26 +489,72 @@ bool NftablesFirewall::table_exists() const {
                      /*suppress_output=*/true) == 0;
 }
 
-bool NftablesFirewall::set_exists(const std::string& set_name) const {
-    return safe_exec({"nft", "list", "set", "inet", std::string(TABLE_NAME), set_name},
-                     /*suppress_output=*/true) == 0;
-}
-
-void NftablesFirewall::cleanup_chain_impl() {
-    safe_exec({"nft", "delete", "chain", "inet", std::string(TABLE_NAME), std::string(CHAIN_NAME)},
-              /*suppress_output=*/true);
-}
-
-void NftablesFirewall::apply(FirewallApplyMode mode) {
-    const bool preserve_sets = mode == FirewallApplyMode::PreserveSets;
-    const bool live_table_exists = preserve_sets && table_exists();
-
-    if (mode == FirewallApplyMode::Destructive) {
-        cleanup_live_impl();
-    } else if (live_table_exists) {
-        cleanup_chain_impl();
+NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const {
+    LiveTableState state;
+    const auto result = safe_exec_capture(
+        {"nft", "-j", "-t", "list", "table", "inet", std::string(TABLE_NAME)},
+        /*suppress_stderr=*/true);
+    if (result.exit_code != 0 || result.stdout_output.empty()) {
+        return state;
     }
 
+    nlohmann::json doc;
+    try {
+        doc = nlohmann::json::parse(result.stdout_output);
+    } catch (const nlohmann::json::parse_error& e) {
+        Logger::instance().warn("Failed to parse nft table state: {}", e.what());
+        return state;
+    }
+
+    const auto nftables_it = doc.find("nftables");
+    if (nftables_it == doc.end() || !nftables_it->is_array()) {
+        return state;
+    }
+
+    for (const auto& item : *nftables_it) {
+        if (!item.is_object()) {
+            continue;
+        }
+
+        if (const auto table_it = item.find("table");
+            table_it != item.end() && table_it->is_object()) {
+            const auto& table = *table_it;
+            if (table.value("family", "") == "inet"
+                && table.value("name", "") == TABLE_NAME) {
+                state.table_exists = true;
+            }
+            continue;
+        }
+
+        if (const auto chain_it = item.find("chain");
+            chain_it != item.end() && chain_it->is_object()) {
+            const auto& chain = *chain_it;
+            if (chain.value("family", "") == "inet"
+                && chain.value("table", "") == TABLE_NAME
+                && chain.value("name", "") == CHAIN_NAME) {
+                state.chain_exists = true;
+            }
+            continue;
+        }
+
+        if (const auto set_it = item.find("set");
+            set_it != item.end() && set_it->is_object()) {
+            const auto& set = *set_it;
+            if (set.value("family", "") == "inet"
+                && set.value("table", "") == TABLE_NAME) {
+                const std::string name = set.value("name", "");
+                if (!name.empty()) {
+                    state.set_names.insert(name);
+                }
+            }
+        }
+    }
+
+    return state;
+}
+
+nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live_state,
+                                                      bool emit_full_table) {
     nlohmann::json doc;
     auto& arr = doc["nftables"];
     arr = nlohmann::json::array();
@@ -508,20 +562,22 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     // metainfo
     arr.push_back({{"metainfo", {{"json_schema_version", 1}}}});
 
-    const bool emit_full_table = !preserve_sets || !live_table_exists;
     if (emit_full_table) {
         arr.push_back(build_table_json());
     }
 
     // Sets
     for (const auto& ps : pending_sets_) {
-        if (!emit_full_table && set_exists(ps.name)) {
+        if (!emit_full_table && live_state.set_names.find(ps.name) != live_state.set_names.end()) {
             continue;
         }
         arr.push_back(build_set_json(ps));
     }
 
     // Chain with prerouting hook
+    if (!emit_full_table && live_state.chain_exists) {
+        arr.push_back(build_delete_chain_json());
+    }
     arr.push_back(build_chain_json());
 
     // Rules
@@ -531,7 +587,7 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
 
     // Elements
     for (const auto& [set_name, elems] : pending_elements_) {
-        if (!emit_full_table && set_exists(set_name)) {
+        if (!emit_full_table && live_state.set_names.find(set_name) != live_state.set_names.end()) {
             continue;
         }
         if (!elems.empty()) {
@@ -539,11 +595,34 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
         }
     }
 
+    return doc;
+}
+
+void NftablesFirewall::apply(FirewallApplyMode mode) {
+    const bool preserve_sets = mode == FirewallApplyMode::PreserveSets;
+    const LiveTableState live_state = preserve_sets ? read_live_table_state() : LiveTableState{};
+
+    if (mode == FirewallApplyMode::Destructive) {
+        cleanup_live_impl();
+    }
+
+    const bool emit_full_table = !preserve_sets || !live_state.table_exists;
+    nlohmann::json doc = build_apply_document(live_state, emit_full_table);
+
     std::string json_str = doc.dump();
     Logger::instance().verbose("nft json:\n{}", json_str);
 
     // Apply atomically via nft -j -f -
     int status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
+    if (status != 0 && preserve_sets && !emit_full_table && !table_exists()) {
+        Logger::instance().warn(
+            "nft preserve apply failed after KeenPbrTable disappeared; retrying full table restore");
+        cleanup_live_impl();
+        doc = build_apply_document(LiveTableState{}, /*emit_full_table=*/true);
+        json_str = doc.dump();
+        Logger::instance().verbose("nft recovery json:\n{}", json_str);
+        status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
+    }
     if (status != 0) {
         throw FirewallError(keen_pbr3::format("nft -j -f - exited with status {}", status));
     }

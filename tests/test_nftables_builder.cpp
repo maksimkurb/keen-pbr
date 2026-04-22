@@ -55,6 +55,10 @@ public:
     return NftablesFirewall::build_chain_json();
   }
 
+  static nlohmann::json build_delete_chain_json() {
+    return NftablesFirewall::build_delete_chain_json();
+  }
+
   struct RuleDesc {
     std::string set_name;
     int family;
@@ -600,6 +604,11 @@ TEST_CASE("each command object has expected top-level key") {
   auto chain = T::build_chain_json();
   CHECK(chain.contains("add"));
   CHECK(chain["add"].contains("chain"));
+
+  auto delete_chain = T::build_delete_chain_json();
+  CHECK(delete_chain.contains("delete"));
+  CHECK(delete_chain["delete"].contains("chain"));
+  CHECK(delete_chain["delete"]["chain"]["name"] == "prerouting");
 
   auto set_j = T::build_set_json("s", "ipv4_addr", 0);
   CHECK(set_j.contains("add"));
