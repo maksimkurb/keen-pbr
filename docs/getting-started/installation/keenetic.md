@@ -23,7 +23,7 @@ Open your router configuration page, navigate to **Management** -> **System sett
 
 Open the repository instructions page, select **Keenetic / NetCraze** in the OS selector on the left, and use the generated commands:
 
-{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
 
 Example install command:
 

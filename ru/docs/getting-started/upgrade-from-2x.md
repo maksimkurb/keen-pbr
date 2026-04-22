@@ -6,7 +6,7 @@
 
 Откройте страницу инструкций репозитория, выберите **Keenetic / NetCraze** в селекторе ОС слева, выберите архитектуру вашего роутера и выполните сгенерированные команды, чтобы заменить старый репозиторий keen-pbr 2.x на текущий:
 
-{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable/?lang=ru" >}}
 
 Используйте команды именно в том виде, как они показаны на странице репозитория для Keenetic / NetCraze.
 
@@ -45,6 +45,10 @@ opkg install keen-pbr
 
 {{< callout type="info" >}}
 Заменяйте конфигурационный файл только после проверки содержимого.
+{{< /callout >}}
+
+{{< callout type="error" >}}
+**Известный баг:** В Keenetic OS (NDMS) **2.x и ниже** использование DNS-сервера с `type="keenetic"` приводит к падению приложения. Эта ошибка будет исправлена в keen-pbr 3.0.1.
 {{< /callout >}}
 
 ## 4. Перезапустите keen-pbr

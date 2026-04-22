@@ -6,7 +6,7 @@ Use this guide if you already run keen-pbr 2.x on Keenetic / NetCraze and want t
 
 Open the repository instructions page, select **Keenetic / NetCraze** in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:
 
-{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
 
 Use the commands exactly as shown for Keenetic / NetCraze on the repository page.
 
@@ -45,6 +45,10 @@ Then:
 
 {{< callout type="info" >}}
 Replace the config file with the converted output only after you have reviewed it.
+{{< /callout >}}
+
+{{< callout type="error" >}}
+**Known bug:** In Keenetic OS (NDMS) **2.x and lower**, using DNS server with `type="keenetic"` is crashing the app. This bug will be fixed in keen-pbr 3.0.1.
 {{< /callout >}}
 
 ## 4. Restart keen-pbr

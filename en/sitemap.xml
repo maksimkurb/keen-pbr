@@ -206,6 +206,18 @@
                 href="https://keen-pbr.fyi/docs/faq/"
                 />
   </url><url>
+    <loc>https://keen-pbr.fyi/docs/configuration/full-reference-config/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/configuration/full-reference-config/"
+                />
+  </url><url>
     <loc>https://keen-pbr.fyi/docs/troubleshooting/</loc>
     <xhtml:link
                 rel="alternate"

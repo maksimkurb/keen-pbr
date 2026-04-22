@@ -13,7 +13,7 @@ keen-pbr можно установить на роутерах OpenWrt из ре
 
 Откройте страницу инструкций репозитория, выберите **OpenWrt** в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
 
-{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable/?lang=ru" >}}
 
 Примеры команд установки:
 
@@ -57,3 +57,4 @@ service keen-pbr restart
 {{< callout type="info" >}}
 Если готовые пакеты ещё не доступны для вашей платформы, см. раздел [Сборка из исходного кода](../compilation/), чтобы собрать keen-pbr самостоятельно.
 {{< /callout >}}
+

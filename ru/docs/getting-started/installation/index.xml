@@ -42,7 +42,7 @@
 &lt;h2&gt;3. Установите из страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-установите-из-страницы-репозитория&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#3-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%b8%d0%b7-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды:&lt;/p&gt;
 &lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable&#34;
+  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
   class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
   
   target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;
@@ -129,7 +129,7 @@
 &lt;h2&gt;2. Установите из страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-установите-из-страницы-репозитория&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#2-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%b8%d0%b7-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;OpenWrt&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:&lt;/p&gt;
 &lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable&#34;
+  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
   class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
   
   target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;
@@ -228,7 +228,7 @@
 &lt;h2&gt;1. Добавьте репозиторий со страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-добавьте-репозиторий-со-страницы-репозитория&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#1-%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d0%b9-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;Debian&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашего выпуска и архитектуры:&lt;/p&gt;
 &lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable&#34;
+  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
   class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
   
   target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;

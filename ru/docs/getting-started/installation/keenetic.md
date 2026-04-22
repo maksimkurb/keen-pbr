@@ -23,7 +23,7 @@ keen-pbr можно установить на роутерах Keenetic / NetCra
 
 Откройте страницу инструкций репозитория, выберите **Keenetic / NetCraze** в селекторе ОС слева и используйте сгенерированные команды:
 
-{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable" >}}
+{{< hextra/hero-button text="Репозиторий keen-pbr" link="https://repo.keen-pbr.fyi/repository/stable/?lang=ru" >}}
 
 Пример команды установки:
 
@@ -54,3 +54,4 @@ opkg install keen-pbr
 {{< /callout >}}
 
 Следующий шаг: откройте [Быстрый старт](../quick-start/) и используйте вкладку **Веб-интерфейс** для самой простой первоначальной настройки. Если вы установили `keen-pbr-headless`, используйте вкладку **JSON / CLI**.
+
