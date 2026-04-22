@@ -4,5 +4,5 @@
 
 if [ -x /etc/init.d/keen-pbr ] && /etc/init.d/keen-pbr enabled; then
     logger -t "keen-pbr" "Sending SIGUSR1 to keen-pbr due to firewall action: $ACTION"
-    /etc/init.d/keen-pbr reapply-firewall
+    /etc/init.d/keen-pbr reapply_firewall
 fi
