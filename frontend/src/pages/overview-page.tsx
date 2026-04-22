@@ -134,11 +134,7 @@ export function OverviewPage() {
         detailContent ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium">
-                {outbound.type === "urltest"
-                  ? t("overview.outbounds.urltestTitle")
-                  : outbound.tag}
-              </div>
+              <div className="font-medium">{outbound.tag}</div>
               <Badge size="xs" variant="outline">
                 {outbound.type}
               </Badge>
@@ -274,79 +270,85 @@ export function OverviewPage() {
         />
       </div>
 
-      <SectionCard title={t("overview.outbounds.title")}>
-        {configQuery.isLoading ? <TableSkeleton /> : null}
-        {configQuery.isError || runtimeOutboundsQuery.isError ? (
-          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription>
-              {t("overview.outbounds.loadError")}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {!configQuery.isLoading && outboundRows.length === 0 ? (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyTitle>{t("overview.outbounds.emptyTitle")}</EmptyTitle>
-              <EmptyDescription>
-                {t("overview.outbounds.emptyDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
-        {outboundRows.length > 0 ? (
-          <DataTable
-            compact
-            headers={[
-              t("overview.outbounds.headers.tag"),
-              t("overview.outbounds.headers.status"),
-            ]}
-            rows={outboundRows}
-          />
-        ) : null}
-      </SectionCard>
+      <RoutingTestPanel />
 
-      <SectionCard
-        title={t("overview.routing.title")}
-        action={
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!diagnosticsDownloadReady}
-            onClick={() => setIsDiagnosticsDialogOpen(true)}
-          >
-            <Download className="h-4 w-4" />
-            {t("overview.diagnosticsDownload.button")}
-          </Button>
-        }
-      >
-        {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
-        {routingHealthQuery.isError ? (
-          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-            <AlertDescription className="whitespace-pre-wrap">
-              {routingHealthErrorMessage}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {routingHealth &&
-        routingHealth.firewall_rules.length === 0 &&
-        routingHealth.route_tables.length === 0 &&
-        routingHealth.policy_rules.length === 0 ? (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyTitle>{t("overview.routing.emptyTitle")}</EmptyTitle>
-              <EmptyDescription>
-                {t("overview.routing.emptyDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
-        {routingHealth &&
-        (routingHealth.firewall_rules.length > 0 ||
-          routingHealth.route_tables.length > 0 ||
-          routingHealth.policy_rules.length > 0) ? (
-          <RoutingHealthCard routingHealth={routingHealth} />
-        ) : null}
-      </SectionCard>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SectionCard className="h-full" title={t("overview.outbounds.title")}>
+          {configQuery.isLoading ? <TableSkeleton /> : null}
+          {configQuery.isError || runtimeOutboundsQuery.isError ? (
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+              <AlertDescription>
+                {t("overview.outbounds.loadError")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {!configQuery.isLoading && outboundRows.length === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>{t("overview.outbounds.emptyTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("overview.outbounds.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
+          {outboundRows.length > 0 ? (
+            <DataTable
+              compact
+              headers={[
+                t("overview.outbounds.headers.tag"),
+                t("overview.outbounds.headers.status"),
+              ]}
+              rows={outboundRows}
+            />
+          ) : null}
+        </SectionCard>
+
+        <SectionCard
+          className="h-full"
+          contentClassName="flex flex-1 flex-col"
+          title={t("overview.routing.title")}
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!diagnosticsDownloadReady}
+              onClick={() => setIsDiagnosticsDialogOpen(true)}
+            >
+              <Download className="h-4 w-4" />
+              {t("overview.diagnosticsDownload.button")}
+            </Button>
+          }
+        >
+          {routingHealthQuery.isLoading ? <TableSkeleton /> : null}
+          {routingHealthQuery.isError ? (
+            <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
+              <AlertDescription className="whitespace-pre-wrap">
+                {routingHealthErrorMessage}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {routingHealth &&
+          routingHealth.firewall_rules.length === 0 &&
+          routingHealth.route_tables.length === 0 &&
+          routingHealth.policy_rules.length === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>{t("overview.routing.emptyTitle")}</EmptyTitle>
+                <EmptyDescription>
+                  {t("overview.routing.emptyDescription")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
+          {routingHealth &&
+          (routingHealth.firewall_rules.length > 0 ||
+            routingHealth.route_tables.length > 0 ||
+            routingHealth.policy_rules.length > 0) ? (
+            <RoutingHealthCard routingHealth={routingHealth} />
+          ) : null}
+        </SectionCard>
+      </div>
 
       {loadedConfig &&
       serviceHealth &&
@@ -362,8 +364,6 @@ export function OverviewPage() {
           serviceHealth={serviceHealth}
         />
       ) : null}
-
-      <RoutingTestPanel />
     </div>
   )
 }

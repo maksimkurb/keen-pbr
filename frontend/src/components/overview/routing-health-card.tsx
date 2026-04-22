@@ -45,7 +45,7 @@ export function RoutingHealthCard({
     firewallRules.length > 0 || groupedRoutes.length > 0 || policyRules.length > 0
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-1 flex-col space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={mapCheckTone(routingHealth.overall)}>
           {routingHealth.overall}
@@ -71,7 +71,7 @@ export function RoutingHealthCard({
       </div>
 
       {!hasVisibleEntries ? (
-        <Empty className="min-h-0 rounded-lg border border-dashed px-4 py-6">
+        <Empty className="min-h-0 flex-1 rounded-lg border border-dashed px-4 py-6">
           <EmptyHeader>
             {!showHealthyEntries ? (
               <EmptyMedia
