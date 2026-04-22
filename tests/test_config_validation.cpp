@@ -649,7 +649,7 @@ TEST_CASE("route rule: iptables rejects multiport src_port combined with dest_po
         ]}
     })");
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "route.rules[0]");
+    CHECK(issues[0].path == "route.rules[0].src_port");
     CHECK(issues[0].message.find("This is a xt_multiport module limitation") != std::string::npos);
 }
 
@@ -661,7 +661,7 @@ TEST_CASE("route rule: iptables rejects multiport dest_port combined with src_po
         ]}
     })");
     REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "route.rules[0]");
+    CHECK(issues[0].path == "route.rules[0].dest_port");
 }
 
 TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") {
@@ -676,6 +676,15 @@ TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") 
 TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"nftables"},
+        "route":{"rules":[
+            {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
+        ]}
+    })"));
+}
+
+TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
+    CHECK_NOTHROW(parse_test_config(R"({
+        "daemon":{"firewall_backend":"auto"},
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
         ]}

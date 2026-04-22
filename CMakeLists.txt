@@ -270,6 +270,7 @@ set(SOURCES
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp
   src/util/blocking_executor.cpp
+  src/util/firewall_backend_utils.cpp
   src/util/system_info.cpp
   src/util/traced_mutex.cpp
   src/main.cpp

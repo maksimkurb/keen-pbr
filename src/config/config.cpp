@@ -388,6 +388,16 @@ bool route_rule_uses_unsupported_iptables_multiport_combo(const RouteRule& rule)
     return *src_kind == PortSpecKind::List || *dst_kind == PortSpecKind::List;
 }
 
+std::string route_rule_unsupported_iptables_multiport_path(size_t rule_index,
+                                                           const RouteRule& rule) {
+    const auto src_kind = classify_optional_port_spec(rule.src_port);
+    if (src_kind.has_value() && *src_kind == PortSpecKind::List) {
+        return "route.rules[" + std::to_string(rule_index) + "].src_port";
+    }
+
+    return "route.rules[" + std::to_string(rule_index) + "].dest_port";
+}
+
 void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValidationIssue>& issues) {
     const auto route_it = root.find("route");
     if (route_it == root.end() || !route_it->is_object()) {
@@ -726,7 +736,7 @@ void validate_config(const Config& cfg) {
 
             add_issue(
                 issues,
-                "route.rules[" + std::to_string(i) + "]",
+                route_rule_unsupported_iptables_multiport_path(i, rule),
                 "When you use port lists (e.g. 444,555) you can't combine src_port and dest_port condition. This is a xt_multiport module limitation. Consider using nftables firewall backend or create multiple rules.");
         }
     }

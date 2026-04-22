@@ -185,11 +185,6 @@ protected:
     uint32_t fwmark_mask_{0xFFFFFFFFu};
 };
 
-// Detect which firewall backend is available on the system.
-// Checks for nftables first (modern), falls back to iptables.
-// Throws FirewallError if neither is available.
-FirewallBackend detect_firewall_backend();
-
 // Return the stable config/CLI label for a concrete backend.
 const char* firewall_backend_name(FirewallBackend backend);
 

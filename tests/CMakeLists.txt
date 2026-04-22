@@ -179,6 +179,7 @@ add_executable(keen-pbr-firewall-it
   ../src/routing/routing_verifier.cpp
   ../src/routing/target.cpp
   ../src/util/blocking_executor.cpp
+  ../src/util/firewall_backend_utils.cpp
   ../src/util/traced_mutex.cpp
 )
 set_target_properties(keen-pbr-firewall-it PROPERTIES
