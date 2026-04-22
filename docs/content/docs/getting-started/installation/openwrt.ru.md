@@ -12,7 +12,25 @@ keen-pbr можно установить на роутерах OpenWrt из ре
 - OpenWrt 25.x и новее: `apk`
 - OpenWrt 24.x и старше: `opkg`
 
-## 2. Установите из страницы репозитория
+## 2. Замените `dnsmasq` на `dnsmasq-full`
+
+Установите `dnsmasq-full` перед установкой keen-pbr:
+
+{{< callout type="info" >}}
+Для OpenWrt 25.x и новее тоже нужен `dnsmasq-full` вместо стандартного `dnsmasq`.
+У меня нет роутера с `apk`, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.
+{{< /callout >}}
+
+```bash {filename="bash"}
+# OpenWrt 25.x и новее
+apk --update-cache add dnsmasq-full
+
+# OpenWrt 24.x и старше
+opkg update && cd /tmp/ && opkg download dnsmasq-full
+opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
+```
+
+## 3. Установите из страницы репозитория
 
 Откройте страницу инструкций репозитория, выберите **OpenWrt** в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:
 

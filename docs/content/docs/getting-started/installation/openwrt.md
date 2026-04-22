@@ -12,7 +12,25 @@ The repository page automatically shows the correct flow for your target:
 - OpenWrt 25.x and newer: `apk`
 - OpenWrt 24.x and older: `opkg`
 
-## 2. Install from the repository page
+## 2. Replace `dnsmasq` with `dnsmasq-full`
+
+Install `dnsmasq-full` before installing keen-pbr:
+
+{{< callout type="info" >}}
+OpenWrt 25.x and newer also need `dnsmasq-full` instead of the default `dnsmasq`.
+I do not have an `apk`-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.
+{{< /callout >}}
+
+```bash {filename="bash"}
+# OpenWrt 25.x and newer
+apk --update-cache add dnsmasq-full
+
+# OpenWrt 24.x and older
+opkg update && cd /tmp/ && opkg download dnsmasq-full
+opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
+```
+
+## 3. Install from the repository page
 
 Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture:
 
