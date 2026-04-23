@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -35,7 +34,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { applyFormApiErrors, clearFormServerErrors } from "@/lib/form-api-errors"
+import {
+  clearFormServerErrors,
+  setFormServerErrors,
+  splitFormApiErrors,
+} from "@/lib/form-api-errors"
 import { toast } from "sonner"
 
 type SettingsDraft = {
@@ -119,13 +122,16 @@ function LoadedGeneralConfigPage({
     },
   })
 
-  const [savedDraft, setSavedDraft] = useState<SettingsDraft>(() =>
-    getDraftFromConfig(loadedConfig)
-  )
+  const postConfigMutation = usePostConfigMutation()
 
-  const postConfigMutation = usePostConfigMutation({
-    mutation: {
-      onSuccess: async (_response, variables) => {
+  const form = useForm({
+    defaultValues: getDraftFromConfig(loadedConfig),
+    onSubmitAsync: async ({ value }) => {
+      const updatedConfig = buildUpdatedConfig(loadedConfig, value)
+      clearFormServerErrors(form)
+
+      try {
+        await postConfigMutation.mutateAsync({ data: updatedConfig })
         toast.success(t("pages.settings.saved"))
         clearFormServerErrors(form)
 
@@ -139,61 +145,39 @@ function LoadedGeneralConfigPage({
           }),
         ])
 
-        const nextSavedDraft = getDraftFromConfig(variables.data)
-        setSavedDraft(nextSavedDraft)
-        form.reset(nextSavedDraft)
-      },
-      onError: (error) => {
-        const apiError = error as ApiError
-        const formError = applyFormApiErrors({
-          error: apiError,
+        form.reset(getDraftFromConfig(updatedConfig))
+        return undefined
+      } catch (error) {
+        const result = splitFormApiErrors({
+          error: error as ApiError,
           fieldNames: Object.values(SETTINGS_FIELD_NAMES),
-          form,
           resolvePath: resolveSettingsFieldPath,
         })
-        if (formError) {
-          toast.error(formError, { richColors: true })
+
+        setFormServerErrors(form, {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+          unmapped: result.unmappedErrors,
+        })
+
+        if (result.formError) {
+          toast.error(result.formError, { richColors: true })
         }
-      },
+
+        return {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+        }
+      }
     },
   })
 
-  const form = useForm({
-    defaultValues: savedDraft,
-    onSubmit: ({ value }) => {
-      const updatedConfig = buildUpdatedConfig(loadedConfig, value)
-      clearFormServerErrors(form)
-      postConfigMutation.mutate({ data: updatedConfig })
-    },
-  })
-
-  const formValues = useStore(form.store, (state) => state.values)
-  const hasServerErrors = useStore(
-    form.store,
-    (state) =>
-      state.errorMap.onServer !== undefined ||
-      Object.values(state.fieldMetaBase).some(
-        (fieldMeta) => fieldMeta?.errorMap?.onServer !== undefined
-      )
-  )
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
       ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
         ?.unmapped ?? [])
   )
-  const previousValuesRef = useRef(formValues)
-
-  useEffect(() => {
-    const previousValues = previousValuesRef.current
-    previousValuesRef.current = formValues
-
-    if (previousValues === formValues || !hasServerErrors) {
-      return
-    }
-
-    clearFormServerErrors(form)
-  }, [form, formValues, hasServerErrors])
 
   const isPending = postConfigMutation.isPending
   const runtimeInterfaces =
@@ -202,7 +186,7 @@ function LoadedGeneralConfigPage({
       : []
 
   const handleCancel = () => {
-    form.reset(savedDraft)
+    form.reset(getDraftFromConfig(loadedConfig))
     clearFormServerErrors(form)
   }
 

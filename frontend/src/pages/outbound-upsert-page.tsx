@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react"
-import { useEffect, useId, useRef, useState } from "react"
+import { useId } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -34,9 +34,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-  applyFormApiErrors,
   clearFormServerErrors,
   setFormServerErrors,
+  splitFormApiErrors,
 } from "@/lib/form-api-errors"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 import {
@@ -135,6 +135,32 @@ export function OutboundUpsertPage({
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
 
+  if (!loadedConfig) {
+    return (
+      <UpsertPage
+        cardDescription={t("pages.outboundUpsert.cardDescription")}
+        cardTitle={
+          mode === "create"
+            ? t("pages.outboundUpsert.createTitle")
+            : t("pages.outboundUpsert.editTitle")
+        }
+        description={t("pages.outboundUpsert.description")}
+        title={
+          mode === "create"
+            ? t("pages.outboundUpsert.createTitle")
+            : t("pages.outboundUpsert.editTitle")
+        }
+      >
+        <div className="space-y-3">
+          <div className="h-8 rounded-lg bg-muted" />
+          <div className="h-24 rounded-lg bg-muted" />
+          <div className="h-8 rounded-lg bg-muted" />
+          <div className="h-8 rounded-lg bg-muted" />
+        </div>
+      </UpsertPage>
+    )
+  }
+
   const draft =
     getOutboundDraft(loadedConfig, mode === "edit" ? outboundId : undefined) ??
     sampleNewOutbound
@@ -176,6 +202,7 @@ export function OutboundUpsertPage({
       }
     >
       <OutboundForm
+        key={`${mode}:${outboundId ?? "new"}`}
         draft={draft}
         loadedConfig={loadedConfig}
         mode={mode}
@@ -195,14 +222,13 @@ function OutboundForm({
 }: {
   mode: "create" | "edit"
   draft: OutboundDraft
-  loadedConfig: ConfigObject | undefined
+  loadedConfig: ConfigObject
   onCancel: () => void
   outboundId?: string
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
-  const [submittedTag, setSubmittedTag] = useState<string>(outboundId ?? "")
   const existingOutbounds = selectOutbounds(loadedConfig)
   const interfaceOutboundOptions = existingOutbounds
     .filter((item) => item.type === "interface" && item.tag !== draft.tag)
@@ -210,11 +236,8 @@ function OutboundForm({
 
   const form = useForm({
     defaultValues: draft,
-    onSubmit: ({ value }) => {
-      if (!loadedConfig) {
-        return
-      }
-
+    onSubmitAsync: async ({ value }) => {
+      clearFormServerErrors(form)
       const duplicateTagError = validateTagUniqueness(
         existingOutbounds,
         value.tag,
@@ -227,7 +250,11 @@ function OutboundForm({
             [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
           },
         })
-        return
+        return {
+          fields: {
+            [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
+          },
+        }
       }
 
       const payload = buildOutboundPayload(value)
@@ -247,23 +274,19 @@ function OutboundForm({
           form: urltestReferencesError,
           fields: {},
         })
-        return
+        return {
+          form: urltestReferencesError,
+          fields: {},
+        }
       }
 
-      clearFormServerErrors(form)
-      setSubmittedTag(payload.tag)
-      postConfigMutation.mutate({
-        data: {
-          ...loadedConfig,
-          outbounds: nextOutbounds,
-        } satisfies ConfigObject,
-      })
-    },
-  })
-
-  const postConfigMutation = usePostConfigMutation({
-    mutation: {
-      onSuccess: async () => {
+      try {
+        await postConfigMutation.mutateAsync({
+          data: {
+            ...loadedConfig,
+            outbounds: nextOutbounds,
+          } satisfies ConfigObject,
+        })
         clearFormServerErrors(form)
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
@@ -275,32 +298,32 @@ function OutboundForm({
           }),
         ])
         navigate("/outbounds")
-      },
-      onError: (error) => {
-        applyFormApiErrors({
+        return undefined
+      } catch (error) {
+        const result = splitFormApiErrors({
           error: error as ApiError,
-          form,
           fieldNames: Object.values(OUTBOUND_FIELD_NAMES),
           resolvePath: (path) =>
-            resolveOutboundFieldPath(
-              path,
-              form.state.values.tag || submittedTag || draft.tag
-            ),
+            resolveOutboundFieldPath(path, payload.tag || draft.tag),
         })
-      },
+
+        setFormServerErrors(form, {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+          unmapped: result.unmappedErrors,
+        })
+
+        return {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+        }
+      }
     },
   })
 
-  const formValues = useStore(form.store, (state) => state.values)
+  const postConfigMutation = usePostConfigMutation()
+
   const outboundType = useStore(form.store, (state) => state.values.type)
-  const hasServerErrors = useStore(
-    form.store,
-    (state) =>
-      state.errorMap.onServer !== undefined ||
-      Object.values(state.fieldMetaBase).some(
-        (fieldMeta) => fieldMeta?.errorMap?.onServer !== undefined
-      )
-  )
   const apiErrorMessage = useStore(
     form.store,
     (state) =>
@@ -312,23 +335,6 @@ function OutboundForm({
       ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
         ?.unmapped ?? [])
   )
-  const previousValuesRef = useRef(formValues)
-
-  useEffect(() => {
-    form.reset(draft)
-    clearFormServerErrors(form)
-  }, [draft, form])
-
-  useEffect(() => {
-    const previousValues = previousValuesRef.current
-    previousValuesRef.current = formValues
-
-    if (previousValues === formValues || !hasServerErrors) {
-      return
-    }
-
-    clearFormServerErrors(form)
-  }, [form, formValues, hasServerErrors])
 
   const isInterface = outboundType === "interface"
   const isTable = outboundType === "table"
@@ -991,10 +997,7 @@ function OutboundForm({
           {({ canSubmit, isPristine }) => (
             <Button
               disabled={
-                !loadedConfig ||
-                postConfigMutation.isPending ||
-                isPristine ||
-                !canSubmit
+                postConfigMutation.isPending || isPristine || !canSubmit
               }
               size="xl"
               type="submit"

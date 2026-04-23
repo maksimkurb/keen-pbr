@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-store"
 import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 import { toast } from "sonner"
@@ -37,10 +37,10 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { getApiValidationErrors } from "@/lib/api-errors"
 import {
-  applyFormApiErrors,
   clearFormServerErrors,
+  setFormServerErrors,
+  splitFormApiErrors,
 } from "@/lib/form-api-errors"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
 
@@ -98,47 +98,40 @@ export function ListUpsertPage({
 }) {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
-  const queryClient = useQueryClient()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
-  const listsMap = loadedConfig?.lists ?? {}
 
-  // use toasts instead of inline messages
-  const [apiError, setApiError] = useState<ApiError | null>(null)
+  if (!loadedConfig) {
+    return (
+      <UpsertPage
+        cardDescription={t("pages.listUpsert.cardDescription")}
+        cardTitle={
+          mode === "create"
+            ? t("pages.listUpsert.createTitle")
+            : t("pages.listUpsert.editTitle")
+        }
+        description={t("pages.listUpsert.description")}
+        title={
+          mode === "create"
+            ? t("pages.listUpsert.createTitle")
+            : t("pages.listUpsert.editTitle")
+        }
+      >
+        <div className="space-y-3">
+          <div className="h-8 rounded-lg bg-muted" />
+          <div className="h-24 rounded-lg bg-muted" />
+          <div className="h-8 rounded-lg bg-muted" />
+          <div className="h-8 rounded-lg bg-muted" />
+        </div>
+      </UpsertPage>
+    )
+  }
 
+  const listsMap = loadedConfig.lists ?? {}
   const draft =
     mode === "edit"
       ? getDraftFromMapEntry(listId, listId ? listsMap[listId] : undefined)
       : sampleNewList
-
-  const postConfigMutation = usePostConfigMutation({
-    mutation: {
-      onSuccess: async () => {
-        toast.success(
-          mode === "create"
-            ? t("pages.listUpsert.messages.created")
-            : t("pages.listUpsert.messages.updated")
-        )
-        setApiError(null)
-
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
-        ])
-
-        navigate("/lists")
-      },
-      onError: (error) => {
-        const apiErr = error as ApiError
-        setApiError(apiErr)
-        const validationErrors = getApiValidationErrors(apiErr)
-        if (validationErrors.length === 0) {
-          const msg = apiErr?.message ?? t("pages.listUpsert.messages.saveError")
-          toast.error(msg, { richColors: true })
-        }
-      },
-    },
-  })
 
   if (mode === "edit" && !draft) {
     return (
@@ -175,29 +168,13 @@ export function ListUpsertPage({
       }
     >
       <ListForm
-        outbounds={loadedConfig?.outbounds ?? []}
+        key={`${mode}:${listId ?? "new"}`}
+        outbounds={loadedConfig.outbounds ?? []}
         draft={draft ?? sampleNewList}
         existingListNames={Object.keys(listsMap)}
-        isConfigLoaded={Boolean(loadedConfig)}
-        isPending={postConfigMutation.isPending}
+        listId={listId}
+        loadedConfig={loadedConfig}
         mode={mode}
-        apiError={apiError}
-        onCancel={() => navigate("/lists")}
-        onSubmit={(nextDraft) => {
-          if (!loadedConfig) {
-            return
-          }
-
-          const updatedConfig = buildUpdatedConfigForListUpsert(
-            loadedConfig,
-            mode,
-            nextDraft,
-            listId
-          )
-
-          setApiError(null)
-          postConfigMutation.mutate({ data: updatedConfig })
-        }}
       />
     </UpsertPage>
   )
@@ -208,31 +185,72 @@ function ListForm({
   outbounds,
   draft,
   existingListNames,
-  isConfigLoaded,
-  isPending,
-  onCancel,
-  apiError,
-  onSubmit,
+  listId,
+  loadedConfig,
 }: {
   mode: "create" | "edit"
   outbounds: Outbound[]
   draft: ListDraft
   existingListNames: string[]
-  isConfigLoaded: boolean
-  isPending: boolean
-  onCancel: () => void
-  apiError: ApiError | null
-  onSubmit: (draft: ListDraft) => void
+  listId?: string
+  loadedConfig: ConfigObject
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [, navigate] = useLocation()
   const [activeSourceGroups, setActiveSourceGroups] = useState<ListSourceGroup[]>(
     () => getActiveSourceGroupsFromDraft(draft)
   )
+  const postConfigMutation = usePostConfigMutation()
   const form = useForm({
     defaultValues: draft,
-    onSubmit: ({ value }) => {
+    onSubmitAsync: async ({ value }) => {
       clearFormServerErrors(form)
-      onSubmit(value)
+      const updatedConfig = buildUpdatedConfigForListUpsert(
+        loadedConfig,
+        mode,
+        value,
+        listId
+      )
+
+      try {
+        await postConfigMutation.mutateAsync({ data: updatedConfig })
+        toast.success(
+          mode === "create"
+            ? t("pages.listUpsert.messages.created")
+            : t("pages.listUpsert.messages.updated")
+        )
+        clearFormServerErrors(form)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
+        ])
+        navigate("/lists")
+        return undefined
+      } catch (error) {
+        const apiError = error as ApiError
+        const result = splitFormApiErrors({
+          error: apiError,
+          fieldNames: Object.values(LIST_FIELD_NAMES),
+          resolvePath: (path) =>
+            resolveListFieldPath(path, value.name || draft.name),
+        })
+
+        setFormServerErrors(form, {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+          unmapped: result.unmappedErrors,
+        })
+
+        if (result.formError) {
+          toast.error(result.formError, { richColors: true })
+        }
+
+        return {
+          form: result.formError ?? undefined,
+          fields: result.fieldErrors,
+        }
+      }
     },
   })
 
@@ -248,15 +266,6 @@ function ListForm({
         unmapped?: { path: string; message: string }[]
       } | undefined)?.unmapped ?? [])
   )
-
-  useEffect(() => {
-    applyFormApiErrors({
-      error: apiError,
-      form,
-      fieldNames: Object.values(LIST_FIELD_NAMES),
-      resolvePath: (path) => resolveListFieldPath(path, form.state.values.name || draft.name),
-    })
-  }, [apiError, draft.name, form])
 
   const isCreate = mode === "create"
 
@@ -609,7 +618,12 @@ function ListForm({
       <ServerValidationAlert errors={unmappedServerErrors} />
 
       <div className="flex justify-end gap-3">
-        <Button onClick={onCancel} size="xl" type="button" variant="outline">
+        <Button
+          onClick={() => navigate("/lists")}
+          size="xl"
+          type="button"
+          variant="outline"
+        >
           {t("common.cancel")}
         </Button>
         <form.Subscribe
@@ -620,11 +634,13 @@ function ListForm({
         >
           {({ canSubmit, isPristine }) => (
             <Button
-              disabled={!isConfigLoaded || isPending || isPristine || !canSubmit}
+              disabled={
+                postConfigMutation.isPending || isPristine || !canSubmit
+              }
               size="xl"
               type="submit"
             >
-              {isPending
+              {postConfigMutation.isPending
                 ? t("pages.listUpsert.actions.saving")
                 : mode === "create"
                   ? t("pages.listUpsert.actions.create")
