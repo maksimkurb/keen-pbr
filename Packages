@@ -1,0 +1,11 @@
+Package: keen-pbr
+Version: 2.9.9
+Depends: dnsmasq-full, ipset, iptables, cron, libc, libssp, librt, libpthread
+Section: net
+URL: https://keen-pbr.fyi/
+Architecture: Repository_is_moved__see_keen-pbr.fyi
+Installed-Size: 1000
+Filename: non-existent-file.ipk
+Size: 1000
+SHA256sum: d3c185257ab2f072545409db211997be920d267921abc9b081e9f765bf893b24
+Description:  Policy-based routing toolkit for Keenetic routers

@@ -415,14 +415,6 @@ If you route traffic to this table, it would follow your system default routes.&
   &lt;/div&gt;
 &lt;/div&gt;
 
-&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-red-200 hx:bg-red-100 hx:text-red-900 hx:dark:border-red-200/30 hx:dark:bg-red-900/30 hx:dark:text-red-200&#34;&gt;
-  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
-  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;strong&gt;Known bug:&lt;/strong&gt; In Keenetic OS (NDMS) &lt;strong&gt;2.x and lower&lt;/strong&gt;, using DNS server with &lt;code&gt;type=&amp;quot;keenetic&amp;quot;&lt;/code&gt; is crashing the app. This bug will be fixed in keen-pbr 3.0.1.&lt;/div&gt;
-  &lt;/div&gt;
-&lt;/div&gt;
-
 &lt;h2&gt;4. Restart keen-pbr&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;4-restart-keen-pbr&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#4-restart-keen-pbr&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Restart the service after saving the config.&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
