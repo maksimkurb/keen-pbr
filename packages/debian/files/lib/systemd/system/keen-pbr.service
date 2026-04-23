@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+ExecStartPre=-/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json download
 ExecStartPre=/usr/lib/keen-pbr/dnsmasq.sh activate
 ExecStart=/usr/sbin/keen-pbr --config /etc/keen-pbr/config.json service
 ExecReload=/usr/lib/keen-pbr/dnsmasq.sh activate

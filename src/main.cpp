@@ -244,7 +244,6 @@ int main(int argc, char* argv[]) {
                                        .cache_dir.value_or("/var/cache/keen-pbr");
             keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
             cache.ensure_dir();
-            // Download lists that aren't already cached
             const auto lists_map = config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});
             for (const auto& [name, list_cfg] : lists_map) {
                 if (!list_cfg.url.has_value()) {
@@ -252,8 +251,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 if (!cache.has_cache(name)) {
-                    cache.download(name, list_cfg.url.value());
-                    logger.info("[{}] Downloaded", name);
+                    logger.warn("[{}] Skipped remote list download during generate-resolver-config (cache missing). Please run 'keen-pbr download'", name);
                 } else {
                     logger.verbose("[{}] Using cached", name);
                 }

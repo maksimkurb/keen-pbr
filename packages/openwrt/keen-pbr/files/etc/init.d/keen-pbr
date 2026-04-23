@@ -92,6 +92,8 @@ start_service() {
 
     mkdir -p /var/cache/keen-pbr
 
+    "$PROG" --config "$CONFIG" download || true
+
     if [ -x "$HELPER" ]; then
         "$HELPER" activate || return 1
     fi
