@@ -121,7 +121,7 @@ case "$1" in
         ;;
     start|restart|restartall)
         prepare_start
-        PREARGS="download_lists"
+        download_lists
         POSTCMD="reapply_dnsmasq_config"
         ;;
     stop|kill)
