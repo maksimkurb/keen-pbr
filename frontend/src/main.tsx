@@ -35,6 +35,9 @@ const queryClient = new QueryClient({
   },
 })
 
+const toasterBottomOffset =
+  "calc(var(--warning-banner-height, 0px) + env(safe-area-inset-bottom, 0px) + 1rem)"
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -43,9 +46,8 @@ createRoot(document.getElementById("root")!).render(
           <ThemeProvider>
             <App />
             <Toaster
-              offset={{
-                bottom: "calc(var(--warning-banner-height, 0px) + 1rem)",
-              }}
+              offset={{ bottom: toasterBottomOffset }}
+              mobileOffset={{ bottom: toasterBottomOffset }}
             />
           </ThemeProvider>
         </LanguageProvider>

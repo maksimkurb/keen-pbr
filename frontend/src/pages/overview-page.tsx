@@ -295,10 +295,6 @@ export function OverviewPage() {
           {outboundRows.length > 0 ? (
             <DataTable
               compact
-              headers={[
-                t("overview.outbounds.headers.tag"),
-                t("overview.outbounds.headers.status"),
-              ]}
               rows={outboundRows}
             />
           ) : null}
