@@ -126,49 +126,51 @@ function LoadedGeneralConfigPage({
 
   const form = useForm({
     defaultValues: getDraftFromConfig(loadedConfig),
-    onSubmitAsync: async ({ value }) => {
-      const updatedConfig = buildUpdatedConfig(loadedConfig, value)
-      clearFormServerErrors(form)
-
-      try {
-        await postConfigMutation.mutateAsync({ data: updatedConfig })
-        toast.success(t("pages.settings.saved"))
+    validators: {
+      onSubmitAsync: async ({ value }) => {
+        const updatedConfig = buildUpdatedConfig(loadedConfig, value)
         clearFormServerErrors(form)
 
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.healthService(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.healthRouting(),
-          }),
-        ])
+        try {
+          await postConfigMutation.mutateAsync({ data: updatedConfig })
+          toast.success(t("pages.settings.saved"))
+          clearFormServerErrors(form)
 
-        form.reset(getDraftFromConfig(updatedConfig))
-        return undefined
-      } catch (error) {
-        const result = splitFormApiErrors({
-          error: error as ApiError,
-          fieldNames: Object.values(SETTINGS_FIELD_NAMES),
-          resolvePath: resolveSettingsFieldPath,
-        })
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.healthService(),
+            }),
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.healthRouting(),
+            }),
+          ])
 
-        setFormServerErrors(form, {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-          unmapped: result.unmappedErrors,
-        })
+          form.reset(getDraftFromConfig(updatedConfig))
+          return undefined
+        } catch (error) {
+          const result = splitFormApiErrors({
+            error: error as ApiError,
+            fieldNames: Object.values(SETTINGS_FIELD_NAMES),
+            resolvePath: resolveSettingsFieldPath,
+          })
 
-        if (result.formError) {
-          toast.error(result.formError, { richColors: true })
+          setFormServerErrors(form, {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+            unmapped: result.unmappedErrors,
+          })
+
+          if (result.formError) {
+            toast.error(result.formError, { richColors: true })
+          }
+
+          return {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+          }
         }
-
-        return {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-        }
-      }
+      },
     },
   })
 

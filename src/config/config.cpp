@@ -780,13 +780,12 @@ void validate_config(const Config& cfg) {
 
             const auto srv_type = srv.type.value_or(api::DnsServerType::STATIC);
             const std::string srv_addr = srv.address.value_or("");
-            const std::string srv_detour = srv.detour.value_or("");
             const std::string srv_identity =
-                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr + "|" + srv_detour;
+                std::to_string(static_cast<int>(srv_type)) + "|" + srv_addr;
             if (!dns_server_identities.insert(srv_identity).second) {
                 add_issue(issues, "dns.servers." + srv.tag,
                           "DNS server \"" + srv.tag +
-                              "\" duplicates an existing DNS server definition (same type/address/detour)");
+                              "\" duplicates an existing DNS server definition (same type/address)");
             }
 
             if (srv_type == api::DnsServerType::KEENETIC) {

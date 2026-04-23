@@ -610,6 +610,14 @@ function RoutingRuleForm({
 function resolveRoutingRuleFieldPath(
   path: string
 ): RoutingRuleFieldName | undefined {
+  if (path === "route.rules") {
+    return ROUTING_RULE_FIELD_NAMES.outbound
+  }
+
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
+    return ROUTING_RULE_FIELD_NAMES.outbound
+  }
+
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.(list|lists)$/.test(path)) {
     return ROUTING_RULE_FIELD_NAMES.list
   }

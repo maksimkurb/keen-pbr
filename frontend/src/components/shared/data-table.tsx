@@ -25,31 +25,7 @@ export function DataTable({
 
   return (
     <div className="max-w-full overflow-x-auto rounded-md border">
-      <Table className={compact ? "w-full min-w-[640px] text-sm" : "w-full min-w-[640px] text-base"}>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            {headers.map((header, headerIndex) => (
-              <TableHead
-                className={
-                  headerIndex === lastColumnIndex
-                    ? compact
-                      ? "h-8 w-px text-right font-semibold"
-                      : "w-px text-right font-semibold"
-                    : narrowColumnSet.has(headerIndex)
-                      ? compact
-                        ? "h-8 w-px whitespace-nowrap font-semibold"
-                        : "w-px whitespace-nowrap font-semibold"
-                    : compact
-                      ? "h-8 font-semibold"
-                      : "font-semibold"
-                }
-                key={header}
-              >
-                {header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
+      <Table className={compact ? "w-full text-sm" : "w-full text-base"}>
         <TableBody>
           {rows.map((row, index) => (
             <TableRow key={`${row[0]}-${index}`}>

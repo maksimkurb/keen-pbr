@@ -166,85 +166,87 @@ function DnsRuleForm({
               allowDomainRebinding: false,
             },
     },
-    onSubmitAsync: async ({ value }) => {
-      const nextRules = rules.map((rule) => getRuleDraft(rule))
+    validators: {
+      onSubmitAsync: async ({ value }) => {
+        const nextRules = rules.map((rule) => getRuleDraft(rule))
 
-      if (mode === "edit") {
-        if (!existingRule || Number.isNaN(parsedRuleIndex)) {
-          toast.error(t("pages.dnsRuleUpsert.validation.notFound"), {
-            richColors: true,
-          })
-          return undefined
+        if (mode === "edit") {
+          if (!existingRule || Number.isNaN(parsedRuleIndex)) {
+            toast.error(t("pages.dnsRuleUpsert.validation.notFound"), {
+              richColors: true,
+            })
+            return undefined
+          }
+
+          nextRules[parsedRuleIndex] = value.rule
+        } else {
+          nextRules.push(value.rule)
         }
 
-        nextRules[parsedRuleIndex] = value.rule
-      } else {
-        nextRules.push(value.rule)
-      }
-
-      clearFormServerErrors(form)
-
-      const validation = validateRules(nextRules, serverTags, listOptions)
-      if (Object.keys(validation).length > 0) {
-        const currentIndex =
-          mode === "edit" ? parsedRuleIndex : nextRules.length - 1
-        const currentError = validation[currentIndex]
-        if (!currentError) {
-          return undefined
-        }
-
-        const fieldErrors: Record<string, string> = {}
-        if (currentError.server) {
-          fieldErrors[DNS_RULE_FIELD_NAMES.server] = currentError.server
-        }
-        if (currentError.lists) {
-          fieldErrors[DNS_RULE_FIELD_NAMES.lists] = currentError.lists
-        }
-
-        setFormServerErrors(form, {
-          form: currentError.duplicate,
-          fields: fieldErrors,
-        })
-        return {
-          form: currentError.duplicate,
-          fields: fieldErrors,
-        }
-      }
-
-      try {
-        await postConfigMutation.mutateAsync({
-          data: buildUpdatedConfigWithRules(
-            loadedConfig,
-            loadedConfig.dns?.fallback ?? [],
-            nextRules
-          ),
-        })
-        await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
-        toast.success(t("pages.dnsRuleUpsert.messages.saved"))
         clearFormServerErrors(form)
-        navigate("/dns-rules")
-        return undefined
-      } catch (error) {
-        const result = splitFormApiErrors({
-          error: error as ApiError,
-          fieldNames: Object.values(DNS_RULE_FIELD_NAMES),
-          resolvePath: resolveDnsRuleFieldPath,
-        })
 
-        setFormServerErrors(form, {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-          unmapped: result.unmappedErrors,
-        })
-        if (result.formError) {
-          toast.error(result.formError, { richColors: true })
+        const validation = validateRules(nextRules, serverTags, listOptions)
+        if (Object.keys(validation).length > 0) {
+          const currentIndex =
+            mode === "edit" ? parsedRuleIndex : nextRules.length - 1
+          const currentError = validation[currentIndex]
+          if (!currentError) {
+            return undefined
+          }
+
+          const fieldErrors: Record<string, string> = {}
+          if (currentError.server) {
+            fieldErrors[DNS_RULE_FIELD_NAMES.server] = currentError.server
+          }
+          if (currentError.lists) {
+            fieldErrors[DNS_RULE_FIELD_NAMES.lists] = currentError.lists
+          }
+
+          setFormServerErrors(form, {
+            form: currentError.duplicate,
+            fields: fieldErrors,
+          })
+          return {
+            form: currentError.duplicate,
+            fields: fieldErrors,
+          }
         }
 
-        return {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
+        try {
+          await postConfigMutation.mutateAsync({
+            data: buildUpdatedConfigWithRules(
+              loadedConfig,
+              loadedConfig.dns?.fallback ?? [],
+              nextRules
+            ),
+          })
+          await queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() })
+          toast.success(t("pages.dnsRuleUpsert.messages.saved"))
+          clearFormServerErrors(form)
+          navigate("/dns-rules")
+          return undefined
+        } catch (error) {
+          const result = splitFormApiErrors({
+            error: error as ApiError,
+            fieldNames: Object.values(DNS_RULE_FIELD_NAMES),
+            resolvePath: resolveDnsRuleFieldPath,
+          })
+
+          setFormServerErrors(form, {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+            unmapped: result.unmappedErrors,
+          })
+          if (result.formError) {
+            toast.error(result.formError, { richColors: true })
+          }
+
+          return {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+          }
         }
-      }
+      },
     },
   })
   const unmappedServerErrors = useStore(
@@ -460,6 +462,14 @@ function getFirstFieldError(errors: unknown[]) {
 }
 
 function resolveDnsRuleFieldPath(path: string): DnsRuleFieldName | undefined {
+  if (path === "dns.rules") {
+    return DNS_RULE_FIELD_NAMES.server
+  }
+
+  if (/^dns\.rules(?:\[\d+\]|\.\d+)?$/.test(path)) {
+    return DNS_RULE_FIELD_NAMES.server
+  }
+
   if (/^dns\.rules(?:\[\d+\]|\.\d+)?\.server$/.test(path)) {
     return DNS_RULE_FIELD_NAMES.server
   }

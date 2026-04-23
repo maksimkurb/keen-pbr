@@ -2,7 +2,7 @@ import { Plus } from "lucide-react"
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
 
-import { useForm } from "@tanstack/react-form"
+import { revalidateLogic, useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-store"
 import { useLocation } from "wouter"
@@ -236,88 +236,94 @@ function OutboundForm({
 
   const form = useForm({
     defaultValues: draft,
-    onSubmitAsync: async ({ value }) => {
-      clearFormServerErrors(form)
-      const duplicateTagError = validateTagUniqueness(
-        existingOutbounds,
-        value.tag,
-        mode === "edit" ? outboundId : undefined,
-        t
-      )
-      if (duplicateTagError) {
-        setFormServerErrors(form, {
-          fields: {
-            [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
-          },
-        })
-        return {
-          fields: {
-            [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
-          },
-        }
-      }
-
-      const payload = buildOutboundPayload(value)
-      const nextOutbounds =
-        mode === "create"
-          ? [...existingOutbounds, payload]
-          : existingOutbounds.map((outbound) =>
-              outbound.tag === outboundId ? payload : outbound
-            )
-
-      const urltestReferencesError = validateUrltestGroupReferences(
-        nextOutbounds,
-        t
-      )
-      if (urltestReferencesError) {
-        setFormServerErrors(form, {
-          form: urltestReferencesError,
-          fields: {},
-        })
-        return {
-          form: urltestReferencesError,
-          fields: {},
-        }
-      }
-
-      try {
-        await postConfigMutation.mutateAsync({
-          data: {
-            ...loadedConfig,
-            outbounds: nextOutbounds,
-          } satisfies ConfigObject,
-        })
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "change",
+    }),
+    validators: {
+      onSubmitAsync: async ({ value }) => {
         clearFormServerErrors(form)
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.healthService(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.healthRouting(),
-          }),
-        ])
-        navigate("/outbounds")
-        return undefined
-      } catch (error) {
-        const result = splitFormApiErrors({
-          error: error as ApiError,
-          fieldNames: Object.values(OUTBOUND_FIELD_NAMES),
-          resolvePath: (path) =>
-            resolveOutboundFieldPath(path, payload.tag || draft.tag),
-        })
-
-        setFormServerErrors(form, {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-          unmapped: result.unmappedErrors,
-        })
-
-        return {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
+        const duplicateTagError = validateTagUniqueness(
+          existingOutbounds,
+          value.tag,
+          mode === "edit" ? outboundId : undefined,
+          t
+        )
+        if (duplicateTagError) {
+          setFormServerErrors(form, {
+            fields: {
+              [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
+            },
+          })
+          return {
+            fields: {
+              [OUTBOUND_FIELD_NAMES.tag]: duplicateTagError,
+            },
+          }
         }
-      }
+
+        const payload = buildOutboundPayload(value)
+        const nextOutbounds =
+          mode === "create"
+            ? [...existingOutbounds, payload]
+            : existingOutbounds.map((outbound) =>
+                outbound.tag === outboundId ? payload : outbound
+              )
+
+        const urltestReferencesError = validateUrltestGroupReferences(
+          nextOutbounds,
+          t
+        )
+        if (urltestReferencesError) {
+          setFormServerErrors(form, {
+            form: urltestReferencesError,
+            fields: {},
+          })
+          return {
+            form: urltestReferencesError,
+            fields: {},
+          }
+        }
+
+        try {
+          await postConfigMutation.mutateAsync({
+            data: {
+              ...loadedConfig,
+              outbounds: nextOutbounds,
+            } satisfies ConfigObject,
+          })
+          clearFormServerErrors(form)
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.healthService(),
+            }),
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.healthRouting(),
+            }),
+          ])
+          navigate("/outbounds")
+          return undefined
+        } catch (error) {
+          const result = splitFormApiErrors({
+            error: error as ApiError,
+            fieldNames: Object.values(OUTBOUND_FIELD_NAMES),
+            resolvePath: (path) =>
+              resolveOutboundFieldPath(path, payload.tag || draft.tag),
+          })
+
+          setFormServerErrors(form, {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+            unmapped: result.unmappedErrors,
+          })
+
+          return {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+          }
+        }
+      },
     },
   })
 
@@ -375,13 +381,6 @@ function OutboundForm({
         <form.Field
           name={OUTBOUND_FIELD_NAMES.tag}
           validators={{
-            onMount: ({ value }) =>
-              getOutboundTagError(
-                value,
-                existingOutbounds,
-                mode === "edit" ? outboundId : undefined,
-                t
-              ) ?? undefined,
             onChange: ({ value }) =>
               getOutboundTagError(
                 value,
@@ -1243,6 +1242,10 @@ function resolveOutboundFieldPath(
   tag: string
 ): OutboundFieldName | undefined {
   const normalizedTag = tag.trim()
+  if (path === "outbounds") {
+    return OUTBOUND_FIELD_NAMES.tag
+  }
+
   if (!normalizedTag) {
     return undefined
   }

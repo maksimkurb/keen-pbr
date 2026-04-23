@@ -204,53 +204,55 @@ function ListForm({
   const postConfigMutation = usePostConfigMutation()
   const form = useForm({
     defaultValues: draft,
-    onSubmitAsync: async ({ value }) => {
-      clearFormServerErrors(form)
-      const updatedConfig = buildUpdatedConfigForListUpsert(
-        loadedConfig,
-        mode,
-        value,
-        listId
-      )
-
-      try {
-        await postConfigMutation.mutateAsync({ data: updatedConfig })
-        toast.success(
-          mode === "create"
-            ? t("pages.listUpsert.messages.created")
-            : t("pages.listUpsert.messages.updated")
-        )
+    validators: {
+      onSubmitAsync: async ({ value }) => {
         clearFormServerErrors(form)
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
-        ])
-        navigate("/lists")
-        return undefined
-      } catch (error) {
-        const apiError = error as ApiError
-        const result = splitFormApiErrors({
-          error: apiError,
-          fieldNames: Object.values(LIST_FIELD_NAMES),
-          resolvePath: (path) =>
-            resolveListFieldPath(path, value.name || draft.name),
-        })
+        const updatedConfig = buildUpdatedConfigForListUpsert(
+          loadedConfig,
+          mode,
+          value,
+          listId
+        )
 
-        setFormServerErrors(form, {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-          unmapped: result.unmappedErrors,
-        })
+        try {
+          await postConfigMutation.mutateAsync({ data: updatedConfig })
+          toast.success(
+            mode === "create"
+              ? t("pages.listUpsert.messages.created")
+              : t("pages.listUpsert.messages.updated")
+          )
+          clearFormServerErrors(form)
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.config() }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.dnsTest() }),
+          ])
+          navigate("/lists")
+          return undefined
+        } catch (error) {
+          const apiError = error as ApiError
+          const result = splitFormApiErrors({
+            error: apiError,
+            fieldNames: Object.values(LIST_FIELD_NAMES),
+            resolvePath: (path) =>
+              resolveListFieldPath(path, value.name || draft.name),
+          })
 
-        if (result.formError) {
-          toast.error(result.formError, { richColors: true })
+          setFormServerErrors(form, {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+            unmapped: result.unmappedErrors,
+          })
+
+          if (result.formError) {
+            toast.error(result.formError, { richColors: true })
+          }
+
+          return {
+            form: result.formError ?? undefined,
+            fields: result.fieldErrors,
+          }
         }
-
-        return {
-          form: result.formError ?? undefined,
-          fields: result.fieldErrors,
-        }
-      }
+      },
     },
   })
 
@@ -807,6 +809,10 @@ function resolveListFieldPath(
   const normalizedName = name.trim()
 
   if (path === "lists") {
+    return LIST_FIELD_NAMES.name
+  }
+
+  if (normalizedName && path === `lists.${normalizedName}`) {
     return LIST_FIELD_NAMES.name
   }
 
