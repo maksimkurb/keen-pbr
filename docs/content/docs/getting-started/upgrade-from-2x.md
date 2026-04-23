@@ -49,10 +49,6 @@ Then:
 Replace the config file with the converted output only after you have reviewed it.
 {{< /callout >}}
 
-{{< callout type="error" >}}
-**Known bug:** In Keenetic OS (NDMS) **2.x and lower**, using DNS server with `type="keenetic"` is crashing the app. This bug will be fixed in keen-pbr 3.0.1.
-{{< /callout >}}
-
 ## 4. Restart keen-pbr
 
 Restart the service after saving the config.
