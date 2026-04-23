@@ -121,14 +121,12 @@ jobs:
       - name: Checkout publish repository
         env:
           PUBLISH_REPOSITORY_TOKEN: ${{ secrets.publish_repository_token || secrets.PUBLISH_REPOSITORY_TOKEN }}
-          GIT_LFS_SKIP_SMUDGE: 1
         run: |
           set -euo pipefail
           : "${PUBLISH_REPOSITORY_TOKEN:?publish_repository_token or PUBLISH_REPOSITORY_TOKEN secret is required}"
           git clone --branch main --depth=1 --filter=blob:none --sparse \
             "https://x-access-token:${PUBLISH_REPOSITORY_TOKEN}@github.com/maksimkurb/keen-pbr-repository.git" \
             "$GITHUB_WORKSPACE/publish"
-          git -C "$GITHUB_WORKSPACE/publish" lfs install --local
           git -C "$GITHUB_WORKSPACE/publish" sparse-checkout set \
             "assets" \
             "keys" \
