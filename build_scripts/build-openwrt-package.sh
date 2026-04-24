@@ -14,6 +14,19 @@ FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
 KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
 FEED_UPDATE_RETRIES="${FEED_UPDATE_RETRIES:-3}"
 FEED_UPDATE_RETRY_DELAY="${FEED_UPDATE_RETRY_DELAY:-5}"
+BASE_FEED_PACKAGES=(
+    ca-bundle
+    dnsmasq-full
+    libmbedtls
+    libnl-core
+    libnl-route
+    libunwind
+    zlib
+)
+PACKAGES_FEED_PACKAGES=(
+    libcurl
+    libzstd
+)
 
 retry() {
     local attempts="${1:?attempt count required}"
@@ -54,6 +67,35 @@ update_feeds() {
     verify_feed_update
 }
 
+reset_feed_installs() {
+    rm -rf "$SDK_DIR/package/feeds"
+}
+
+install_required_feed_packages() {
+    local package
+
+    for package in "${BASE_FEED_PACKAGES[@]}"; do
+        ./scripts/feeds install -f -p base "$package"
+    done
+
+    for package in "${PACKAGES_FEED_PACKAGES[@]}"; do
+        ./scripts/feeds install -p packages "$package"
+    done
+}
+
+disable_sdk_kmod_defaults() {
+    local count
+
+    count="$(perl -0ne 'print scalar(() = $_ =~ /^config PACKAGE_kmod-[^\n]+\n\ttristate\n(?:\tdefault [^\n]+\n)+/mg)' "$SDK_DIR/Config-build.in")"
+    if [ "${count:-0}" -eq 0 ]; then
+        echo "[build-openwrt-package] Failed to locate hidden SDK kmod defaults in Config-build.in" >&2
+        return 1
+    fi
+
+    perl -0pi -e 's@(^config PACKAGE_kmod-[^\n]+\n\ttristate\n)(?:\tdefault [^\n]+\n)+@$1\tdefault n\n@mg' "$SDK_DIR/Config-build.in"
+    echo "[build-openwrt-package] Disabled hidden SDK kmod defaults in Config-build.in: $count"
+}
+
 bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
 cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"
@@ -64,7 +106,9 @@ retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
     echo "[build-openwrt-package] Feed update failed after $FEED_UPDATE_RETRIES attempts." >&2
     exit 1
 }
-./scripts/feeds install -a
+reset_feed_installs
+install_required_feed_packages
+disable_sdk_kmod_defaults
 
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig
