@@ -16,7 +16,7 @@ OPENWRT_TARGET        ?=
 OPENWRT_SUBTARGET     ?=
 OPENWRT_SDK_DIR       ?= /opt/openwrt-sdk
 OPENWRT_SDK_CACHE_DIR ?= $(HOME)/.cache/keen-pbr/openwrt-sdk
-OPENWRT_DOCKER_IMAGE  ?= keen-pbr-openwrt-builder:latest
+OPENWRT_DOCKER_IMAGE  ?= keen-pbr-openwrt-builder:sdk-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
 OPENWRT_DOCKER_CACHE_FROM ?=
 OPENWRT_DOCKER_CACHE_TO   ?=
 
@@ -38,10 +38,13 @@ openwrt-sdk-prepare: ## Download and prepare the OpenWrt SDK inside Docker (SDK 
 	fi
 	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)"
 	docker run --rm \
+	  --user "$$(id -u):$$(id -g)" \
+	  -e HOME=/tmp/keen-pbr-home \
 	  -v "$(abspath .):/workspace" \
 	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \
 	  bash -c 'set -e; \
+	    mkdir -p "$$HOME"; \
 	    umask 022; \
 	    bash /workspace/build_scripts/openwrt-sdk-setup.sh \
 	      "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" \
@@ -55,13 +58,16 @@ openwrt-packages: openwrt-sdk-prepare ## Build OpenWrt packages inside Docker co
 	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
 	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)" build/packages
 	docker run --rm \
+	  --user "$$(id -u):$$(id -g)" \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
 	  -e OPENWRT_APK_PRIVATE_KEY \
 	  -e KEEN_PBR_RELEASE_OVERRIDE="$(KEEN_PBR_RELEASE)" \
+	  -e HOME=/tmp/keen-pbr-home \
 	  -v "$(abspath .):/workspace" \
 	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \
 	  bash -c 'set -e; \
+	    mkdir -p "$$HOME"; \
 	    _SDK=$$(find "$(OPENWRT_SDK_DIR)" -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1); \
 	    test -n "$$_SDK" || { echo "ERROR: OpenWrt SDK not found in $(OPENWRT_SDK_DIR)"; exit 1; }; \
 	    bash /workspace/build_scripts/build-openwrt-package.sh /workspace "$$_SDK"; \

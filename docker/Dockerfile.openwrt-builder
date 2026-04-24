@@ -31,7 +31,14 @@ RUN apt-get update && \
       zstd && \
     rm -rf /var/lib/apt/lists/*
 
-ENV BUN_INSTALL=/root/.bun
+RUN mkdir -p /opt/bun /tmp/keen-pbr-home && \
+    chown -R 1000:1000 /opt/bun /tmp/keen-pbr-home
+
+ENV BUN_INSTALL=/opt/bun
+ENV HOME=/tmp/keen-pbr-home
 ENV PATH=${BUN_INSTALL}/bin:${PATH}
+
+USER 1000:1000
+WORKDIR /tmp/keen-pbr-home
 
 RUN curl -fsSL https://bun.sh/install | bash

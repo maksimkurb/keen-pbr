@@ -14,6 +14,7 @@ FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
 KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
 FEED_UPDATE_RETRIES="${FEED_UPDATE_RETRIES:-3}"
 FEED_UPDATE_RETRY_DELAY="${FEED_UPDATE_RETRY_DELAY:-5}"
+OPENWRT_BUILD_JOBS="${OPENWRT_BUILD_JOBS:--j1}"
 
 retry() {
     local attempts="${1:?attempt count required}"
@@ -54,6 +55,13 @@ update_feeds() {
     verify_feed_update
 }
 
+run_openwrt_make() {
+    IGNORE_ERRORS="n m" make "$@" V=s "$OPENWRT_BUILD_JOBS" \
+        KEEN_PBR_SRC="$WORKSPACE" \
+        KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
+        KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE"
+}
+
 bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
 cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"
@@ -66,14 +74,17 @@ retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
 }
 ./scripts/feeds install -a
 
+echo "[openwrt packages config start]"
+cat "$WORKSPACE/packages/openwrt/packages.config"
 cat "$WORKSPACE/packages/openwrt/packages.config" >> .config
+echo "[openwrt packages config end]"
 make defconfig
 
 echo "[openwrt config start]"
 cat .config
 echo "[openwrt config end]"
 
-make package/keen-pbr/compile V=s "-j1" IGNORE_ERRORS=1 \
-    KEEN_PBR_SRC="$WORKSPACE" \
-    KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
-    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE"
+echo "[build-openwrt-package] Building keen-pbr package in stages..."
+run_openwrt_make package/keen-pbr/download
+run_openwrt_make package/keen-pbr/prepare
+run_openwrt_make package/keen-pbr/compile
