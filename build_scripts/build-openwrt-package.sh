@@ -84,6 +84,9 @@ echo "[openwrt config start]"
 cat .config
 echo "[openwrt config end]"
 
+# Build linux, ignoring errors due to the flaky microchipsw/lan969x
+run_openwrt_make package/kernel/linux/compile || true
+
 echo "[build-openwrt-package] Building keen-pbr package in stages..."
 run_openwrt_make package/keen-pbr/download
 run_openwrt_make package/keen-pbr/prepare
