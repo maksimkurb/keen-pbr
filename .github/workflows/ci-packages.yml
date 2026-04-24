@@ -95,11 +95,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        openwrt_version: ["24.10.4", "25.12.2"]
+        build:
+          - openwrt_version: "24.10.6"
+            build_scope: custom
+            targets: mediatek
+            subtargets: filogic
+          - openwrt_version: "25.12.2"
+            build_scope: custom
+            targets: mediatek
+            subtargets: filogic
+          - openwrt_version: "25.12.2"
+            build_scope: custom
+            targets: microchipsw
+            subtargets: lan969x
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
-      build_scope: default
-      openwrt_version: ${{ matrix.openwrt_version }}
+      build_scope: ${{ matrix.build.build_scope }}
+      openwrt_version: ${{ matrix.build.openwrt_version }}
+      targets: ${{ matrix.build.targets }}
+      subtargets: ${{ matrix.build.subtargets }}
       frontend_artifact_name: frontend-dist
       use_signing_secrets: ${{ needs.prepare-frontend.outputs.use_signing_secrets == 'true' }}
     secrets: inherit
