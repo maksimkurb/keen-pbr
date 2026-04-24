@@ -68,6 +68,11 @@ retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
 
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig
+
+echo "[openwrt config start]"
+cat .config
+echo "[openwrt config end]"
+
 make package/keen-pbr/compile V=s "-j$(nproc)" \
     KEEN_PBR_SRC="$WORKSPACE" \
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
