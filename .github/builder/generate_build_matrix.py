@@ -57,10 +57,28 @@ def set_output(name, value):
         print(f"{name}={value}")
 
 
+def parse_csv_arg(index):
+    return [item for item in (sys.argv[index] if len(sys.argv) > index else "").split(",") if item]
+
+
+def parse_blacklist_arg(index):
+    blacklist_targets = set()
+    blacklist_pairs = set()
+    for item in parse_csv_arg(index):
+        if "/" in item:
+            target, subtarget = item.split("/", 1)
+            if target and subtarget:
+                blacklist_pairs.add((target, subtarget))
+        else:
+            blacklist_targets.add(item)
+    return blacklist_targets, blacklist_pairs
+
+
 def main():
     version = sys.argv[1] if len(sys.argv) > 1 else "24.10.4"
-    filter_targets = [item for item in (sys.argv[2] if len(sys.argv) > 2 else "").split(",") if item]
-    filter_subtargets = [item for item in (sys.argv[3] if len(sys.argv) > 3 else "").split(",") if item]
+    filter_targets = parse_csv_arg(2)
+    filter_subtargets = parse_csv_arg(3)
+    blacklist_targets, blacklist_pairs = parse_blacklist_arg(4)
 
     version_url = f"https://downloads.openwrt.org/releases/{version}/targets/"
     index_data = fetch_safe(version_url)
@@ -73,6 +91,8 @@ def main():
         for target in parse_links(index_data):
             if target_filter and target not in target_filter:
                 continue
+            if target in blacklist_targets:
+                continue
 
             target_data = fetch_safe(f"{version_url}{target}/")
             if not target_data:
@@ -80,6 +100,8 @@ def main():
 
             for subtarget in parse_links(target_data):
                 if subtarget_filter and subtarget not in subtarget_filter:
+                    continue
+                if (target, subtarget) in blacklist_pairs:
                     continue
 
                 subtarget_url = f"{version_url}{target}/{subtarget}/"
@@ -116,7 +138,7 @@ def main():
         return result
 
     builds = collect_builds(filter_targets, filter_subtargets)
-    if not builds and (filter_targets or filter_subtargets):
+    if not builds and (filter_targets or filter_subtargets) and not (blacklist_targets or blacklist_pairs):
         print(
             "No builds found for filtered targets/subtargets; retrying without target filters.",
             file=sys.stderr,

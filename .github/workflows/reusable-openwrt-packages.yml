@@ -18,6 +18,10 @@ on:
         required: false
         type: string
         default: ""
+      blacklist_arches:
+        required: false
+        type: string
+        default: "microchipsw/lan969x"
       frontend_artifact_name:
         required: false
         type: string
@@ -44,6 +48,7 @@ jobs:
           BUILD_SCOPE: ${{ inputs.build_scope }}
           INPUT_TARGETS: ${{ inputs.targets }}
           INPUT_SUBTARGETS: ${{ inputs.subtargets }}
+          INPUT_BLACKLIST_ARCHES: ${{ inputs.blacklist_arches }}
           OPENWRT_VERSION: ${{ inputs.openwrt_version }}
         run: |
           TARGETS="$INPUT_TARGETS"
@@ -52,7 +57,7 @@ jobs:
             TARGETS="mediatek"
             SUBTARGETS="filogic"
           fi
-          python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS"
+          python3 generate_build_matrix.py "$OPENWRT_VERSION" "$TARGETS" "$SUBTARGETS" "$INPUT_BLACKLIST_ARCHES"
 
   build:
     name: "build: ${{ matrix.build_env.target }}/${{ matrix.build_env.subtarget }}${{ matrix.build_env.pkgarch && format(' ({0})', matrix.build_env.pkgarch) || '' }}"

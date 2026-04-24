@@ -104,10 +104,6 @@ jobs:
             build_scope: custom
             targets: mediatek
             subtargets: filogic
-          - openwrt_version: "25.12.2"
-            build_scope: custom
-            targets: microchipsw
-            subtargets: lan969x
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       build_scope: ${{ matrix.build.build_scope }}
