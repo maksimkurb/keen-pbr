@@ -5,14 +5,16 @@ weight: 2
 
 keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.
 
-## 1. Check which package manager your OpenWrt version uses
+{{% steps %}}
+
+### Check which package manager your OpenWrt version uses
 
 The repository page automatically shows the correct flow for your target:
 
 - OpenWrt 25.x and newer: `apk`
 - OpenWrt 24.x and older: `opkg`
 
-## 2. Replace `dnsmasq` with `dnsmasq-full`
+### Replace `dnsmasq` with `dnsmasq-full`
 
 Install `dnsmasq-full` before installing keen-pbr:
 
@@ -30,11 +32,11 @@ opkg update && cd /tmp/ && opkg download dnsmasq-full
 opkg remove dnsmasq; opkg install dnsmasq-full --cache /tmp/; rm -f /tmp/dnsmasq-full*.ipk;
 ```
 
-## 3. Install from the repository page
+### Install from the repository page
 
-Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture:
+Open the repository instructions page, select **OpenWrt** in the OS selector on the left, and use the generated commands for your exact version and architecture: 
 
-{{< hextra/hero-button text="keen-pbr repository" link="https://repo.keen-pbr.fyi/repository/stable/?lang=en" >}}
+[{{< icon "server" >}} keen-pbr repository](https://repo.keen-pbr.fyi/repository/stable/?lang=en)
 
 Example install commands:
 
@@ -73,8 +75,12 @@ If you do not plan to use the keen-pbr Web UI or API, you can install the `keen-
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.
 {{< /callout >}}
 
-Next step: open [Quick Start](../quick-start/) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
+### Next steps
+
+Open [Quick Start](../quick-start/) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
 
 {{< callout type="info" >}}
 If pre-built packages are not yet available for your platform, see [Build from Source](../compilation/) to compile keen-pbr yourself.
 {{< /callout >}}
+
+{{% /steps %}}

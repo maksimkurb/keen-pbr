@@ -9,35 +9,112 @@ Start with the symptom that matches what you see. Each section begins with the s
 
 ## Service does not start
 
-1. Confirm that the config file exists in the usual place for your platform.
-    - For OpenWRT/Debian it's `/etc/keen-pbr/config.json`
-    - For Keentic/Netcraze it's `/opt/etc/keen-pbr/config.json`
-2. Restart the keen-pbr service.
-    - For OpenWRT/Debian, run `service keen-pbr restart`
-    - For Keentic/Netcraze, run `/opt/etc/init.d/S80keen-pbr restart`
-3. If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths.
-4. If you are using the full package, make sure you did not accidentally disable the service or repla ce the config with a headless-only example.
+Follow the checks for your platform:
+
+{{< tabs >}}
+{{< tab name="Keenetic / NetCraze" selected=true >}}
+1. Confirm that the config file exists: `/opt/etc/keen-pbr/config.json`
+2. Restart the `keen-pbr` service:
+   ```bash {filename="bash"}
+   /opt/etc/init.d/S80keen-pbr restart
+   ```
+3. Check whether `keen-pbr` is alive or dead:
+   ```bash {filename="bash"}
+   /opt/etc/init.d/S80keen-pbr status
+   ```
+4. Check whether `dnsmasq` is alive or dead:
+   ```bash {filename="bash"}
+   /opt/etc/init.d/S56dnsmasq status
+   ```
+5. Read the router logs and search for `keen-pbr` or `dnsmasq`:
+   ```bash {filename="bash"}
+   ndmc -c "show log once" | grep -E 'keen-pbr|dnsmasq'
+   ```
+{{< /tab >}}
+{{< tab name="OpenWrt" >}}
+1. Confirm that the config file exists: `/etc/keen-pbr/config.json`
+2. Restart the `keen-pbr` service:
+   ```bash {filename="bash"}
+   service keen-pbr restart
+   ```
+3. Check whether `keen-pbr` is alive or dead:
+   ```bash {filename="bash"}
+   service keen-pbr status
+   ```
+4. Check whether `dnsmasq` is alive or dead:
+   ```bash {filename="bash"}
+   service dnsmasq status
+   ```
+5. Read the router logs and search for `keen-pbr` or `dnsmasq`:
+   ```bash {filename="bash"}
+   logread | grep -E 'keen-pbr|dnsmasq'
+   ```
+{{< /tab >}}
+{{< tab name="Debian" >}}
+1. Confirm that the config file exists: `/etc/keen-pbr/config.json`
+2. Restart the `keen-pbr` service:
+   ```bash {filename="bash"}
+   service keen-pbr restart
+   ```
+3. Check whether `keen-pbr` is alive or dead:
+   ```bash {filename="bash"}
+   service keen-pbr status
+   ```
+4. Check whether `dnsmasq` is alive or dead:
+   ```bash {filename="bash"}
+   service dnsmasq status
+   ```
+5. Read the logs and search for `keen-pbr` or `dnsmasq`:
+   ```bash {filename="bash"}
+   journalctl -u keen-pbr -u dnsmasq
+   ```
+{{< /tab >}}
+{{< /tabs >}}
+
+#### Common tips
+- If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths.
+- If `keen-pbr` service is alive but you can't open WebUI, make sure you did not accidentally replace the config with a headless-only example (`api` section must exist in the `config.json`).
 
 {{% details title="Advanced checks" closed="true" %}}
 Use these if the service still will not start:
 
-1. Validate the JSON in your platform's config file, for example: `jq . /etc/keen-pbr/config.json`
+1. Validate the JSON in your platform's config file:
+
+{{< tabs >}}
+{{< tab name="Keenetic / NetCraze" selected=true >}}
+```bash {filename="bash"}
+jq . /opt/etc/keen-pbr/config.json
+```
+{{< /tab >}}
+{{< tab name="OpenWrt" >}}
+```bash {filename="bash"}
+jq . /etc/keen-pbr/config.json
+```
+{{< /tab >}}
+{{< tab name="Debian" >}}
+```bash {filename="bash"}
+jq . /etc/keen-pbr/config.json
+```
+{{< /tab >}}
+{{< /tabs >}}
+
 2. Make sure the directory for `daemon.pid_file` exists and is writable.
 3. Make sure `daemon.cache_dir` exists and is writable.
 4. If the API is enabled, make sure the configured listen address and port are not already in use.
+5. If `keen-pbr` or `dnsmasq` shows as `dead`, return to the logs and look for the first startup error before restarting again.
 {{% /details %}}
 
 ## Sites are not going through the VPN
 
-1. Make sure the site is in the correct list.
-2. Make sure the route rule for that list points to your VPN outbound.
-3. Make sure your VPN connection is actually up.
-4. Make sure the user device is using the router's DNS.
-    - Open `http://<router_ip>:12121/` and look at DNS Check widget. It should say "DNS request from the browser reached dnsmasq".
+1. Make sure the user device is using the router's DNS.
+    - Open `http://<router-ip>:12121/` and look at DNS Check widget. It should say "DNS request from the browser reached dnsmasq".
     - Alternatively, run this command from your PC: `nslookup check.keen.pbr`. It should return `127.0.0.88`.
-5. Run a routing test:
-    - Open `http://<router_ip>:12121/` scroll to the very bottom and enter `google.com` (or your IP/domain) into "Where does this traffic go?" widget.
+2. Run a routing test:
+    - Open `http://<router-ip>:12121/` and enter `google.com` (or your IP/domain) into "Where does this traffic go?" widget.
     - Alternatively, run this command from your router: `keen-pbr test-routing google.com`
+3. Make sure the domain/IP is in the correct list.
+4. Make sure the route rule for that list points to your VPN outbound.
+5. Make sure your VPN connection is actually up.
 
 If the expected and actual outbounds are different, the rule or DNS setup is not complete yet.
 

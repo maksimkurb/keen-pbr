@@ -57,25 +57,37 @@ params:
           url: "https://chatgpt.com/?hints=search&q=I%27m+looking+at+this+documentation%3A+{url}%0AHelp+me+understand+how+to+use+it."
 
 outputs:
+  home: [html, llms]
   page: [html, markdown]
   section: [html, rss, markdown]
 
 menu:
   main:
     - name: Docs
+      identifier: docs
       pageRef: /docs
-      weight: 1
+      weight: 10
+    
     - name: Search
-      weight: 2
+      weight: 20
       params:
         type: search
+    
     - name: GitHub
       url: https://github.com/maksimkurb/keen-pbr
-      weight: 3
+      weight: 30
       params:
         icon: github
+    
     - name: Telegram
       url: https://t.me/keen_pbr
-      weight: 4
+      weight: 40
       params:
         icon: telegram
+    
+    - name: Support this project
+      identifier: donate
+      pageRef: /docs/support-this-project
+      weight: 50
+      params:
+        icon: donate
