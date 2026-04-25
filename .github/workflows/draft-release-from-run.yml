@@ -106,13 +106,29 @@ jobs:
             cp "$asset" "release_assets/$asset_name"
           done
 
+      - name: Checkout repository metadata
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Prepare draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          name: ${{ inputs.release_name != '' && inputs.release_name || inputs.tag_name }}
+          draft: true
+          generate_release_notes: true
+
       - name: Publish draft release in batches
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ inputs.tag_name }}
           RELEASE_NAME: ${{ inputs.release_name != '' && inputs.release_name || inputs.tag_name }}
-          OVERWRITE_FILES: "false"
+          OVERWRITE_FILES: "true"
+          BATCH_SIZE: "100"
+          RETRY_SLEEP_SECONDS: "30"
+          MAX_ATTEMPTS: "3"
         run: |
           set -euo pipefail
 
@@ -124,17 +140,12 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release for tag $TAG_NAME already exists; uploading assets in batches"
-          else
-            gh release create "$TAG_NAME" \
-              --draft \
-              --title "$RELEASE_NAME" \
-              --generate-notes
-          fi
+          echo "Publishing release assets for ${RELEASE_NAME} (${TAG_NAME})"
+          gh release view "$TAG_NAME" >/dev/null
 
-          batch_size=100
-          sleep_seconds=30
+          batch_size="$BATCH_SIZE"
+          sleep_seconds="$RETRY_SLEEP_SECONDS"
+          max_attempts="$MAX_ATTEMPTS"
           total_files="${#asset_files[@]}"
           upload_flags=()
 
@@ -147,8 +158,23 @@ jobs:
             batch_number=$((start / batch_size + 1))
             batch_last_index=$((start + ${#batch[@]}))
 
-            echo "Uploading batch ${batch_number}: files $((start + 1))-${batch_last_index} of ${total_files}"
-            gh release upload "$TAG_NAME" "${batch[@]}" "${upload_flags[@]}"
+            attempt=1
+            while true; do
+              echo "Uploading batch ${batch_number}: files $((start + 1))-${batch_last_index} of ${total_files} (attempt ${attempt}/${max_attempts})"
+
+              if gh release upload "$TAG_NAME" "${batch[@]}" "${upload_flags[@]}"; then
+                break
+              fi
+
+              if (( attempt >= max_attempts )); then
+                echo "Batch ${batch_number} failed after ${max_attempts} attempts" >&2
+                exit 1
+              fi
+
+              echo "Batch ${batch_number} failed; waiting ${sleep_seconds} seconds before retry"
+              sleep "$sleep_seconds"
+              attempt=$((attempt + 1))
+            done
 
             if (( batch_last_index < total_files )); then
               echo "Waiting ${sleep_seconds} seconds before the next batch"
