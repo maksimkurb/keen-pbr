@@ -23,31 +23,40 @@
       <description>
         
         
-        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via the Entware &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
-&lt;h2&gt;1. Install Entware on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-install-entware-on-the-router&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;First, ensure Entware is installed on your router. Please consult the official router manual &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;for Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
+        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via Entware&amp;rsquo;s &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Install Entware on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-entware-on-the-router&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;First, ensure that Entware is installed on your router. Please consult the official router manual for &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Find your router&amp;rsquo;s manual.&lt;/li&gt;
 &lt;li&gt;In the search field, search for &amp;ldquo;Installing the Entware repository on a USB drive&amp;rdquo;.&lt;/li&gt;
 &lt;li&gt;Read and follow the instructions carefully.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2&gt;2. Install required components&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-install-required-components&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-install-required-components&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open your router configuration page, navigate to &lt;strong&gt;Management&lt;/strong&gt; -&amp;gt; &lt;strong&gt;System settings&lt;/strong&gt;, and install these additional components:&lt;/p&gt;
+&lt;h3&gt;Install required components&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-required-components&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-required-components&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open your router&amp;rsquo;s configuration page, navigate to &lt;strong&gt;Management&lt;/strong&gt; -&amp;gt; &lt;strong&gt;System settings&lt;/strong&gt;, and install the following additional components:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Network Functions / &lt;strong&gt;IPv6 Protocol&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Network Functions / &lt;strong&gt;IPv6 Protocol&lt;/strong&gt; (On NDMS 5.0+ is absent because it is a part of core now)&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Open Package System Support&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Netfilter Subsystem Kernel Modules&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Xtables-addons Extension Package for Netfilter&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-TLS proxy&lt;/strong&gt; (optional, but highly recommended)&lt;/li&gt;
+&lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-HTTPS proxy&lt;/strong&gt; (optional, but highly recommended)&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;3. Install from the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-from-the-repository&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-install-from-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; in the OS selector on the left, and use the generated commands:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
-&lt;p&gt;Example install command:&lt;/p&gt;
+&lt;h3&gt;Configure DoH/DoT on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-dohdot-on-the-router&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configure-dohdot-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;It is recommended to set up DoH/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.&lt;/p&gt;
+&lt;p&gt;Consult the official Keenetic documentation on how to do it: &lt;a href=&#34;https://support.keenetic.com/titan/kn-1811/en/25049.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;DoH and DoT proxy servers for DNS requests encryption&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Install &lt;code&gt;keen-pbr&lt;/code&gt; from the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-keen-pbr-from-the-repository&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-keen-pbr-from-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;Open &lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;keen-pbr repository page&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;Select &amp;ldquo;&lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt;&amp;rdquo; in the OS selector on the left, choose the &amp;ldquo;&lt;strong&gt;current&lt;/strong&gt;&amp;rdquo; version, and select the architecture that matches your router.
+&lt;ul&gt;
+&lt;li&gt;TIP: You can run &lt;code&gt;opkg print-architecture&lt;/code&gt; in an SSH session to see your router&amp;rsquo;s architecture.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Follow the instructions on the repository page carefully.&lt;/li&gt;
+&lt;li&gt;When you run the &lt;code&gt;opkg install keen-pbr&lt;/code&gt; command, the installation script will prompt you to confirm whether you want to replace your &lt;code&gt;dnsmasq&lt;/code&gt; file. If you are not sure, press &lt;kbd&gt;y&lt;/kbd&gt; and then &lt;kbd&gt;Enter&lt;/kbd&gt;.
+&lt;ul&gt;
+&lt;li&gt;Example install command:
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install keen-pbr
@@ -65,17 +74,17 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;After installing &lt;code&gt;keen-pbr&lt;/code&gt;, enable &lt;code&gt;dns-override&lt;/code&gt;:&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;Run the commands &lt;code&gt;opkg dns-override&lt;/code&gt; and &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Reboot the router. &lt;strong&gt;This is very important: without a reboot, the option will not work.&lt;/strong&gt;&lt;/li&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;The package installs its config at &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt; and enables the init script automatically.&lt;/p&gt;
-&lt;p&gt;Start the service:&lt;/p&gt;
+&lt;h3&gt;Ensure that &lt;code&gt;keen-pbr&lt;/code&gt; service is up and running&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;ensure-that-keen-pbr-service-is-up-and-running&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#ensure-that-keen-pbr-service-is-up-and-running&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Before continuing to the next step, it is recommended to check whether &lt;code&gt;keen-pbr&lt;/code&gt; started successfully and has not crashed. Run &lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;. If it is dead, see &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#service-does-not-start&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Example:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div&gt;&lt;pre&gt;&lt;code&gt;~ # /opt/etc/init.d/S80keen-pbr status
+ Checking keen-pbr...              alive.&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -87,31 +96,54 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Restart it after editing the config:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
+&lt;p&gt;If the service is &lt;strong&gt;alive&lt;/strong&gt;, continue to the next step.&lt;/p&gt;
+&lt;h3&gt;Enable &lt;code&gt;dns-override&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;enable-dns-override&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#enable-dns-override&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After installing &lt;code&gt;keen-pbr&lt;/code&gt;, you have to enable &lt;code&gt;dns-override&lt;/code&gt; so that all DNS requests from LAN clients are forwarded to Entware:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt; (if this link does not open, open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;/a&lt;/code&gt; instead)&lt;/li&gt;
+&lt;li&gt;Run the commands &lt;code&gt;opkg dns-override&lt;/code&gt; and then &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Reboot the router. &lt;strong&gt;&lt;em&gt;This is very important&lt;/em&gt;: without a reboot, the option will not become active.&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;Configure the service&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-the-service&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configure-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After you reboot the router, you can open &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).&lt;/p&gt;
+&lt;p&gt;You can also configure keen-pbr manually by modifying the configuration file: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Basic commands:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Action&lt;/th&gt;
+          &lt;th&gt;Command&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Start service&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr start&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Restart service&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Check if &lt;strong&gt;keen-pbr&lt;/strong&gt; alive&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Check if &lt;strong&gt;dnsmasq&lt;/strong&gt; alive&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S56dnsmasq status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, you can install the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package instead.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, consider installing the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package.
+It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Go to the &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; page and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest initial setup. If you installed the &lt;code&gt;headless&lt;/code&gt; version, see the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;/div&gt;
 
       </description>
     </item>
@@ -126,23 +158,22 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         
         &lt;p&gt;keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.&lt;/p&gt;
-&lt;h2&gt;1. Check which package manager your OpenWrt version uses&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-check-which-package-manager-your-openwrt-version-uses&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-check-which-package-manager-your-openwrt-version-uses&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The repository page automatically shows the correct flow for your target:&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Check which package manager your OpenWrt version uses&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;check-which-package-manager-your-openwrt-version-uses&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#check-which-package-manager-your-openwrt-version-uses&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;The repository page automatically shows the correct flow for your target:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;OpenWrt 25.x and newer: &lt;code&gt;apk&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;OpenWrt 24.x and older: &lt;code&gt;opkg&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;2. Replace &lt;code&gt;dnsmasq&lt;/code&gt; with &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-replace-dnsmasq-with-dnsmasq-full&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-replace-dnsmasq-with-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Install &lt;code&gt;dnsmasq-full&lt;/code&gt; before installing keen-pbr:&lt;/p&gt;
+&lt;h3&gt;Replace &lt;code&gt;dnsmasq&lt;/code&gt; with &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;replace-dnsmasq-with-dnsmasq-full&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#replace-dnsmasq-with-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Install &lt;code&gt;dnsmasq-full&lt;/code&gt; before installing keen-pbr:&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;OpenWrt 25.x and newer also need &lt;code&gt;dnsmasq-full&lt;/code&gt; instead of the default &lt;code&gt;dnsmasq&lt;/code&gt;.
 I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt 25.x and newer&lt;/span&gt;
@@ -162,14 +193,10 @@ I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact rep
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;h2&gt;3. Install from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-from-the-repository-page&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-install-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;OpenWrt&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your exact version and architecture:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
+&lt;h3&gt;Install from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-from-the-repository-page&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;OpenWrt&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your exact version and architecture:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;span class=&#34;hx:inline-block hx:align-text-bottom hextra-icon&#34;&gt;&lt;svg height=1em xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01&#34;/&gt;&lt;/svg&gt;&lt;/span&gt;
+keen-pbr repository&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Example install commands:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -231,22 +258,20 @@ I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact rep
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, you can install the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package instead.
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>
@@ -261,17 +286,13 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         
         &lt;p&gt;keen-pbr can be installed on Debian systems from the keen-pbr APT repository.&lt;/p&gt;
-&lt;h2&gt;1. Add the repository from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-add-the-repository-from-the-repository-page&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-add-the-repository-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Debian&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your release and architecture:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Add the repository from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;add-the-repository-from-the-repository-page&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#add-the-repository-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Debian&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your release and architecture:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;keen-pbr repository&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;The generated instructions include the signing key and the &lt;code&gt;apt&lt;/code&gt; source entry.&lt;/p&gt;
-&lt;h2&gt;2. Install the package&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-install-the-package&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-install-the-package&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Example install command:&lt;/p&gt;
+&lt;h3&gt;Install the package&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-the-package&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-the-package&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Example install command:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apt update
@@ -311,21 +332,19 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>

@@ -54,7 +54,24 @@
         
         &lt;p&gt;This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.&lt;/p&gt;
 &lt;p&gt;If you installed the full package, the Web UI is the easiest place to start. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt; or prefer editing files directly, use the JSON / CLI tab.&lt;/p&gt;
+&lt;p&gt;To complete your minimal installation you will need to configure the following things:&lt;/p&gt;
+&lt;div role=&#34;img&#34; aria-label=&#34;Diagram&#34;&gt;
+  &lt;pre class=&#34;mermaid hx:mt-6&#34;&gt;
+    
+graph LR;
+    classDef default font-size:16pt;
 
+    A[&amp;#34;1. Add outbounds&amp;#34;]
+    B[&amp;#34;`2. Add lists
+(optional)`&amp;#34;]
+    C[&amp;#34;3. Configure DNS servers&amp;#34;]
+    D[&amp;#34;4. Add routing rules&amp;#34;]
+
+    A==&amp;gt;B;
+    B==&amp;gt;C;
+    C==&amp;gt;D;
+  &lt;/pre&gt;
+&lt;/div&gt;
 
 
 &lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
@@ -80,7 +97,13 @@
     &lt;/figure&gt;
 &lt;/p&gt;
 &lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;&lt;h3&gt;Open the Web UI&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;open-the-web-ui&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#open-the-web-ui&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; in your browser. On Keenetic / NetCraze you can also open &lt;code&gt;http://my.keenetic.net:12121/&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#open-the-web-ui&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; in your browser (replace &lt;code&gt;&amp;lt;router-ip&amp;gt;&lt;/code&gt; with your router IP address).&lt;/p&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Tip: On Keenetic / NetCraze you can also open &lt;a href=&#34;http://my.keenetic.net:12121/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121/&lt;/a&gt;.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
 &lt;h3&gt;Create the outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;create-the-outbounds&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#create-the-outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Go to &lt;strong&gt;Outbounds&lt;/strong&gt; and create these two entries:&lt;/p&gt;
 &lt;ol&gt;

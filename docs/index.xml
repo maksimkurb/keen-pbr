@@ -458,31 +458,40 @@
       <description>
         
         
-        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via the Entware &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
-&lt;h2&gt;1. Install Entware on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-install-entware-on-the-router&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;First, ensure Entware is installed on your router. Please consult the official router manual &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;for Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
+        &lt;p&gt;keen-pbr can be installed on Keenetic / NetCraze routers via Entware&amp;rsquo;s &lt;code&gt;opkg&lt;/code&gt; package manager.&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Install Entware on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-entware-on-the-router&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-entware-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;First, ensure that Entware is installed on your router. Please consult the official router manual for &lt;a href=&#34;https://support.keenetic.com/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic&lt;/a&gt; or &lt;a href=&#34;https://support.netcraze.ru/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Find your router&amp;rsquo;s manual.&lt;/li&gt;
 &lt;li&gt;In the search field, search for &amp;ldquo;Installing the Entware repository on a USB drive&amp;rdquo;.&lt;/li&gt;
 &lt;li&gt;Read and follow the instructions carefully.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2&gt;2. Install required components&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-install-required-components&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-install-required-components&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open your router configuration page, navigate to &lt;strong&gt;Management&lt;/strong&gt; -&amp;gt; &lt;strong&gt;System settings&lt;/strong&gt;, and install these additional components:&lt;/p&gt;
+&lt;h3&gt;Install required components&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-required-components&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-required-components&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open your router&amp;rsquo;s configuration page, navigate to &lt;strong&gt;Management&lt;/strong&gt; -&amp;gt; &lt;strong&gt;System settings&lt;/strong&gt;, and install the following additional components:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Network Functions / &lt;strong&gt;IPv6 Protocol&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Network Functions / &lt;strong&gt;IPv6 Protocol&lt;/strong&gt; (On NDMS 5.0+ is absent because it is a part of core now)&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Open Package System Support&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Netfilter Subsystem Kernel Modules&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;OPKG Packages / &lt;strong&gt;Xtables-addons Extension Package for Netfilter&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-TLS proxy&lt;/strong&gt; (optional, but highly recommended)&lt;/li&gt;
+&lt;li&gt;Utilities and services / &lt;strong&gt;DNS-over-HTTPS proxy&lt;/strong&gt; (optional, but highly recommended)&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;3. Install from the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-from-the-repository&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-install-from-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; in the OS selector on the left, and use the generated commands:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
-&lt;p&gt;Example install command:&lt;/p&gt;
+&lt;h3&gt;Configure DoH/DoT on the router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-dohdot-on-the-router&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configure-dohdot-on-the-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;It is recommended to set up DoH/DoT DNS servers on your router to protect yourself from DNS spoofing attacks.&lt;/p&gt;
+&lt;p&gt;Consult the official Keenetic documentation on how to do it: &lt;a href=&#34;https://support.keenetic.com/titan/kn-1811/en/25049.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;DoH and DoT proxy servers for DNS requests encryption&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Install &lt;code&gt;keen-pbr&lt;/code&gt; from the repository&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-keen-pbr-from-the-repository&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-keen-pbr-from-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;Open &lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;keen-pbr repository page&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;Select &amp;ldquo;&lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt;&amp;rdquo; in the OS selector on the left, choose the &amp;ldquo;&lt;strong&gt;current&lt;/strong&gt;&amp;rdquo; version, and select the architecture that matches your router.
+&lt;ul&gt;
+&lt;li&gt;TIP: You can run &lt;code&gt;opkg print-architecture&lt;/code&gt; in an SSH session to see your router&amp;rsquo;s architecture.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Follow the instructions on the repository page carefully.&lt;/li&gt;
+&lt;li&gt;When you run the &lt;code&gt;opkg install keen-pbr&lt;/code&gt; command, the installation script will prompt you to confirm whether you want to replace your &lt;code&gt;dnsmasq&lt;/code&gt; file. If you are not sure, press &lt;kbd&gt;y&lt;/kbd&gt; and then &lt;kbd&gt;Enter&lt;/kbd&gt;.
+&lt;ul&gt;
+&lt;li&gt;Example install command:
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install keen-pbr
@@ -500,17 +509,17 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;After installing &lt;code&gt;keen-pbr&lt;/code&gt;, enable &lt;code&gt;dns-override&lt;/code&gt;:&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;Run the commands &lt;code&gt;opkg dns-override&lt;/code&gt; and &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Reboot the router. &lt;strong&gt;This is very important: without a reboot, the option will not work.&lt;/strong&gt;&lt;/li&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;The package installs its config at &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt; and enables the init script automatically.&lt;/p&gt;
-&lt;p&gt;Start the service:&lt;/p&gt;
+&lt;h3&gt;Ensure that &lt;code&gt;keen-pbr&lt;/code&gt; service is up and running&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;ensure-that-keen-pbr-service-is-up-and-running&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#ensure-that-keen-pbr-service-is-up-and-running&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Before continuing to the next step, it is recommended to check whether &lt;code&gt;keen-pbr&lt;/code&gt; started successfully and has not crashed. Run &lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;. If it is dead, see &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/#service-does-not-start&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Example:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div&gt;&lt;pre&gt;&lt;code&gt;~ # /opt/etc/init.d/S80keen-pbr status
+ Checking keen-pbr...              alive.&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -522,31 +531,54 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Restart it after editing the config:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
+&lt;p&gt;If the service is &lt;strong&gt;alive&lt;/strong&gt;, continue to the next step.&lt;/p&gt;
+&lt;h3&gt;Enable &lt;code&gt;dns-override&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;enable-dns-override&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#enable-dns-override&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After installing &lt;code&gt;keen-pbr&lt;/code&gt;, you have to enable &lt;code&gt;dns-override&lt;/code&gt; so that all DNS requests from LAN clients are forwarded to Entware:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Open &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt; (if this link does not open, open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;/a&lt;/code&gt; instead)&lt;/li&gt;
+&lt;li&gt;Run the commands &lt;code&gt;opkg dns-override&lt;/code&gt; and then &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Reboot the router. &lt;strong&gt;&lt;em&gt;This is very important&lt;/em&gt;: without a reboot, the option will not become active.&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;Configure the service&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;configure-the-service&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#configure-the-service&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;After you reboot the router, you can open &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; to configure keen-pbr (if you installed the full version; the headless version does not provide a Web UI).&lt;/p&gt;
+&lt;p&gt;You can also configure keen-pbr manually by modifying the configuration file: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Basic commands:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Action&lt;/th&gt;
+          &lt;th&gt;Command&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Start service&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr start&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Restart service&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Check if &lt;strong&gt;keen-pbr&lt;/strong&gt; alive&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Check if &lt;strong&gt;dnsmasq&lt;/strong&gt; alive&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S56dnsmasq status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, you can install the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package instead.
-It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, consider installing the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package.
+It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. You can also disable the API server at any time via a config flag, even when using the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Go to the &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; page and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest initial setup. If you installed the &lt;code&gt;headless&lt;/code&gt; version, see the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;/div&gt;
 
       </description>
     </item>
@@ -1411,23 +1443,22 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         
         &lt;p&gt;keen-pbr can be installed on OpenWrt routers from the keen-pbr package repository.&lt;/p&gt;
-&lt;h2&gt;1. Check which package manager your OpenWrt version uses&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-check-which-package-manager-your-openwrt-version-uses&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-check-which-package-manager-your-openwrt-version-uses&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The repository page automatically shows the correct flow for your target:&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Check which package manager your OpenWrt version uses&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;check-which-package-manager-your-openwrt-version-uses&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#check-which-package-manager-your-openwrt-version-uses&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;The repository page automatically shows the correct flow for your target:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;OpenWrt 25.x and newer: &lt;code&gt;apk&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;OpenWrt 24.x and older: &lt;code&gt;opkg&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;2. Replace &lt;code&gt;dnsmasq&lt;/code&gt; with &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-replace-dnsmasq-with-dnsmasq-full&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-replace-dnsmasq-with-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Install &lt;code&gt;dnsmasq-full&lt;/code&gt; before installing keen-pbr:&lt;/p&gt;
+&lt;h3&gt;Replace &lt;code&gt;dnsmasq&lt;/code&gt; with &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;replace-dnsmasq-with-dnsmasq-full&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#replace-dnsmasq-with-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Install &lt;code&gt;dnsmasq-full&lt;/code&gt; before installing keen-pbr:&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;OpenWrt 25.x and newer also need &lt;code&gt;dnsmasq-full&lt;/code&gt; instead of the default &lt;code&gt;dnsmasq&lt;/code&gt;.
 I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt 25.x and newer&lt;/span&gt;
@@ -1447,14 +1478,10 @@ I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact rep
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;h2&gt;3. Install from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-install-from-the-repository-page&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-install-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;OpenWrt&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your exact version and architecture:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
+&lt;h3&gt;Install from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-from-the-repository-page&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;OpenWrt&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your exact version and architecture:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;span class=&#34;hx:inline-block hx:align-text-bottom hextra-icon&#34;&gt;&lt;svg height=1em xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01&#34;/&gt;&lt;/svg&gt;&lt;/span&gt;
+keen-pbr repository&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Example install commands:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -1516,22 +1543,20 @@ I do not have an &lt;code&gt;apk&lt;/code&gt;-based router to test the exact rep
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, you can install the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package instead.
 It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>
@@ -1547,7 +1572,24 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
         
         &lt;p&gt;This guide helps you finish a first working setup that sends selected sites through a VPN while everything else keeps using the normal connection.&lt;/p&gt;
 &lt;p&gt;If you installed the full package, the Web UI is the easiest place to start. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt; or prefer editing files directly, use the JSON / CLI tab.&lt;/p&gt;
+&lt;p&gt;To complete your minimal installation you will need to configure the following things:&lt;/p&gt;
+&lt;div role=&#34;img&#34; aria-label=&#34;Diagram&#34;&gt;
+  &lt;pre class=&#34;mermaid hx:mt-6&#34;&gt;
+    
+graph LR;
+    classDef default font-size:16pt;
 
+    A[&amp;#34;1. Add outbounds&amp;#34;]
+    B[&amp;#34;`2. Add lists
+(optional)`&amp;#34;]
+    C[&amp;#34;3. Configure DNS servers&amp;#34;]
+    D[&amp;#34;4. Add routing rules&amp;#34;]
+
+    A==&amp;gt;B;
+    B==&amp;gt;C;
+    C==&amp;gt;D;
+  &lt;/pre&gt;
+&lt;/div&gt;
 
 
 &lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
@@ -1573,7 +1615,13 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
     &lt;/figure&gt;
 &lt;/p&gt;
 &lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;&lt;h3&gt;Open the Web UI&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;open-the-web-ui&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#open-the-web-ui&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; in your browser. On Keenetic / NetCraze you can also open &lt;code&gt;http://my.keenetic.net:12121/&lt;/code&gt;.&lt;/p&gt;
+    &lt;a href=&#34;#open-the-web-ui&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; in your browser (replace &lt;code&gt;&amp;lt;router-ip&amp;gt;&lt;/code&gt; with your router IP address).&lt;/p&gt;
+&lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
+  &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Tip: On Keenetic / NetCraze you can also open &lt;a href=&#34;http://my.keenetic.net:12121/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121/&lt;/a&gt;.&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
 &lt;h3&gt;Create the outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;create-the-outbounds&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#create-the-outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Go to &lt;strong&gt;Outbounds&lt;/strong&gt; and create these two entries:&lt;/p&gt;
 &lt;ol&gt;
@@ -1840,17 +1888,13 @@ If you route traffic to this table, it would follow your system default routes.&
         
         
         &lt;p&gt;keen-pbr can be installed on Debian systems from the keen-pbr APT repository.&lt;/p&gt;
-&lt;h2&gt;1. Add the repository from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-add-the-repository-from-the-repository-page&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-add-the-repository-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Debian&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your release and architecture:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Add the repository from the repository page&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;add-the-repository-from-the-repository-page&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#add-the-repository-from-the-repository-page&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Debian&lt;/strong&gt; in the OS selector on the left, and use the generated commands for your release and architecture:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;keen-pbr repository&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;The generated instructions include the signing key and the &lt;code&gt;apt&lt;/code&gt; source entry.&lt;/p&gt;
-&lt;h2&gt;2. Install the package&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-install-the-package&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-install-the-package&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Example install command:&lt;/p&gt;
+&lt;h3&gt;Install the package&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;install-the-package&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#install-the-package&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Example install command:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apt update
@@ -1890,21 +1934,19 @@ If you route traffic to this table, it would follow your system default routes.&
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If you do not plan to use the keen-pbr Web UI or API, the &lt;code&gt;keen-pbr-headless&lt;/code&gt; package uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the API server at all. Also, you can disable API server via config flag at any time on the full package version.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Next step: open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
+&lt;h3&gt;Next steps&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;next-steps&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#next-steps&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; and use the &lt;strong&gt;Web UI&lt;/strong&gt; tab for the easiest first setup. If you installed &lt;code&gt;keen-pbr-headless&lt;/code&gt;, use the &lt;strong&gt;JSON / CLI&lt;/strong&gt; tab instead.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>
@@ -4690,22 +4732,222 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
         
         &lt;p&gt;Start with the symptom that matches what you see. Each section begins with the simplest checks first, then gives more advanced checks if you still need them.&lt;/p&gt;
 &lt;h2&gt;Service does not start&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;service-does-not-start&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#service-does-not-start&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
-&lt;li&gt;Confirm that the config file exists in the usual place for your platform.
-&lt;ul&gt;
-&lt;li&gt;For OpenWRT/Debian it&amp;rsquo;s &lt;code&gt;/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;For Keentic/Netcraze it&amp;rsquo;s &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
+    &lt;a href=&#34;#service-does-not-start&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Follow the checks for your platform:&lt;/p&gt;
+
+
+
+
+&lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
+  &lt;div class=&#34;hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800&#34; role=&#34;tablist&#34; data-tab-group=&#34;Keenetic / NetCraze,OpenWrt,Debian&#34;&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-0&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-0&#34; aria-selected=&#34;true&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Keenetic / NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-1&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-1&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-2&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-2&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-0&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-0&#34; aria-hidden=&#34;false&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;ol&gt;
+&lt;li&gt;Confirm that the config file exists: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Restart the &lt;code&gt;keen-pbr&lt;/code&gt; service:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;/li&gt;
-&lt;li&gt;Restart the keen-pbr service.
-&lt;ul&gt;
-&lt;li&gt;For OpenWRT/Debian, run &lt;code&gt;service keen-pbr restart&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;For Keentic/Netcraze, run &lt;code&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
+&lt;li&gt;Check whether &lt;code&gt;keen-pbr&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
 &lt;/li&gt;
-&lt;li&gt;If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths.&lt;/li&gt;
-&lt;li&gt;If you are using the full package, make sure you did not accidentally disable the service or repla ce the config with a headless-only example.&lt;/li&gt;
+&lt;li&gt;Check whether &lt;code&gt;dnsmasq&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S56dnsmasq status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Read the router logs and search for &lt;code&gt;keen-pbr&lt;/code&gt; or &lt;code&gt;dnsmasq&lt;/code&gt;:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ndmc -c &lt;span class=&#34;s2&#34;&gt;&amp;#34;show log once&amp;#34;&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;|&lt;/span&gt; grep -E &lt;span class=&#34;s1&#34;&gt;&amp;#39;keen-pbr|dnsmasq&amp;#39;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-1&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-1&#34; aria-hidden=&#34;true&#34;&gt;&lt;ol&gt;
+&lt;li&gt;Confirm that the config file exists: &lt;code&gt;/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Restart the &lt;code&gt;keen-pbr&lt;/code&gt; service:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Check whether &lt;code&gt;keen-pbr&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Check whether &lt;code&gt;dnsmasq&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service dnsmasq status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Read the router logs and search for &lt;code&gt;keen-pbr&lt;/code&gt; or &lt;code&gt;dnsmasq&lt;/code&gt;:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;logread &lt;span class=&#34;p&#34;&gt;|&lt;/span&gt; grep -E &lt;span class=&#34;s1&#34;&gt;&amp;#39;keen-pbr|dnsmasq&amp;#39;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-2&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-2&#34; aria-hidden=&#34;true&#34;&gt;&lt;ol&gt;
+&lt;li&gt;Confirm that the config file exists: &lt;code&gt;/etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Restart the &lt;code&gt;keen-pbr&lt;/code&gt; service:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Check whether &lt;code&gt;keen-pbr&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service keen-pbr status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Check whether &lt;code&gt;dnsmasq&lt;/code&gt; is alive or dead:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;service dnsmasq status&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;li&gt;Read the logs and search for &lt;code&gt;keen-pbr&lt;/code&gt; or &lt;code&gt;dnsmasq&lt;/code&gt;:
+&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;journalctl -u keen-pbr -u dnsmasq&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4&gt;Common tips&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;common-tips&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#common-tips&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths.&lt;/li&gt;
+&lt;li&gt;If &lt;code&gt;keen-pbr&lt;/code&gt; service is alive but you can&amp;rsquo;t open WebUI, make sure you did not accidentally replace the config with a headless-only example (&lt;code&gt;api&lt;/code&gt; section must exist in the &lt;code&gt;config.json&lt;/code&gt;).&lt;/li&gt;
+&lt;/ul&gt;
 &lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; &gt;
   &lt;summary class=&#34;hx:flex hx:items-center hx:cursor-pointer hx:select-none hx:list-none hx:p-1 hx:rounded-sm hx:transition-colors hx:hover:bg-gray-100 hx:dark:hover:bg-neutral-800 hx:before:mr-1 hx:before:inline-block hx:before:transition-transform hx:before:content-[&#39;&#39;] hx:dark:before:invert hx:rtl:before:rotate-180 hx:group-open:before:rotate-90&#34;&gt;
     &lt;strong class=&#34;hx:text-lg&#34;&gt;Advanced checks&lt;/strong&gt;
@@ -4713,30 +4955,76 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
   &lt;div class=&#34;hx:p-2 hx:overflow-hidden&#34;&gt;
     &lt;p&gt;Use these if the service still will not start:&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;Validate the JSON in your platform&amp;rsquo;s config file, for example: &lt;code&gt;jq . /etc/keen-pbr/config.json&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Validate the JSON in your platform&amp;rsquo;s config file:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;hextra-scrollbar hx:overflow-x-auto hx:overflow-y-hidden hx:overscroll-x-contain&#34;&gt;
+  &lt;div class=&#34;hx:mt-4 hx:flex hx:w-max hx:min-w-full hx:border-b hx:border-gray-200 hx:pb-px hx:dark:border-neutral-800&#34; role=&#34;tablist&#34; data-tab-group=&#34;Keenetic / NetCraze,OpenWrt,Debian&#34;&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-0&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-0&#34; aria-selected=&#34;true&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Keenetic / NetCraze&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-1&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-1&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;OpenWrt&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button class=&#34;hextra-tabs-toggle hx:cursor-pointer hx:data-[state=selected]:border-primary-500 hx:data-[state=selected]:text-primary-600 hx:data-[state=selected]:dark:border-primary-500 hx:data-[state=selected]:dark:text-primary-600 hx:mr-2 hx:rounded-t hx:p-2 hx:font-medium hx:leading-5 hx:transition-colors hx:-mb-0.5 hx:select-none hx:border-b-2 hx:border-transparent hx:text-gray-600 hx:hover:border-gray-200 hx:hover:text-black hx:dark:text-gray-200 hx:dark:hover:border-neutral-800 hx:dark:hover:text-white hx:hextra-focus-visible-inset&#34; id=&#34;tabs-tab-tabs-00-2&#34; role=&#34;tab&#34; type=&#34;button&#34; aria-controls=&#34;tabs-panel-tabs-00-2&#34; aria-selected=&#34;false&#34; tabindex=&#34;-1&#34;&gt;&lt;span class=&#34;hx:inline-flex hx:items-center hx:gap-1.5&#34;&gt;&lt;span&gt;Debian&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-0&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-0&#34; aria-hidden=&#34;false&#34; tabindex=&#34;0&#34; data-state=&#34;selected&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;jq . /opt/etc/keen-pbr/config.json&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-1&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-1&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;jq . /etc/keen-pbr/config.json&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;div class=&#34;hextra-tabs-panel hx:rounded-sm hx:pt-6 hx:hidden hx:data-[state=selected]:block&#34; id=&#34;tabs-panel-tabs-00-2&#34; role=&#34;tabpanel&#34; aria-labelledby=&#34;tabs-tab-tabs-00-2&#34; aria-hidden=&#34;true&#34;&gt;&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;jq . /etc/keen-pbr/config.json&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+  &lt;button
+    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
+    title=&#34;Copy code&#34;
+    aria-label=&#34;Copy code&#34;
+    data-copied-label=&#34;Copied!&#34;
+  &gt;
+    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
+  &lt;/button&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;ol start=&#34;2&#34;&gt;
 &lt;li&gt;Make sure the directory for &lt;code&gt;daemon.pid_file&lt;/code&gt; exists and is writable.&lt;/li&gt;
 &lt;li&gt;Make sure &lt;code&gt;daemon.cache_dir&lt;/code&gt; exists and is writable.&lt;/li&gt;
 &lt;li&gt;If the API is enabled, make sure the configured listen address and port are not already in use.&lt;/li&gt;
+&lt;li&gt;If &lt;code&gt;keen-pbr&lt;/code&gt; or &lt;code&gt;dnsmasq&lt;/code&gt; shows as &lt;code&gt;dead&lt;/code&gt;, return to the logs and look for the first startup error before restarting again.&lt;/li&gt;
 &lt;/ol&gt;
   &lt;/div&gt;
 &lt;/details&gt;
 &lt;h2&gt;Sites are not going through the VPN&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;sites-are-not-going-through-the-vpn&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#sites-are-not-going-through-the-vpn&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
-&lt;li&gt;Make sure the site is in the correct list.&lt;/li&gt;
-&lt;li&gt;Make sure the route rule for that list points to your VPN outbound.&lt;/li&gt;
-&lt;li&gt;Make sure your VPN connection is actually up.&lt;/li&gt;
 &lt;li&gt;Make sure the user device is using the router&amp;rsquo;s DNS.
 &lt;ul&gt;
-&lt;li&gt;Open &lt;code&gt;http://&amp;lt;router_ip&amp;gt;:12121/&lt;/code&gt; and look at DNS Check widget. It should say &amp;ldquo;DNS request from the browser reached dnsmasq&amp;rdquo;.&lt;/li&gt;
+&lt;li&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; and look at DNS Check widget. It should say &amp;ldquo;DNS request from the browser reached dnsmasq&amp;rdquo;.&lt;/li&gt;
 &lt;li&gt;Alternatively, run this command from your PC: &lt;code&gt;nslookup check.keen.pbr&lt;/code&gt;. It should return &lt;code&gt;127.0.0.88&lt;/code&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;Run a routing test:
 &lt;ul&gt;
-&lt;li&gt;Open &lt;code&gt;http://&amp;lt;router_ip&amp;gt;:12121/&lt;/code&gt; scroll to the very bottom and enter &lt;code&gt;google.com&lt;/code&gt; (or your IP/domain) into &amp;ldquo;Where does this traffic go?&amp;rdquo; widget.&lt;/li&gt;
+&lt;li&gt;Open &lt;code&gt;http://&amp;lt;router-ip&amp;gt;:12121/&lt;/code&gt; and enter &lt;code&gt;google.com&lt;/code&gt; (or your IP/domain) into &amp;ldquo;Where does this traffic go?&amp;rdquo; widget.&lt;/li&gt;
 &lt;li&gt;Alternatively, run this command from your router: &lt;code&gt;keen-pbr test-routing google.com&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
+&lt;li&gt;Make sure the domain/IP is in the correct list.&lt;/li&gt;
+&lt;li&gt;Make sure the route rule for that list points to your VPN outbound.&lt;/li&gt;
+&lt;li&gt;Make sure your VPN connection is actually up.&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;If the expected and actual outbounds are different, the rule or DNS setup is not complete yet.&lt;/p&gt;
 &lt;details class=&#34;hx:last-of-type:mb-0 hx:rounded-lg hx:bg-neutral-50 hx:dark:bg-neutral-800 hx:p-2 hx:mt-4 hx:group&#34; &gt;
@@ -4980,8 +5268,43 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
         
         
         &lt;p&gt;If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:&lt;/p&gt;
-&lt;p&gt;&lt;a href=&#34;https://ko-fi.com/keen_pbr&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/ko--fi-Donate-lightgreen?style=for-the-badge&amp;amp;logo=ko-fi&amp;amp;logoColor=FF6433&amp;amp;labelColor=white&#34; alt=&#34;ko-fi donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;&lt;a href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/cloudtips-Donate%20%28RU%29-lightgreen?style=for-the-badge&amp;amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMjY2LjE4IDI2Ni4xOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj4KPHBhdGggZD0iTTEzMy4wOSAyNjYuMThDMjA2LjU5NCAyNjYuMTggMjY2LjE4IDIwNi41OTQgMjY2LjE4IDEzMy4wOUMyNjYuMTggNTkuNTg2NCAyMDYuNTk0IDAgMTMzLjA5IDBDNTkuNTg2NCAwIDAgNTkuNTg2NCAwIDEzMy4wOUMwIDIwNi41OTQgNTkuNTg2NCAyNjYuMTggMTMzLjA5IDI2Ni4xOFoiIGZpbGw9IiM2NDk2REMiLz4KPHBhdGggZD0ibTEwNC41IDE3MC4zIDg2LjE5LTg2LjE5YzIuMTMxLTIuMTMyOCA0LjY2MS0zLjgyNDkgNy40NDUtNC45NzkzIDIuNzg1LTEuMTU0NCA1Ljc3LTEuNzQ4NiA4Ljc4NS0xLjc0ODZzNiAwLjU5NDIgOC43ODUgMS43NDg2YzIuNzg0IDEuMTU0NCA1LjMxNCAyLjg0NjUgNy40NDUgNC45NzkzIDIuMTMzIDIuMTMwNSAzLjgyNSA0LjY2MDUgNC45NzkgNy40NDU0IDEuMTU1IDIuNzg0OSAxLjc0OSA1Ljc3IDEuNzQ5IDguNzg0NiAwIDMuMDE1LTAuNTk0IDYtMS43NDkgOC43ODUtMS4xNTQgMi43ODUtMi44NDYgNS4zMTUtNC45NzkgNy40NDVsLTUzLjY1IDUzLjczYy04LjYyNCA4LjYxLTIwLjMxMyAxMy40NDYtMzIuNSAxMy40NDZzLTIzLjg3Ni00LjgzNi0zMi41LTEzLjQ0NnoiIGZpbGw9IiNmZmYiLz4KPHBhdGggZD0ibTE2MS42OCA5NS44OS04Ni4xOSA4Ni4xOWMtMi4xMzA1IDIuMTMzLTQuNjYwNiAzLjgyNS03LjQ0NTQgNC45NzktMi43ODQ5IDEuMTU1LTUuNzcgMS43NDktOC43ODQ2IDEuNzQ5LTMuMDE0NyAwLTUuOTk5OC0wLjU5NC04Ljc4NDctMS43NDktMi43ODQ4LTEuMTU0LTUuMzE0OC0yLjg0Ni03LjQ0NTMtNC45NzktNC4yOTI5LTQuMzExLTYuNzAzMi0xMC4xNDYtNi43MDMyLTE2LjIzczIuNDEwMy0xMS45MTkgNi43MDMyLTE2LjIzbDUzLjY1LTUzLjczYzguNjI0OS04LjYxMDIgMjAuMzEzLTEzLjQ0NiAzMi41LTEzLjQ0NnMyMy44NzYgNC44MzYgMzIuNSAxMy40NDZ6IiBmaWxsPSIjZmZmIi8%2BCjwvZz4KPGRlZnM%2BCjxjbGlwUGF0aCBpZD0iYSI%2BCjxyZWN0IHdpZHRoPSIxMTk4LjciIGhlaWdodD0iMjY2LjE5IiBmaWxsPSIjZmZmIi8%2BCjwvY2xpcFBhdGg%2BCjwvZGVmcz4KPC9zdmc%2BCg%3D%3D&amp;amp;labelColor=white&#34; alt=&#34;cloudtips donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&#34;hextra-cards hx:mt-4 hx:gap-4 hx:grid not-prose&#34; style=&#34;--hextra-cards-grid-cols: 1;&#34;&gt;
+  &lt;a
+    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://ko-fi.com/keen_pbr&#34;
+      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
+      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;svg viewBox=&#34;0 0 241 194&#34; fill=&#34;none&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+  &lt;mask id=&#34;mask0_1_219&#34; style=&#34;mask-type:luminance&#34; maskUnits=&#34;userSpaceOnUse&#34; x=&#34;-1&#34; y=&#34;0&#34; width=&#34;242&#34; height=&#34;194&#34;&gt;
+  &lt;path d=&#34;M240.469 0.958984H-0.00585938V193.918H240.469V0.958984Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;/mask&gt;
+  &lt;g mask=&#34;url(#mask0_1_219)&#34;&gt;
+  &lt;path d=&#34;M96.1344 193.911C61.1312 193.911 32.6597 178.256 15.9721 149.829C1.19788 124.912 -0.00585938 97.9229 -0.00585938 67.7662C-0.00585938 49.8876 5.37293 34.3215 15.5413 22.7466C24.8861 12.1157 38.1271 5.22907 52.8317 3.35378C70.2858 1.14271 91.9848 0.958984 114.545 0.958984C151.259 0.958984 161.63 1.4088 176.075 2.85328C195.29 4.76026 211.458 11.932 222.824 23.5955C234.368 35.4428 240.469 51.2624 240.469 69.3627V72.9994C240.469 103.885 219.821 129.733 191.046 136.759C188.898 141.827 186.237 146.871 183.089 151.837L183.006 151.964C172.869 167.632 149.042 193.918 103.401 193.918H96.1281L96.1344 193.911Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M174.568 17.9772C160.927 16.6151 151.38 16.1589 114.552 16.1589C90.908 16.1589 70.9008 16.387 54.7644 18.4334C33.3949 21.164 15.2058 37.5285 15.2058 67.7674C15.2058 98.0066 16.796 121.422 29.0741 142.107C42.9425 165.751 66.1302 178.707 96.1412 178.707H103.414C140.242 178.707 160.25 159.156 170.253 143.698C174.574 136.874 177.754 130.058 179.801 123.234C205.947 120.96 225.27 99.3624 225.27 72.9941V69.3577C225.27 40.9432 206.631 21.164 174.574 17.9772H174.568Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M15.1975 67.7674C15.1975 37.5285 33.3866 21.164 54.7559 18.4334C70.8987 16.387 90.906 16.1589 114.544 16.1589C151.372 16.1589 160.919 16.6151 174.559 17.9772C206.617 21.1576 225.255 40.937 225.255 69.3577V72.9941C225.255 99.3687 205.932 120.966 179.786 123.234C177.74 130.058 174.559 136.874 170.238 143.698C160.235 159.156 140.228 178.707 103.4 178.707H96.1264C66.1155 178.707 42.9277 165.751 29.0595 142.107C16.7814 121.422 15.1912 98.4563 15.1912 67.7674&#34; fill=&#34;#202020&#34;/&gt;
+  &lt;path d=&#34;M32.2469 67.9899C32.2469 97.3168 34.0654 116.184 43.6127 133.689C54.5225 153.924 74.3018 161.653 96.8117 161.653H103.857C133.411 161.653 147.736 147.329 155.693 134.829C159.558 128.462 162.966 121.417 164.784 112.547L166.147 106.864H174.332C192.521 106.864 208.208 92.09 208.208 73.2166V69.8082C208.208 48.6669 195.024 37.5228 172.058 34.7987C159.102 33.6646 151.372 33.2084 114.538 33.2084C89.7602 33.2084 72.0272 33.4364 58.6152 35.4828C39.7483 38.2134 32.2407 48.8951 32.2407 67.9899&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M166.158 83.6801C166.158 86.4107 168.204 88.4572 171.841 88.4572C183.435 88.4572 189.802 81.8619 189.802 70.9523C189.802 60.0427 183.435 53.2195 171.841 53.2195C168.204 53.2195 166.158 55.2657 166.158 57.9963V83.6866V83.6801Z&#34; fill=&#34;#202020&#34;/&gt;
+  &lt;path d=&#34;M54.5321 82.3198C54.5321 95.732 62.0332 107.326 71.5807 116.424C77.9478 122.562 87.9515 128.93 94.7685 133.022C96.8147 134.157 98.8611 134.841 101.136 134.841C103.866 134.841 106.134 134.157 107.959 133.022C114.782 128.93 124.779 122.562 130.919 116.424C140.694 107.332 148.195 95.7383 148.195 82.3198C148.195 67.7673 137.286 54.8115 121.599 54.8115C112.28 54.8115 105.912 59.5882 101.136 66.1772C96.8147 59.582 90.2259 54.8115 80.9001 54.8115C64.9855 54.8115 54.5256 67.7673 54.5256 82.3198&#34; fill=&#34;#FF5A16&#34;/&gt;
+  &lt;/g&gt;
+  &lt;/svg&gt;
+  Donate on ko-fi.com&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;PayPal and bank cards&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
+  &lt;a
+    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;
+      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
+      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
+  &lt;svg fill=&#34;none&#34; viewBox=&#34;0 0 266.18 266.18&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+  &lt;g clip-path=&#34;url(#a)&#34;&gt;
+  &lt;path d=&#34;M133.09 266.18C206.594 266.18 266.18 206.594 266.18 133.09C266.18 59.5864 206.594 0 133.09 0C59.5864 0 0 59.5864 0 133.09C0 206.594 59.5864 266.18 133.09 266.18Z&#34; fill=&#34;#6496DC&#34;/&gt;
+  &lt;path d=&#34;m104.5 170.3 86.19-86.19c2.131-2.1328 4.661-3.8249 7.445-4.9793 2.785-1.1544 5.77-1.7486 8.785-1.7486s6 0.5942 8.785 1.7486c2.784 1.1544 5.314 2.8465 7.445 4.9793 2.133 2.1305 3.825 4.6605 4.979 7.4454 1.155 2.7849 1.749 5.77 1.749 8.7846 0 3.015-0.594 6-1.749 8.785-1.154 2.785-2.846 5.315-4.979 7.445l-53.65 53.73c-8.624 8.61-20.313 13.446-32.5 13.446s-23.876-4.836-32.5-13.446z&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;path d=&#34;m161.68 95.89-86.19 86.19c-2.1305 2.133-4.6606 3.825-7.4454 4.979-2.7849 1.155-5.77 1.749-8.7846 1.749-3.0147 0-5.9998-0.594-8.7847-1.749-2.7848-1.154-5.3148-2.846-7.4453-4.979-4.2929-4.311-6.7032-10.146-6.7032-16.23s2.4103-11.919 6.7032-16.23l53.65-53.73c8.6249-8.6102 20.313-13.446 32.5-13.446s23.876 4.836 32.5 13.446z&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;/g&gt;
+  &lt;defs&gt;
+  &lt;clipPath id=&#34;a&#34;&gt;
+  &lt;rect width=&#34;1198.7&#34; height=&#34;266.19&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;/clipPath&gt;
+  &lt;/defs&gt;
+  &lt;/svg&gt;
+  Donate on Cloudtips&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;Russian bank cards and SBP&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
+&lt;/div&gt;
+
 &lt;p&gt;Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.&lt;/p&gt;
 
       </description>

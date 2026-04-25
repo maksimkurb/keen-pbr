@@ -4,6 +4,24 @@ This guide helps you finish a first working setup that sends selected sites thro
 
 If you installed the full package, the Web UI is the easiest place to start. If you installed `keen-pbr-headless` or prefer editing files directly, use the JSON / CLI tab.
 
+To complete your minimal installation you will need to configure the following things:
+
+```mermaid
+
+graph LR;
+    classDef default font-size:16pt;
+
+    A["1. Add outbounds"]
+    B["`2. Add lists
+(optional)`"]
+    C["3. Configure DNS servers"]
+    D["4. Add routing rules"]
+
+    A==>B;
+    B==>C;
+    C==>D;
+```
+
 {{< tabs >}}
 {{< tab name="Web UI" selected=true >}}
 
@@ -29,7 +47,11 @@ If you have installed `keen-pbr-headless`, see **JSON** configuration method.
 
 ### Open the Web UI
 
-Open `http://<router-ip>:12121/` in your browser. On Keenetic / NetCraze you can also open `http://my.keenetic.net:12121/`.
+Open `http://<router-ip>:12121/` in your browser (replace `<router-ip>` with your router IP address).
+
+{{< callout type="info" >}}
+Tip: On Keenetic / NetCraze you can also open http://my.keenetic.net:12121/.
+{{</ callout >}}
 
 ### Create the outbounds
 

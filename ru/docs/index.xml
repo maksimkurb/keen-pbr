@@ -24,35 +24,44 @@
         
         
         &lt;p&gt;keen-pbr можно установить на роутерах Keenetic / NetCraze через менеджер пакетов Entware &lt;code&gt;opkg&lt;/code&gt;.&lt;/p&gt;
-&lt;h2&gt;1. Установите Entware на роутере&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-установите-entware-на-роутере&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-entware-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Сначала убедитесь, что Entware установлена на вашем роутере. Пожалуйста, обратитесь к официальному мануалу роутера &lt;a href=&#34;https://support.keenetic.com/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;для Keenetic&lt;/a&gt; или &lt;a href=&#34;https://support.netcraze.ru/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Установите Entware на роутере&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;установите-entware-на-роутере&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-entware-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Сначала убедитесь, что Entware установлена на вашем роутере. Пожалуйста, обратитесь к официальному руководству для &lt;a href=&#34;https://support.keenetic.com/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Keenetic&lt;/a&gt; или &lt;a href=&#34;https://support.netcraze.ru/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NetCraze&lt;/a&gt;:&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;Найдите мануал вашего роутера.&lt;/li&gt;
-&lt;li&gt;В поле поиска найдите &amp;ldquo;Установка репозитория Entware на USB-накопитель&amp;rdquo;.&lt;/li&gt;
-&lt;li&gt;Внимательно прочитайте и следуйте инструкциям.&lt;/li&gt;
+&lt;li&gt;Найдите руководство для вашей модели роутера.&lt;/li&gt;
+&lt;li&gt;В строке поиска найдите &amp;ldquo;Установка репозитория Entware на USB-накопитель&amp;rdquo;.&lt;/li&gt;
+&lt;li&gt;Внимательно прочитайте инструкции и выполните их.&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2&gt;2. Установите дополнительные компоненты&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-установите-дополнительные-компоненты&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%b4%d0%be%d0%bf%d0%be%d0%bb%d0%bd%d0%b8%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d1%8b%d0%b5-%d0%ba%d0%be%d0%bc%d0%bf%d0%be%d0%bd%d0%b5%d0%bd%d1%82%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу конфигурации роутера, перейдите в &lt;strong&gt;Управление&lt;/strong&gt; -&amp;gt; &lt;strong&gt;Системные настройки&lt;/strong&gt; и установите эти дополнительные компоненты:&lt;/p&gt;
+&lt;h3&gt;Установите необходимые компоненты&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;установите-необходимые-компоненты&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%bd%d0%b5%d0%be%d0%b1%d1%85%d0%be%d0%b4%d0%b8%d0%bc%d1%8b%d0%b5-%d0%ba%d0%be%d0%bc%d0%bf%d0%be%d0%bd%d0%b5%d0%bd%d1%82%d1%8b&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте страницу конфигурации роутера, перейдите в &lt;strong&gt;Управление&lt;/strong&gt; -&amp;gt; &lt;strong&gt;Настройки системы&lt;/strong&gt; и установите следующие дополнительные компоненты:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Сетевые функции / &lt;strong&gt;Протокол IPv6&lt;/strong&gt;&lt;/li&gt;
-&lt;li&gt;Пакеты OPKG / &lt;strong&gt;Поддержка системы пакетов&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Сетевые функции / &lt;strong&gt;Протокол IPv6&lt;/strong&gt; (на NDMS 5.0+ отсутствует, т.к. встроен в систему)&lt;/li&gt;
+&lt;li&gt;Пакеты OPKG / &lt;strong&gt;Поддержка открытых пакетов&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;Пакеты OPKG / &lt;strong&gt;Модули ядра подсистемы Netfilter&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;Пакеты OPKG / &lt;strong&gt;Пакет расширений Xtables-addons для Netfilter&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;Утилиты и сервисы / &lt;strong&gt;Прокси-сервер DNS-over-TLS&lt;/strong&gt; (необязательно, но настоятельно рекомендуется)&lt;/li&gt;
+&lt;li&gt;Утилиты и сервисы / &lt;strong&gt;Прокси-сервер DNS-over-HTTPS&lt;/strong&gt; (необязательно, но настоятельно рекомендуется)&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;3. Установите keen-pbr из репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-установите-keen-pbr-из-репозитория&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-keen-pbr-%d0%b8%d0%b7-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;
-
-&lt;p&gt;Пример команды установки:&lt;/p&gt;
+&lt;h3&gt;Настройте DoH/DoT на роутере&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;настройте-dohdot-на-роутере&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%82%d0%b5-dohdot-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80%d0%b5&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Рекомендуется настроить DNS-серверы DoH/DoT на роутере, чтобы защититься от атак с подменой DNS.&lt;/p&gt;
+&lt;p&gt;См. официальную документацию Netcraze: &lt;a href=&#34;https://support.netcraze.ru/ultra/nc-1812/ru/31543.html&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Прокси DoH и DoT для шифрования DNS-запросов&lt;/a&gt;.&lt;/p&gt;
+&lt;h3&gt;Установите &lt;code&gt;keen-pbr&lt;/code&gt; из репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;установите-keen-pbr-из-репозитория&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-keen-pbr-%d0%b8%d0%b7-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;Откройте &lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;страницу репозитория keen-pbr&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;Выберите &amp;ldquo;&lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt;&amp;rdquo; в селекторе ОС слева, затем выберите версию &amp;ldquo;&lt;strong&gt;current&lt;/strong&gt;&amp;rdquo; и архитектуру, соответствующую вашему роутеру.
+&lt;ul&gt;
+&lt;li&gt;Подсказка: в SSH-сессии можно выполнить &lt;code&gt;opkg print-architecture&lt;/code&gt;, чтобы узнать архитектуру роутера.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Внимательно следуйте инструкциям на странице репозитория шаг за шагом.&lt;/li&gt;
+&lt;li&gt;Когда вы выполните команду &lt;code&gt;opkg install keen-pbr&lt;/code&gt;, скрипт установки попросит подтвердить замену файла &lt;code&gt;dnsmasq&lt;/code&gt;. Если вы не уверены, нажмите &lt;kbd&gt;y&lt;/kbd&gt;, а затем &lt;kbd&gt;Enter&lt;/kbd&gt;.
+&lt;ul&gt;
+&lt;li&gt;Пример команды установки:
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;opkg install keen-pbr
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# или если нужна версия без API и без веб-интерфейса&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# или если нужна версия без API и без Web UI&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# opkg install keen-pbr-headless&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
@@ -65,17 +74,17 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;После установки &lt;code&gt;keen-pbr&lt;/code&gt; включите &lt;code&gt;dns-override&lt;/code&gt;:&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;Откройте &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;Выполните команды &lt;code&gt;opkg dns-override&lt;/code&gt; и &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Перезагрузите роутер. &lt;strong&gt;Это очень важно: без перезагрузки опция не заработает.&lt;/strong&gt;&lt;/li&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;Пакет устанавливает конфигурацию в &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt; и автоматически включает init-скрипт.&lt;/p&gt;
-&lt;p&gt;Запустите сервис:&lt;/p&gt;
+&lt;h3&gt;Убедитесь, что сервис &lt;code&gt;keen-pbr&lt;/code&gt; запущен&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;убедитесь-что-сервис-keen-pbr-запущен&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d0%b1%d0%b5%d0%b4%d0%b8%d1%82%d0%b5%d1%81%d1%8c-%d1%87%d1%82%d0%be-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81-keen-pbr-%d0%b7%d0%b0%d0%bf%d1%83%d1%89%d0%b5%d0%bd&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Перед тем как переходить к следующему шагу, рекомендуется проверить, что &lt;code&gt;keen-pbr&lt;/code&gt; успешно запустился и не завершился с ошибкой. Выполните &lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;. Если сервис не запущен, см. раздел &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/troubleshooting/#service-does-not-start&#34;&gt;Устранение неполадок&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Пример:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div&gt;&lt;pre&gt;&lt;code&gt;~ # /opt/etc/init.d/S80keen-pbr status
+ Checking keen-pbr...              alive.&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Скопировать код&#34;
@@ -87,31 +96,54 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;Перезапустите после редактирования конфига:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Скопировать код&#34;
-    aria-label=&#34;Скопировать код&#34;
-    data-copied-label=&#34;Скопировано!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
+&lt;p&gt;Если сервис находится в состоянии &lt;strong&gt;alive&lt;/strong&gt;, переходите к следующему шагу.&lt;/p&gt;
+&lt;h3&gt;Включите &lt;code&gt;dns-override&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;включите-dns-override&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b2%d0%ba%d0%bb%d1%8e%d1%87%d0%b8%d1%82%d0%b5-dns-override&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;После установки &lt;code&gt;keen-pbr&lt;/code&gt; нужно включить &lt;code&gt;dns-override&lt;/code&gt;, чтобы все DNS-запросы от клиентов LAN перенаправлялись в Entware:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Откройте &lt;a href=&#34;http://my.keenetic.net/a&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net/a&lt;/a&gt; (если ссылка не открывается, вместо нее откройте &lt;code&gt;http://&amp;lt;ip-роутера&amp;gt;/a&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;Выполните команды &lt;code&gt;opkg dns-override&lt;/code&gt;, а затем &lt;code&gt;system configuration save&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Перезагрузите роутер. &lt;strong&gt;Это очень важно: без перезагрузки опция не станет активной.&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;Настройте сервис&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;настройте-сервис&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bd%d0%b0%d1%81%d1%82%d1%80%d0%be%d0%b9%d1%82%d0%b5-%d1%81%d0%b5%d1%80%d0%b2%d0%b8%d1%81&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;После перезагрузки роутера можно открыть &lt;a href=&#34;http://my.keenetic.net:12121&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;http://my.keenetic.net:12121&lt;/a&gt; и настроить keen-pbr через веб-интерфейс (если установлена полная версия; у headless-версии Web UI отсутствует).&lt;/p&gt;
+&lt;p&gt;Также keen-pbr можно настроить вручную, изменив файл конфигурации: &lt;code&gt;/opt/etc/keen-pbr/config.json&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Основные команды:&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Действие&lt;/th&gt;
+          &lt;th&gt;Команда&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Запустить сервис&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr start&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Перезапустить сервис&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr restart&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Проверить, что &lt;strong&gt;keen-pbr&lt;/strong&gt; работает&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S80keen-pbr status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Проверить, что &lt;strong&gt;dnsmasq&lt;/strong&gt; работает&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;/opt/etc/init.d/S56dnsmasq status&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет &lt;code&gt;keen-pbr-headless&lt;/code&gt;.
-Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если вы не планируете использовать Web UI или API keen-pbr, рассмотрите установку пакета &lt;code&gt;keen-pbr-headless&lt;/code&gt;.
+Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и вообще не включает API-сервер. Также API-сервер можно отключить в любой момент через флаг конфигурации, даже если используется полная версия пакета.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Следующий шаг: откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Веб-интерфейс&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили &lt;code&gt;keen-pbr-headless&lt;/code&gt;, используйте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
+&lt;h3&gt;Следующие шаги&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;следующие-шаги&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Перейдите на страницу &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Web UI&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили версию &lt;code&gt;headless&lt;/code&gt;, вместо этого откройте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
+&lt;/div&gt;
 
       </description>
     </item>
@@ -1027,23 +1059,22 @@
         
         
         &lt;p&gt;keen-pbr можно установить на роутерах OpenWrt из репозитория пакетов keen-pbr.&lt;/p&gt;
-&lt;h2&gt;1. Проверьте, какой менеджер пакетов использует ваша версия OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-проверьте-какой-менеджер-пакетов-использует-ваша-версия-openwrt&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d1%83%d0%b5%d1%82-%d0%b2%d0%b0%d1%88%d0%b0-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d1%8f-openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Страница репозитория автоматически показывает правильный путь для вашей целевой системы:&lt;/p&gt;
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Проверьте, какой менеджер пакетов использует ваша версия OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;проверьте-какой-менеджер-пакетов-использует-ваша-версия-openwrt&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d1%8c%d1%82%d0%b5-%d0%ba%d0%b0%d0%ba%d0%be%d0%b9-%d0%bc%d0%b5%d0%bd%d0%b5%d0%b4%d0%b6%d0%b5%d1%80-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82%d0%be%d0%b2-%d0%b8%d1%81%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d1%83%d0%b5%d1%82-%d0%b2%d0%b0%d1%88%d0%b0-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d1%8f-openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Страница репозитория автоматически показывает правильный путь для вашей целевой системы:&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;OpenWrt 25.x и новее: &lt;code&gt;apk&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;OpenWrt 24.x и старше: &lt;code&gt;opkg&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2&gt;2. Замените &lt;code&gt;dnsmasq&lt;/code&gt; на &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-замените-dnsmasq-на-dnsmasq-full&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-%d0%b7%d0%b0%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-dnsmasq-%d0%bd%d0%b0-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Установите &lt;code&gt;dnsmasq-full&lt;/code&gt; перед установкой keen-pbr:&lt;/p&gt;
+&lt;h3&gt;Замените &lt;code&gt;dnsmasq&lt;/code&gt; на &lt;code&gt;dnsmasq-full&lt;/code&gt;&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;замените-dnsmasq-на-dnsmasq-full&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b7%d0%b0%d0%bc%d0%b5%d0%bd%d0%b8%d1%82%d0%b5-dnsmasq-%d0%bd%d0%b0-dnsmasq-full&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Установите &lt;code&gt;dnsmasq-full&lt;/code&gt; перед установкой keen-pbr:&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для OpenWrt 25.x и новее тоже нужен &lt;code&gt;dnsmasq-full&lt;/code&gt; вместо стандартного &lt;code&gt;dnsmasq&lt;/code&gt;.
 У меня нет роутера с &lt;code&gt;apk&lt;/code&gt;, чтобы проверить точные шаги замены. Если вы знаете правильную процедуру, пожалуйста, отправьте PR с исправлением документации.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt 25.x и новее&lt;/span&gt;
@@ -1063,14 +1094,9 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;h2&gt;3. Установите из страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-установите-из-страницы-репозитория&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%b8%d0%b7-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;OpenWrt&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;
-
+&lt;h3&gt;Установите со страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;установите-со-страницы-репозитория&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;OpenWrt&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашей точной версии и архитектуры:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Примеры команд установки:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
@@ -1132,22 +1158,20 @@
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если вы не планируете использовать веб-интерфейс keen-pbr или API, можно установить пакет &lt;code&gt;keen-pbr-headless&lt;/code&gt;.
 Он занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Следующий шаг: откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Веб-интерфейс&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили &lt;code&gt;keen-pbr-headless&lt;/code&gt;, используйте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
+&lt;h3&gt;Следующие шаги&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;следующие-шаги&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Веб-интерфейс&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили &lt;code&gt;keen-pbr-headless&lt;/code&gt;, используйте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;../compilation/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>
@@ -1840,17 +1864,13 @@
         
         
         &lt;p&gt;keen-pbr можно установить на системы Debian из APT-репозитория keen-pbr.&lt;/p&gt;
-&lt;h2&gt;1. Добавьте репозиторий со страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;1-добавьте-репозиторий-со-страницы-репозитория&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#1-%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d0%b9-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;Debian&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашего выпуска и архитектуры:&lt;/p&gt;
-&lt;a
-  href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
-  
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;
-
+&lt;div class=&#34;hextra-steps hx:ml-4 hx:mb-12 hx:ltr:border-l hx:rtl:border-r hx:border-gray-200 hx:ltr:pl-6 hx:rtl:pr-6 hx:dark:border-neutral-800 [counter-reset:step]&#34;&gt;
+&lt;h3&gt;Добавьте репозиторий со страницы репозитория&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;добавьте-репозиторий-со-страницы-репозитория&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d0%b4%d0%be%d0%b1%d0%b0%d0%b2%d1%8c%d1%82%d0%b5-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d0%b9-%d1%81%d0%be-%d1%81%d1%82%d1%80%d0%b0%d0%bd%d0%b8%d1%86%d1%8b-%d1%80%d0%b5%d0%bf%d0%be%d0%b7%d0%b8%d1%82%d0%be%d1%80%d0%b8%d1%8f&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте страницу инструкций репозитория, выберите &lt;strong&gt;Debian&lt;/strong&gt; в селекторе ОС слева и используйте сгенерированные команды для вашего выпуска и архитектуры:&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Репозиторий keen-pbr&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Сгенерированные инструкции включают ключ подписи и запись источника &lt;code&gt;apt&lt;/code&gt;.&lt;/p&gt;
-&lt;h2&gt;2. Установите пакет&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;2-установите-пакет&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#2-%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Пример команды установки:&lt;/p&gt;
+&lt;h3&gt;Установите пакет&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;установите-пакет&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%b8%d1%82%d0%b5-%d0%bf%d0%b0%d0%ba%d0%b5%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Пример команды установки:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;apt update
@@ -1890,21 +1910,19 @@
 &lt;/div&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если вы не планируете использовать веб-интерфейс keen-pbr или API, пакет &lt;code&gt;keen-pbr-headless&lt;/code&gt; занимает меньше места (~1.2 МБ вместо ~2.8 МБ) и не включает API-сервер. Также вы можете отключить API-сервер через флаг конфигурации в любой момент в полной версии пакета.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
-&lt;p&gt;Следующий шаг: откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Веб-интерфейс&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили &lt;code&gt;keen-pbr-headless&lt;/code&gt;, используйте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
+&lt;h3&gt;Следующие шаги&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;следующие-шаги&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#%d1%81%d0%bb%d0%b5%d0%b4%d1%83%d1%8e%d1%89%d0%b8%d0%b5-%d1%88%d0%b0%d0%b3%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt; и используйте вкладку &lt;strong&gt;Веб-интерфейс&lt;/strong&gt; для самой простой первоначальной настройки. Если вы установили &lt;code&gt;keen-pbr-headless&lt;/code&gt;, используйте вкладку &lt;strong&gt;JSON / CLI&lt;/strong&gt;.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
-
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
     &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;../compilation/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
-
+&lt;/div&gt;
 
       </description>
     </item>
@@ -4990,8 +5008,43 @@
         
         
         &lt;p&gt;Если keen-pbr экономит вам время, упрощает настройку роутера или просто оказался полезным, поддержать проект можно здесь:&lt;/p&gt;
-&lt;p&gt;&lt;a href=&#34;https://ko-fi.com/keen_pbr&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/ko--fi-Donate-lightgreen?style=for-the-badge&amp;amp;logo=ko-fi&amp;amp;logoColor=FF6433&amp;amp;labelColor=white&#34; alt=&#34;ko-fi donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;&lt;a href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;&lt;img src=&#34;https://img.shields.io/badge/cloudtips-Donate%20%28RU%29-lightgreen?style=for-the-badge&amp;amp;logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMjY2LjE4IDI2Ni4xOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2EpIj4KPHBhdGggZD0iTTEzMy4wOSAyNjYuMThDMjA2LjU5NCAyNjYuMTggMjY2LjE4IDIwNi41OTQgMjY2LjE4IDEzMy4wOUMyNjYuMTggNTkuNTg2NCAyMDYuNTk0IDAgMTMzLjA5IDBDNTkuNTg2NCAwIDAgNTkuNTg2NCAwIDEzMy4wOUMwIDIwNi41OTQgNTkuNTg2NCAyNjYuMTggMTMzLjA5IDI2Ni4xOFoiIGZpbGw9IiM2NDk2REMiLz4KPHBhdGggZD0ibTEwNC41IDE3MC4zIDg2LjE5LTg2LjE5YzIuMTMxLTIuMTMyOCA0LjY2MS0zLjgyNDkgNy40NDUtNC45NzkzIDIuNzg1LTEuMTU0NCA1Ljc3LTEuNzQ4NiA4Ljc4NS0xLjc0ODZzNiAwLjU5NDIgOC43ODUgMS43NDg2YzIuNzg0IDEuMTU0NCA1LjMxNCAyLjg0NjUgNy40NDUgNC45NzkzIDIuMTMzIDIuMTMwNSAzLjgyNSA0LjY2MDUgNC45NzkgNy40NDU0IDEuMTU1IDIuNzg0OSAxLjc0OSA1Ljc3IDEuNzQ5IDguNzg0NiAwIDMuMDE1LTAuNTk0IDYtMS43NDkgOC43ODUtMS4xNTQgMi43ODUtMi44NDYgNS4zMTUtNC45NzkgNy40NDVsLTUzLjY1IDUzLjczYy04LjYyNCA4LjYxLTIwLjMxMyAxMy40NDYtMzIuNSAxMy40NDZzLTIzLjg3Ni00LjgzNi0zMi41LTEzLjQ0NnoiIGZpbGw9IiNmZmYiLz4KPHBhdGggZD0ibTE2MS42OCA5NS44OS04Ni4xOSA4Ni4xOWMtMi4xMzA1IDIuMTMzLTQuNjYwNiAzLjgyNS03LjQ0NTQgNC45NzktMi43ODQ5IDEuMTU1LTUuNzcgMS43NDktOC43ODQ2IDEuNzQ5LTMuMDE0NyAwLTUuOTk5OC0wLjU5NC04Ljc4NDctMS43NDktMi43ODQ4LTEuMTU0LTUuMzE0OC0yLjg0Ni03LjQ0NTMtNC45NzktNC4yOTI5LTQuMzExLTYuNzAzMi0xMC4xNDYtNi43MDMyLTE2LjIzczIuNDEwMy0xMS45MTkgNi43MDMyLTE2LjIzbDUzLjY1LTUzLjczYzguNjI0OS04LjYxMDIgMjAuMzEzLTEzLjQ0NiAzMi41LTEzLjQ0NnMyMy44NzYgNC44MzYgMzIuNSAxMy40NDZ6IiBmaWxsPSIjZmZmIi8%2BCjwvZz4KPGRlZnM%2BCjxjbGlwUGF0aCBpZD0iYSI%2BCjxyZWN0IHdpZHRoPSIxMTk4LjciIGhlaWdodD0iMjY2LjE5IiBmaWxsPSIjZmZmIi8%2BCjwvY2xpcFBhdGg%2BCjwvZGVmcz4KPC9zdmc%2BCg%3D%3D&amp;amp;labelColor=white&#34; alt=&#34;cloudtips donate page badge&#34;  loading=&#34;lazy&#34; /&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&#34;hextra-cards hx:mt-4 hx:gap-4 hx:grid not-prose&#34; style=&#34;--hextra-cards-grid-cols: 1;&#34;&gt;
+  &lt;a
+    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://ko-fi.com/keen_pbr&#34;
+      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
+      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;svg viewBox=&#34;0 0 241 194&#34; fill=&#34;none&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+  &lt;mask id=&#34;mask0_1_219&#34; style=&#34;mask-type:luminance&#34; maskUnits=&#34;userSpaceOnUse&#34; x=&#34;-1&#34; y=&#34;0&#34; width=&#34;242&#34; height=&#34;194&#34;&gt;
+  &lt;path d=&#34;M240.469 0.958984H-0.00585938V193.918H240.469V0.958984Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;/mask&gt;
+  &lt;g mask=&#34;url(#mask0_1_219)&#34;&gt;
+  &lt;path d=&#34;M96.1344 193.911C61.1312 193.911 32.6597 178.256 15.9721 149.829C1.19788 124.912 -0.00585938 97.9229 -0.00585938 67.7662C-0.00585938 49.8876 5.37293 34.3215 15.5413 22.7466C24.8861 12.1157 38.1271 5.22907 52.8317 3.35378C70.2858 1.14271 91.9848 0.958984 114.545 0.958984C151.259 0.958984 161.63 1.4088 176.075 2.85328C195.29 4.76026 211.458 11.932 222.824 23.5955C234.368 35.4428 240.469 51.2624 240.469 69.3627V72.9994C240.469 103.885 219.821 129.733 191.046 136.759C188.898 141.827 186.237 146.871 183.089 151.837L183.006 151.964C172.869 167.632 149.042 193.918 103.401 193.918H96.1281L96.1344 193.911Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M174.568 17.9772C160.927 16.6151 151.38 16.1589 114.552 16.1589C90.908 16.1589 70.9008 16.387 54.7644 18.4334C33.3949 21.164 15.2058 37.5285 15.2058 67.7674C15.2058 98.0066 16.796 121.422 29.0741 142.107C42.9425 165.751 66.1302 178.707 96.1412 178.707H103.414C140.242 178.707 160.25 159.156 170.253 143.698C174.574 136.874 177.754 130.058 179.801 123.234C205.947 120.96 225.27 99.3624 225.27 72.9941V69.3577C225.27 40.9432 206.631 21.164 174.574 17.9772H174.568Z&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M15.1975 67.7674C15.1975 37.5285 33.3866 21.164 54.7559 18.4334C70.8987 16.387 90.906 16.1589 114.544 16.1589C151.372 16.1589 160.919 16.6151 174.559 17.9772C206.617 21.1576 225.255 40.937 225.255 69.3577V72.9941C225.255 99.3687 205.932 120.966 179.786 123.234C177.74 130.058 174.559 136.874 170.238 143.698C160.235 159.156 140.228 178.707 103.4 178.707H96.1264C66.1155 178.707 42.9277 165.751 29.0595 142.107C16.7814 121.422 15.1912 98.4563 15.1912 67.7674&#34; fill=&#34;#202020&#34;/&gt;
+  &lt;path d=&#34;M32.2469 67.9899C32.2469 97.3168 34.0654 116.184 43.6127 133.689C54.5225 153.924 74.3018 161.653 96.8117 161.653H103.857C133.411 161.653 147.736 147.329 155.693 134.829C159.558 128.462 162.966 121.417 164.784 112.547L166.147 106.864H174.332C192.521 106.864 208.208 92.09 208.208 73.2166V69.8082C208.208 48.6669 195.024 37.5228 172.058 34.7987C159.102 33.6646 151.372 33.2084 114.538 33.2084C89.7602 33.2084 72.0272 33.4364 58.6152 35.4828C39.7483 38.2134 32.2407 48.8951 32.2407 67.9899&#34; fill=&#34;white&#34;/&gt;
+  &lt;path d=&#34;M166.158 83.6801C166.158 86.4107 168.204 88.4572 171.841 88.4572C183.435 88.4572 189.802 81.8619 189.802 70.9523C189.802 60.0427 183.435 53.2195 171.841 53.2195C168.204 53.2195 166.158 55.2657 166.158 57.9963V83.6866V83.6801Z&#34; fill=&#34;#202020&#34;/&gt;
+  &lt;path d=&#34;M54.5321 82.3198C54.5321 95.732 62.0332 107.326 71.5807 116.424C77.9478 122.562 87.9515 128.93 94.7685 133.022C96.8147 134.157 98.8611 134.841 101.136 134.841C103.866 134.841 106.134 134.157 107.959 133.022C114.782 128.93 124.779 122.562 130.919 116.424C140.694 107.332 148.195 95.7383 148.195 82.3198C148.195 67.7673 137.286 54.8115 121.599 54.8115C112.28 54.8115 105.912 59.5882 101.136 66.1772C96.8147 59.582 90.2259 54.8115 80.9001 54.8115C64.9855 54.8115 54.5256 67.7673 54.5256 82.3198&#34; fill=&#34;#FF5A16&#34;/&gt;
+  &lt;/g&gt;
+  &lt;/svg&gt;
+  Пожертвовать на ko-fi.com&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;PayPal и зарубежные банковские карты&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
+  &lt;a
+    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;
+      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
+      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
+  &lt;svg fill=&#34;none&#34; viewBox=&#34;0 0 266.18 266.18&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
+  &lt;g clip-path=&#34;url(#a)&#34;&gt;
+  &lt;path d=&#34;M133.09 266.18C206.594 266.18 266.18 206.594 266.18 133.09C266.18 59.5864 206.594 0 133.09 0C59.5864 0 0 59.5864 0 133.09C0 206.594 59.5864 266.18 133.09 266.18Z&#34; fill=&#34;#6496DC&#34;/&gt;
+  &lt;path d=&#34;m104.5 170.3 86.19-86.19c2.131-2.1328 4.661-3.8249 7.445-4.9793 2.785-1.1544 5.77-1.7486 8.785-1.7486s6 0.5942 8.785 1.7486c2.784 1.1544 5.314 2.8465 7.445 4.9793 2.133 2.1305 3.825 4.6605 4.979 7.4454 1.155 2.7849 1.749 5.77 1.749 8.7846 0 3.015-0.594 6-1.749 8.785-1.154 2.785-2.846 5.315-4.979 7.445l-53.65 53.73c-8.624 8.61-20.313 13.446-32.5 13.446s-23.876-4.836-32.5-13.446z&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;path d=&#34;m161.68 95.89-86.19 86.19c-2.1305 2.133-4.6606 3.825-7.4454 4.979-2.7849 1.155-5.77 1.749-8.7846 1.749-3.0147 0-5.9998-0.594-8.7847-1.749-2.7848-1.154-5.3148-2.846-7.4453-4.979-4.2929-4.311-6.7032-10.146-6.7032-16.23s2.4103-11.919 6.7032-16.23l53.65-53.73c8.6249-8.6102 20.313-13.446 32.5-13.446s23.876 4.836 32.5 13.446z&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;/g&gt;
+  &lt;defs&gt;
+  &lt;clipPath id=&#34;a&#34;&gt;
+  &lt;rect width=&#34;1198.7&#34; height=&#34;266.19&#34; fill=&#34;#fff&#34;/&gt;
+  &lt;/clipPath&gt;
+  &lt;/defs&gt;
+  &lt;/svg&gt;
+  Пожертвовать на Cloudtips&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;Российские банковские карты и СБП&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
+&lt;/div&gt;
+
 &lt;p&gt;Любая поддержка помогает уделять больше времени разработке, тестировать на реальном железе и двигать проект дальше. Спасибо.&lt;/p&gt;
 
       </description>
