@@ -36,6 +36,11 @@ jobs:
     name: Draft GitHub release
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
       - name: Resolve workflow run ID
         id: resolve-run
         shell: bash
@@ -106,11 +111,6 @@ jobs:
             cp "$asset" "release_assets/$asset_name"
           done
 
-      - name: Checkout repository metadata
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
       - name: Prepare draft release
         uses: softprops/action-gh-release@v3
         with:
@@ -147,22 +147,24 @@ jobs:
           sleep_seconds="$RETRY_SLEEP_SECONDS"
           max_attempts="$MAX_ATTEMPTS"
           total_files="${#asset_files[@]}"
-          upload_flags=()
-
-          if [ "$OVERWRITE_FILES" = "true" ]; then
-            upload_flags+=(--clobber)
-          fi
 
           for ((start=0; start<total_files; start+=batch_size)); do
             batch=( "${asset_files[@]:start:batch_size}" )
             batch_number=$((start / batch_size + 1))
             batch_last_index=$((start + ${#batch[@]}))
+            upload_cmd=(gh release upload "$TAG_NAME")
+
+            if [ "$OVERWRITE_FILES" = "true" ]; then
+              upload_cmd+=(--clobber)
+            fi
+
+            upload_cmd+=("${batch[@]}")
 
             attempt=1
             while true; do
               echo "Uploading batch ${batch_number}: files $((start + 1))-${batch_last_index} of ${total_files} (attempt ${attempt}/${max_attempts})"
 
-              if gh release upload "$TAG_NAME" "${batch[@]}" "${upload_flags[@]}"; then
+              if "${upload_cmd[@]}"; then
                 break
               fi
 
