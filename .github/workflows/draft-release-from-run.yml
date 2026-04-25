@@ -75,7 +75,6 @@ jobs:
           fi
 
       - name: Collect release assets
-        id: collect-release-assets
         shell: bash
         run: |
           set -euo pipefail
@@ -107,19 +106,52 @@ jobs:
             cp "$asset" "release_assets/$asset_name"
           done
 
-          {
-            echo 'files<<EOF'
-            printf '%s\n' release_assets/*
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+      - name: Publish draft release in batches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          RELEASE_NAME: ${{ inputs.release_name != '' && inputs.release_name || inputs.tag_name }}
+          OVERWRITE_FILES: "false"
+        run: |
+          set -euo pipefail
 
-      - name: Publish draft release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ inputs.tag_name }}
-          name: ${{ inputs.release_name != '' && inputs.release_name || inputs.tag_name }}
-          draft: true
-          overwrite_files: true
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: ${{ steps.collect-release-assets.outputs.files }}
+          shopt -s nullglob
+          mapfile -t asset_files < <(printf '%s\n' release_assets/* | sort)
+
+          if [ "${#asset_files[@]}" -eq 0 ]; then
+            echo "No release assets were prepared under release_assets" >&2
+            exit 1
+          fi
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release for tag $TAG_NAME already exists; uploading assets in batches"
+          else
+            gh release create "$TAG_NAME" \
+              --draft \
+              --title "$RELEASE_NAME" \
+              --generate-notes
+          fi
+
+          batch_size=100
+          sleep_seconds=30
+          total_files="${#asset_files[@]}"
+          upload_flags=()
+
+          if [ "$OVERWRITE_FILES" = "true" ]; then
+            upload_flags+=(--clobber)
+          fi
+
+          for ((start=0; start<total_files; start+=batch_size)); do
+            batch=( "${asset_files[@]:start:batch_size}" )
+            batch_number=$((start / batch_size + 1))
+            batch_last_index=$((start + ${#batch[@]}))
+
+            echo "Uploading batch ${batch_number}: files $((start + 1))-${batch_last_index} of ${total_files}"
+            gh release upload "$TAG_NAME" "${batch[@]}" "${upload_flags[@]}"
+
+            if (( batch_last_index < total_files )); then
+              echo "Waiting ${sleep_seconds} seconds before the next batch"
+              sleep "$sleep_seconds"
+            fi
+          done
