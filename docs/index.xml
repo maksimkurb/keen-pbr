@@ -5180,13 +5180,15 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Per-entry negation in &lt;code&gt;src_addr&lt;/code&gt; / &lt;code&gt;dest_addr&lt;/code&gt; is not supported. The whole array must either all start with &lt;code&gt;!&lt;/code&gt; or not.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;&lt;p&gt;When using negation in &lt;code&gt;src_addr&lt;/code&gt; / &lt;code&gt;dest_addr&lt;/code&gt; fields, the negation applies to all IP addresses/subnets specified in that field. Mixing entries with negation and without negation in the same list is not supported. As an alternative, you can create two separate rules.&lt;/p&gt;
+&lt;p&gt;This is also valid for &lt;code&gt;src_port&lt;/code&gt; / &lt;code&gt;dest_port&lt;/code&gt;.&lt;/p&gt;
+&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
 &lt;p&gt;If rules aren&amp;rsquo;t matching as expected:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Verify that &lt;code&gt;proto&lt;/code&gt; is set correctly (&lt;code&gt;&amp;quot;tcp&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;udp&amp;quot;&lt;/code&gt;, or &lt;code&gt;&amp;quot;tcp/udp&amp;quot;&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;Verify that &lt;code&gt;proto&lt;/code&gt; is set correctly (&lt;code&gt;null&lt;/code&gt; (for any), &lt;code&gt;&amp;quot;tcp&amp;quot;&lt;/code&gt;, &lt;code&gt;&amp;quot;udp&amp;quot;&lt;/code&gt;, or &lt;code&gt;&amp;quot;tcp/udp&amp;quot;&lt;/code&gt;)&lt;/li&gt;
 &lt;li&gt;Check that the list name in the rule matches exactly (case-sensitive) the key in &lt;code&gt;lists&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Low-level routing conflicts (advanced)&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;low-level-routing-conflicts-advanced&#34;&gt;&lt;/span&gt;

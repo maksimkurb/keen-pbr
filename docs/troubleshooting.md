@@ -219,11 +219,13 @@ Check `GET /api/health/service` for circuit breaker state. If a child is `"open"
 ## Port/address filter rules not matching
 
 {{< callout type="warning" >}}
-Per-entry negation in `src_addr` / `dest_addr` is not supported. The whole array must either all start with `!` or not.
+When using negation in `src_addr` / `dest_addr` fields, the negation applies to all IP addresses/subnets specified in that field. Mixing entries with negation and without negation in the same list is not supported. As an alternative, you can create two separate rules.
+
+This is also valid for `src_port` / `dest_port`.
 {{< /callout >}}
 
 If rules aren't matching as expected:
-- Verify that `proto` is set correctly (`"tcp"`, `"udp"`, or `"tcp/udp"`)
+- Verify that `proto` is set correctly (`null` (for any), `"tcp"`, `"udp"`, or `"tcp/udp"`)
 - Check that the list name in the rule matches exactly (case-sensitive) the key in `lists`
 
 ## Low-level routing conflicts (advanced)

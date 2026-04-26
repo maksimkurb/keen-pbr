@@ -56,7 +56,7 @@
   <meta itemprop="name" content="Устранение неполадок">
   <meta itemprop="description" content="Начните с симптома, который наблюдаете. Каждый раздел начинается с простых проверок; если они не помогают — переходите к расширенной диагностике.
 Сервис не запускается Убедитесь, что файл конфигурации находится в стандартном месте для вашей платформы. Для OpenWRT/Debian это /etc/keen-pbr/config.json Для Keenetic/NetCraze это /opt/etc/keen-pbr/config.json Перезапустите сервис keen-pbr. Для OpenWRT/Debian выполните service keen-pbr restart Для Keenetic/NetCraze выполните /opt/etc/init.d/S80keen-pbr restart Если вы недавно редактировали файл конфигурации, проверьте его на отсутствующие запятые, сломанный JSON или неверные пути. Если вы используете полный пакет, убедитесь, что вы случайно не отключили сервис и не заменили конфигурацию примером только для headless. Расширенные проверки Используйте эти, если сервис всё ещё не запускается:">
-  <meta itemprop="wordCount" content="739">
+  <meta itemprop="wordCount" content="769">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Устранение неполадок">
   <meta name="twitter:description" content="Начните с симптома, который наблюдаете. Каждый раздел начинается с простых проверок; если они не помогают — переходите к расширенной диагностике.
@@ -1243,13 +1243,15 @@
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Отрицание для каждой записи в <code>src_addr</code> / <code>dest_addr</code> не поддерживается. Весь массив должен либо все начинаться с <code>!</code>, либо нет.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><p>Если вы используете отрицание в полях <code>src_addr</code> / <code>dest_addr</code>, отрицание применяется сразу ко всем указанным в этом поле IP/подсетям. Смешивание записей с отрицанием и без отрицания в одном списке невозможно. Как альтернатива, вы можете создать два отдельных правила.</p>
+<p>Это же применимо и к <code>src_port</code> / <code>dest_port</code>.</p>
+</div>
   </div>
 </div>
 
 <p>Если правила не сопоставляются как ожидается:</p>
 <ul>
-<li>Убедитесь, что <code>proto</code> установлен корректно (<code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code>)</li>
+<li>Убедитесь, что <code>proto</code> установлен корректно (<code>null</code> (для любых протоколов), <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code>)</li>
 <li>Проверьте, что имя списка в правиле точно совпадает (с учётом регистра) с ключом в <code>lists</code></li>
 </ul>
 <h2>Конфликты низкоуровневой маршрутизации (расширенные)<span class="hx:absolute hx:-mt-20" id="конфликты-низкоуровневой-маршрутизации-расширенные"></span>

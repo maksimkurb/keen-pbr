@@ -198,7 +198,7 @@ If keen-pbr service is alive but you can&rsquo;t open WebUI, make sure you did n
   <meta itemprop="description" content="Start with the symptom that matches what you see. Each section begins with the simplest checks first, then gives more advanced checks if you still need them.
 Service does not start Follow the checks for your platform:
 Keenetic / NetCrazeOpenWrtDebian Confirm that the config file exists: /opt/etc/keen-pbr/config.json Restart the keen-pbr service: bash/opt/etc/init.d/S80keen-pbr restart Check whether keen-pbr is alive or dead: bash/opt/etc/init.d/S80keen-pbr status Check whether dnsmasq is alive or dead: bash/opt/etc/init.d/S56dnsmasq status Read the router logs and search for keen-pbr or dnsmasq: bashndmc -c &#34;show log once&#34; | grep -E &#39;keen-pbr|dnsmasq&#39; Confirm that the config file exists: /etc/keen-pbr/config.json Restart the keen-pbr service: bashservice keen-pbr restart Check whether keen-pbr is alive or dead: bashservice keen-pbr status Check whether dnsmasq is alive or dead: bashservice dnsmasq status Read the router logs and search for keen-pbr or dnsmasq: bashlogread | grep -E &#39;keen-pbr|dnsmasq&#39; Confirm that the config file exists: /etc/keen-pbr/config.json Restart the keen-pbr service: bashservice keen-pbr restart Check whether keen-pbr is alive or dead: bashservice keen-pbr status Check whether dnsmasq is alive or dead: bashservice dnsmasq status Read the logs and search for keen-pbr or dnsmasq: bashjournalctl -u keen-pbr -u dnsmasq Common tips If you recently edited the config file, check it for missing commas, broken JSON, or wrong paths. If keen-pbr service is alive but you can’t open WebUI, make sure you did not accidentally replace the config with a headless-only example (api section must exist in the config.json). Advanced checks Use these if the service still will not start:">
-  <meta itemprop="wordCount" content="986">
+  <meta itemprop="wordCount" content="1019">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Troubleshooting">
   <meta name="twitter:description" content="Start with the symptom that matches what you see. Each section begins with the simplest checks first, then gives more advanced checks if you still need them.
@@ -1636,13 +1636,15 @@ Keenetic / NetCrazeOpenWrtDebian Confirm that the config file exists: /opt/etc/k
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
 
   <div class="hx:w-full hx:min-w-0 hx:leading-7">
-    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0">Per-entry negation in <code>src_addr</code> / <code>dest_addr</code> is not supported. The whole array must either all start with <code>!</code> or not.</div>
+    <div class="hx:mt-6 hx:leading-7 hx:first:mt-0"><p>When using negation in <code>src_addr</code> / <code>dest_addr</code> fields, the negation applies to all IP addresses/subnets specified in that field. Mixing entries with negation and without negation in the same list is not supported. As an alternative, you can create two separate rules.</p>
+<p>This is also valid for <code>src_port</code> / <code>dest_port</code>.</p>
+</div>
   </div>
 </div>
 
 <p>If rules aren&rsquo;t matching as expected:</p>
 <ul>
-<li>Verify that <code>proto</code> is set correctly (<code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code>)</li>
+<li>Verify that <code>proto</code> is set correctly (<code>null</code> (for any), <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code>)</li>
 <li>Check that the list name in the rule matches exactly (case-sensitive) the key in <code>lists</code></li>
 </ul>
 <h2>Low-level routing conflicts (advanced)<span class="hx:absolute hx:-mt-20" id="low-level-routing-conflicts-advanced"></span>
