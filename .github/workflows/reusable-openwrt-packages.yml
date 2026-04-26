@@ -37,11 +37,21 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/frontend/dist"
           cp -a "$GITHUB_WORKSPACE/frontend-artifact"/. "$GITHUB_WORKSPACE/frontend/dist/"
       - name: Build packages
+        env:
+          OPENWRT_USIGN_PRIVATE_KEY: ${{ inputs.use_signing_secrets && secrets.OPENWRT_USIGN_PRIVATE_KEY || '' }}
+          OPENWRT_APK_PRIVATE_KEY: ${{ inputs.use_signing_secrets && secrets.OPENWRT_APK_PRIVATE_KEY || '' }}
         run: |
           make openwrt-packages \
             OPENWRT_VERSION="${{ inputs.openwrt_version }}" \
             OPENWRT_ARCHITECTURE="${{ inputs.architecture }}"
-      - name: Upload packaged artifacts
+      - name: Upload signed packaged artifacts
+        if: ${{ inputs.use_signing_secrets }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: packages-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
+          path: build/packages/openwrt
+      - name: Upload unsigned packaged artifacts
+        if: ${{ !inputs.use_signing_secrets }}
         uses: actions/upload-artifact@v6
         with:
           name: staging-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
@@ -52,31 +62,3 @@ jobs:
           name: debug-symbols-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
           path: build/packages/openwrt-debug
           if-no-files-found: error
-
-  sign:
-    if: ${{ inputs.use_signing_secrets }}
-    name: "sign: ${{ inputs.openwrt_version }} / ${{ inputs.architecture }}"
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - name: Download unsigned package artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: staging-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
-          path: build/packages/openwrt
-      - name: Sign packages
-        env:
-          OPENWRT_USIGN_PRIVATE_KEY: ${{ secrets.OPENWRT_USIGN_PRIVATE_KEY }}
-          OPENWRT_APK_PRIVATE_KEY: ${{ secrets.OPENWRT_APK_PRIVATE_KEY }}
-        run: |
-          make openwrt-sign-packages \
-            OPENWRT_VERSION="${{ inputs.openwrt_version }}" \
-            OPENWRT_ARCHITECTURE="${{ inputs.architecture }}"
-      - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: packages-openwrt-${{ inputs.openwrt_version }}-${{ inputs.architecture }}
-          path: build/packages/openwrt

@@ -57,16 +57,23 @@ find "$OPENWRT_ROOT" -mindepth 1 -maxdepth 1 -type d | sort | while read -r arch
 
     mapfile -t arch_apks < <(find "$arch_dir" -maxdepth 1 -type f -name '*.apk' -printf '%f\n' | sort)
     if [ "${#arch_apks[@]}" -gt 0 ]; then
+        tmp_dir="$(mktemp -d)"
+        key_file="$(mktemp)"
+        for apk_file in "${arch_apks[@]}"; do
+            cp "$arch_dir/$apk_file" "$tmp_dir/"
+        done
+        printf '%s\n' "$OPENWRT_APK_PRIVATE_KEY" > "$key_file"
         (
-            cd "$arch_dir"
-            key_file="$(mktemp)"
-            printf '%s\n' "$OPENWRT_APK_PRIVATE_KEY" > "$key_file"
+            cd "$tmp_dir"
+            rm -f packages.adb
             "$APK_BIN" mkndx --allow-untrusted \
                 --sign "$key_file" \
                 --output "packages.adb" \
                 "${arch_apks[@]}"
-            rm -f "$key_file"
         )
+        cp "$tmp_dir/packages.adb" "$arch_dir/packages.adb"
+        rm -rf "$tmp_dir"
+        rm -f "$key_file"
         : > "$APK_SIGNING_MARKER"
     fi
 done

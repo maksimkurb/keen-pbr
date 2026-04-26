@@ -134,11 +134,16 @@ if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
         mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
             -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.apk" -printf '%f\n' | sort)
         if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
+            tmp_dir="$(mktemp -d)"
+            for apk_file in "${ARCH_APKS[@]}"; do
+                cp "$ARCH_DIR/$apk_file" "$tmp_dir/"
+            done
             (
-                cd "$ARCH_DIR"
+                cd "$tmp_dir"
                 if [ -n "${OPENWRT_APK_PRIVATE_KEY:-}" ]; then
                     key_file="$(mktemp)"
                     printf '%s\n' "$OPENWRT_APK_PRIVATE_KEY" > "$key_file"
+                    rm -f packages.adb
                     "$APK_BIN" mkndx --allow-untrusted \
                         --sign "$key_file" \
                         --output "packages.adb" \
@@ -151,6 +156,8 @@ if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
                         "${ARCH_APKS[@]}"
                 fi
             )
+            cp "$tmp_dir/packages.adb" "$ARCH_DIR/packages.adb"
+            rm -rf "$tmp_dir"
         fi
     done
 else
