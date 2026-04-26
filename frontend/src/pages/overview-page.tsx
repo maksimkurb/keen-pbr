@@ -200,6 +200,9 @@ export function OverviewPage() {
                   <div className="text-lg font-semibold">
                     {serviceHealth.version}
                   </div>
+                  <div className="text-xs text-muted-foreground">
+                    build {serviceHealth.build}
+                  </div>
                 </div>
                 <div>
                   <div className="mb-1 text-sm text-muted-foreground">
