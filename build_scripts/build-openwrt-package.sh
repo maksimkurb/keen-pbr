@@ -54,6 +54,23 @@ update_feeds() {
     verify_feed_update
 }
 
+install_required_feed_packages() {
+    local packages="
+        dnsmasq-full
+        libatomic
+        libcurl
+        libnl-core
+        libnl-route
+        libstdcpp
+        zlib
+        libzstd
+    "
+    local pkg
+    for pkg in $packages; do
+        ./scripts/feeds install "$pkg"
+    done
+}
+
 bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
 cp -r "$WORKSPACE/packages/openwrt/keen-pbr" "$SDK_DIR/package/"
@@ -64,7 +81,7 @@ retry "$FEED_UPDATE_RETRIES" "$FEED_UPDATE_RETRY_DELAY" update_feeds || {
     echo "[build-openwrt-package] Feed update failed after $FEED_UPDATE_RETRIES attempts." >&2
     exit 1
 }
-./scripts/feeds install -a
+install_required_feed_packages
 
 cp "$WORKSPACE/packages/openwrt/packages.config" .config
 make defconfig

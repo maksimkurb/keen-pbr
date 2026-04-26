@@ -82,7 +82,7 @@ define Package/keen-pbr
 endef
 
 define Package/keen-pbr/description
-  Policy-based routing daemon for Keen/OpenWRT routers with REST API and WebUI.
+  Policy-based routing daemon for OpenWRT and Keenetic routers with REST API and WebUI
 endef
 
 define Package/keen-pbr/conffiles
@@ -134,7 +134,7 @@ define Package/keen-pbr-headless
 endef
 
 define Package/keen-pbr-headless/description
-  Policy-based routing daemon for Keen/OpenWRT routers without REST API and WebUI.
+  Policy-based routing daemon for OpenWRT and Keenetic routers. REST API and WebUI are NOT included in the headless variant.
 endef
 
 define Package/keen-pbr-headless/conffiles
