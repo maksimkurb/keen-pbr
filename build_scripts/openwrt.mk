@@ -21,7 +21,8 @@ openwrt-packages: ## Build OpenWrt packages inside the official OpenWrt SDK cont
 	$(call _require_nonempty,OPENWRT_VERSION,$@)
 	$(call _require_nonempty,OPENWRT_ARCHITECTURE,$@)
 	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
-	mkdir -p build/packages
+	mkdir -p build build/packages/openwrt build/packages/openwrt-debug
+	chmod 0777 build build/packages build/packages/openwrt build/packages/openwrt-debug
 	docker run --rm \
 	  -e OPENWRT_VERSION="$(OPENWRT_VERSION)" \
 	  -e OPENWRT_ARCHITECTURE="$(OPENWRT_ARCHITECTURE)" \
@@ -43,6 +44,8 @@ openwrt-sign-packages: ## Sign OpenWrt repository metadata inside the official O
 	$(call _require_nonempty,OPENWRT_VERSION,$@)
 	$(call _require_nonempty,OPENWRT_ARCHITECTURE,$@)
 	@echo "[openwrt-sign-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
+	mkdir -p build build/packages/openwrt
+	chmod 0777 build build/packages build/packages/openwrt
 	docker run --rm \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
 	  -e OPENWRT_APK_PRIVATE_KEY \
