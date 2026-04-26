@@ -3,25 +3,23 @@
 #
 # Usage: scripts/collect-openwrt.sh \
 #          <workspace-dir> <sdk-dir> <release-dir> \
-#          <tag> <target> <subtarget> [pkgarch]
+#          <tag> <architecture> [pkgarch]
 #
 # <workspace-dir>  Root of the keen-pbr source tree (contains version.mk)
 # <sdk-dir>        Extracted OpenWrt SDK directory (built packages are in sdk-dir/bin/)
 # <release-dir>    Directory where repository-layout artifacts are written (created if absent)
 # <tag>            OpenWrt version string, e.g. "24.10.4"
-# <target>         OpenWrt target, e.g. "mediatek"
-# <subtarget>      OpenWrt subtarget, e.g. "filogic"
+# <architecture>   OpenWrt package architecture, e.g. "aarch64_cortex-a53"
 # [pkgarch]        Optional explicit package architecture; auto-detected from path if empty
 
 set -euo pipefail
 
-WORKSPACE="${1:?Usage: $0 <workspace-dir> <sdk-dir> <release-dir> <tag> <target> <subtarget> [pkgarch]}"
+WORKSPACE="${1:?Usage: $0 <workspace-dir> <sdk-dir> <release-dir> <tag> <architecture> [pkgarch]}"
 SDK_DIR="${2:?}"
 RELEASE_DIR="${3:?}"
 TAG="${4:?}"
-TARGET="${5:?}"
-SUBTARGET="${6:?}"
-FIXED_PKGARCH="${7:-}"
+ARCHITECTURE="${5:?}"
+FIXED_PKGARCH="${6:-}"
 APK_SIGNING_MARKER="$RELEASE_DIR/openwrt/.apk-signed"
 
 VERSION_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" full "$WORKSPACE")"
@@ -29,7 +27,6 @@ DEBUG_DEST_ROOT="$RELEASE_DIR/openwrt-debug/${TAG}"
 
 mkdir -p "$RELEASE_DIR"
 mkdir -p "$DEBUG_DEST_ROOT"
-ARCH_PREFIX="${TARGET}_${SUBTARGET}"
 
 # ── Copy and rename packages ──────────────────────────────────────────────────
 
@@ -45,10 +42,11 @@ _copy_pkg() {
             BASENAME=$(basename "$f")
             PKG_ARCH=$(printf '%s\n' "$BASENAME" | sed -E 's/^[^_]+_[^_]+_(.+)\.[^.]+$/\1/')
         fi
-        ARCH_DIR_NAME="${PKG_ARCH}_${ARCH_PREFIX}"
+        [ -n "$PKG_ARCH" ] || PKG_ARCH="$ARCHITECTURE"
+        ARCH_DIR_NAME="${PKG_ARCH}"
         DEST_DIR="$RELEASE_DIR/openwrt/${TAG}/${ARCH_DIR_NAME}"
         mkdir -p "$DEST_DIR"
-        cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.${EXT}"
+        cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCHITECTURE}.${EXT}"
     done
 }
 
@@ -57,7 +55,7 @@ _copy_pkg "keen-pbr-headless"
 
 find "$SDK_DIR/build_dir" -type f -path '*/debug-artifacts/*/keen-pbr.debug' | while read -r f; do
     variant="$(basename "$(dirname "$f")")"
-    cp "$f" "$DEBUG_DEST_ROOT/keen-pbr_${VERSION_RELEASE}_openwrt_${TAG}_${ARCH_PREFIX}_${variant}.debug"
+    cp "$f" "$DEBUG_DEST_ROOT/keen-pbr_${VERSION_RELEASE}_openwrt_${TAG}_${ARCHITECTURE}_${variant}.debug"
 done
 
 # ── IPK: generate Packages index per architecture ────────────────────────────
@@ -79,9 +77,9 @@ EOF
 
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
         ARCH_DIR_NAME=$(basename "$ARCH_DIR")
-        PKG_ARCH="${ARCH_DIR_NAME%_${ARCH_PREFIX}}"
+        PKG_ARCH="${ARCH_DIR_NAME}"
         mapfile -t ARCH_IPKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
-            -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.ipk" -printf '%f\n' | sort)
+            -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.ipk" -printf '%f\n' | sort)
         if [ "${#ARCH_IPKS[@]}" -gt 0 ]; then
             TMP_DIR=$(mktemp -d)
             for f in "${ARCH_IPKS[@]}"; do
@@ -128,13 +126,13 @@ if [ ! -x "$APK_BIN" ]; then
 fi
 
 if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
-        -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_*.apk" 2>/dev/null | grep -q .; then
+        -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.apk" 2>/dev/null | grep -q .; then
     rm -f "$APK_SIGNING_MARKER"
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d | sort); do
         ARCH_DIR_NAME=$(basename "$ARCH_DIR")
-        PKG_ARCH="${ARCH_DIR_NAME%_${ARCH_PREFIX}}"
+        PKG_ARCH="${ARCH_DIR_NAME}"
         mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
-            -name "keen-pbr*_openwrt_${TAG}_${ARCH_PREFIX}_${PKG_ARCH}.apk" -printf '%f\n' | sort)
+            -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.apk" -printf '%f\n' | sort)
         if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
             (
                 cd "$ARCH_DIR"

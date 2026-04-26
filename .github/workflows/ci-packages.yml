@@ -97,19 +97,13 @@ jobs:
       matrix:
         build:
           - openwrt_version: "24.10.6"
-            build_scope: custom
-            targets: mediatek
-            subtargets: filogic
+            architecture: "aarch64_cortex-a53"
           - openwrt_version: "25.12.2"
-            build_scope: custom
-            targets: mediatek
-            subtargets: filogic
+            architecture: "aarch64_cortex-a53"
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
-      build_scope: ${{ matrix.build.build_scope }}
       openwrt_version: ${{ matrix.build.openwrt_version }}
-      targets: ${{ matrix.build.targets }}
-      subtargets: ${{ matrix.build.subtargets }}
+      architecture: ${{ matrix.build.architecture }}
       frontend_artifact_name: frontend-dist
       use_signing_secrets: ${{ needs.prepare-frontend.outputs.use_signing_secrets == 'true' }}
     secrets: inherit

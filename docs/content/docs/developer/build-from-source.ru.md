@@ -137,55 +137,44 @@ make keenetic-packages KEENETIC_CONFIG=mipsel-3.4 KEENETIC_VERSION=current
 
 ### OpenWrt
 
-Сначала перечислите доступные цели:
+Сначала перечислите доступные архитектуры:
 
 ```bash {filename="bash"}
-make list-openwrt-targets OPENWRT_VERSION=24.10.4
-make list-openwrt-targets OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek
-make list-openwrt-targets OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make list-openwrt-architectures OPENWRT_VERSION=24.10.4
 ```
 
 Соберите пакет OpenWrt:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 ```
 
 Или с явным выпуском:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 
 # ещё один распространённый пример
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=rockchip OPENWRT_SUBTARGET=armv8
-```
-
-Пересобирайте образ OpenWrt builder явным образом:
-
-```bash {filename="bash"}
-make openwrt-builder-image
+make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=x86_64
 ```
 
 Параметры:
 
 | Переменная | Обязательно | По умолчанию | Пример | Описание |
 |---|---|---|---|---|
-| `OPENWRT_VERSION` | да | - | `24.10.4` | Выпуск OpenWrt, используемый для обнаружения SDK. |
-| `OPENWRT_TARGET` | да | - | `mediatek` | Имя цели OpenWrt. |
-| `OPENWRT_SUBTARGET` | да | - | `filogic` | Имя подцели OpenWrt. |
+| `OPENWRT_VERSION` | да | - | `24.10.4` | Выпуск OpenWrt, используемый для выбора образа SDK. |
+| `OPENWRT_ARCHITECTURE` | да | - | `aarch64_cortex-a53` | Архитектура пакетов OpenWrt и префикс тега образа SDK. |
 
 Поведение:
 
-- Собирает `docker/Dockerfile.openwrt-builder`
 - Монтирует репозиторий в контейнер в `/workspace`
-- Загружает и извлекает соответствующий OpenWrt SDK в смонтированный кэш SDK при первом запуске
-- Повторно использует кэш SDK при последующих запусках
+- Использует официальный образ SDK `ghcr.io/openwrt/sdk:<architecture>-<version>`
 - Копирует полученные артефакты `.ipk` / `.apk` в `build/packages/`
 
 ### Примечания
 
 - Репозиторий монтируется в `/workspace`, поэтому изменения исходного кода и скриптов упаковки подхватываются при следующей сборке.
-- Содержимое OpenWrt SDK кэшируется вне контейнера и повторно используется между запусками.
+- Пакеты OpenWrt собираются внутри образа SDK, соответствующего выбранным версии и архитектуре.
 
 ## Развёртывание на роутер
 
@@ -197,12 +186,12 @@ scp build/packages/keenetic/<keenetic_version>/<pkg_arch>/keen-pbr_<version>_kee
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_keenetic_<config>.ipk
 
 # Пример для OpenWrt .ipk
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.ipk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.ipk
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk
 
 # Пример для OpenWrt .apk
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.apk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.apk
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk
 
 ```
 

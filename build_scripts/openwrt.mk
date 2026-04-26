@@ -2,99 +2,61 @@
 #
 # Variables (all overridable via environment or CLI):
 #   OPENWRT_VERSION        — OpenWrt release version, e.g. 24.10.4
-#   OPENWRT_TARGET         — OpenWrt target,    e.g. mediatek
-#   OPENWRT_SUBTARGET      — OpenWrt subtarget, e.g. filogic
-#   OPENWRT_SDK_DIR        — SDK path inside the container (default: /opt/openwrt-sdk)
-#   OPENWRT_SDK_CACHE_DIR  — Host-side directory for SDK caching
-#                            Local default: ~/.cache/keen-pbr/openwrt-sdk
-#                            CI: set to $RUNNER_TEMP/openwrt-sdk
-#   OPENWRT_DOCKER_IMAGE   — Builder image
-#   OPENWRT_DOCKER_CACHE_FROM / OPENWRT_DOCKER_CACHE_TO — Optional buildx cache dirs
+#   OPENWRT_ARCHITECTURE   — OpenWrt package architecture, e.g. aarch64_cortex-a53
+#   OPENWRT_SDK_DIR        — Preferred SDK root inside the container (default: /)
+#   OPENWRT_DOCKER_IMAGE   — Official OpenWrt SDK image
 
 OPENWRT_VERSION       ?=
-OPENWRT_TARGET        ?=
-OPENWRT_SUBTARGET     ?=
-OPENWRT_SDK_DIR       ?= /opt/openwrt-sdk
-OPENWRT_SDK_CACHE_DIR ?= $(HOME)/.cache/keen-pbr/openwrt-sdk
-OPENWRT_DOCKER_IMAGE  ?= keen-pbr-openwrt-builder:sdk-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
-OPENWRT_DOCKER_CACHE_FROM ?=
-OPENWRT_DOCKER_CACHE_TO   ?=
-
-_OPENWRT_SDK_INSTANCE := sdk-$(OPENWRT_VERSION)-$(OPENWRT_TARGET)-$(OPENWRT_SUBTARGET)
+OPENWRT_ARCHITECTURE  ?=
+OPENWRT_SDK_DIR       ?= /
+OPENWRT_DOCKER_IMAGE  ?= ghcr.io/openwrt/sdk:$(OPENWRT_ARCHITECTURE)-$(OPENWRT_VERSION)
 
 define _require_nonempty
 $(if $(strip $($1)),,$(error $1 is required for target '$2'))
 endef
 
-.PHONY: openwrt-sdk-prepare openwrt-packages openwrt-builder-image list-openwrt-targets
+.PHONY: openwrt-packages openwrt-sign-packages list-openwrt-architectures
 
-openwrt-sdk-prepare: ## Download and prepare the OpenWrt SDK inside Docker (SDK cached on host)
+openwrt-packages: ## Build OpenWrt packages inside the official OpenWrt SDK container
 	$(call _require_nonempty,OPENWRT_VERSION,$@)
-	$(call _require_nonempty,OPENWRT_TARGET,$@)
-	$(call _require_nonempty,OPENWRT_SUBTARGET,$@)
-	@echo "[openwrt-sdk-prepare] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
-	@if ! docker image inspect "$(OPENWRT_DOCKER_IMAGE)" >/dev/null 2>&1; then \
-	  $(MAKE) openwrt-builder-image; \
-	fi
-	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)"
+	$(call _require_nonempty,OPENWRT_ARCHITECTURE,$@)
+	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
+	mkdir -p build/packages
 	docker run --rm \
 	  --user "$$(id -u):$$(id -g)" \
-	  -e HOME=/tmp/keen-pbr-home \
-	  -v "$(abspath .):/workspace" \
-	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
-	  "$(OPENWRT_DOCKER_IMAGE)" \
-	  bash -c 'set -e; \
-	    mkdir -p "$$HOME"; \
-	    umask 022; \
-	    bash /workspace/build_scripts/openwrt-sdk-setup.sh \
-	      "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" \
-	      "$(OPENWRT_SDK_DIR)"; \
-	    chmod -R u+rwX,go+rX "$(OPENWRT_SDK_DIR)"'
-
-openwrt-packages: openwrt-sdk-prepare ## Build OpenWrt packages inside Docker container (SDK cached on host)
-	$(call _require_nonempty,OPENWRT_VERSION,$@)
-	$(call _require_nonempty,OPENWRT_TARGET,$@)
-	$(call _require_nonempty,OPENWRT_SUBTARGET,$@)
-	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_TARGET=$(OPENWRT_TARGET) OPENWRT_SUBTARGET=$(OPENWRT_SUBTARGET) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_SDK_CACHE_DIR=$(OPENWRT_SDK_CACHE_DIR)"
-	mkdir -p "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE)" build/packages
-	docker run --rm \
-	  --user "$$(id -u):$$(id -g)" \
+	  -e OPENWRT_VERSION="$(OPENWRT_VERSION)" \
+	  -e OPENWRT_ARCHITECTURE="$(OPENWRT_ARCHITECTURE)" \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
 	  -e OPENWRT_APK_PRIVATE_KEY \
-	  -e KEEN_PBR_RELEASE_OVERRIDE="$(KEEN_PBR_RELEASE)" \
 	  -e HOME=/tmp/keen-pbr-home \
 	  -v "$(abspath .):/workspace" \
-	  -v "$(OPENWRT_SDK_CACHE_DIR)/$(_OPENWRT_SDK_INSTANCE):$(OPENWRT_SDK_DIR)" \
 	  "$(OPENWRT_DOCKER_IMAGE)" \
-	  bash -c 'set -e; \
+	  bash -lc 'set -e; \
 	    mkdir -p "$$HOME"; \
-	    _SDK=$$(find "$(OPENWRT_SDK_DIR)" -maxdepth 1 -name "openwrt-sdk-*" -type d | head -1); \
-	    test -n "$$_SDK" || { echo "ERROR: OpenWrt SDK not found in $(OPENWRT_SDK_DIR)"; exit 1; }; \
+	    _SDK=$$(bash /workspace/build_scripts/find-openwrt-sdk.sh "$(OPENWRT_SDK_DIR)"); \
 	    bash /workspace/build_scripts/build-openwrt-package.sh /workspace "$$_SDK"; \
 	    mkdir -p /workspace/build/packages; \
 	    bash /workspace/build_scripts/collect-openwrt.sh \
 	      /workspace "$$_SDK" /workspace/build/packages \
-	      "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)"'
+	      "$(OPENWRT_VERSION)" "$(OPENWRT_ARCHITECTURE)"'
 
-openwrt-builder-image: ## Build the OpenWrt builder Docker image locally
-	@echo "[openwrt-builder-image] config: OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE) OPENWRT_DOCKER_CACHE_FROM=$(OPENWRT_DOCKER_CACHE_FROM) OPENWRT_DOCKER_CACHE_TO=$(OPENWRT_DOCKER_CACHE_TO)"
-	@if [ -n "$(OPENWRT_DOCKER_CACHE_FROM)" ] || [ -n "$(OPENWRT_DOCKER_CACHE_TO)" ]; then \
-	  cache_args=""; \
-	  if [ -n "$(OPENWRT_DOCKER_CACHE_FROM)" ]; then \
-	    cache_args="$$cache_args --cache-from type=local,src=$(OPENWRT_DOCKER_CACHE_FROM)"; \
-	  fi; \
-	  if [ -n "$(OPENWRT_DOCKER_CACHE_TO)" ]; then \
-	    cache_args="$$cache_args --cache-to type=local,dest=$(OPENWRT_DOCKER_CACHE_TO),mode=max"; \
-	  fi; \
-	  docker buildx build --load $$cache_args \
-	    -f docker/Dockerfile.openwrt-builder \
-	    -t "$(OPENWRT_DOCKER_IMAGE)" .; \
-	else \
-	  docker build \
-	    -f docker/Dockerfile.openwrt-builder \
-	    -t "$(OPENWRT_DOCKER_IMAGE)" .; \
-	fi
-
-list-openwrt-targets: ## List available OpenWrt targets from the workflow discovery script
+openwrt-sign-packages: ## Sign OpenWrt repository metadata inside the official OpenWrt SDK container
 	$(call _require_nonempty,OPENWRT_VERSION,$@)
-	@python3 "$(abspath .)/docker/list_openwrt_targets.py" "$(OPENWRT_VERSION)" "$(OPENWRT_TARGET)" "$(OPENWRT_SUBTARGET)" "$(abspath .)"
+	$(call _require_nonempty,OPENWRT_ARCHITECTURE,$@)
+	@echo "[openwrt-sign-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
+	docker run --rm \
+	  --user "$$(id -u):$$(id -g)" \
+	  -e OPENWRT_USIGN_PRIVATE_KEY \
+	  -e OPENWRT_APK_PRIVATE_KEY \
+	  -e HOME=/tmp/keen-pbr-home \
+	  -v "$(abspath .):/workspace" \
+	  "$(OPENWRT_DOCKER_IMAGE)" \
+	  bash -lc 'set -e; \
+	    mkdir -p "$$HOME"; \
+	    _SDK=$$(bash /workspace/build_scripts/find-openwrt-sdk.sh "$(OPENWRT_SDK_DIR)"); \
+	    bash /workspace/build_scripts/sign-openwrt-repository.sh \
+	      "$$_SDK" /workspace/build/packages "$(OPENWRT_VERSION)"'
+
+list-openwrt-architectures: ## List available OpenWrt package architectures for a release
+	$(call _require_nonempty,OPENWRT_VERSION,$@)
+	@python3 "$(abspath .)/.github/builder/generate_openwrt_arch_matrix.py" "$(OPENWRT_VERSION)" --format table

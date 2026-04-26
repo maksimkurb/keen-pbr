@@ -61,7 +61,13 @@ gpg --armor --export-secret-keys "keen-pbr Debian Repository" > debian_private.p
 ```sh
 OPENWRT_USIGN_PRIVATE_KEY="$(cat /path/to/usign_private.key)" \
 OPENWRT_APK_PRIVATE_KEY="$(cat /path/to/apk_private.pem)" \
-make openwrt-packages
+make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
+```
+
+```sh
+OPENWRT_USIGN_PRIVATE_KEY="$(cat /path/to/usign_private.key)" \
+OPENWRT_APK_PRIVATE_KEY="$(cat /path/to/apk_private.pem)" \
+make openwrt-sign-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 ```
 
 ```sh
