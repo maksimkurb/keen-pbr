@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesAbG7Jk data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesRgYoT1 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -288,6 +288,7 @@ namespace api {
 
     struct HealthResponse {
         std::optional<int64_t> apply_started_ts;
+        std::string build;
         std::string build_variant;
         bool config_is_draft;
         std::string os_type;
@@ -446,7 +447,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesAbG7Jk {
+    struct KeenPbrTypesRgYoT1 {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -638,8 +639,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesAbG7Jk & x);
-    void to_json(json & j, const KeenPbrTypesAbG7Jk & x);
+    void from_json(const json & j, KeenPbrTypesRgYoT1 & x);
+    void to_json(json & j, const KeenPbrTypesRgYoT1 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1068,6 +1069,7 @@ namespace api {
 
     inline void from_json(const json & j, HealthResponse& x) {
         x.apply_started_ts = get_stack_optional<int64_t>(j, "apply_started_ts");
+        x.build = j.at("build").get<std::string>();
         x.build_variant = j.at("build_variant").get<std::string>();
         x.config_is_draft = j.at("config_is_draft").get<bool>();
         x.os_type = j.at("os_type").get<std::string>();
@@ -1085,6 +1087,7 @@ namespace api {
     inline void to_json(json & j, const HealthResponse & x) {
         j = json::object();
         j["apply_started_ts"] = x.apply_started_ts;
+        j["build"] = x.build;
         j["build_variant"] = x.build_variant;
         j["config_is_draft"] = x.config_is_draft;
         j["os_type"] = x.os_type;
@@ -1385,7 +1388,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesAbG7Jk& x) {
+    inline void from_json(const json & j, KeenPbrTypesRgYoT1& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1438,7 +1441,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesAbG7Jk & x) {
+    inline void to_json(json & j, const KeenPbrTypesRgYoT1 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

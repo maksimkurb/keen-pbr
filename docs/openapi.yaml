@@ -1035,12 +1035,16 @@ components:
     HealthResponse:
       type: object
       required:
-        [version, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft]
+        [version, build, status, os_type, os_version, build_variant, resolver_live_status, config_is_draft]
       properties:
         version:
           type: string
           description: Daemon version string.
           example: "3.0.0"
+        build:
+          type: string
+          description: Daemon build string (git commit UTC timestamp).
+          example: "20260424231043"
         status:
           type: string
           enum: [running, stopped]

@@ -14,6 +14,7 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         const auto service_health = ctx.get_service_health();
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
+        resp.build = KEEN_PBR3_VERSION_RELEASE_STRING;
         resp.status = service_health.status;
         resp.os_type = service_health.os_type;
         resp.os_version = service_health.os_version;

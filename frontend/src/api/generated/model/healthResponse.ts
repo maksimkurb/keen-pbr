@@ -12,6 +12,8 @@ import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 export interface HealthResponse {
   /** Daemon version string. */
   version: string;
+  /** Daemon build string (git commit UTC timestamp). */
+  build: string;
   status: HealthResponseStatus;
   /** Normalized host OS family used by the running daemon. */
   os_type: string;
