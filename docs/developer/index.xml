@@ -287,12 +287,10 @@
 &lt;li&gt;Builds and collects artifacts into &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;OpenWrt&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;openwrt&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;List available targets first:&lt;/p&gt;
+    &lt;a href=&#34;#openwrt&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;List available architectures first:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-targets &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make list-openwrt-architectures &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -307,7 +305,7 @@
 &lt;p&gt;Build an OpenWrt package:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;aarch64_cortex-a53&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -322,25 +320,10 @@
 &lt;p&gt;Or with an explicit release:&lt;/p&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;mediatek &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;filogic
+&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;aarch64_cortex-a53
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# another common example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;24.10.4 &lt;span class=&#34;nv&#34;&gt;OPENWRT_TARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;rockchip &lt;span class=&#34;nv&#34;&gt;OPENWRT_SUBTARGET&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;armv8&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
-  &lt;button
-    class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
-    title=&#34;Copy code&#34;
-    aria-label=&#34;Copy code&#34;
-    data-copied-label=&#34;Copied!&#34;
-  &gt;
-    &lt;div class=&#34;hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-&lt;div class=&#34;hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4&#34;&gt;&lt;/div&gt;
-  &lt;/button&gt;
-&lt;/div&gt;
-&lt;/div&gt;
-&lt;p&gt;Rebuild the reusable OpenWrt builder image explicitly:&lt;/p&gt;
-&lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
-
-&lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;bash&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-builder-image&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;make openwrt-packages &lt;span class=&#34;nv&#34;&gt;OPENWRT_VERSION&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;25.12.2 &lt;span class=&#34;nv&#34;&gt;OPENWRT_ARCHITECTURE&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;x86_64&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;
@@ -369,36 +352,27 @@
           &lt;td&gt;yes&lt;/td&gt;
           &lt;td&gt;-&lt;/td&gt;
           &lt;td&gt;&lt;code&gt;24.10.4&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;OpenWrt release used for SDK discovery.&lt;/td&gt;
+          &lt;td&gt;OpenWrt release used to select the SDK image.&lt;/td&gt;
       &lt;/tr&gt;
       &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;OPENWRT_TARGET&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;OPENWRT_ARCHITECTURE&lt;/code&gt;&lt;/td&gt;
           &lt;td&gt;yes&lt;/td&gt;
           &lt;td&gt;-&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;mediatek&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;OpenWrt target name.&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;OPENWRT_SUBTARGET&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;yes&lt;/td&gt;
-          &lt;td&gt;-&lt;/td&gt;
-          &lt;td&gt;&lt;code&gt;filogic&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;OpenWrt subtarget name.&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;aarch64_cortex-a53&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;OpenWrt package architecture and SDK image tag prefix.&lt;/td&gt;
       &lt;/tr&gt;
   &lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;Behavior:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;Builds &lt;code&gt;docker/Dockerfile.openwrt-builder&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Mounts the repo into the container at &lt;code&gt;/workspace&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Downloads and extracts the matching OpenWrt SDK into the mounted SDK cache on first run&lt;/li&gt;
-&lt;li&gt;Reuses the SDK cache on later runs&lt;/li&gt;
+&lt;li&gt;Uses the official SDK image &lt;code&gt;ghcr.io/openwrt/sdk:&amp;lt;architecture&amp;gt;-&amp;lt;version&amp;gt;&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;Copies resulting &lt;code&gt;.ipk&lt;/code&gt; / &lt;code&gt;.apk&lt;/code&gt; artifacts into &lt;code&gt;build/packages/&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Notes&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;notes&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#notes&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;The repo is bind-mounted into &lt;code&gt;/workspace&lt;/code&gt;, so source and packaging-script edits are picked up on the next build.&lt;/li&gt;
-&lt;li&gt;OpenWrt SDK contents are cached outside the container and reused across runs.&lt;/li&gt;
+&lt;li&gt;OpenWrt packages are built inside the SDK image that matches the requested version and architecture.&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2&gt;Deployment to Router&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;deployment-to-router&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#deployment-to-router&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Copy a built package and a config file to your router:&lt;/p&gt;
@@ -409,12 +383,12 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_keenetic_&amp;lt;config&amp;gt;.ipk
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt .ipk example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.ipk root@192.168.1.1:/tmp/
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.ipk
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.ipk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.ipk
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;# OpenWrt .apk example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.apk root@192.168.1.1:/tmp/
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;target&amp;gt;_&amp;lt;subtarget&amp;gt;_&amp;lt;pkg_arch&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;scp build/packages/openwrt/&amp;lt;openwrt_version&amp;gt;/&amp;lt;pkg_arch&amp;gt;/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk root@192.168.1.1:/tmp/
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&amp;lt;version&amp;gt;_openwrt_&amp;lt;openwrt_version&amp;gt;_&amp;lt;architecture&amp;gt;.apk&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
     class=&#34;hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50&#34;
     title=&#34;Copy code&#34;

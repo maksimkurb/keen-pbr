@@ -108,7 +108,7 @@
   <meta itemprop="description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
 Предварительные требования Требование Версия C&#43;&#43; компилятор Поддержка C&#43;&#43;17 (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make любой pkg-config любой Docker (для кросс-компиляции) любой Зависимости Зависимости объединены как git-подмодули или разрешаются из системных пакетов во время сборки CMake.
 Библиотека Назначение libcurl Загрузка удалённых списков nlohmann_json JSON-парсинг libnl Коммуникация через сокеты Netlink (маршрутизация/правила) libunwind Обязательная build-time зависимость для backend разворачивания стека в crash diagnostics; по умолчанию линкуется статически, если доступен libunwind.a fmt C&#43;&#43;17 formatting polyfill cpptrace Вендорная библиотека crash diagnostics cpp-httplib Встроенный HTTP API сервер Сборка Makefile оборачивает все шаги сборки:">
-  <meta itemprop="wordCount" content="580">
+  <meta itemprop="wordCount" content="542">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Сборка из исходного кода">
   <meta name="twitter:description" content="Эта страница для разработчиков и мейнтейнеров пакетов, которые хотят собрать keen-pbr из исходного кода.
@@ -1325,12 +1325,10 @@
 <li>Собирает и собирает артефакты в <code>build/packages/</code></li>
 </ul>
 <h3>OpenWrt<span class="hx:absolute hx:-mt-20" id="openwrt"></span>
-    <a href="#openwrt" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Сначала перечислите доступные цели:</p>
+    <a href="#openwrt" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Сначала перечислите доступные архитектуры:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4
-</span></span><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek
-</span></span><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make list-openwrt-architectures <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1345,7 +1343,7 @@
 <p>Соберите пакет OpenWrt:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>aarch64_cortex-a53</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1360,25 +1358,10 @@
 <p>Или с явным выпуском:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>aarch64_cortex-a53
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># ещё один распространённый пример</span>
-</span></span><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>rockchip <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>armv8</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Скопировать код"
-    aria-label="Скопировать код"
-    data-copied-label="Скопировано!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Пересобирайте образ OpenWrt builder явным образом:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-builder-image</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>25.12.2 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>x86_64</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"
@@ -1407,36 +1390,27 @@
           <td>да</td>
           <td>-</td>
           <td><code>24.10.4</code></td>
-          <td>Выпуск OpenWrt, используемый для обнаружения SDK.</td>
+          <td>Выпуск OpenWrt, используемый для выбора образа SDK.</td>
       </tr>
       <tr>
-          <td><code>OPENWRT_TARGET</code></td>
+          <td><code>OPENWRT_ARCHITECTURE</code></td>
           <td>да</td>
           <td>-</td>
-          <td><code>mediatek</code></td>
-          <td>Имя цели OpenWrt.</td>
-      </tr>
-      <tr>
-          <td><code>OPENWRT_SUBTARGET</code></td>
-          <td>да</td>
-          <td>-</td>
-          <td><code>filogic</code></td>
-          <td>Имя подцели OpenWrt.</td>
+          <td><code>aarch64_cortex-a53</code></td>
+          <td>Архитектура пакетов OpenWrt и префикс тега образа SDK.</td>
       </tr>
   </tbody>
 </table>
 <p>Поведение:</p>
 <ul>
-<li>Собирает <code>docker/Dockerfile.openwrt-builder</code></li>
 <li>Монтирует репозиторий в контейнер в <code>/workspace</code></li>
-<li>Загружает и извлекает соответствующий OpenWrt SDK в смонтированный кэш SDK при первом запуске</li>
-<li>Повторно использует кэш SDK при последующих запусках</li>
+<li>Использует официальный образ SDK <code>ghcr.io/openwrt/sdk:&lt;architecture&gt;-&lt;version&gt;</code></li>
 <li>Копирует полученные артефакты <code>.ipk</code> / <code>.apk</code> в <code>build/packages/</code></li>
 </ul>
 <h3>Примечания<span class="hx:absolute hx:-mt-20" id="примечания"></span>
     <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%87%d0%b0%d0%bd%d0%b8%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><ul>
 <li>Репозиторий монтируется в <code>/workspace</code>, поэтому изменения исходного кода и скриптов упаковки подхватываются при следующей сборке.</li>
-<li>Содержимое OpenWrt SDK кэшируется вне контейнера и повторно используется между запусками.</li>
+<li>Пакеты OpenWrt собираются внутри образа SDK, соответствующего выбранным версии и архитектуре.</li>
 </ul>
 <h2>Развёртывание на роутер<span class="hx:absolute hx:-mt-20" id="развёртывание-на-роутер"></span>
     <a href="#%d1%80%d0%b0%d0%b7%d0%b2%d1%91%d1%80%d1%82%d1%8b%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b0-%d1%80%d0%be%d1%83%d1%82%d0%b5%d1%80" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Скопируйте собранный пакет и файл конфигурации на ваш роутер:</p>
@@ -1447,12 +1421,12 @@
 </span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_keenetic_&lt;config&gt;.ipk
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Пример для OpenWrt .ipk</span>
-</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.ipk root@192.168.1.1:/tmp/
-</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.ipk
+</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.ipk root@192.168.1.1:/tmp/
+</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.ipk
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Пример для OpenWrt .apk</span>
-</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.apk root@192.168.1.1:/tmp/
-</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.apk</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.apk root@192.168.1.1:/tmp/
+</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.apk</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Скопировать код"

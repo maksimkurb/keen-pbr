@@ -108,7 +108,7 @@ Build
   <meta itemprop="description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
 Prerequisites Requirement Version C&#43;&#43; compiler C&#43;&#43;17 support (GCC 8.4&#43;, Clang 9&#43;) CMake 3.14&#43; Make any pkg-config any Docker (for cross-compilation) any Dependencies Dependencies are bundled as git submodules or resolved from system packages during the CMake build.
 Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libnl Netlink socket communication (routing/rules) libunwind Required build-time stack unwinding backend for crash diagnostics; linked statically by default when libunwind.a is available fmt C&#43;&#43;17 formatting polyfill cpptrace Vendored crash diagnostics library cpp-httplib Embedded HTTP API server Build A Makefile wraps all build steps:">
-  <meta itemprop="wordCount" content="607">
+  <meta itemprop="wordCount" content="571">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Build from Source">
   <meta name="twitter:description" content="This page is for developers and package maintainers who want to build keen-pbr from source.
@@ -1325,12 +1325,10 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
 <li>Builds and collects artifacts into <code>build/packages/</code></li>
 </ul>
 <h3>OpenWrt<span class="hx:absolute hx:-mt-20" id="openwrt"></span>
-    <a href="#openwrt" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>List available targets first:</p>
+    <a href="#openwrt" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>List available architectures first:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4
-</span></span><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek
-</span></span><span class="line"><span class="cl">make list-openwrt-targets <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make list-openwrt-architectures <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1345,7 +1343,7 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
 <p>Build an OpenWrt package:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>aarch64_cortex-a53</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1360,25 +1358,10 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
 <p>Or with an explicit release:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>mediatek <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>filogic
+<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>aarch64_cortex-a53
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># another common example</span>
-</span></span><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>24.10.4 <span class="nv">OPENWRT_TARGET</span><span class="o">=</span>rockchip <span class="nv">OPENWRT_SUBTARGET</span><span class="o">=</span>armv8</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
-  <button
-    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
-    title="Copy code"
-    aria-label="Copy code"
-    data-copied-label="Copied!"
-  >
-    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
-<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
-  </button>
-</div>
-</div>
-<p>Rebuild the reusable OpenWrt builder image explicitly:</p>
-<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
-
-<div class="hextra-code-filename not-prose" dir="auto">bash</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">make openwrt-builder-image</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span><span class="line"><span class="cl">make openwrt-packages <span class="nv">OPENWRT_VERSION</span><span class="o">=</span>25.12.2 <span class="nv">OPENWRT_ARCHITECTURE</span><span class="o">=</span>x86_64</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"
@@ -1407,36 +1390,27 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
           <td>yes</td>
           <td>-</td>
           <td><code>24.10.4</code></td>
-          <td>OpenWrt release used for SDK discovery.</td>
+          <td>OpenWrt release used to select the SDK image.</td>
       </tr>
       <tr>
-          <td><code>OPENWRT_TARGET</code></td>
+          <td><code>OPENWRT_ARCHITECTURE</code></td>
           <td>yes</td>
           <td>-</td>
-          <td><code>mediatek</code></td>
-          <td>OpenWrt target name.</td>
-      </tr>
-      <tr>
-          <td><code>OPENWRT_SUBTARGET</code></td>
-          <td>yes</td>
-          <td>-</td>
-          <td><code>filogic</code></td>
-          <td>OpenWrt subtarget name.</td>
+          <td><code>aarch64_cortex-a53</code></td>
+          <td>OpenWrt package architecture and SDK image tag prefix.</td>
       </tr>
   </tbody>
 </table>
 <p>Behavior:</p>
 <ul>
-<li>Builds <code>docker/Dockerfile.openwrt-builder</code></li>
 <li>Mounts the repo into the container at <code>/workspace</code></li>
-<li>Downloads and extracts the matching OpenWrt SDK into the mounted SDK cache on first run</li>
-<li>Reuses the SDK cache on later runs</li>
+<li>Uses the official SDK image <code>ghcr.io/openwrt/sdk:&lt;architecture&gt;-&lt;version&gt;</code></li>
 <li>Copies resulting <code>.ipk</code> / <code>.apk</code> artifacts into <code>build/packages/</code></li>
 </ul>
 <h3>Notes<span class="hx:absolute hx:-mt-20" id="notes"></span>
     <a href="#notes" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><ul>
 <li>The repo is bind-mounted into <code>/workspace</code>, so source and packaging-script edits are picked up on the next build.</li>
-<li>OpenWrt SDK contents are cached outside the container and reused across runs.</li>
+<li>OpenWrt packages are built inside the SDK image that matches the requested version and architecture.</li>
 </ul>
 <h2>Deployment to Router<span class="hx:absolute hx:-mt-20" id="deployment-to-router"></span>
     <a href="#deployment-to-router" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Copy a built package and a config file to your router:</p>
@@ -1447,12 +1421,12 @@ Library Purpose libcurl Downloading remote lists nlohmann_json JSON parsing libn
 </span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_keenetic_&lt;config&gt;.ipk
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># OpenWrt .ipk example</span>
-</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.ipk root@192.168.1.1:/tmp/
-</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.ipk
+</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.ipk root@192.168.1.1:/tmp/
+</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 opkg install /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.ipk
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># OpenWrt .apk example</span>
-</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.apk root@192.168.1.1:/tmp/
-</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;target&gt;_&lt;subtarget&gt;_&lt;pkg_arch&gt;.apk</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+</span></span><span class="line"><span class="cl">scp build/packages/openwrt/&lt;openwrt_version&gt;/&lt;pkg_arch&gt;/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.apk root@192.168.1.1:/tmp/
+</span></span><span class="line"><span class="cl">ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_&lt;version&gt;_openwrt_&lt;openwrt_version&gt;_&lt;architecture&gt;.apk</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
     class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
     title="Copy code"

@@ -132,55 +132,44 @@ Behavior:
 
 ### OpenWrt
 
-List available targets first:
+List available architectures first:
 
 ```bash {filename="bash"}
-make list-openwrt-targets OPENWRT_VERSION=24.10.4
-make list-openwrt-targets OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek
-make list-openwrt-targets OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make list-openwrt-architectures OPENWRT_VERSION=24.10.4
 ```
 
 Build an OpenWrt package:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 ```
 
 Or with an explicit release:
 
 ```bash {filename="bash"}
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=mediatek OPENWRT_SUBTARGET=filogic
+make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_ARCHITECTURE=aarch64_cortex-a53
 
 # another common example
-make openwrt-packages OPENWRT_VERSION=24.10.4 OPENWRT_TARGET=rockchip OPENWRT_SUBTARGET=armv8
-```
-
-Rebuild the reusable OpenWrt builder image explicitly:
-
-```bash {filename="bash"}
-make openwrt-builder-image
+make openwrt-packages OPENWRT_VERSION=25.12.2 OPENWRT_ARCHITECTURE=x86_64
 ```
 
 Parameters:
 
 | Variable | Required | Default | Example | Description |
 |---|---|---|---|---|
-| `OPENWRT_VERSION` | yes | - | `24.10.4` | OpenWrt release used for SDK discovery. |
-| `OPENWRT_TARGET` | yes | - | `mediatek` | OpenWrt target name. |
-| `OPENWRT_SUBTARGET` | yes | - | `filogic` | OpenWrt subtarget name. |
+| `OPENWRT_VERSION` | yes | - | `24.10.4` | OpenWrt release used to select the SDK image. |
+| `OPENWRT_ARCHITECTURE` | yes | - | `aarch64_cortex-a53` | OpenWrt package architecture and SDK image tag prefix. |
 
 Behavior:
 
-- Builds `docker/Dockerfile.openwrt-builder`
 - Mounts the repo into the container at `/workspace`
-- Downloads and extracts the matching OpenWrt SDK into the mounted SDK cache on first run
-- Reuses the SDK cache on later runs
+- Uses the official SDK image `ghcr.io/openwrt/sdk:<architecture>-<version>`
 - Copies resulting `.ipk` / `.apk` artifacts into `build/packages/`
 
 ### Notes
 
 - The repo is bind-mounted into `/workspace`, so source and packaging-script edits are picked up on the next build.
-- OpenWrt SDK contents are cached outside the container and reused across runs.
+- OpenWrt packages are built inside the SDK image that matches the requested version and architecture.
 
 ## Deployment to Router
 
@@ -192,12 +181,12 @@ scp build/packages/keenetic/<keenetic_version>/<pkg_arch>/keen-pbr_<version>_kee
 ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_keenetic_<config>.ipk
 
 # OpenWrt .ipk example
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.ipk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.ipk
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 opkg install /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.ipk
 
 # OpenWrt .apk example
-scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.apk root@192.168.1.1:/tmp/
-ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<target>_<subtarget>_<pkg_arch>.apk
+scp build/packages/openwrt/<openwrt_version>/<pkg_arch>/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1 apk add --allow-untrusted /tmp/keen-pbr_<version>_openwrt_<openwrt_version>_<architecture>.apk
 
 ```
 
