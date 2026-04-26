@@ -17,7 +17,8 @@ export type WarningBannerMode =
   | "dnsmasq-error"
 
 export type WarningBannerState = {
-  applyPending: boolean
+  actionPending: boolean
+  hasDraftConfig: boolean
   isActionDisabled: boolean
   isVisible: boolean
   mode: WarningBannerMode
@@ -49,7 +50,7 @@ export function useWarningBannerState(): WarningBannerState {
       refetchIntervalInBackground: false,
     },
   })
-  const { anyPending, applyPending } = useRoutingControlPendingState()
+  const { anyPending } = useRoutingControlPendingState()
   const serviceHealth = healthQuery.data?.status === 200 ? healthQuery.data.data : null
   const applyStartedTs =
     typeof serviceHealth?.apply_started_ts === "number"
@@ -135,7 +136,8 @@ export function useWarningBannerState(): WarningBannerState {
   }, [convergingStartedAtMs, effectiveNowMs, mode])
 
   return {
-    applyPending,
+    actionPending: anyPending,
+    hasDraftConfig: serviceHealth?.config_is_draft ?? false,
     isActionDisabled: anyPending || !serviceHealth,
     isVisible: mode !== "hidden",
     mode,

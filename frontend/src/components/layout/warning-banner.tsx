@@ -2,7 +2,10 @@ import { useLayoutEffect, useRef } from "react"
 import { SaveIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { useApplyConfigMutation } from "@/api/mutations"
+import {
+  useApplyConfigMutation,
+  usePostServiceActionMutation,
+} from "@/api/mutations"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar-context"
@@ -22,6 +25,7 @@ export function WarningBanner({
   const { t } = useTranslation()
   const { isMobile, open } = useSidebar()
   const applyConfigMutation = useApplyConfigMutation()
+  const restartServiceMutation = usePostServiceActionMutation("restart")
   const containerRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -62,6 +66,14 @@ export function WarningBanner({
 
   const isConverging = state.mode === "dnsmasq-converging"
   const isError = state.mode === "dnsmasq-error"
+  const handleApplyAndReload = () => {
+    if (state.hasDraftConfig) {
+      applyConfigMutation.mutate()
+      return
+    }
+
+    restartServiceMutation.mutate()
+  }
 
   return (
     <div
@@ -87,13 +99,13 @@ export function WarningBanner({
           {!isConverging ? (
             <Button
               disabled={state.isActionDisabled}
-              onClick={() => applyConfigMutation.mutate()}
+              onClick={handleApplyAndReload}
               size="lg"
               variant="outline"
               className="shrink-0 bg-background hover:bg-background dark:bg-card dark:hover:bg-card"
             >
               <SaveIcon className="mr-1 h-4 w-4" />
-              {state.applyPending
+              {state.actionPending
                 ? t("warning.actions.applyingAndRestarting")
                 : t("warning.actions.applyAndRestart")}
             </Button>
