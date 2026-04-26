@@ -23,7 +23,6 @@ openwrt-packages: ## Build OpenWrt packages inside the official OpenWrt SDK cont
 	@echo "[openwrt-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
 	mkdir -p build/packages
 	docker run --rm \
-	  --user "$$(id -u):$$(id -g)" \
 	  -e OPENWRT_VERSION="$(OPENWRT_VERSION)" \
 	  -e OPENWRT_ARCHITECTURE="$(OPENWRT_ARCHITECTURE)" \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
@@ -45,7 +44,6 @@ openwrt-sign-packages: ## Sign OpenWrt repository metadata inside the official O
 	$(call _require_nonempty,OPENWRT_ARCHITECTURE,$@)
 	@echo "[openwrt-sign-packages] config: OPENWRT_VERSION=$(OPENWRT_VERSION) OPENWRT_ARCHITECTURE=$(OPENWRT_ARCHITECTURE) OPENWRT_DOCKER_IMAGE=$(OPENWRT_DOCKER_IMAGE)"
 	docker run --rm \
-	  --user "$$(id -u):$$(id -g)" \
 	  -e OPENWRT_USIGN_PRIVATE_KEY \
 	  -e OPENWRT_APK_PRIVATE_KEY \
 	  -e HOME=/tmp/keen-pbr-home \
