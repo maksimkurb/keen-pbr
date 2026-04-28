@@ -7,6 +7,9 @@
 
 namespace keen_pbr3 {
 
+// Keep urltest probe timeouts independent from circuit-breaker cooldowns.
+constexpr uint32_t kDefaultUrltestProbeTimeoutMs = 5000;
+
 struct URLTestResult {
     bool success{false};
     uint32_t latency_ms{0};

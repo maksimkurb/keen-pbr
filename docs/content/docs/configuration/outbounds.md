@@ -143,6 +143,7 @@ Use this when you have several candidate outbounds and want keen-pbr to automati
 | `type` | string | yes | `"urltest"` |
 | `url` | string | yes | URL used for availability and latency checks |
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
+| `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for each individual probe attempt in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
 | `retry` | object | no | Retry configuration (see below) |
@@ -185,6 +186,7 @@ Groups are checked in order. Within the first healthy group, outbounds are selec
       "tag": "auto_select",
       "url": "https://www.gstatic.com/generate_204",
       "interval_ms": 180000,
+      "probe_timeout_ms": 5000,
       "tolerance_ms": 100,
       "outbound_groups": [
         { "outbounds": ["vpn1", "vpn2"] },

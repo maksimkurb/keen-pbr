@@ -196,7 +196,7 @@ std::optional<std::string> select_urltest_child(const Outbound& urltest,
     std::vector<CandidateResult> successful_results;
     const auto& groups = urltest.outbound_groups.value_or(std::vector<OutboundGroup>{});
     const uint32_t timeout_ms = static_cast<uint32_t>(
-        urltest.circuit_breaker.value_or(CircuitBreakerConfig{}).timeout_ms.value_or(5000));
+        urltest.probe_timeout_ms.value_or(kDefaultUrltestProbeTimeoutMs));
     const RetryConfig retry = urltest.retry.value_or(RetryConfig{});
 
     for (const auto& group : groups) {

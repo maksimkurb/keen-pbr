@@ -473,6 +473,14 @@ components:
             Interval between probes in milliseconds. Used with `urltest` outbound type.
           default: 180000
           example: 180000
+        probe_timeout_ms:
+          type: integer
+          nullable: true
+          description: >
+            Timeout for each individual urltest probe attempt in milliseconds.
+            Used with `urltest` outbound type. When omitted or null, the daemon
+            uses a default of `5000`.
+          example: 5000
         tolerance_ms:
           type: integer
           description: >
@@ -821,6 +829,7 @@ components:
             tag: "auto_select"
             url: "https://www.gstatic.com/generate_204"
             interval_ms: 180000
+            probe_timeout_ms: 5000
             tolerance_ms: 100
             outbound_groups:
               - weight: 1

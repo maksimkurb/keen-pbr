@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesRgYoT1 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesMebfUc data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -200,6 +200,7 @@ namespace api {
         std::optional<std::string> interface;
         std::optional<int64_t> interval_ms;
         std::optional<std::vector<OutboundGroupElement>> outbound_groups;
+        std::optional<int64_t> probe_timeout_ms;
         std::optional<Retry> retry;
         std::optional<bool> strict_enforcement;
         std::optional<int64_t> table;
@@ -447,7 +448,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesRgYoT1 {
+    struct KeenPbrTypesMebfUc {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -639,8 +640,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesRgYoT1 & x);
-    void to_json(json & j, const KeenPbrTypesRgYoT1 & x);
+    void from_json(const json & j, KeenPbrTypesMebfUc & x);
+    void to_json(json & j, const KeenPbrTypesMebfUc & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -894,6 +895,7 @@ namespace api {
         x.interface = get_stack_optional<std::string>(j, "interface");
         x.interval_ms = get_stack_optional<int64_t>(j, "interval_ms");
         x.outbound_groups = get_stack_optional<std::vector<OutboundGroupElement>>(j, "outbound_groups");
+        x.probe_timeout_ms = get_stack_optional<int64_t>(j, "probe_timeout_ms");
         x.retry = get_stack_optional<Retry>(j, "retry");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
         x.table = get_stack_optional<int64_t>(j, "table");
@@ -910,6 +912,7 @@ namespace api {
         j["interface"] = x.interface;
         j["interval_ms"] = x.interval_ms;
         j["outbound_groups"] = x.outbound_groups;
+        j["probe_timeout_ms"] = x.probe_timeout_ms;
         j["retry"] = x.retry;
         j["strict_enforcement"] = x.strict_enforcement;
         j["table"] = x.table;
@@ -1388,7 +1391,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesRgYoT1& x) {
+    inline void from_json(const json & j, KeenPbrTypesMebfUc& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1441,7 +1444,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesRgYoT1 & x) {
+    inline void to_json(json & j, const KeenPbrTypesMebfUc & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

@@ -138,6 +138,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: (shown below)
       "interval_ms": 180000,
 
+      // Timeout for each individual probe attempt in milliseconds.
+      // Default: (shown below)
+      "probe_timeout_ms": 5000,
+
       // Do not switch if the new candidate is only slightly better than the current one.
       // Default: (shown below)
       "tolerance_ms": 100,

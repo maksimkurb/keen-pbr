@@ -34,6 +34,9 @@ export interface Outbound {
   /** Interval between probes in milliseconds. Used with `urltest` outbound type.
    */
   interval_ms?: number;
+  /** Timeout for each individual urltest probe attempt in milliseconds. Used with `urltest` outbound type. When omitted or null, the daemon uses a default of `5000`.
+   */
+  probe_timeout_ms?: number | null;
   /** Latency tolerance in milliseconds; outbounds within this range of the best are considered equivalent. Used with `urltest` outbound type.
    */
   tolerance_ms?: number;

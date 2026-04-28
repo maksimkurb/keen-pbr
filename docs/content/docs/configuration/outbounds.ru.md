@@ -142,6 +142,7 @@ cat /etc/iproute2/rt_tables
 | `type` | string | да | `"urltest"` |
 | `url` | string | да | URL для проверки доступности и задержки |
 | `interval_ms` | integer | нет (по умолчанию: `180000`) | Интервал между проверками в миллисекундах |
+| `probe_timeout_ms` | integer | нет (по умолчанию: `5000`) | Таймаут каждой отдельной попытки проверки в миллисекундах |
 | `tolerance_ms` | integer | нет (по умолчанию: `100`) | Допуск задержки в мс; предотвращает переключение outbound, если разница задержки между текущим и новым лучшим outbound меньше этого допуска |
 | `outbound_groups` | array | да | Упорядоченный список групп outbound (см. ниже) |
 | `retry` | object | нет | Конфигурация повторов (см. ниже) |
@@ -184,6 +185,7 @@ cat /etc/iproute2/rt_tables
       "tag": "auto_select",
       "url": "https://www.gstatic.com/generate_204",
       "interval_ms": 180000,
+      "probe_timeout_ms": 5000,
       "tolerance_ms": 100,
       "outbound_groups": [
         { "outbounds": ["vpn1", "vpn2"] },

@@ -226,7 +226,6 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
         state.generation = generation_++;
         probe_generation = state.generation;
 
-        const auto& cb_cfg = state.config.circuit_breaker.value_or(CircuitBreakerConfig{});
         for (const auto& group : state.config.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
             for (const auto& child_tag : group.outbounds) {
                 const auto mark_it = marks_.find(child_tag);
@@ -248,7 +247,8 @@ bool UrltestManager::queue_probe_unlocked(const std::string& tag,
                     .child_tag = child_tag,
                     .url = state.config.url.value_or(""),
                     .fwmark = mark_it->second,
-                    .timeout_ms = static_cast<uint32_t>(cb_cfg.timeout_ms.value_or(5000)),
+                    .timeout_ms = static_cast<uint32_t>(
+                        state.config.probe_timeout_ms.value_or(kDefaultUrltestProbeTimeoutMs)),
                     .retry = state.config.retry.value_or(RetryConfig{}),
                 });
             }
