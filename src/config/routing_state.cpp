@@ -43,6 +43,20 @@ bool parse_ip(const std::string& ip, int family, void* out) {
     return inet_pton(family, ip.c_str(), out) == 1;
 }
 
+int detect_ip_family(const std::string& ip) {
+    in_addr addr4{};
+    if (inet_pton(AF_INET, ip.c_str(), &addr4) == 1) {
+        return AF_INET;
+    }
+
+    in6_addr addr6{};
+    if (inet_pton(AF_INET6, ip.c_str(), &addr6) == 1) {
+        return AF_INET6;
+    }
+
+    throw ConfigError("Invalid IP address: " + ip);
+}
+
 bool is_interface_up(const std::string& iface) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -118,22 +132,63 @@ bool route_contains_ip(const DumpedRoute& route, const std::string& ip) {
            ipv6_prefix_contains(network_addr, ip_addr, prefix_len);
 }
 
-RouteSpec make_default_route(uint32_t table_id, const Outbound& ob) {
-    RouteSpec route;
-    route.destination = "default";
-    route.table = table_id;
-    route.interface = ob.interface.value_or("");
-    if (ob.gateway) route.gateway = *ob.gateway;
-    return route;
+std::vector<RouteSpec> make_default_routes(uint32_t table_id, const Outbound& ob) {
+    std::vector<RouteSpec> routes;
+
+    auto build_route = [&](int family, const std::optional<std::string>& gateway) {
+        RouteSpec route;
+        route.destination = "default";
+        route.table = table_id;
+        route.family = family;
+        route.interface = ob.interface.value_or("");
+        route.gateway = gateway;
+        routes.push_back(std::move(route));
+    };
+
+    if (ob.gateway.has_value()) {
+        build_route(detect_ip_family(*ob.gateway), ob.gateway);
+        return routes;
+    }
+
+    // Link-scope interface outbounds can carry both families, so install
+    // both defaults to keep marked IPv6 traffic from bypassing the policy table.
+    build_route(AF_INET, std::nullopt);
+    build_route(AF_INET6, std::nullopt);
+    return routes;
 }
 
-RouteSpec make_unreachable_route(uint32_t table_id, uint32_t metric = 1000) {
+std::vector<RouteSpec> make_family_closure_routes(uint32_t table_id, const Outbound& ob,
+                                                  uint32_t metric = 1000) {
+    std::vector<RouteSpec> routes;
+    if (!ob.gateway.has_value()) {
+        return routes;
+    }
+
+    const int gateway_family = detect_ip_family(*ob.gateway);
+    const int missing_family = gateway_family == AF_INET ? AF_INET6 : AF_INET;
+
     RouteSpec route;
     route.destination = "default";
     route.table = table_id;
     route.unreachable = true;
     route.metric = metric;
-    return route;
+    route.family = missing_family;
+    routes.push_back(std::move(route));
+    return routes;
+}
+
+std::vector<RouteSpec> make_unreachable_routes(uint32_t table_id, uint32_t metric = 1000) {
+    std::vector<RouteSpec> routes;
+    for (int family : {AF_INET, AF_INET6}) {
+        RouteSpec route;
+        route.destination = "default";
+        route.table = table_id;
+        route.unreachable = true;
+        route.metric = metric;
+        route.family = family;
+        routes.push_back(std::move(route));
+    }
+    return routes;
 }
 
 std::vector<const Outbound*> ordered_urltest_children(const std::vector<Outbound>& outbounds,
@@ -208,10 +263,17 @@ void populate_routing_state(const Config& cfg,
             const bool strict = strict_enforcement_enabled(cfg, ob);
             const bool reachable = !reachability_check || reachability_check(ob);
             if (reachable) {
-                routes.add(make_default_route(table_id, ob));
+                for (const auto& route : make_default_routes(table_id, ob)) {
+                    routes.add(route);
+                }
+                for (const auto& route : make_family_closure_routes(table_id, ob)) {
+                    routes.add(route);
+                }
             }
             if (strict) {
-                routes.add(make_unreachable_route(table_id));
+                for (const auto& route : make_unreachable_routes(table_id)) {
+                    routes.add(route);
+                }
             }
 
             RuleSpec ip_rule;
@@ -248,7 +310,12 @@ void populate_routing_state(const Config& cfg,
                 if (selected &&
                     selected->type == OutboundType::INTERFACE &&
                     (!reachability_check || reachability_check(*selected))) {
-                    routes.add(make_default_route(table_id, *selected));
+                    for (const auto& route : make_default_routes(table_id, *selected)) {
+                        routes.add(route);
+                    }
+                    for (const auto& route : make_family_closure_routes(table_id, *selected)) {
+                        routes.add(route);
+                    }
                 }
 
                 uint32_t metric = 1;
@@ -259,14 +326,22 @@ void populate_routing_state(const Config& cfg,
                     if (reachability_check && !reachability_check(*child)) {
                         continue;
                     }
-                    RouteSpec route = make_default_route(table_id, *child);
-                    route.metric = metric++;
-                    routes.add(route);
+                    for (auto route : make_default_routes(table_id, *child)) {
+                        route.metric = metric;
+                        routes.add(route);
+                    }
+                    for (auto route : make_family_closure_routes(table_id, *child)) {
+                        route.metric = metric;
+                        routes.add(route);
+                    }
+                    ++metric;
                 }
             }
 
             if (strict) {
-                routes.add(make_unreachable_route(table_id));
+                for (const auto& route : make_unreachable_routes(table_id)) {
+                    routes.add(route);
+                }
             }
 
             RuleSpec ip_rule;
