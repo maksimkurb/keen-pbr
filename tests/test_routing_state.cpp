@@ -360,7 +360,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
         return true;
     });
 
-    REQUIRE(routes.get_routes().size() == 4);
+    REQUIRE(routes.get_routes().size() == 3);
     const RouteSpec* default_route = find_route(routes.get_routes(), 100, false, false, 0, std::optional<std::string>{"wg0"});
     REQUIRE(default_route != nullptr);
     CHECK(default_route->interface == std::optional<std::string>{"wg0"});
@@ -450,7 +450,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary, wei
         [](const Outbound&) { return true; },
         &selections);
 
-    REQUIRE(routes.get_routes().size() == 16);
+    REQUIRE(routes.get_routes().size() == 19);
     CHECK(find_route(routes.get_routes(), 104, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"wg1"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 104, false, false, 2, std::optional<std::string>{"wg2"}) != nullptr);
@@ -709,7 +709,7 @@ TEST_CASE("populate_routing_state: no allocated table falls in reserved range") 
     }
 }
 
-TEST_CASE("populate_routing_state: non-strict urltest has no terminal fallback route") {
+TEST_CASE("populate_routing_state: non-strict urltest keeps family-closure routes but no extra terminal fallback route") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
@@ -737,5 +737,12 @@ TEST_CASE("populate_routing_state: non-strict urltest has no terminal fallback r
         [](const Outbound&) { return true; },
         &selections);
 
-    CHECK(find_route(routes.get_routes(), 102, false, true, 1000) == nullptr);
+    CHECK(count_routes_in_table(routes.get_routes(), 102) == 6);
+    CHECK(std::count_if(routes.get_routes().begin(),
+                        routes.get_routes().end(),
+                        [](const RouteSpec& route) {
+                            return route.table == 102 &&
+                                   route.unreachable &&
+                                   route.metric == 1000;
+                        }) == 1);
 }

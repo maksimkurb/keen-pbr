@@ -21,6 +21,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -331,6 +332,25 @@ void dump_firewall_state(FirewallBackend backend) {
     print_command_dump("nft-list-ruleset", {"nft", "list", "ruleset"});
 }
 
+void dump_routing_state(const RoutingHealthReport& report) {
+    print_command_dump("ip-rule-show", {"ip", "rule", "show"});
+
+    std::set<uint32_t> tables;
+    for (const auto& check : report.route_tables) {
+        if (check.status == CheckStatus::ok) {
+            continue;
+        }
+        tables.insert(check.table_id);
+    }
+
+    for (uint32_t table_id : tables) {
+        print_command_dump("ip-route-show-table-" + std::to_string(table_id),
+                           {"ip", "route", "show", "table", std::to_string(table_id)});
+        print_command_dump("ip-6-route-show-table-" + std::to_string(table_id),
+                           {"ip", "-6", "route", "show", "table", std::to_string(table_id)});
+    }
+}
+
 void print_report(const RoutingHealthReport& report) {
     if (!report.error.empty()) {
         std::cerr << "health-check error: " << report.error << "\n";
@@ -454,6 +474,7 @@ int run_firewall_integration(int argc, char* argv[]) {
 
     if (report_has_failures(report)) {
         print_report(report);
+        dump_routing_state(report);
         dump_firewall_state(firewall->backend());
         return 1;
     }

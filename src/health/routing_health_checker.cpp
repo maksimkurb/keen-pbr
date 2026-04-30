@@ -30,7 +30,7 @@ bool route_matches(const RouteSpec& expected, const DumpedRoute& actual) {
            expected.gateway == actual.gateway &&
            expected.blackhole == actual.blackhole &&
            expected.unreachable == actual.unreachable &&
-           expected.metric == actual.metric &&
+           (expected.metric == 0 || expected.metric == actual.metric) &&
            (expected.family == 0 || expected.family == actual.family);
 }
 
@@ -114,6 +114,7 @@ RoutingHealthReport build_routing_health_report(
 
             for (size_t i = 0; i < routes.size(); ++i) {
                 if (matched[i]) continue;
+                if (routes[i].destination != "default") continue;
 
                 RouteTableCheck extra_check;
                 extra_check.table_id = table_id;

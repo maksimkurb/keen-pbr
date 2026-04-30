@@ -238,7 +238,7 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
     if (prefilter.skip_established_or_dnat) {
         nlohmann::json dnat_expr = nlohmann::json::array();
         dnat_expr.push_back({{"match", {
-            {"op", "=="},
+            {"op", "in"},
             {"left", {{"ct", {{"key", "status"}}}}},
             {"right", "dnat"}
         }}});

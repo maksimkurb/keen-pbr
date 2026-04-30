@@ -26,11 +26,17 @@ bool route_type_matches(const RouteSpec& expected, const DumpedRoute& actual) {
 }
 
 bool route_metric_matches(const RouteSpec& expected, const DumpedRoute& actual) {
+    if (expected.metric == 0) {
+        return true;
+    }
     return expected.metric == actual.metric;
 }
 
 bool route_matches_expected(const RouteSpec& expected, const DumpedRoute& actual) {
     if (actual.destination != "default") {
+        return false;
+    }
+    if (expected.family != 0 && expected.family != actual.family) {
         return false;
     }
     if (!route_type_matches(expected, actual)) {

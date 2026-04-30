@@ -307,6 +307,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
   REQUIRE(cmds.size() == 4);
 
   const auto &dnat_expr = cmds[0]["add"]["rule"]["expr"];
+  CHECK(dnat_expr[0]["match"]["op"] == "in");
   CHECK(dnat_expr[0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(dnat_expr[0]["match"]["right"] == "dnat");
   CHECK(dnat_expr[2].contains("accept"));
@@ -355,6 +356,7 @@ TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface gua
 
   REQUIRE(cmds.is_array());
   REQUIRE(cmds.size() == 3);
+  CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["op"] == "in");
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["left"]["ct"]["key"] == "status");
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["left"]["meta"]["key"] == "mark");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
