@@ -132,6 +132,19 @@ bool route_contains_ip(const DumpedRoute& route, const std::string& ip) {
            ipv6_prefix_contains(network_addr, ip_addr, prefix_len);
 }
 
+bool interface_has_gateway_route(const std::vector<DumpedRoute>& routes,
+                                 const std::string& iface,
+                                 const std::string& gateway) {
+    for (const auto& route : routes) {
+        if (route.blackhole || route.unreachable) continue;
+        if (!route.interface || *route.interface != iface) continue;
+        if (route_contains_ip(route, gateway)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<RouteSpec> make_default_routes(uint32_t table_id, const Outbound& ob) {
     std::vector<RouteSpec> routes;
 
@@ -145,35 +158,54 @@ std::vector<RouteSpec> make_default_routes(uint32_t table_id, const Outbound& ob
         routes.push_back(std::move(route));
     };
 
-    if (ob.gateway.has_value()) {
-        build_route(detect_ip_family(*ob.gateway), ob.gateway);
+    const bool has_gateway4 = ob.gateway.has_value();
+    const bool has_gateway6 = ob.gateway6.has_value();
+
+    if (!has_gateway4 && !has_gateway6) {
+        // Link-scope interface outbounds can carry both families, so install
+        // both defaults to keep marked IPv6 traffic from bypassing the policy table.
+        build_route(AF_INET, std::nullopt);
+        build_route(AF_INET6, std::nullopt);
         return routes;
     }
 
-    // Link-scope interface outbounds can carry both families, so install
-    // both defaults to keep marked IPv6 traffic from bypassing the policy table.
-    build_route(AF_INET, std::nullopt);
-    build_route(AF_INET6, std::nullopt);
+    if (has_gateway4) {
+        build_route(AF_INET, ob.gateway);
+    }
+    if (has_gateway6) {
+        build_route(AF_INET6, ob.gateway6);
+    }
     return routes;
 }
 
 std::vector<RouteSpec> make_family_closure_routes(uint32_t table_id, const Outbound& ob,
                                                   uint32_t metric = 1000) {
     std::vector<RouteSpec> routes;
-    if (!ob.gateway.has_value()) {
+    const bool has_gateway4 = ob.gateway.has_value();
+    const bool has_gateway6 = ob.gateway6.has_value();
+    if (!has_gateway4 && !has_gateway6) {
         return routes;
     }
 
-    const int gateway_family = detect_ip_family(*ob.gateway);
-    const int missing_family = gateway_family == AF_INET ? AF_INET6 : AF_INET;
+    if (!has_gateway4) {
+        RouteSpec route;
+        route.destination = "default";
+        route.table = table_id;
+        route.unreachable = true;
+        route.metric = metric;
+        route.family = AF_INET;
+        routes.push_back(std::move(route));
+    }
 
-    RouteSpec route;
-    route.destination = "default";
-    route.table = table_id;
-    route.unreachable = true;
-    route.metric = metric;
-    route.family = missing_family;
-    routes.push_back(std::move(route));
+    if (!has_gateway6) {
+        RouteSpec route;
+        route.destination = "default";
+        route.table = table_id;
+        route.unreachable = true;
+        route.metric = metric;
+        route.family = AF_INET6;
+        routes.push_back(std::move(route));
+    }
     return routes;
 }
 
@@ -300,7 +332,6 @@ void populate_routing_state(const Config& cfg,
             uint32_t table_id = safe_table_id(table_start, table_offset);
             ++table_offset;
 
-            const bool strict = strict_enforcement_enabled(cfg, ob);
             const auto ordered_children = ordered_urltest_children(outbounds, ob);
 
             const std::string selected_tag = resolve_urltest_selection(urltest_selections, ob.tag);
@@ -338,10 +369,10 @@ void populate_routing_state(const Config& cfg,
                 }
             }
 
-            if (strict) {
-                for (const auto& route : make_unreachable_routes(table_id)) {
-                    routes.add(route);
-                }
+            // Urltest tables always end with a dual-stack kill-switch so marked
+            // traffic cannot leak when no child route is usable or selected.
+            for (const auto& route : make_unreachable_routes(table_id)) {
+                routes.add(route);
             }
 
             RuleSpec ip_rule;
@@ -371,14 +402,12 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
 
     auto routes = netlink.dump_routes_in_table(254);
 
-    if (outbound.gateway.has_value()) {
-        for (const auto& route : routes) {
-            if (route.blackhole || route.unreachable) continue;
-            if (!route.interface || *route.interface != iface) continue;
-            if (route_contains_ip(route, *outbound.gateway)) {
-                return true;
-            }
-        }
+    if (outbound.gateway.has_value() &&
+        !interface_has_gateway_route(routes, iface, *outbound.gateway)) {
+        return false;
+    }
+    if (outbound.gateway6.has_value() &&
+        !interface_has_gateway_route(routes, iface, *outbound.gateway6)) {
         return false;
     }
 

@@ -3,6 +3,7 @@
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
+#include <arpa/inet.h>
 #include <cctype>
 #include <iomanip>
 #include <limits>
@@ -19,6 +20,16 @@ namespace keen_pbr3 {
 using json = nlohmann::json;
 
 namespace {
+
+bool is_valid_ipv4_address(const std::string& ip) {
+    in_addr addr{};
+    return inet_pton(AF_INET, ip.c_str(), &addr) == 1;
+}
+
+bool is_valid_ipv6_address(const std::string& ip) {
+    in6_addr addr{};
+    return inet_pton(AF_INET6, ip.c_str(), &addr) == 1;
+}
 
 void add_issue(std::vector<ConfigValidationIssue>& issues,
                std::string path,
@@ -659,6 +670,21 @@ void validate_config(const Config& cfg) {
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     for (const auto& ob : outbounds) {
         validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
+
+        if (ob.type == OutboundType::INTERFACE) {
+            if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
+                add_issue(issues,
+                          "outbounds." + ob.tag + ".gateway",
+                          "Interface outbound '" + ob.tag +
+                              "' gateway must be a valid IPv4 address");
+            }
+            if (ob.gateway6.has_value() && !is_valid_ipv6_address(*ob.gateway6)) {
+                add_issue(issues,
+                          "outbounds." + ob.tag + ".gateway6",
+                          "Interface outbound '" + ob.tag +
+                              "' gateway6 must be a valid IPv6 address");
+            }
+        }
 
         if (ob.type != OutboundType::URLTEST) continue;
 

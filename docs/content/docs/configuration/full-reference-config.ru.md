@@ -33,7 +33,7 @@ weight: 6
     // По умолчанию: (показано ниже)
     "skip_marked_packets": true,
 
-    // Глобальное поведение strict routing для outbounds типа interface и urltest.
+    // Глобальное поведение strict routing для outbounds типа interface.
     // По умолчанию: (показано ниже)
     "strict_enforcement": false,
 
@@ -74,9 +74,13 @@ weight: 6
       // По умолчанию: нет, обязательно для type="interface".
       "interface": "wg0",
 
-      // Необязательный шлюз для interface outbound.
+      // Необязательный IPv4-шлюз для interface outbound.
       // По умолчанию: null
       "gateway": "10.8.0.1",
+
+      // Необязательный IPv6-шлюз для interface outbound.
+      // По умолчанию: null
+      "gateway6": "2001:db8::1",
 
       // Переопределение strict_enforcement для конкретного outbound.
       // Если указано, имеет приоритет над daemon.strict_enforcement.
@@ -146,8 +150,9 @@ weight: 6
       // По умолчанию: (показано ниже)
       "tolerance_ms": 100,
 
-      // Необязательное переопределение strict_enforcement для таблицы urltest.
-      // По умолчанию: наследуется daemon.strict_enforcement.
+      // Поле оставлено для совместимости со старыми конфигами.
+      // Urltest всегда добавляет терминальные IPv4/IPv6 маршруты unreachable как kill-switch.
+      // Сейчас это поле не даёт дополнительного эффекта для outbounds типа urltest.
       "strict_enforcement": true,
 
       // Упорядоченные группы outbounds.

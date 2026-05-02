@@ -584,11 +584,13 @@ export const enTranslation = {
           interface: {
             title: "Interface settings",
             description:
-              "Set the egress interface and optional gateway for this outbound.",
+              "Set the egress interface and optional IPv4/IPv6 gateways for this outbound.",
             interface: "Interface",
             interfaceHint: "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
-            gateway: "Gateway",
-            gatewayHint: "Optional gateway IP for this outbound.",
+            gateway: "Gateway (IPv4)",
+            gatewayHint: "Optional IPv4 gateway for this outbound.",
+            gateway6: "Gateway (IPv6)",
+            gateway6Hint: "Optional IPv6 gateway for this outbound.",
           },
           table: {
             title: "Routing table settings",

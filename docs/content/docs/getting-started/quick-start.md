@@ -63,7 +63,8 @@ Go to **Outbounds** and create these two entries:
 1. Create a new outbound named `vpn` with the following options:
     - `type = interface`
     - `interface = <your_vpn_interface_name>`
-    - `gateway = <your_vpn_gateway_ip>` if your VPN requires an explicit gateway
+    - `gateway = <your_vpn_gateway_ip>` if your VPN requires an explicit IPv4 gateway
+    - `gateway6 = <your_vpn_gateway6_ip>` if your VPN requires an explicit IPv6 gateway
 
 2. Create another outbound named `default` with the following options:
     - `type = Routing table`
@@ -200,6 +201,11 @@ Example minimal config:
 {{< callout type="info" >}}
 In this example, `out` outbound reuses Linux routing table `main` (that has id `254`).
 If you route traffic to this table, it would follow your system default routes.
+{{< /callout >}}
+
+{{< callout type="info" >}}
+Set `gateway` only for IPv4. If you also need an explicit IPv6 next-hop, use `gateway6`.
+If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.
 {{< /callout >}}
 
 What this example does:

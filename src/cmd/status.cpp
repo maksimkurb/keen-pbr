@@ -14,6 +14,7 @@
 #include "../util/firewall_backend_utils.hpp"
 #include "../util/string_compat.hpp"
 
+#include <netinet/in.h>
 #include <cstdint>
 #include <iostream>
 #include <map>
@@ -131,8 +132,11 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
     if (route.interface != outbound.interface) {
         return false;
     }
-    if (outbound.gateway.has_value()) {
+    if (route.family == AF_INET && outbound.gateway.has_value()) {
         return route.gateway == outbound.gateway;
+    }
+    if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
+        return route.gateway == outbound.gateway6;
     }
     return !route.gateway.has_value();
 }

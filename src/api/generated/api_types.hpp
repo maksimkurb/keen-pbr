@@ -197,6 +197,7 @@ namespace api {
     struct OutboundElement {
         std::optional<CircuitBreakerConfig> circuit_breaker;
         std::optional<std::string> gateway;
+        std::optional<std::string> gateway6;
         std::optional<std::string> interface;
         std::optional<int64_t> interval_ms;
         std::optional<std::vector<OutboundGroupElement>> outbound_groups;
@@ -892,6 +893,7 @@ namespace api {
     inline void from_json(const json & j, OutboundElement& x) {
         x.circuit_breaker = get_stack_optional<CircuitBreakerConfig>(j, "circuit_breaker");
         x.gateway = get_stack_optional<std::string>(j, "gateway");
+        x.gateway6 = get_stack_optional<std::string>(j, "gateway6");
         x.interface = get_stack_optional<std::string>(j, "interface");
         x.interval_ms = get_stack_optional<int64_t>(j, "interval_ms");
         x.outbound_groups = get_stack_optional<std::vector<OutboundGroupElement>>(j, "outbound_groups");
@@ -909,6 +911,7 @@ namespace api {
         j = json::object();
         j["circuit_breaker"] = x.circuit_breaker;
         j["gateway"] = x.gateway;
+        j["gateway6"] = x.gateway6;
         j["interface"] = x.interface;
         j["interval_ms"] = x.interval_ms;
         j["outbound_groups"] = x.outbound_groups;

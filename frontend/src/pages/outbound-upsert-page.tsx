@@ -54,6 +54,7 @@ type OutboundDraft = {
   type: Outbound["type"]
   interfaceName: string
   gateway: string
+  gateway6: string
   table: string
   outbounds: string[][]
   probeUrl: string
@@ -73,6 +74,7 @@ const OUTBOUND_FIELD_NAMES = {
   type: "type",
   interfaceName: "interfaceName",
   gateway: "gateway",
+  gateway6: "gateway6",
   table: "table",
   outbounds: "outbounds",
   probeUrl: "probeUrl",
@@ -95,6 +97,7 @@ const sampleNewOutbound: OutboundDraft = {
   type: "interface",
   interfaceName: "",
   gateway: "",
+  gateway6: "",
   table: "",
   outbounds: [[]],
   probeUrl: "https://www.gstatic.com/generate_204",
@@ -350,6 +353,7 @@ function OutboundForm({
   const tagId = useId()
   const interfaceId = useId()
   const gatewayId = useId()
+  const gateway6Id = useId()
   const tableId = useId()
   const probeUrlId = useId()
   const intervalId = useId()
@@ -507,6 +511,32 @@ function OutboundForm({
                       />
                       <FieldHint
                         description={t("pages.outboundUpsert.interface.gatewayHint")}
+                        error={error ?? null}
+                      />
+                    </FieldContent>
+                  </Field>
+                )
+              }}
+            </form.Field>
+
+            <form.Field name={OUTBOUND_FIELD_NAMES.gateway6}>
+              {(field) => {
+                const error = getFirstFieldError(field.state.meta.errors)
+                return (
+                  <Field invalid={Boolean(error)}>
+                    <FieldLabel htmlFor={gateway6Id}>
+                      {t("pages.outboundUpsert.interface.gateway6")}
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        aria-invalid={Boolean(error)}
+                        id={gateway6Id}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                        value={field.state.value}
+                      />
+                      <FieldHint
+                        description={t("pages.outboundUpsert.interface.gateway6Hint")}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -1036,6 +1066,7 @@ function mapOutboundToDraft(outbound: Outbound): OutboundDraft {
     type: outbound.type,
     interfaceName: outbound.interface ?? "",
     gateway: outbound.gateway ?? "",
+    gateway6: outbound.gateway6 ?? "",
     table: outbound.table?.toString() ?? "",
     outbounds:
       outbound.outbound_groups?.map((group) => [...group.outbounds]) ??
@@ -1075,6 +1106,7 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
       tag,
       interface: draft.interfaceName.trim() || undefined,
       gateway: draft.gateway.trim() || undefined,
+      gateway6: draft.gateway6.trim() || undefined,
       strict_enforcement: mapStrictEnforcementToBoolean(draft.strictEnforcement),
     }
   }
@@ -1269,6 +1301,10 @@ function resolveOutboundFieldPath(
 
   if (path === `${prefix}.table`) {
     return OUTBOUND_FIELD_NAMES.table
+  }
+
+  if (path === `${prefix}.gateway6`) {
+    return OUTBOUND_FIELD_NAMES.gateway6
   }
 
   if (

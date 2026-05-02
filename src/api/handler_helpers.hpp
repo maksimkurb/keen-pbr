@@ -39,6 +39,7 @@ inline nlohmann::json outbound_to_json(const Outbound& ob, const OutboundMarkMap
     if (ob.type == OutboundType::INTERFACE) {
         if (ob.interface) j["interface"] = *ob.interface;
         if (ob.gateway)   j["gateway"]   = *ob.gateway;
+        if (ob.gateway6)  j["gateway6"]  = *ob.gateway6;
     } else if (ob.type == OutboundType::TABLE) {
         if (ob.table) j["table"] = *ob.table;
     } else if (ob.type == OutboundType::URLTEST) {

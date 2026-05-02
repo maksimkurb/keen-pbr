@@ -597,12 +597,14 @@ export const ruTranslation = {
           interface: {
             title: "Настройки интерфейса",
             description:
-              "Укажите исходящий интерфейс и необязательный шлюз для этого outbound.",
+              "Укажите исходящий интерфейс и необязательные IPv4/IPv6 шлюзы для этого outbound.",
             interface: "Интерфейс",
             interfaceHint:
               "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
-            gateway: "Шлюз",
-            gatewayHint: "Необязательный IP-адрес шлюза для этого outbound.",
+            gateway: "Шлюз (IPv4)",
+            gatewayHint: "Необязательный IPv4-адрес шлюза для этого outbound.",
+            gateway6: "Шлюз (IPv6)",
+            gateway6Hint: "Необязательный IPv6-адрес шлюза для этого outbound.",
           },
           table: {
             title: "Настройки таблицы маршрутизации",

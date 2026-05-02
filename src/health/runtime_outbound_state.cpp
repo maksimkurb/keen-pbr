@@ -6,6 +6,7 @@
 #include "../health/circuit_breaker.hpp"
 
 #include <algorithm>
+#include <netinet/in.h>
 #include <limits>
 #include <map>
 #include <vector>
@@ -103,8 +104,12 @@ bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) 
         return false;
     }
 
-    if (outbound.gateway.has_value()) {
+    if (route.family == AF_INET && outbound.gateway.has_value()) {
         return route.gateway == outbound.gateway;
+    }
+
+    if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
+        return route.gateway == outbound.gateway6;
     }
 
     return true;

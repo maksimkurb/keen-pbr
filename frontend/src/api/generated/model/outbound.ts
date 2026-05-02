@@ -22,6 +22,9 @@ export interface Outbound {
   /** Optional gateway IP address. Used with `interface` outbound type.
    */
   gateway?: string;
+  /** Optional IPv6 gateway address. Used with `interface` outbound type.
+   */
+  gateway6?: string;
   /** Per-outbound override for strict routing enforcement. When enabled for an `interface` outbound, install an unreachable default route if the configured gateway/interface cannot be confirmed reachable. Overrides `daemon.strict_enforcement` when present.
    */
   strict_enforcement?: boolean;

@@ -447,8 +447,13 @@ components:
         gateway:
           type: string
           description: >
-            Optional gateway IP address. Used with `interface` outbound type.
+            Optional IPv4 gateway address. Used with `interface` outbound type.
           example: "10.8.0.1"
+        gateway6:
+          type: string
+          description: >
+            Optional IPv6 gateway address. Used with `interface` outbound type.
+          example: "2001:db8::1"
         strict_enforcement:
           type: boolean
           description: >
@@ -813,6 +818,7 @@ components:
             tag: "vpn"
             interface: "tun0"
             gateway: "10.8.0.1"
+            gateway6: "2001:db8::1"
             strict_enforcement: true
           - type: "interface"
             tag: "wan"
