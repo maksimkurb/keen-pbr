@@ -339,7 +339,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs unreachable defau
     });
 
     REQUIRE(routes.get_routes().size() == 2);
-    CHECK(find_route(routes.get_routes(), 100, false, true, 1000) != nullptr);
+    CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
     CHECK(find_route(routes.get_routes(), 100, true, false) == nullptr);
 }
 
@@ -367,7 +367,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
     REQUIRE(default_route != nullptr);
     CHECK(default_route->interface == std::optional<std::string>{"wg0"});
     CHECK(default_route->gateway == std::optional<std::string>{"10.8.0.1"});
-    CHECK(find_route(routes.get_routes(), 100, false, true, 1000) != nullptr);
+    CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
 }
 
 TEST_CASE("populate_routing_state: unreachable interface outbound remains unavailable when strict is disabled") {
@@ -415,7 +415,7 @@ TEST_CASE("populate_routing_state: outbound true overrides daemon false") {
     });
 
     REQUIRE(routes.get_routes().size() == 2);
-    CHECK(find_route(routes.get_routes(), 100, false, true, 1000) != nullptr);
+    CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
 }
 
 TEST_CASE("populate_routing_state: strict urltest installs selected primary, weighted fallbacks, and unreachable terminal") {
