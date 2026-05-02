@@ -13,6 +13,8 @@ namespace keen_pbr3 {
 
 namespace {
 
+constexpr uint32_t kUnreachableRouteMetric = 65535;
+
 const Outbound* find_outbound(const std::vector<Outbound>& outbounds,
                               const std::string& tag) {
     for (const auto& ob : outbounds) {
@@ -179,7 +181,7 @@ std::vector<RouteSpec> make_default_routes(uint32_t table_id, const Outbound& ob
 }
 
 std::vector<RouteSpec> make_family_closure_routes(uint32_t table_id, const Outbound& ob,
-                                                  uint32_t metric = 1000) {
+                                                  uint32_t metric = kUnreachableRouteMetric) {
     std::vector<RouteSpec> routes;
     const bool has_gateway4 = ob.gateway.has_value();
     const bool has_gateway6 = ob.gateway6.has_value();
@@ -209,7 +211,8 @@ std::vector<RouteSpec> make_family_closure_routes(uint32_t table_id, const Outbo
     return routes;
 }
 
-std::vector<RouteSpec> make_unreachable_routes(uint32_t table_id, uint32_t metric = 1000) {
+std::vector<RouteSpec> make_unreachable_routes(uint32_t table_id,
+                                               uint32_t metric = kUnreachableRouteMetric) {
     std::vector<RouteSpec> routes;
     for (int family : {AF_INET, AF_INET6}) {
         RouteSpec route;

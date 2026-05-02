@@ -12,6 +12,8 @@ using namespace keen_pbr3;
 
 namespace {
 
+constexpr uint32_t kUnreachableRouteMetric = 65535;
+
 Config parse_minimal_config(const std::string& json) {
     Config cfg = parse_config(json);
     if (!cfg.dns.has_value()) {
@@ -461,7 +463,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary, wei
                         [](const RouteSpec& route) {
                             return route.table == 104 &&
                                    route.unreachable &&
-                                   route.metric == 1000 &&
+                                   route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
                         }) == 2);
 }
@@ -504,7 +506,7 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
-                                   route.metric == 1000 &&
+                                   route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
                         }) == 2);
 }
@@ -541,7 +543,7 @@ TEST_CASE("populate_routing_state: urltest without completed probe installs only
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
-                                   route.metric == 1000 &&
+                                   route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
                         }) == 2);
     REQUIRE(rules.get_rules().size() == 3);
@@ -581,7 +583,7 @@ TEST_CASE("populate_routing_state: urltest without completed probe keeps only te
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
-                                   route.metric == 1000 &&
+                                   route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
                         }) == 2);
 }
@@ -809,6 +811,6 @@ TEST_CASE("populate_routing_state: non-strict urltest still appends dual-stack k
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
-                                   route.metric == 1000;
+                                   route.metric == kUnreachableRouteMetric;
                         }) == 2);
 }
