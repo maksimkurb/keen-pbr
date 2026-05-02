@@ -28,7 +28,7 @@ Named egress targets. Five types:
 
 | Type | Description |
 |---|---|
-| `interface` | Route via a specific network interface and optional gateway |
+| `interface` | Route via a specific network interface and optional IPv4/IPv6 gateways |
 | `table` | Defer to an existing kernel routing table |
 | `blackhole` | Drop matching traffic |
 | `ignore` | Pass through without modification (uses default route) |

@@ -21,7 +21,8 @@ If you are not sure, start with `interface` outbounds and come back to the other
       "type": "interface",
       "tag": "vpn",
       "interface": "tun0",
-      "gateway": "10.8.0.1"
+      "gateway": "10.8.0.1",
+      "gateway6": "2001:db8::1"
     },
     {
       "type": "interface",
@@ -44,7 +45,14 @@ Use this when you want to send traffic through a specific connection such as a V
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"interface"` |
 | `interface` | string | yes | Egress network interface name (e.g. `tun0`) |
-| `gateway` | string | no | Optional gateway IP address |
+| `gateway` | string | no | Optional IPv4 gateway address |
+| `gateway6` | string | no | Optional IPv6 gateway address |
+
+If neither `gateway` nor `gateway6` is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.
+
+If only one gateway is set, keen-pbr creates a routed default for that address family and an `unreachable` default for the other family so marked traffic cannot leak outside the outbound table.
+
+If both `gateway` and `gateway6` are set, keen-pbr creates distinct IPv4 and IPv6 default routes.
 
 ```json { filename="config.json" }
 {
@@ -53,7 +61,8 @@ Use this when you want to send traffic through a specific connection such as a V
       "type": "interface",
       "tag": "vpn",
       "interface": "tun0",
-      "gateway": "10.8.0.1"
+      "gateway": "10.8.0.1",
+      "gateway6": "2001:db8::1"
     }
   ]
 }
@@ -134,12 +143,15 @@ When a route rule resolves to an `ignore` outbound, keen-pbr installs a matching
 
 Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.
 
+keen-pbr always appends terminal IPv4 and IPv6 `unreachable` default routes to the generated `urltest` table. This acts as a kill-switch: if no selected or fallback child route is usable, marked traffic is blocked instead of leaking via normal routing.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tag` | string | yes | Unique identifier |
 | `type` | string | yes | `"urltest"` |
 | `url` | string | yes | URL used for availability and latency checks |
 | `interval_ms` | integer | no (default: `180000`) | Interval between probes in milliseconds |
+| `probe_timeout_ms` | integer | no (default: `5000`) | Timeout for each individual probe attempt in milliseconds |
 | `tolerance_ms` | integer | no (default: `100`) | Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance |
 | `outbound_groups` | array | yes | Ordered list of outbound groups (see below) |
 | `retry` | object | no | Retry configuration (see below) |
@@ -182,6 +194,7 @@ Groups are checked in order. Within the first healthy group, outbounds are selec
       "tag": "auto_select",
       "url": "https://www.gstatic.com/generate_204",
       "interval_ms": 180000,
+      "probe_timeout_ms": 5000,
       "tolerance_ms": 100,
       "outbound_groups": [
         { "outbounds": ["vpn1", "vpn2"] },

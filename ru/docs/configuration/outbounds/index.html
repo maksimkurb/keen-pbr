@@ -13,7 +13,7 @@
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение." /><link rel="canonical" href="https://keen-pbr.fyi/ru/docs/configuration/outbounds/" itemprop="url" />
 
 <meta property="og:title" content="Outbounds">
 <meta
@@ -38,7 +38,8 @@ config.json{
       &#34;type&#34;: &#34;interface&#34;,
       &#34;tag&#34;: &#34;vpn&#34;,
       &#34;interface&#34;: &#34;tun0&#34;,
-      &#34;gateway&#34;: &#34;10.8.0.1&#34;
+      &#34;gateway&#34;: &#34;10.8.0.1&#34;,
+      &#34;gateway6&#34;: &#34;2001:db8::1&#34;
     },
     {
       &#34;type&#34;: &#34;table&#34;,
@@ -73,15 +74,15 @@ config.json{
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
-  <meta itemprop="wordCount" content="712">
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
+  <meta itemprop="wordCount" content="840">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Outbounds">
   <meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
-Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
+Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1047,7 +1048,8 @@ config.json{
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway6&#34;</span><span class="p">:</span> <span class="s2">&#34;2001:db8::1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">},</span>
 </span></span><span class="line"><span class="cl">    <span class="p">{</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;table&#34;</span><span class="p">,</span>
@@ -1102,10 +1104,19 @@ config.json{
           <td><code>gateway</code></td>
           <td>string</td>
           <td>нет</td>
-          <td>Опциональный IP-адрес шлюза</td>
+          <td>Необязательный IPv4-адрес шлюза</td>
+      </tr>
+      <tr>
+          <td><code>gateway6</code></td>
+          <td>string</td>
+          <td>нет</td>
+          <td>Необязательный IPv6-адрес шлюза</td>
       </tr>
   </tbody>
 </table>
+<p>Если не заданы ни <code>gateway</code>, ни <code>gateway6</code>, keen-pbr создаёт и IPv4-, и IPv6-маршрут по умолчанию для этого interface outbound.</p>
+<p>Если задан только один шлюз, keen-pbr создаёт обычный маршрут по умолчанию для соответствующего семейства адресов и маршрут <code>unreachable</code> для второго семейства, чтобы помеченный трафик не мог утечь за пределы таблицы outbound.</p>
+<p>Если заданы и <code>gateway</code>, и <code>gateway6</code>, keen-pbr создаёт отдельные маршруты по умолчанию для IPv4 и IPv6.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
@@ -1114,7 +1125,8 @@ config.json{
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;interface&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;interface&#34;</span><span class="p">:</span> <span class="s2">&#34;tun0&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway&#34;</span><span class="p">:</span> <span class="s2">&#34;10.8.0.1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;gateway6&#34;</span><span class="p">:</span> <span class="s2">&#34;2001:db8::1&#34;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl">  <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
@@ -1296,6 +1308,7 @@ config.json{
 </div>
 <h2><code>urltest</code><span class="hx:absolute hx:-mt-20" id="urltest"></span>
     <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте это, когда у вас есть несколько кандидатов outbound и вы хотите, чтобы keen-pbr автоматически выбирал лучший доступный.</p>
+<p>keen-pbr всегда добавляет в конец сгенерированной таблицы <code>urltest</code> терминальные маршруты <code>unreachable</code> по умолчанию для IPv4 и IPv6. Это работает как kill-switch: если выбранный маршрут или fallback-маршруты недоступны, помеченный трафик блокируется, а не уходит через обычную системную маршрутизацию.</p>
 <table>
   <thead>
       <tr>
@@ -1329,6 +1342,12 @@ config.json{
           <td>integer</td>
           <td>нет (по умолчанию: <code>180000</code>)</td>
           <td>Интервал между проверками в миллисекундах</td>
+      </tr>
+      <tr>
+          <td><code>probe_timeout_ms</code></td>
+          <td>integer</td>
+          <td>нет (по умолчанию: <code>5000</code>)</td>
+          <td>Таймаут каждой отдельной попытки проверки в миллисекундах</td>
       </tr>
       <tr>
           <td><code>tolerance_ms</code></td>
@@ -1453,6 +1472,7 @@ config.json{
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tag&#34;</span><span class="p">:</span> <span class="s2">&#34;auto_select&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;url&#34;</span><span class="p">:</span> <span class="s2">&#34;https://www.gstatic.com/generate_204&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;interval_ms&#34;</span><span class="p">:</span> <span class="mi">180000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;probe_timeout_ms&#34;</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;tolerance_ms&#34;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">      <span class="nt">&#34;outbound_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
 </span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="nt">&#34;outbounds&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;vpn1&#34;</span><span class="p">,</span> <span class="s2">&#34;vpn2&#34;</span><span class="p">]</span> <span class="p">},</span>

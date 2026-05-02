@@ -30,7 +30,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Default: (shown below)
     "skip_marked_packets": true,
 
-    // Default strict routing behavior for interface and urltest outbounds.
+    // Default strict routing behavior for interface outbounds.
     // Default: (shown below)
     "strict_enforcement": false,
 
@@ -71,9 +71,13 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: no default, required for type="interface".
       "interface": "wg0",
 
-      // Optional gateway for the interface outbound.
+      // Optional IPv4 gateway for the interface outbound.
       // Default: null
       "gateway": "10.8.0.1",
+
+      // Optional IPv6 gateway for the interface outbound.
+      // Default: null
+      "gateway6": "2001:db8::1",
 
       // Per-outbound strict-enforcement override.
       // Overrides daemon.strict_enforcement when set.
@@ -135,12 +139,17 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       // Default: (shown below)
       "interval_ms": 180000,
 
+      // Timeout for each individual probe attempt in milliseconds.
+      // Default: (shown below)
+      "probe_timeout_ms": 5000,
+
       // Do not switch if the new candidate is only slightly better than the current one.
       // Default: (shown below)
       "tolerance_ms": 100,
 
-      // Optional strict-enforcement override for the generated urltest routing table.
-      // Default: inherit daemon.strict_enforcement.
+      // Compatibility field for older configs.
+      // Urltest always appends terminal IPv4/IPv6 unreachable routes as a kill-switch.
+      // This setting currently has no additional effect for urltest outbounds.
       "strict_enforcement": true,
 
       // Ordered outbound groups.

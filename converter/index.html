@@ -522,7 +522,7 @@
               W_flush:
                 'ipset "{n}": flush_before_applying is the default behaviour in v3. No action needed.',
               W_ip6:
-                'ipset "{n}": ip_version=6 — v3 supports IPv6. Ensure your interface outbound and gateway are IPv6-capable.',
+                'ipset "{n}": ip_version=6 — v3 supports IPv6. Ensure your interface outbound and `gateway6` setting are IPv6-capable.',
               W_odns:
                 'ipset "{n}": override_dns="{dns}" — DNS server "{tag}" and a DNS rule have been created for the lists in this ipset.',
               W_renamed: 'Name "{old}" is invalid for v3. Renamed to "{nw}".',
@@ -543,7 +543,7 @@
               I_defout:
                 'Added outbound "default" → routing table 254 (main). Route lists to it for normal internet traffic.',
               I_newformat:
-                "Config converted from TOML v2 to JSON v3. Review gateway IPs, DNS addresses, and ttl_ms values before deploying.",
+                "Config converted from TOML v2 to JSON v3. Review IPv4/IPv6 gateway settings, DNS addresses, and ttl_ms values before deploying.",
               I_cbr:
                 'v3 supports urltest outbounds with circuit-breaker for interface health-checking. See <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
               I_keen_fb:
@@ -597,7 +597,7 @@
               W_flush:
                 'ipset "{n}": flush_before_applying — поведение по умолчанию в v3. Дополнительных действий не требуется.',
               W_ip6:
-                'ipset "{n}": ip_version=6 — v3 поддерживает IPv6. Убедитесь, что ваш outbound-интерфейс и шлюз поддерживают IPv6.',
+                'ipset "{n}": ip_version=6 — v3 поддерживает IPv6. Убедитесь, что ваш outbound-интерфейс и настройка `gateway6` поддерживают IPv6.',
               W_odns:
                 'ipset "{n}": override_dns="{dns}" — создан DNS-сервер "{tag}" и правило DNS для списков этого ipset.',
               W_renamed:
@@ -619,7 +619,7 @@
               I_defout:
                 'Добавлен outbound "default" → таблица маршрутизации 254 (main). Направьте нужные списки на него для обычного интернет-трафика.',
               I_newformat:
-                "Конфиг конвертирован из TOML v2 в JSON v3. Проверьте IP шлюзов, адреса DNS и ttl_ms перед применением.",
+                "Конфиг конвертирован из TOML v2 в JSON v3. Проверьте настройки IPv4/IPv6 шлюзов, адреса DNS и ttl_ms перед применением.",
               I_cbr:
                 'В v3 поддерживаются urltest outbound-ы с circuit-breaker. Подробнее: <link href="/docs/configuration/outbounds/">keen-pbr.fyi/docs/configuration/outbounds/</link>.',
               I_keen_fb:

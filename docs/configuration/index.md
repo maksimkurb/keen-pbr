@@ -26,7 +26,8 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
       "type": "interface",
       "tag": "vpn",
       "interface": "tun0",
-      "gateway": "10.8.0.1"
+      "gateway": "10.8.0.1",
+      "gateway6": "2001:db8::1"
     },
     {
       "type": "interface",
