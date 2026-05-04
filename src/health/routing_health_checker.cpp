@@ -6,6 +6,7 @@
 #include "../util/format_compat.hpp"
 #include "../util/string_compat.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace keen_pbr3 {
@@ -100,21 +101,16 @@ RoutingHealthReport build_routing_health_report(
 
         for (const auto& [table_id, expected_routes] : expected_routes_by_table) {
             auto routes = netlink.dump_routes_in_table(table_id);
-            std::vector<bool> matched(routes.size(), false);
-
-            for (const auto& expected : expected_routes) {
-                for (size_t i = 0; i < routes.size(); ++i) {
-                    if (matched[i]) continue;
-                    if (route_matches(expected, routes[i])) {
-                        matched[i] = true;
-                        break;
-                    }
-                }
-            }
 
             for (size_t i = 0; i < routes.size(); ++i) {
-                if (matched[i]) continue;
                 if (routes[i].destination != "default") continue;
+                const bool covered = std::any_of(
+                    expected_routes.begin(),
+                    expected_routes.end(),
+                    [&](const RouteSpec& expected) {
+                        return route_matches(expected, routes[i]);
+                    });
+                if (covered) continue;
 
                 RouteTableCheck extra_check;
                 extra_check.table_id = table_id;
