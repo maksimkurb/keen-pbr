@@ -8,10 +8,10 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <pthread.h>
 #include <queue>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -70,6 +70,14 @@ private:
         TraceId trace_id{0};
     };
 
+    struct WorkerStart {
+        BlockingExecutor* executor;
+        std::size_t index;
+    };
+
+    static void* worker_entry(void* arg) noexcept;
+    void start_worker(std::size_t index);
+
     bool enqueue(std::string label,
                  std::function<void()> task,
                  TraceId trace_id,
@@ -83,7 +91,8 @@ private:
     bool stopping_{false};
     bool shutdown_complete_{false};
     std::queue<Task> queue_;
-    std::vector<std::thread> workers_;
+    std::vector<WorkerStart> worker_starts_;
+    std::vector<pthread_t> workers_;
 };
 
 } // namespace keen_pbr3

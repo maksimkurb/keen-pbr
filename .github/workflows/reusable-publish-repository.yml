@@ -155,5 +155,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "publish repository tree for ${GITHUB_SHA}"
+          app_version="$("$GITHUB_WORKSPACE/src/build_scripts/resolve-version.sh" full "$GITHUB_WORKSPACE/src")"
+          git commit -m "publish repository tree for ${GITHUB_SHA} (${app_version})"
           git push origin HEAD:main

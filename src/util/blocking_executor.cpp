@@ -2,17 +2,32 @@
 
 #include "../log/logger.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <system_error>
 
 namespace keen_pbr3 {
 
+namespace {
+
+// OpenWrt targets can give pthreads a small default stack; URL probes go through
+// libcurl, TLS, logging, and callbacks, so keep worker stacks explicit.
+constexpr std::size_t kBlockingExecutorWorkerStackSize = static_cast<long>(1024) * 1024;
+
+} // namespace
+
 BlockingExecutor::BlockingExecutor(std::size_t worker_count, std::size_t max_queue_size)
     : max_queue_size_(max_queue_size) {
+    worker_starts_.reserve(worker_count);
     workers_.reserve(worker_count);
-    for (std::size_t index = 0; index < worker_count; ++index) {
-        workers_.emplace_back([this, index]() {
-            worker_loop(index);
-        });
+    try {
+        for (std::size_t index = 0; index < worker_count; ++index) {
+            start_worker(index);
+        }
+    } catch (...) {
+        shutdown();
+        throw;
     }
 }
 
@@ -32,10 +47,46 @@ void BlockingExecutor::shutdown() {
     cv_.notify_all();
     space_cv_.notify_all();
     for (auto& worker : workers_) {
-        if (worker.joinable()) {
-            worker.join();
-        }
+        pthread_join(worker, nullptr);
     }
+    workers_.clear();
+    worker_starts_.clear();
+}
+
+void* BlockingExecutor::worker_entry(void* arg) noexcept {
+    auto* start = static_cast<WorkerStart*>(arg);
+    start->executor->worker_loop(start->index);
+    return nullptr;
+}
+
+void BlockingExecutor::start_worker(std::size_t index) {
+    pthread_attr_t attr;
+    int rc = pthread_attr_init(&attr);
+    if (rc != 0) {
+        throw std::system_error(rc, std::generic_category(), "pthread_attr_init failed");
+    }
+
+    const std::size_t stack_size = std::max<std::size_t>(
+        kBlockingExecutorWorkerStackSize,
+        static_cast<std::size_t>(PTHREAD_STACK_MIN));
+    rc = pthread_attr_setstacksize(&attr, stack_size);
+    if (rc != 0) {
+        pthread_attr_destroy(&attr);
+        throw std::system_error(rc, std::generic_category(),
+                                "pthread_attr_setstacksize failed");
+    }
+
+    worker_starts_.push_back(WorkerStart{this, index});
+    pthread_t worker{};
+    rc = pthread_create(&worker, &attr, &BlockingExecutor::worker_entry,
+                        &worker_starts_.back());
+    pthread_attr_destroy(&attr);
+    if (rc != 0) {
+        worker_starts_.pop_back();
+        throw std::system_error(rc, std::generic_category(), "pthread_create failed");
+    }
+
+    workers_.push_back(worker);
 }
 
 bool BlockingExecutor::try_post(std::string label,

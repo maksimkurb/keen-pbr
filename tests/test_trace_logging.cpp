@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
 #include <mutex>
+#include <pthread.h>
 #include <string>
 #include <thread>
 #include <vector>
@@ -116,6 +118,32 @@ TEST_CASE("blocking executor workers inherit daemon-managed signal mask") {
     });
 
     CHECK(future.get());
+}
+
+TEST_CASE("blocking executor workers use explicit urltest-safe stack size") {
+    BlockingExecutor executor(1, 4);
+
+    auto future = executor.submit("stack-size-check", []() -> std::size_t {
+        pthread_attr_t attr;
+        if (pthread_getattr_np(pthread_self(), &attr) != 0) {
+            return 0;
+        }
+
+        void* stack_addr = nullptr;
+        std::size_t stack_size = 0;
+        const int rc = pthread_attr_getstack(&attr, &stack_addr, &stack_size);
+        pthread_attr_destroy(&attr);
+
+        return rc == 0 ? stack_size : 0;
+    });
+
+    const std::size_t expected_stack_size = std::max<std::size_t>(
+        1024 * 1024,
+        static_cast<std::size_t>(PTHREAD_STACK_MIN));
+    const std::size_t stack_size = future.get();
+
+    CHECK(stack_size >= expected_stack_size);
+    CHECK(stack_size <= expected_stack_size * 2);
 }
 
 TEST_CASE("traced mutex logs lock lifecycle and supports condition_variable_any") {

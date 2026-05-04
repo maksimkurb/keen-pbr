@@ -20,8 +20,12 @@ static size_t discard_callback(char* /*ptr*/, size_t size, size_t nmemb,
 // Socket option callback to set SO_MARK on the socket for policy routing
 static int sockopt_callback(void* clientp, curl_socket_t curlfd,
                             curlsocktype /*purpose*/) {
-    auto mark = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(clientp));
-    if (setsockopt(curlfd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) < 0) {
+    if (!clientp) {
+        return CURL_SOCKOPT_OK;
+    }
+    const auto mark = *static_cast<uint32_t*>(clientp);
+    if (mark != 0 &&
+        setsockopt(curlfd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) < 0) {
         return CURL_SOCKOPT_ERROR;
     }
     return CURL_SOCKOPT_OK;
@@ -61,10 +65,10 @@ URLTestResult URLTester::test_once(const std::string& url, uint32_t fwmark,
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 3L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "keen-pbr-urltest");
 
-    // Route test traffic through the outbound's fwmark via SO_MARK
+    // Route test traffic through the outbound's fwmark via SO_MARK.
+    uint32_t mark = fwmark;
     curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_callback);
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA,
-                     reinterpret_cast<void*>(static_cast<uintptr_t>(fwmark)));
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &mark);
 
     auto start = std::chrono::steady_clock::now();
     CURLcode res = curl_easy_perform(curl);
