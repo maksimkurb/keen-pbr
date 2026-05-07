@@ -793,6 +793,11 @@ export const enTranslation = {
           messages: {
             refreshedOne: "List refresh finished.",
             refreshedAll: "Lists refresh finished.",
+            refreshFailedOne:
+              'List "{{names}}" was not updated. See logs for details.',
+            refreshFailedMany:
+              "{{count}} lists were not updated: {{names}}. See logs for details.",
+            refreshFailedMore: "+{{count}} more",
           },
           lastUpdated: "Last updated: {{value}}",
           neverUpdated: "Never updated",

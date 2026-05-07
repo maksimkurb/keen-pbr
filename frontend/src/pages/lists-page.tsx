@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useLocation } from "wouter"
@@ -51,6 +51,18 @@ type ListTableRow = {
   canRefresh?: boolean
 }
 
+const MAX_FAILED_LIST_NAMES_IN_TOAST = 5
+const REFRESH_ALL_TARGET = "__all__"
+
+function isRefreshIconActive(
+  activeRefreshTarget: string | null,
+  listId: string
+) {
+  return (
+    activeRefreshTarget === REFRESH_ALL_TARGET || activeRefreshTarget === listId
+  )
+}
+
 export function ListsPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
@@ -59,11 +71,31 @@ export function ListsPage() {
   const loadedConfig = selectConfig(configQuery.data)
   const isDraft = selectConfigIsDraft(configQuery.data)
   const listRefreshState = selectListRefreshState(configQuery.data)
+  const [activeRefreshTarget, setActiveRefreshTarget] = useState<string | null>(
+    null
+  )
 
   const listRefreshMutation = usePostListsRefreshMutation({
     mutation: {
-      onSuccess: async (_response, variables) => {
+      onSuccess: async (response, variables) => {
         const requestedName = variables?.data?.name
+        const failedLists =
+          response.status === 200 ? response.data.failed_lists : []
+        if (failedLists.length > 0) {
+          toast.error(
+            failedLists.length === 1
+              ? t("pages.lists.messages.refreshFailedOne", {
+                  names: failedLists[0],
+                })
+              : t("pages.lists.messages.refreshFailedMany", {
+                  count: failedLists.length,
+                  names: formatFailedListNamesForToast(failedLists, t),
+                }),
+            { richColors: true }
+          )
+          return
+        }
+
         toast.success(
           requestedName
             ? t("pages.lists.messages.refreshedOne")
@@ -72,6 +104,9 @@ export function ListsPage() {
       },
       onError: (error) => {
         toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+      },
+      onSettled: () => {
+        setActiveRefreshTarget(null)
       },
     },
   })
@@ -133,6 +168,7 @@ export function ListsPage() {
       return
     }
 
+    setActiveRefreshTarget(REFRESH_ALL_TARGET)
     listRefreshMutation.mutate({ data: {} })
   }
 
@@ -142,6 +178,7 @@ export function ListsPage() {
       return
     }
 
+    setActiveRefreshTarget(listId)
     listRefreshMutation.mutate({ data: { name: listId } })
   }
 
@@ -158,7 +195,9 @@ export function ListsPage() {
               >
                 <RefreshCw
                   className={`mr-1 h-4 w-4 ${
-                    listRefreshMutation.isPending ? "animate-spin" : ""
+                    activeRefreshTarget === REFRESH_ALL_TARGET
+                      ? "animate-spin"
+                      : ""
                   }`}
                 />
                 {t("pages.lists.actions.updateAll")}
@@ -256,7 +295,7 @@ export function ListsPage() {
                         icon: (
                           <RefreshCw
                             className={`h-4 w-4 ${
-                              listRefreshMutation.isPending
+                              isRefreshIconActive(activeRefreshTarget, list.id)
                                 ? "animate-spin"
                                 : ""
                             }`}
@@ -285,6 +324,23 @@ export function ListsPage() {
       )}
     </div>
   )
+}
+
+function formatFailedListNamesForToast(
+  names: string[],
+  t: ReturnType<typeof useTranslation>["t"]
+) {
+  const visibleNames = names.slice(0, MAX_FAILED_LIST_NAMES_IN_TOAST)
+  const hiddenCount = names.length - visibleNames.length
+  const label = visibleNames.join(", ")
+
+  if (hiddenCount <= 0) {
+    return label
+  }
+
+  return `${label}, ${t("pages.lists.messages.refreshFailedMore", {
+    count: hiddenCount,
+  })}`
 }
 
 function getTableRowsFromListMap(

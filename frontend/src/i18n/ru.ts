@@ -815,6 +815,11 @@ export const ruTranslation = {
           messages: {
             refreshedOne: "Обновление списка завершено.",
             refreshedAll: "Обновление списков завершено.",
+            refreshFailedOne:
+              'Список "{{names}}" не удалось обновить. Подробности смотрите в логах.',
+            refreshFailedMany:
+              "Не удалось обновить {{count}} списков: {{names}}. Подробности смотрите в логах.",
+            refreshFailedMore: "ещё {{count}}",
           },
           lastUpdated: "Последнее обновление: {{value}}",
           neverUpdated: "Ещё не обновлялся",
