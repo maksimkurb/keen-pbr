@@ -290,6 +290,7 @@ function DnsServerForm({
                     id="dns-server-tag"
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
+                    readOnly={mode === "edit"}
                     value={field.state.value}
                   />
                   <FieldHint
