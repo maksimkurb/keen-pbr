@@ -57,7 +57,7 @@ By default, the API listens on 0.0.0.0:12121. All endpoints are served at the co
   <meta itemprop="description" content="This page documents the built-in HTTP REST API.
 The REST API is available when:
 Full package version is installed (keen-pbr, not keen-pbr-headless) The config has api.enabled: true The --no-api flag was not passed at startup Configuration config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } By default, the API listens on 0.0.0.0:12121. All endpoints are served at the configured api.listen address.">
-  <meta itemprop="wordCount" content="904">
+  <meta itemprop="wordCount" content="915">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="REST API">
   <meta name="twitter:description" content="This page documents the built-in HTTP REST API.
@@ -1220,6 +1220,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;Lists refreshed and runtime reloaded&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;refreshed_lists&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;apple&#34;</span><span class="p">,</span> <span class="s2">&#34;google&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;changed_lists&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;apple&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;failed_lists&#34;</span><span class="p">:</span> <span class="p">[],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;reloaded&#34;</span><span class="p">:</span> <span class="kc">true</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -1237,6 +1238,7 @@ Full package version is installed (keen-pbr, not keen-pbr-headless) The config h
 <ul>
 <li><code>refreshed_lists</code> <em>(array[string])</em>: URL-backed lists that were refreshed.</li>
 <li><code>changed_lists</code> <em>(array[string])</em>: Refreshed lists whose cached contents changed.</li>
+<li><code>failed_lists</code> <em>(array[string])</em>: URL-backed lists that could not be refreshed.</li>
 <li><code>reloaded</code> <em>(boolean)</em>: Whether the running routing runtime was rebuilt because relevant changed lists were in active use.</li>
 </ul>
 <h3>Status / Error Behavior<span class="hx:absolute hx:-mt-20" id="status--error-behavior"></span>

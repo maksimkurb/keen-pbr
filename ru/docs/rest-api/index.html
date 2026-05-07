@@ -57,7 +57,7 @@ config.json{
   <meta itemprop="description" content="Эта страница описывает встроенный HTTP REST API.
 REST API доступен, если:
 Установлена полная версия пакета (keen-pbr, не keen-pbr-headless) В конфиге включён api.enabled: true При запуске не был передан флаг --no-api Конфигурация config.json{ &#34;api&#34;: { &#34;enabled&#34;: true, &#34;listen&#34;: &#34;0.0.0.0:12121&#34; } } По умолчанию API прослушивает 0.0.0.0:12121. Все эндпоинты обслуживаются на настроенном адресе api.listen.">
-  <meta itemprop="wordCount" content="852">
+  <meta itemprop="wordCount" content="863">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="REST API">
   <meta name="twitter:description" content="Эта страница описывает встроенный HTTP REST API.
@@ -1220,6 +1220,7 @@ REST API доступен, если:
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;message&#34;</span><span class="p">:</span> <span class="s2">&#34;Lists refreshed and runtime reloaded&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;refreshed_lists&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;apple&#34;</span><span class="p">,</span> <span class="s2">&#34;google&#34;</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;changed_lists&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;apple&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;failed_lists&#34;</span><span class="p">:</span> <span class="p">[],</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;reloaded&#34;</span><span class="p">:</span> <span class="kc">true</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
   <button
@@ -1237,6 +1238,7 @@ REST API доступен, если:
 <ul>
 <li><code>refreshed_lists</code> <em>(array[string])</em>: Списки с URL, которые были обновлены.</li>
 <li><code>changed_lists</code> <em>(array[string])</em>: Обновлённые списки, содержимое которых изменилось.</li>
+<li><code>failed_lists</code> <em>(array[string])</em>: Списки с URL, которые не удалось обновить.</li>
 <li><code>reloaded</code> <em>(boolean)</em>: Была ли перестроена среда выполнения маршрутизации, потому что изменённые списки использовались.</li>
 </ul>
 <h3>Коды статуса / ошибки<span class="hx:absolute hx:-mt-20" id="коды-статуса--ошибки"></span>

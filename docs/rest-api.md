@@ -86,6 +86,7 @@ curl -X POST http://127.0.0.1:12121/api/lists/refresh
   "message": "Lists refreshed and runtime reloaded",
   "refreshed_lists": ["apple", "google"],
   "changed_lists": ["apple"],
+  "failed_lists": [],
   "reloaded": true
 }
 ```
@@ -94,6 +95,7 @@ Success payload fields:
 
 - `refreshed_lists` *(array[string])*: URL-backed lists that were refreshed.
 - `changed_lists` *(array[string])*: Refreshed lists whose cached contents changed.
+- `failed_lists` *(array[string])*: URL-backed lists that could not be refreshed.
 - `reloaded` *(boolean)*: Whether the running routing runtime was rebuilt because relevant changed lists were in active use.
 
 ### Status / Error Behavior
