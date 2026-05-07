@@ -281,6 +281,9 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
     } else if (result.refresh_result.any_changed()) {
         log.info("Lists refresh: updated list(s) did not affect runtime config: {}",
                  format_list_names(result.refresh_result.changed_lists));
+    } else if (result.refresh_result.any_failed()) {
+        log.warn("Lists refresh: failed to refresh list(s): {}",
+                 format_list_names(result.refresh_result.failed_lists));
     } else {
         log.info("Lists refresh: no list updates");
     }
@@ -359,6 +362,9 @@ void Daemon::commit_lists_refresh_async_result(
                 Logger::instance().info(
                     "Lists refresh: updated list(s) did not affect runtime config: {}",
                     format_list_names(result.refresh_result.changed_lists));
+            } else if (result.refresh_result.any_failed()) {
+                Logger::instance().warn("Lists refresh: failed to refresh list(s): {}",
+                                        format_list_names(result.refresh_result.failed_lists));
             } else {
                 Logger::instance().info("Lists refresh: no list updates");
             }

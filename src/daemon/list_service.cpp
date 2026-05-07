@@ -153,13 +153,23 @@ RemoteListsRefreshResult ListService::download_remote_lists(
             }
         }
 
-        bool changed = false;
-        changed = cache_manager_.download(
+        const auto download_result = cache_manager_.download(
             name,
             *list_cfg.url,
             CacheDownloadOptions{fwmark});
 
-        if (!changed) {
+        if (download_result.failed()) {
+            result.failed_lists.push_back(name);
+            Logger::instance().warn("List '{}': failed to refresh {}: {}",
+                                    name,
+                                    *list_cfg.url,
+                                    download_result.error_message.empty()
+                                        ? std::string("unknown error")
+                                        : download_result.error_message);
+            continue;
+        }
+
+        if (!download_result.updated()) {
             continue;
         }
 

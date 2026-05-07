@@ -14,6 +14,8 @@ export interface ListRefreshResponse {
   refreshed_lists: string[];
   /** Refreshed lists whose cached contents changed. */
   changed_lists: string[];
+  /** URL-backed lists that could not be refreshed. */
+  failed_lists: string[];
   /** Whether the running routing runtime was rebuilt because relevant list contents changed while the runtime was active.
    */
   reloaded: boolean;

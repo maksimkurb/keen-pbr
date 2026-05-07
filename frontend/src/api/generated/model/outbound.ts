@@ -19,7 +19,7 @@ export interface Outbound {
   /** Egress network interface name. Required for `interface` outbound type.
    */
   interface?: string;
-  /** Optional gateway IP address. Used with `interface` outbound type.
+  /** Optional IPv4 gateway address. Used with `interface` outbound type.
    */
   gateway?: string;
   /** Optional IPv6 gateway address. Used with `interface` outbound type.

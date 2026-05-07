@@ -10,6 +10,14 @@ make
 
 This runs `cmake -S . -B cmake-build ...` followed by `cmake --build cmake-build`.
 
+## Generated Files
+
+Never edit generated files by hand. Update the source schema/config and run the
+appropriate codegen command instead.
+
+- Backend API types (`src/api/generated/api_types.hpp`): run `make generate`.
+- Frontend API client/models (`frontend/src/api/generated/`): run `make frontend-api-generate`.
+
 ## Frontend
 
 Frontend is lives in the `frontend/` folder. 

@@ -1309,7 +1309,7 @@ components:
 
     ListRefreshResponse:
       type: object
-      required: [status, message, refreshed_lists, changed_lists, reloaded]
+      required: [status, message, refreshed_lists, changed_lists, failed_lists, reloaded]
       properties:
         status:
           type: string
@@ -1330,6 +1330,12 @@ components:
             type: string
           description: Refreshed lists whose cached contents changed.
           example: ["apple"]
+        failed_lists:
+          type: array
+          items:
+            type: string
+          description: URL-backed lists that could not be refreshed.
+          example: ["google"]
         reloaded:
           type: boolean
           description: >

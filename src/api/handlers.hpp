@@ -50,6 +50,7 @@ struct ServiceHealthState {
 struct ListRefreshOperationResult {
     std::vector<std::string> refreshed_lists;
     std::vector<std::string> changed_lists;
+    std::vector<std::string> failed_lists;
     bool reloaded{false};
     std::string message;
 };

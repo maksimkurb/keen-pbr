@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesMebfUc data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesC3SgdB data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -311,6 +311,7 @@ namespace api {
 
     struct ListRefreshResponse {
         std::vector<std::string> changed_lists;
+        std::vector<std::string> failed_lists;
         std::string message;
         std::vector<std::string> refreshed_lists;
         bool reloaded;
@@ -449,7 +450,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesMebfUc {
+    struct KeenPbrTypesC3SgdB {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -641,8 +642,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesMebfUc & x);
-    void to_json(json & j, const KeenPbrTypesMebfUc & x);
+    void from_json(const json & j, KeenPbrTypesC3SgdB & x);
+    void to_json(json & j, const KeenPbrTypesC3SgdB & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1119,6 +1120,7 @@ namespace api {
 
     inline void from_json(const json & j, ListRefreshResponse& x) {
         x.changed_lists = j.at("changed_lists").get<std::vector<std::string>>();
+        x.failed_lists = j.at("failed_lists").get<std::vector<std::string>>();
         x.message = j.at("message").get<std::string>();
         x.refreshed_lists = j.at("refreshed_lists").get<std::vector<std::string>>();
         x.reloaded = j.at("reloaded").get<bool>();
@@ -1128,6 +1130,7 @@ namespace api {
     inline void to_json(json & j, const ListRefreshResponse & x) {
         j = json::object();
         j["changed_lists"] = x.changed_lists;
+        j["failed_lists"] = x.failed_lists;
         j["message"] = x.message;
         j["refreshed_lists"] = x.refreshed_lists;
         j["reloaded"] = x.reloaded;
@@ -1394,7 +1397,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesMebfUc& x) {
+    inline void from_json(const json & j, KeenPbrTypesC3SgdB& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1447,7 +1450,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesMebfUc & x) {
+    inline void to_json(json & j, const KeenPbrTypesC3SgdB & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

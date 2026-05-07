@@ -197,8 +197,15 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 try {
-                    bool updated = cache.download(name, list_cfg.url.value());
-                    if (updated) {
+                    const auto download_result = cache.download(name, list_cfg.url.value());
+                    if (download_result.failed()) {
+                        logger.error("[{}] Error refreshing {}: {}",
+                                     name,
+                                     list_cfg.url.value(),
+                                     download_result.error_message.empty()
+                                         ? std::string("unknown error")
+                                         : download_result.error_message);
+                    } else if (download_result.updated()) {
                         // Count entries by streaming through EntryCounter
                         keen_pbr3::ListStreamer streamer(cache);
                         keen_pbr3::EntryCounter counter;

@@ -91,6 +91,7 @@ curl -X POST http://127.0.0.1:12121/api/lists/refresh
   "message": "Lists refreshed and runtime reloaded",
   "refreshed_lists": ["apple", "google"],
   "changed_lists": ["apple"],
+  "failed_lists": [],
   "reloaded": true
 }
 ```
@@ -99,6 +100,7 @@ curl -X POST http://127.0.0.1:12121/api/lists/refresh
 
 - `refreshed_lists` *(array[string])*: Списки с URL, которые были обновлены.
 - `changed_lists` *(array[string])*: Обновлённые списки, содержимое которых изменилось.
+- `failed_lists` *(array[string])*: Списки с URL, которые не удалось обновить.
 - `reloaded` *(boolean)*: Была ли перестроена среда выполнения маршрутизации, потому что изменённые списки использовались.
 
 ### Коды статуса / ошибки

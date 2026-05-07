@@ -218,6 +218,7 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
         ListRefreshOperationResult operation_result;
         operation_result.refreshed_lists = std::move(refresh_result.refreshed_lists);
         operation_result.changed_lists = std::move(refresh_result.changed_lists);
+        operation_result.failed_lists = std::move(refresh_result.failed_lists);
         operation_result.reloaded = reloaded;
 
         finish_config_operation();
@@ -227,6 +228,8 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
         }
         if (!operation_result.refreshed_lists.size()) {
             operation_result.message = "No URL-backed lists to refresh";
+        } else if (!operation_result.failed_lists.empty()) {
+            operation_result.message = "Lists refreshed with failures";
         } else if (stale_runtime) {
             operation_result.message =
                 "Lists refreshed; runtime changed before reload could be applied";

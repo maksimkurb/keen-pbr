@@ -16,6 +16,7 @@ struct RemoteListsRefreshResult {
     std::vector<std::string> refreshed_lists;
     std::vector<std::string> changed_lists;
     std::vector<std::string> relevant_changed_lists;
+    std::vector<std::string> failed_lists;
 
     bool any_refreshed() const {
         return !refreshed_lists.empty();
@@ -27,6 +28,10 @@ struct RemoteListsRefreshResult {
 
     bool any_relevant_changed() const {
         return !relevant_changed_lists.empty();
+    }
+
+    bool any_failed() const {
+        return !failed_lists.empty();
     }
 };
 

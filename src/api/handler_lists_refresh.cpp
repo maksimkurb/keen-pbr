@@ -1,6 +1,7 @@
 #ifdef WITH_API
 
 #include "handler_lists_refresh.hpp"
+#include "generated/api_types.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -44,14 +45,14 @@ void register_lists_refresh_handler(ApiServer& server, ApiContext& ctx) {
         const auto requested_name = parse_requested_list_name(body);
         const auto result = ctx.refresh_lists(requested_name);
 
-        nlohmann::json response = {
-            {"status", "ok"},
-            {"message", result.message},
-            {"refreshed_lists", result.refreshed_lists},
-            {"changed_lists", result.changed_lists},
-            {"reloaded", result.reloaded},
-        };
-        return response.dump();
+        api::ListRefreshResponse response;
+        response.status = api::ConfigUpdateResponseStatus::OK;
+        response.message = result.message;
+        response.refreshed_lists = result.refreshed_lists;
+        response.changed_lists = result.changed_lists;
+        response.failed_lists = result.failed_lists;
+        response.reloaded = result.reloaded;
+        return nlohmann::json(response).dump();
     });
 }
 

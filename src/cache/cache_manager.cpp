@@ -3,8 +3,12 @@
 #include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <string_view>
+#include <utility>
 
 namespace keen_pbr3 {
+
+namespace {
 
 static std::string current_time_iso() {
     auto now = std::chrono::system_clock::now();
@@ -15,6 +19,26 @@ static std::string current_time_iso() {
     std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
     return buf;
 }
+
+CacheDownloadResult download_failed(std::string message,
+                                    std::optional<long> http_status_code = std::nullopt) {
+    CacheDownloadResult result;
+    result.status = CacheDownloadStatus::Failed;
+    result.error_message = std::move(message);
+    result.http_status_code = http_status_code;
+    return result;
+}
+
+std::string clean_download_error_message(const std::exception& error) {
+    constexpr std::string_view prefix = "HTTP request failed: ";
+    std::string message = error.what();
+    if (message.rfind(prefix, 0) == 0) {
+        message.erase(0, prefix.size());
+    }
+    return message;
+}
+
+} // namespace
 
 CacheManager::CacheManager(const std::filesystem::path& cache_dir,
                            size_t max_file_size_bytes)
@@ -30,9 +54,9 @@ void CacheManager::set_max_file_size(size_t bytes) {
     http_client_.set_max_response_size(bytes);
 }
 
-bool CacheManager::download(const std::string& name,
-                            const std::string& url,
-                            const CacheDownloadOptions& options) {
+CacheDownloadResult CacheManager::download(const std::string& name,
+                                           const std::string& url,
+                                           const CacheDownloadOptions& options) {
     CacheMetadata existing = load_metadata(name);
 
     ConditionalDownloadResult result;
@@ -42,12 +66,19 @@ bool CacheManager::download(const std::string& name,
             existing.etag.value_or(""),
             existing.last_modified.value_or(""),
             HttpRequestOptions{options.fwmark});
-    } catch (const std::exception&) {
-        return false;
+    } catch (const HttpError& e) {
+        if (e.status_code() > 0) {
+            return download_failed("HTTP " + std::to_string(e.status_code()), e.status_code());
+        }
+        return download_failed(clean_download_error_message(e));
+    } catch (const std::exception& e) {
+        return download_failed(e.what());
     }
 
     if (result.not_modified) {
-        return false;
+        CacheDownloadResult not_modified;
+        not_modified.status = CacheDownloadStatus::NotModified;
+        return not_modified;
     }
 
     std::filesystem::path final_path = cache_path(name);
@@ -57,11 +88,11 @@ bool CacheManager::download(const std::string& name,
 
     {
         std::ofstream ofs(tmp_path, std::ios::binary);
-        if (!ofs) return false;
+        if (!ofs) return download_failed("failed to open temporary cache file for writing");
         ofs << result.body;
         if (!ofs) {
             std::filesystem::remove(tmp_path);
-            return false;
+            return download_failed("failed to write temporary cache file");
         }
     }
 
@@ -75,22 +106,30 @@ bool CacheManager::download(const std::string& name,
         std::ofstream ofs(tmp_meta);
         if (!ofs) {
             std::filesystem::remove(tmp_path);
-            return false;
+            return download_failed("failed to open temporary cache metadata for writing");
         }
         ofs << nlohmann::json(meta).dump(2) << '\n';
         if (!ofs) {
             std::filesystem::remove(tmp_path);
             std::filesystem::remove(tmp_meta);
-            return false;
+            return download_failed("failed to write temporary cache metadata");
         }
     }
 
     // Rename body first: on crash here, old meta triggers a re-download (safe).
     // Rename meta second: once both succeed the cache is fully consistent.
-    std::filesystem::rename(tmp_path, final_path);
-    std::filesystem::rename(tmp_meta, final_meta);
+    try {
+        std::filesystem::rename(tmp_path, final_path);
+        std::filesystem::rename(tmp_meta, final_meta);
+    } catch (const std::exception& e) {
+        std::filesystem::remove(tmp_path);
+        std::filesystem::remove(tmp_meta);
+        return download_failed(e.what());
+    }
 
-    return true;
+    CacheDownloadResult updated;
+    updated.status = CacheDownloadStatus::Updated;
+    return updated;
 }
 
 bool CacheManager::has_cache(const std::string& name) const {
