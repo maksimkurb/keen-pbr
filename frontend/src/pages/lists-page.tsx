@@ -248,7 +248,15 @@ export function ListsPage() {
               <div className="flex items-center gap-2 font-medium">
                 {list.draft.name}
                 {list.locationIcon === "external" ? (
-                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                  <a
+                    aria-label={list.locationLabel}
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    href={list.draft.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 ) : null}
               </div>
               <div className="text-sm text-muted-foreground md:text-xs">
