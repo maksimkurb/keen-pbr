@@ -109,14 +109,10 @@ const sampleNewOutbound: OutboundDraft = {
   circuitBreakerSuccesses: "2",
   circuitBreakerTimeout: "30000",
   circuitBreakerHalfOpen: "1",
-  strictEnforcement: "Default (as in global config)",
+  strictEnforcement: "default",
 }
 
-const strictOptions = [
-  "Default (as in global config)",
-  "Enabled",
-  "Disabled",
-] as const
+const strictOptions = ["default", "enabled", "disabled"] as const
 
 const outboundTypeOptions: Outbound["type"][] = [
   "interface",
@@ -236,6 +232,10 @@ function OutboundForm({
   const interfaceOutboundOptions = existingOutbounds
     .filter((item) => item.type === "interface" && item.tag !== draft.tag)
     .map((item) => item.tag)
+  const strictSelectItems = strictOptions.map((option) => ({
+    value: option,
+    label: getStrictOptionLabel(option, t),
+  }))
 
   const form = useForm({
     defaultValues: draft,
@@ -466,7 +466,7 @@ function OutboundForm({
           description={t("pages.outboundUpsert.interface.description")}
           title={t("pages.outboundUpsert.interface.title")}
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <form.Field name={OUTBOUND_FIELD_NAMES.interfaceName}>
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
@@ -979,6 +979,7 @@ function OutboundForm({
                 </FieldLabel>
                 <FieldContent>
                   <Select
+                    items={strictSelectItems}
                     onValueChange={(value) =>
                       field.handleChange(value ?? draft.strictEnforcement)
                     }
@@ -1207,11 +1208,11 @@ function getStrictOptionLabel(
   value: (typeof strictOptions)[number],
   t: (key: string) => string
 ) {
-  if (value === strictOptions[0]) {
+  if (value === "default") {
     return t("pages.outboundUpsert.strictEnforcement.default")
   }
 
-  if (value === strictOptions[1]) {
+  if (value === "enabled") {
     return t("common.enabled")
   }
 
