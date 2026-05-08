@@ -537,7 +537,7 @@
               I_iproute:
                 "Added iproute section (table_start=150). v3 allocates routing table IDs sequentially from this value.",
               I_autoupd:
-                'Added lists_autoupdate (enabled=true, cron="0 4 * * *"). Set enabled=false to disable lists auto-refresh from remote sources.',
+                'Added lists_autoupdate (enabled=true, cron="0 4 * * 0"). Set enabled=false to disable lists auto-refresh from remote sources.',
               I_ttl:
                 'Lists with domains now support "ttl_ms" — how long a resolved IP stays in the routing ipset. Default value set: 7200000 ms (1 h).',
               I_defout:
@@ -613,7 +613,7 @@
               I_iproute:
                 "Добавлена секция iproute (table_start=150). В v3 ID таблиц маршрутизации выделяются последовательно с этого значения.",
               I_autoupd:
-                'Добавлена секция lists_autoupdate (enabled=true, cron="0 4 * * *"). Установите enabled=false для отключения автообновления удалённых списков.',
+                'Добавлена секция lists_autoupdate (enabled=true, cron="0 4 * * 0"). Установите enabled=false для отключения автообновления удалённых списков.',
               I_ttl:
                 'Списки с доменами теперь поддерживают "ttl_ms" — как долго resolved IP остаётся в routing ipset. Установлено значение по умолчанию: 7200000 мс (1 ч).',
               I_defout:
@@ -1059,8 +1059,8 @@
         "lists_autoupdate": {
           // set true to activate
           "enabled": true,
-          // every day at 04:00
-          "cron": "0 4 * * *"
+          // every Sunday at 04:00
+          "cron": "0 4 * * 0"
         },
         // Outbounds — where matching traffic is sent
         "outbounds":[],

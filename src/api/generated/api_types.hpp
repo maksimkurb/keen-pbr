@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesC3SgdB data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesEGh5Dt data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -450,7 +450,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesC3SgdB {
+    struct KeenPbrTypesEGh5Dt {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -642,8 +642,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesC3SgdB & x);
-    void to_json(json & j, const KeenPbrTypesC3SgdB & x);
+    void from_json(const json & j, KeenPbrTypesEGh5Dt & x);
+    void to_json(json & j, const KeenPbrTypesEGh5Dt & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1397,7 +1397,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesC3SgdB& x) {
+    inline void from_json(const json & j, KeenPbrTypesEGh5Dt& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1450,7 +1450,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesC3SgdB & x) {
+    inline void to_json(json & j, const KeenPbrTypesEGh5Dt & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

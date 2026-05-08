@@ -110,12 +110,12 @@ Controls automatic periodic refresh of remote lists.
 {
   "lists_autoupdate": {
     "enabled": true,
-    "cron": "0 4 * * *"
+    "cron": "0 4 * * 0"
   }
 }
 ```
 
-The `cron` field uses the standard 5-field format: `minute hour day-of-month month day-of-week`. The example above runs at 04:00 every day.
+The `cron` field uses the standard 5-field format: `minute hour day-of-month month day-of-week`. The example above runs weekly at 04:00 on Sunday.
 
 The `cron` field is validated even when `enabled` is `false`.
 

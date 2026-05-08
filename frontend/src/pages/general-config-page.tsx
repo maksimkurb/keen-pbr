@@ -57,7 +57,7 @@ const fallbackDraft: SettingsDraft = {
   skipMarkedPackets: true,
   inboundInterfaces: [],
   listsAutoupdateEnabled: true,
-  cron: "0 */6 * * *",
+  cron: "0 4 * * 0",
   fwmarkStart: "0x00010000",
   fwmarkMask: "0xffff0000",
   tableStart: "150",
