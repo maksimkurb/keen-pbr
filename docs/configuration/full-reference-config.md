@@ -501,7 +501,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
     // Standard 5-field cron expression.
     // Required when enabled=true.
     // No default value.
-    "cron": "0 4 * * *"
+    "cron": "0 4 * * 0"
   }
 }
 ```
