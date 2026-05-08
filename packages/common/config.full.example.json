@@ -60,6 +60,11 @@
     "table_start": 150
   },
 
+  "lists_autoupdate": {
+    "enabled": true,
+    "cron": "0 4 * * 0"
+  },
+
   "route": {
     "rules": []
   }

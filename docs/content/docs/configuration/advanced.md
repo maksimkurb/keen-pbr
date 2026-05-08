@@ -101,6 +101,8 @@ Outbounds are assigned sequential table IDs starting from `table_start`. Ensure 
 
 Controls automatic periodic refresh of remote lists.
 
+If the `lists_autoupdate` section is omitted, automatic refresh is disabled.
+
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enabled` | boolean | `false` | Enable automatic list refresh |
