@@ -3,7 +3,7 @@ title: Установка
 weight: 1
 ---
 
-Выберите целевую платформу, установите пакет, затем перейдите к [Быстрому старту](../quick-start/).
+Выберите целевую платформу, установите пакет, затем перейдите к [Быстрому старту]({{< relref "/docs/getting-started/quick-start" >}}).
 
 {{< cards cols="1" >}}
   {{< card link="keenetic" title="Keenetic / NetCraze" >}}
