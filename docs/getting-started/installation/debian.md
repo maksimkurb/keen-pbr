@@ -41,7 +41,7 @@ If you do not plan to use the keen-pbr Web UI or API, the `keen-pbr-headless` pa
 
 ### Next steps
 
-Open [Quick Start](../quick-start/) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
+Open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) and use the **Web UI** tab for the easiest first setup. If you installed `keen-pbr-headless`, use the **JSON / CLI** tab instead.
 
 {{< callout type="info" >}}
 If pre-built packages are not yet available for your platform, see [Build from Source](../compilation/) to compile keen-pbr yourself.

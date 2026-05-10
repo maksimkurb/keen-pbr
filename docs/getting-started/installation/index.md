@@ -1,6 +1,6 @@
 # Installation
 
-Choose your target platform, install the package, then continue to [Quick Start](../quick-start/).
+Choose your target platform, install the package, then continue to [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}).
 
 {{< cards cols="1" >}}
   {{< card link="keenetic" title="Keenetic / NetCraze" >}}

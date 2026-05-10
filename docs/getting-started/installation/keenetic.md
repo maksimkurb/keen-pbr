@@ -87,7 +87,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 
 ### Next steps
 
-Go to the [Quick Start](../quick-start/) page and use the **Web UI** tab for the easiest initial setup. If you installed the `headless` version, see the **JSON / CLI** tab instead.
+Go to the [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) page and use the **Web UI** tab for the easiest initial setup. If you installed the `headless` version, see the **JSON / CLI** tab instead.
 
 
 {{% /steps %}}
