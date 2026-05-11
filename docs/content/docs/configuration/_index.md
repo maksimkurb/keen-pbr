@@ -13,10 +13,10 @@ Common config file locations:
 
 If you installed the full package, you can usually do your first setup in the Web UI and come back to this section later. Most users only need these four parts of the config:
 
-- [Outbounds](outbounds/) — where matching traffic should go
-- [Lists](lists/) — the sites or IP ranges you want to match
-- [Route Rules](route-rules/) — which lists go through which outbound
-- [DNS](dns/) — which DNS server should be used for those lists
+- [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — where matching traffic should go
+- [Lists]({{< relref "/docs/configuration/lists" >}}) — the sites or IP ranges you want to match
+- [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — which lists go through which outbound
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — which DNS server should be used for those lists
 
 ## Practical Example
 
@@ -80,17 +80,17 @@ This example routes `google.com` through `vpn` and leaves everything else on `wa
 
 ## Basic Configuration
 
-- [Outbounds](outbounds/) — choose the VPN and normal internet connections
-- [Lists](lists/) — define the sites, domains, or IP ranges to match
-- [Route Rules](route-rules/) — connect each list to an outbound
-- [DNS](dns/) — make sure matching domains are resolved through the right DNS server
+- [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) — choose the VPN and normal internet connections
+- [Lists]({{< relref "/docs/configuration/lists" >}}) — define the sites, domains, or IP ranges to match
+- [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) — connect each list to an outbound
+- [DNS]({{< relref "/docs/configuration/dns" >}}) — make sure matching domains are resolved through the right DNS server
 
 ## Advanced Configuration
 
 These settings are optional for most users:
 
-- [Advanced](advanced/) — API, service paths, automatic list refresh, and low-level routing options
-- [Full Reference Config](full-reference-config/) — commented config example with every supported config option
+- [Advanced]({{< relref "/docs/configuration/advanced" >}}) — API, service paths, automatic list refresh, and low-level routing options
+- [Full Reference Config]({{< relref "/docs/configuration/full-reference-config" >}}) — commented config example with every supported config option
 
 {{< callout type="info" >}}
 List names, outbound tags, and DNS server tags must all follow the same convention: `^[a-z][a-z0-9_]*$` and must be at most 24 characters.

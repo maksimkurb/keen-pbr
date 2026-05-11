@@ -53,7 +53,7 @@ Controls the embedded HTTP API server.
 }
 ```
 
-The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [REST API](../../rest-api/) for endpoint documentation and runtime controls.
+The API can also be disabled at runtime with `--no-api`, regardless of the config setting. See [REST API]({{< relref "/docs/rest-api" >}}) for endpoint documentation and runtime controls.
 
 ## fwmark
 

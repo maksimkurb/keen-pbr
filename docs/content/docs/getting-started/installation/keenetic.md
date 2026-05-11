@@ -50,7 +50,7 @@ Consult the official Keenetic documentation on how to do it: [DoH and DoT proxy 
 
 ### Ensure that `keen-pbr` service is up and running
 
-Before continuing to the next step, it is recommended to check whether `keen-pbr` started successfully and has not crashed. Run `/opt/etc/init.d/S80keen-pbr status`. If it is dead, see [Troubleshooting](/docs/troubleshooting/#service-does-not-start).
+Before continuing to the next step, it is recommended to check whether `keen-pbr` started successfully and has not crashed. Run `/opt/etc/init.d/S80keen-pbr status`. If it is dead, see [Troubleshooting]({{< relref "/docs/troubleshooting#service-does-not-start" >}}).
 
 Example:
 ```

@@ -23,7 +23,7 @@ At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (`kpbr4_<li
 
 Domain entries generate dnsmasq `ipset=`/`nftset=` directives so that when a domain is resolved, its IPs are dynamically added to the matching set (`kpbr4d_<list>`, `kpbr6d_<list>`, entries are timing out after `ttl_ms` configured for domain list).
 
-See [Lists](../configuration/lists/) for the full reference.
+See [Lists]({{< relref "/docs/configuration/lists" >}}) for the full reference.
 
 ### Outbounds
 
@@ -41,7 +41,7 @@ Named egress targets. Five types:
 
 When a rule points to `ignore`, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or `ip rule` is created for that match, so the packet continues through the system's normal routing path. Because route rules are first-match wins, `ignore` is mainly used to carve out exceptions before broader rules below it.
 
-See [Outbounds](../configuration/outbounds/) for the full reference.
+See [Outbounds]({{< relref "/docs/configuration/outbounds" >}}) for the full reference.
 
 ### Route Rules
 
@@ -55,7 +55,7 @@ If a rule specifies multiple match fields, a packet must satisfy ALL specified c
 
 First matching rule wins. Unmatched traffic is left unmarked and follows the system's normal routing.
 
-See [Route Rules](../configuration/route-rules/) for the full reference.
+See [Route Rules]({{< relref "/docs/configuration/route-rules" >}}) for the full reference.
 
 ### DNS
 
@@ -63,7 +63,7 @@ Maps domain lists to DNS servers via dnsmasq `server=` directives. When a domain
 
 Integration is via `conf-file=` (or `conf-script=`): keen-pbr writes `/tmp/keen-pbr-dnsmasq.conf` on startup; dnsmasq reads it on the next reload.
 
-See [DNS](../configuration/dns/) for the full reference.
+See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
 
 ---
 
