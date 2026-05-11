@@ -991,7 +991,7 @@
 </ul>
 <p>При запуске IP/CIDR-записи загружаются в ipsets или nftsets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>) без ограничения времени жизни записей.</p>
 <p>Домены превращаются в директивы dnsmasq <code>ipset=</code>/<code>nftset=</code>: при разрешении домена его IP динамически добавляются в соответствующий набор (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>) и хранятся там до истечения <code>ttl_ms</code>, заданного для этого списка.</p>
-<p>См. <a href="../configuration/lists/">Списки</a> для полного справочника.</p>
+<p>См. <a href="/ru/docs/configuration/lists/">Списки</a> для полного справочника.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
     <a href="#outbounds" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Именованные цели для исходящего трафика. Доступны пять типов:</p>
 <table>
@@ -1026,7 +1026,7 @@
 </table>
 <p>Outbounds типа <code>interface</code> и <code>table</code> получают fwmark и запись в таблице маршрутизации. <code>urltest</code> выбирает из дочерних outbounds. <code>blackhole</code> создаёт правило сброса пакетов в firewall, <code>ignore</code> — правило пропуска.</p>
 <p>Когда правило указывает на <code>ignore</code>, keen-pbr выставляет вердикт «пропустить» в firewall — дальнейшая обработка правил keen-pbr прекращается, а пакет остаётся без метки. Ни таблица маршрутизации, ни запись <code>ip rule</code> для такого совпадения не создаются, поэтому пакет продолжает путь через обычную системную маршрутизацию. Поскольку правила обрабатываются по принципу «первое совпадение побеждает», <code>ignore</code> чаще всего применяется для исключений, которые ставятся перед более широкими перехватывающими правилами.</p>
-<p>См. <a href="../configuration/outbounds/">Outbounds</a> для полного справочника.</p>
+<p>См. <a href="/ru/docs/configuration/outbounds/">Outbounds</a> для полного справочника.</p>
 <h3>Правила маршрутизации<span class="hx:absolute hx:-mt-20" id="правила-маршрутизации"></span>
     <a href="#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Упорядоченный список пар «условие → действие». Каждое правило может фильтровать трафик по:</p>
 <ul>
@@ -1037,11 +1037,11 @@
 </ul>
 <p>Если в правиле указано несколько условий, пакет должен удовлетворять им ВСЕМ.</p>
 <p>Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, остаётся без метки и идёт через обычную системную маршрутизацию.</p>
-<p>См. <a href="../configuration/route-rules/">Правила маршрутизации</a> для полного справочника.</p>
+<p>См. <a href="/ru/docs/configuration/route-rules/">Правила маршрутизации</a> для полного справочника.</p>
 <h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
     <a href="#dns" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Связывает списки доменов с DNS-серверами через директивы dnsmasq <code>server=</code>. Когда запрашивается домен из списка, dnsmasq переадресует запрос назначенному серверу. Полученные IP-адреса одновременно добавляются в соответствующий ipset/nftset, чтобы последующие пакеты шли через правильный outbound.</p>
 <p>Интеграция выполняется через <code>conf-file=</code> (или <code>conf-script=</code>): keen-pbr при запуске записывает файл <code>/tmp/keen-pbr-dnsmasq.conf</code>, который dnsmasq читает при следующей перезагрузке.</p>
-<p>См. <a href="../configuration/dns/">DNS</a> для полного справочника.</p>
+<p>См. <a href="/ru/docs/configuration/dns/">DNS</a> для полного справочника.</p>
 <hr>
 <h2>Как это работает — последовательность запуска<span class="hx:absolute hx:-mt-20" id="как-это-работает--последовательность-запуска"></span>
     <a href="#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><ol>
@@ -1146,7 +1146,7 @@
 </div><div>Автор <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Максим Курбатов</a> | Сайт работает на <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script><script defer src="/js/mermaid.min.217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87.js" integrity="sha256-IXtm70J5wzwUG0r&#43;Iu/60QqRwCVY3HCRe&#43;LAmB547Yc=" crossorigin="anonymous"></script><script>
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/ru.search.min.c5b0a9a147fc0491e2259e86f6305b1907192705393b27bd88effb274f1fdb6b.js" integrity="sha256-xbCpoUf8BJHiJZ6G9jBbGQcZJwU5Oye9iO/7J08f22s="></script><script defer src="/js/mermaid.min.70137e77bb273bb2ef972b86e8b0400cca8be53cb25bfc45911a186dc98665de.js" integrity="sha256-cBN&#43;d7snO7LvlyuG6LBADMqL5TyyW/xFkRoYbcmGZd4=" crossorigin="anonymous"></script><script>
   document.addEventListener("DOMContentLoaded", () => {
     
     document.querySelectorAll(".mermaid").forEach((el) => {

@@ -1747,7 +1747,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;API также может быть отключён во время выполнения с помощью &lt;code&gt;--no-api&lt;/code&gt;, независимо от настройки в конфиге. См. &lt;a href=&#34;../../rest-api/&#34;&gt;REST API&lt;/a&gt; для документации эндпоинтов и управлений во время выполнения.&lt;/p&gt;
+&lt;p&gt;API также может быть отключён во время выполнения с помощью &lt;code&gt;--no-api&lt;/code&gt;, независимо от настройки в конфиге. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/rest-api/&#34;&gt;REST API&lt;/a&gt; для документации эндпоинтов и управлений во время выполнения.&lt;/p&gt;
 &lt;h2&gt;fwmark&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Управляет диапазоном firewall mark, используемым для маркировки пакетов при политической маршрутизации.&lt;/p&gt;
 &lt;table&gt;

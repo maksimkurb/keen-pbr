@@ -991,7 +991,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </ul>
 <p>At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (<code>kpbr4_&lt;list&gt;</code>, <code>kpbr6_&lt;list&gt;</code>, no timeout on entries).</p>
 <p>Domain entries generate dnsmasq <code>ipset=</code>/<code>nftset=</code> directives so that when a domain is resolved, its IPs are dynamically added to the matching set (<code>kpbr4d_&lt;list&gt;</code>, <code>kpbr6d_&lt;list&gt;</code>, entries are timing out after <code>ttl_ms</code> configured for domain list).</p>
-<p>See <a href="../configuration/lists/">Lists</a> for the full reference.</p>
+<p>See <a href="/docs/configuration/lists/">Lists</a> for the full reference.</p>
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
     <a href="#outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named egress targets. Five types:</p>
 <table>
@@ -1026,7 +1026,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </table>
 <p><code>interface</code> and <code>table</code> outbounds get fwmarks and policy-routing entries. <code>urltest</code> selects among child outbounds that do. <code>blackhole</code> becomes a firewall drop rule, and <code>ignore</code> becomes a firewall pass-through rule.</p>
 <p>When a rule points to <code>ignore</code>, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or <code>ip rule</code> is created for that match, so the packet continues through the system&rsquo;s normal routing path. Because route rules are first-match wins, <code>ignore</code> is mainly used to carve out exceptions before broader rules below it.</p>
-<p>See <a href="../configuration/outbounds/">Outbounds</a> for the full reference.</p>
+<p>See <a href="/docs/configuration/outbounds/">Outbounds</a> for the full reference.</p>
 <h3>Route Rules<span class="hx:absolute hx:-mt-20" id="route-rules"></span>
     <a href="#route-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>An ordered list of match → action pairs. Each rule can match traffic by:</p>
 <ul>
@@ -1037,11 +1037,11 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </ul>
 <p>If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.</p>
 <p>First matching rule wins. Unmatched traffic is left unmarked and follows the system&rsquo;s normal routing.</p>
-<p>See <a href="../configuration/route-rules/">Route Rules</a> for the full reference.</p>
+<p>See <a href="/docs/configuration/route-rules/">Route Rules</a> for the full reference.</p>
 <h3>DNS<span class="hx:absolute hx:-mt-20" id="dns"></span>
     <a href="#dns" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Maps domain lists to DNS servers via dnsmasq <code>server=</code> directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.</p>
 <p>Integration is via <code>conf-file=</code> (or <code>conf-script=</code>): keen-pbr writes <code>/tmp/keen-pbr-dnsmasq.conf</code> on startup; dnsmasq reads it on the next reload.</p>
-<p>See <a href="../configuration/dns/">DNS</a> for the full reference.</p>
+<p>See <a href="/docs/configuration/dns/">DNS</a> for the full reference.</p>
 <hr>
 <h2>How It Works — Startup Sequence<span class="hx:absolute hx:-mt-20" id="how-it-works--startup-sequence"></span>
     <a href="#how-it-works--startup-sequence" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><ol>
@@ -1146,7 +1146,7 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 </div><div>Made by <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Maxim Kurbatov</a> | Website is powered by <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
-<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script><script defer src="/js/mermaid.min.217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87.js" integrity="sha256-IXtm70J5wzwUG0r&#43;Iu/60QqRwCVY3HCRe&#43;LAmB547Yc=" crossorigin="anonymous"></script><script>
+<script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script><script defer src="/js/mermaid.min.70137e77bb273bb2ef972b86e8b0400cca8be53cb25bfc45911a186dc98665de.js" integrity="sha256-cBN&#43;d7snO7LvlyuG6LBADMqL5TyyW/xFkRoYbcmGZd4=" crossorigin="anonymous"></script><script>
   document.addEventListener("DOMContentLoaded", () => {
     
     document.querySelectorAll(".mermaid").forEach((el) => {

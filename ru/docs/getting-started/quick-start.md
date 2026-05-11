@@ -226,6 +226,6 @@ keen-pbr test-routing ifconfig.co
 {{< /tabs >}}
 
 {{< callout type="info" >}}
-Для полного справочника начните с раздела [Конфигурация](../../configuration/) или сразу откройте [Полный пример конфигурации](../../configuration/full-reference-config/). Если что-то не работает, см. раздел [Устранение неполадок](../../troubleshooting/).
+Для полного справочника начните с раздела [Конфигурация]({{< relref "/docs/configuration" >}}) или сразу откройте [Полный пример конфигурации]({{< relref "/docs/configuration/full-reference-config" >}}). Если что-то не работает, см. раздел [Устранение неполадок]({{< relref "/docs/troubleshooting" >}}).
 {{< /callout >}}
 

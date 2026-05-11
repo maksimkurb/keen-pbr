@@ -1161,7 +1161,7 @@
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;../compilation/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/developer/build-from-source/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
@@ -1464,7 +1464,7 @@
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для полного справочника начните с раздела &lt;a href=&#34;../../configuration/&#34;&gt;Конфигурация&lt;/a&gt; или сразу откройте &lt;a href=&#34;../../configuration/full-reference-config/&#34;&gt;Полный пример конфигурации&lt;/a&gt;. Если что-то не работает, см. раздел &lt;a href=&#34;../../troubleshooting/&#34;&gt;Устранение неполадок&lt;/a&gt;.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Для полного справочника начните с раздела &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/&#34;&gt;Конфигурация&lt;/a&gt; или сразу откройте &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/full-reference-config/&#34;&gt;Полный пример конфигурации&lt;/a&gt;. Если что-то не работает, см. раздел &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/troubleshooting/&#34;&gt;Устранение неполадок&lt;/a&gt;.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -1495,7 +1495,7 @@
 &lt;/ul&gt;
 &lt;p&gt;При запуске IP/CIDR-записи загружаются в ipsets или nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;) без ограничения времени жизни записей.&lt;/p&gt;
 &lt;p&gt;Домены превращаются в директивы dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt;: при разрешении домена его IP динамически добавляются в соответствующий набор (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;) и хранятся там до истечения &lt;code&gt;ttl_ms&lt;/code&gt;, заданного для этого списка.&lt;/p&gt;
-&lt;p&gt;См. &lt;a href=&#34;../configuration/lists/&#34;&gt;Списки&lt;/a&gt; для полного справочника.&lt;/p&gt;
+&lt;p&gt;См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/lists/&#34;&gt;Списки&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;Outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;outbounds&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Именованные цели для исходящего трафика. Доступны пять типов:&lt;/p&gt;
 &lt;table&gt;
@@ -1530,7 +1530,7 @@
 &lt;/table&gt;
 &lt;p&gt;Outbounds типа &lt;code&gt;interface&lt;/code&gt; и &lt;code&gt;table&lt;/code&gt; получают fwmark и запись в таблице маршрутизации. &lt;code&gt;urltest&lt;/code&gt; выбирает из дочерних outbounds. &lt;code&gt;blackhole&lt;/code&gt; создаёт правило сброса пакетов в firewall, &lt;code&gt;ignore&lt;/code&gt; — правило пропуска.&lt;/p&gt;
 &lt;p&gt;Когда правило указывает на &lt;code&gt;ignore&lt;/code&gt;, keen-pbr выставляет вердикт «пропустить» в firewall — дальнейшая обработка правил keen-pbr прекращается, а пакет остаётся без метки. Ни таблица маршрутизации, ни запись &lt;code&gt;ip rule&lt;/code&gt; для такого совпадения не создаются, поэтому пакет продолжает путь через обычную системную маршрутизацию. Поскольку правила обрабатываются по принципу «первое совпадение побеждает», &lt;code&gt;ignore&lt;/code&gt; чаще всего применяется для исключений, которые ставятся перед более широкими перехватывающими правилами.&lt;/p&gt;
-&lt;p&gt;См. &lt;a href=&#34;../configuration/outbounds/&#34;&gt;Outbounds&lt;/a&gt; для полного справочника.&lt;/p&gt;
+&lt;p&gt;См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/outbounds/&#34;&gt;Outbounds&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;Правила маршрутизации&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;правила-маршрутизации&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Упорядоченный список пар «условие → действие». Каждое правило может фильтровать трафик по:&lt;/p&gt;
 &lt;ul&gt;
@@ -1541,11 +1541,11 @@
 &lt;/ul&gt;
 &lt;p&gt;Если в правиле указано несколько условий, пакет должен удовлетворять им ВСЕМ.&lt;/p&gt;
 &lt;p&gt;Срабатывает первое подходящее правило. Трафик, не попавший ни под одно правило, остаётся без метки и идёт через обычную системную маршрутизацию.&lt;/p&gt;
-&lt;p&gt;См. &lt;a href=&#34;../configuration/route-rules/&#34;&gt;Правила маршрутизации&lt;/a&gt; для полного справочника.&lt;/p&gt;
+&lt;p&gt;См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/route-rules/&#34;&gt;Правила маршрутизации&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;h3&gt;DNS&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Связывает списки доменов с DNS-серверами через директивы dnsmasq &lt;code&gt;server=&lt;/code&gt;. Когда запрашивается домен из списка, dnsmasq переадресует запрос назначенному серверу. Полученные IP-адреса одновременно добавляются в соответствующий ipset/nftset, чтобы последующие пакеты шли через правильный outbound.&lt;/p&gt;
 &lt;p&gt;Интеграция выполняется через &lt;code&gt;conf-file=&lt;/code&gt; (или &lt;code&gt;conf-script=&lt;/code&gt;): keen-pbr при запуске записывает файл &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt;, который dnsmasq читает при следующей перезагрузке.&lt;/p&gt;
-&lt;p&gt;См. &lt;a href=&#34;../configuration/dns/&#34;&gt;DNS&lt;/a&gt; для полного справочника.&lt;/p&gt;
+&lt;p&gt;См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/configuration/dns/&#34;&gt;DNS&lt;/a&gt; для полного справочника.&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2&gt;Как это работает — последовательность запуска&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;как-это-работает--последовательность-запуска&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#%d0%ba%d0%b0%d0%ba-%d1%8d%d1%82%d0%be-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%b0%d0%b5%d1%82--%d0%bf%d0%be%d1%81%d0%bb%d0%b5%d0%b4%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8c%d0%bd%d0%be%d1%81%d1%82%d1%8c-%d0%b7%d0%b0%d0%bf%d1%83%d1%81%d0%ba%d0%b0&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
@@ -1920,7 +1920,7 @@
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;../compilation/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;Если готовые пакеты ещё не доступны для вашей платформы, см. раздел &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/developer/build-from-source/&#34;&gt;Сборка из исходного кода&lt;/a&gt;, чтобы собрать keen-pbr самостоятельно.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
@@ -3896,7 +3896,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;API также может быть отключён во время выполнения с помощью &lt;code&gt;--no-api&lt;/code&gt;, независимо от настройки в конфиге. См. &lt;a href=&#34;../../rest-api/&#34;&gt;REST API&lt;/a&gt; для документации эндпоинтов и управлений во время выполнения.&lt;/p&gt;
+&lt;p&gt;API также может быть отключён во время выполнения с помощью &lt;code&gt;--no-api&lt;/code&gt;, независимо от настройки в конфиге. См. &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/rest-api/&#34;&gt;REST API&lt;/a&gt; для документации эндпоинтов и управлений во время выполнения.&lt;/p&gt;
 &lt;h2&gt;fwmark&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Управляет диапазоном firewall mark, используемым для маркировки пакетов при политической маршрутизации.&lt;/p&gt;
 &lt;table&gt;
@@ -5128,7 +5128,7 @@
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h2&gt;3. Сконвертируйте конфигурацию в новый формат&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-сконвертируйте-конфигурацию-в-новый-формат&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-%d1%81%d0%ba%d0%be%d0%bd%d0%b2%d0%b5%d1%80%d1%82%d0%b8%d1%80%d1%83%d0%b9%d1%82%d0%b5-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8e-%d0%b2-%d0%bd%d0%be%d0%b2%d1%8b%d0%b9-%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте инструмент для &lt;a href=&#34;https://keen-pbr.fyi/converter/?lang=ru&#34;&gt;конвертрации конфига keen-pbr&lt;/a&gt;&lt;/p&gt;
+    &lt;a href=&#34;#3-%d1%81%d0%ba%d0%be%d0%bd%d0%b2%d0%b5%d1%80%d1%82%d0%b8%d1%80%d1%83%d0%b9%d1%82%d0%b5-%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8e-%d0%b2-%d0%bd%d0%be%d0%b2%d1%8b%d0%b9-%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%82&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Постоянная ссылка на этот раздел&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Откройте инструмент для &lt;a href=&#34;https://keen-pbr.fyi/converter/?lang=ru&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;конвертрации конфига keen-pbr&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Затем:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Скопируйте содержимое &lt;code&gt;/opt/etc/keen-pbr/keen-pbr.conf&lt;/code&gt; в поле ввода конвертера слева.&lt;/li&gt;
@@ -5159,7 +5159,7 @@
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;После перезапуска откройте &lt;a href=&#34;../quick-start/&#34;&gt;Быстрый старт&lt;/a&gt;, если хотите проверить сервис через веб-интерфейс или продолжить настройку через JSON / CLI.&lt;/p&gt;
+&lt;p&gt;После перезапуска откройте &lt;a href=&#34;https://keen-pbr.fyi/ru/docs/getting-started/quick-start/&#34;&gt;Быстрый старт&lt;/a&gt;, если хотите проверить сервис через веб-интерфейс или продолжить настройку через JSON / CLI.&lt;/p&gt;
 
       </description>
     </item>

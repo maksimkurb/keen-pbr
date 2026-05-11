@@ -35,7 +35,7 @@ Config path:
 
 ## 3. Upgrade the config to the new format
 
-Open the [Config Converter](/converter/)
+Open the [Config Converter](https://keen-pbr.fyi/converter/)
 
 Then:
 
@@ -55,5 +55,5 @@ Restart the service after saving the config.
 /opt/etc/init.d/S80keen-pbr restart
 ```
 
-After restart, open [Quick Start](../quick-start/) if you want to verify the service in the Web UI or continue with JSON / CLI setup.
+After restart, open [Quick Start]({{< relref "/docs/getting-started/quick-start" >}}) if you want to verify the service in the Web UI or continue with JSON / CLI setup.
 

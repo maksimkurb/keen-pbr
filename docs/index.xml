@@ -1066,7 +1066,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;/ul&gt;
 &lt;p&gt;At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (&lt;code&gt;kpbr4_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6_&amp;lt;list&amp;gt;&lt;/code&gt;, no timeout on entries).&lt;/p&gt;
 &lt;p&gt;Domain entries generate dnsmasq &lt;code&gt;ipset=&lt;/code&gt;/&lt;code&gt;nftset=&lt;/code&gt; directives so that when a domain is resolved, its IPs are dynamically added to the matching set (&lt;code&gt;kpbr4d_&amp;lt;list&amp;gt;&lt;/code&gt;, &lt;code&gt;kpbr6d_&amp;lt;list&amp;gt;&lt;/code&gt;, entries are timing out after &lt;code&gt;ttl_ms&lt;/code&gt; configured for domain list).&lt;/p&gt;
-&lt;p&gt;See &lt;a href=&#34;../configuration/lists/&#34;&gt;Lists&lt;/a&gt; for the full reference.&lt;/p&gt;
+&lt;p&gt;See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/lists/&#34;&gt;Lists&lt;/a&gt; for the full reference.&lt;/p&gt;
 &lt;h3&gt;Outbounds&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;outbounds&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#outbounds&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Named egress targets. Five types:&lt;/p&gt;
 &lt;table&gt;
@@ -1101,7 +1101,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;/table&gt;
 &lt;p&gt;&lt;code&gt;interface&lt;/code&gt; and &lt;code&gt;table&lt;/code&gt; outbounds get fwmarks and policy-routing entries. &lt;code&gt;urltest&lt;/code&gt; selects among child outbounds that do. &lt;code&gt;blackhole&lt;/code&gt; becomes a firewall drop rule, and &lt;code&gt;ignore&lt;/code&gt; becomes a firewall pass-through rule.&lt;/p&gt;
 &lt;p&gt;When a rule points to &lt;code&gt;ignore&lt;/code&gt;, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or &lt;code&gt;ip rule&lt;/code&gt; is created for that match, so the packet continues through the system&amp;rsquo;s normal routing path. Because route rules are first-match wins, &lt;code&gt;ignore&lt;/code&gt; is mainly used to carve out exceptions before broader rules below it.&lt;/p&gt;
-&lt;p&gt;See &lt;a href=&#34;../configuration/outbounds/&#34;&gt;Outbounds&lt;/a&gt; for the full reference.&lt;/p&gt;
+&lt;p&gt;See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/outbounds/&#34;&gt;Outbounds&lt;/a&gt; for the full reference.&lt;/p&gt;
 &lt;h3&gt;Route Rules&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;route-rules&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#route-rules&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;An ordered list of match → action pairs. Each rule can match traffic by:&lt;/p&gt;
 &lt;ul&gt;
@@ -1112,11 +1112,11 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;/ul&gt;
 &lt;p&gt;If a rule specifies multiple match fields, a packet must satisfy ALL specified conditions for the rule to match.&lt;/p&gt;
 &lt;p&gt;First matching rule wins. Unmatched traffic is left unmarked and follows the system&amp;rsquo;s normal routing.&lt;/p&gt;
-&lt;p&gt;See &lt;a href=&#34;../configuration/route-rules/&#34;&gt;Route Rules&lt;/a&gt; for the full reference.&lt;/p&gt;
+&lt;p&gt;See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/route-rules/&#34;&gt;Route Rules&lt;/a&gt; for the full reference.&lt;/p&gt;
 &lt;h3&gt;DNS&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;dns&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#dns&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Maps domain lists to DNS servers via dnsmasq &lt;code&gt;server=&lt;/code&gt; directives. When a domain in a list is queried, dnsmasq forwards the query to the assigned DNS server. The response IPs are simultaneously injected into the corresponding ipset/nftset so that subsequent packets are routed correctly.&lt;/p&gt;
 &lt;p&gt;Integration is via &lt;code&gt;conf-file=&lt;/code&gt; (or &lt;code&gt;conf-script=&lt;/code&gt;): keen-pbr writes &lt;code&gt;/tmp/keen-pbr-dnsmasq.conf&lt;/code&gt; on startup; dnsmasq reads it on the next reload.&lt;/p&gt;
-&lt;p&gt;See &lt;a href=&#34;../configuration/dns/&#34;&gt;DNS&lt;/a&gt; for the full reference.&lt;/p&gt;
+&lt;p&gt;See &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/dns/&#34;&gt;DNS&lt;/a&gt; for the full reference.&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2&gt;How It Works — Startup Sequence&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;how-it-works--startup-sequence&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#how-it-works--startup-sequence&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ol&gt;
@@ -1546,7 +1546,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;https://keen-pbr.fyi/docs/developer/build-from-source/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
@@ -1871,7 +1871,7 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
 
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the full reference, start with &lt;a href=&#34;../../configuration/&#34;&gt;Configuration&lt;/a&gt; or jump straight to &lt;a href=&#34;../../configuration/full-reference-config/&#34;&gt;Full Reference Config&lt;/a&gt;. If something does not work yet, see &lt;a href=&#34;../../troubleshooting/&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;For the full reference, start with &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/&#34;&gt;Configuration&lt;/a&gt; or jump straight to &lt;a href=&#34;https://keen-pbr.fyi/docs/configuration/full-reference-config/&#34;&gt;Full Reference Config&lt;/a&gt;. If something does not work yet, see &lt;a href=&#34;https://keen-pbr.fyi/docs/troubleshooting/&#34;&gt;Troubleshooting&lt;/a&gt;.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
@@ -1944,7 +1944,7 @@ If neither field is set, keen-pbr creates both IPv4 and IPv6 default routes for 
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
   &lt;div class=&#34;hx:w-full hx:min-w-0 hx:leading-7&#34;&gt;
-    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;../compilation/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
+    &lt;div class=&#34;hx:mt-6 hx:leading-7 hx:first:mt-0&#34;&gt;If pre-built packages are not yet available for your platform, see &lt;a href=&#34;https://keen-pbr.fyi/docs/developer/build-from-source/&#34;&gt;Build from Source&lt;/a&gt; to compile keen-pbr yourself.&lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;
@@ -3311,7 +3311,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;The API can also be disabled at runtime with &lt;code&gt;--no-api&lt;/code&gt;, regardless of the config setting. See &lt;a href=&#34;../../rest-api/&#34;&gt;REST API&lt;/a&gt; for endpoint documentation and runtime controls.&lt;/p&gt;
+&lt;p&gt;The API can also be disabled at runtime with &lt;code&gt;--no-api&lt;/code&gt;, regardless of the config setting. See &lt;a href=&#34;https://keen-pbr.fyi/docs/rest-api/&#34;&gt;REST API&lt;/a&gt; for endpoint documentation and runtime controls.&lt;/p&gt;
 &lt;h2&gt;fwmark&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;fwmark&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#fwmark&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Controls the firewall mark range used to tag packets for policy routing.&lt;/p&gt;
 &lt;table&gt;
@@ -5388,7 +5388,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;h2&gt;3. Upgrade the config to the new format&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;3-upgrade-the-config-to-the-new-format&#34;&gt;&lt;/span&gt;
-    &lt;a href=&#34;#3-upgrade-the-config-to-the-new-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the &lt;a href=&#34;https://keen-pbr.fyi/converter/&#34;&gt;Config Converter&lt;/a&gt;&lt;/p&gt;
+    &lt;a href=&#34;#3-upgrade-the-config-to-the-new-format&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the &lt;a href=&#34;https://keen-pbr.fyi/converter/&#34;target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Config Converter&lt;/a&gt;&lt;/p&gt;
 &lt;p&gt;Then:&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Copy the content of &lt;code&gt;/opt/etc/keen-pbr/keen-pbr.conf&lt;/code&gt; into the converter input field on the left.&lt;/li&gt;
@@ -5419,7 +5419,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
   &lt;/button&gt;
 &lt;/div&gt;
 &lt;/div&gt;
-&lt;p&gt;After restart, open &lt;a href=&#34;../quick-start/&#34;&gt;Quick Start&lt;/a&gt; if you want to verify the service in the Web UI or continue with JSON / CLI setup.&lt;/p&gt;
+&lt;p&gt;After restart, open &lt;a href=&#34;https://keen-pbr.fyi/docs/getting-started/quick-start/&#34;&gt;Quick Start&lt;/a&gt; if you want to verify the service in the Web UI or continue with JSON / CLI setup.&lt;/p&gt;
 
       </description>
     </item>

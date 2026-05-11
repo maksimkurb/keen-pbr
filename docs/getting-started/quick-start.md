@@ -247,6 +247,6 @@ You can also run `keen-pbr status` for a broader health check.
 {{< /tabs >}}
 
 {{< callout type="info" >}}
-For the full reference, start with [Configuration](../../configuration/) or jump straight to [Full Reference Config](../../configuration/full-reference-config/). If something does not work yet, see [Troubleshooting](../../troubleshooting/).
+For the full reference, start with [Configuration]({{< relref "/docs/configuration" >}}) or jump straight to [Full Reference Config]({{< relref "/docs/configuration/full-reference-config" >}}). If something does not work yet, see [Troubleshooting]({{< relref "/docs/troubleshooting" >}}).
 {{< /callout >}}
 
