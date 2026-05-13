@@ -65,7 +65,7 @@
         "Use these commands to trust the repository, register the feed, and install keen-pbr.",
 
       stepInstallKeys: "1. Install signing keys",
-      stepInstallWget: "1. Install wget-ssl for HTTPS support",
+      stepInstallWget: "1. Install HTTPS and CA certificate support",
       stepAddRepo: "2. Add repository / feed",
       stepInstall: "3. Update and install keen-pbr",
 
@@ -129,7 +129,7 @@
         "Используйте эти команды, чтобы добавить ключ, зарегистрировать репозиторий и установить keen-pbr.",
 
       stepInstallKeys: "1. Установить ключ подписи",
-      stepInstallWget: "1. Установить wget-ssl для поддержки HTTPS",
+      stepInstallWget: "1. Установить поддержку HTTPS и CA-сертификатов",
       stepAddRepo: "2. Добавить репозиторий / канал",
       stepInstall: "3. Обновить и установить keen-pbr",
 
@@ -220,8 +220,18 @@
   }
 
   function addRepoBlock(systemId, entry) {
-    if (systemId === "keenetic")    return "printf '%s\\n' '" + entry.feedLine + "' > /opt/etc/opkg/keen-pbr.conf";
-    if (systemId === "openwrtOpkg") return "printf '%s\\n' '" + entry.feedLine + "' > /etc/opkg/keen-pbr.conf";
+    if (systemId === "keenetic") {
+      return[
+        "mkdir -p /opt/etc/opkg",
+        "printf '%s\\n' '" + entry.feedLine + "' > /opt/etc/opkg/keen-pbr.conf",
+      ].join("\n");
+    }
+    if (systemId === "openwrtOpkg") {
+      return[
+        "mkdir -p /etc/opkg",
+        "printf '%s\\n' '" + entry.feedLine + "' > /etc/opkg/keen-pbr.conf",
+      ].join("\n");
+    }
     if (systemId === "openwrtApk") {
       return[
         "mkdir -p /etc/apk/repositories.d",
@@ -238,7 +248,7 @@
   }
 
   function preRepoBlock() {
-    return "opkg update\nopkg install wget-ssl";
+    return "opkg update\nopkg install wget-ssl ca-bundle ca-certificates";
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -343,17 +353,18 @@
 
       copyCode: function (code, btn) {
         var self = this;
+        var copyText = code.endsWith("\n") ? code : code + "\n";
         function flash(label) {
           btn.textContent = label;
           setTimeout(function () { btn.textContent = self.t("copy"); }, 1400);
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(code)
+          navigator.clipboard.writeText(copyText)
             .then(function () { flash(self.t("copied")); })
             .catch(function () { flash(self.t("copyFailed")); });
         } else {
           var ta = document.createElement("textarea");
-          ta.value = code;
+          ta.value = copyText;
           ta.style.cssText = "position:absolute;left:-9999px";
           document.body.appendChild(ta);
           ta.select();
