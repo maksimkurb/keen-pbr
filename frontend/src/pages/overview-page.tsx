@@ -91,12 +91,6 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
-    query: {
-      refetchInterval: 30_000,
-      refetchIntervalInBackground: false,
-    },
-  })
 
   const postServiceStartMutation = usePostServiceActionMutation("start")
   const postServiceStopMutation = usePostServiceActionMutation("stop")
