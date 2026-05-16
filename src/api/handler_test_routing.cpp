@@ -54,6 +54,7 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
         for (const auto& rule_diag : result.rule_diagnostics) {
             api::RoutingTestRuleDiagnosticElement rd;
             rd.rule_index = rule_diag.rule_index;
+            rd.rule = rule_diag.rule;
             rd.outbound = rule_diag.outbound;
             rd.interface_name = rule_diag.interface_name;
             rd.target_in_lists = rule_diag.target_in_lists;

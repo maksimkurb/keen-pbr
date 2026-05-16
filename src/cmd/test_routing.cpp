@@ -520,6 +520,7 @@ TestRoutingResult compute_test_routing(const Config& config,
     for (size_t idx = 0; idx < route_rules.size(); ++idx) {
         RuleDiagnostic diag;
         diag.rule_index = static_cast<int>(idx);
+        diag.rule = route_rules[idx];
         diag.outbound = route_rules[idx].outbound;
         diag.interface_name = outbound_interface_name(config, diag.outbound);
         diag.target_match = find_rule_match(route_rules[idx], lookups,

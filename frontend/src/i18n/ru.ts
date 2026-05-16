@@ -285,6 +285,17 @@ export const ruTranslation = {
             "Для целевых списков не найдено подходящего правила маршрутизации.",
           hostLabel: 'Хост "{{target}}"',
           inRuleLists: "Есть в доменных/IP-списках правила?",
+          showAllRules: "Показывать все правила",
+          listMatch: "{{list}}: {{via}}",
+          noConditions: "Без дополнительных условий",
+          conditions: {
+            lists: "Списки",
+            proto: "Протокол",
+            sourceIp: "IP источника",
+            destinationIp: "IP назначения",
+            sourcePort: "Порт источника",
+            destinationPort: "Порт назначения",
+          },
         },
         routingLegend: {
           title: "Условные обозначения",

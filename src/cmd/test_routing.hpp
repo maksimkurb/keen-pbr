@@ -30,6 +30,7 @@ struct RuleIpDiagnostic {
 
 struct RuleDiagnostic {
     int rule_index{0};
+    RouteRule rule;
     std::string outbound;
     std::string interface_name; // "-" when unknown/not applicable
     bool target_in_lists{false};

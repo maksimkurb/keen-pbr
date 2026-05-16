@@ -273,3 +273,38 @@ TEST_CASE("compute_test_routing falls back to resolv.conf when system resolver i
 
     std::filesystem::remove_all(temp_dir);
 }
+
+TEST_CASE("compute_test_routing includes route rule conditions in diagnostics") {
+    const auto temp_dir = make_temp_dir();
+    CacheManager cache(temp_dir);
+    cache.ensure_dir();
+
+    Config config = build_test_config();
+    RouteRule rule;
+    rule.outbound = "vpn";
+    rule.list = std::vector<std::string>{"work", "media"};
+    rule.proto = "tcp";
+    rule.src_addr = "192.168.1.0/24";
+    rule.dest_addr = "10.0.0.0/8";
+    rule.src_port = "1024-65535";
+    rule.dest_port = "443";
+
+    RouteConfig route;
+    route.rules = std::vector<RouteRule>{rule};
+    config.route = route;
+
+    const auto result = compute_test_routing(config, cache, "8.8.8.8");
+
+    REQUIRE(result.rule_diagnostics.size() == 1);
+    const auto& diagnostic_rule = result.rule_diagnostics.front().rule;
+    CHECK(diagnostic_rule.outbound == "vpn");
+    REQUIRE(diagnostic_rule.list.has_value());
+    CHECK(*diagnostic_rule.list == std::vector<std::string>{"work", "media"});
+    CHECK(diagnostic_rule.proto == "tcp");
+    CHECK(diagnostic_rule.src_addr == "192.168.1.0/24");
+    CHECK(diagnostic_rule.dest_addr == "10.0.0.0/8");
+    CHECK(diagnostic_rule.src_port == "1024-65535");
+    CHECK(diagnostic_rule.dest_port == "443");
+
+    std::filesystem::remove_all(temp_dir);
+}

@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesEGh5Dt data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesKF1Kiq data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -396,6 +396,7 @@ namespace api {
         std::string interface_name;
         std::vector<RoutingTestRuleIpDiagnosticElement> ip_rows;
         std::string outbound;
+        RouteRuleElement rule;
         int64_t rule_index;
         bool target_in_lists;
         std::optional<ListMatch> target_match;
@@ -450,7 +451,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesEGh5Dt {
+    struct KeenPbrTypesKF1Kiq {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -642,8 +643,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesEGh5Dt & x);
-    void to_json(json & j, const KeenPbrTypesEGh5Dt & x);
+    void from_json(const json & j, KeenPbrTypesKF1Kiq & x);
+    void to_json(json & j, const KeenPbrTypesKF1Kiq & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1286,6 +1287,7 @@ namespace api {
         x.interface_name = j.at("interface_name").get<std::string>();
         x.ip_rows = j.at("ip_rows").get<std::vector<RoutingTestRuleIpDiagnosticElement>>();
         x.outbound = j.at("outbound").get<std::string>();
+        x.rule = j.at("rule").get<RouteRuleElement>();
         x.rule_index = j.at("rule_index").get<int64_t>();
         x.target_in_lists = j.at("target_in_lists").get<bool>();
         x.target_match = get_stack_optional<ListMatch>(j, "target_match");
@@ -1296,6 +1298,7 @@ namespace api {
         j["interface_name"] = x.interface_name;
         j["ip_rows"] = x.ip_rows;
         j["outbound"] = x.outbound;
+        j["rule"] = x.rule;
         j["rule_index"] = x.rule_index;
         j["target_in_lists"] = x.target_in_lists;
         j["target_match"] = x.target_match;
@@ -1397,7 +1400,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesEGh5Dt& x) {
+    inline void from_json(const json & j, KeenPbrTypesKF1Kiq& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1450,7 +1453,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesEGh5Dt & x) {
+    inline void to_json(json & j, const KeenPbrTypesKF1Kiq & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

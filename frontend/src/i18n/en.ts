@@ -280,6 +280,17 @@ export const enTranslation = {
           noMatchingRule: "No matching routing rule for the target lists.",
           hostLabel: 'Host "{{target}}"',
           inRuleLists: "In rule domain/IP lists?",
+          showAllRules: "Show all rules",
+          listMatch: "{{list}}: {{via}}",
+          noConditions: "No extra conditions",
+          conditions: {
+            lists: "Lists",
+            proto: "Protocol",
+            sourceIp: "Source IP",
+            destinationIp: "Destination IP",
+            sourcePort: "Source port",
+            destinationPort: "Destination port",
+          },
         },
         routingLegend: {
           title: "Legend",

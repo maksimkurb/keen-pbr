@@ -964,10 +964,12 @@ components:
 
     RoutingTestRuleDiagnostic:
       type: object
-      required: [rule_index, outbound, interface_name, target_in_lists, ip_rows]
+      required: [rule_index, rule, outbound, interface_name, target_in_lists, ip_rows]
       properties:
         rule_index:
           type: integer
+        rule:
+          $ref: "#/components/schemas/RouteRule"
         outbound:
           type: string
         interface_name:
