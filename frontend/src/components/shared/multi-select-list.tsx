@@ -91,7 +91,7 @@ export function MultiSelectList({
             const usage = usageSubtitle?.(option)
 
             return (
-              <SelectItem key={option} value={option}>
+              <SelectItem key={option} value={option} data-list-option={option}>
                 <span className="flex max-w-[min(100vw-4rem,24rem)] flex-col items-start gap-0.5 py-0.5">
                   <span>{option}</span>
                   {usage ? (

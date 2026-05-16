@@ -43,6 +43,7 @@ import {
 import {
   buildListUsageByRouteRules,
   emptyRouteRuleDraft,
+  formatRoutingListRefsUsageSummary,
   getFirstFieldError,
   normalizeRouteRuleDraft,
   protoOptions,
@@ -338,17 +339,14 @@ function RoutingRuleForm({
                           return undefined
                         }
 
-                        const summary = refs
-                          .map(
-                            ({ ruleIndex, outbound }) =>
-                              `${t("overview.routingDiagnostics.ruleNumber", {
-                                index: String(ruleIndex + 1),
-                              })} → ${outbound}`
-                          )
-                          .join(", ")
                         return t(
                           "pages.routingRuleUpsert.fields.listUsedElsewhere",
-                          { summary }
+                          {
+                            summary: formatRoutingListRefsUsageSummary(
+                              refs,
+                              rules,
+                            ),
+                          },
                         )
                       }}
                       value={field.state.value}
