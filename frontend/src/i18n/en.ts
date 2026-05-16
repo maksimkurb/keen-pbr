@@ -32,6 +32,14 @@ export const enTranslation = {
           selectAll: "Select all visible rows",
           selectRow: "Select {{rowLabel}}",
         },
+        skipToMain: "Skip to main content",
+        notFound: {
+          title: "Page not found",
+          description:
+            "This address is not a screen in the keen-pbr web UI. Check the link or use the sidebar to open a section.",
+          goBack: "Go back",
+          goHome: "Go to dashboard",
+        },
       },
       runtime: {
         healthy: "Healthy",
@@ -143,6 +151,31 @@ export const enTranslation = {
             start: "Start",
             stop: "Stop",
             restart: "Restart",
+          },
+        },
+        interfaceInventory: {
+          title: "Interfaces",
+          description:
+            "Live interface inventory reported by the router OS (carrier, addresses, administrative state).",
+          loadError: "Failed to load interface inventory.",
+          empty: "No interfaces were reported.",
+          columns: {
+            name: "Name",
+            runtimeStatus: "State",
+            adminUp: "Admin up",
+            operState: "Oper state",
+            carrier: "Carrier",
+            addresses: "Addresses",
+          },
+          moreAddresses: "+{{count}} more",
+          triState: {
+            yes: "yes",
+            no: "no",
+            unknown: "—",
+          },
+          status: {
+            up: "up",
+            down: "down",
           },
         },
         outbounds: {
@@ -518,7 +551,8 @@ export const enTranslation = {
               "Add one or more configured list names to match for this rule.",
             noListsSelected: "No lists selected",
             listsHint: "Choose which of your lists this rule applies to.",
-            listUsedElsewhere: "Also in rules: {{summary}}",
+            listUsedElsewhere:
+              "Also used in other routing rules (number → outbound, criteria): {{summary}}",
             proto: "Proto",
             any: "Any",
             anyLower: "any",

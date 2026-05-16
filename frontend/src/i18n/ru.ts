@@ -33,6 +33,14 @@ export const ruTranslation = {
           selectAll: "Выбрать все видимые строки",
           selectRow: "Выбрать {{rowLabel}}",
         },
+        skipToMain: "Перейти к содержимому",
+        notFound: {
+          title: "Страница не найдена",
+          description:
+            "Этот адрес не относится к экранам веб-интерфейса keen-pbr. Проверьте ссылку или откройте раздел через меню слева.",
+          goBack: "Назад",
+          goHome: "На дашборд",
+        },
       },
       runtime: {
         healthy: "Исправен",
@@ -145,6 +153,31 @@ export const ruTranslation = {
             start: "Запустить",
             stop: "Остановить",
             restart: "Перезапустить",
+          },
+        },
+        interfaceInventory: {
+          title: "Интерфейсы",
+          description:
+            "Актуальный список сетевых интерфейсов ОС роутера: несущая, адреса, административное состояние.",
+          loadError: "Не удалось загрузить инвентаризацию интерфейсов.",
+          empty: "Интерфейсы не получены.",
+          columns: {
+            name: "Имя",
+            runtimeStatus: "Состояние",
+            adminUp: "Admin up",
+            operState: "Oper state",
+            carrier: "Несущая",
+            addresses: "Адреса",
+          },
+          moreAddresses: "ещё {{count}}",
+          triState: {
+            yes: "да",
+            no: "нет",
+            unknown: "—",
+          },
+          status: {
+            up: "up",
+            down: "down",
           },
         },
         outbounds: {
@@ -529,7 +562,8 @@ export const ruTranslation = {
               "Добавьте один или несколько настроенных списков для этого правила.",
             noListsSelected: "Списки не выбраны",
             listsHint: "Выберите, к каким спискам применяется это правило.",
-            listUsedElsewhere: "Также в правилах: {{summary}}",
+            listUsedElsewhere:
+              "Ещё в других правилах маршрутизации (№ → outbound, условие): {{summary}}",
             proto: "Протокол",
             any: "Любой",
             anyLower: "любой",
