@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppBrandHeader } from "@/components/layout/app-brand-header"
+import { DemoModeBanner } from "@/components/layout/demo-mode-banner"
 import { useWarningBannerState } from "@/components/layout/warning-banner-state"
 import { WarningBanner } from "@/components/layout/warning-banner"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 warningBannerState.isVisible ? "pb-44 md:pb-48" : null
               )}
             >
+              <DemoModeBanner />
               {children}
             </div>
           </main>

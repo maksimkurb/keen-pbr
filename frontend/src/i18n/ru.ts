@@ -34,6 +34,11 @@ export const ruTranslation = {
           selectRow: "Выбрать {{rowLabel}}",
         },
         skipToMain: "Перейти к содержимому",
+        demoMode: {
+          title: "Демо-режим",
+          description:
+            "Ответы API подставляются локально. Сохранения меняют только память процесса — на роутер ничего не применяется.",
+        },
         notFound: {
           title: "Страница не найдена",
           description:

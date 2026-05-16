@@ -5,13 +5,18 @@ import viteCompression from "vite-plugin-compression"
 import { constants } from "zlib"
 import { defineConfig } from "vite"
 
+import { demoApiPlugin } from "./demo/vite-plugin-demo-api"
+
 const textAssetPattern = /\.(html?|css|js|mjs|cjs|jsx|ts|tsx|json|svg|txt|xml|wasm|map)$/i
 
 // https://vite.dev/config/
+const isDemoMode = (mode: string) => mode === "demo"
+
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
+    ...(isDemoMode(mode) ? [demoApiPlugin()] : []),
     viteCompression({
       algorithm: "gzip",
       ext: ".gz",
@@ -62,14 +67,20 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  server: {
-    proxy: {
-      "/api": {
-        target: process.env.ROUTER_URL || "http://192.168.54.1:12121",
-        changeOrigin: true,
+  server: isDemoMode(mode)
+    ? {
+        host: true,
+        port: 5173,
+        strictPort: true,
+      }
+    : {
+        proxy: {
+          "/api": {
+            target: process.env.ROUTER_URL || "http://192.168.54.1:12121",
+            changeOrigin: true,
+          },
+        },
       },
-    },
-  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

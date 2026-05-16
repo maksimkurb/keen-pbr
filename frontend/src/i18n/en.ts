@@ -33,6 +33,11 @@ export const enTranslation = {
           selectRow: "Select {{rowLabel}}",
         },
         skipToMain: "Skip to main content",
+        demoMode: {
+          title: "Demo mode",
+          description:
+            "API responses are mocked locally. Saves update in-memory state only — nothing is applied to a router.",
+        },
         notFound: {
           title: "Page not found",
           description:
