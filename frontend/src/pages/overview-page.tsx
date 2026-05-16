@@ -10,6 +10,7 @@ import {
   useGetConfig,
   useGetHealthRouting,
   useGetHealthService,
+  useGetRuntimeInterfaces,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
 import {
@@ -32,6 +33,7 @@ import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"
 import { SectionCard } from "@/components/shared/section-card"
+import { RuntimeInterfacesInventoryPanel } from "@/components/overview/runtime-interfaces-inventory"
 import { RoutingHealthCard } from "@/components/overview/routing-health-card"
 import { DnsCheckWidget } from "@/components/overview/dns-check-widget"
 import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-download-dialog"
@@ -83,6 +85,12 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
+    query: {
+      refetchInterval: pollOverviewRuntime,
+      refetchIntervalInBackground: false,
+    },
+  })
 
   const postServiceStartMutation = usePostServiceActionMutation("start")
   const postServiceStopMutation = usePostServiceActionMutation("stop")
@@ -105,6 +113,14 @@ export function OverviewPage() {
         : [],
     [runtimeOutboundsQuery.data]
   )
+  const runtimeInterfaces = useMemo(
+    () =>
+      runtimeInterfacesQuery.data?.status === 200
+        ? runtimeInterfacesQuery.data.data.interfaces
+        : [],
+    [runtimeInterfacesQuery.data],
+  )
+
   const runtimeOutboundByTag = useMemo(
     () =>
       new Map(
@@ -186,6 +202,35 @@ export function OverviewPage() {
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
+    : null
+
+  const interfaceInventoryLabels = useMemo(
+    () => ({
+      title: t("overview.interfaceInventory.title"),
+      description: t("overview.interfaceInventory.description"),
+      empty: t("overview.interfaceInventory.empty"),
+      colName: t("overview.interfaceInventory.columns.name"),
+      colRuntimeStatus: t(
+        "overview.interfaceInventory.columns.runtimeStatus",
+      ),
+      colAdminUp: t("overview.interfaceInventory.columns.adminUp"),
+      colOperState: t("overview.interfaceInventory.columns.operState"),
+      colCarrier: t("overview.interfaceInventory.columns.carrier"),
+      colAddresses: t("overview.interfaceInventory.columns.addresses"),
+      formatExtraAddresses: (count: number) =>
+        t("overview.interfaceInventory.moreAddresses", { count }),
+      yesShort: t("overview.interfaceInventory.triState.yes"),
+      noShort: t("overview.interfaceInventory.triState.no"),
+      unknownShort: t("overview.interfaceInventory.triState.unknown"),
+      statusUp: t("overview.interfaceInventory.status.up"),
+      statusDown: t("overview.interfaceInventory.status.down"),
+    }),
+    [t],
+  )
+
+  const runtimeInterfacesError = runtimeInterfacesQuery.isError
+    ? getApiErrorMessage(runtimeInterfacesQuery.error as ApiError) ||
+      t("overview.interfaceInventory.loadError")
     : null
 
   return (
@@ -296,6 +341,13 @@ export function OverviewPage() {
       </div>
 
       <RoutingTestPanel />
+
+      <RuntimeInterfacesInventoryPanel
+        errorMessage={runtimeInterfacesError}
+        interfaces={runtimeInterfaces}
+        isLoading={runtimeInterfacesQuery.isLoading}
+        labels={interfaceInventoryLabels}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <SectionCard className="h-full" title={t("overview.outbounds.title")}>
