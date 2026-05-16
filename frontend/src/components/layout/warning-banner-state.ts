@@ -1,10 +1,22 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import type { Query } from "@tanstack/query-core"
+import { useQueryClient } from "@tanstack/react-query"
 
 import type { HealthResponse } from "@/api/generated/model"
-import { useRoutingControlPendingState } from "@/api/mutations"
+import type { GetHealthServiceQueryResult } from "@/api/generated/keen-api"
+import {
+  useRoutingControlPendingState,
+} from "@/api/mutations"
 import { useGetHealthService } from "@/api/queries"
 
-const DEFAULT_REFETCH_INTERVAL_MS = 30_000
+type HealthServiceQueryPoll = Query<
+  GetHealthServiceQueryResult,
+  unknown,
+  GetHealthServiceQueryResult,
+  readonly unknown[]
+>
+
+const DEFAULT_REFETCH_INTERVAL_MS = 45_000
 const CONVERGING_REFETCH_INTERVAL_MS = 1_000
 const CONVERGING_WINDOW_MS = 15_000
 
@@ -27,26 +39,47 @@ export type WarningBannerState = {
 
 export function useWarningBannerState(): WarningBannerState {
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const queryClient = useQueryClient()
   const [convergingStartedAtMs, setConvergingStartedAtMs] = useState<number | null>(
     null
   )
   const [convergingApplyStartedTs, setConvergingApplyStartedTs] = useState<
     number | null
   >(null)
+  const computeHealthPollIntervalMs = useCallback(
+    (query: HealthServiceQueryPoll) => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        return false
+      }
+
+      if (queryClient.isMutating({ mutationKey: ["postConfig"] }) > 0) {
+        return false
+      }
+
+      if (queryClient.isMutating({ mutationKey: ["postConfigSave"] }) > 0) {
+        return false
+      }
+
+      const response = query.state.data
+      if (response?.status !== 200) {
+        return DEFAULT_REFETCH_INTERVAL_MS
+      }
+
+      const mode = getWarningBannerMode(response.data, Date.now())
+
+      return mode === "dnsmasq-converging" || mode === "dnsmasq-error"
+        ? CONVERGING_REFETCH_INTERVAL_MS
+        : DEFAULT_REFETCH_INTERVAL_MS
+    },
+    [queryClient],
+  )
+
   const healthQuery = useGetHealthService({
     query: {
-      refetchInterval: (query) => {
-        const response = query.state.data
-        if (response?.status !== 200) {
-          return DEFAULT_REFETCH_INTERVAL_MS
-        }
-
-        const mode = getWarningBannerMode(response.data, Date.now())
-
-        return mode === "dnsmasq-converging" || mode === "dnsmasq-error"
-          ? CONVERGING_REFETCH_INTERVAL_MS
-          : DEFAULT_REFETCH_INTERVAL_MS
-      },
+      refetchInterval: computeHealthPollIntervalMs,
       refetchIntervalInBackground: false,
     },
   })

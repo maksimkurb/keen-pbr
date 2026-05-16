@@ -18,6 +18,12 @@ jobs:
         run: cd frontend && bun install --frozen-lockfile
       - name: Run linter
         run: cd frontend && bun run lint
+      - name: Typecheck
+        run: cd frontend && bun run typecheck
+      - name: Unit tests (Bun)
+        run: cd frontend && bun run test
+      - name: Verify generated API client
+        run: cd frontend && bun run api:check
 
   build:
     name: Build frontend
@@ -26,5 +32,30 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: cd frontend && bun install --frozen-lockfile
       - name: Build frontend
         run: make frontend-build
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: cd frontend && bun install --frozen-lockfile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+      - name: Install Chromium (Playwright + system deps)
+        run: cd frontend && bunx playwright install chromium --with-deps
+      - name: Run Playwright
+        env:
+          CI: true
+        run: cd frontend && bun run e2e

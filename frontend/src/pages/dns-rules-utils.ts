@@ -58,6 +58,77 @@ export function setDnsRuleEnabled(
   )
 }
 
+export type DnsListUsageRef = {
+  ruleIndex: number
+  server: string
+}
+
+type DnsRuleListSource = {
+  server: string
+  list?: string[]
+  lists?: string[]
+}
+
+function ruleListNames(rule: DnsRuleListSource): string[] {
+  return rule.lists ?? rule.list ?? []
+}
+
+export function getDnsRuleDetails(rule: DnsRuleListSource): string {
+  const lists = ruleListNames(rule).filter(Boolean).join(", ")
+  const pieces = [
+    rule.server?.trim().length ? `server: ${rule.server}` : undefined,
+    lists.length > 0 ? `lists: ${lists}` : undefined,
+  ].filter((part): part is string => typeof part === "string")
+
+  return pieces.join(" · ")
+}
+
+/** Builds a map of list name → other DNS rules referencing that list. */
+export function buildListUsageByDnsRules(
+  rules: DnsRuleListSource[],
+  excludeRuleIndex?: number,
+): Map<string, DnsListUsageRef[]> {
+  const map = new Map<string, DnsListUsageRef[]>()
+
+  rules.forEach((rule, index) => {
+    if (excludeRuleIndex !== undefined && index === excludeRuleIndex) {
+      return
+    }
+
+    const server = rule.server
+    for (const listName of ruleListNames(rule)) {
+      if (!listName) {
+        continue
+      }
+      const prev = map.get(listName) ?? []
+      prev.push({ ruleIndex: index, server })
+      map.set(listName, prev)
+    }
+  })
+
+  return map
+}
+
+export function describeDnsRuleRefForListUsage(
+  ref: DnsListUsageRef,
+  rule: DnsRuleListSource | undefined,
+): string {
+  const criterion = rule ? getDnsRuleDetails(rule) : ""
+  const core = `#${ref.ruleIndex + 1} → ${ref.server}`
+  return criterion.trim().length > 0 ? `${core} (${criterion})` : core
+}
+
+export function formatDnsListRefsUsageSummary(
+  refs: DnsListUsageRef[],
+  rules: DnsRuleListSource[],
+): string {
+  return refs
+    .map((reference) =>
+      describeDnsRuleRefForListUsage(reference, rules[reference.ruleIndex]),
+    )
+    .join(" • ")
+}
+
 export function validateRules(
   rules: DnsRuleDraft[],
   serverTags: string[],

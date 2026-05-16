@@ -27,12 +27,15 @@ export const emptyRouteRuleDraft: RouteRuleDraft = {
 }
 
 export function getRuleDetails(rule: RouteRule) {
+  const lists = rule.list?.filter(Boolean).join(", ")
   const pieces = [
+    rule.proto?.trim().length ? `proto: ${rule.proto}` : undefined,
+    lists?.trim().length ? `lists: ${lists}` : undefined,
     `src_addr: ${rule.src_addr || "-"}`,
     `dest_addr: ${rule.dest_addr || "-"}`,
     `src_port: ${rule.src_port || "-"}`,
     `dest_port: ${rule.dest_port || "-"}`,
-  ]
+  ].filter((part): part is string => typeof part === "string")
 
   return pieces.join(" · ")
 }
@@ -82,6 +85,61 @@ export function setRouteRuleEnabled(
   return rules.map((rule, ruleIndex) =>
     ruleIndex === index ? { ...rule, enabled } : rule
   )
+}
+
+export type RouteListUsageRef = {
+  ruleIndex: number
+  outbound: string
+}
+
+/** Builds a map of list name → other routing rules referencing that list. */
+export function buildListUsageByRouteRules(
+  rules: RouteRule[],
+  excludeRuleIndex?: number
+): Map<string, RouteListUsageRef[]> {
+  const map = new Map<string, RouteListUsageRef[]>()
+  rules.forEach((rule, index) => {
+    if (
+      excludeRuleIndex !== undefined &&
+      index === excludeRuleIndex
+    ) {
+      return
+    }
+
+    const outbound = rule.outbound
+    for (const listName of rule.list ?? []) {
+      if (!listName) {
+        continue
+      }
+      const prev = map.get(listName) ?? []
+      prev.push({ ruleIndex: index, outbound })
+      map.set(listName, prev)
+    }
+  })
+  return map
+}
+
+export function describeRouteRuleRefForListUsage(
+  ref: RouteListUsageRef,
+  rule: RouteRule | undefined,
+): string {
+  const outbound = ref.outbound
+  const criterion = rule ? getRuleDetails(rule) : ""
+
+  const core = `#${ref.ruleIndex + 1} → ${outbound}`
+  return criterion.trim().length > 0 ? `${core} (${criterion})` : core
+}
+
+/** Single-line subtitle for list pickers: other routing rules referencing the same list. */
+export function formatRoutingListRefsUsageSummary(
+  refs: RouteListUsageRef[],
+  rules: RouteRule[],
+): string {
+  return refs
+    .map((reference) =>
+      describeRouteRuleRefForListUsage(reference, rules[reference.ruleIndex]),
+    )
+    .join(" • ")
 }
 
 export function getFirstFieldError(errors: unknown[]) {

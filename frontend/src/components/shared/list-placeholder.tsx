@@ -20,7 +20,10 @@ export function ListPlaceholder({
   const Icon = variant === "error" ? TriangleAlert : Inbox
 
   return (
-    <Empty className="border">
+    <Empty
+      className="min-h-[14rem] justify-center border sm:min-h-0"
+      data-testid={`list-placeholder-${variant}`}
+    >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon />

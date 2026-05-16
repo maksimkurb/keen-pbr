@@ -1,5 +1,6 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -10,7 +11,7 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
 import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
-import { usePostConfigMutation } from "@/api/mutations"
+import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import {
   useGetConfig,
@@ -19,7 +20,9 @@ import {
 } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
-import { DataTable } from "@/components/shared/data-table"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
+import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { InterfaceRowContent } from "@/components/shared/interface-picker"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import {
@@ -36,6 +39,10 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 
 type OutboundItem = {
   id: string
@@ -51,10 +58,15 @@ export function OutboundsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
+  const configMutationPending = useConfigMutationPending()
+  const pollRuntimeOutbounds = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
   const configQuery = useGetConfig()
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: pollRuntimeOutbounds,
       refetchIntervalInBackground: false,
     },
   })
@@ -65,28 +77,92 @@ export function OutboundsPage() {
     },
   })
   const loadedConfig = selectConfig(configQuery.data)
-  // using toasts for mutation errors
 
-  const runtimeOutboundByTag = new Map(
-    (runtimeOutboundsQuery.data?.status === 200
-      ? runtimeOutboundsQuery.data.data.outbounds
-      : []
-    ).map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
+  const runtimeOutboundByTag = useMemo(
+    () =>
+      new Map(
+        (runtimeOutboundsQuery.data?.status === 200
+          ? runtimeOutboundsQuery.data.data.outbounds
+          : []
+        ).map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound]),
+      ),
+    [runtimeOutboundsQuery.data],
   )
-  const runtimeInterfaceByName = new Map(
-    (runtimeInterfacesQuery.data?.status === 200
-      ? runtimeInterfacesQuery.data.data.interfaces
-      : []
-    ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface])
+  const runtimeInterfaceByName = useMemo(
+    () =>
+      new Map(
+        (runtimeInterfacesQuery.data?.status === 200
+          ? runtimeInterfacesQuery.data.data.interfaces
+          : []
+        ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface]),
+      ),
+    [runtimeInterfacesQuery.data],
   )
-  const outboundItems = selectOutbounds(loadedConfig).map((outbound) =>
-    mapOutboundToItem(
-      outbound,
-      runtimeOutboundByTag.get(outbound.tag),
-      runtimeInterfaceByName.get(outbound.interface ?? ""),
-      t
-    )
+
+  const outboundItems = useMemo(
+    () =>
+      selectOutbounds(loadedConfig).map((outbound) =>
+        mapOutboundToItem(
+          outbound,
+          runtimeOutboundByTag.get(outbound.tag),
+          runtimeInterfaceByName.get(outbound.interface ?? ""),
+          t,
+        ),
+      ),
+    [loadedConfig, runtimeOutboundByTag, runtimeInterfaceByName, t],
   )
+
+  const outboundRowIds = useMemo(
+    () => outboundItems.map((item) => item.id),
+    [outboundItems],
+  )
+
+  const [selectedOutboundTags, setSelectedOutboundTags] = useState<Set<string>>(
+    () => new Set(),
+  )
+
+  const validOutboundIdSet = useMemo(
+    () => new Set(outboundRowIds),
+    [outboundRowIds],
+  )
+
+  const selectedOutboundTagsResolved = useMemo(() => {
+    const next = new Set<string>()
+    for (const id of selectedOutboundTags) {
+      if (validOutboundIdSet.has(id)) {
+        next.add(id)
+      }
+    }
+
+    return next
+  }, [selectedOutboundTags, validOutboundIdSet])
+
+  const outboundSelectionProps: DataTableSelection = {
+    rowIds: outboundRowIds,
+    selectedIds: selectedOutboundTagsResolved,
+    selectionDisabled: configMutationPending,
+    selectAllAriaLabel: t("common.selection.selectAll"),
+    selectRowAriaLabel: (tag: string) =>
+      t("common.selection.selectRow", { rowLabel: tag }),
+    selectAllTooltip: t("common.selection.selectAll"),
+    onToggleRow: (tag: string) => {
+      setSelectedOutboundTags((previous) => {
+        const next = new Set(previous)
+        if (next.has(tag)) {
+          next.delete(tag)
+        } else {
+          next.add(tag)
+        }
+
+        return next
+      })
+    },
+    onSelectAllVisible: (selectedAll: boolean) => {
+      setSelectedOutboundTags(
+        selectedAll ? new Set(outboundRowIds) : new Set(),
+      )
+    },
+  }
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -137,11 +213,54 @@ export function OutboundsPage() {
     postConfigMutation.mutate({ data: updatedConfig })
   }
 
+  const handleBulkDeleteOutbounds = () => {
+    if (!loadedConfig || selectedOutboundTagsResolved.size === 0) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      t("pages.outbounds.bulk.confirmDelete", {
+        count: selectedOutboundTagsResolved.size,
+      }),
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    const nextOutbounds = selectOutbounds(loadedConfig).filter(
+      (item) => !selectedOutboundTagsResolved.has(item.tag),
+    )
+    const urltestReferencesError = validateUrltestGroupReferences(
+      nextOutbounds,
+      t,
+    )
+
+    if (urltestReferencesError) {
+      toast.error(urltestReferencesError, { richColors: true })
+      return
+    }
+
+    const updatedConfig: ConfigObject = {
+      ...loadedConfig,
+      outbounds: nextOutbounds,
+    }
+
+    postConfigMutation.mutate(
+      { data: updatedConfig },
+      {
+        onSuccess: () => {
+          setSelectedOutboundTags(new Set())
+        },
+      },
+    )
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/outbounds/create")}>
+          <Button disabled={configMutationPending} onClick={() => navigate("/outbounds/create")}>
             <Plus className="mr-1 h-4 w-4" />
             {t("pages.outbounds.actions.new")}
           </Button>
@@ -149,6 +268,8 @@ export function OutboundsPage() {
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
       />
+
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -164,15 +285,34 @@ export function OutboundsPage() {
           title={t("pages.outbounds.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            t("pages.outbounds.headers.tag"),
-            t("pages.outbounds.headers.type"),
-            t("pages.outbounds.headers.summary"),
-            t("pages.outbounds.headers.runtime"),
-            t("pages.outbounds.headers.actions"),
-          ]}
-          rows={outboundItems.map((outbound) => [
+        <div className="space-y-3">
+          {selectedOutboundTagsResolved.size > 0 ? (
+            <BulkSelectionToolbar
+              countLabel={t("pages.outbounds.bulk.selected", {
+                count: selectedOutboundTagsResolved.size,
+              })}
+            >
+              <Button
+                disabled={configMutationPending}
+                onClick={() => handleBulkDeleteOutbounds()}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.outbounds.bulk.delete")}
+              </Button>
+            </BulkSelectionToolbar>
+          ) : null}
+          <DataTable
+            headers={[
+              t("pages.outbounds.headers.tag"),
+              t("pages.outbounds.headers.type"),
+              t("pages.outbounds.headers.summary"),
+              t("pages.outbounds.headers.runtime"),
+              t("pages.outbounds.headers.actions"),
+            ]}
+            narrowColumns={[0]}
+            rows={outboundItems.map((outbound) => [
             <RuntimeOutboundEntry
               key={`${outbound.id}-tag`}
               runtimeState={outbound.runtimeState}
@@ -199,11 +339,13 @@ export function OutboundsPage() {
             <ActionButtons
               actions={[
                 {
+                  disabled: configMutationPending,
                   icon: <Pencil className="h-4 w-4" />,
                   label: t("common.edit"),
                   onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <Trash2 className="h-4 w-4" />,
                   label: t("common.delete"),
                   onClick: () => handleDelete(outbound.id),
@@ -212,7 +354,9 @@ export function OutboundsPage() {
               key={`${outbound.id}-actions`}
             />,
           ])}
-        />
+            selection={outboundSelectionProps}
+          />
+        </div>
       )}
     </div>
   )

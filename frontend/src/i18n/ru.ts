@@ -35,6 +35,23 @@ export const ruTranslation = {
         validation: {
           tagNamePattern: "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
         },
+        selection: {
+          selectAll: "Выбрать все видимые строки",
+          selectRow: "Выбрать {{rowLabel}}",
+        },
+        skipToMain: "Перейти к содержимому",
+        demoMode: {
+          title: "Демо-режим",
+          description:
+            "Ответы API подставляются локально. Сохранения меняют только память процесса — на роутер ничего не применяется.",
+        },
+        notFound: {
+          title: "Страница не найдена",
+          description:
+            "Этот адрес не относится к экранам веб-интерфейса keen-pbr. Проверьте ссылку или откройте раздел через меню слева.",
+          goBack: "Назад",
+          goHome: "На дашборд",
+        },
       },
       runtime: {
         healthy: "Исправен",
@@ -147,6 +164,31 @@ export const ruTranslation = {
             start: "Запустить",
             stop: "Остановить",
             restart: "Перезапустить",
+          },
+        },
+        interfaceInventory: {
+          title: "Интерфейсы",
+          description:
+            "Актуальный список сетевых интерфейсов ОС роутера: несущая, адреса, административное состояние.",
+          loadError: "Не удалось загрузить инвентаризацию интерфейсов.",
+          empty: "Интерфейсы не получены.",
+          columns: {
+            name: "Имя",
+            runtimeStatus: "Состояние",
+            adminUp: "Admin up",
+            operState: "Oper state",
+            carrier: "Несущая",
+            addresses: "Адреса",
+          },
+          moreAddresses: "ещё {{count}}",
+          triState: {
+            yes: "да",
+            no: "нет",
+            unknown: "—",
+          },
+          status: {
+            up: "up",
+            down: "down",
           },
         },
         outbounds: {
@@ -296,6 +338,8 @@ export const ruTranslation = {
             sourcePort: "Порт источника",
             destinationPort: "Порт назначения",
           },
+          winningRuleNote:
+            "Правила маршрутизации проверяются сверху вниз; матрица показывает каждую колонку правила. Строка под IP отражает результат резолвера в конфиге (совпавший список и ожидаемый outbound), а не одну «победившую» колонку.",
         },
         routingLegend: {
           title: "Условные обозначения",
@@ -402,6 +446,12 @@ export const ruTranslation = {
               'DNS-сервер "{{serverTag}}" сейчас используется в {{count}} правил(е/ах){{fallbackSuffix}}.\nУдалить и автоматически убрать эти ссылки?',
             fallbackSuffix: " и как fallback",
           },
+          bulk: {
+            selected: "Выбрано: {{count}}",
+            delete: "Удалить выбранные",
+            confirmDelete:
+              "Удалить DNS-серверы: {{tags}}?\nАвтоматически убрать ссылки из правил?",
+          },
           none: "нет",
         },
         dnsServerUpsert: {
@@ -467,6 +517,14 @@ export const ruTranslation = {
             enableRule: "Включить правило",
             disableRule: "Выключить правило",
           },
+          bulk: {
+            selected: "Выбрано: {{count}}",
+            enable: "Включить выбранные",
+            disable: "Выключить выбранные",
+            delete: "Удалить выбранные",
+            confirmDelete:
+              "Удалить {{count}} правил(о/а) маршрутизации? Изменение нельзя отменить здесь одним действием.",
+          },
           messages: {
             saved:
               "Правила маршрутизации сохранены в черновик. Примените новый конфиг, чтобы записать их.",
@@ -522,6 +580,8 @@ export const ruTranslation = {
               "Добавьте один или несколько настроенных списков для этого правила.",
             noListsSelected: "Списки не выбраны",
             listsHint: "Выберите, к каким спискам применяется это правило.",
+            listUsedElsewhere:
+              "Ещё в других правилах маршрутизации (№ → outbound, условие): {{summary}}",
             proto: "Протокол",
             any: "Любой",
             anyLower: "любой",
@@ -554,6 +614,12 @@ export const ruTranslation = {
         },
         outbounds: {
           title: "Outbounds (выходы)",
+          bulk: {
+            selected: "Выбрано: {{count}}",
+            delete: "Удалить выбранные",
+            confirmDelete:
+              "Удалить {{count}} outbound(ов)? Связи проверяются только при сохранении.",
+          },
           description: "Настроенные outbounds и группы urltest.",
           actions: { new: "Добавить outbound" },
           empty: {
@@ -752,6 +818,13 @@ export const ruTranslation = {
             enabled: "Разрешён",
             disabled: "Запрещён",
           },
+          bulk: {
+            selected: "Выбрано: {{count}}",
+            enable: "Включить выбранные",
+            disable: "Выключить выбранные",
+            delete: "Удалить выбранные",
+            confirmDelete: "Удалить {{count}} DNS-правил(о/а)?",
+          },
         },
         dnsRuleUpsert: {
           createTitle: "Создать DNS-правило",
@@ -790,6 +863,8 @@ export const ruTranslation = {
             listPlaceholderDescription:
               "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
             noListsSelected: "Списки не выбраны",
+            listUsedElsewhere:
+              "Ещё в других DNS-правилах (№ → сервер, условие): {{summary}}",
             noLists:
               "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
           },
@@ -814,6 +889,16 @@ export const ruTranslation = {
             stats: "Записи",
             rules: "Исп. в правилах",
             actions: "Действия",
+          },
+          bulk: {
+            selected: "Выбрано: {{count}}",
+            refreshSelected: "Обновить выбранные (URL)",
+            deleteSelected: "Удалить выбранные списки",
+            confirmDeleteSimple: "Удалить списки: {{names}}?",
+            confirmDeleteWithRefs:
+              "Удалить списки: {{names}} и при необходимости убрать ссылки из правил маршрутизации и DNS?",
+            noUrlBacked:
+              "Ни один из выбранных списков не основан на URL (обновление нечего).",
           },
           delete: {
             confirm: 'Удалить список "{{name}}"?',
