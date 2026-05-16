@@ -84,6 +84,38 @@ export function setRouteRuleEnabled(
   )
 }
 
+export type RouteListUsageRef = {
+  ruleIndex: number
+  outbound: string
+}
+
+/** Builds a map of list name → other routing rules referencing that list. */
+export function buildListUsageByRouteRules(
+  rules: RouteRule[],
+  excludeRuleIndex?: number
+): Map<string, RouteListUsageRef[]> {
+  const map = new Map<string, RouteListUsageRef[]>()
+  rules.forEach((rule, index) => {
+    if (
+      excludeRuleIndex !== undefined &&
+      index === excludeRuleIndex
+    ) {
+      return
+    }
+
+    const outbound = rule.outbound
+    for (const listName of rule.list ?? []) {
+      if (!listName) {
+        continue
+      }
+      const prev = map.get(listName) ?? []
+      prev.push({ ruleIndex: index, outbound })
+      map.set(listName, prev)
+    }
+  })
+  return map
+}
+
 export function getFirstFieldError(errors: unknown[]) {
   const firstError = errors[0]
   return typeof firstError === "string" ? firstError : undefined

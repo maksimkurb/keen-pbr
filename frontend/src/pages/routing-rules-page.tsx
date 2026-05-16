@@ -1,16 +1,17 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
 import type { ApiError } from "@/api/client"
 import type { RouteRule } from "@/api/generated/model/routeRule"
-import { usePostConfigMutation } from "@/api/mutations"
+import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import type { RuntimeOutboundState } from "@/api/generated/model"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
-import { DataTable } from "@/components/shared/data-table"
+import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state"
@@ -23,18 +24,54 @@ import {
   reorderRules,
   setRouteRuleEnabled,
 } from "@/pages/routing-rules-utils"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 
 export function RoutingRulesPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
+  const queryClient = useQueryClient()
 
-
+  const configMutationPending = useConfigMutationPending()
+  const pollRuntimeRoutes = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
-  const routeRules = loadedConfig?.route?.rules ?? []
+  const routeRules = useMemo(
+    () => loadedConfig?.route?.rules ?? [],
+    [loadedConfig?.route?.rules],
+  )
+
+  const [selectedRuleIndices, setSelectedRuleIndices] = useState<Set<string>>(
+    () => new Set(),
+  )
+
+  const validRuleIndexSet = useMemo(
+    () =>
+      new Set(
+        routeRules.map((_rule: RouteRule, ruleIndex: number) => String(ruleIndex)),
+      ),
+    [routeRules],
+  )
+
+  const selectedRuleIndicesResolved = useMemo(() => {
+    const next = new Set<string>()
+    for (const id of selectedRuleIndices) {
+      if (validRuleIndexSet.has(id)) {
+        next.add(id)
+      }
+    }
+
+    return next
+  }, [selectedRuleIndices, validRuleIndexSet])
+
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: pollRuntimeRoutes,
       refetchIntervalInBackground: false,
     },
   })
@@ -72,17 +109,27 @@ export function RoutingRulesPage() {
 
   const persistRules = (
     config: NonNullable<typeof loadedConfig>,
-    nextRules: RouteRule[]
+    nextRules: RouteRule[],
+    options?: { clearSelection?: boolean },
   ) => {
-    postConfigMutation.mutate({
-      data: {
-        ...config,
-        route: {
-          ...config.route,
-          rules: nextRules,
+    postConfigMutation.mutate(
+      {
+        data: {
+          ...config,
+          route: {
+            ...config.route,
+            rules: nextRules,
+          },
         },
       },
-    })
+      options?.clearSelection
+        ? {
+            onSuccess: () => {
+              setSelectedRuleIndices(new Set())
+            },
+          }
+        : undefined,
+    )
   }
 
   const handleDelete = (index: number) => {
@@ -118,11 +165,75 @@ export function RoutingRulesPage() {
     persistRules(loadedConfig, setRouteRuleEnabled(routeRules, index, enabled))
   }
 
+  const handleBulkDelete = () => {
+    if (!loadedConfig || selectedRuleIndicesResolved.size === 0) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      t("pages.routingRules.bulk.confirmDelete", {
+        count: selectedRuleIndicesResolved.size,
+      }),
+    )
+    if (!confirmed) {
+      return
+    }
+
+    const nextRules = routeRules.filter(
+      (_rule: RouteRule, ruleIndex: number) =>
+        !selectedRuleIndicesResolved.has(String(ruleIndex)),
+    )
+    persistRules(loadedConfig, nextRules, { clearSelection: true })
+  }
+
+  const handleBulkSetEnabled = (enabled: boolean) => {
+    if (!loadedConfig || selectedRuleIndicesResolved.size === 0) {
+      return
+    }
+
+    const nextRules = routeRules.map((rule: RouteRule, ruleIndex: number) =>
+      selectedRuleIndicesResolved.has(String(ruleIndex))
+        ? { ...rule, enabled }
+        : rule,
+    )
+    persistRules(loadedConfig, nextRules)
+  }
+
+  const ruleSelectionProps: DataTableSelection = {
+    rowIds: routeRules.map((_rule: RouteRule, index: number) => String(index)),
+    selectedIds: selectedRuleIndicesResolved,
+    selectionDisabled: configMutationPending,
+    selectAllAriaLabel: t("common.selection.selectAll"),
+    selectRowAriaLabel: (rowId: string) =>
+      t("common.selection.selectRow", {
+        rowLabel:
+          `${t("pages.routingRules.title")} #${Number(rowId) + 1}`,
+      }),
+    selectAllTooltip: t("common.selection.selectAll"),
+    onToggleRow: (rowId: string) => {
+      setSelectedRuleIndices((previous) => {
+        const next = new Set(previous)
+        if (next.has(rowId)) {
+          next.delete(rowId)
+        } else {
+          next.add(rowId)
+        }
+
+        return next
+      })
+    },
+    onSelectAllVisible: (selectedAll: boolean) => {
+      setSelectedRuleIndices(
+        selectedAll ? new Set(routeRules.map((_r, idx) => String(idx))) : new Set(),
+      )
+    },
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/routing-rules/create")}>
+          <Button disabled={configMutationPending} onClick={() => navigate("/routing-rules/create")}>
             <Plus className="mr-1 h-4 w-4" />
             {t("pages.routingRules.actions.addRule")}
           </Button>
@@ -147,16 +258,46 @@ export function RoutingRulesPage() {
           title={t("pages.routingRules.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            "",
-            t("pages.routingRules.headers.order"),
-            t("pages.routingRules.headers.criteria"),
-            t("pages.routingRules.headers.outbound"),
-            t("pages.routingRules.headers.actions"),
-          ]}
-          narrowColumns={[0, 1]}
-          rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
+        <div className="space-y-3">
+          {selectedRuleIndicesResolved.size > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
+              <span className="text-sm font-medium tabular-nums">
+                {t("pages.routingRules.bulk.selected", {
+                  count: selectedRuleIndicesResolved.size,
+                })}
+              </span>
+              <Button
+                disabled={configMutationPending}
+                onClick={() => handleBulkSetEnabled(true)}
+                size="sm"
+                variant="outline"
+              >
+                {t("pages.routingRules.bulk.enable")}
+              </Button>
+              <Button
+                disabled={configMutationPending}
+                onClick={() => handleBulkSetEnabled(false)}
+                size="sm"
+                variant="outline"
+              >
+                {t("pages.routingRules.bulk.disable")}
+              </Button>
+              <Button disabled={configMutationPending} onClick={() => handleBulkDelete()} size="sm" variant="destructive">
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.routingRules.bulk.delete")}
+              </Button>
+            </div>
+          ) : null}
+          <DataTable
+            headers={[
+              "",
+              t("pages.routingRules.headers.order"),
+              t("pages.routingRules.headers.criteria"),
+              t("pages.routingRules.headers.outbound"),
+              t("pages.routingRules.headers.actions"),
+            ]}
+            narrowColumns={[0, 1, 2]}
+            rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <div className="flex items-center" key={`${row.id}-enabled`}>
               <Switch
                 aria-label={t(
@@ -165,6 +306,7 @@ export function RoutingRulesPage() {
                     : "pages.routingRules.actions.enableRule"
                 )}
                 checked={row.enabled}
+                disabled={configMutationPending}
                 onCheckedChange={(checked) => handleEnabledChange(row.index, checked)}
                 title={t(
                   row.enabled
@@ -202,21 +344,25 @@ export function RoutingRulesPage() {
             <ActionButtons
               actions={[
                 {
+                  disabled: configMutationPending,
                   icon: <ArrowUp className="h-4 w-4" />,
                   label: t("common.moveUp"),
                   onClick: () => handleMove(row.index, -1),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <ArrowDown className="h-4 w-4" />,
                   label: t("common.moveDown"),
                   onClick: () => handleMove(row.index, 1),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <Pencil className="h-4 w-4" />,
                   label: t("common.edit"),
                   onClick: () => navigate(`/routing-rules/${row.index}/edit`),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <Trash2 className="h-4 w-4" />,
                   label: t("common.delete"),
                   onClick: () => handleDelete(row.index),
@@ -225,7 +371,9 @@ export function RoutingRulesPage() {
               key={`${row.id}-actions`}
             />,
           ])}
-        />
+            selection={ruleSelectionProps}
+          />
+        </div>
       )}
     </div>
   )

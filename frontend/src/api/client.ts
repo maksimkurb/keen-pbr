@@ -33,8 +33,36 @@ const normalizeError = (status: number, payload: unknown): ApiError => {
   return { status, message: `Request failed with status ${status}`, details: payload }
 }
 
+const API_FETCH_TIMEOUT_MS = 90_000
+
+function composeFetchSignals(
+  userSignal: AbortSignal | undefined | null,
+  timeoutMs: number,
+): AbortSignal | undefined {
+  if (
+    typeof AbortSignal === "undefined" ||
+    typeof AbortSignal.timeout !== "function"
+  ) {
+    return userSignal ?? undefined
+  }
+
+  const timeoutSig = AbortSignal.timeout(timeoutMs)
+  const AbortWithAny = AbortSignal as typeof AbortSignal & {
+    any?: (signals: AbortSignal[]) => AbortSignal
+  }
+
+  if (userSignal && typeof AbortWithAny.any === "function") {
+    return AbortWithAny.any([userSignal, timeoutSig])
+  }
+
+  return userSignal ?? timeoutSig
+}
+
 export const apiFetch = async <T>(url: string, options: RequestInit): Promise<T> => {
-  const response = await fetch(url, options)
+  const response = await fetch(url, {
+    ...options,
+    signal: composeFetchSignals(options.signal, API_FETCH_TIMEOUT_MS),
+  })
   const payload = await parseResponsePayload(response)
 
   if (!response.ok) {

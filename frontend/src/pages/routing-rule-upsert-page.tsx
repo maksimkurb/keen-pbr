@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -40,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  buildListUsageByRouteRules,
   emptyRouteRuleDraft,
   getFirstFieldError,
   normalizeRouteRuleDraft,
@@ -156,6 +158,14 @@ function RoutingRuleForm({
     .map((outbound: Outbound) => outbound.tag)
     .filter((tag): tag is string => Boolean(tag))
     .sort((left: string, right: string) => left.localeCompare(right))
+  const routingListUsageByName = useMemo(
+    () =>
+      buildListUsageByRouteRules(
+        rules,
+        mode === "edit" ? parsedRuleIndex : undefined,
+      ),
+    [rules, mode, parsedRuleIndex],
+  )
   const protoSelectItems = protoOptions.map((option) => ({
     value: option,
     label: option || t("pages.routingRuleUpsert.fields.anyLower"),
@@ -322,6 +332,25 @@ function RoutingRuleForm({
                       placeholderTitle={t(
                         "pages.routingRuleUpsert.fields.noListsSelected"
                       )}
+                      usageSubtitle={(optionName) => {
+                        const refs = routingListUsageByName.get(optionName)
+                        if (!refs?.length) {
+                          return undefined
+                        }
+
+                        const summary = refs
+                          .map(
+                            ({ ruleIndex, outbound }) =>
+                              `${t("overview.routingDiagnostics.ruleNumber", {
+                                index: String(ruleIndex + 1),
+                              })} → ${outbound}`
+                          )
+                          .join(", ")
+                        return t(
+                          "pages.routingRuleUpsert.fields.listUsedElsewhere",
+                          { summary }
+                        )
+                      }}
                       value={field.state.value}
                     />
                     <FieldHint

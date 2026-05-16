@@ -127,8 +127,18 @@ export const usePostServiceActionMutation = (action: ServiceAction) => {
   })
 }
 
+/** True while `/api/config` draft save or `/api/config/save` apply is in-flight (globally). */
+export const useConfigMutationPending = () => {
+  const postDraftMutations = useIsMutating({ mutationKey: ["postConfig"] })
+  const applyMutations = useIsMutating({ mutationKey: ["postConfigSave"] })
+
+  return postDraftMutations > 0 || applyMutations > 0
+}
+
 export const useRoutingControlPendingState = () => {
+  const draftPostPending = useIsMutating({ mutationKey: ["postConfig"] }) > 0
   const applyPending = useIsMutating({ mutationKey: ["postConfigSave"] }) > 0
+  const configMutationPending = draftPostPending || applyPending
   const startPending =
     useIsMutating({ mutationKey: serviceActionMutationKey("start") }) > 0
   const stopPending =
@@ -138,9 +148,15 @@ export const useRoutingControlPendingState = () => {
 
   return {
     applyPending,
+    draftPostPending,
+    configMutationPending,
     startPending,
     stopPending,
     restartPending,
-    anyPending: applyPending || startPending || stopPending || restartPending,
+    anyPending:
+      configMutationPending ||
+      startPending ||
+      stopPending ||
+      restartPending,
   }
 }

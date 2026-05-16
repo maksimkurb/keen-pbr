@@ -1,5 +1,5 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -7,10 +7,10 @@ import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
-import { usePostConfigMutation } from "@/api/mutations"
+import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
-import { DataTable } from "@/components/shared/data-table"
+import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
@@ -22,15 +22,119 @@ import { getApiErrorMessage } from "@/lib/api-errors"
 export function DnsServersPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
+  const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const postConfigMutation = usePostConfigMutation()
 
   const config = getConfigData(configQuery.data)
   const dnsServers = useMemo(() => config?.dns?.servers ?? [], [config])
 
+  const rowIdsRaw = dnsServers.map((server) => server.tag)
+
+  const [selectedDnsServerTags, setSelectedDnsServerTags] = useState<Set<string>>(
+    () => new Set(),
+  )
+
+  const validDnsServerTagSet = useMemo(
+    () => new Set(dnsServers.map((server) => server.tag)),
+    [dnsServers],
+  )
+
+  const selectedDnsServerTagsResolved = useMemo(() => {
+    const next = new Set<string>()
+    for (const tag of selectedDnsServerTags) {
+      if (validDnsServerTagSet.has(tag)) {
+        next.add(tag)
+      }
+    }
+
+    return next
+  }, [selectedDnsServerTags, validDnsServerTagSet])
+
+  const dnsServerSelectionProps: DataTableSelection = {
+    rowIds: rowIdsRaw,
+    selectedIds: selectedDnsServerTagsResolved,
+    selectionDisabled: configMutationPending,
+    selectAllAriaLabel: t("common.selection.selectAll"),
+    selectRowAriaLabel: (rowTag: string) =>
+      t("common.selection.selectRow", { rowLabel: rowTag }),
+    selectAllTooltip: t("common.selection.selectAll"),
+    onToggleRow: (tag: string) => {
+      setSelectedDnsServerTags((previous) => {
+        const next = new Set(previous)
+        if (next.has(tag)) {
+          next.delete(tag)
+        } else {
+          next.add(tag)
+        }
+
+        return next
+      })
+    },
+    onSelectAllVisible: (selectedAll: boolean) => {
+      setSelectedDnsServerTags(
+        selectedAll ? new Set(rowIdsRaw) : new Set(),
+      )
+    },
+  }
+
   const mutationErrorMessage = getApiErrorMessage(
     postConfigMutation.error as ApiError | null
   )
+
+  const deleteServersBulk = () => {
+    if (!config || selectedDnsServerTagsResolved.size === 0) {
+      return
+    }
+
+    const dnsConfig = config.dns
+    const allRules = dnsConfig?.rules ?? []
+    const fallbackServers = dnsConfig?.fallback ?? []
+    const selectedTagsArray = [...selectedDnsServerTagsResolved]
+    const tagSet = new Set(selectedDnsServerTagsResolved)
+
+    const matchingRulesCount = allRules.filter((rule) =>
+      selectedTagsArray.includes(rule.server),
+    ).length
+    const usesFallback = fallbackServers.some((tag) => tagSet.has(tag))
+
+    let stripReferencesFromConfig = !(matchingRulesCount > 0 || usesFallback)
+
+    if (matchingRulesCount > 0 || usesFallback) {
+      stripReferencesFromConfig = window.confirm(
+        t("pages.dnsServers.bulk.confirmDelete", {
+          tags: selectedTagsArray.join(", "),
+        }),
+      )
+
+      if (!stripReferencesFromConfig) {
+        return
+      }
+    }
+
+    const updatedConfig = {
+      ...config,
+      dns: {
+        ...(dnsConfig ?? {}),
+        servers: dnsServers.filter((server) => !tagSet.has(server.tag)),
+        rules: stripReferencesFromConfig
+          ? allRules.filter((rule) => !tagSet.has(rule.server))
+          : allRules,
+        fallback: stripReferencesFromConfig
+          ? fallbackServers.filter((tag) => !tagSet.has(tag))
+          : fallbackServers,
+      },
+    } satisfies ConfigObject
+
+    postConfigMutation.mutate(
+      { data: updatedConfig },
+      {
+        onSuccess: () => {
+          setSelectedDnsServerTags(new Set())
+        },
+      },
+    )
+  }
 
   const deleteServer = (serverTag: string) => {
     if (!config) {
@@ -86,7 +190,7 @@ export function DnsServersPage() {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/dns-servers/create")}>
+          <Button disabled={configMutationPending} onClick={() => navigate("/dns-servers/create")}>
             <Plus className="mr-1 h-4 w-4" />
             {t("pages.dnsServers.actions.add")}
           </Button>
@@ -117,14 +221,34 @@ export function DnsServersPage() {
           title={t("pages.dnsServers.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            t("pages.dnsServers.headers.name"),
-            t("pages.dnsServers.headers.address"),
-            t("pages.dnsServers.headers.outbound"),
-            t("pages.dnsServers.headers.actions"),
-          ]}
-          rows={dnsServers.map((server) => [
+        <div className="space-y-3">
+          {selectedDnsServerTagsResolved.size > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
+              <span className="text-sm font-medium tabular-nums">
+                {t("pages.dnsServers.bulk.selected", {
+                  count: selectedDnsServerTagsResolved.size,
+                })}
+              </span>
+              <Button
+                disabled={configMutationPending}
+                onClick={() => deleteServersBulk()}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.dnsServers.bulk.delete")}
+              </Button>
+            </div>
+          ) : null}
+          <DataTable
+            headers={[
+              t("pages.dnsServers.headers.name"),
+              t("pages.dnsServers.headers.address"),
+              t("pages.dnsServers.headers.outbound"),
+              t("pages.dnsServers.headers.actions"),
+            ]}
+            narrowColumns={[0]}
+            rows={dnsServers.map((server) => [
             <div className="font-medium" key={`${server.tag}-tag`}>
               {server.tag}
             </div>,
@@ -145,6 +269,7 @@ export function DnsServersPage() {
             <ActionButtons
               actions={[
                 {
+                  disabled: configMutationPending,
                   icon: <Pencil className="h-4 w-4" />,
                   label: t("common.edit"),
                   onClick: () =>
@@ -153,6 +278,7 @@ export function DnsServersPage() {
                     ),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <Trash2 className="h-4 w-4" />,
                   label: t("common.delete"),
                   onClick: () => deleteServer(server.tag),
@@ -161,7 +287,9 @@ export function DnsServersPage() {
               key={`${server.tag}-actions`}
             />,
           ])}
-        />
+            selection={dnsServerSelectionProps}
+          />
+        </div>
       )}
     </div>
   )

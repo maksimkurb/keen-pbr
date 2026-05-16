@@ -24,6 +24,7 @@ export function MultiSelectList({
   placeholderTitle,
   placeholderDescription,
   allowReorder = false,
+  usageSubtitle,
   error,
 }: {
   name?: string
@@ -37,6 +38,8 @@ export function MultiSelectList({
   placeholderTitle?: string
   placeholderDescription?: string
   allowReorder?: boolean
+  /** Hint shown under each option label (dropdown + chosen rows). */
+  usageSubtitle?: (optionName: string) => string | undefined
   error?: string | null
 }) {
   const { t } = useTranslation()
@@ -84,11 +87,22 @@ export function MultiSelectList({
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} align="start">
         <SelectGroup>
-          {availableOptions.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
+          {availableOptions.map((option) => {
+            const usage = usageSubtitle?.(option)
+
+            return (
+              <SelectItem key={option} value={option}>
+                <span className="flex max-w-[min(100vw-4rem,24rem)] flex-col items-start gap-0.5 py-0.5">
+                  <span>{option}</span>
+                  {usage ? (
+                    <span className="break-words text-xs whitespace-normal text-muted-foreground">
+                      {usage}
+                    </span>
+                  ) : null}
+                </span>
+              </SelectItem>
+            )
+          })}
         </SelectGroup>
       </SelectContent>
     </Select>
@@ -98,10 +112,18 @@ export function MultiSelectList({
     <div className="space-y-2" data-field-name={name}>
       {value.length ? (
         <div className={`space-y-2 rounded-xl border p-3 ${error ? "border-destructive" : "border-border"}`}>
-          {value.map((item, index) => (
+          {value.map((item, index) => {
+            const subtitle = usageSubtitle?.(item)
+
+            return (
             <InputGroup key={`${item}-${index}`} className="cursor-default">
-              <InputGroupAddon className="w-full justify-start text-foreground">
-                {item}
+              <InputGroupAddon className="w-full flex-col items-stretch gap-0.5 text-left text-foreground">
+                <span className="break-all font-medium leading-snug">{item}</span>
+                {subtitle ? (
+                  <span className="break-words text-xs font-normal text-muted-foreground">
+                    {subtitle}
+                  </span>
+                ) : null}
               </InputGroupAddon>
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
@@ -156,7 +178,8 @@ export function MultiSelectList({
                 ) : null}
               </InputGroupAddon>
             </InputGroup>
-          ))}
+            )
+          })}
           <div>{addSelect}</div>
         </div>
       ) : (

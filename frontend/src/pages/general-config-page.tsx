@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -6,7 +7,7 @@ import { useStore } from "@tanstack/react-store"
 
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
-import { usePostConfigMutation } from "@/api/mutations"
+import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
@@ -39,6 +40,10 @@ import {
   setFormServerErrors,
   splitFormApiErrors,
 } from "@/lib/form-api-errors"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 import { toast } from "sonner"
 
 type SettingsDraft = {
@@ -115,9 +120,14 @@ function LoadedGeneralConfigPage({
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const configMutationPending = useConfigMutationPending()
+  const pollRuntimeInterfaces = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
   const runtimeInterfacesQuery = useGetRuntimeInterfaces({
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: pollRuntimeInterfaces,
       refetchIntervalInBackground: false,
     },
   })
@@ -181,7 +191,7 @@ function LoadedGeneralConfigPage({
         ?.unmapped ?? [])
   )
 
-  const isPending = postConfigMutation.isPending
+  const isPending = configMutationPending
   const runtimeInterfaces =
     runtimeInterfacesQuery.data?.status === 200
       ? runtimeInterfacesQuery.data.data.interfaces

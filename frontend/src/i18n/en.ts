@@ -28,6 +28,10 @@ export const enTranslation = {
         validation: {
           tagNamePattern: "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
         },
+        selection: {
+          selectAll: "Select all visible rows",
+          selectRow: "Select {{rowLabel}}",
+        },
       },
       runtime: {
         healthy: "Healthy",
@@ -274,6 +278,11 @@ export const enTranslation = {
           noMatchingRule: "No matching routing rule for the target lists.",
           hostLabel: 'Host "{{target}}"',
           inRuleLists: "In rule domain/IP lists?",
+          ruleNumber: "Rule #{{index}}",
+          matchedList: "List: {{name}}",
+          ipConfigurationMatch: "Config: list «{{list}}» via {{via}} → {{outbound}}",
+          winningRuleNote:
+            "Traffic Rules are evaluated top to bottom; the matrix shows every rule column. The per-IP line reflects the config resolver (matched list entry and expected outbound), not only one highlighted column.",
         },
         routingLegend: {
           title: "Legend",
@@ -376,6 +385,12 @@ export const enTranslation = {
               'DNS server "{{serverTag}}" is currently used by {{count}} rule(s){{fallbackSuffix}}.\nDelete and automatically remove those references?',
             fallbackSuffix: " and as fallback",
           },
+          bulk: {
+            selected: "{{count}} selected",
+            delete: "Delete selected",
+            confirmDelete:
+              "Delete DNS servers {{tags}}?\nAutomatically remove stale references?",
+          },
           none: "none",
         },
         dnsServerUpsert: {
@@ -442,6 +457,14 @@ export const enTranslation = {
             enableRule: "Enable rule",
             disableRule: "Disable rule",
           },
+          bulk: {
+            selected: "{{count}} selected",
+            enable: "Enable selected",
+            disable: "Disable selected",
+            delete: "Delete selected",
+            confirmDelete:
+              "Delete {{count}} routing rule(s)? This cannot be undone from this screen alone.",
+          },
           messages: {
             saved: "Routing rules staged. Apply new config to persist them.",
           },
@@ -495,6 +518,7 @@ export const enTranslation = {
               "Add one or more configured list names to match for this rule.",
             noListsSelected: "No lists selected",
             listsHint: "Choose which of your lists this rule applies to.",
+            listUsedElsewhere: "Also in rules: {{summary}}",
             proto: "Proto",
             any: "Any",
             anyLower: "any",
@@ -526,6 +550,11 @@ export const enTranslation = {
         },
         outbounds: {
           title: "Outbounds",
+          bulk: {
+            selected: "{{count}} selected",
+            delete: "Delete selected",
+            confirmDelete: "Delete {{count}} outbound(s)? Dependencies are not validated until save.",
+          },
           description: "Your configured outbounds and urltest groups.",
           actions: { new: "Add outbound" },
           empty: {
@@ -714,6 +743,13 @@ export const enTranslation = {
             enabled: "Allowed",
             disabled: "Blocked",
           },
+          bulk: {
+            selected: "{{count}} selected",
+            enable: "Enable selected",
+            disable: "Disable selected",
+            delete: "Delete selected",
+            confirmDelete: "Delete {{count}} DNS rule(s)?",
+          },
         },
         dnsRuleUpsert: {
           createTitle: "Create DNS rule",
@@ -773,6 +809,15 @@ export const enTranslation = {
             stats: "Entries",
             rules: "Used in rules",
             actions: "Actions",
+          },
+          bulk: {
+            selected: "{{count}} selected",
+            refreshSelected: "Update selected (URL)",
+            deleteSelected: "Delete selected lists",
+            confirmDeleteSimple: 'Delete lists: {{names}}?',
+            confirmDeleteWithRefs:
+              "Delete lists: {{names}} and remove references from routing/DNS rules where needed?",
+            noUrlBacked: "None of the selected lists are URL-backed.",
           },
           delete: {
             confirm: 'Delete list "{{name}}"?',
