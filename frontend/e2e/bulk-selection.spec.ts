@@ -17,12 +17,12 @@ test.describe("Bulk row selection", () => {
     await expect(rowCheckboxes.first()).toBeVisible()
     await rowCheckboxes.first().click()
 
-    await expect(
-      page.getByText(/^\d+ selected$|^\d+ выбрано$/i),
-    ).toBeVisible()
+    const toolbar = page.getByTestId("bulk-selection-toolbar")
+    await expect(toolbar).toBeVisible()
+    await expect(page.getByTestId("bulk-selection-count")).toHaveText("1 selected")
     await expect(
       page.getByRole("button", {
-        name: /delete selected lists|удалить выбранные списки/i,
+        name: /delete selected lists/i,
       }),
     ).toBeVisible()
   })
@@ -37,12 +37,37 @@ test.describe("Bulk row selection", () => {
     await expect(rowCheckboxes.first()).toBeVisible()
     await rowCheckboxes.first().click()
 
-    await expect(page.getByText(/^\d+ selected$|^\d+ выбрано$/i)).toBeVisible()
-    await expect(
-      page.getByRole("button", { name: /enable|включить/i }),
-    ).toBeVisible()
-    await expect(
-      page.getByRole("button", { name: /disable|отключить/i }),
-    ).toBeVisible()
+    await expect(page.getByTestId("bulk-selection-toolbar")).toBeVisible()
+    await expect(page.getByTestId("bulk-selection-count")).toHaveText("1 selected")
+    await expect(page.getByRole("button", { name: /^enable selected$/i })).toBeVisible()
+    await expect(page.getByRole("button", { name: /^disable selected$/i })).toBeVisible()
+  })
+
+  test("dns rules page shows bulk actions after selecting a rule", async ({
+    page,
+  }) => {
+    await installAppApiMocks(page)
+    await page.goto("/dns-rules")
+
+    const rowCheckboxes = page.locator("tbody").getByRole("checkbox")
+    await expect(rowCheckboxes.first()).toBeVisible()
+    await rowCheckboxes.first().click()
+
+    await expect(page.getByTestId("bulk-selection-toolbar")).toBeVisible()
+    await expect(page.getByRole("button", { name: /^disable selected$/i })).toBeVisible()
+  })
+
+  test("outbounds page shows bulk delete after selecting a row", async ({
+    page,
+  }) => {
+    await installAppApiMocks(page)
+    await page.goto("/outbounds")
+
+    const rowCheckboxes = page.locator("tbody").getByRole("checkbox")
+    await expect(rowCheckboxes.first()).toBeVisible()
+    await rowCheckboxes.first().click()
+
+    await expect(page.getByTestId("bulk-selection-toolbar")).toBeVisible()
+    await expect(page.getByRole("button", { name: /delete selected/i })).toBeVisible()
   })
 })

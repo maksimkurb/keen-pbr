@@ -9,6 +9,7 @@ import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -211,12 +212,11 @@ export function DnsServersPage() {
       ) : (
         <div className="space-y-3">
           {selectedDnsServerTagsResolved.size > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-              <span className="text-sm font-medium tabular-nums">
-                {t("pages.dnsServers.bulk.selected", {
-                  count: selectedDnsServerTagsResolved.size,
-                })}
-              </span>
+            <BulkSelectionToolbar
+              countLabel={t("pages.dnsServers.bulk.selected", {
+                count: selectedDnsServerTagsResolved.size,
+              })}
+            >
               <Button
                 disabled={configMutationPending}
                 onClick={() => deleteServersBulk()}
@@ -226,7 +226,7 @@ export function DnsServersPage() {
                 <Trash2 className="mr-1 h-4 w-4" />
                 {t("pages.dnsServers.bulk.delete")}
               </Button>
-            </div>
+            </BulkSelectionToolbar>
           ) : null}
           <DataTable
             headers={[

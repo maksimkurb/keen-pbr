@@ -14,6 +14,7 @@ import { queryKeys } from "@/api/query-keys"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -252,12 +253,11 @@ export function OutboundsPage() {
       ) : (
         <div className="space-y-3">
           {selectedOutboundTagsResolved.size > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-              <span className="text-sm font-medium tabular-nums">
-                {t("pages.outbounds.bulk.selected", {
-                  count: selectedOutboundTagsResolved.size,
-                })}
-              </span>
+            <BulkSelectionToolbar
+              countLabel={t("pages.outbounds.bulk.selected", {
+                count: selectedOutboundTagsResolved.size,
+              })}
+            >
               <Button
                 disabled={configMutationPending}
                 onClick={() => handleBulkDeleteOutbounds()}
@@ -267,7 +267,7 @@ export function OutboundsPage() {
                 <Trash2 className="mr-1 h-4 w-4" />
                 {t("pages.outbounds.bulk.delete")}
               </Button>
-            </div>
+            </BulkSelectionToolbar>
           ) : null}
           <DataTable
             headers={[

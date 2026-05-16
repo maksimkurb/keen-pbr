@@ -13,6 +13,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: "http://127.0.0.1:4173",
+    locale: "en-US",
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },

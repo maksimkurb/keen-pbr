@@ -127,12 +127,20 @@ export const usePostServiceActionMutation = (action: ServiceAction) => {
   })
 }
 
+/** Pure helper for tests and non-hook callers. */
+export function isConfigMutationPending(
+  postConfigCount: number,
+  postConfigSaveCount: number,
+): boolean {
+  return postConfigCount > 0 || postConfigSaveCount > 0
+}
+
 /** True while `/api/config` draft save or `/api/config/save` apply is in-flight (globally). */
 export const useConfigMutationPending = () => {
   const postDraftMutations = useIsMutating({ mutationKey: ["postConfig"] })
   const applyMutations = useIsMutating({ mutationKey: ["postConfigSave"] })
 
-  return postDraftMutations > 0 || applyMutations > 0
+  return isConfigMutationPending(postDraftMutations, applyMutations)
 }
 
 export const useRoutingControlPendingState = () => {

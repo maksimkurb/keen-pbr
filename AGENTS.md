@@ -20,6 +20,19 @@ appropriate codegen command instead.
 
 ## Frontend
 
-Frontend is lives in the `frontend/` folder. 
+Frontend lives in the `frontend/` folder.
 Always use bun/bunx as a package manager.
 We are using base-ui instead of radix-ui.
+
+### Frontend dev & test
+
+```sh
+cd frontend && bun install
+bun run dev              # proxy /api to ROUTER_URL
+bun run dev:demo         # in-memory mock API (no daemon)
+bun run lint && bun run typecheck && bun test ./tests && bun run build
+bun run e2e              # Playwright (see frontend/README.md)
+bun run api:check        # Orval drift check
+```
+
+Mock config for demo and E2E: `frontend/fixtures/app-mock-config.ts`.

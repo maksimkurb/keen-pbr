@@ -17,6 +17,7 @@ import {
   selectListRefreshState,
 } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -364,12 +365,11 @@ export function ListsPage() {
       ) : (
         <div className="space-y-3">
           {selectedListIdsResolved.size > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-              <span className="text-sm font-medium tabular-nums">
-                {t("pages.lists.bulk.selected", {
-                  count: selectedListIdsResolved.size,
-                })}
-              </span>
+            <BulkSelectionToolbar
+              countLabel={t("pages.lists.bulk.selected", {
+                count: selectedListIdsResolved.size,
+              })}
+            >
               {hasRefreshableLists ? (
                 <Button
                   disabled={
@@ -404,7 +404,7 @@ export function ListsPage() {
                 <Trash2 className="mr-1 h-4 w-4" />
                 {t("pages.lists.bulk.deleteSelected")}
               </Button>
-            </div>
+            </BulkSelectionToolbar>
           ) : null}
           <DataTable
             headers={[

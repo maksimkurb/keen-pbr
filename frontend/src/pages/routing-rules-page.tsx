@@ -11,6 +11,7 @@ import type { RuntimeOutboundState } from "@/api/generated/model"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -261,12 +262,11 @@ export function RoutingRulesPage() {
       ) : (
         <div className="space-y-3">
           {selectedRuleIndicesResolved.size > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-              <span className="text-sm font-medium tabular-nums">
-                {t("pages.routingRules.bulk.selected", {
-                  count: selectedRuleIndicesResolved.size,
-                })}
-              </span>
+            <BulkSelectionToolbar
+              countLabel={t("pages.routingRules.bulk.selected", {
+                count: selectedRuleIndicesResolved.size,
+              })}
+            >
               <Button
                 disabled={configMutationPending}
                 onClick={() => handleBulkSetEnabled(true)}
@@ -287,7 +287,7 @@ export function RoutingRulesPage() {
                 <Trash2 className="mr-1 h-4 w-4" />
                 {t("pages.routingRules.bulk.delete")}
               </Button>
-            </div>
+            </BulkSelectionToolbar>
           ) : null}
           <DataTable
             headers={[

@@ -1,56 +1,24 @@
 import type { Page, Route } from "@playwright/test"
 
+import type { ConfigObject } from "../src/api/generated/model/configObject"
+import type { Outbound } from "../src/api/generated/model/outbound"
+import {
+  createAppMockConfig,
+  createAppMockListRefreshState,
+  E2E_RUNTIME_INTERFACES,
+} from "../fixtures/app-mock-config"
+
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-type MockConfig = {
-  lists: Record<string, { domains?: string[]; url?: string }>
-  outbounds: Array<{
-    type: string
-    tag: string
-    interface?: string
-  }>
-  route: {
-    rules: Array<{
-      outbound: string
-      list?: string[]
-      dest_addr?: string
-      proto?: string
-      enabled?: boolean
-    }>
-  }
-}
-
-let mockConfig: MockConfig = createDefaultMockConfig()
+let mockConfig: ConfigObject = createAppMockConfig()
 let mockIsDraft = false
-
-function createDefaultMockConfig(): MockConfig {
-  return {
-    lists: {
-      shared_list: { domains: ["example.com"], url: "https://example.com/list.txt" },
-      other_list: { domains: ["other.example"] },
-    },
-    outbounds: [
-      { type: "interface", tag: "wan0", interface: "ppp0" },
-      { type: "ignore", tag: "drop" },
-    ],
-    route: {
-      rules: [
-        { outbound: "wan0", list: ["shared_list"], dest_addr: "10.0.0.0/8" },
-        { outbound: "drop", list: ["shared_list"], proto: "udp" },
-      ],
-    },
-  }
-}
+let postConfigCallCount = 0
 
 function configStateResponse() {
   return {
     config: mockConfig,
     is_draft: mockIsDraft,
-    list_refresh_state: {
-      shared_list: {
-        last_refresh_ts: Math.floor(Date.now() / 1000) - 3600,
-      },
-    },
+    list_refresh_state: createAppMockListRefreshState(),
   }
 }
 
@@ -99,10 +67,10 @@ export async function installAppApiMocks(page: Page) {
 
     if (method === "GET" && pathname === "/api/runtime/outbounds") {
       await fulfillJson(route, 200, {
-        outbounds: mockConfig.outbounds.map((outbound) => ({
+        outbounds: (mockConfig.outbounds ?? []).map((outbound: Outbound) => ({
           tag: outbound.tag,
           type: outbound.type,
-          status: "healthy",
+          status: outbound.tag === "drop" ? "unavailable" : "healthy",
           interfaces:
             outbound.type === "interface"
               ? [
@@ -119,19 +87,7 @@ export async function installAppApiMocks(page: Page) {
     }
 
     if (method === "GET" && pathname === "/api/runtime/interfaces") {
-      await fulfillJson(route, 200, {
-        interfaces: [
-          {
-            name: "e2e_wan",
-            status: "up",
-            admin_up: true,
-            oper_state: "up",
-            carrier: true,
-            ipv4_addresses: ["192.0.2.10/24", "192.0.2.11/24", "192.0.2.12/24"],
-            ipv6_addresses: ["2001:db8::1/64", "2001:db8::2/64"],
-          },
-        ],
-      })
+      await fulfillJson(route, 200, E2E_RUNTIME_INTERFACES)
       return
     }
 
@@ -141,9 +97,10 @@ export async function installAppApiMocks(page: Page) {
     }
 
     if (method === "POST" && pathname === "/api/config") {
-      const body = request.postDataJSON() as MockConfig
+      const body = request.postDataJSON() as ConfigObject
       mockConfig = body
       mockIsDraft = true
+      postConfigCallCount += 1
       await fulfillJson(route, 200, {
         status: "ok",
         message: "staged",
@@ -165,7 +122,7 @@ export async function installAppApiMocks(page: Page) {
       await fulfillJson(route, 200, {
         status: "ok",
         message: "refreshed",
-        refreshed_lists: Object.keys(mockConfig.lists),
+        refreshed_lists: Object.keys(mockConfig.lists ?? {}),
         changed_lists: [],
         failed_lists: [],
         reloaded: false,
@@ -223,6 +180,15 @@ export async function installAppApiMocks(page: Page) {
 
 /** Reset in-memory mock config between tests in the same worker. */
 export function resetAppApiMocks() {
-  mockConfig = createDefaultMockConfig()
+  mockConfig = createAppMockConfig()
   mockIsDraft = false
+  postConfigCallCount = 0
+}
+
+export function getMockApiState() {
+  return {
+    config: mockConfig,
+    isDraft: mockIsDraft,
+    postConfigCallCount,
+  }
 }
