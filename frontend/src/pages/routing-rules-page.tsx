@@ -11,6 +11,7 @@ import type { RuntimeOutboundState } from "@/api/generated/model"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
@@ -242,7 +243,7 @@ export function RoutingRulesPage() {
         title={t("pages.routingRules.title")}
       />
 
-
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />

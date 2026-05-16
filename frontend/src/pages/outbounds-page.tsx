@@ -14,6 +14,7 @@ import { queryKeys } from "@/api/query-keys"
 import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
@@ -56,7 +57,6 @@ export function OutboundsPage() {
     },
   })
   const loadedConfig = selectConfig(configQuery.data)
-  // using toasts for mutation errors
 
   const runtimeOutboundByTag = useMemo(
     () =>
@@ -233,6 +233,8 @@ export function OutboundsPage() {
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
       />
+
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />

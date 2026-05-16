@@ -3,21 +3,19 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
-import type { ApiError } from "@/api/client"
 import type { getConfigResponse } from "@/api/generated/keen-api"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import { DnsServerType } from "@/api/generated/model/dnsServerType"
 import { usePostConfigMutation, useConfigMutationPending } from "@/api/mutations"
 import { useGetConfig } from "@/api/queries"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getApiErrorMessage } from "@/lib/api-errors"
 
 export function DnsServersPage() {
   const { t } = useTranslation()
@@ -77,10 +75,6 @@ export function DnsServersPage() {
       )
     },
   }
-
-  const mutationErrorMessage = getApiErrorMessage(
-    postConfigMutation.error as ApiError | null
-  )
 
   const deleteServersBulk = () => {
     if (!config || selectedDnsServerTagsResolved.size === 0) {
@@ -199,13 +193,7 @@ export function DnsServersPage() {
         title={t("pages.dnsServers.title")}
       />
 
-      {mutationErrorMessage ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {mutationErrorMessage}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -249,44 +237,44 @@ export function DnsServersPage() {
             ]}
             narrowColumns={[0]}
             rows={dnsServers.map((server) => [
-            <div className="font-medium" key={`${server.tag}-tag`}>
-              {server.tag}
-            </div>,
-            <span
-              className="text-sm text-muted-foreground"
-              key={`${server.tag}-address`}
-            >
-              {server.type === DnsServerType.keenetic
-                ? t("pages.dnsServers.keeneticAddress")
-                : server.address}
-            </span>,
-            <Badge
-              key={`${server.tag}-detour`}
-              variant={server.detour ? "outline" : "secondary"}
-            >
-              {server.detour || t("pages.dnsServers.none")}
-            </Badge>,
-            <ActionButtons
-              actions={[
-                {
-                  disabled: configMutationPending,
-                  icon: <Pencil className="h-4 w-4" />,
-                  label: t("common.edit"),
-                  onClick: () =>
-                    navigate(
-                      `/dns-servers/${encodeURIComponent(server.tag)}/edit`
-                    ),
-                },
-                {
-                  disabled: configMutationPending,
-                  icon: <Trash2 className="h-4 w-4" />,
-                  label: t("common.delete"),
-                  onClick: () => deleteServer(server.tag),
-                },
-              ]}
-              key={`${server.tag}-actions`}
-            />,
-          ])}
+              <div className="font-medium" key={`${server.tag}-tag`}>
+                {server.tag}
+              </div>,
+              <span
+                className="text-sm text-muted-foreground"
+                key={`${server.tag}-address`}
+              >
+                {server.type === DnsServerType.keenetic
+                  ? t("pages.dnsServers.keeneticAddress")
+                  : server.address}
+              </span>,
+              <Badge
+                key={`${server.tag}-detour`}
+                variant={server.detour ? "outline" : "secondary"}
+              >
+                {server.detour || t("pages.dnsServers.none")}
+              </Badge>,
+              <ActionButtons
+                actions={[
+                  {
+                    disabled: configMutationPending,
+                    icon: <Pencil className="h-4 w-4" />,
+                    label: t("common.edit"),
+                    onClick: () =>
+                      navigate(
+                        `/dns-servers/${encodeURIComponent(server.tag)}/edit`
+                      ),
+                  },
+                  {
+                    disabled: configMutationPending,
+                    icon: <Trash2 className="h-4 w-4" />,
+                    label: t("common.delete"),
+                    onClick: () => deleteServer(server.tag),
+                  },
+                ]}
+                key={`${server.tag}-actions`}
+              />,
+            ])}
             selection={dnsServerSelectionProps}
           />
         </div>

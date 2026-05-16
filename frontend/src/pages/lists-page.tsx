@@ -17,12 +17,12 @@ import {
   selectListRefreshState,
 } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatsDisplay } from "@/components/shared/stats-display"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -346,13 +346,7 @@ export function ListsPage() {
         title={t("pages.lists.title")}
       />
 
-      {postConfigMutation.error ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {getApiErrorMessage(postConfigMutation.error as ApiError)}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />

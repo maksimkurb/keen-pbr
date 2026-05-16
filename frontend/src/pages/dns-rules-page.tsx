@@ -12,6 +12,7 @@ import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import { selectConfig } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import {
   Field,
@@ -286,6 +287,8 @@ export function DnsRulesPage() {
         description={t("pages.dnsRules.description")}
         title={t("pages.dnsRules.title")}
       />
+
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
