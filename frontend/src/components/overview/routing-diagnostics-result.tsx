@@ -81,9 +81,7 @@ export function RoutingDiagnosticsResult({
                     >
                       <div className="space-y-1 py-1">
                         <div className="font-semibold">
-                          {t("overview.routingDiagnostics.ruleNumber", {
-                            value: rule.rule_index + 1,
-                          })}
+                          #{rule.rule_index + 1}
                         </div>
                         <div>{rule.outbound}</div>
                         <div className="text-xs text-muted-foreground">
