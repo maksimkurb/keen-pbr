@@ -27,6 +27,40 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: process.env.KEEN_PBR_FRONTEND_OUT_DIR || "dist",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 768,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return undefined
+          }
+          if (
+            id.includes("@tanstack/react-query") ||
+            id.includes("@tanstack/query-core")
+          ) {
+            return "tanstack-query"
+          }
+          if (
+            id.includes("@tanstack/react-form") ||
+            id.includes("@tanstack/form-core") ||
+            id.includes("@tanstack/store")
+          ) {
+            return "tanstack-form"
+          }
+          if (
+            id.includes("i18next") ||
+            id.includes("react-i18next") ||
+            id.includes("i18next-")
+          ) {
+            return "i18n"
+          }
+          if (id.includes("lucide-react")) {
+            return "icons"
+          }
+          return "vendor"
+        },
+      },
+    },
   },
   server: {
     proxy: {
