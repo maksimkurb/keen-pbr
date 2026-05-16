@@ -6,6 +6,7 @@
 #include "../log/trace.hpp"
 #include "../util/traced_mutex.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
@@ -14,6 +15,8 @@
 #include <httplib.h>
 #include <atomic>
 #include <cctype>
+#include <cstdlib>
+#include <optional>
 #include <unordered_map>
 #include <nlohmann/json.hpp>
 
@@ -79,17 +82,114 @@ bool serve_file_response(httplib::Response& res,
                          const std::filesystem::path& path,
                          const std::filesystem::path& mime_from_path,
                          bool gzip_encoded) {
+    if (gzip_encoded) {
+        res.set_file_content(path.string(), get_mime_type_for_path(mime_from_path));
+        res.set_header("Content-Encoding", "gzip");
+        res.set_header("Vary", "Accept-Encoding");
+        return true;
+    }
+
     std::string body;
     if (!read_file(path, body)) {
         return false;
     }
-
     res.set_content(body, get_mime_type_for_path(mime_from_path));
-    if (gzip_encoded) {
-        res.set_header("Content-Encoding", "gzip");
-        res.set_header("Vary", "Accept-Encoding");
-    }
     return true;
+}
+
+std::string trim_ascii(std::string value) {
+    auto first = value.begin();
+    while (first != value.end() && std::isspace(static_cast<unsigned char>(*first)) != 0) {
+        ++first;
+    }
+
+    auto last = value.end();
+    while (last != first && std::isspace(static_cast<unsigned char>(*(last - 1))) != 0) {
+        --last;
+    }
+
+    return std::string(first, last);
+}
+
+bool parse_accept_encoding_token(const std::string& token, std::string& encoding, double& q) {
+    q = 1.0;
+    const auto semicolon = token.find(';');
+    encoding = trim_ascii(token.substr(0, semicolon));
+    if (encoding.empty()) {
+        return false;
+    }
+
+    std::transform(encoding.begin(), encoding.end(), encoding.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+
+    if (semicolon == std::string::npos) {
+        return true;
+    }
+
+    size_t cursor = semicolon + 1;
+    while (cursor < token.size()) {
+        const auto next = token.find(';', cursor);
+        const auto param = trim_ascii(token.substr(cursor, next == std::string::npos
+                                                              ? std::string::npos
+                                                              : next - cursor));
+        const auto equals = param.find('=');
+        if (equals != std::string::npos) {
+            auto name = trim_ascii(param.substr(0, equals));
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) {
+                return static_cast<char>(std::tolower(ch));
+            });
+            if (name == "q") {
+                char* end = nullptr;
+                const auto value = trim_ascii(param.substr(equals + 1));
+                q = std::strtod(value.c_str(), &end);
+                return end != value.c_str() && q >= 0.0;
+            }
+        }
+
+        if (next == std::string::npos) {
+            break;
+        }
+        cursor = next + 1;
+    }
+
+    return true;
+}
+
+bool request_accepts_gzip(const httplib::Request& req) {
+    const auto header_count = req.get_header_value_count("Accept-Encoding");
+    if (header_count == 0) {
+        return false;
+    }
+
+    std::optional<double> gzip_q;
+    std::optional<double> wildcard_q;
+    for (size_t header_index = 0; header_index < header_count; ++header_index) {
+        const auto header = req.get_header_value("Accept-Encoding", "", header_index);
+        size_t cursor = 0;
+        while (cursor <= header.size()) {
+            const auto next = header.find(',', cursor);
+            const auto token = header.substr(cursor, next == std::string::npos
+                                                         ? std::string::npos
+                                                         : next - cursor);
+            std::string encoding;
+            double q = 0.0;
+            if (parse_accept_encoding_token(token, encoding, q)) {
+                if (encoding == "gzip") {
+                    gzip_q = q;
+                } else if (encoding == "*") {
+                    wildcard_q = q;
+                }
+            }
+
+            if (next == std::string::npos) {
+                break;
+            }
+            cursor = next + 1;
+        }
+    }
+
+    return gzip_q.value_or(wildcard_q.value_or(0.0)) > 0.0;
 }
 
 std::int64_t request_duration_ms(std::chrono::steady_clock::time_point started_at) {
@@ -348,13 +448,16 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
             log_request_end(req, "static", res.status == 0 ? 200 : res.status, started_at);
         };
 
-        auto serve_index = [&res, &root]() -> bool {
+        const bool accepts_gzip = request_accepts_gzip(req);
+
+        auto serve_index = [&res, &root, accepts_gzip]() -> bool {
             const fs::path index_path = root / "index.html";
             auto index_gzip_path = index_path;
             index_gzip_path += ".gz";
 
             fs::path resolved_index_gzip;
-            if (resolve_static_file_under_root(root, index_gzip_path, resolved_index_gzip)) {
+            if (accepts_gzip &&
+                resolve_static_file_under_root(root, index_gzip_path, resolved_index_gzip)) {
                 return serve_file_response(res, resolved_index_gzip, index_path, true);
             }
 
@@ -399,7 +502,7 @@ bool ApiServer::register_static_root(const std::string& frontend_root) {
         requested_gzip += ".gz";
 
         fs::path resolved_gzip;
-        if (resolve_static_file_under_root(root, requested_gzip, resolved_gzip)) {
+        if (accepts_gzip && resolve_static_file_under_root(root, requested_gzip, resolved_gzip)) {
             if (serve_file_response(res, resolved_gzip, requested, true)) {
                 finish();
                 return;

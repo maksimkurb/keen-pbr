@@ -18,6 +18,7 @@ add_executable(keen-pbr-tests
   test_routing_state.cpp
   test_runtime_interface_inventory.cpp
   test_api_runtime_interfaces.cpp
+  test_api_static.cpp
   test_resolver_health.cpp
   test_system_resolver_hook.cpp
   test_system_info.cpp
