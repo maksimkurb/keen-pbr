@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react"
 import { Route, Switch } from "wouter"
 
 import { AppShell } from "@/components/layout/app-shell"
+import { ScrollToTopOnRouteChange } from "@/components/layout/scroll-route"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 
 const OverviewPage = lazy(() =>
@@ -56,10 +57,13 @@ const RoutingRulesPage = lazy(() =>
     default: m.RoutingRulesPage,
   })),
 )
+const NotFoundPage = lazy(() =>
+  import("@/pages/not-found-page").then((m) => ({ default: m.NotFoundPage })),
+)
 
 function RouteSuspenseFallback() {
   return (
-    <div className="space-y-4 px-4 py-6 md:px-6">
+    <div className="space-y-4 py-2">
       <TableSkeleton />
     </div>
   )
@@ -69,6 +73,7 @@ function App() {
   return (
     <AppShell>
       <Suspense fallback={<RouteSuspenseFallback />}>
+        <ScrollToTopOnRouteChange />
         <Switch>
           <Route component={OverviewPage} path="/" />
           <Route component={GeneralConfigPage} path="/general" />
@@ -124,7 +129,7 @@ function App() {
             )}
           </Route>
           <Route component={RoutingRulesPage} path="/routing-rules" />
-          <Route component={OverviewPage} />
+          <Route component={NotFoundPage} />
         </Switch>
       </Suspense>
     </AppShell>
