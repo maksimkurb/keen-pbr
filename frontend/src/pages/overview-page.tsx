@@ -9,6 +9,7 @@ import {
   useGetConfig,
   useGetHealthRouting,
   useGetHealthService,
+  useGetRuntimeInterfaces,
   useGetRuntimeOutbounds,
 } from "@/api/queries"
 import {
@@ -61,6 +62,12 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
+    query: {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    },
+  })
 
   const postServiceStartMutation = usePostServiceActionMutation("start")
   const postServiceStopMutation = usePostServiceActionMutation("stop")
@@ -93,6 +100,16 @@ export function OverviewPage() {
       ),
     [runtimeOutbounds]
   )
+  const runtimeInterfaceByName = useMemo(
+    () =>
+      new Map(
+        (runtimeInterfacesQuery.data?.status === 200
+          ? runtimeInterfacesQuery.data.data.interfaces
+          : []
+        ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface])
+      ),
+    [runtimeInterfacesQuery.data]
+  )
   const dnsmasqBadge = getDnsmasqBadgeState(
     serviceHealth?.resolver_live_status,
     serviceHealth?.resolver_config_sync_state
@@ -124,6 +141,7 @@ export function OverviewPage() {
           fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
           fallbackTone={getRuntimeFallbackTone(outbound)}
           runtimeState={runtimeState}
+          runtimeInterfaces={runtimeInterfaceByName}
           t={t}
           variant="tree"
         />
@@ -133,34 +151,22 @@ export function OverviewPage() {
         outbound.type === "interface" ||
         detailContent ? (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="font-medium">{outbound.tag}</div>
-              <Badge size="xs" variant="outline">
-                {outbound.type}
-              </Badge>
-            </div>
+            <OutboundHeader
+              outbound={outbound}
+              runtimeState={runtimeState}
+            />
             {detailContent}
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="font-medium">{outbound.tag}</div>
-            <Badge size="xs" variant="outline">
-              {outbound.type}
-            </Badge>
-          </div>
+          <OutboundHeader
+            outbound={outbound}
+            runtimeState={runtimeState}
+          />
         )
 
-      return [
-        tagCell,
-        <StatusBadge
-          key={`${outbound.tag}-status`}
-          tone={mapRuntimeHealthTone(runtimeState?.status)}
-        >
-          {runtimeState?.status ?? "unknown"}
-        </StatusBadge>,
-      ]
+      return [tagCell]
     })
-  }, [loadedConfig, runtimeOutboundByTag, t])
+  }, [loadedConfig, runtimeInterfaceByName, runtimeOutboundByTag, t])
 
   const routingHealthErrorMessage = routingHealthQuery.isError
     ? getRoutingHealthErrorMessage(routingHealthQuery.error, t)
@@ -443,6 +449,26 @@ function StatusBadge({
     >
       {children}
     </Badge>
+  )
+}
+
+function OutboundHeader({
+  outbound,
+  runtimeState,
+}: {
+  outbound: Outbound
+  runtimeState?: RuntimeOutboundState
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="font-medium">{outbound.tag}</div>
+      <Badge size="xs" variant="outline">
+        {outbound.type}
+      </Badge>
+      <StatusBadge tone={mapRuntimeHealthTone(runtimeState?.status)}>
+        {runtimeState?.status ?? "unknown"}
+      </StatusBadge>
+    </div>
   )
 }
 

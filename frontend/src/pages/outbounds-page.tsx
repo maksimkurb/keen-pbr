@@ -1,4 +1,5 @@
 import { Pencil, Plus, Trash2 } from "lucide-react"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -7,14 +8,24 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig, useGetRuntimeOutbounds } from "@/api/queries"
+import {
+  useGetConfig,
+  useGetRuntimeInterfaces,
+  useGetRuntimeOutbounds,
+} from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
 import { DataTable } from "@/components/shared/data-table"
+import { InterfaceRowContent } from "@/components/shared/interface-picker"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
+import {
+  RuntimeInterfaceStatusRow,
+  RuntimeStateBadge,
+} from "@/components/shared/outbound-interface-status-list"
 import { PageHeader } from "@/components/shared/page-header"
 import {
   RuntimeOutboundDetails,
@@ -30,7 +41,9 @@ type OutboundItem = {
   id: string
   tag: string
   type: Outbound["type"]
-  summary: string
+  summary: ReactNode
+  outbound: Outbound
+  runtimeInterface?: RuntimeInterfaceInventoryEntry
   runtimeState?: RuntimeOutboundState
 }
 
@@ -45,6 +58,12 @@ export function OutboundsPage() {
       refetchIntervalInBackground: false,
     },
   })
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
   const loadedConfig = selectConfig(configQuery.data)
   // using toasts for mutation errors
 
@@ -54,8 +73,19 @@ export function OutboundsPage() {
       : []
     ).map((runtimeOutbound) => [runtimeOutbound.tag, runtimeOutbound])
   )
+  const runtimeInterfaceByName = new Map(
+    (runtimeInterfacesQuery.data?.status === 200
+      ? runtimeInterfacesQuery.data.data.interfaces
+      : []
+    ).map((runtimeInterface) => [runtimeInterface.name, runtimeInterface])
+  )
   const outboundItems = selectOutbounds(loadedConfig).map((outbound) =>
-    mapOutboundToItem(outbound, runtimeOutboundByTag.get(outbound.tag), t)
+    mapOutboundToItem(
+      outbound,
+      runtimeOutboundByTag.get(outbound.tag),
+      runtimeInterfaceByName.get(outbound.interface ?? ""),
+      t
+    )
   )
 
   const postConfigMutation = usePostConfigMutation({
@@ -152,19 +182,19 @@ export function OutboundsPage() {
             <Badge key={`${outbound.id}-type`} variant="outline">
               {outbound.type}
             </Badge>,
-            <span
-              className="text-sm text-muted-foreground"
+            <div
+              className="min-w-0 text-sm text-muted-foreground"
               key={`${outbound.id}-summary`}
             >
               {outbound.summary}
-            </span>,
-            <RuntimeOutboundDetails
-              fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
-              fallbackTone={getRuntimeFallbackTone(outbound)}
+            </div>,
+            <OutboundRuntimeCell
               key={`${outbound.id}-runtime`}
+              outbound={outbound.outbound}
+              runtimeInterface={outbound.runtimeInterface}
+              runtimeInterfaces={runtimeInterfaceByName}
               runtimeState={outbound.runtimeState}
               t={t}
-              variant="list"
             />,
             <ActionButtons
               actions={[
@@ -191,6 +221,7 @@ export function OutboundsPage() {
 function mapOutboundToItem(
   outbound: Outbound,
   runtimeState: RuntimeOutboundState | undefined,
+  runtimeInterface: RuntimeInterfaceInventoryEntry | undefined,
   t: (key: string, options?: Record<string, unknown>) => string
 ): OutboundItem {
   return {
@@ -198,6 +229,8 @@ function mapOutboundToItem(
     tag: outbound.tag,
     type: outbound.type,
     summary: getOutboundSummary(outbound, t),
+    outbound,
+    runtimeInterface,
     runtimeState,
   }
 }
@@ -205,7 +238,7 @@ function mapOutboundToItem(
 function getOutboundSummary(
   outbound: Outbound,
   t: (key: string, options?: Record<string, unknown>) => string
-): string {
+): ReactNode {
   if (outbound.type === "interface") {
     return t("pages.outbounds.summary.interface", {
       value: outbound.interface ?? "-",
@@ -227,6 +260,99 @@ function getOutboundSummary(
   }
 
   return t("common.noneShort")
+}
+
+function SummaryChip({ value }: { value: string }) {
+  return (
+    <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+      {value}
+    </code>
+  )
+}
+
+function OutboundRuntimeCell({
+  outbound,
+  runtimeState,
+  runtimeInterface,
+  runtimeInterfaces,
+  t,
+}: {
+  outbound: Outbound
+  runtimeState?: RuntimeOutboundState
+  runtimeInterface?: RuntimeInterfaceInventoryEntry
+  runtimeInterfaces: Map<string, RuntimeInterfaceInventoryEntry>
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  if (outbound.type === "interface") {
+    const runtimeInterfaceState = runtimeState?.interfaces[0]
+
+    return (
+      <RuntimeInterfaceStatusRow
+        item={{
+          name: outbound.interface ?? "-",
+          tone: getInterfaceRuntimeTone(runtimeInterfaceState?.status),
+        }}
+        variant="list"
+      >
+        <InterfaceRowContent
+          afterStatus={
+            runtimeInterfaceState ? (
+              <RuntimeStateBadge
+                active={runtimeInterfaceState.status === "active"}
+                label={t(`runtime.interfaceStatus.${runtimeInterfaceState.status}`)}
+                tone={getInterfaceRuntimeTone(runtimeInterfaceState.status)}
+              />
+            ) : null
+          }
+          grow={false}
+          interfaceEntry={runtimeInterface}
+          isVirtual={!runtimeInterface}
+          name={outbound.interface ?? "-"}
+        />
+        {outbound.gateway ? (
+          <SummaryChip
+            value={t("pages.outbounds.summary.gateway4", {
+              value: outbound.gateway,
+            })}
+          />
+        ) : null}
+        {outbound.gateway6 ? (
+          <SummaryChip
+            value={t("pages.outbounds.summary.gateway6", {
+              value: outbound.gateway6,
+            })}
+          />
+        ) : null}
+      </RuntimeInterfaceStatusRow>
+    )
+  }
+
+  return (
+    <RuntimeOutboundDetails
+      fallbackLabel={getRuntimeFallbackLabel(outbound, t)}
+      fallbackTone={getRuntimeFallbackTone(outbound)}
+      runtimeState={runtimeState}
+      runtimeInterfaces={runtimeInterfaces}
+      t={t}
+      variant="list"
+    />
+  )
+}
+
+function getInterfaceRuntimeTone(
+  status?: RuntimeOutboundState["interfaces"][number]["status"]
+) {
+  switch (status) {
+    case "active":
+    case "backup":
+      return "healthy"
+    case "degraded":
+    case "unavailable":
+      return "degraded"
+    case "unknown":
+    default:
+      return "unknown"
+  }
 }
 
 function getRuntimeFallbackLabel(

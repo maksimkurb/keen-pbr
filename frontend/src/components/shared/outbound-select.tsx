@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import type { Outbound } from "@/api/generated/model/outbound"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
 import { useGetRuntimeOutbounds } from "@/api/queries"
+import { RuntimeOutboundStatusLabel } from "@/components/shared/runtime-outbound-state"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -77,7 +78,13 @@ export function OutboundSelect({
               return allowEmpty ? resolvedEmptyLabel : resolvedPlaceholder
             }
 
-            return selected
+            return (
+              <RuntimeOutboundStatusLabel
+                runtimeState={runtimeOutboundsByTag.get(selected)}
+                t={t}
+                title={selected}
+              />
+            )
           }}
         </SelectValue>
       </SelectTrigger>
@@ -115,21 +122,15 @@ function OutboundSelectOption({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
-      <span className="truncate font-medium">{outbound.tag}</span>
+      <RuntimeOutboundStatusLabel
+        runtimeState={runtimeState}
+        t={t}
+        title={outbound.tag}
+      />
       <span className="flex shrink-0 items-center gap-2">
         <Badge size="xs" variant="outline">
           {outbound.type}
         </Badge>
-        {runtimeState ? (
-          <Badge
-            size="xs"
-            variant={runtimeState.status === "healthy" ? "success" : "warning"}
-          >
-            {runtimeState.status === "healthy"
-              ? t("runtime.healthy")
-              : t("runtime.notHealthy")}
-          </Badge>
-        ) : null}
       </span>
     </div>
   )

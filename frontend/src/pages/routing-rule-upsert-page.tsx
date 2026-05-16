@@ -19,6 +19,7 @@ import {
   FieldLabel,
 } from "@/components/shared/field"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
+import { OutboundSelect } from "@/components/shared/outbound-select"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { toast } from "sonner"
@@ -152,17 +153,16 @@ function RoutingRuleForm({
   const listOptions = Object.keys(loadedConfig.lists ?? {}).sort((left, right) =>
     left.localeCompare(right)
   )
-  const outboundOptions = (loadedConfig.outbounds ?? [])
-    .map((outbound: Outbound) => outbound.tag)
-    .filter((tag): tag is string => Boolean(tag))
-    .sort((left: string, right: string) => left.localeCompare(right))
+  const outbounds = (loadedConfig.outbounds ?? [])
+    .filter((outbound: Outbound): outbound is Outbound & { tag: string } =>
+      Boolean(outbound.tag)
+    )
+    .sort((left: Outbound, right: Outbound) =>
+      left.tag.localeCompare(right.tag)
+    )
   const protoSelectItems = protoOptions.map((option) => ({
     value: option,
     label: option || t("pages.routingRuleUpsert.fields.anyLower"),
-  }))
-  const outboundSelectItems = outboundOptions.map((option) => ({
-    value: option,
-    label: option,
   }))
 
   const postConfigMutation = usePostConfigMutation()
@@ -528,33 +528,12 @@ function RoutingRuleForm({
                     {t("pages.routingRuleUpsert.fields.outbound")}
                   </FieldLabel>
                   <FieldContent>
-                    <Select
-                      items={outboundSelectItems}
-                      onValueChange={(value) => field.handleChange(value ?? "")}
+                    <OutboundSelect
+                      ariaInvalid={Boolean(error)}
+                      onValueChange={field.handleChange}
+                      outbounds={outbounds}
                       value={field.state.value}
-                    >
-                      <SelectTrigger aria-invalid={Boolean(error)}>
-                        <SelectValue
-                          placeholder={t(
-                            "pages.routingRuleUpsert.fields.selectOutbound"
-                          )}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>
-                            {t(
-                              "pages.routingRuleUpsert.fields.configuredOutbounds"
-                            )}
-                          </SelectLabel>
-                          {outboundOptions.map((option: string) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    />
                     <FieldHint
                       description={t(
                         "pages.routingRuleUpsert.fields.outboundHint"

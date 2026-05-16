@@ -10,9 +10,10 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import { usePostConfigMutation } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
-import { useGetConfig } from "@/api/queries"
+import { useGetConfig, useGetRuntimeInterfaces } from "@/api/queries"
 import {
   findOutboundByTag,
   selectConfig,
@@ -25,6 +26,10 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
+import {
+  InterfacePicker,
+  OutboundInterfaceLabel,
+} from "@/components/shared/interface-picker"
 import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { OrderedGroupCard } from "@/components/shared/ordered-group-card"
 import { SectionCard } from "@/components/shared/section-card"
@@ -39,6 +44,7 @@ import {
   splitFormApiErrors,
 } from "@/lib/form-api-errors"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
+import { getInterfaceSearchText } from "@/lib/runtime-interfaces"
 import {
   Select,
   SelectContent,
@@ -229,6 +235,27 @@ function OutboundForm({
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const existingOutbounds = selectOutbounds(loadedConfig)
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
+    query: {
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  })
+  const runtimeInterfaces =
+    runtimeInterfacesQuery.data?.status === 200
+      ? runtimeInterfacesQuery.data.data.interfaces
+      : []
+  const runtimeInterfaceByName = new Map(
+    runtimeInterfaces.map((runtimeInterface) => [
+      runtimeInterface.name,
+      runtimeInterface,
+    ])
+  )
+  const interfaceOutboundByTag = new Map(
+    existingOutbounds
+      .filter((item) => item.type === "interface" && item.tag !== draft.tag)
+      .map((item) => [item.tag, item])
+  )
   const interfaceOutboundOptions = existingOutbounds
     .filter((item) => item.type === "interface" && item.tag !== draft.tag)
     .map((item) => item.tag)
@@ -476,11 +503,16 @@ function OutboundForm({
                       {t("pages.outboundUpsert.interface.interface")}
                     </FieldLabel>
                     <FieldContent>
-                      <Input
-                        aria-invalid={Boolean(error)}
+                      <InterfacePicker
+                        allowCustomOption
                         id={interfaceId}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        interfaces={runtimeInterfaces}
+                        invalid={Boolean(error)}
+                        onChange={field.handleChange}
+                        onSelect={field.handleChange}
+                        placeholder={t("pages.outboundUpsert.interface.interfacePlaceholder")}
+                        renderSelectedInline
+                        showDetails={false}
                         value={field.state.value}
                       />
                       <FieldHint
@@ -667,6 +699,25 @@ function OutboundForm({
                                 )
                               }
                               options={interfaceOutboundOptions}
+                              getSearchText={(tag) =>
+                                getInterfaceOutboundSearchText(
+                                  tag,
+                                  interfaceOutboundByTag.get(tag)?.interface,
+                                  runtimeInterfaceByName
+                                )
+                              }
+                              renderItem={(tag) =>
+                                <OutboundInterfaceLabel
+                                  interfaceName={interfaceOutboundByTag.get(tag)?.interface}
+                                  runtimeInterface={
+                                    runtimeInterfaceByName.get(
+                                      interfaceOutboundByTag.get(tag)?.interface ?? ""
+                                    )
+                                  }
+                                  t={t}
+                                  tag={tag}
+                                />
+                              }
                               unavailable={getUnavailableOutbounds(groups, index)}
                               value={group}
                             />
@@ -1186,6 +1237,20 @@ function getNextAvailableOutbounds(options: string[], groups: string[][]) {
   const used = new Set(groups.flatMap((group) => group))
   const next = options.find((option) => !used.has(option))
   return next ? [next] : []
+}
+
+function getInterfaceOutboundSearchText(
+  tag: string,
+  interfaceName: string | undefined,
+  runtimeInterfaceByName: Map<string, RuntimeInterfaceInventoryEntry>
+) {
+  const runtimeInterface = interfaceName
+    ? runtimeInterfaceByName.get(interfaceName)
+    : undefined
+
+  return [tag, interfaceName, getInterfaceSearchText(runtimeInterface)]
+    .filter(Boolean)
+    .join(" ")
 }
 
 function mapStrictEnforcementToOption(value: boolean | undefined): string {

@@ -1,10 +1,15 @@
-import type { RuntimeInterfaceState, RuntimeOutboundState } from "@/api/generated/model"
+import type {
+  RuntimeInterfaceInventoryEntry,
+  RuntimeInterfaceState,
+  RuntimeOutboundState,
+} from "@/api/generated/model"
+import { InterfaceRowContent } from "@/components/shared/interface-picker"
 import {
   OutboundInterfaceStatusList,
   type OutboundInterfaceStatusItem,
+  RuntimeStateBadge,
 } from "@/components/shared/outbound-interface-status-list"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
 
@@ -17,27 +22,41 @@ export function RuntimeOutboundEntry({
   title?: string
   t: TranslateFn
 }) {
-  if (!runtimeState) {
-    return title ? <div className="font-medium">{title}</div> : null
-  }
+  return title ? (
+    <RuntimeOutboundStatusLabel
+      runtimeState={runtimeState}
+      t={t}
+      title={title}
+    />
+  ) : null
+}
 
-  const supportsDiagnostics =
-    runtimeState.type === "interface" || runtimeState.type === "urltest"
-
+export function RuntimeOutboundStatusLabel({
+  runtimeState,
+  title,
+  t,
+}: {
+  runtimeState?: RuntimeOutboundState
+  title: string
+  t: TranslateFn
+}) {
   return (
-    <div className={cn("max-w-md")}>
-      <div className="flex flex-wrap items-center gap-2">
-        {title ? <div className="font-medium">{title}</div> : null}
-        {supportsDiagnostics ? (
-          <Badge
-            variant={runtimeState.status === "healthy" ? "success" : "warning"}
-          >
-            {runtimeState.status === "healthy"
-              ? t("runtime.healthy")
-              : t("runtime.notHealthy")}
-          </Badge>
-        ) : null}
-      </div>
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="truncate font-medium">{title}</span>
+      <Badge
+        size="xs"
+        variant={
+          runtimeState?.status === "healthy"
+            ? "success"
+            : runtimeState?.status === "degraded"
+              ? "warning"
+              : runtimeState?.status === "unavailable"
+                ? "destructive"
+                : "outline"
+        }
+      >
+        {t(`runtime.outboundStatus.${runtimeState?.status ?? "unknown"}`)}
+      </Badge>
     </div>
   )
 }
@@ -48,12 +67,14 @@ export function RuntimeOutboundDetails({
   variant = "list",
   fallbackLabel,
   fallbackTone = "unknown",
+  runtimeInterfaces,
 }: {
   runtimeState?: RuntimeOutboundState
   t: TranslateFn
   variant?: "tree" | "list"
   fallbackLabel?: string
   fallbackTone?: OutboundInterfaceStatusItem["tone"]
+  runtimeInterfaces?: Map<string, RuntimeInterfaceInventoryEntry>
 }) {
   if (!runtimeState) {
     return null
@@ -66,6 +87,7 @@ export function RuntimeOutboundDetails({
             interfaceState,
             runtimeState.type,
             index === runtimeState.interfaces.length - 1,
+            runtimeInterfaces,
             t
           )
         )
@@ -87,6 +109,7 @@ function mapRuntimeInterfaceToItem(
   interfaceState: RuntimeInterfaceState,
   parentType: RuntimeOutboundState["type"],
   isLast: boolean,
+  runtimeInterfaces: Map<string, RuntimeInterfaceInventoryEntry> | undefined,
   t: TranslateFn
 ): OutboundInterfaceStatusItem {
   const hasInterfaceName = Boolean(interfaceState.interface_name?.trim().length)
@@ -102,18 +125,47 @@ function mapRuntimeInterfaceToItem(
     interfaceState.interface_name !== interfaceState.outbound_tag
       ? `(${interfaceState.interface_name})`
       : undefined
+  const inventoryEntry = hasInterfaceName
+    ? runtimeInterfaces?.get(interfaceState.interface_name!)
+    : undefined
+  const latencyLabel =
+    typeof interfaceState.latency_ms === "number"
+      ? `${interfaceState.latency_ms} ms`
+      : undefined
+  const content = runtimeInterfaces && hasInterfaceName ? (
+    <InterfaceRowContent
+      afterStatus={
+        <>
+          <RuntimeStateBadge
+            active={interfaceState.status === "active"}
+            label={t(`runtime.interfaceStatus.${interfaceState.status}`)}
+            tone={getInterfaceTone(interfaceState.status)}
+          />
+          {latencyLabel ? (
+            <span className="text-xs text-muted-foreground">{latencyLabel}</span>
+          ) : null}
+        </>
+      }
+      grow={false}
+      interfaceEntry={inventoryEntry}
+      isVirtual={!inventoryEntry}
+      name={
+        parentType === "urltest" && hasInterfaceName
+          ? `${interfaceState.outbound_tag} (${interfaceState.interface_name})`
+          : name
+      }
+    />
+  ) : undefined
 
   return {
     name,
+    content,
     tone: getInterfaceTone(interfaceState.status),
     active: interfaceState.status === "active",
     isLast,
-    latency:
-      typeof interfaceState.latency_ms === "number"
-        ? `${interfaceState.latency_ms} ms`
-        : undefined,
+    latency: content ? undefined : latencyLabel,
     secondaryLabel,
-    stateLabel: t(`runtime.interfaceStatus.${interfaceState.status}`),
+    stateLabel: content ? undefined : t(`runtime.interfaceStatus.${interfaceState.status}`),
   }
 }
 

@@ -25,6 +25,12 @@ export const enTranslation = {
           addFirstItem: "Add your first item to start building this list.",
           removeItem: "Remove {{item}}",
         },
+        interfacePicker: {
+          open: "Open interface picker",
+          empty: "No interfaces found.",
+          notExists: "(not exists)",
+          notFound: "Interface does not exist.",
+        },
         validation: {
           tagNamePattern: "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
         },
@@ -541,6 +547,8 @@ export const enTranslation = {
           },
           summary: {
             interface: "ifname={{value}}",
+            gateway4: "gateway4={{value}}",
+            gateway6: "gateway6={{value}}",
             table: "table={{value}}",
             urltest: "outbounds={{value}}",
           },
@@ -586,6 +594,7 @@ export const enTranslation = {
             description:
               "Set the egress interface and optional IPv4/IPv6 gateways for this outbound.",
             interface: "Interface",
+            interfacePlaceholder: "Select or type an interface",
             interfaceHint: "Egress interface name, e.g. `tun0`, `eth0`, `wg0`.",
             gateway: "Gateway (IPv4)",
             gatewayHint: "Optional IPv4 gateway for this outbound.",

@@ -26,6 +26,12 @@ export const ruTranslation = {
             "Добавьте первый элемент, чтобы начать формировать этот список.",
           removeItem: "Удалить {{item}}",
         },
+        interfacePicker: {
+          open: "Открыть выбор интерфейса",
+          empty: "Интерфейсы не найдены.",
+          notExists: "(не существует)",
+          notFound: "Интерфейс не существует.",
+        },
         validation: {
           tagNamePattern: "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
         },
@@ -553,6 +559,8 @@ export const ruTranslation = {
           },
           summary: {
             interface: "ifname={{value}}",
+            gateway4: "gateway4={{value}}",
+            gateway6: "gateway6={{value}}",
             table: "table={{value}}",
             urltest: "outbounds={{value}}",
           },
@@ -599,6 +607,7 @@ export const ruTranslation = {
             description:
               "Укажите исходящий интерфейс и необязательные IPv4/IPv6 шлюзы для этого outbound.",
             interface: "Интерфейс",
+            interfacePlaceholder: "Выберите или введите интерфейс",
             interfaceHint:
               "Имя исходящего интерфейса, напр. `tun0`, `eth0`, `wg0`.",
             gateway: "Шлюз (IPv4)",

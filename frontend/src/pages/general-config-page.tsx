@@ -19,8 +19,8 @@ import {
   FieldLabel,
   FieldSeparator,
 } from "@/components/shared/field"
+import { InterfaceMultiSelectList } from "@/components/shared/interface-picker"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
-import { MultiSelectList } from "@/components/shared/multi-select-list"
 import { PageHeader } from "@/components/shared/page-header"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { Button } from "@/components/ui/button"
@@ -272,9 +272,9 @@ function LoadedGeneralConfigPage({
                   </FieldLabel>
                   <FieldContent>
                     <div id="inbound-interfaces">
-                      <MultiSelectList
+                      <InterfaceMultiSelectList
                         name={SETTINGS_FIELD_NAMES.inboundInterfaces}
-                        options={runtimeInterfaces.map((i) => i.name)}
+                        interfaces={runtimeInterfaces}
                         value={field.state.value}
                         onChange={field.handleChange}
                         addLabel={t("pages.settings.general.inboundInterfacesAddAction")}
