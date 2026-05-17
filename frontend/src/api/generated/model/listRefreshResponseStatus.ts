@@ -6,9 +6,14 @@
  * OpenAPI spec version: 3.0.0
  */
 
+/**
+ * `ok` when every requested URL-backed list refreshed successfully. `partial` when one or more list names appear in `failed_lists`.
+
+ */
 export type ListRefreshResponseStatus = typeof ListRefreshResponseStatus[keyof typeof ListRefreshResponseStatus];
 
 
 export const ListRefreshResponseStatus = {
   ok: 'ok',
+  partial: 'partial',
 } as const;

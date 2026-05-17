@@ -8,6 +8,8 @@
 import type { ListRefreshResponseStatus } from './listRefreshResponseStatus';
 
 export interface ListRefreshResponse {
+  /** `ok` when every requested URL-backed list refreshed successfully. `partial` when one or more list names appear in `failed_lists`.
+   */
   status: ListRefreshResponseStatus;
   message: string;
   /** URL-backed lists that were refreshed. */
