@@ -449,6 +449,13 @@ void Daemon::handle_interface_monitor_events(uint32_t events) {
         interface_monitor_->handle_events();
     } catch (const std::exception& e) {
         Logger::instance().error("Interface monitor event handling failed: {}", e.what());
+        try {
+            interface_monitor_->reconnect();
+            Logger::instance().warn("Interface monitor reconnected after netlink error");
+        } catch (const std::exception& reconnect_error) {
+            Logger::instance().error("Interface monitor reconnect failed: {}",
+                                     reconnect_error.what());
+        }
     }
 }
 

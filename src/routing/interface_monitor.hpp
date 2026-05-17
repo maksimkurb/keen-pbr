@@ -27,6 +27,9 @@ public:
     int fd() const;
     void handle_events();
 
+    // Rebuild the netlink subscription after a recoverable receive error.
+    void reconnect();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
