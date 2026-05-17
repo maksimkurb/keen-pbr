@@ -309,13 +309,15 @@ namespace api {
         std::optional<std::string> name;
     };
 
+    enum class ListRefreshResponseStatus : int { OK, PARTIAL };
+
     struct ListRefreshResponse {
         std::vector<std::string> changed_lists;
         std::vector<std::string> failed_lists;
         std::string message;
         std::vector<std::string> refreshed_lists;
         bool reloaded;
-        ConfigUpdateResponseStatus status;
+        ListRefreshResponseStatus status;
     };
 
     struct PolicyRuleCheck {
@@ -594,6 +596,9 @@ namespace api {
 
     void from_json(const json & j, ListRefreshResponse & x);
     void to_json(json & j, const ListRefreshResponse & x);
+
+    void from_json(const json & j, ListRefreshResponseStatus & x);
+    void to_json(json & j, const ListRefreshResponseStatus & x);
 
     void from_json(const json & j, PolicyRuleCheck & x);
     void to_json(json & j, const PolicyRuleCheck & x);
@@ -1125,7 +1130,7 @@ namespace api {
         x.message = j.at("message").get<std::string>();
         x.refreshed_lists = j.at("refreshed_lists").get<std::vector<std::string>>();
         x.reloaded = j.at("reloaded").get<bool>();
-        x.status = j.at("status").get<ConfigUpdateResponseStatus>();
+        x.status = j.at("status").get<ListRefreshResponseStatus>();
     }
 
     inline void to_json(json & j, const ListRefreshResponse & x) {
@@ -1136,6 +1141,20 @@ namespace api {
         j["refreshed_lists"] = x.refreshed_lists;
         j["reloaded"] = x.reloaded;
         j["status"] = x.status;
+    }
+
+    inline void from_json(const json & j, ListRefreshResponseStatus & x) {
+        if (j == "ok") x = ListRefreshResponseStatus::OK;
+        else if (j == "partial") x = ListRefreshResponseStatus::PARTIAL;
+        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+    }
+
+    inline void to_json(json & j, const ListRefreshResponseStatus & x) {
+        switch (x) {
+            case ListRefreshResponseStatus::OK: j = "ok"; break;
+            case ListRefreshResponseStatus::PARTIAL: j = "partial"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ListRefreshResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
     }
 
     inline void from_json(const json & j, PolicyRuleCheck& x) {

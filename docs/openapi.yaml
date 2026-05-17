@@ -1315,7 +1315,10 @@ components:
       properties:
         status:
           type: string
-          enum: [ok]
+          enum: [ok, partial]
+          description: >
+            `ok` when every requested URL-backed list refreshed successfully.
+            `partial` when one or more list names appear in `failed_lists`.
           example: "ok"
         message:
           type: string
