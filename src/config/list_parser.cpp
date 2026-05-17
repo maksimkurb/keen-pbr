@@ -98,6 +98,35 @@ bool ListParser::is_domain(std::string_view s) {
     return has_alpha;
 }
 
+namespace {
+
+class NullListEntryVisitor final : public ListEntryVisitor {
+public:
+    void on_entry(EntryType /*type*/, std::string_view /*entry*/) override {}
+};
+
+} // namespace
+
+bool ListParser::is_valid_entry(std::string_view entry) {
+    NullListEntryVisitor visitor;
+    return classify_entry(entry, visitor);
+}
+
+std::size_t ListParser::count_invalid_lines(std::istream& input) {
+    std::size_t invalid_lines = 0;
+    std::string line;
+    while (std::getline(input, line)) {
+        const auto sv = trim(std::string_view(line));
+        if (sv.empty() || sv.front() == '#') {
+            continue;
+        }
+        if (!is_valid_entry(sv)) {
+            ++invalid_lines;
+        }
+    }
+    return invalid_lines;
+}
+
 bool ListParser::classify_entry(std::string_view entry, ListEntryVisitor& visitor) {
     if (is_cidr_v4(entry) || is_cidr_v6(entry)) {
         visitor.on_entry(EntryType::Cidr, entry);

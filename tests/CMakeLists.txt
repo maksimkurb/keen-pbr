@@ -15,9 +15,11 @@ add_executable(keen-pbr-tests
   test_list_service.cpp
   test_http_client.cpp
   test_config_validation.cpp
+  test_list_parser.cpp
   test_routing_state.cpp
   test_runtime_interface_inventory.cpp
   test_api_runtime_interfaces.cpp
+  test_api_test_routing.cpp
   test_api_static.cpp
   test_resolver_health.cpp
   test_system_resolver_hook.cpp
@@ -137,6 +139,7 @@ if(WITH_API)
     ../src/api/server.cpp
     ../src/api/sse_broadcaster.cpp
     ../src/api/handler_runtime_interfaces.cpp
+    ../src/api/handler_test_routing.cpp
     ../src/health/runtime_interface_inventory.cpp
   )
   target_link_libraries(keen-pbr-tests PRIVATE

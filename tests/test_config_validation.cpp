@@ -1064,3 +1064,83 @@ TEST_CASE("daemon.skip_marked_packets: rejects non-boolean value") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.skip_marked_packets");
 }
+
+// =============================================================================
+// Cross-reference validation: route rules, DNS rules, outbounds
+// =============================================================================
+
+TEST_CASE("route rule: unknown outbound tag is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"blocked":{"ip_cidrs":["10.0.0.0/8"]}},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth0"}],
+        "route":{"rules":[{"list":["blocked"],"outbound":"missing"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].outbound");
+    CHECK(issues[0].message.find("unknown outbound") != std::string::npos);
+}
+
+TEST_CASE("route rule: unknown list name is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"blocked":{"ip_cidrs":["10.0.0.0/8"]}},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth0"}],
+        "route":{"rules":[{"list":["ghost"],"outbound":"wan"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].list[0]");
+    CHECK(issues[0].message.find("unknown list") != std::string::npos);
+}
+
+TEST_CASE("dns rule: unknown server tag is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"domains":{"domains":["example.com"]}},
+        "dns":{
+            "servers":[{"tag":"main","address":"1.1.1.1"}],
+            "fallback":["main"],
+            "rules":[{"list":["domains"],"server":"missing"}]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.rules[0].server");
+    CHECK(issues[0].message.find("unknown DNS server") != std::string::npos);
+}
+
+TEST_CASE("dns rule: unknown list name is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"domains":{"domains":["example.com"]}},
+        "dns":{
+            "servers":[{"tag":"main","address":"1.1.1.1"}],
+            "fallback":["main"],
+            "rules":[{"list":["ghost"],"server":"main"}]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.rules[0].list[0]");
+    CHECK(issues[0].message.find("unknown list") != std::string::npos);
+}
+
+TEST_CASE("interface outbound: empty interface name is rejected") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":""}],
+        "dns":{"servers":[{"tag":"main","address":"1.1.1.1"}],"fallback":["main"]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "outbounds.wan.interface");
+}
+
+TEST_CASE("list inline entry: invalid ip_cidrs value is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"blocked":{"ip_cidrs":["not-an-ip"]}}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "lists.blocked.ip_cidrs[0]");
+    CHECK(issues[0].message.find("Unrecognized list entry") != std::string::npos);
+}
+
+TEST_CASE("list inline entry: invalid domains value is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"sites":{"domains":["###"]}}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "lists.sites.domains[0]");
+}

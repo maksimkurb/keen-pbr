@@ -1,11 +1,13 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
+#include "list_parser.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
 #include <arpa/inet.h>
 #include <cctype>
 #include <iomanip>
+#include <fstream>
 #include <limits>
 #include <set>
 #include <sstream>
@@ -665,6 +667,59 @@ void validate_config(const Config& cfg) {
                       "List '" + name +
                           "' must have at least one of: url, domains, ip_cidrs, file");
         }
+
+        if (list_cfg.ip_cidrs.has_value()) {
+            for (size_t entry_index = 0; entry_index < list_cfg.ip_cidrs->size(); ++entry_index) {
+                const std::string entry = trim_copy(list_cfg.ip_cidrs->at(entry_index));
+                const std::string entry_path =
+                    list_path + ".ip_cidrs[" + std::to_string(entry_index) + "]";
+                if (entry.empty()) {
+                    add_issue(issues, entry_path, entry_path + " must not be empty");
+                    continue;
+                }
+                if (!ListParser::is_valid_entry(entry)) {
+                    add_issue(issues,
+                              entry_path,
+                              "Unrecognized list entry '" + entry + "'");
+                }
+            }
+        }
+
+        if (list_cfg.domains.has_value()) {
+            for (size_t entry_index = 0; entry_index < list_cfg.domains->size(); ++entry_index) {
+                const std::string entry = trim_copy(list_cfg.domains->at(entry_index));
+                const std::string entry_path =
+                    list_path + ".domains[" + std::to_string(entry_index) + "]";
+                if (entry.empty()) {
+                    add_issue(issues, entry_path, entry_path + " must not be empty");
+                    continue;
+                }
+                if (!ListParser::is_valid_entry(entry)) {
+                    add_issue(issues,
+                              entry_path,
+                              "Unrecognized list entry '" + entry + "'");
+                }
+            }
+        }
+
+        if (list_cfg.file.has_value() && !trim_copy(*list_cfg.file).empty()) {
+            const std::string file_path = list_path + ".file";
+            std::ifstream input(*list_cfg.file);
+            if (!input) {
+                add_issue(issues,
+                          file_path,
+                          "List file '" + *list_cfg.file + "' could not be opened");
+            } else {
+                const std::size_t invalid_lines = ListParser::count_invalid_lines(input);
+                if (invalid_lines > 0) {
+                    add_issue(issues,
+                              file_path,
+                              "List file '" + *list_cfg.file + "' contains " +
+                                  std::to_string(invalid_lines) +
+                                  " unrecognized entr" + (invalid_lines == 1 ? "y" : "ies"));
+                }
+            }
+        }
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
@@ -672,6 +727,12 @@ void validate_config(const Config& cfg) {
         validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
 
         if (ob.type == OutboundType::INTERFACE) {
+            const std::string iface = trim_copy(ob.interface.value_or(""));
+            if (iface.empty()) {
+                add_issue(issues,
+                          "outbounds." + ob.tag + ".interface",
+                          "Interface outbound '" + ob.tag + "' requires a non-empty interface name");
+            }
             if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway",
@@ -934,6 +995,90 @@ void validate_config(const Config& cfg) {
     } else {
         add_issue(issues, "dns.system_resolver",
                   "dns.system_resolver must be present");
+    }
+
+    std::set<std::string> configured_list_names;
+    for (const auto& [list_name, _] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        configured_list_names.insert(list_name);
+    }
+
+    std::set<std::string> outbound_tags;
+    for (const auto& ob : outbounds) {
+        outbound_tags.insert(ob.tag);
+    }
+
+    const auto validate_rule_list_refs =
+        [&](const std::string& rule_path,
+            const std::vector<std::string>& list_refs) {
+            for (size_t list_index = 0; list_index < list_refs.size(); ++list_index) {
+                const std::string list_path =
+                    rule_path + ".list[" + std::to_string(list_index) + "]";
+                const std::string list_name = trim_copy(list_refs[list_index]);
+                if (list_name.empty()) {
+                    add_issue(issues,
+                              list_path,
+                              rule_path + ".list[" + std::to_string(list_index) +
+                                  "] must not be empty");
+                    continue;
+                }
+                if (configured_list_names.find(list_name) == configured_list_names.end()) {
+                    add_issue(issues,
+                              list_path,
+                              rule_path + " references unknown list '" + list_name + "'");
+                }
+            }
+        };
+
+    const auto& route_rules =
+        cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    for (size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
+        const auto& rule = route_rules[rule_index];
+        const std::string rule_path = "route.rules[" + std::to_string(rule_index) + "]";
+
+        const std::string outbound_tag = trim_copy(rule.outbound);
+        if (outbound_tag.empty()) {
+            add_issue(issues,
+                      rule_path + ".outbound",
+                      rule_path + ".outbound must not be empty");
+        } else if (outbound_tags.find(outbound_tag) == outbound_tags.end()) {
+            add_issue(issues,
+                      rule_path + ".outbound",
+                      rule_path + " references unknown outbound tag '" + outbound_tag + "'");
+        }
+
+        validate_rule_list_refs(rule_path, route_rule_lists(rule));
+    }
+
+    if (cfg.dns.has_value() && cfg.dns->rules.has_value()) {
+        std::set<std::string> dns_server_tags;
+        for (const auto& srv : cfg.dns->servers.value_or(std::vector<DnsServer>{})) {
+            dns_server_tags.insert(srv.tag);
+        }
+
+        for (size_t rule_index = 0; rule_index < cfg.dns->rules->size(); ++rule_index) {
+            const auto& rule = cfg.dns->rules->at(rule_index);
+            const std::string rule_path = "dns.rules[" + std::to_string(rule_index) + "]";
+
+            const std::string server_tag = trim_copy(rule.server);
+            if (server_tag.empty()) {
+                add_issue(issues,
+                          rule_path + ".server",
+                          rule_path + ".server must not be empty");
+            } else if (dns_server_tags.find(server_tag) == dns_server_tags.end()) {
+                add_issue(issues,
+                          rule_path + ".server",
+                          rule_path + " references unknown DNS server tag '" + server_tag +
+                              "'");
+            }
+
+            if (rule.list.empty()) {
+                add_issue(issues,
+                          rule_path + ".list",
+                          rule_path + ".list must include at least one list name");
+            } else {
+                validate_rule_list_refs(rule_path, rule.list);
+            }
+        }
     }
 
     if (!issues.empty()) {
