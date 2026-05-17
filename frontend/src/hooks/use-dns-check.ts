@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { parseDnsCheckEvent } from "@/lib/dns-check-events"
+
 export type DnsCheckStatus =
   | "idle"
   | "checking"
@@ -15,10 +17,6 @@ type DnsCheckState = {
   waiting: boolean
   showWarning: boolean
 }
-
-type DnsCheckEvent =
-  | { type: "HELLO" }
-  | { type: "DNS"; domain?: string | null; source_ip?: string | null; ecs?: string | null }
 
 type UseDnsCheckReturn = {
   status: DnsCheckStatus
@@ -182,21 +180,5 @@ export function useDnsCheck(): UseDnsCheckReturn {
     checkState,
     startCheck,
     reset,
-  }
-}
-
-function parseDnsCheckEvent(data: string): DnsCheckEvent | null {
-  if (!data.trim()) {
-    return null
-  }
-
-  try {
-    const parsed = JSON.parse(data) as DnsCheckEvent
-    if (!parsed || typeof parsed !== "object" || !("type" in parsed)) {
-      return null
-    }
-    return parsed
-  } catch {
-    return null
   }
 }

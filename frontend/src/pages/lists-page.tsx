@@ -100,7 +100,10 @@ export function ListsPage() {
       onSuccess: async (response, variables) => {
         const requestedName = variables?.data?.name
         const failedLists =
-          response.status === 200 ? response.data.failed_lists : []
+          response.status === 200 &&
+          (response.data.status === "partial" || response.data.failed_lists.length > 0)
+            ? response.data.failed_lists
+            : []
         if (failedLists.length > 0) {
           toast.error(
             failedLists.length === 1
