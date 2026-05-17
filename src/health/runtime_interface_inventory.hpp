@@ -13,6 +13,10 @@ api::RuntimeInterfaceInventoryResponse build_runtime_interface_inventory_respons
 api::RuntimeInterfaceInventoryResponse build_runtime_interface_inventory_response(
     NetlinkManager& netlink);
 
+// Returns an empty inventory when netlink enumeration fails instead of throwing.
+api::RuntimeInterfaceInventoryResponse
+build_runtime_interface_inventory_response_or_empty(NetlinkManager& netlink);
+
 } // namespace keen_pbr3
 
 #endif // WITH_API
