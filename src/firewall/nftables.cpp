@@ -1,6 +1,7 @@
 #include "nftables.hpp"
 #include "nft_batch_pipe.hpp"
 #include "port_spec_util.hpp"
+#include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
@@ -612,6 +613,26 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     std::string json_str = doc.dump();
     Logger::instance().verbose("nft json:\n{}", json_str);
 
+    // Fingerprint the generated nft batch. On a PreserveSets refresh (the
+    // SIGUSR1 path) that does not need a full-table restore, if the batch is
+    // identical to the last successful apply we skip the 'nft -j -f -'
+    // subprocess entirely: the live ruleset is already what we would
+    // re-install. Set membership is managed separately (by dnsmasq) and is
+    // unaffected by this skip.
+    const std::string fingerprint = crypto::md5_hex(json_str);
+    if (preserve_sets && !emit_full_table && !last_applied_fingerprint_.empty()
+        && fingerprint == last_applied_fingerprint_) {
+        Logger::instance().trace(
+            "firewall_apply_skip",
+            "backend=nftables reason=ruleset-unchanged fingerprint={}",
+            fingerprint);
+        pending_sets_.clear();
+        pending_elements_.clear();
+        pending_rules_.clear();
+        table_created_ = true;
+        return;
+    }
+
     // Apply atomically via nft -j -f -
     int status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
     if (status != 0 && preserve_sets && !emit_full_table && !table_exists()) {
@@ -626,6 +647,11 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     if (status != 0) {
         throw FirewallError(keen_pbr3::format("nft -j -f - exited with status {}", status));
     }
+
+    // Record the fingerprint of the batch that was actually applied. If the
+    // recovery path above ran, json_str now holds the full-table restore, so
+    // re-fingerprint it rather than reusing the value computed earlier.
+    last_applied_fingerprint_ = crypto::md5_hex(json_str);
 
     // Clear pending buffers
     pending_sets_.clear();

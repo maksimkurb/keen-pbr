@@ -1,6 +1,7 @@
 #include "iptables.hpp"
 #include "ipset_restore_pipe.hpp"
 #include "port_spec_util.hpp"
+#include "../crypto/md5.hpp"
 #include "../log/logger.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/safe_exec.hpp"
@@ -398,22 +399,33 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
     // Always materialize the KeenPbrTable scaffold for both protocols so
     // diagnostics can verify chain/jump presence even when no rules are needed.
-    bool has_v4 = true;
-    bool has_v6 = true;
-    for (const auto& pr : pending_rules_) {
-        if (pr.ipv6) has_v6 = true;
-        else has_v4 = true;
-    }
+    const std::string script_v4 =
+        build_ipt_script(false, pending_rules_, global_prefilter_);
+    const std::string script_v6 =
+        build_ipt_script(true, pending_rules_, global_prefilter_);
 
-    if (has_v4) {
-        pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                    build_ipt_script(false, pending_rules_, global_prefilter_));
+    // Fingerprint the generated ruleset text. On a PreserveSets refresh (the
+    // SIGUSR1 path), if the script is identical to the last successful apply we
+    // skip the iptables-restore subprocesses entirely: the live rules are
+    // already exactly what we would re-install. ipset membership is managed
+    // separately (Phase 1 above / dnsmasq) and is unaffected by this skip.
+    const std::string fingerprint =
+        crypto::md5_hex(script_v4 + "\n--ip6--\n" + script_v6);
+    const bool can_skip = mode == FirewallApplyMode::PreserveSets
+        && !last_applied_fingerprint_.empty()
+        && fingerprint == last_applied_fingerprint_;
+
+    if (can_skip) {
+        Logger::instance().trace(
+            "firewall_apply_skip",
+            "backend=iptables reason=ruleset-unchanged fingerprint={}",
+            fingerprint);
+    } else {
+        pipe_to_cmd({"iptables-restore", "--noflush", "--counters"}, script_v4);
         chain_v4_created_ = true;
-    }
-    if (has_v6) {
-        pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                    build_ipt_script(true, pending_rules_, global_prefilter_));
+        pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"}, script_v6);
         chain_v6_created_ = true;
+        last_applied_fingerprint_ = fingerprint;
     }
 
     // Clear pending buffers

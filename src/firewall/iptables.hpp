@@ -109,6 +109,12 @@ private:
     bool chain_v4_created_ = false;
     bool chain_v6_created_ = false;
 
+    // Fingerprint (MD5 hex) of the last successfully applied iptables-restore
+    // script pair. Empty until the first apply. Used to skip the expensive
+    // iptables-restore subprocess on PreserveSets refreshes when the generated
+    // ruleset text is byte-for-byte identical to what is already live.
+    std::string last_applied_fingerprint_;
+
 #ifdef KEEN_PBR3_TESTING
     friend class IptablesBuilderTest;
     // Allow test access to build_proto_port_fragment

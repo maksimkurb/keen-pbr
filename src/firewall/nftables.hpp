@@ -130,6 +130,12 @@ private:
     // True once the inet KeenPbrTable table has been created via apply().
     bool table_created_ = false;
 
+    // Fingerprint (MD5 hex) of the last successfully applied nft JSON batch.
+    // Empty until the first apply. Used to skip the expensive 'nft -j -f -'
+    // subprocess on PreserveSets refreshes when the generated batch is
+    // byte-for-byte identical to what is already live.
+    std::string last_applied_fingerprint_;
+
 #ifdef KEEN_PBR3_TESTING
     friend class NftablesBuilderTest;
 #endif
