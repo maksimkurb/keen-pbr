@@ -6,10 +6,12 @@
 #include <sstream>
 
 #include "../config/routing_state.hpp"
+#include "../dns/dnsmasq_gen.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_runtime.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../util/firewall_backend_utils.hpp"
 #include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
@@ -18,6 +20,12 @@
 namespace keen_pbr3 {
 
 namespace {
+
+// How often to scan the dnsmasq-populated routing sets for newly added IPs
+// and flush their stale conntrack entries. Short enough that a freshly
+// resolved domain starts routing correctly within a few seconds, cheap
+// enough (one small `ipset save`/`nft list set` per set) for weak routers.
+constexpr auto CONNTRACK_REROUTE_INTERVAL = std::chrono::seconds{5};
 
 std::string format_list_names(const std::vector<std::string>& list_names) {
     if (list_names.empty()) {
@@ -259,6 +267,64 @@ void Daemon::schedule_lists_autoupdate() {
     Logger::instance().info("Lists autoupdate scheduled (next: ~{}s)", delay.count());
 }
 
+void Daemon::schedule_conntrack_reroute() {
+    if (conntrack_reroute_task_id_ >= 0) {
+        scheduler_->cancel(conntrack_reroute_task_id_);
+        conntrack_reroute_task_id_ = -1;
+    }
+
+    // Watch the dnsmasq-populated dynamic sets of every list that can carry
+    // domains. A pure ip_cidrs list has no dynamic set, so polling it is
+    // pointless; url/file lists may contain domains, so they are included.
+    std::vector<std::string> set_names;
+    for (const auto& [list_name, list_cfg] :
+         config_.lists.value_or(std::map<std::string, ListConfig>{})) {
+        const bool may_have_domains = list_cfg.domains.has_value() ||
+                                      list_cfg.url.has_value() ||
+                                      list_cfg.file.has_value();
+        if (!may_have_domains) {
+            continue;
+        }
+        set_names.push_back(DnsmasqGenerator::ipset_name_v4(list_name));
+        set_names.push_back(DnsmasqGenerator::ipset_name_v6(list_name));
+    }
+
+    if (set_names.empty()) {
+        conntrack_rerouter_.reset();
+        return;
+    }
+
+    // Recreate the rerouter so its baseline starts fresh after a config apply
+    // (the firewall, and therefore its sets, was just rebuilt).
+    const FirewallBackend backend =
+        resolve_firewall_backend(firewall_backend_preference(config_));
+    DynamicSetReader reader = backend == FirewallBackend::nftables
+                                  ? DynamicSetReader(&read_nft_dynamic_sets)
+                                  : DynamicSetReader(&read_ipset_dynamic_sets);
+    conntrack_rerouter_ =
+        std::make_unique<ConntrackRerouter>(std::move(reader), &flush_conntrack_for_ip);
+
+    conntrack_reroute_task_id_ = scheduler_->schedule_repeating(
+        CONNTRACK_REROUTE_INTERVAL,
+        [this, set_names]() {
+            post_control_task(
+                [this, set_names]() {
+                    if (!routing_runtime_active_ || !conntrack_rerouter_) {
+                        return;
+                    }
+                    const std::size_t flushed = conntrack_rerouter_->poll(set_names);
+                    if (flushed > 0) {
+                        Logger::instance().info(
+                            "conntrack reroute: flushed {} stale connection(s) "
+                            "for newly routed IP(s)",
+                            flushed);
+                    }
+                },
+                "conntrack-reroute");
+        },
+        "conntrack-reroute");
+}
+
 ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
     const std::set<std::string>* target_lists) {
     auto& log = Logger::instance();
@@ -479,6 +545,10 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
         scheduler_->cancel(resolver_config_hash_actual_retry_task_id_);
         resolver_config_hash_actual_retry_task_id_ = -1;
     }
+    if (conntrack_reroute_task_id_ >= 0) {
+        scheduler_->cancel(conntrack_reroute_task_id_);
+        conntrack_reroute_task_id_ = -1;
+    }
 
     outbound_marks_ = std::move(prepared.outbound_marks);
     config_ = std::move(prepared.config);
@@ -497,6 +567,7 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     (void)refresh_keenetic_dns_cache(true);
     apply_firewall(FirewallApplyMode::Destructive);
     schedule_keenetic_dns_refresh();
+    schedule_conntrack_reroute();
     schedule_lists_autoupdate();
     update_resolver_config_hash();
     setup_dns_probe();

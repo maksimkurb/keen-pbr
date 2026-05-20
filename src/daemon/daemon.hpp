@@ -18,6 +18,7 @@
 #include "config_store.hpp"
 #include "../health/url_tester.hpp"
 #include "../routing/interface_monitor.hpp"
+#include "../routing/conntrack_rerouter.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/policy_rule.hpp"
@@ -197,6 +198,7 @@ private:
     void schedule_resolver_config_hash_actual_retry();
     void schedule_keenetic_dns_refresh();
     bool refresh_keenetic_dns_cache(bool force_refresh);
+    void schedule_conntrack_reroute();
     void reset_resolver_actual_state();
     void commit_resolver_hash_probe_result(const std::string& resolver_addr,
                                            std::uint64_t generation,
@@ -260,6 +262,9 @@ private:
     int resolver_config_hash_actual_retry_task_id_{-1};
     // Debounced runtime refresh triggered by SIGUSR1.
     int sigusr1_refresh_task_id_{-1};
+    // Periodic conntrack reroute poll: flushes stale connections when a new
+    // IP enters a dnsmasq-populated routing set.
+    int conntrack_reroute_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};
@@ -313,6 +318,7 @@ private:
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<UrltestManager> urltest_manager_;
+    std::unique_ptr<ConntrackRerouter> conntrack_rerouter_;
     BlockingExecutor blocking_executor_{2, 64};
     std::atomic<std::uint64_t> runtime_generation_{1};
     std::atomic<bool> remote_list_refresh_inflight_{false};
