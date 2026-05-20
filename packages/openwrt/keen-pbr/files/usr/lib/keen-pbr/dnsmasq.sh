@@ -156,7 +156,33 @@ uninstall_persistent() {
     restart_dnsmasq
 }
 
+resolver_config_hash_file() {
+    echo "${CACHE_DIR}/resolver-config.hash"
+}
+
+managed_conf_hash() {
+    # Hash the content of all keen-pbr managed dnsmasq conf files (sorted for determinism)
+    find /tmp/dnsmasq.*.d /tmp/dnsmasq.d -maxdepth 1 -name "${CONFFILE}" 2>/dev/null \
+        | sort | xargs cat 2>/dev/null | md5sum | awk '{print $1}'
+}
+
+dnsmasq_is_running() {
+    pidof dnsmasq >/dev/null 2>&1
+}
+
 restart_dnsmasq() {
+    hash_file="$(resolver_config_hash_file)"
+    new_hash="$(managed_conf_hash)"
+    old_hash=""
+    if [ -f "$hash_file" ]; then
+        old_hash="$(cat "$hash_file")"
+    fi
+    if [ "$new_hash" = "$old_hash" ] && dnsmasq_is_running; then
+        log_info "resolver config unchanged, skipping dnsmasq restart"
+        return 0
+    fi
+    mkdir -p "$CACHE_DIR"
+    printf '%s\n' "$new_hash" > "$hash_file"
     /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
 

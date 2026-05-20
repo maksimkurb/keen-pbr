@@ -103,7 +103,35 @@ deactivate_dnsmasq() {
     restart_dnsmasq
 }
 
+resolver_config_hash_file() {
+    echo "${STATE_DIR}/resolver-config.hash"
+}
+
+effective_config_content() {
+    if is_active; then
+        active_conf_line
+    else
+        fallback_conf_line
+    fi
+}
+
+dnsmasq_is_running() {
+    pidof dnsmasq >/dev/null 2>&1
+}
+
 restart_dnsmasq() {
+    hash_file="$(resolver_config_hash_file)"
+    new_hash="$(effective_config_content | md5sum | awk '{print $1}')"
+    old_hash=""
+    if [ -f "$hash_file" ]; then
+        old_hash="$(cat "$hash_file")"
+    fi
+    if [ "$new_hash" = "$old_hash" ] && dnsmasq_is_running; then
+        log_info "resolver config unchanged, skipping dnsmasq restart"
+        return 0
+    fi
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$new_hash" > "$hash_file"
     if command -v systemctl >/dev/null 2>&1; then
         systemctl restart dnsmasq >/dev/null 2>&1 || true
     elif command -v service >/dev/null 2>&1; then
