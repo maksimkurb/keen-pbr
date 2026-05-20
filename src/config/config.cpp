@@ -1,13 +1,11 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
-#include "list_parser.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
 #include <arpa/inet.h>
 #include <cctype>
 #include <iomanip>
-#include <fstream>
 #include <limits>
 #include <set>
 #include <sstream>
@@ -668,61 +666,12 @@ void validate_config(const Config& cfg) {
                           "' must have at least one of: url, domains, ip_cidrs, file");
         }
 
-        if (list_cfg.ip_cidrs.has_value()) {
-            for (size_t entry_index = 0; entry_index < list_cfg.ip_cidrs->size(); ++entry_index) {
-                const std::string entry = trim_copy(list_cfg.ip_cidrs->at(entry_index));
-                const std::string entry_path =
-                    list_path + ".ip_cidrs[" + std::to_string(entry_index) + "]";
-                if (entry.empty()) {
-                    add_issue(issues, entry_path, entry_path + " must not be empty");
-                    continue;
-                }
-                const auto entry_type = ListParser::classify(entry);
-                if (entry_type != EntryType::Ip && entry_type != EntryType::Cidr) {
-                    add_issue(issues,
-                              entry_path,
-                              "Unrecognized list entry '" + entry +
-                                  "' (expected an IP address or CIDR)");
-                }
-            }
-        }
-
-        if (list_cfg.domains.has_value()) {
-            for (size_t entry_index = 0; entry_index < list_cfg.domains->size(); ++entry_index) {
-                const std::string entry = trim_copy(list_cfg.domains->at(entry_index));
-                const std::string entry_path =
-                    list_path + ".domains[" + std::to_string(entry_index) + "]";
-                if (entry.empty()) {
-                    add_issue(issues, entry_path, entry_path + " must not be empty");
-                    continue;
-                }
-                if (ListParser::classify(entry) != EntryType::Domain) {
-                    add_issue(issues,
-                              entry_path,
-                              "Unrecognized list entry '" + entry +
-                                  "' (expected a domain name)");
-                }
-            }
-        }
-
-        if (list_cfg.file.has_value() && !trim_copy(*list_cfg.file).empty()) {
-            const std::string file_path = list_path + ".file";
-            std::ifstream input(*list_cfg.file);
-            if (!input) {
-                add_issue(issues,
-                          file_path,
-                          "List file '" + *list_cfg.file + "' could not be opened");
-            } else {
-                const std::size_t invalid_lines = ListParser::count_invalid_lines(input);
-                if (invalid_lines > 0) {
-                    add_issue(issues,
-                              file_path,
-                              "List file '" + *list_cfg.file + "' contains " +
-                                  std::to_string(invalid_lines) +
-                                  " unrecognized entr" + (invalid_lines == 1 ? "y" : "ies"));
-                }
-            }
-        }
+        // NOTE: individual list entries are intentionally NOT validated here.
+        // Lists are routinely aggregated from external sources and legitimately
+        // contain entries the parser does not recognise (CIDRs in domain lists,
+        // wildcard/host:port forms, comments, blank lines). ListParser skips
+        // unrecognised entries gracefully when building sets, so rejecting the
+        // whole config over them would break real-world setups.
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});

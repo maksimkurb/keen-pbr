@@ -1144,20 +1144,3 @@ TEST_CASE("interface outbound: empty interface name is rejected") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "outbounds.wan.interface");
 }
-
-TEST_CASE("list inline entry: invalid ip_cidrs value is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"blocked":{"ip_cidrs":["not-an-ip"]}}
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "lists.blocked.ip_cidrs[0]");
-    CHECK(issues[0].message.find("Unrecognized list entry") != std::string::npos);
-}
-
-TEST_CASE("list inline entry: invalid domains value is rejected") {
-    const auto issues = validate_issues(R"({
-        "lists":{"sites":{"domains":["###"]}}
-    })");
-    REQUIRE(issues.size() == 1);
-    CHECK(issues[0].path == "lists.sites.domains[0]");
-}
