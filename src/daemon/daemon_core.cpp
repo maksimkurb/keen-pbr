@@ -30,7 +30,11 @@ namespace keen_pbr3 {
 
 namespace {
 
-constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
+// 500 ms gives weak Keenetic routers enough headroom to absorb a burst of
+// netfilter/NDM events before we pay the cost of a full firewall refresh.
+// The handler cancels-and-reschedules on every signal, so a burst collapses
+// into exactly one refresh once the storm settles.
+constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{500};
 
 std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
