@@ -22,9 +22,16 @@ TEST_CASE("ListParser::count_invalid_lines ignores comments and blank lines") {
 
 # comment
 10.0.0.1
-garbage-line
+not a valid entry
 
 example.com
 )");
     CHECK(ListParser::count_invalid_lines(input) == 1);
+}
+
+TEST_CASE("ListParser::classify distinguishes entry kinds") {
+    CHECK(ListParser::classify("10.0.0.1") == EntryType::Ip);
+    CHECK(ListParser::classify("10.0.0.0/8") == EntryType::Cidr);
+    CHECK(ListParser::classify("example.com") == EntryType::Domain);
+    CHECK(ListParser::classify("not an ip") == std::nullopt);
 }

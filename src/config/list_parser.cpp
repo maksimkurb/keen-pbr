@@ -105,11 +105,26 @@ public:
     void on_entry(EntryType /*type*/, std::string_view /*entry*/) override {}
 };
 
+class TypeCapturingVisitor final : public ListEntryVisitor {
+public:
+    void on_entry(EntryType type, std::string_view /*entry*/) override { type_ = type; }
+    [[nodiscard]] std::optional<EntryType> type() const { return type_; }
+
+private:
+    std::optional<EntryType> type_;
+};
+
 } // namespace
 
 bool ListParser::is_valid_entry(std::string_view entry) {
     NullListEntryVisitor visitor;
     return classify_entry(entry, visitor);
+}
+
+std::optional<EntryType> ListParser::classify(std::string_view entry) {
+    TypeCapturingVisitor visitor;
+    classify_entry(entry, visitor);
+    return visitor.type();
 }
 
 std::size_t ListParser::count_invalid_lines(std::istream& input) {

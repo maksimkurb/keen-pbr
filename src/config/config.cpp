@@ -677,10 +677,12 @@ void validate_config(const Config& cfg) {
                     add_issue(issues, entry_path, entry_path + " must not be empty");
                     continue;
                 }
-                if (!ListParser::is_valid_entry(entry)) {
+                const auto entry_type = ListParser::classify(entry);
+                if (entry_type != EntryType::Ip && entry_type != EntryType::Cidr) {
                     add_issue(issues,
                               entry_path,
-                              "Unrecognized list entry '" + entry + "'");
+                              "Unrecognized list entry '" + entry +
+                                  "' (expected an IP address or CIDR)");
                 }
             }
         }
@@ -694,10 +696,11 @@ void validate_config(const Config& cfg) {
                     add_issue(issues, entry_path, entry_path + " must not be empty");
                     continue;
                 }
-                if (!ListParser::is_valid_entry(entry)) {
+                if (ListParser::classify(entry) != EntryType::Domain) {
                     add_issue(issues,
                               entry_path,
-                              "Unrecognized list entry '" + entry + "'");
+                              "Unrecognized list entry '" + entry +
+                                  "' (expected a domain name)");
                 }
             }
         }
