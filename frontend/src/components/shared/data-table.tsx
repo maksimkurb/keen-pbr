@@ -45,7 +45,11 @@ export function DataTable({
     : (rows.length && rows[0]?.length)
       ? rows[0].length - 1
       : 0
-  const narrowColumnSet = new Set(narrowColumns)
+  // Callers pass narrowColumns in content-column coordinates; when a selection
+  // checkbox column is prepended, shift them so the styling stays aligned.
+  const narrowColumnSet = new Set(
+    hasSelection ? narrowColumns.map((index) => index + 1) : narrowColumns,
+  )
 
   const visibleIds =
     hasSelection ? selection!.rowIds.filter((id) => id.length > 0) : []
