@@ -1005,9 +1005,9 @@ TEST_CASE("generate-resolver-config ignores domains longer than 255 chars") {
     CHECK(output.find(invalid) == std::string::npos);
 }
 
-TEST_CASE("generate-resolver-config prefers cached list content over file and inline entries") {
+TEST_CASE("generate-resolver-config merges cached content with file and inline entries") {
     const auto temp_root =
-        std::filesystem::temp_directory_path() / "keen-pbr-test-dnsmasq-cache-preferred";
+        std::filesystem::temp_directory_path() / "keen-pbr-test-dnsmasq-cache-merged";
     std::filesystem::remove_all(temp_root);
     std::filesystem::create_directories(temp_root);
 
@@ -1046,9 +1046,11 @@ TEST_CASE("generate-resolver-config prefers cached list content over file and in
         DnsmasqGenerator gen(reg, streamer, route_cfg, dns_cfg, lists);
         const std::string output = run_generate(gen);
 
+        // The cached URL content is used in place of a re-download, but the
+        // list's local file and inline domains must never be dropped.
         CHECK(output.find("from-cache.example") != std::string::npos);
-        CHECK(output.find("from-file.example") == std::string::npos);
-        CHECK(output.find("from-inline.example") == std::string::npos);
+        CHECK(output.find("from-file.example") != std::string::npos);
+        CHECK(output.find("from-inline.example") != std::string::npos);
 
         cleanup();
     } catch (...) {
