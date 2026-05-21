@@ -26,18 +26,46 @@ export const emptyRouteRuleDraft: RouteRuleDraft = {
   dest_addr: "",
 }
 
-export function getRuleDetails(rule: RouteRule) {
-  const lists = rule.list?.filter(Boolean).join(", ")
-  const pieces = [
-    rule.proto?.trim().length ? `proto: ${rule.proto}` : undefined,
-    lists?.trim().length ? `lists: ${lists}` : undefined,
-    `src_addr: ${rule.src_addr || "-"}`,
-    `dest_addr: ${rule.dest_addr || "-"}`,
-    `src_port: ${rule.src_port || "-"}`,
-    `dest_port: ${rule.dest_port || "-"}`,
-  ].filter((part): part is string => typeof part === "string")
+export type RuleDetailPiece = {
+  /** Stable key matching the field name, used for React keys and i18n lookup. */
+  key: "lists" | "proto" | "src_addr" | "dest_addr" | "src_port" | "dest_port"
+  value: string
+}
 
-  return pieces.join(" · ")
+/**
+ * Returns the non-empty match criteria for a rule as structured pieces so
+ * callers can render them as chips, labelled lines, etc.
+ * Only fields with a real value are included; omit-empty fields stay absent.
+ */
+export function getRuleDetailPieces(rule: RouteRule): RuleDetailPiece[] {
+  const lists = rule.list?.filter(Boolean).join(", ") ?? ""
+  const candidates: Array<RuleDetailPiece | undefined> = [
+    lists.trim().length > 0
+      ? { key: "lists", value: lists }
+      : undefined,
+    rule.proto && rule.proto.trim().length > 0
+      ? { key: "proto", value: rule.proto }
+      : undefined,
+    rule.src_addr && rule.src_addr.trim().length > 0
+      ? { key: "src_addr", value: rule.src_addr }
+      : undefined,
+    rule.dest_addr && rule.dest_addr.trim().length > 0
+      ? { key: "dest_addr", value: rule.dest_addr }
+      : undefined,
+    rule.src_port && rule.src_port.trim().length > 0
+      ? { key: "src_port", value: rule.src_port }
+      : undefined,
+    rule.dest_port && rule.dest_port.trim().length > 0
+      ? { key: "dest_port", value: rule.dest_port }
+      : undefined,
+  ]
+  return candidates.filter((piece): piece is RuleDetailPiece => piece !== undefined)
+}
+
+export function getRuleDetails(rule: RouteRule) {
+  return getRuleDetailPieces(rule)
+    .map((piece) => `${piece.key}: ${piece.value}`)
+    .join(" · ")
 }
 
 export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {

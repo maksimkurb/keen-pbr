@@ -19,12 +19,15 @@ import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundEntry } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import {
   getApiErrorMessage,
+  getRuleDetailPieces,
   reorderRules,
   setRouteRuleEnabled,
+  type RuleDetailPiece,
 } from "@/pages/routing-rules-utils"
 import {
   ROUTER_RUNTIME_POLL_MS,
@@ -297,7 +300,7 @@ export function RoutingRulesPage() {
               t("pages.routingRules.headers.outbound"),
               t("pages.routingRules.headers.actions"),
             ]}
-            narrowColumns={[0, 1, 2]}
+            narrowColumns={[0, 1]}
             rows={tableRows.map((row: ReturnType<typeof getRouteRuleRow>) => [
             <div className="flex items-center" key={`${row.id}-enabled`}>
               <Switch
@@ -319,22 +322,22 @@ export function RoutingRulesPage() {
             <span className="font-medium" key={`${row.id}-order`}>
               #{row.order}
             </span>,
-            <ul
-              className="list-disc space-y-1 pl-5 text-sm"
+            <div
+              className="flex flex-wrap gap-1"
               key={`${row.id}-conditions`}
             >
               {row.conditions.map((condition) => (
-                <li
-                  className="text-muted-foreground"
-                  key={`${row.id}-${condition.label}`}
+                <Badge
+                  className="max-w-[20rem] truncate"
+                  key={`${row.id}-${condition.key}`}
+                  title={`${condition.label}: ${condition.value}`}
+                  variant="outline"
                 >
-                  <span className="font-medium text-foreground">
-                    {condition.label}:
-                  </span>{" "}
-                  {condition.value}
-                </li>
+                  <span className="font-semibold">{condition.label}:</span>
+                  &nbsp;{condition.value}
+                </Badge>
               ))}
-            </ul>,
+            </div>,
             <div key={`${row.id}-outbound`}>
               <RuntimeOutboundEntry
                 runtimeState={row.runtimeState}
@@ -380,45 +383,29 @@ export function RoutingRulesPage() {
   )
 }
 
+const CRITERIA_LABEL_KEY: Record<
+  RuleDetailPiece["key"],
+  string
+> = {
+  lists: "pages.routingRules.criteriaLabels.lists",
+  proto: "pages.routingRules.criteriaLabels.proto",
+  src_addr: "pages.routingRules.criteriaLabels.sourceIp",
+  dest_addr: "pages.routingRules.criteriaLabels.destinationIp",
+  src_port: "pages.routingRules.criteriaLabels.sourcePort",
+  dest_port: "pages.routingRules.criteriaLabels.destinationPort",
+}
+
 function getRouteRuleRow(
   rule: RouteRule,
   index: number,
   t: (key: string) => string,
   runtimeState?: RuntimeOutboundState
 ) {
-  const conditions = [
-    {
-      label: t("pages.routingRules.criteriaLabels.lists"),
-      value: (rule.list ?? []).join(", "),
-    },
-    {
-      label: t("pages.routingRules.criteriaLabels.proto"),
-      value: rule.proto,
-    },
-    {
-      label: t("pages.routingRules.criteriaLabels.sourceIp"),
-      value: rule.src_addr,
-    },
-    {
-      label: t("pages.routingRules.criteriaLabels.destinationIp"),
-      value: rule.dest_addr,
-    },
-    {
-      label: t("pages.routingRules.criteriaLabels.sourcePort"),
-      value: rule.src_port,
-    },
-    {
-      label: t("pages.routingRules.criteriaLabels.destinationPort"),
-      value: rule.dest_port,
-    },
-  ].filter(
-    (
-      condition
-    ): condition is {
-      label: string
-      value: string
-    } => typeof condition.value === "string" && condition.value.trim().length > 0
-  )
+  const conditions = getRuleDetailPieces(rule).map((piece) => ({
+    key: piece.key,
+    label: t(CRITERIA_LABEL_KEY[piece.key]),
+    value: piece.value,
+  }))
 
   return {
     id: `routing-rule-${index}`,
