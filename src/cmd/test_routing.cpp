@@ -2,6 +2,7 @@
 
 #include "../config/routing_state.hpp"
 #include "../dns/dns_server.hpp"
+#include "../dns/legacy_resolver_lock.hpp"
 #include "../lists/ipset.hpp"
 #include "../lists/kernel_set_tester.hpp"
 #include "../lists/list_entry_visitor.hpp"
@@ -181,6 +182,8 @@ std::optional<std::string> query_dns_record_with_resolver(
     int response_len = -1;
 
     if (!server.has_value()) {
+        // res_query() resolves via the global _res; serialize it.
+        std::lock_guard<std::mutex> resolver_lock(legacy_resolver_mutex());
         response_len = res_query(domain.c_str(),
                                  ns_c_in,
                                  record_type,
@@ -212,15 +215,20 @@ std::optional<std::string> query_dns_record_with_resolver(
         }
 
         std::array<unsigned char, NS_PACKETSZ * 2> query {};
-        const int query_len = res_mkquery(ns_o_query,
-                                          domain.c_str(),
-                                          ns_c_in,
-                                          record_type,
-                                          nullptr,
-                                          0,
-                                          nullptr,
-                                          query.data(),
-                                          static_cast<int>(query.size()));
+        int query_len = -1;
+        {
+            // res_mkquery() builds the packet using the global _res.
+            std::lock_guard<std::mutex> resolver_lock(legacy_resolver_mutex());
+            query_len = res_mkquery(ns_o_query,
+                                    domain.c_str(),
+                                    ns_c_in,
+                                    record_type,
+                                    nullptr,
+                                    0,
+                                    nullptr,
+                                    query.data(),
+                                    static_cast<int>(query.size()));
+        }
         if (query_len < 0) {
             return keen_pbr3::format("Failed to build DNS {} query",
                                      record_type == ns_t_a ? "A" : "AAAA");
