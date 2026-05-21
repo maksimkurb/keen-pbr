@@ -22,10 +22,12 @@ namespace keen_pbr3 {
 namespace {
 
 // How often to scan the dnsmasq-populated routing sets for newly added IPs
-// and flush their stale conntrack entries. Short enough that a freshly
-// resolved domain starts routing correctly within a few seconds, cheap
-// enough (one small `ipset save`/`nft list set` per set) for weak routers.
-constexpr auto CONNTRACK_REROUTE_INTERVAL = std::chrono::seconds{5};
+// and flush their stale conntrack entries. 20s keeps a freshly resolved
+// domain re-routing within one short interval while staying cheap on weak
+// MIPS routers: a config with dozens of lists would otherwise fork one
+// `ipset save` per set far too often. The poll is also scoped to the sets
+// of *enabled* route rules only (see schedule_conntrack_reroute).
+constexpr auto CONNTRACK_REROUTE_INTERVAL = std::chrono::seconds{20};
 
 std::string format_list_names(const std::vector<std::string>& list_names) {
     if (list_names.empty()) {
@@ -273,18 +275,25 @@ void Daemon::schedule_conntrack_reroute() {
         conntrack_reroute_task_id_ = -1;
     }
 
-    // Watch the dnsmasq-populated dynamic sets of every list that can carry
-    // domains. A pure ip_cidrs list has no dynamic set, so polling it is
-    // pointless; url/file lists may contain domains, so they are included.
-    std::vector<std::string> set_names;
-    for (const auto& [list_name, list_cfg] :
-         config_.lists.value_or(std::map<std::string, ListConfig>{})) {
-        const bool may_have_domains = list_cfg.domains.has_value() ||
-                                      list_cfg.url.has_value() ||
-                                      list_cfg.file.has_value();
-        if (!may_have_domains) {
-            continue;
+    // Only lists referenced by an *enabled* route rule actually carry
+    // policy-routed traffic, so they are the only dynamic sets whose new
+    // members need a conntrack flush. Scoping to them (instead of every list
+    // that might hold domains) keeps the poll cheap on configs with dozens
+    // of lists.
+    std::set<std::string> routed_lists;
+    if (config_.route.has_value() && config_.route->rules.has_value()) {
+        for (const auto& rule : *config_.route->rules) {
+            if (!route_rule_enabled(rule)) {
+                continue;
+            }
+            for (const auto& list_name : route_rule_lists(rule)) {
+                routed_lists.insert(list_name);
+            }
         }
+    }
+
+    std::vector<std::string> set_names;
+    for (const auto& list_name : routed_lists) {
         set_names.push_back(DnsmasqGenerator::ipset_name_v4(list_name));
         set_names.push_back(DnsmasqGenerator::ipset_name_v6(list_name));
     }
