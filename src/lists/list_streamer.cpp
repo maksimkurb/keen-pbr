@@ -9,40 +9,47 @@ namespace keen_pbr3 {
 ListStreamer::ListStreamer(const CacheManager& cache) : cache_(cache) {}
 
 void ListStreamer::stream_list(const std::string& name, const ListConfig& config, ListEntryVisitor& visitor) {
-    // 1. Stream cached URL file (if list has a URL and cache exists)
-    if (config.url.has_value() && cache_.has_cache(name)) {
+    // The cached URL file is used only while the list still declares a URL
+    // source; a stale cache for a removed URL is ignored here.
+    const bool include_cache = config.url.has_value() && cache_.has_cache(name);
+    stream_all_sources(name, config, visitor, include_cache);
+}
+
+void ListStreamer::stream_list_preferring_cache(const std::string& name,
+                                                const ListConfig& config,
+                                                ListEntryVisitor& visitor) {
+    // Use the cached file whenever it exists, even if the URL source was
+    // removed from the config. The local file and inline entries are always
+    // streamed too — they must not be dropped just because a cache exists.
+    stream_all_sources(name, config, visitor, cache_.has_cache(name));
+}
+
+void ListStreamer::stream_all_sources(const std::string& name,
+                                      const ListConfig& config,
+                                      ListEntryVisitor& visitor,
+                                      bool include_cache) {
+    // 1. Cached URL file
+    if (include_cache) {
         stream_file(cache_.cache_path(name), visitor);
     }
 
-    // 2. Stream local file (if configured)
+    // 2. Local file (if configured)
     if (config.file.has_value()) {
         stream_file(config.file.value(), visitor);
     }
 
-    // 3. Stream inline ip_cidrs via classify_entry()
+    // 3. Inline ip_cidrs via classify_entry()
     for (const auto& entry : config.ip_cidrs.value_or(std::vector<std::string>{})) {
         ListParser::classify_entry(entry, visitor);
     }
 
-    // 4. Stream inline domains as Domain entries
+    // 4. Inline domains as Domain entries
     for (const auto& domain : config.domains.value_or(std::vector<std::string>{})) {
         visitor.on_entry(EntryType::Domain, domain);
     }
 
     // Signal that all sources for this list have been processed
     visitor.on_list_complete(name);
-}
-
-void ListStreamer::stream_list_preferring_cache(const std::string& name,
-                                                const ListConfig& config,
-                                                ListEntryVisitor& visitor) {
-    if (cache_.has_cache(name)) {
-        stream_file(cache_.cache_path(name), visitor);
-        visitor.on_list_complete(name);
-        return;
-    }
-
-    stream_list(name, config, visitor);
 }
 
 void ListStreamer::stream_cache(const std::string& name, ListEntryVisitor& visitor) {
