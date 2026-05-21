@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
 
@@ -41,7 +42,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  buildListUsageByRouteRules,
   emptyRouteRuleDraft,
+  formatRoutingListRefsUsageSummary,
   getFirstFieldError,
   normalizeRouteRuleDraft,
   protoOptions,
@@ -155,11 +158,19 @@ function RoutingRuleForm({
   )
   const outbounds = (loadedConfig.outbounds ?? [])
     .filter((outbound: Outbound): outbound is Outbound & { tag: string } =>
-      Boolean(outbound.tag)
+      Boolean(outbound.tag),
     )
     .sort((left: Outbound, right: Outbound) =>
-      left.tag.localeCompare(right.tag)
+      left.tag.localeCompare(right.tag),
     )
+  const routingListUsageByName = useMemo(
+    () =>
+      buildListUsageByRouteRules(
+        rules,
+        mode === "edit" ? parsedRuleIndex : undefined,
+      ),
+    [rules, mode, parsedRuleIndex],
+  )
   const protoSelectItems = protoOptions.map((option) => ({
     value: option,
     label: option || t("pages.routingRuleUpsert.fields.anyLower"),
@@ -322,6 +333,19 @@ function RoutingRuleForm({
                       placeholderTitle={t(
                         "pages.routingRuleUpsert.fields.noListsSelected"
                       )}
+                      usageSubtitle={(optionName) => {
+                        const refs = routingListUsageByName.get(optionName)
+                        if (!refs?.length) {
+                          return undefined
+                        }
+
+                        return t(
+                          "pages.routingRuleUpsert.fields.listUsedElsewhere",
+                          {
+                            summary: formatRoutingListRefsUsageSummary(refs),
+                          },
+                        )
+                      }}
                       value={field.state.value}
                     />
                     <FieldHint

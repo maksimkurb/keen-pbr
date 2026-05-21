@@ -41,6 +41,10 @@ function detectInitialLanguage(): Language {
   }
 
   const preferred = navigator.languages?.[0] ?? navigator.language
+  if (!preferred) {
+    return DEFAULT_LANGUAGE
+  }
+
   return preferred.toLowerCase().startsWith("ru") ? "ru" : DEFAULT_LANGUAGE
 }
 

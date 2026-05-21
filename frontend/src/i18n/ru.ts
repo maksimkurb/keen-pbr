@@ -522,6 +522,7 @@ export const ruTranslation = {
               "Добавьте один или несколько настроенных списков для этого правила.",
             noListsSelected: "Списки не выбраны",
             listsHint: "Выберите, к каким спискам применяется это правило.",
+            listUsedElsewhere: "Используется ещё в: {{summary}}",
             proto: "Протокол",
             any: "Любой",
             anyLower: "любой",
@@ -790,6 +791,7 @@ export const ruTranslation = {
             listPlaceholderDescription:
               "Выберите списки для этого правила. Совпадающие домены будут использовать этот DNS-сервер.",
             noListsSelected: "Списки не выбраны",
+            listUsedElsewhere: "Используется ещё в: {{summary}}",
             noLists:
               "Не найдено ни одного списка. Пожалуйста, сначала создайте его на странице Списки.",
           },
