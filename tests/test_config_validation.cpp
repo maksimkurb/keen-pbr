@@ -306,6 +306,8 @@ TEST_CASE("dns servers: at most one keenetic type server is allowed") {
 
 TEST_CASE("route rule enabled: parse and serialize cover true false omitted and null") {
     const auto cfg_true = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[{"enabled":true,"list":["ads"],"outbound":"vpn"}]}
     })");
     REQUIRE(cfg_true.route.has_value());
@@ -316,6 +318,8 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
     CHECK(json_true["route"]["rules"][0]["enabled"] == true);
 
     const auto cfg_false = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[{"enabled":false,"list":["ads"],"outbound":"vpn"}]}
     })");
     REQUIRE(cfg_false.route.has_value());
@@ -326,6 +330,8 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
     CHECK(json_false["route"]["rules"][0]["enabled"] == false);
 
     const auto cfg_omitted = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}
     })");
     REQUIRE(cfg_omitted.route.has_value());
@@ -336,6 +342,8 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
     CHECK(json_omitted["route"]["rules"][0]["enabled"].is_null());
 
     const auto cfg_null = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[{"enabled":null,"list":["ads"],"outbound":"vpn"}]}
     })");
     REQUIRE(cfg_null.route.has_value());
@@ -348,6 +356,7 @@ TEST_CASE("route rule enabled: parse and serialize cover true false omitted and 
 
 TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and null") {
     const auto cfg_true = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
         "dns":{
             "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
             "fallback":["vpn_dns"],
@@ -362,6 +371,7 @@ TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and nu
     CHECK(json_true["dns"]["rules"][0]["enabled"] == true);
 
     const auto cfg_false = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
         "dns":{
             "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
             "fallback":["vpn_dns"],
@@ -376,6 +386,7 @@ TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and nu
     CHECK(json_false["dns"]["rules"][0]["enabled"] == false);
 
     const auto cfg_omitted = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
         "dns":{
             "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
             "fallback":["vpn_dns"],
@@ -390,6 +401,7 @@ TEST_CASE("dns rule enabled: parse and serialize cover true false omitted and nu
     CHECK(json_omitted["dns"]["rules"][0]["enabled"].is_null());
 
     const auto cfg_null = parse_test_config(R"({
+        "lists":{"ads":{"domains":["example.com"]}},
         "dns":{
             "servers":[{"tag":"vpn_dns","address":"10.8.0.1"}],
             "fallback":["vpn_dns"],
@@ -688,6 +700,7 @@ TEST_CASE("route rule: invalid dest_addr reports route.rules[0].dest_addr") {
 TEST_CASE("route rule: iptables rejects multiport src_port combined with dest_port") {
     const auto issues = validate_issues(R"({
         "daemon":{"firewall_backend":"iptables"},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
         ]}
@@ -700,6 +713,7 @@ TEST_CASE("route rule: iptables rejects multiport src_port combined with dest_po
 TEST_CASE("route rule: iptables rejects multiport dest_port combined with src_port") {
     const auto issues = validate_issues(R"({
         "daemon":{"firewall_backend":"iptables"},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555-666","dest_port":"555,666"}
         ]}
@@ -711,6 +725,7 @@ TEST_CASE("route rule: iptables rejects multiport dest_port combined with src_po
 TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"iptables"},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555-666","dest_port":"777-888"}
         ]}
@@ -720,6 +735,7 @@ TEST_CASE("route rule: iptables allows src_port and dest_port ranges together") 
 TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"nftables"},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
         ]}
@@ -729,6 +745,7 @@ TEST_CASE("route rule: nftables allows mixed multiport and dest_port") {
 TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
     CHECK_NOTHROW(parse_test_config(R"({
         "daemon":{"firewall_backend":"auto"},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],
         "route":{"rules":[
             {"outbound":"vpn","src_port":"555,666","dest_port":"555-666"}
         ]}
@@ -736,16 +753,16 @@ TEST_CASE("route rule: auto allows mixed multiport and dest_port") {
 }
 
 TEST_CASE("route inbound_interfaces: omitted is accepted") {
-    CHECK_NOTHROW(parse_test_config(R"({"route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"lists":{"ads":{"domains":["example.com"]}},"outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],"route":{"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
 }
 
 TEST_CASE("route inbound_interfaces: empty array is accepted") {
-    CHECK_NOTHROW(parse_test_config(R"({"route":{"inbound_interfaces":[],"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
+    CHECK_NOTHROW(parse_test_config(R"({"lists":{"ads":{"domains":["example.com"]}},"outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],"route":{"inbound_interfaces":[],"rules":[{"list":["ads"],"outbound":"vpn"}]}})"));
 }
 
 TEST_CASE("route inbound_interfaces: valid entries are parsed") {
     auto cfg = parse_test_config(
-        R"({"route":{"inbound_interfaces":["br0","wg0"],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
+        R"({"lists":{"ads":{"domains":["example.com"]}},"outbounds":[{"tag":"vpn","type":"interface","interface":"eth0"}],"route":{"inbound_interfaces":["br0","wg0"],"rules":[{"list":["ads"],"outbound":"vpn"}]}})");
     REQUIRE(cfg.route.has_value());
     REQUIRE(cfg.route->inbound_interfaces.has_value());
     CHECK(cfg.route->inbound_interfaces->size() == 2);
@@ -1063,4 +1080,67 @@ TEST_CASE("daemon.skip_marked_packets: rejects non-boolean value") {
     const auto issues = parse_issues(R"({"daemon":{"skip_marked_packets":"yes"}})");
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.skip_marked_packets");
+}
+
+// =============================================================================
+// Cross-reference validation: route rules, DNS rules, outbounds
+// =============================================================================
+
+TEST_CASE("route rule: unknown outbound tag is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"blocked":{"ip_cidrs":["10.0.0.0/8"]}},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth0"}],
+        "route":{"rules":[{"list":["blocked"],"outbound":"missing"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].outbound");
+    CHECK(issues[0].message.find("unknown outbound") != std::string::npos);
+}
+
+TEST_CASE("route rule: unknown list name is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"blocked":{"ip_cidrs":["10.0.0.0/8"]}},
+        "outbounds":[{"tag":"wan","type":"interface","interface":"eth0"}],
+        "route":{"rules":[{"list":["ghost"],"outbound":"wan"}]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "route.rules[0].list[0]");
+    CHECK(issues[0].message.find("unknown list") != std::string::npos);
+}
+
+TEST_CASE("dns rule: unknown server tag is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"domains":{"domains":["example.com"]}},
+        "dns":{
+            "servers":[{"tag":"main","address":"1.1.1.1"}],
+            "fallback":["main"],
+            "rules":[{"list":["domains"],"server":"missing"}]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.rules[0].server");
+    CHECK(issues[0].message.find("unknown DNS server") != std::string::npos);
+}
+
+TEST_CASE("dns rule: unknown list name is rejected") {
+    const auto issues = validate_issues(R"({
+        "lists":{"domains":{"domains":["example.com"]}},
+        "dns":{
+            "servers":[{"tag":"main","address":"1.1.1.1"}],
+            "fallback":["main"],
+            "rules":[{"list":["ghost"],"server":"main"}]
+        }
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "dns.rules[0].list[0]");
+    CHECK(issues[0].message.find("unknown list") != std::string::npos);
+}
+
+TEST_CASE("interface outbound: empty interface name is rejected") {
+    const auto issues = validate_issues(R"({
+        "outbounds":[{"tag":"wan","type":"interface","interface":""}],
+        "dns":{"servers":[{"tag":"main","address":"1.1.1.1"}],"fallback":["main"]}
+    })");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "outbounds.wan.interface");
 }

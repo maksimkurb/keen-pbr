@@ -665,6 +665,13 @@ void validate_config(const Config& cfg) {
                       "List '" + name +
                           "' must have at least one of: url, domains, ip_cidrs, file");
         }
+
+        // NOTE: individual list entries are intentionally NOT validated here.
+        // Lists are routinely aggregated from external sources and legitimately
+        // contain entries the parser does not recognise (CIDRs in domain lists,
+        // wildcard/host:port forms, comments, blank lines). ListParser skips
+        // unrecognised entries gracefully when building sets, so rejecting the
+        // whole config over them would break real-world setups.
     }
 
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
@@ -672,6 +679,12 @@ void validate_config(const Config& cfg) {
         validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
 
         if (ob.type == OutboundType::INTERFACE) {
+            const std::string iface = trim_copy(ob.interface.value_or(""));
+            if (iface.empty()) {
+                add_issue(issues,
+                          "outbounds." + ob.tag + ".interface",
+                          "Interface outbound '" + ob.tag + "' requires a non-empty interface name");
+            }
             if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway",
@@ -934,6 +947,90 @@ void validate_config(const Config& cfg) {
     } else {
         add_issue(issues, "dns.system_resolver",
                   "dns.system_resolver must be present");
+    }
+
+    std::set<std::string> configured_list_names;
+    for (const auto& [list_name, _] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        configured_list_names.insert(list_name);
+    }
+
+    std::set<std::string> outbound_tags;
+    for (const auto& ob : outbounds) {
+        outbound_tags.insert(ob.tag);
+    }
+
+    const auto validate_rule_list_refs =
+        [&](const std::string& rule_path,
+            const std::vector<std::string>& list_refs) {
+            for (size_t list_index = 0; list_index < list_refs.size(); ++list_index) {
+                const std::string list_path =
+                    rule_path + ".list[" + std::to_string(list_index) + "]";
+                const std::string list_name = trim_copy(list_refs[list_index]);
+                if (list_name.empty()) {
+                    add_issue(issues,
+                              list_path,
+                              rule_path + ".list[" + std::to_string(list_index) +
+                                  "] must not be empty");
+                    continue;
+                }
+                if (configured_list_names.find(list_name) == configured_list_names.end()) {
+                    add_issue(issues,
+                              list_path,
+                              rule_path + " references unknown list '" + list_name + "'");
+                }
+            }
+        };
+
+    const auto& route_rules =
+        cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    for (size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
+        const auto& rule = route_rules[rule_index];
+        const std::string rule_path = "route.rules[" + std::to_string(rule_index) + "]";
+
+        const std::string outbound_tag = trim_copy(rule.outbound);
+        if (outbound_tag.empty()) {
+            add_issue(issues,
+                      rule_path + ".outbound",
+                      rule_path + ".outbound must not be empty");
+        } else if (outbound_tags.find(outbound_tag) == outbound_tags.end()) {
+            add_issue(issues,
+                      rule_path + ".outbound",
+                      rule_path + " references unknown outbound tag '" + outbound_tag + "'");
+        }
+
+        validate_rule_list_refs(rule_path, route_rule_lists(rule));
+    }
+
+    if (cfg.dns.has_value() && cfg.dns->rules.has_value()) {
+        std::set<std::string> dns_server_tags;
+        for (const auto& srv : cfg.dns->servers.value_or(std::vector<DnsServer>{})) {
+            dns_server_tags.insert(srv.tag);
+        }
+
+        for (size_t rule_index = 0; rule_index < cfg.dns->rules->size(); ++rule_index) {
+            const auto& rule = cfg.dns->rules->at(rule_index);
+            const std::string rule_path = "dns.rules[" + std::to_string(rule_index) + "]";
+
+            const std::string server_tag = trim_copy(rule.server);
+            if (server_tag.empty()) {
+                add_issue(issues,
+                          rule_path + ".server",
+                          rule_path + ".server must not be empty");
+            } else if (dns_server_tags.find(server_tag) == dns_server_tags.end()) {
+                add_issue(issues,
+                          rule_path + ".server",
+                          rule_path + " references unknown DNS server tag '" + server_tag +
+                              "'");
+            }
+
+            if (rule.list.empty()) {
+                add_issue(issues,
+                          rule_path + ".list",
+                          rule_path + ".list must include at least one list name");
+            } else {
+                validate_rule_list_refs(rule_path, rule.list);
+            }
+        }
     }
 
     if (!issues.empty()) {
