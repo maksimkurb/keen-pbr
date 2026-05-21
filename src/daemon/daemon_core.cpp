@@ -449,6 +449,37 @@ void Daemon::handle_interface_monitor_events(uint32_t events) {
         interface_monitor_->handle_events();
     } catch (const std::exception& e) {
         Logger::instance().error("Interface monitor event handling failed: {}", e.what());
+
+        int old_fd = -1;
+        try {
+            old_fd = interface_monitor_->fd();
+        } catch (const std::exception&) {
+            // socket already gone; nothing to unregister
+        }
+
+        try {
+            interface_monitor_->reconnect();
+            // reconnect() builds a fresh netlink socket with a NEW fd and
+            // closes the old one. epoll and fd_entries_ must be updated, or
+            // interface events stop being delivered. Always unregister the
+            // old fd first: even when the new socket reuses the same fd
+            // number, this drops the now-stale fd_entries_ row before the
+            // fresh one is appended (remove is queued ahead of add).
+            const int new_fd = interface_monitor_->fd();
+            if (old_fd >= 0) {
+                remove_fd(old_fd, /*wait_for_completion=*/false,
+                          "interface-monitor-stale");
+            }
+            add_fd(new_fd,
+                   EPOLLIN,
+                   [this](uint32_t ev) { handle_interface_monitor_events(ev); },
+                   /*wait_for_completion=*/false,
+                   "interface-monitor");
+            Logger::instance().warn("Interface monitor reconnected after netlink error");
+        } catch (const std::exception& reconnect_error) {
+            Logger::instance().error("Interface monitor reconnect failed: {}",
+                                     reconnect_error.what());
+        }
     }
 }
 
