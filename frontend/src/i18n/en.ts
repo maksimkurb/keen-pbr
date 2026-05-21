@@ -1000,6 +1000,28 @@ export const enTranslation = {
             duplicateName: "A list with this name already exists.",
             invalidTtl: "TTL must be a non-negative integer.",
           },
+          check: {
+            button: "Check / Verify",
+            cardTitle: "Check results",
+            noIssues: "No duplicates or redundant entries found.",
+            exactDuplicates: {
+              heading: "Exact duplicates",
+              description: "These entries appear more than once in this list.",
+            },
+            redundantSubdomains: {
+              heading: "Redundant subdomains",
+              description:
+                "These entries are already covered by a parent domain in this list.",
+              coveredBy: "covered by {{parent}}",
+            },
+            crossListUsage: {
+              heading: "Also in other lists",
+              description:
+                "These entries (or a parent domain) also appear in another list.",
+              inList: "also in {{list}}",
+            },
+            summary: "{{exactCount}} duplicate(s), {{redundantCount}} redundant, {{crossCount}} cross-list",
+          },
         },
       },
     } as const

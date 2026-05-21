@@ -1027,6 +1027,28 @@ export const ruTranslation = {
             duplicateName: "Список с таким именем уже существует.",
             invalidTtl: "TTL должен быть неотрицательным целым числом.",
           },
+          check: {
+            button: "Проверить",
+            cardTitle: "Результаты проверки",
+            noIssues: "Дубликатов и избыточных записей не найдено.",
+            exactDuplicates: {
+              heading: "Точные дубликаты",
+              description: "Эти записи встречаются в списке более одного раза.",
+            },
+            redundantSubdomains: {
+              heading: "Избыточные поддомены",
+              description:
+                "Эти записи уже покрываются родительским доменом в этом списке.",
+              coveredBy: "покрывается через {{parent}}",
+            },
+            crossListUsage: {
+              heading: "Также в других списках",
+              description:
+                "Эти записи (или их родительский домен) встречаются в другом списке.",
+              inList: "также в {{list}}",
+            },
+            summary: "{{exactCount}} дублик., {{redundantCount}} избыточных, {{crossCount}} в других списках",
+          },
         },
       },
     } as const

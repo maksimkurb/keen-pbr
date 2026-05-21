@@ -26,7 +26,7 @@ import {
 import { ButtonGroup } from "@/components/shared/button-group"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -43,6 +43,17 @@ import {
   splitFormApiErrors,
 } from "@/lib/form-api-errors"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
+import {
+  findCrossListUsage,
+  findExactDuplicates,
+  findRedundantSubdomains,
+} from "@/pages/list-duplicates-utils"
+
+type CheckResults = {
+  exactDuplicates: string[]
+  redundantSubdomains: { redundant: string; coveredBy: string }[]
+  crossListUsage: { entry: string; otherList: string }[]
+}
 
 type ListDraft = {
   name: string
@@ -201,6 +212,7 @@ function ListForm({
   const [activeSourceGroups, setActiveSourceGroups] = useState<ListSourceGroup[]>(
     () => getActiveSourceGroupsFromDraft(draft)
   )
+  const [checkResults, setCheckResults] = useState<CheckResults | null>(null)
   const postConfigMutation = usePostConfigMutation()
   const form = useForm({
     defaultValues: draft,
@@ -313,6 +325,22 @@ function ListForm({
       form.setFieldValue(LIST_FIELD_NAMES.ipCidrs, "")
     }
 
+  }
+
+  const handleCheck = () => {
+    const values = form.state.values
+    const domains = splitLines(values.domains)
+    const ipCidrs = splitLines(values.ipCidrs)
+    const allEntries = [...domains, ...ipCidrs]
+    const allLists = loadedConfig.lists ?? {}
+
+    const exactDuplicates = findExactDuplicates(allEntries)
+    const redundantSubdomains = findRedundantSubdomains(domains)
+    const crossListUsage = listId
+      ? findCrossListUsage(listId, allEntries, allLists)
+      : findCrossListUsage("", allEntries, allLists)
+
+    setCheckResults({ exactDuplicates, redundantSubdomains, crossListUsage })
   }
 
   return (
@@ -605,6 +633,121 @@ function ListForm({
                 )}
               </form.Field>
             </FieldGroup>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {activeSourceGroups.includes("inline") ? (
+        <div className="flex justify-end">
+          <Button
+            onClick={handleCheck}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {t("pages.listUpsert.check.button")}
+          </Button>
+        </div>
+      ) : null}
+
+      {checkResults !== null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("pages.listUpsert.check.cardTitle")}</CardTitle>
+            <CardDescription>
+              {t("pages.listUpsert.check.summary", {
+                exactCount: checkResults.exactDuplicates.length,
+                redundantCount: checkResults.redundantSubdomains.length,
+                crossCount: checkResults.crossListUsage.length,
+              })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {checkResults.exactDuplicates.length === 0 &&
+            checkResults.redundantSubdomains.length === 0 &&
+            checkResults.crossListUsage.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("pages.listUpsert.check.noIssues")}
+              </p>
+            ) : null}
+
+            {checkResults.exactDuplicates.length > 0 ? (
+              <Alert variant="destructive">
+                <AlertTitle>
+                  {t("pages.listUpsert.check.exactDuplicates.heading")}
+                </AlertTitle>
+                <AlertDescription>
+                  <p className="mb-2">
+                    {t("pages.listUpsert.check.exactDuplicates.description")}
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 font-mono text-xs">
+                    {checkResults.exactDuplicates.map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {checkResults.redundantSubdomains.length > 0 ? (
+              <Alert variant="warning">
+                <AlertTitle>
+                  {t("pages.listUpsert.check.redundantSubdomains.heading")}
+                </AlertTitle>
+                <AlertDescription>
+                  <p className="mb-2">
+                    {t(
+                      "pages.listUpsert.check.redundantSubdomains.description"
+                    )}
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 font-mono text-xs">
+                    {checkResults.redundantSubdomains.map(
+                      ({ redundant, coveredBy }) => (
+                        <li key={redundant}>
+                          {redundant}{" "}
+                          <span className="text-muted-foreground not-italic font-sans">
+                            (
+                            {t(
+                              "pages.listUpsert.check.redundantSubdomains.coveredBy",
+                              { parent: coveredBy }
+                            )}
+                            )
+                          </span>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {checkResults.crossListUsage.length > 0 ? (
+              <Alert>
+                <AlertTitle>
+                  {t("pages.listUpsert.check.crossListUsage.heading")}
+                </AlertTitle>
+                <AlertDescription>
+                  <p className="mb-2">
+                    {t("pages.listUpsert.check.crossListUsage.description")}
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 font-mono text-xs">
+                    {checkResults.crossListUsage.map(({ entry, otherList }) => (
+                      <li key={`${entry}:${otherList}`}>
+                        {entry}{" "}
+                        <span className="text-muted-foreground not-italic font-sans">
+                          (
+                          {t(
+                            "pages.listUpsert.check.crossListUsage.inList",
+                            { list: otherList }
+                          )}
+                          )
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
