@@ -20,7 +20,7 @@ test.describe("Overview interface inventory", () => {
 })
 
 test.describe("Routing rule list usage hints", () => {
-  test("list picker subtitle mentions other routing rules with criteria", async ({
+  test("list picker subtitle names the other routing rules using the list", async ({
     page,
   }) => {
     await installAppApiMocks(page)
@@ -30,8 +30,8 @@ test.describe("Routing rule list usage hints", () => {
     await listField.getByRole("combobox").click()
 
     const option = page.locator('[data-list-option="shared_list"]')
+    // The hint is intentionally concise: rule number + outbound, no criteria dump.
     await expect(option).toContainText("#1 → wan0")
     await expect(option).toContainText("#2 → drop")
-    await expect(option).toContainText("proto: udp")
   })
 })
