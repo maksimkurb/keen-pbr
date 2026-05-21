@@ -497,23 +497,64 @@ function AddressTooltipContent({ addresses }: { addresses: string[] }) {
   )
 }
 
+/** Returns true when the address (with or without prefix length) is an IPv6 link-local address. */
+function isLinkLocal(address: string): boolean {
+  const bare = address.split("/")[0].toLowerCase()
+  return bare.startsWith("fe80:")
+}
+
+/**
+ * Choose the most informative single address for the inline preview:
+ * 1. First IPv4 address (always meaningful)
+ * 2. First global IPv6 (non-link-local)
+ * 3. null — caller should show a fallback label
+ */
+function pickMeaningfulAddress(
+  interfaceEntry: RuntimeInterfaceInventoryEntry,
+): string | null {
+  const ipv4 = interfaceEntry.ipv4_addresses?.[0]
+  if (ipv4) return ipv4
+
+  const globalV6 = (interfaceEntry.ipv6_addresses ?? []).find(
+    (addr) => !isLinkLocal(addr),
+  )
+  if (globalV6) return globalV6
+
+  return null
+}
+
 function AddressPreview({
   interfaceEntry,
 }: {
   interfaceEntry: RuntimeInterfaceInventoryEntry
 }) {
-  const ipv4 = interfaceEntry.ipv4_addresses?.[0]
-  const ipv6 = interfaceEntry.ipv6_addresses?.[0]
+  const { t } = useTranslation()
+  const meaningful = pickMeaningfulAddress(interfaceEntry)
 
-  if (!ipv4 && !ipv6) {
-    return null
+  if (meaningful) {
+    return (
+      <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
+        <AddressPreviewChip address={meaningful} />
+      </div>
+    )
   }
 
+  // Determine why there is no meaningful address and show a clear label
+  const hasAnyAddress =
+    (interfaceEntry.ipv4_addresses?.length ?? 0) > 0 ||
+    (interfaceEntry.ipv6_addresses?.length ?? 0) > 0
+  const isDown = interfaceEntry.status !== "up"
+
+  const fallbackLabel = isDown
+    ? t("common.interfacePicker.addressDown")
+    : hasAnyAddress
+      ? t("common.interfacePicker.addressLinkLocalOnly")
+      : t("common.interfacePicker.addressNone")
+
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
-      {ipv4 ? <AddressPreviewChip address={ipv4} /> : null}
-      {ipv6 ? <AddressPreviewChip address={ipv6} /> : null}
-    </div>
+    <span className="text-xs text-muted-foreground/70 italic">
+      {fallbackLabel}
+    </span>
   )
 }
 

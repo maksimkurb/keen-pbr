@@ -30,6 +30,9 @@ export const enTranslation = {
           empty: "No interfaces found.",
           notExists: "(not exists)",
           notFound: "Interface does not exist.",
+          addressLinkLocalOnly: "link-local only",
+          addressNone: "no address",
+          addressDown: "down",
         },
         validation: {
           tagNamePattern: "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
@@ -188,6 +191,8 @@ export const enTranslation = {
             up: "up",
             down: "down",
           },
+          showAll: "Show all interfaces",
+          hiddenCount: "{{count}} hidden",
         },
         outbounds: {
           title: "Outbounds health",

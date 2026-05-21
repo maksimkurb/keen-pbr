@@ -1,7 +1,9 @@
+import { useState } from "react"
 import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import { RuntimeInterfaceInventoryStatus } from "@/api/generated/model/runtimeInterfaceInventoryStatus"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { SectionCard } from "@/components/shared/section-card"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
 import {
@@ -52,6 +54,10 @@ function formatTriState(
   return unknown
 }
 
+function isInterfaceUp(entry: RuntimeInterfaceInventoryEntry): boolean {
+  return entry.status === RuntimeInterfaceInventoryStatus.up
+}
+
 export function RuntimeInterfacesInventoryPanel({
   interfaces,
   errorMessage,
@@ -77,8 +83,16 @@ export function RuntimeInterfacesInventoryPanel({
     unknownShort: string
     statusUp: string
     statusDown: string
+    showAll: string
+    formatHiddenCount: (count: number) => string
   }
 }) {
+  const [showAll, setShowAll] = useState(false)
+
+  const upInterfaces = interfaces.filter(isInterfaceUp)
+  const hiddenCount = interfaces.length - upInterfaces.length
+  const visibleInterfaces = showAll ? interfaces : upInterfaces
+
   return (
     <div data-testid="overview-interface-inventory">
       <SectionCard description={labels.description} title={labels.title}>
@@ -95,82 +109,100 @@ export function RuntimeInterfacesInventoryPanel({
         ) : null}
 
         {!isLoading && !errorMessage && interfaces.length > 0 ? (
-          <div className="overflow-x-auto rounded-md border">
-            <Table className="min-w-[760px] text-sm">
-              <TableHeader className="bg-muted/40">
-                <TableRow>
-                  <TableHead className="font-semibold">
-                    {labels.colName}
-                  </TableHead>
-                  <TableHead className="font-semibold">
-                    {labels.colRuntimeStatus}
-                  </TableHead>
-                  <TableHead className="text-center font-semibold whitespace-nowrap">
-                    {labels.colAdminUp}
-                  </TableHead>
-                  <TableHead className="font-semibold whitespace-nowrap">
-                    {labels.colOperState}
-                  </TableHead>
-                  <TableHead className="text-center font-semibold whitespace-nowrap">
-                    {labels.colCarrier}
-                  </TableHead>
-                  <TableHead className="font-semibold">
-                    {labels.colAddresses}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {interfaces.map((entry) => (
-                  <TableRow
-                    key={entry.name}
-                    data-interface-name={entry.name}
-                    data-testid="overview-interface-row"
-                  >
-                    <TableCell className="align-top font-medium">
-                      {entry.name}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <Badge
-                        size="xs"
-                        variant={
-                          entry.status === RuntimeInterfaceInventoryStatus.up
-                            ? "success"
-                            : "secondary"
-                        }
-                      >
-                        {entry.status === RuntimeInterfaceInventoryStatus.up
-                          ? labels.statusUp
-                          : labels.statusDown}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="align-top text-center tabular-nums">
-                      {formatTriState(
-                        entry.admin_up,
-                        labels.yesShort,
-                        labels.noShort,
-                        labels.unknownShort,
-                      )}
-                    </TableCell>
-                    <TableCell className="align-top font-mono text-xs">
-                      {entry.oper_state?.trim()?.length
-                        ? entry.oper_state
-                        : labels.unknownShort}
-                    </TableCell>
-                    <TableCell className="align-top text-center">
-                      {formatTriState(
-                        entry.carrier,
-                        labels.yesShort,
-                        labels.noShort,
-                        labels.unknownShort,
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[min(100vw,28rem)] align-top whitespace-normal wrap-break-word text-xs leading-snug text-muted-foreground">
-                      {summarizeAddresses(entry, labels.formatExtraAddresses)}
-                    </TableCell>
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="min-w-[760px] text-sm">
+                <TableHeader className="bg-muted/40">
+                  <TableRow>
+                    <TableHead className="font-semibold">
+                      {labels.colName}
+                    </TableHead>
+                    <TableHead className="font-semibold">
+                      {labels.colRuntimeStatus}
+                    </TableHead>
+                    <TableHead className="text-center font-semibold whitespace-nowrap">
+                      {labels.colAdminUp}
+                    </TableHead>
+                    <TableHead className="font-semibold whitespace-nowrap">
+                      {labels.colOperState}
+                    </TableHead>
+                    <TableHead className="text-center font-semibold whitespace-nowrap">
+                      {labels.colCarrier}
+                    </TableHead>
+                    <TableHead className="font-semibold">
+                      {labels.colAddresses}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {visibleInterfaces.map((entry) => (
+                    <TableRow
+                      key={entry.name}
+                      data-interface-name={entry.name}
+                      data-testid="overview-interface-row"
+                    >
+                      <TableCell className="align-top font-medium">
+                        {entry.name}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <Badge
+                          size="xs"
+                          variant={
+                            entry.status === RuntimeInterfaceInventoryStatus.up
+                              ? "success"
+                              : "secondary"
+                          }
+                        >
+                          {entry.status === RuntimeInterfaceInventoryStatus.up
+                            ? labels.statusUp
+                            : labels.statusDown}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="align-top text-center tabular-nums">
+                        {formatTriState(
+                          entry.admin_up,
+                          labels.yesShort,
+                          labels.noShort,
+                          labels.unknownShort,
+                        )}
+                      </TableCell>
+                      <TableCell className="align-top font-mono text-xs">
+                        {entry.oper_state?.trim()?.length
+                          ? entry.oper_state
+                          : labels.unknownShort}
+                      </TableCell>
+                      <TableCell className="align-top text-center">
+                        {formatTriState(
+                          entry.carrier,
+                          labels.yesShort,
+                          labels.noShort,
+                          labels.unknownShort,
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[min(100vw,28rem)] align-top whitespace-normal wrap-break-word text-xs leading-snug text-muted-foreground">
+                        {summarizeAddresses(entry, labels.formatExtraAddresses)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {hiddenCount > 0 ? (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
+                <Checkbox
+                  checked={showAll}
+                  onCheckedChange={(checked) => setShowAll(Boolean(checked))}
+                />
+                <span>
+                  {labels.showAll}
+                  {!showAll ? (
+                    <span className="ml-1 text-xs">
+                      ({labels.formatHiddenCount(hiddenCount)})
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            ) : null}
           </div>
         ) : null}
       </SectionCard>

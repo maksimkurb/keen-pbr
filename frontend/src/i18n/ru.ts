@@ -31,6 +31,9 @@ export const ruTranslation = {
           empty: "Интерфейсы не найдены.",
           notExists: "(не существует)",
           notFound: "Интерфейс не существует.",
+          addressLinkLocalOnly: "только link-local",
+          addressNone: "нет адреса",
+          addressDown: "выключен",
         },
         validation: {
           tagNamePattern: "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
@@ -190,6 +193,8 @@ export const ruTranslation = {
             up: "up",
             down: "down",
           },
+          showAll: "Показать все интерфейсы",
+          hiddenCount: "скрыто: {{count}}",
         },
         outbounds: {
           title: "Состояние outbounds",

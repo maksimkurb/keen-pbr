@@ -223,6 +223,9 @@ export function OverviewPage() {
       unknownShort: t("overview.interfaceInventory.triState.unknown"),
       statusUp: t("overview.interfaceInventory.status.up"),
       statusDown: t("overview.interfaceInventory.status.down"),
+      showAll: t("overview.interfaceInventory.showAll"),
+      formatHiddenCount: (count: number) =>
+        t("overview.interfaceInventory.hiddenCount", { count }),
     }),
     [t],
   )
