@@ -111,22 +111,14 @@ export function buildListUsageByDnsRules(
 
 export function describeDnsRuleRefForListUsage(
   ref: DnsListUsageRef,
-  rule: DnsRuleListSource | undefined,
 ): string {
-  const criterion = rule ? getDnsRuleDetails(rule) : ""
-  const core = `#${ref.ruleIndex + 1} → ${ref.server}`
-  return criterion.trim().length > 0 ? `${core} (${criterion})` : core
+  return `#${ref.ruleIndex + 1} → ${ref.server}`
 }
 
 export function formatDnsListRefsUsageSummary(
   refs: DnsListUsageRef[],
-  rules: DnsRuleListSource[],
 ): string {
-  return refs
-    .map((reference) =>
-      describeDnsRuleRefForListUsage(reference, rules[reference.ruleIndex]),
-    )
-    .join(" • ")
+  return refs.map((reference) => describeDnsRuleRefForListUsage(reference)).join(", ")
 }
 
 export function validateRules(

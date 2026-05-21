@@ -28,7 +28,7 @@ describe("routing list usage helpers", () => {
     expect(edit0.get("b")).toBeUndefined()
   })
 
-  test("formatRoutingListRefsUsageSummary includes rule indices, outbound, and criteria", () => {
+  test("formatRoutingListRefsUsageSummary shows rule number and outbound only, joined by comma", () => {
     const rules: RouteRule[] = [
       rule({
         outbound: "wan",
@@ -43,21 +43,19 @@ describe("routing list usage helpers", () => {
     ]
     const refs = buildListUsageByRouteRules(rules)
     const sharedRefs = refs.get("shared") ?? []
-    const summary = formatRoutingListRefsUsageSummary(sharedRefs, rules)
+    const summary = formatRoutingListRefsUsageSummary(sharedRefs)
 
     expect(summary).toContain("#1 → wan")
-    expect(summary).toContain("dest_addr: 10.0.0.0/24")
     expect(summary).toContain("#2 → vpn")
-    expect(summary).toContain("proto: udp")
-    expect(summary).toContain(" • ")
+    expect(summary).toContain(", ")
+    expect(summary).not.toContain("dest_addr")
+    expect(summary).not.toContain("proto")
+    expect(summary).not.toContain(" • ")
   })
 
-  test("describeRouteRuleRefForListUsage falls back to index and outbound without rule payload", () => {
-    expect(
-      describeRouteRuleRefForListUsage(
-        { ruleIndex: 2, outbound: "x" },
-        undefined,
-      ),
-    ).toBe("#3 → x")
+  test("describeRouteRuleRefForListUsage returns index and outbound", () => {
+    expect(describeRouteRuleRefForListUsage({ ruleIndex: 2, outbound: "x" })).toBe(
+      "#3 → x",
+    )
   })
 })

@@ -392,10 +392,7 @@ function DnsRuleForm({
                           return undefined
                         }
                         return t("pages.dnsRuleUpsert.fields.listUsedElsewhere", {
-                          summary: formatDnsListRefsUsageSummary(
-                            refs,
-                            dnsRuleDrafts,
-                          ),
+                          summary: formatDnsListRefsUsageSummary(refs),
                         })
                       }}
                       value={field.state.value}

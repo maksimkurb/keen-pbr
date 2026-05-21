@@ -342,10 +342,7 @@ function RoutingRuleForm({
                         return t(
                           "pages.routingRuleUpsert.fields.listUsedElsewhere",
                           {
-                            summary: formatRoutingListRefsUsageSummary(
-                              refs,
-                              rules,
-                            ),
+                            summary: formatRoutingListRefsUsageSummary(refs),
                           },
                         )
                       }}

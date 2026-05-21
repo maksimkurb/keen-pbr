@@ -23,26 +23,24 @@ describe("DNS list usage helpers", () => {
     expect(edit0.get("b")).toBeUndefined()
   })
 
-  test("formatDnsListRefsUsageSummary includes rule indices and server", () => {
+  test("formatDnsListRefsUsageSummary shows rule number and server only, joined by comma", () => {
     const rules = [
       { server: "upstream", lists: ["shared"] },
       { server: "backup", lists: ["shared", "other"] },
     ]
     const refs = buildListUsageByDnsRules(rules).get("shared") ?? []
-    const summary = formatDnsListRefsUsageSummary(refs, rules)
+    const summary = formatDnsListRefsUsageSummary(refs)
 
     expect(summary).toContain("#1 → upstream")
     expect(summary).toContain("#2 → backup")
-    expect(summary).toContain("lists: shared")
-    expect(summary).toContain(" • ")
+    expect(summary).toContain(", ")
+    expect(summary).not.toContain("lists:")
+    expect(summary).not.toContain(" • ")
   })
 
-  test("describeDnsRuleRefForListUsage falls back without rule payload", () => {
+  test("describeDnsRuleRefForListUsage returns index and server", () => {
     expect(
-      describeDnsRuleRefForListUsage(
-        { ruleIndex: 1, server: "upstream" },
-        undefined,
-      ),
+      describeDnsRuleRefForListUsage({ ruleIndex: 1, server: "upstream" }),
     ).toBe("#2 → upstream")
   })
 })

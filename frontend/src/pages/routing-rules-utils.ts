@@ -149,25 +149,15 @@ export function buildListUsageByRouteRules(
 
 export function describeRouteRuleRefForListUsage(
   ref: RouteListUsageRef,
-  rule: RouteRule | undefined,
 ): string {
-  const outbound = ref.outbound
-  const criterion = rule ? getRuleDetails(rule) : ""
-
-  const core = `#${ref.ruleIndex + 1} → ${outbound}`
-  return criterion.trim().length > 0 ? `${core} (${criterion})` : core
+  return `#${ref.ruleIndex + 1} → ${ref.outbound}`
 }
 
 /** Single-line subtitle for list pickers: other routing rules referencing the same list. */
 export function formatRoutingListRefsUsageSummary(
   refs: RouteListUsageRef[],
-  rules: RouteRule[],
 ): string {
-  return refs
-    .map((reference) =>
-      describeRouteRuleRefForListUsage(reference, rules[reference.ruleIndex]),
-    )
-    .join(" • ")
+  return refs.map((reference) => describeRouteRuleRefForListUsage(reference)).join(", ")
 }
 
 export function getFirstFieldError(errors: unknown[]) {

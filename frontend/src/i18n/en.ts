@@ -575,8 +575,7 @@ export const enTranslation = {
               "Add one or more configured list names to match for this rule.",
             noListsSelected: "No lists selected",
             listsHint: "Choose which of your lists this rule applies to.",
-            listUsedElsewhere:
-              "Also used in other routing rules (number → outbound, criteria): {{summary}}",
+            listUsedElsewhere: "Also in: {{summary}}",
             proto: "Proto",
             any: "Any",
             anyLower: "any",
@@ -846,8 +845,7 @@ export const enTranslation = {
             listPlaceholderDescription:
               "Choose which lists this rule applies to. Matching domains will use this DNS server.",
             noListsSelected: "No lists selected",
-            listUsedElsewhere:
-              "Also used in other DNS rules (number → server, criteria): {{summary}}",
+            listUsedElsewhere: "Also in: {{summary}}",
             noLists:
               "No lists found. Please, create first filter on the Lists page.",
           },
