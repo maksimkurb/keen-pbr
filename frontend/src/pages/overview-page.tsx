@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Download, Play, RotateCw, Square } from "lucide-react"
 
@@ -38,33 +39,54 @@ import { DiagnosticsDownloadDialog } from "@/components/overview/diagnostics-dow
 import { getDnsmasqBadgeState } from "@/components/overview/dnsmasq-status"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 
 export function OverviewPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
+
+  const pollOverviewService = useMemo(
+    () => routerFriendlyPollingMs(queryClient, 45_000),
+    [queryClient],
+  )
+
+  const pollOverviewRouting = useMemo(
+    () => routerFriendlyPollingMs(queryClient, 60_000),
+    [queryClient],
+  )
+
+  const pollOverviewRuntime = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
+
   const serviceHealthQuery = useGetHealthService({
     query: {
-      refetchInterval: 30_000,
+      refetchInterval: pollOverviewService,
       refetchIntervalInBackground: false,
     },
   })
   const configQuery = useGetConfig()
   const routingHealthQuery = useGetHealthRouting({
     query: {
-      refetchInterval: 45_000,
+      refetchInterval: pollOverviewRouting,
       refetchIntervalInBackground: false,
     },
   })
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
     query: {
-      refetchInterval: 30_000,
+      refetchInterval: pollOverviewRuntime,
       refetchIntervalInBackground: false,
     },
   })
   const runtimeInterfacesQuery = useGetRuntimeInterfaces({
     query: {
-      refetchInterval: 30_000,
+      refetchInterval: pollOverviewRuntime,
       refetchIntervalInBackground: false,
     },
   })

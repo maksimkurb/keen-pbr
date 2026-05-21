@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { useQueryClient } from "@tanstack/react-query"
 
 import type { Outbound } from "@/api/generated/model/outbound"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
@@ -15,6 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 
 type OutboundSelectProps = {
   value: string
@@ -40,9 +45,14 @@ export function OutboundSelect({
   disabled,
 }: OutboundSelectProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const pollRuntimeOutboundSelect = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: pollRuntimeOutboundSelect,
       refetchIntervalInBackground: false,
     },
   })

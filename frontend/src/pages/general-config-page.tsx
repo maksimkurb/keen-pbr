@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useForm } from "@tanstack/react-form"
@@ -39,6 +40,10 @@ import {
   setFormServerErrors,
   splitFormApiErrors,
 } from "@/lib/form-api-errors"
+import {
+  ROUTER_RUNTIME_POLL_MS,
+  routerFriendlyPollingMs,
+} from "@/lib/router-friendly-query"
 import { toast } from "sonner"
 
 type SettingsDraft = {
@@ -115,9 +120,13 @@ function LoadedGeneralConfigPage({
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const pollRuntimeInterfaces = useMemo(
+    () => routerFriendlyPollingMs(queryClient, ROUTER_RUNTIME_POLL_MS),
+    [queryClient],
+  )
   const runtimeInterfacesQuery = useGetRuntimeInterfaces({
     query: {
-      refetchInterval: 10_000,
+      refetchInterval: pollRuntimeInterfaces,
       refetchIntervalInBackground: false,
     },
   })
