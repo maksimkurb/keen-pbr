@@ -13,6 +13,7 @@ import {
   SidebarMenuSubItem
 } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
+import { matchesNavHref } from "@/lib/nav-active"
 
 export function NavMain({
   items,
@@ -46,24 +47,29 @@ export function NavMain({
                 </div>
                 {hasChildren ? (
                   <SidebarMenuSub className="mx-4">
-                    {item.items?.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton
-                          className="min-h-11 text-base md:min-h-7 md:text-sm"
-                          href={subItem.url}
-                          isActive={location === subItem.url}
-                          onClick={(event) => {
-                            event.preventDefault()
-                            navigate(subItem.url)
-                            if (isMobile) {
-                              setOpenMobile(false)
-                            }
-                          }}
-                        >
-                          <span>{subItem.title}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
+                    {item.items?.map((subItem) => {
+                      const navActive = matchesNavHref(location, subItem.url)
+                      return (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton
+                            aria-current={navActive ? "page" : undefined}
+                            className="min-h-11 text-base md:min-h-7 md:text-sm"
+                            data-nav-item={subItem.url}
+                            href={subItem.url}
+                            isActive={navActive}
+                            onClick={(event) => {
+                              event.preventDefault()
+                              navigate(subItem.url)
+                              if (isMobile) {
+                                setOpenMobile(false)
+                              }
+                            }}
+                          >
+                            <span>{subItem.title}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )
+                    })}
                   </SidebarMenuSub>
                 ) : null}
               </SidebarMenuItem>
