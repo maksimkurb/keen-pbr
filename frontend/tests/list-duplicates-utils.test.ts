@@ -100,12 +100,11 @@ describe("findRedundantSubdomains", () => {
     expect(redundants).not.toContain("unrelated.com")
   })
 
-  test("exact duplicates produce redundancy entries too", () => {
-    // When "a.com" appears twice, the second occurrence is covered by the first
+  test("exact duplicates are NOT reported as redundant subdomains", () => {
+    // Exact duplicates are a separate category handled by findExactDuplicates;
+    // findRedundantSubdomains only reports strict parent/child coverage.
     const result = findRedundantSubdomains(["a.com", "a.com"])
-    // Both entries are identical — each is "covered by" the other;
-    // our impl skips equal indices but finds the other occurrence
-    expect(result.length).toBeGreaterThan(0)
+    expect(result).toHaveLength(0)
   })
 })
 
