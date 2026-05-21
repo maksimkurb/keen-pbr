@@ -34,6 +34,10 @@ export const enTranslation = {
         validation: {
           tagNamePattern: "Can only contain a-z, 0-9 and underscores. Max 24 characters, must start with a letter.",
         },
+        selection: {
+          selectAll: "Select all visible rows",
+          selectRow: "Select {{rowLabel}}",
+        },
       },
       runtime: {
         healthy: "Healthy",
@@ -393,6 +397,12 @@ export const enTranslation = {
               'DNS server "{{serverTag}}" is currently used by {{count}} rule(s){{fallbackSuffix}}.\nDelete and automatically remove those references?',
             fallbackSuffix: " and as fallback",
           },
+          bulk: {
+            selected: "{{count}} selected",
+            delete: "Delete selected",
+            confirmDelete:
+              "Delete DNS servers {{tags}}?\nAutomatically remove stale references?",
+          },
           none: "none",
         },
         dnsServerUpsert: {
@@ -458,6 +468,14 @@ export const enTranslation = {
             addRule: "Add routing rule",
             enableRule: "Enable rule",
             disableRule: "Disable rule",
+          },
+          bulk: {
+            selected: "{{count}} selected",
+            enable: "Enable selected",
+            disable: "Disable selected",
+            delete: "Delete selected",
+            confirmDelete:
+              "Delete {{count}} routing rule(s)? This cannot be undone from this screen alone.",
           },
           messages: {
             saved: "Routing rules staged. Apply new config to persist them.",
@@ -543,6 +561,11 @@ export const enTranslation = {
         },
         outbounds: {
           title: "Outbounds",
+          bulk: {
+            selected: "{{count}} selected",
+            delete: "Delete selected",
+            confirmDelete: "Delete {{count}} outbound(s)? Dependencies are not validated until save.",
+          },
           description: "Your configured outbounds and urltest groups.",
           actions: { new: "Add outbound" },
           empty: {
@@ -734,6 +757,13 @@ export const enTranslation = {
             enabled: "Allowed",
             disabled: "Blocked",
           },
+          bulk: {
+            selected: "{{count}} selected",
+            enable: "Enable selected",
+            disable: "Disable selected",
+            delete: "Delete selected",
+            confirmDelete: "Delete {{count}} DNS rule(s)?",
+          },
         },
         dnsRuleUpsert: {
           createTitle: "Create DNS rule",
@@ -793,6 +823,15 @@ export const enTranslation = {
             stats: "Entries",
             rules: "Used in rules",
             actions: "Actions",
+          },
+          bulk: {
+            selected: "{{count}} selected",
+            refreshSelected: "Update selected (URL)",
+            deleteSelected: "Delete selected lists",
+            confirmDeleteSimple: 'Delete lists: {{names}}?',
+            confirmDeleteWithRefs:
+              "Delete lists: {{names}} and remove references from routing/DNS rules where needed?",
+            noUrlBacked: "None of the selected lists are URL-backed.",
           },
           delete: {
             confirm: 'Delete list "{{name}}"?',

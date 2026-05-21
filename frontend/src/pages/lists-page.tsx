@@ -8,7 +8,7 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
-import { usePostConfigMutation, usePostListsRefreshMutation } from "@/api/mutations"
+import { usePostConfigMutation, usePostListsRefreshMutation, useConfigMutationPending } from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import {
@@ -17,12 +17,13 @@ import {
   selectListRefreshState,
 } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
-import { DataTable } from "@/components/shared/data-table"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
+import { DataTable, type DataTableSelection } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatsDisplay } from "@/components/shared/stats-display"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
@@ -56,23 +57,42 @@ const REFRESH_ALL_TARGET = "__all__"
 
 function isRefreshIconActive(
   activeRefreshTarget: string | null,
-  listId: string
+  bulkRefreshRunning: boolean,
+  selectedListIds: ReadonlySet<string>,
+  listId: string,
+  canRefresh?: boolean,
 ) {
-  return (
-    activeRefreshTarget === REFRESH_ALL_TARGET || activeRefreshTarget === listId
-  )
+  if (activeRefreshTarget === REFRESH_ALL_TARGET) {
+    return true
+  }
+
+  if (activeRefreshTarget === listId) {
+    return true
+  }
+
+  if (bulkRefreshRunning && canRefresh && selectedListIds.has(listId)) {
+    return true
+  }
+
+  return false
 }
+
 
 export function ListsPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
+  const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
   const isDraft = selectConfigIsDraft(configQuery.data)
   const listRefreshState = selectListRefreshState(configQuery.data)
   const [activeRefreshTarget, setActiveRefreshTarget] = useState<string | null>(
-    null
+    null,
+  )
+  const [bulkRefreshRunning, setBulkRefreshRunning] = useState(false)
+  const [selectedListIds, setSelectedListIds] = useState<Set<string>>(
+    () => new Set(),
   )
 
   const listRefreshMutation = usePostListsRefreshMutation({
@@ -113,10 +133,28 @@ export function ListsPage() {
 
   const tableRows = useMemo(
     () => getTableRowsFromListMap(loadedConfig?.lists, listRefreshState, t),
-    [loadedConfig?.lists, listRefreshState, t]
+    [loadedConfig?.lists, listRefreshState, t],
   )
+
+  const validListIdSet = useMemo(
+    () => new Set(tableRows.map((row) => row.id)),
+    [tableRows],
+  )
+
+  const selectedListIdsResolved = useMemo(() => {
+    const next = new Set<string>()
+    for (const id of selectedListIds) {
+      if (validListIdSet.has(id)) {
+        next.add(id)
+      }
+    }
+
+    return next
+  }, [selectedListIds, validListIdSet])
+
   const hasRefreshableLists = tableRows.some((row) => row.canRefresh)
-  const refreshDisabled = listRefreshMutation.isPending
+  const refreshDisabled =
+    listRefreshMutation.isPending || configMutationPending
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -182,6 +220,102 @@ export function ListsPage() {
     listRefreshMutation.mutate({ data: { name: listId } })
   }
 
+  const handleBulkRefreshSelected = async () => {
+    if (isDraft) {
+      toast.warning(t("pages.lists.refresh.draftBlocked"), { richColors: true })
+      return
+    }
+
+    const ids = tableRows
+      .filter((row) => selectedListIdsResolved.has(row.id) && row.canRefresh)
+      .map((row) => row.id)
+    if (ids.length === 0) {
+      toast.warning(t("pages.lists.bulk.noUrlBacked"), { richColors: true })
+      return
+    }
+
+    setBulkRefreshRunning(true)
+    try {
+      for (const name of ids) {
+        await listRefreshMutation.mutateAsync({ data: { name } })
+      }
+
+      toast.success(
+        ids.length <= 1
+          ? t("pages.lists.messages.refreshedOne")
+          : t("pages.lists.messages.refreshedAll"),
+      )
+      setSelectedListIds(new Set())
+    } catch (error) {
+      toast.error(getApiErrorMessage(error as ApiError), { richColors: true })
+    } finally {
+      setBulkRefreshRunning(false)
+    }
+  }
+
+  const handleBulkDelete = () => {
+    if (!loadedConfig) {
+      return
+    }
+
+    const ids = [...selectedListIdsResolved]
+    const nextConfig = buildUpdatedConfigForListsDelete(loadedConfig, ids)
+    const refsChange = listDeletesAltersRoutingOrDnsRefs(loadedConfig, nextConfig)
+
+    const namesLabel = ids.join(", ")
+    const confirmed = window.confirm(
+      refsChange
+        ? t("pages.lists.bulk.confirmDeleteWithRefs", {
+            names: namesLabel,
+          })
+        : t("pages.lists.bulk.confirmDeleteSimple", {
+            names: namesLabel,
+          }),
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    postConfigMutation.mutate(
+      { data: nextConfig },
+      {
+        onSuccess: () => {
+          setSelectedListIds(new Set())
+        },
+      },
+    )
+  }
+
+  const listSelectionProps: DataTableSelection = {
+    rowIds: tableRows.map((row) => row.id),
+    selectedIds: selectedListIdsResolved,
+    selectionDisabled: configMutationPending,
+    selectAllAriaLabel: t("common.selection.selectAll"),
+    selectRowAriaLabel: (rowId: string) =>
+      t("common.selection.selectRow", { rowLabel: rowId }),
+    selectAllTooltip: t("common.selection.selectAll"),
+    onToggleRow: (rowId: string) => {
+      setSelectedListIds((previous) => {
+        const next = new Set(previous)
+        if (next.has(rowId)) {
+          next.delete(rowId)
+        } else {
+          next.add(rowId)
+        }
+
+        return next
+      })
+    },
+    onSelectAllVisible: (selectedAll: boolean) => {
+      if (selectedAll) {
+        setSelectedListIds(new Set(tableRows.map((row) => row.id)))
+      } else {
+        setSelectedListIds(new Set())
+      }
+    },
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -203,7 +337,7 @@ export function ListsPage() {
                 {t("pages.lists.actions.updateAll")}
               </Button>
             ) : null}
-            <Button onClick={() => navigate("/lists/create")}>
+            <Button disabled={configMutationPending} onClick={() => navigate("/lists/create")}>
               <Plus className="mr-1 h-4 w-4" />
               {t("pages.lists.actions.new")}
             </Button>
@@ -213,13 +347,7 @@ export function ListsPage() {
         title={t("pages.lists.title")}
       />
 
-      {postConfigMutation.error ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {getApiErrorMessage(postConfigMutation.error as ApiError)}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -235,15 +363,59 @@ export function ListsPage() {
           title={t("pages.lists.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            t("pages.lists.headers.name"),
-            t("pages.lists.headers.type"),
-            t("pages.lists.headers.stats"),
-            t("pages.lists.headers.rules"),
-            t("pages.lists.headers.actions"),
-          ]}
-          rows={tableRows.map((list) => [
+        <div className="space-y-3">
+          {selectedListIdsResolved.size > 0 ? (
+            <BulkSelectionToolbar
+              countLabel={t("pages.lists.bulk.selected", {
+                count: selectedListIdsResolved.size,
+              })}
+            >
+              {hasRefreshableLists ? (
+                <Button
+                  disabled={
+                    refreshDisabled ||
+                    bulkRefreshRunning ||
+                    isDraft ||
+                    configMutationPending ||
+                    !tableRows.some(
+                      (row) =>
+                        selectedListIdsResolved.has(row.id) &&
+                        Boolean(row.canRefresh),
+                    )
+                  }
+                  onClick={() => void handleBulkRefreshSelected()}
+                  size="sm"
+                  variant="outline"
+                >
+                  <RefreshCw
+                    className={`mr-1 h-4 w-4 ${
+                      bulkRefreshRunning ? "animate-spin" : ""
+                    }`}
+                  />
+                  {t("pages.lists.bulk.refreshSelected")}
+                </Button>
+              ) : null}
+              <Button
+                disabled={configMutationPending}
+                onClick={() => handleBulkDelete()}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.lists.bulk.deleteSelected")}
+              </Button>
+            </BulkSelectionToolbar>
+          ) : null}
+          <DataTable
+            headers={[
+              t("pages.lists.headers.name"),
+              t("pages.lists.headers.type"),
+              t("pages.lists.headers.stats"),
+              t("pages.lists.headers.rules"),
+              t("pages.lists.headers.actions"),
+            ]}
+            narrowColumns={[0]}
+            rows={tableRows.map((list) => [
             <div className="space-y-1" key={`${list.id}-name`}>
               <div className="flex items-center gap-2 font-medium">
                 {list.draft.name}
@@ -299,11 +471,20 @@ export function ListsPage() {
                 ...(list.canRefresh
                   ? [
                       {
-                        disabled: refreshDisabled,
+                        disabled:
+                          refreshDisabled ||
+                          bulkRefreshRunning ||
+                          configMutationPending,
                         icon: (
                           <RefreshCw
                             className={`h-4 w-4 ${
-                              isRefreshIconActive(activeRefreshTarget, list.id)
+                              isRefreshIconActive(
+                                activeRefreshTarget,
+                                bulkRefreshRunning,
+                                selectedListIdsResolved,
+                                list.id,
+                                list.canRefresh,
+                              )
                                 ? "animate-spin"
                                 : ""
                             }`}
@@ -315,11 +496,13 @@ export function ListsPage() {
                     ]
                   : []),
                 {
+                  disabled: configMutationPending,
                   icon: <Pencil className="h-4 w-4" />,
                   label: t("common.edit"),
                   onClick: () => navigate(`/lists/${list.id}/edit`),
                 },
                 {
+                  disabled: configMutationPending,
                   icon: <Trash2 className="h-4 w-4" />,
                   label: t("common.delete"),
                   onClick: () => handleDelete(list.id),
@@ -328,7 +511,9 @@ export function ListsPage() {
               key={`${list.id}-actions`}
             />,
           ])}
-        />
+            selection={listSelectionProps}
+          />
+        </div>
       )}
     </div>
   )
@@ -386,6 +571,28 @@ function getTableRowsFromListMap(
       canRefresh: Boolean(listConfig.url),
     }
   })
+}
+
+function buildUpdatedConfigForListsDelete(
+  config: ConfigObject,
+  listIds: string[],
+): ConfigObject {
+  return listIds.reduce(
+    (acc, id) => buildUpdatedConfigForListDelete(acc, id),
+    config,
+  )
+}
+
+function listDeletesAltersRoutingOrDnsRefs(
+  before: ConfigObject,
+  after: ConfigObject,
+): boolean {
+  return (
+    JSON.stringify(before.route?.rules ?? []) !==
+      JSON.stringify(after.route?.rules ?? []) ||
+    JSON.stringify(before.dns?.rules ?? []) !==
+      JSON.stringify(after.dns?.rules ?? [])
+  )
 }
 
 function buildUpdatedConfigForListDelete(
