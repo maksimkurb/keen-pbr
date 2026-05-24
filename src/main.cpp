@@ -6,6 +6,7 @@
 #include <string>
 
 #include <csignal>
+#include <cerrno>
 #include <unistd.h>
 
 #include <cpptrace/utils.hpp>
@@ -34,7 +35,9 @@ namespace {
 struct CliOptions {
     std::string config_path{KEEN_PBR_DEFAULT_CONFIG_PATH};
     std::string log_level{"info"};
+    std::string pid_file_override;
     bool no_api{false};
+    bool has_pid_file_override{false};
     bool run_service{false};
     bool generate_resolver_config{false};
     std::string resolver_type;
@@ -53,6 +56,7 @@ void print_usage(const char* argv0) {
               << "Options:\n"
               << "  --config <path>    Path to JSON config file (default: " << KEEN_PBR_DEFAULT_CONFIG_PATH << ")\n"
               << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
+              << "  --pid-file <path>  Override daemon.pid_file when running the service command\n"
               << "  --no-api           Disable REST API at runtime\n"
               << "  --version          Show version and exit\n"
               << "  --help             Show this help and exit\n"
@@ -82,6 +86,13 @@ CliOptions parse_args(int argc, char* argv[]) {
                 std::exit(1);
             }
             opts.log_level = argv[++i];
+        } else if (std::strcmp(argv[i], "--pid-file") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --pid-file requires an argument\n";
+                std::exit(1);
+            }
+            opts.pid_file_override = argv[++i];
+            opts.has_pid_file_override = true;
         } else if (std::strcmp(argv[i], "--no-api") == 0) {
             opts.no_api = true;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
@@ -131,10 +142,22 @@ std::string read_file(const std::string& path) {
     return ss.str();
 }
 
+void set_signal_action(int signum, void (*handler)(int)) {
+    struct sigaction action {};
+    action.sa_handler = handler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    if (sigaction(signum, &action, nullptr) != 0) {
+        throw std::runtime_error("sigaction failed: " + std::string(std::strerror(errno)));
+    }
+}
+
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
-    signal(SIGPIPE, SIG_IGN);
+    set_signal_action(SIGPIPE, SIG_IGN);
+    sigset_t startup_sigusr1_mask = keen_pbr3::sigusr1_signal_mask();
+    keen_pbr3::set_signal_mask_for_current_thread(SIG_BLOCK, startup_sigusr1_mask);
     keen_pbr3::crash_diagnostics::warm_up();
     keen_pbr3::crash_diagnostics::install_fatal_signal_handlers();
     cpptrace::register_terminate_handler();
@@ -146,6 +169,10 @@ int main(int argc, char* argv[]) {
     CurlGuard curl_guard;
 
     CliOptions opts = parse_args(argc, argv);
+    if (!opts.run_service) {
+        set_signal_action(SIGUSR1, SIG_IGN);
+        keen_pbr3::set_signal_mask_for_current_thread(SIG_UNBLOCK, startup_sigusr1_mask);
+    }
 
     if (opts.show_version) {
         std::cout << "keen-pbr " << KEEN_PBR3_VERSION_STRING << " (build " << KEEN_PBR3_VERSION_RELEASE << ")" << "\n";
@@ -173,6 +200,12 @@ int main(int argc, char* argv[]) {
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
         keen_pbr3::validate_config(config);
+        if (opts.run_service && opts.has_pid_file_override) {
+            if (!config.daemon.has_value()) {
+                config.daemon = keen_pbr3::DaemonConfig{};
+            }
+            config.daemon->pid_file = opts.pid_file_override;
+        }
 
         if (opts.run_status) {
             return keen_pbr3::run_status_command(config, opts.config_path);

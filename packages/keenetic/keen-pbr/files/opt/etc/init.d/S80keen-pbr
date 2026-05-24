@@ -4,7 +4,8 @@
 
 ENABLED=yes
 PROCS=$(basename "$KEEN_PBR")
-ARGS="--config $CONFIG service"
+PIDFILE="/opt/var/run/keen-pbr.pid"
+ARGS="--config $CONFIG --pid-file $PIDFILE service"
 PREARGS=""
 POSTCMD=""
 DESC="keen-pbr"
@@ -46,7 +47,7 @@ ensure_xt_multiport_loaded() {
 
     module_path="/lib/modules/$(uname -r)/xt_multiport.ko"
     if [ ! -f "$module_path" ]; then
-        log_error "xt_multiport module not loaded and not found at $module_path"
+        log_error "xt_multiport module not loaded and not found at $module_path. You can safely ignore this message if you are running a NDMS version lower than 3.x"
         return 0
     fi
 
@@ -77,10 +78,25 @@ signal_service() {
     local signal="$1"
     local pid
 
-    pid="$(pidof "$(basename "$KEEN_PBR")")"
-    [ -n "$pid" ] || return 1
+    if [ ! -s "$PIDFILE" ]; then
+        log_error "Cannot send $signal to keen-pbr: PID file $PIDFILE is missing or empty"
+        return 1
+    fi
 
-    kill "-$signal" "$pid"
+    read -r pid < "$PIDFILE"
+    if [ -z "$pid" ]; then
+        log_error "Cannot send $signal to keen-pbr: PID file $PIDFILE does not contain a PID"
+        return 1
+    fi
+
+    if ! kill "-$signal" "$pid"; then
+        log_error "Failed to send $signal to keen-pbr PID $pid from $PIDFILE"
+        return 1
+    fi
+
+    log "Sent $signal to keen-pbr PID $pid"
+
+    return 0
 }
 
 prepare_start() {

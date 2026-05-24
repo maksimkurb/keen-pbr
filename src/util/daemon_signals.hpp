@@ -21,20 +21,28 @@ inline sigset_t daemon_signal_mask() {
     return mask;
 }
 
+inline sigset_t sigusr1_signal_mask() {
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    return mask;
+}
+
+inline void set_signal_mask_for_current_thread(int how, const sigset_t& mask) {
+    const int rc = pthread_sigmask(how, &mask, nullptr);
+    if (rc != 0) {
+        throw std::runtime_error("pthread_sigmask failed: " + std::string(std::strerror(rc)));
+    }
+}
+
 inline void block_daemon_signals_for_current_thread() {
     sigset_t mask = daemon_signal_mask();
-    const int rc = pthread_sigmask(SIG_BLOCK, &mask, nullptr);
-    if (rc != 0) {
-        throw std::runtime_error("pthread_sigmask(SIG_BLOCK) failed: " + std::string(std::strerror(rc)));
-    }
+    set_signal_mask_for_current_thread(SIG_BLOCK, mask);
 }
 
 inline void unblock_daemon_signals_for_current_thread() {
     sigset_t mask = daemon_signal_mask();
-    const int rc = pthread_sigmask(SIG_UNBLOCK, &mask, nullptr);
-    if (rc != 0) {
-        throw std::runtime_error("pthread_sigmask(SIG_UNBLOCK) failed: " + std::string(std::strerror(rc)));
-    }
+    set_signal_mask_for_current_thread(SIG_UNBLOCK, mask);
 }
 
 inline bool is_signal_blocked_for_current_thread(int signum) {
