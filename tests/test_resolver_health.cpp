@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "../src/daemon/resolver_health.hpp"
+#include "../src/daemon/resolver_sync_state_machine.hpp"
 
 using namespace keen_pbr3;
 
@@ -88,4 +89,98 @@ TEST_CASE("resolver health: stopped runtime or missing resolver config reports u
           api::ResolverLiveStatus::UNKNOWN);
     CHECK(build_resolver_actual_state(true, true, std::nullopt, std::nullopt).live_status ==
           api::ResolverLiveStatus::UNKNOWN);
+}
+
+TEST_CASE("resolver sync state machine: fresh apply converges after matching TXT") {
+    ResolverSyncStateMachine machine;
+    machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+    auto snapshot = machine.snapshot(101);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::CONVERGING});
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
+
+    machine.probe_succeeded("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 101, 102);
+    snapshot = machine.snapshot(102);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::CONVERGED});
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::SUCCESS);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
+}
+
+TEST_CASE("resolver sync state machine: hash mismatch after window is stale") {
+    ResolverSyncStateMachine machine;
+    machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    machine.probe_succeeded("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 101, 102);
+
+    const auto snapshot = machine.snapshot(120);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::STALE});
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
+}
+
+TEST_CASE("resolver sync state machine: missing or invalid TXT becomes stale not unavailable") {
+    ResolverSyncStateMachine missing_machine;
+    missing_machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    missing_machine.probe_failed(ResolverConfigHashProbeStatus::NO_USABLE_TXT, 120);
+    auto snapshot = missing_machine.snapshot(120);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::STALE});
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::MISSING_TXT);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::DEGRADED);
+
+    ResolverSyncStateMachine invalid_machine;
+    invalid_machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    invalid_machine.probe_failed(ResolverConfigHashProbeStatus::INVALID_TXT, 120);
+    snapshot = invalid_machine.snapshot(120);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::STALE});
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::INVALID_TXT);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::DEGRADED);
+}
+
+TEST_CASE("resolver sync state machine: missing TXT during apply stays converging") {
+    ResolverSyncStateMachine machine;
+    machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    machine.probe_failed(ResolverConfigHashProbeStatus::NO_USABLE_TXT, 101);
+
+    const auto snapshot = machine.snapshot(105);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::CONVERGING});
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::MISSING_TXT);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::HEALTHY);
+}
+
+TEST_CASE("resolver sync state machine: query failure is probe error without stale claim") {
+    ResolverSyncStateMachine machine;
+    machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    machine.probe_failed(ResolverConfigHashProbeStatus::QUERY_FAILED, 101);
+
+    auto snapshot = machine.snapshot(105);
+    CHECK(snapshot.sync_state ==
+          std::optional<api::ResolverConfigSyncState>{api::ResolverConfigSyncState::CONVERGING});
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::QUERY_FAILED);
+
+    snapshot = machine.snapshot(120);
+    CHECK_FALSE(snapshot.sync_state.has_value());
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::QUERY_FAILED);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::UNAVAILABLE);
+}
+
+TEST_CASE("resolver sync state machine: stopped or not configured is unknown") {
+    ResolverSyncStateMachine stopped_machine;
+    stopped_machine.apply_started(100, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    stopped_machine.runtime_stopped();
+    auto snapshot = stopped_machine.snapshot(120);
+    CHECK_FALSE(snapshot.sync_state.has_value());
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::NOT_CONFIGURED);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::UNKNOWN);
+
+    ResolverSyncStateMachine missing_config_machine;
+    missing_config_machine.expected_hash_updated("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    missing_config_machine.resolver_not_configured();
+    snapshot = missing_config_machine.snapshot(120);
+    CHECK_FALSE(snapshot.sync_state.has_value());
+    CHECK(snapshot.probe_status == api::ResolverConfigProbeStatus::NOT_CONFIGURED);
+    CHECK(snapshot.live_status == api::ResolverLiveStatus::UNKNOWN);
 }

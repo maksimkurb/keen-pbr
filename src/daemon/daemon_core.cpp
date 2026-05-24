@@ -17,6 +17,7 @@
 #include "../firewall/firewall_verifier.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
+#include "../util/time_utils.hpp"
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "scheduler.hpp"
 
@@ -603,7 +604,9 @@ void Daemon::run() {
     log.info("Static routing tables and ip rules installed.");
 
     log.info("Loading lists...");
-    list_service_.download_uncached(config_, outbound_marks_);
+    const auto relevant_lists = collect_relevant_list_names(config_);
+    const RemoteListsRefreshResult preload_result =
+        list_service_.download_uncached(config_, outbound_marks_, &relevant_lists);
 
     register_urltest_outbounds();
     apply_firewall(FirewallApplyMode::Destructive);
@@ -611,6 +614,10 @@ void Daemon::run() {
 
     schedule_lists_autoupdate();
 
+    if (preload_result.any_relevant_changed()) {
+        apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+        run_system_resolver_hook_reload();
+    }
     update_resolver_config_hash();
     refresh_resolver_config_hash_actual_async();
     schedule_resolver_config_hash_actual_refresh();

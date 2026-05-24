@@ -314,17 +314,12 @@ void Daemon::setup_api() {
             service_health.resolver_config_hash_actual = runtime_snapshot.resolver_config_hash_actual;
             service_health.resolver_config_hash_actual_ts = runtime_snapshot.resolver_config_hash_actual_ts;
             service_health.resolver_live_status = runtime_snapshot.resolver_live_status;
+            service_health.resolver_config_probe_status =
+                runtime_snapshot.resolver_config_probe_status;
             service_health.resolver_last_probe_ts = runtime_snapshot.resolver_last_probe_ts;
-            const std::int64_t apply_started_ts = apply_started_ts_.load(std::memory_order_acquire);
-            if (apply_started_ts > 0) {
-                service_health.apply_started_ts = apply_started_ts;
-            }
-            service_health.resolver_config_sync_state = classify_resolver_config_sync_state(
-                runtime_snapshot.resolver_config_hash_actual_ts,
-                service_health.apply_started_ts,
-                unix_timestamp_now_seconds(),
-                runtime_snapshot.resolver_config_hash ==
-                    runtime_snapshot.resolver_config_hash_actual);
+            service_health.apply_started_ts = runtime_snapshot.apply_started_ts;
+            service_health.resolver_config_sync_state =
+                runtime_snapshot.resolver_config_sync_state;
             service_health.config_is_draft = config_store_.config_is_draft();
             return service_health;
         },

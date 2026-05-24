@@ -102,9 +102,11 @@ const CacheManager& ListService::cache_manager() const {
     return cache_manager_;
 }
 
-void ListService::download_uncached(const Config& config,
-                                    const OutboundMarkMap& outbound_marks) {
-    (void)download_remote_lists(config, outbound_marks, true, nullptr, nullptr);
+RemoteListsRefreshResult ListService::download_uncached(
+    const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::set<std::string>* relevant_lists) {
+    return download_remote_lists(config, outbound_marks, true, relevant_lists, nullptr);
 }
 
 RemoteListsRefreshResult ListService::refresh_remote_lists(

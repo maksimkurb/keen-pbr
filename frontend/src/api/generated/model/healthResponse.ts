@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { HealthResponseStatus } from './healthResponseStatus';
+import type { ResolverConfigProbeStatus } from './resolverConfigProbeStatus';
 import type { ResolverConfigSyncState } from './resolverConfigSyncState';
 import type { RuntimeOutboundStatus } from './runtimeOutboundStatus';
 
@@ -32,6 +33,7 @@ export interface HealthResponse {
    */
   resolver_config_hash_actual_ts?: number;
   resolver_live_status: RuntimeOutboundStatus;
+  resolver_config_probe_status?: ResolverConfigProbeStatus;
   /** Unix timestamp (seconds) when the daemon last completed a live TXT probe against the configured system resolver.
    */
   resolver_last_probe_ts?: number;

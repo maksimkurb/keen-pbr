@@ -115,9 +115,9 @@ export const ruTranslation = {
           dnsmasqRestarting: "Перезапуск dnsmasq...",
           dnsmasqRestartingDescription:
             "DNS-сервер перезапускается, подождите немного.",
-          dnsmasqUnavailable: "dnsmasq недоступен",
+          dnsmasqUnavailable: "проверка dnsmasq не прошла",
           dnsmasqUnavailableDescription:
-            "dnsmasq не отвечает. Из-за этого могут быть проблемы с интернетом. Попробуйте Применить и перезапустить, либо отключите keen-pbr, чтобы восстановить доступ к сети.",
+            "keen-pbr не смог запросить TXT-запись состояния dnsmasq. Если статус не меняется, попробуйте применить и перезапустить.",
           staleAfterTimeout:
             "dnsmasq в последний раз перезагружался: {{actualTs}}. Если статус не меняется, перезапустите маршрутизацию.",
         },
@@ -141,7 +141,7 @@ export const ruTranslation = {
           dnsmasqHealthy: "dnsmasq исправен",
           dnsmasqWaiting: "dnsmasq перезагружается",
           dnsmasqStale: "dnsmasq требуется перезапуск",
-          dnsmasqUnavailable: "dnsmasq недоступен",
+          dnsmasqUnavailable: "проверка dnsmasq не прошла",
           dnsmasqUnknown: "статус dnsmasq неизвестен",
           actions: {
             start: "Запустить",

@@ -70,7 +70,7 @@ export function useWarningBannerState(): WarningBannerState {
     }
 
     return (
-      isResolverUnavailable(serviceHealth.resolver_live_status) &&
+      isResolverProbeFailed(serviceHealth) &&
       isRecentApply(serviceHealth.apply_started_ts, referenceNowMs)
     )
   }, [
@@ -159,18 +159,18 @@ export function getWarningBannerMode(
       : "draft"
   }
 
-  if (isResolverUnavailable(serviceHealth.resolver_live_status)) {
-    return isRecentApply(serviceHealth.apply_started_ts, nowMs)
-      ? "dnsmasq-converging"
-      : "dnsmasq-error"
-  }
-
   if (serviceHealth.resolver_config_sync_state === "stale") {
     return "dnsmasq-stale"
   }
 
   if (serviceHealth.resolver_config_sync_state === "converging") {
     return "dnsmasq-converging"
+  }
+
+  if (isResolverProbeFailed(serviceHealth)) {
+    return isRecentApply(serviceHealth.apply_started_ts, nowMs)
+      ? "dnsmasq-converging"
+      : "dnsmasq-error"
   }
 
   return "hidden"
@@ -187,6 +187,6 @@ function isRecentApply(
   return nowMs - applyStartedTs * 1000 <= CONVERGING_WINDOW_MS
 }
 
-function isResolverUnavailable(status: HealthResponse["resolver_live_status"]) {
-  return status === "degraded" || status === "unavailable"
+function isResolverProbeFailed(serviceHealth: HealthResponse) {
+  return serviceHealth.resolver_config_probe_status === "query_failed"
 }

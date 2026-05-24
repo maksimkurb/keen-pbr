@@ -265,6 +265,7 @@ set(SOURCES
   src/daemon/daemon_dns_probe.cpp
   src/daemon/list_service.cpp
   src/daemon/resolver_health.cpp
+  src/daemon/resolver_sync_state_machine.cpp
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp
   src/daemon/scheduler.cpp

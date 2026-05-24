@@ -17,21 +17,21 @@ export function getDnsmasqBadgeState(
   liveStatus: RuntimeOutboundStatus | undefined,
   syncState: ResolverConfigSyncState | undefined
 ): DnsmasqBadgeState {
+  if (syncState === "converging") {
+    return {
+      labelKey: "overview.runtime.dnsmasqWaiting",
+      tone: "warning",
+    }
+  }
+
+  if (syncState === "stale") {
+    return {
+      labelKey: "overview.runtime.dnsmasqStale",
+      tone: "warning",
+    }
+  }
+
   if (liveStatus === "healthy") {
-    if (syncState === "converging") {
-      return {
-        labelKey: "overview.runtime.dnsmasqWaiting",
-        tone: "warning",
-      }
-    }
-
-    if (syncState === "stale") {
-      return {
-        labelKey: "overview.runtime.dnsmasqStale",
-        tone: "warning",
-      }
-    }
-
     return {
       labelKey: "overview.runtime.dnsmasqHealthy",
       tone: "healthy",

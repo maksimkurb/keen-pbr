@@ -58,6 +58,7 @@ add_executable(keen-pbr-tests
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
   ../src/daemon/resolver_health.cpp
+  ../src/daemon/resolver_sync_state_machine.cpp
   ../src/http/http_client.cpp
   ../src/routing/netlink.cpp
   ../src/routing/interface_monitor.cpp

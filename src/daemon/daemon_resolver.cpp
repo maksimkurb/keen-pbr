@@ -39,7 +39,7 @@ void Daemon::update_resolver_config_hash() {
     DnsServerRegistry dns_registry(dns_cfg);
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
-    resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
+    const std::string resolver_config_hash = DnsmasqGenerator::compute_config_hash(
         dns_registry,
         streamer,
         config_.route.value_or(RouteConfig{}),
@@ -47,7 +47,13 @@ void Daemon::update_resolver_config_hash() {
         config_.lists.value_or(std::map<std::string, ListConfig>{}),
         KEEN_PBR3_VERSION_FULL_STRING,
         ipv6_decision.enabled);
-    Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
+    resolver_sync_.expected_hash_updated(resolver_config_hash);
+    const std::int64_t apply_started_ts =
+        apply_started_ts_.load(std::memory_order_acquire);
+    if (apply_started_ts > 0) {
+        resolver_sync_.apply_started(apply_started_ts, resolver_config_hash);
+    }
+    Logger::instance().info("Resolver config hash: {}", resolver_config_hash);
 }
 
 RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
@@ -55,11 +61,15 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     snapshot.firewall_state = firewall_state_;
     snapshot.route_specs = route_table_.get_routes();
     snapshot.policy_rule_specs = policy_rules_.get_rules();
-    snapshot.resolver_config_hash = resolver_config_hash_;
-    snapshot.resolver_config_hash_actual = resolver_config_hash_actual_;
-    snapshot.resolver_config_hash_actual_ts = resolver_config_hash_actual_ts_;
-    snapshot.resolver_live_status = resolver_live_status_;
-    snapshot.resolver_last_probe_ts = resolver_last_probe_ts_;
+    const auto resolver_snapshot = resolver_sync_.snapshot(unix_timestamp_now_seconds());
+    snapshot.resolver_config_hash = resolver_snapshot.expected_hash;
+    snapshot.resolver_config_hash_actual = resolver_snapshot.actual_hash;
+    snapshot.resolver_config_hash_actual_ts = resolver_snapshot.actual_ts;
+    snapshot.resolver_config_sync_state = resolver_snapshot.sync_state;
+    snapshot.resolver_config_probe_status = resolver_snapshot.probe_status;
+    snapshot.resolver_live_status = resolver_snapshot.live_status;
+    snapshot.resolver_last_probe_ts = resolver_snapshot.last_probe_ts;
+    snapshot.apply_started_ts = resolver_snapshot.apply_started_ts;
     snapshot.routing_runtime_active = routing_runtime_active_;
 
     if (urltest_manager_) {
@@ -113,7 +123,11 @@ void Daemon::schedule_keenetic_dns_refresh() {
                     return;
                 }
                 if (refresh_keenetic_dns_cache(true)) {
+                    const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
+                    apply_started_ts_.store(apply_started_ts, std::memory_order_release);
+                    run_system_resolver_hook_reload();
                     update_resolver_config_hash();
+                    refresh_resolver_config_hash_actual_async();
                     publish_runtime_state();
                 }
             }, "keenetic-dns-refresh");
@@ -173,10 +187,7 @@ void Daemon::schedule_resolver_config_hash_actual_retry() {
 }
 
 void Daemon::reset_resolver_actual_state() {
-    resolver_config_hash_actual_.clear();
-    resolver_config_hash_actual_ts_.reset();
-    resolver_live_status_ = api::ResolverLiveStatus::UNKNOWN;
-    resolver_last_probe_ts_.reset();
+    resolver_sync_.resolver_not_configured();
 }
 
 void Daemon::commit_resolver_hash_probe_result(
@@ -203,69 +214,54 @@ void Daemon::commit_resolver_hash_probe_result(
                 return;
             }
 
-            const ResolverActualState actual_state = build_resolver_actual_state(
-                routing_runtime_active_,
-                true,
-                probe_result,
-                probe_completed_ts);
-            resolver_live_status_ = actual_state.live_status;
-            resolver_last_probe_ts_ = actual_state.last_probe_ts;
-            resolver_config_hash_actual_ = actual_state.actual_hash;
-            resolver_config_hash_actual_ts_ = actual_state.actual_ts;
-
             const std::int64_t apply_started_ts =
                 apply_started_ts_.load(std::memory_order_acquire);
             const std::int64_t now_ts = unix_timestamp_now_seconds();
-            const bool within_converging_window =
-                apply_started_ts > 0 && (now_ts - apply_started_ts) <= 15;
-
-            if (resolver_live_status_ == api::ResolverLiveStatus::HEALTHY) {
+            if (probe_result.has_value() &&
+                probe_result->status == ResolverConfigHashProbeStatus::SUCCESS) {
+                resolver_sync_.probe_succeeded(probe_result->parsed_value.hash,
+                                               probe_result->parsed_value.ts,
+                                               probe_completed_ts);
                 Logger::instance().verbose("Resolver config hash (actual): {}",
-                                        resolver_config_hash_actual_);
-                if (resolver_config_hash_actual_ts_.has_value() &&
+                                           probe_result->parsed_value.hash);
+                if (probe_result->parsed_value.ts.has_value() &&
                     apply_started_ts > 0 &&
-                    *resolver_config_hash_actual_ts_ < apply_started_ts) {
+                    *probe_result->parsed_value.ts < apply_started_ts) {
                     Logger::instance().verbose(
                         "Resolver config hash TXT is older than current apply; using live actual value "
                         "(resolver={}, txt_ts={}, apply_started_ts={})",
                         resolver_addr,
-                        *resolver_config_hash_actual_ts_,
+                        *probe_result->parsed_value.ts,
                         apply_started_ts);
-                    if (within_converging_window) {
-                        schedule_resolver_config_hash_actual_retry();
-                    }
                 }
             } else if (probe_result.has_value()) {
+                resolver_sync_.probe_failed(probe_result->status, probe_completed_ts);
                 switch (probe_result->status) {
                 case ResolverConfigHashProbeStatus::QUERY_FAILED:
                     Logger::instance().warn(
                         "Resolver config hash TXT query failed via {}: {}; clearing actual value",
                         resolver_addr,
                         probe_result->error);
-                    if (within_converging_window) {
-                        schedule_resolver_config_hash_actual_retry();
-                    }
                     break;
                 case ResolverConfigHashProbeStatus::NO_USABLE_TXT:
                     Logger::instance().warn(
                         "Resolver config hash TXT is missing via {}; clearing actual value",
                         resolver_addr);
-                    if (within_converging_window) {
-                        schedule_resolver_config_hash_actual_retry();
-                    }
                     break;
                 case ResolverConfigHashProbeStatus::INVALID_TXT:
                     Logger::instance().warn(
                         "Resolver config hash TXT is invalid via {}: {}; clearing actual value",
                         resolver_addr,
                         probe_result->raw_txt.value_or("<empty>"));
-                    if (within_converging_window) {
-                        schedule_resolver_config_hash_actual_retry();
-                    }
                     break;
                 case ResolverConfigHashProbeStatus::SUCCESS:
                     break;
                 }
+            }
+            const auto resolver_snapshot = resolver_sync_.snapshot(now_ts);
+            if (resolver_snapshot.sync_state ==
+                api::ResolverConfigSyncState::CONVERGING) {
+                schedule_resolver_config_hash_actual_retry();
             }
             publish_runtime_state();
         },
@@ -277,7 +273,11 @@ void Daemon::refresh_resolver_config_hash_actual_async() {
     if (!routing_runtime_active_ ||
         !dns_cfg_opt.has_value() ||
         !dns_cfg_opt->system_resolver.has_value()) {
-        reset_resolver_actual_state();
+        if (!routing_runtime_active_) {
+            resolver_sync_.runtime_stopped();
+        } else {
+            reset_resolver_actual_state();
+        }
         publish_runtime_state();
         return;
     }

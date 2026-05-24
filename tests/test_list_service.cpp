@@ -340,6 +340,43 @@ TEST_CASE("refresh_remote_lists: failed HTTP list logs status and refresh contin
     std::filesystem::remove_all(temp_dir);
 }
 
+TEST_CASE("download_uncached: reports relevant changed lists for startup resolver reload") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({
+        {"/route.txt", HttpResponse{200, "OK", "example.com\n"}},
+        {"/unused.txt", HttpResponse{200, "OK", "unused.example\n"}},
+    });
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+
+    ListConfig route_list;
+    route_list.url = server.url("/route.txt");
+    ListConfig unused_list;
+    unused_list.url = server.url("/unused.txt");
+
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{
+        {"route", route_list},
+        {"unused", unused_list},
+    };
+
+    const std::set<std::string> relevant_lists{"route"};
+    const auto result =
+        service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+
+    CHECK(result.changed_lists == std::vector<std::string>{"route", "unused"});
+    CHECK(result.relevant_changed_lists == std::vector<std::string>{"route"});
+
+    const auto second_result =
+        service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+    CHECK(second_result.changed_lists.empty());
+    CHECK(second_result.relevant_changed_lists.empty());
+
+    std::filesystem::remove_all(temp_dir);
+}
+
 TEST_CASE("refresh_remote_lists: failed curl request logs clear transport error") {
     CurlGlobalGuard curl_guard;
     LoggerCapture logs;

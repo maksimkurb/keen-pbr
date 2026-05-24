@@ -24,7 +24,14 @@ describe("getDnsmasqBadgeState", () => {
     })
   })
 
-  test("never reports healthy when live status is unavailable", () => {
+  test("reports stale before degraded live status", () => {
+    expect(getDnsmasqBadgeState("degraded", "stale")).toEqual({
+      labelKey: "overview.runtime.dnsmasqStale",
+      tone: "warning",
+    })
+  })
+
+  test("reports unavailable when live status failed without stale sync", () => {
     expect(getDnsmasqBadgeState("unavailable", "converged")).toEqual({
       labelKey: "overview.runtime.dnsmasqUnavailable",
       tone: "degraded",

@@ -1115,6 +1115,8 @@ components:
           example: 1712345678
         resolver_live_status:
           $ref: "#/components/schemas/RuntimeOutboundStatus"
+        resolver_config_probe_status:
+          $ref: "#/components/schemas/ResolverConfigProbeStatus"
         resolver_last_probe_ts:
           type: integer
           format: int64
@@ -1149,6 +1151,15 @@ components:
           post-apply converging window has elapsed but timestamp is still behind
           and hashes do not match
       enum: [converging, converged, stale]
+
+    ResolverConfigProbeStatus:
+      type: string
+      description: >
+        Result of the latest resolver TXT probe for `config-hash.keen.pbr`.
+        Missing or invalid TXT means dnsmasq config sync cannot be verified and
+        may be stale; query_failed means the daemon could not query the
+        configured resolver endpoint.
+      enum: [success, missing_txt, invalid_txt, query_failed, not_configured, unknown]
 
     # -------------------------------------------------------------------------
     # /api/runtime/outbounds

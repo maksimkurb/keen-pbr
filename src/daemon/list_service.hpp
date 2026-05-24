@@ -72,7 +72,10 @@ public:
     void ensure_dir();
     const CacheManager& cache_manager() const;
 
-    void download_uncached(const Config& config, const OutboundMarkMap& outbound_marks);
+    RemoteListsRefreshResult download_uncached(
+        const Config& config,
+        const OutboundMarkMap& outbound_marks,
+        const std::set<std::string>* relevant_lists = nullptr);
     RemoteListsRefreshResult refresh_remote_lists(
         const Config& config,
         const OutboundMarkMap& outbound_marks,

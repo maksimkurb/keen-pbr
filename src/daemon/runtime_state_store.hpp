@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../api/generated/api_types.hpp"
+#include "resolver_sync_state_machine.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/urltest_manager.hpp"
@@ -22,8 +23,11 @@ struct RuntimeStateSnapshot {
     std::string resolver_config_hash;
     std::string resolver_config_hash_actual;
     std::optional<std::int64_t> resolver_config_hash_actual_ts;
+    std::optional<api::ResolverConfigSyncState> resolver_config_sync_state;
+    api::ResolverConfigProbeStatus resolver_config_probe_status{api::ResolverConfigProbeStatus::UNKNOWN};
     api::ResolverLiveStatus resolver_live_status{api::ResolverLiveStatus::UNKNOWN};
     std::optional<std::int64_t> resolver_last_probe_ts;
+    std::optional<std::int64_t> apply_started_ts;
     bool routing_runtime_active{true};
 };
 

@@ -113,9 +113,9 @@ export const enTranslation = {
           dnsmasqRestarting: "Restarting dnsmasq...",
           dnsmasqRestartingDescription:
             "dnsmasq is restarting. Please wait.",
-          dnsmasqUnavailable: "dnsmasq is unavailable",
+          dnsmasqUnavailable: "dnsmasq probe failed",
           dnsmasqUnavailableDescription:
-            "dnsmasq is not responding. Internet connectivity may be affected. Try Apply & Restart, or disable keen-pbr to restore network access.",
+            "keen-pbr could not query the dnsmasq health TXT record. Try Apply & Restart if this persists.",
           staleAfterTimeout:
             "dnsmasq last reloaded at {{actualTs}}. Restart routing runtime if this stays stale.",
         },
@@ -139,7 +139,7 @@ export const enTranslation = {
           dnsmasqHealthy: "dnsmasq healthy",
           dnsmasqWaiting: "dnsmasq reloading",
           dnsmasqStale: "dnsmasq restart required",
-          dnsmasqUnavailable: "dnsmasq unavailable",
+          dnsmasqUnavailable: "dnsmasq probe failed",
           dnsmasqUnknown: "dnsmasq status unknown",
           actions: {
             start: "Start",

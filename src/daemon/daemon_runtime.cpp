@@ -123,6 +123,7 @@ void Daemon::start_routing_runtime() {
 
     routing_runtime_active_ = true;
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+    update_resolver_config_hash();
     schedule_keenetic_dns_refresh();
     refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
@@ -162,7 +163,7 @@ void Daemon::apply_firewall(FirewallApplyMode mode) {
 }
 
 void Daemon::download_uncached_lists() {
-    list_service_.download_uncached(config_, outbound_marks_);
+    (void)list_service_.download_uncached(config_, outbound_marks_);
 }
 
 void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,

@@ -27,6 +27,7 @@
 #include "../util/traced_mutex.hpp"
 #include "list_service.hpp"
 #include "runtime_state_store.hpp"
+#include "resolver_sync_state_machine.hpp"
 #include "system_resolver_hook.hpp"
 
 namespace keen_pbr3 {
@@ -234,16 +235,7 @@ private:
     void handle_dns_probe_tcp_client_events(int client_fd, uint32_t events);
     void handle_dns_probe_tcp_timer_events(uint32_t events);
 
-    // Hash of the current domain-to-ipset mapping (matches dnsmasq txt-record)
-    std::string resolver_config_hash_;
-    // Hash currently published by the live system resolver TXT record.
-    std::string resolver_config_hash_actual_;
-    // Resolver TXT timestamp currently published by the live system resolver record.
-    std::optional<std::int64_t> resolver_config_hash_actual_ts_;
-    // Health of the live system resolver endpoint based on the latest TXT probe.
-    api::ResolverLiveStatus resolver_live_status_{api::ResolverLiveStatus::UNKNOWN};
-    // When the latest resolver TXT probe completed.
-    std::optional<std::int64_t> resolver_last_probe_ts_;
+    ResolverSyncStateMachine resolver_sync_;
     // Timestamp captured when /api/config/save apply starts (server authoritative).
     std::atomic<std::int64_t> apply_started_ts_{0};
 
