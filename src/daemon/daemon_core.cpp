@@ -31,6 +31,7 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
+constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY = std::chrono::seconds{5};
 
 std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -438,10 +439,17 @@ void Daemon::handle_interface_state_change(const std::string& interface_name, bo
 }
 
 void Daemon::handle_interface_monitor_events(uint32_t events) {
-    if ((events & EPOLLIN) == 0) {
+    constexpr uint32_t relevant_events = EPOLLIN | EPOLLERR | EPOLLHUP;
+    if ((events & relevant_events) == 0) {
         return;
     }
     if (!interface_monitor_) {
+        return;
+    }
+
+    if ((events & (EPOLLERR | EPOLLHUP)) != 0 && (events & EPOLLIN) == 0) {
+        Logger::instance().error("Interface monitor fd reported epoll error/hangup");
+        reconnect_interface_monitor();
         return;
     }
 
@@ -449,7 +457,65 @@ void Daemon::handle_interface_monitor_events(uint32_t events) {
         interface_monitor_->handle_events();
     } catch (const std::exception& e) {
         Logger::instance().error("Interface monitor event handling failed: {}", e.what());
+        reconnect_interface_monitor();
     }
+}
+
+void Daemon::register_interface_monitor_fd() {
+    if (!interface_monitor_) {
+        return;
+    }
+
+    const int fd = interface_monitor_->fd();
+    add_fd(fd,
+           EPOLLIN,
+           [this](uint32_t events) { handle_interface_monitor_events(events); },
+           true,
+           "interface-monitor");
+    interface_monitor_fd_ = fd;
+}
+
+void Daemon::unregister_interface_monitor_fd() {
+    if (!interface_monitor_fd_) {
+        return;
+    }
+
+    remove_fd(*interface_monitor_fd_, true, "interface-monitor");
+    interface_monitor_fd_.reset();
+}
+
+void Daemon::schedule_interface_monitor_reconnect_retry() {
+    if (!scheduler_ || interface_monitor_reconnect_task_id_ >= 0) {
+        return;
+    }
+
+    interface_monitor_reconnect_task_id_ = scheduler_->schedule_oneshot(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            INTERFACE_MONITOR_RECONNECT_RETRY_DELAY),
+        [this]() {
+            interface_monitor_reconnect_task_id_ = -1;
+            reconnect_interface_monitor();
+        },
+        "interface-monitor-reconnect");
+}
+
+void Daemon::reconnect_interface_monitor() {
+    enqueue_control_task([this]() {
+        if (!interface_monitor_) {
+            return;
+        }
+
+        unregister_interface_monitor_fd();
+
+        try {
+            interface_monitor_->reconnect();
+            register_interface_monitor_fd();
+            Logger::instance().warn("Interface monitor reconnected after netlink error");
+        } catch (const std::exception& e) {
+            Logger::instance().error("Interface monitor reconnect failed: {}", e.what());
+            schedule_interface_monitor_reconnect_retry();
+        }
+    }, false, "interface-monitor-reconnect");
 }
 
 void Daemon::add_fd(int fd,
@@ -552,13 +618,7 @@ void Daemon::run() {
 
     setup_dns_probe();
 
-    if (interface_monitor_) {
-        add_fd(interface_monitor_->fd(),
-               EPOLLIN,
-               [this](uint32_t events) { handle_interface_monitor_events(events); },
-               true,
-               "interface-monitor");
-    }
+    register_interface_monitor_fd();
 
 #ifdef WITH_API
     setup_api();

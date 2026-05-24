@@ -28,11 +28,7 @@ struct InterfaceMonitor::Impl {
         : callback(std::move(callback)) {}
 
     ~Impl() {
-        if (socket) {
-            nl_close(socket);
-            nl_socket_free(socket);
-            socket = nullptr;
-        }
+        close_socket();
     }
 
     static int on_nl_message(struct nl_msg* msg, void* arg) {
@@ -91,6 +87,46 @@ struct InterfaceMonitor::Impl {
         callback(interface_name, is_up);
     }
 
+    void close_socket() {
+        if (!socket) {
+            return;
+        }
+        nl_close(socket);
+        nl_socket_free(socket);
+        socket = nullptr;
+    }
+
+    void setup_socket() {
+        close_socket();
+
+        socket = nl_socket_alloc();
+        if (!socket) {
+            throw InterfaceMonitorError("Failed to allocate netlink socket for interface monitor");
+        }
+
+        int err = nl_connect(socket, NETLINK_ROUTE);
+        if (err < 0) {
+            close_socket();
+            throw InterfaceMonitorError(
+                format("Failed to connect interface monitor netlink socket: {}", nl_geterror(err)));
+        }
+
+        err = nl_socket_add_memberships(socket, RTNLGRP_LINK, 0);
+        if (err < 0) {
+            close_socket();
+            throw InterfaceMonitorError(
+                format("Failed to subscribe interface monitor to link group: {}", nl_geterror(err)));
+        }
+
+        nl_socket_set_nonblocking(socket);
+        nl_socket_disable_seq_check(socket);
+        nl_socket_modify_cb(socket,
+                            NL_CB_VALID,
+                            NL_CB_CUSTOM,
+                            &InterfaceMonitor::Impl::on_nl_message,
+                            this);
+    }
+
     InterfaceStateCallback callback;
     struct nl_sock* socket{nullptr};
     std::unordered_map<std::string, bool> interface_state;
@@ -98,30 +134,7 @@ struct InterfaceMonitor::Impl {
 
 InterfaceMonitor::InterfaceMonitor(InterfaceStateCallback callback)
     : impl_(std::make_unique<Impl>(std::move(callback))) {
-    impl_->socket = nl_socket_alloc();
-    if (!impl_->socket) {
-        throw InterfaceMonitorError("Failed to allocate netlink socket for interface monitor");
-    }
-
-    int err = nl_connect(impl_->socket, NETLINK_ROUTE);
-    if (err < 0) {
-        throw InterfaceMonitorError(
-            format("Failed to connect interface monitor netlink socket: {}", nl_geterror(err)));
-    }
-
-    err = nl_socket_add_memberships(impl_->socket, RTNLGRP_LINK, 0);
-    if (err < 0) {
-        throw InterfaceMonitorError(
-            format("Failed to subscribe interface monitor to link group: {}", nl_geterror(err)));
-    }
-
-    nl_socket_set_nonblocking(impl_->socket);
-    nl_socket_disable_seq_check(impl_->socket);
-    nl_socket_modify_cb(impl_->socket,
-                        NL_CB_VALID,
-                        NL_CB_CUSTOM,
-                        &InterfaceMonitor::Impl::on_nl_message,
-                        impl_.get());
+    impl_->setup_socket();
 }
 
 InterfaceMonitor::~InterfaceMonitor() = default;
@@ -151,6 +164,14 @@ void InterfaceMonitor::handle_events() {
         throw InterfaceMonitorError(
             format("Failed to receive interface monitor netlink messages: {}", nl_geterror(err)));
     }
+}
+
+void InterfaceMonitor::reconnect() {
+    if (!impl_) {
+        return;
+    }
+
+    impl_->setup_socket();
 }
 
 } // namespace keen_pbr3

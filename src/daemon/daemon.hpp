@@ -147,6 +147,10 @@ private:
     void schedule_sigusr1_runtime_refresh();
     void handle_sighup();
     void handle_interface_monitor_events(uint32_t events);
+    void reconnect_interface_monitor();
+    void register_interface_monitor_fd();
+    void unregister_interface_monitor_fd();
+    void schedule_interface_monitor_reconnect_retry();
     void handle_interface_state_change(const std::string& interface_name, bool is_up);
     bool is_interface_outbound_in_use(const std::string& interface_name) const;
     void refresh_iproute_and_firewall_runtime();
@@ -260,6 +264,8 @@ private:
     int resolver_config_hash_actual_retry_task_id_{-1};
     // Debounced runtime refresh triggered by SIGUSR1.
     int sigusr1_refresh_task_id_{-1};
+    // Retry task for interface monitor netlink reconnect after failure.
+    int interface_monitor_reconnect_task_id_{-1};
 
     // Epoll state
     int epoll_fd_{-1};
@@ -305,6 +311,7 @@ private:
     // Subsystems
     std::unique_ptr<Firewall> firewall_;
     std::unique_ptr<InterfaceMonitor> interface_monitor_;
+    std::optional<int> interface_monitor_fd_;
     NetlinkManager netlink_;
     RouteTable route_table_;
     PolicyRuleManager policy_rules_;

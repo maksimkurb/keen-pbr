@@ -26,6 +26,7 @@ public:
 
     int fd() const;
     void handle_events();
+    void reconnect();
 
 private:
     struct Impl;
