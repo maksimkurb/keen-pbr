@@ -156,43 +156,44 @@ void set_signal_action(int signum, void (*handler)(int)) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
-    set_signal_action(SIGPIPE, SIG_IGN);
-    sigset_t startup_sigusr1_mask = keen_pbr3::sigusr1_signal_mask();
-    keen_pbr3::set_signal_mask_for_current_thread(SIG_BLOCK, startup_sigusr1_mask);
-    keen_pbr3::crash_diagnostics::warm_up();
-    keen_pbr3::crash_diagnostics::install_fatal_signal_handlers();
-    cpptrace::register_terminate_handler();
-
-    struct CurlGuard {
-        CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-        ~CurlGuard() { curl_global_cleanup(); }
-    };
-    CurlGuard curl_guard;
-
-    CliOptions opts = parse_args(argc, argv);
-    if (!opts.run_service) {
-        set_signal_action(SIGUSR1, SIG_IGN);
-        keen_pbr3::set_signal_mask_for_current_thread(SIG_UNBLOCK, startup_sigusr1_mask);
-    }
-
-    if (opts.show_version) {
-        std::cout << "keen-pbr " << KEEN_PBR3_VERSION_STRING << " (build " << KEEN_PBR3_VERSION_RELEASE << ")" << "\n";
-        return 0;
-    }
-
-    if (opts.show_help) {
-        print_usage(argv[0]);
-        return 0;
-    }
-
-    if (!opts.download_lists && !opts.generate_resolver_config &&
-        !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
-        !opts.run_test_routing) {
-        print_usage(argv[0]);
-        return 0;
-    }
-
     try {
+        set_signal_action(SIGPIPE, SIG_IGN);
+        sigset_t startup_sigusr1_mask = keen_pbr3::sigusr1_signal_mask();
+        keen_pbr3::set_signal_mask_for_current_thread(SIG_BLOCK, startup_sigusr1_mask);
+        keen_pbr3::crash_diagnostics::warm_up();
+        keen_pbr3::crash_diagnostics::install_fatal_signal_handlers();
+        cpptrace::register_terminate_handler();
+
+        struct CurlGuard {
+            CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
+            ~CurlGuard() { curl_global_cleanup(); }
+        };
+        CurlGuard curl_guard;
+
+        CliOptions opts = parse_args(argc, argv);
+        if (!opts.run_service) {
+            set_signal_action(SIGUSR1, SIG_IGN);
+            keen_pbr3::set_signal_mask_for_current_thread(SIG_UNBLOCK, startup_sigusr1_mask);
+        }
+
+        if (opts.show_version) {
+            std::cout << "keen-pbr " << KEEN_PBR3_VERSION_STRING << " (build "
+                      << KEEN_PBR3_VERSION_RELEASE << ")" << "\n";
+            return 0;
+        }
+
+        if (opts.show_help) {
+            print_usage(argv[0]);
+            return 0;
+        }
+
+        if (!opts.download_lists && !opts.generate_resolver_config &&
+            !opts.resolver_config_hash && !opts.run_service && !opts.run_status &&
+            !opts.run_test_routing) {
+            print_usage(argv[0]);
+            return 0;
+        }
+
         // Initialize logger
         auto& logger = keen_pbr3::Logger::instance();
         logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
