@@ -17,7 +17,6 @@
 #include "../log/logger.hpp"
 #include "../util/system_info.hpp"
 #include "../util/time_utils.hpp"
-#include "resolver_health.hpp"
 
 #ifndef KEEN_PBR_FRONTEND_ROOT
 #define KEEN_PBR_FRONTEND_ROOT "/usr/share/keen-pbr/frontend"

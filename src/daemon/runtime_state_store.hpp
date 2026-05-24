@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../api/generated/api_types.hpp"
-#include "resolver_sync_state_machine.hpp"
 #include "../routing/firewall_state.hpp"
 #include "../routing/netlink.hpp"
 #include "../routing/urltest_manager.hpp"
