@@ -16,8 +16,9 @@ public:
     // through the visitor. Calls visitor.on_list_complete(name) when done.
     void stream_list(const std::string& name, const ListConfig& config, ListEntryVisitor& visitor);
 
-    // Stream cached content only when present; otherwise fall back to all list
-    // sources. Calls visitor.on_list_complete(name) when done.
+    // Stream all sources for a named list, the same as stream_list(), but use
+    // the cached file whenever it exists — even if the list no longer declares
+    // a URL source. Calls visitor.on_list_complete(name) when done.
     void stream_list_preferring_cache(const std::string& name,
                                      const ListConfig& config,
                                      ListEntryVisitor& visitor);
@@ -26,6 +27,13 @@ public:
     void stream_cache(const std::string& name, ListEntryVisitor& visitor);
 
 private:
+    // Stream a list's local file and inline entries through the visitor,
+    // optionally preceded by the cached file. Calls on_list_complete(name).
+    void stream_all_sources(const std::string& name,
+                            const ListConfig& config,
+                            ListEntryVisitor& visitor,
+                            bool include_cache);
+
     // Open a file and stream its entries through the visitor.
     static void stream_file(const std::filesystem::path& path, ListEntryVisitor& visitor);
 
