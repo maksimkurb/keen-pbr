@@ -25,6 +25,7 @@ import { ServerValidationAlert } from "@/components/shared/server-validation-ale
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
 import {
   clearFormServerErrors,
   setFormServerErrors,
@@ -153,6 +154,11 @@ function DnsRuleForm({
     label: serverTag,
   }))
   const listOptions = Object.keys(loadedConfig.lists ?? {})
+  const listUsageSubtitle = useListUsageSubtitle(
+    rules,
+    "dns",
+    mode === "edit" ? parsedRuleIndex : undefined
+  )
   const postConfigMutation = usePostConfigMutation()
   const form = useForm({
     defaultValues: {
@@ -252,9 +258,13 @@ function DnsRuleForm({
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as {
-        unmapped?: { path: string; message: string }[]
-      } | undefined)?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | {
+              unmapped?: { path: string; message: string }[]
+            }
+          | undefined
+      )?.unmapped ?? []
   )
 
   return (
@@ -374,6 +384,7 @@ function DnsRuleForm({
                       placeholderTitle={t(
                         "pages.dnsRuleUpsert.fields.noListsSelected"
                       )}
+                      usageSubtitle={listUsageSubtitle}
                       value={field.state.value}
                     />
                     <FieldHint

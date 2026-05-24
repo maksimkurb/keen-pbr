@@ -23,3 +23,5 @@ appropriate codegen command instead.
 Frontend is lives in the `frontend/` folder. 
 Always use bun/bunx as a package manager.
 We are using base-ui instead of radix-ui.
+
+Do not run make to compile C++ code if it wasn't edited (e.g. you edited only frontend code or docs)

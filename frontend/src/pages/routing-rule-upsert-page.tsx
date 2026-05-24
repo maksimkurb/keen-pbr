@@ -26,6 +26,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { useListUsageSubtitle } from "@/hooks/use-list-usage-subtitle"
 import {
   clearFormServerErrors,
   setFormServerErrors,
@@ -150,8 +151,8 @@ function RoutingRuleForm({
 }) {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
-  const listOptions = Object.keys(loadedConfig.lists ?? {}).sort((left, right) =>
-    left.localeCompare(right)
+  const listOptions = Object.keys(loadedConfig.lists ?? {}).sort(
+    (left, right) => left.localeCompare(right)
   )
   const outbounds = (loadedConfig.outbounds ?? [])
     .filter((outbound: Outbound): outbound is Outbound & { tag: string } =>
@@ -160,6 +161,11 @@ function RoutingRuleForm({
     .sort((left: Outbound, right: Outbound) =>
       left.tag.localeCompare(right.tag)
     )
+  const listUsageSubtitle = useListUsageSubtitle(
+    rules,
+    "routing",
+    mode === "edit" ? parsedRuleIndex : undefined
+  )
   const protoSelectItems = protoOptions.map((option) => ({
     value: option,
     label: option || t("pages.routingRuleUpsert.fields.anyLower"),
@@ -249,9 +255,13 @@ function RoutingRuleForm({
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as {
-        unmapped?: { path: string; message: string }[]
-      } | undefined)?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | {
+              unmapped?: { path: string; message: string }[]
+            }
+          | undefined
+      )?.unmapped ?? []
   )
 
   return (
@@ -322,6 +332,7 @@ function RoutingRuleForm({
                       placeholderTitle={t(
                         "pages.routingRuleUpsert.fields.noListsSelected"
                       )}
+                      usageSubtitle={listUsageSubtitle}
                       value={field.state.value}
                     />
                     <FieldHint

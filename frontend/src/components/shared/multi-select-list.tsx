@@ -1,12 +1,49 @@
 import { Autocomplete } from "@base-ui/react/autocomplete"
-import { ChevronDown, ChevronUp, ChevronsUpDown, ListPlus, Plus, Trash2 } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ListPlus,
+  Plus,
+  Trash2,
+} from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { FieldError } from "@/components/shared/field"
-import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group"
 import { cn } from "@/lib/utils"
+
+function OptionLabel({
+  option,
+  renderItem,
+  usageSubtitle,
+}: {
+  option: string
+  renderItem?: (item: string) => ReactNode
+  usageSubtitle?: (optionName: string) => string | undefined
+}) {
+  const usage = usageSubtitle?.(option)
+  const label = renderItem ? renderItem(option) : option
+
+  if (!usage) {
+    return <>{label}</>
+  }
+
+  return (
+    <span className="flex max-w-[min(100vw-4rem,24rem)] flex-col items-start gap-0.5 py-0.5">
+      <span>{label}</span>
+      <span className="text-xs break-words whitespace-normal text-muted-foreground">
+        {usage}
+      </span>
+    </span>
+  )
+}
 
 export function MultiSelectList({
   name,
@@ -19,6 +56,7 @@ export function MultiSelectList({
   placeholderTitle,
   placeholderDescription,
   allowReorder = false,
+  usageSubtitle,
   error,
   renderItem,
   getSearchText,
@@ -34,6 +72,7 @@ export function MultiSelectList({
   placeholderTitle?: string
   placeholderDescription?: string
   allowReorder?: boolean
+  usageSubtitle?: (optionName: string) => string | undefined
   error?: string | null
   renderItem?: (item: string) => ReactNode
   getSearchText?: (item: string) => string
@@ -53,7 +92,9 @@ export function MultiSelectList({
     }
 
     return availableOptions.filter((option) =>
-      (getSearchText?.(option) ?? option).toLowerCase().includes(normalizedValue)
+      (getSearchText?.(option) ?? option)
+        .toLowerCase()
+        .includes(normalizedValue)
     )
   }, [availableOptions, getSearchText, selectValue])
 
@@ -73,7 +114,8 @@ export function MultiSelectList({
     onChange([...value, nextValue])
     setSelectValue("")
   }
-  const shouldRenderPopup = filteredOptions.length > 0 || Boolean(selectValue.trim())
+  const shouldRenderPopup =
+    filteredOptions.length > 0 || Boolean(selectValue.trim())
   const addSelect = (
     <Autocomplete.Root
       items={filteredOptions}
@@ -122,7 +164,11 @@ export function MultiSelectList({
                       key={option}
                       value={option}
                     >
-                      {renderItem ? renderItem(option) : option}
+                      <OptionLabel
+                        option={option}
+                        renderItem={renderItem}
+                        usageSubtitle={usageSubtitle}
+                      />
                     </Autocomplete.Item>
                   )}
                 </Autocomplete.List>
@@ -141,18 +187,32 @@ export function MultiSelectList({
   return (
     <div className="space-y-2" data-field-name={name}>
       {value.length ? (
-        <div className={cn("space-y-2 rounded-xl border p-3", error ? "border-destructive" : "border-border")}>
+        <div
+          className={cn(
+            "space-y-2 rounded-xl border p-3",
+            error ? "border-destructive" : "border-border"
+          )}
+        >
           {value.map((item, index) => (
-            <InputGroup key={`${item}-${index}`} className="h-auto min-h-8 cursor-default">
-              <InputGroupAddon className="w-full justify-start text-foreground">
-                {renderItem ? renderItem(item) : item}
+            <InputGroup
+              key={`${item}-${index}`}
+              className="h-auto min-h-8 cursor-default"
+            >
+              <InputGroupAddon className="w-full flex-col items-stretch gap-0.5 text-left text-foreground">
+                <OptionLabel
+                  option={item}
+                  renderItem={renderItem}
+                  usageSubtitle={usageSubtitle}
+                />
               </InputGroupAddon>
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
                   aria-label={t("common.multiSelectList.removeItem", { item })}
                   className="text-destructive hover:text-destructive"
                   onClick={() =>
-                    onChange(value.filter((_, currentIndex) => currentIndex !== index))
+                    onChange(
+                      value.filter((_, currentIndex) => currentIndex !== index)
+                    )
                   }
                   size="icon-xs"
                 >
@@ -168,10 +228,10 @@ export function MultiSelectList({
                           return
                         }
                         const nextValue = [...value]
-                          ;[nextValue[index - 1], nextValue[index]] = [
-                            nextValue[index],
-                            nextValue[index - 1],
-                          ]
+                        ;[nextValue[index - 1], nextValue[index]] = [
+                          nextValue[index],
+                          nextValue[index - 1],
+                        ]
                         onChange(nextValue)
                       }}
                       size="icon-xs"
@@ -186,10 +246,10 @@ export function MultiSelectList({
                           return
                         }
                         const nextValue = [...value]
-                          ;[nextValue[index], nextValue[index + 1]] = [
-                            nextValue[index + 1],
-                            nextValue[index],
-                          ]
+                        ;[nextValue[index], nextValue[index + 1]] = [
+                          nextValue[index + 1],
+                          nextValue[index],
+                        ]
                         onChange(nextValue)
                       }}
                       size="icon-xs"
@@ -204,15 +264,24 @@ export function MultiSelectList({
           <div>{addSelect}</div>
         </div>
       ) : (
-        <div className={cn("space-y-3 rounded-xl border p-3", error ? "border-destructive" : "border-border")}>
+        <div
+          className={cn(
+            "space-y-3 rounded-xl border p-3",
+            error ? "border-destructive" : "border-border"
+          )}
+        >
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/50">
               <ListPlus className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="mt-0.5 flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-foreground">{resolvedPlaceholderTitle}</span>
+              <span className="text-sm font-medium text-foreground">
+                {resolvedPlaceholderTitle}
+              </span>
               {resolvedPlaceholderDescription ? (
-                <span className="text-sm text-muted-foreground">{resolvedPlaceholderDescription}</span>
+                <span className="text-sm text-muted-foreground">
+                  {resolvedPlaceholderDescription}
+                </span>
               ) : null}
             </div>
           </div>
