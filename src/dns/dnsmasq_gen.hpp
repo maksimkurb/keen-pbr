@@ -33,7 +33,8 @@ public:
                      const DnsConfig& dns_config,
                      const std::map<std::string, ListConfig>& lists,
                      ResolverType resolver_type = ResolverType::DNSMASQ_IPSET,
-                     std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING);
+                     std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING,
+                     bool ipv6_enabled = true);
 
     // Generate dnsmasq configuration and stream it to the output.
     // Produces ipset=/nftset= and server= directives for all matched domains.
@@ -50,7 +51,8 @@ public:
         const RouteConfig& route_config,
         const DnsConfig& dns_config,
         const std::map<std::string, ListConfig>& lists,
-        std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING);
+        std::string hash_version = KEEN_PBR3_VERSION_FULL_STRING,
+        bool ipv6_enabled = true);
 
     // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
     // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
@@ -81,6 +83,7 @@ private:
     std::vector<KeeneticDnsUpstreamEntry> keenetic_dns_upstreams_;
     ResolverType resolver_type_;
     std::string hash_version_;
+    bool ipv6_enabled_;
 };
 
 } // namespace keen_pbr3

@@ -129,6 +129,8 @@ Config normalize_config_for_api_response(Config config) {
 
     config.daemon->skip_marked_packets =
         config.daemon->skip_marked_packets.value_or(true);
+    config.daemon->ipv6_enabled =
+        config.daemon->ipv6_enabled.value_or(true);
 
     return config;
 }

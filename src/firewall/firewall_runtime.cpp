@@ -6,6 +6,7 @@
 #include "../lists/list_entry_visitor.hpp"
 #include "../lists/list_set_usage.hpp"
 #include "../lists/list_streamer.hpp"
+#include "../util/ipv6_support.hpp"
 
 #include <arpa/inet.h>
 
@@ -49,6 +50,9 @@ std::vector<RuleState> apply_runtime_firewall(
     ListStreamer list_streamer(cache_manager);
     auto rule_states = build_fw_rule_states(config, outbound_marks, &urltest_selections);
     const RouteConfig route_config = config.route.value_or(RouteConfig{});
+    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
+    log_ipv6_support_decision_once(ipv6_decision);
+    firewall.set_ipv6_enabled(ipv6_decision.enabled);
     firewall.set_global_prefilter(build_firewall_global_prefilter(config));
     firewall.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
 
@@ -142,43 +146,57 @@ std::vector<RuleState> apply_runtime_firewall(
 
                 if (usage.has_static_entries) {
                     firewall.create_ipset(set4, AF_INET, 0);
-                    firewall.create_ipset(set6, AF_INET6, 0);
                     rule_state.set_names.push_back(set4);
-                    rule_state.set_names.push_back(set6);
+                    if (ipv6_decision.enabled) {
+                        firewall.create_ipset(set6, AF_INET6, 0);
+                        rule_state.set_names.push_back(set6);
+                    }
 
                     auto loader4 = firewall.create_batch_loader(set4);
-                    auto loader6 = firewall.create_batch_loader(set6);
+                    auto loader6 = ipv6_decision.enabled
+                        ? firewall.create_batch_loader(set6)
+                        : nullptr;
                     FunctionalVisitor splitter([&](EntryType type, std::string_view entry) {
                         if (type == EntryType::Domain) {
                             return;
                         }
                         const bool is_ipv6 = entry.find(':') != std::string_view::npos;
                         if (is_ipv6) {
-                            loader6->on_entry(type, entry);
+                            if (loader6) {
+                                loader6->on_entry(type, entry);
+                            }
                         } else {
                             loader4->on_entry(type, entry);
                         }
                     });
                     list_streamer.stream_list(list_name, list_cfg, splitter);
                     loader4->finish();
-                    loader6->finish();
+                    if (loader6) {
+                        loader6->finish();
+                    }
                 }
 
                 if (usage.has_domain_entries) {
                     firewall.create_ipset(set4d, AF_INET, usage.dynamic_timeout);
-                    firewall.create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
                     rule_state.set_names.push_back(set4d);
-                    rule_state.set_names.push_back(set6d);
+                    if (ipv6_decision.enabled) {
+                        firewall.create_ipset(set6d, AF_INET6, usage.dynamic_timeout);
+                        rule_state.set_names.push_back(set6d);
+                    }
                 }
 
                 if (usage.has_static_entries) {
                     apply_rule(set4);
-                    apply_rule(set6);
+                    if (ipv6_decision.enabled) {
+                        apply_rule(set6);
+                    }
                     emitted_rule = true;
                 }
                 if (usage.has_domain_entries) {
                     apply_rule(set4d);
-                    apply_rule(set6d);
+                    if (ipv6_decision.enabled) {
+                        apply_rule(set6d);
+                    }
                     emitted_rule = true;
                 }
             }

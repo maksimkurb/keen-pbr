@@ -48,7 +48,8 @@ DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
                                    const DnsConfig& dns_config,
                                    const std::map<std::string, ListConfig>& lists,
                                    ResolverType resolver_type,
-                                   std::string hash_version)
+                                   std::string hash_version,
+                                   bool ipv6_enabled)
     : dns_registry_(dns_registry),
       list_streamer_(list_streamer),
       route_config_(route_config),
@@ -61,7 +62,8 @@ DnsmasqGenerator::DnsmasqGenerator(const DnsServerRegistry& dns_registry,
                                   ? get_keenetic_dns_upstreams()
                                   : std::vector<KeeneticDnsUpstreamEntry>{}),
       resolver_type_(resolver_type),
-      hash_version_(std::move(hash_version)) {}
+      hash_version_(std::move(hash_version)),
+      ipv6_enabled_(ipv6_enabled) {}
 
 std::string DnsmasqGenerator::compute_config_hash() {
     crypto::detail::MD5State md5;
@@ -81,11 +83,12 @@ std::string DnsmasqGenerator::compute_config_hash(
     const RouteConfig& route_config,
     const DnsConfig& dns_config,
     const std::map<std::string, ListConfig>& lists,
-    std::string hash_version)
+    std::string hash_version,
+    bool ipv6_enabled)
 {
     return DnsmasqGenerator(dns_registry, list_streamer, route_config,
                             dns_config, lists, ResolverType::DNSMASQ_IPSET,
-                            std::move(hash_version))
+                            std::move(hash_version), ipv6_enabled)
            .compute_config_hash();
 }
 
@@ -94,6 +97,7 @@ void DnsmasqGenerator::generate_directives(
     const std::function<void(const std::string&)>& hash_record_callback) {
     if (hash_record_callback) {
         hash_record_callback("version|" + hash_version_);
+        hash_record_callback(std::string("ipv6-enabled|") + (ipv6_enabled_ ? "1" : "0"));
     }
 
     if (out != nullptr) {
@@ -283,22 +287,32 @@ void DnsmasqGenerator::generate_directives(
                 ipset_batch.enabled = true;
                 ipset_batch.directive_name = "ipset";
                 ipset_batch.prefix_len = kIpsetPrefixLen;
-                ipset_batch.suffix_len = 1 + set4.size() + 1 + set6.size();
+                ipset_batch.suffix_len = ipv6_enabled_
+                    ? 1 + set4.size() + 1 + set6.size()
+                    : 1 + set4.size();
                 ipset_batch.emit_line =
-                    [set4, set6](std::ostream& stream, const std::string& domain_path) {
-                        stream << "ipset=" << domain_path << "/" << set4 << "," << set6 << "\n";
+                    [set4, set6, ipv6_enabled = ipv6_enabled_](std::ostream& stream, const std::string& domain_path) {
+                        stream << "ipset=" << domain_path << "/" << set4;
+                        if (ipv6_enabled) {
+                            stream << "," << set6;
+                        }
+                        stream << "\n";
                     };
             } else {
                 ipset_batch.enabled = true;
                 ipset_batch.directive_name = "nftset";
                 ipset_batch.prefix_len = kNftsetPrefixLen;
-                ipset_batch.suffix_len =
-                    kNftSetPrefixLen + set4.size() + kNftSetMiddleLen + set6.size();
+                ipset_batch.suffix_len = ipv6_enabled_
+                    ? kNftSetPrefixLen + set4.size() + kNftSetMiddleLen + set6.size()
+                    : kNftSetPrefixLen + set4.size();
                 ipset_batch.emit_line =
-                    [set4, set6](std::ostream& stream, const std::string& domain_path) {
+                    [set4, set6, ipv6_enabled = ipv6_enabled_](std::ostream& stream, const std::string& domain_path) {
                         stream << "nftset=" << domain_path
-                               << kNftSetPrefix << set4
-                               << kNftSetMiddle << set6 << "\n";
+                               << kNftSetPrefix << set4;
+                        if (ipv6_enabled) {
+                            stream << kNftSetMiddle << set6;
+                        }
+                        stream << "\n";
                     };
             }
         }

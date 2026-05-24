@@ -340,6 +340,16 @@ components:
             Whether firewall prefilter rules should bypass packets that already carry
             a fwmark. Defaults to `true` when omitted or set to `null`.
           example: true
+        ipv6_enabled:
+          type: boolean
+          nullable: true
+          description: >
+            Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6
+            resolver set targets. Defaults to `true` when omitted or set to `null`.
+            If enabled but the system lacks IPv6 support, keen-pbr logs an error and
+            continues in IPv4-only mode.
+          default: true
+          example: true
         strict_enforcement:
           type: boolean
           description: >
@@ -808,6 +818,7 @@ components:
           firewall_backend: auto
           firewall_verify_max_bytes: 262144
           skip_marked_packets: true
+          ipv6_enabled: true
           strict_enforcement: true
           max_file_size_bytes: 8388608
         api:

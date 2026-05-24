@@ -732,6 +732,60 @@ TEST_CASE("generate output still differs between ipset and nftset modes") {
     CHECK(ipset_output != nftset_output);
 }
 
+TEST_CASE("generate output omits IPv6 dnsmasq targets when IPv6 is disabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg1(dns_cfg);
+    DnsmasqGenerator ipset_gen(reg1, streamer1, route_cfg, dns_cfg, lists,
+                               ResolverType::DNSMASQ_IPSET,
+                               KEEN_PBR3_VERSION_FULL_STRING,
+                               false);
+    const std::string ipset_output = run_generate(ipset_gen);
+
+    CHECK(ipset_output.find("ipset=/example.com/kpbr4d_mylist\n") != std::string::npos);
+    CHECK(ipset_output.find("kpbr6d_mylist") == std::string::npos);
+
+    DnsServerRegistry reg2(dns_cfg);
+    DnsmasqGenerator nftset_gen(reg2, streamer2, route_cfg, dns_cfg, lists,
+                                ResolverType::DNSMASQ_NFTSET,
+                                KEEN_PBR3_VERSION_FULL_STRING,
+                                false);
+    const std::string nftset_output = run_generate(nftset_gen);
+
+    CHECK(nftset_output.find("nftset=/example.com/4#inet#KeenPbrTable#kpbr4d_mylist\n") != std::string::npos);
+    CHECK(nftset_output.find("kpbr6d_mylist") == std::string::npos);
+}
+
+TEST_CASE("hash changes when IPv6 dnsmasq targets are disabled") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer1(cache);
+    ListStreamer streamer2(cache);
+
+    const std::string list_name = "mylist";
+    auto route_cfg = make_route_cfg(list_name);
+    auto dns_cfg = make_empty_dns_cfg();
+    auto lists = std::map<std::string, ListConfig>{{list_name, make_list_cfg({"example.com"})}};
+
+    DnsServerRegistry reg1(dns_cfg);
+    DnsServerRegistry reg2(dns_cfg);
+
+    const std::string hash_ipv6 = DnsmasqGenerator::compute_config_hash(
+        reg1, streamer1, route_cfg, dns_cfg, lists, KEEN_PBR3_VERSION_FULL_STRING, true);
+    const std::string hash_ipv4_only = DnsmasqGenerator::compute_config_hash(
+        reg2, streamer2, route_cfg, dns_cfg, lists, KEEN_PBR3_VERSION_FULL_STRING, false);
+
+    CHECK(!hash_ipv6.empty());
+    CHECK(!hash_ipv4_only.empty());
+    CHECK(hash_ipv6 != hash_ipv4_only);
+}
+
 TEST_CASE("hash changes when allow_domain_rebinding changes") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer1(cache);

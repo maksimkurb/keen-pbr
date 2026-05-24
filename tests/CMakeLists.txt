@@ -61,6 +61,7 @@ add_executable(keen-pbr-tests
   ../src/routing/netlink.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
+  ../src/util/ipv6_support.cpp
   ../src/util/system_info.cpp
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
@@ -185,6 +186,7 @@ add_executable(keen-pbr-firewall-it
   ../src/routing/target.cpp
   ../src/util/blocking_executor.cpp
   ../src/util/firewall_backend_utils.cpp
+  ../src/util/ipv6_support.cpp
   ../src/util/system_info.cpp
   ../src/util/traced_mutex.cpp
 )

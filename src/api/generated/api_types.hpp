@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesKF1Kiq data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesRmjovw data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -120,6 +120,7 @@ namespace api {
         std::optional<std::string> cache_dir;
         std::optional<DaemonConfigFirewallBackend> firewall_backend;
         std::optional<int64_t> firewall_verify_max_bytes;
+        std::optional<bool> ipv6_enabled;
         std::optional<int64_t> max_file_size_bytes;
         std::optional<std::string> pid_file;
         std::optional<bool> skip_marked_packets;
@@ -451,7 +452,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesKF1Kiq {
+    struct KeenPbrTypesRmjovw {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -643,8 +644,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesKF1Kiq & x);
-    void to_json(json & j, const KeenPbrTypesKF1Kiq & x);
+    void from_json(const json & j, KeenPbrTypesRmjovw & x);
+    void to_json(json & j, const KeenPbrTypesRmjovw & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -736,6 +737,7 @@ namespace api {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
         x.firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "firewall_backend");
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
+        x.ipv6_enabled = get_stack_optional<bool>(j, "ipv6_enabled");
         x.max_file_size_bytes = get_stack_optional<int64_t>(j, "max_file_size_bytes");
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
         x.skip_marked_packets = get_stack_optional<bool>(j, "skip_marked_packets");
@@ -747,6 +749,7 @@ namespace api {
         j["cache_dir"] = x.cache_dir;
         j["firewall_backend"] = x.firewall_backend;
         j["firewall_verify_max_bytes"] = x.firewall_verify_max_bytes;
+        j["ipv6_enabled"] = x.ipv6_enabled;
         j["max_file_size_bytes"] = x.max_file_size_bytes;
         j["pid_file"] = x.pid_file;
         j["skip_marked_packets"] = x.skip_marked_packets;
@@ -1400,7 +1403,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesKF1Kiq& x) {
+    inline void from_json(const json & j, KeenPbrTypesRmjovw& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1453,7 +1456,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesKF1Kiq & x) {
+    inline void to_json(json & j, const KeenPbrTypesRmjovw & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

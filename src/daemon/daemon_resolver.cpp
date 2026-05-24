@@ -6,6 +6,7 @@
 #include "../dns/dnsmasq_gen.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
 #include "resolver_health.hpp"
 #include "scheduler.hpp"
@@ -36,12 +37,16 @@ void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(list_service_.cache_manager());
     const DnsConfig dns_cfg = config_.dns.value_or(DnsConfig{});
     DnsServerRegistry dns_registry(dns_cfg);
+    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
+    log_ipv6_support_decision_once(ipv6_decision);
     resolver_config_hash_ = DnsmasqGenerator::compute_config_hash(
         dns_registry,
         streamer,
         config_.route.value_or(RouteConfig{}),
         dns_cfg,
-        config_.lists.value_or(std::map<std::string, ListConfig>{}));
+        config_.lists.value_or(std::map<std::string, ListConfig>{}),
+        KEEN_PBR3_VERSION_FULL_STRING,
+        ipv6_decision.enabled);
     Logger::instance().info("Resolver config hash: {}", resolver_config_hash_);
 }
 

@@ -60,6 +60,10 @@ NftablesFirewall::~NftablesFirewall() {
 
 void NftablesFirewall::create_ipset(const std::string& set_name, int family,
                                      uint32_t timeout) {
+    if (family == AF_INET6 && !ipv6_enabled()) {
+        return;
+    }
+
     PendingSet ps;
     ps.name = set_name;
     ps.type = (family == AF_INET6) ? "ipv6_addr" : "ipv4_addr";
@@ -72,6 +76,10 @@ void NftablesFirewall::append_rules_for_family(int family,
                                                PendingRule::Action action,
                                                uint32_t fwmark,
                                                const FirewallRuleCriteria& criteria) {
+    if (family == AF_INET6 && !ipv6_enabled()) {
+        return;
+    }
+
     const bool ipv6 = family == AF_INET6;
     const auto filtered_src_addrs = criteria.src_addr.empty()
         ? std::vector<std::string>{}

@@ -9,6 +9,7 @@
 #include "../config/routing_state.hpp"
 #include "../dns/dns_router.hpp"
 #include "../dns/dnsmasq_gen.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
@@ -288,12 +289,16 @@ void Daemon::setup_api() {
             ListStreamer streamer(list_service_.cache_manager());
             const DnsConfig dns_cfg = config.dns.value_or(DnsConfig{});
             DnsServerRegistry dns_registry(dns_cfg);
+            const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
+            log_ipv6_support_decision_once(ipv6_decision);
             (void)DnsmasqGenerator::compute_config_hash(
                 dns_registry,
                 streamer,
                 config.route.value_or(RouteConfig{}),
                 dns_cfg,
-                config.lists.value_or(std::map<std::string, ListConfig>{}));
+                config.lists.value_or(std::map<std::string, ListConfig>{}),
+                KEEN_PBR3_VERSION_FULL_STRING,
+                ipv6_decision.enabled);
         },
         [this]() {
             const auto runtime_snapshot = runtime_state_store_.snapshot();

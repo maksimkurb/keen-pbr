@@ -6,6 +6,7 @@
 #include "../util/safe_exec.hpp"
 
 #include <optional>
+#include <set>
 #include <string>
 #include <sys/socket.h>
 
@@ -166,6 +167,11 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
         return keen_pbr3::format("create {} hash:net family {} -exist\n",
                                  ps.name, ps.family_str);
     }
+}
+
+bool IptablesFirewall::ipv6_backend_available() const {
+    return safe_exec({"ip6tables", "-t", "mangle", "-L"}, /*suppress_output=*/true) == 0
+        && safe_exec({"which", "ip6tables-restore"}, /*suppress_output=*/true) == 0;
 }
 
 std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
@@ -372,6 +378,13 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
 }
 
 void IptablesFirewall::apply(FirewallApplyMode mode) {
+    bool effective_ipv6 = ipv6_enabled();
+    if (effective_ipv6 && !ipv6_backend_available()) {
+        Logger::instance().error(
+            "IPv6 iptables backend is unavailable; skipping IPv6 firewall state and continuing IPv4-only");
+        effective_ipv6 = false;
+    }
+
     if (mode == FirewallApplyMode::Destructive) {
         cleanup_live_impl();
     } else {
@@ -381,10 +394,18 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     // Phase 1: ipsets via 'ipset restore -exist'
     {
         std::string ipset_script;
+        std::set<std::string> disabled_ipv6_sets;
         for (const auto& ps : pending_sets_) {
+            if (ps.family_str == "inet6" && !effective_ipv6) {
+                disabled_ipv6_sets.insert(ps.name);
+                continue;
+            }
             ipset_script += build_ipset_create_line(ps);
         }
         for (auto& [set_name, buf] : pending_elements_) {
+            if (disabled_ipv6_sets.find(set_name) != disabled_ipv6_sets.end()) {
+                continue;
+            }
             std::string elements = buf.str();
             if (!elements.empty()) {
                 ipset_script += elements;
@@ -399,7 +420,7 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     // Always materialize the KeenPbrTable scaffold for both protocols so
     // diagnostics can verify chain/jump presence even when no rules are needed.
     bool has_v4 = true;
-    bool has_v6 = true;
+    bool has_v6 = effective_ipv6;
     for (const auto& pr : pending_rules_) {
         if (pr.ipv6) has_v6 = true;
         else has_v4 = true;

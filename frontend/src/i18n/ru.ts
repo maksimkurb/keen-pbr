@@ -325,6 +325,9 @@ export const ruTranslation = {
               "Не обрабатывать маркированные пакеты",
             skipMarkedPacketsHint:
               "Игнорировать пакеты, у которых уже есть fwmark проставленный другими правилами firewall, чтобы policy routing не обрабатывал их повторно.",
+            ipv6EnabledLabel: "Включить поддержку IPv6",
+            ipv6EnabledHint:
+              "Создавать IPv6-наборы firewall и IPv6-цели dnsmasq. Отключите на старых прошивках без поддержки IPv6 netfilter.",
             inboundInterfacesLabel: "Входящие интерфейсы",
             inboundInterfacesHint:
               "Policy routing будет применяться только к пакетам, пришедшим через выбранные интерфейсы. Оставьте поле пустым, чтобы обрабатывать трафик с любых интерфейсов.",

@@ -22,6 +22,9 @@ export interface DaemonConfig {
   /** Whether firewall prefilter rules should bypass packets that already carry a fwmark. Defaults to `true` when omitted or set to `null`.
    */
   skip_marked_packets?: boolean | null;
+  /** Whether keen-pbr should install IPv6 firewall sets/rules and emit IPv6 resolver set targets. Defaults to `true` when omitted or set to `null`. If enabled but the system lacks IPv6 support, keen-pbr logs an error and continues in IPv4-only mode.
+   */
+  ipv6_enabled?: boolean | null;
   /** Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable.
    */
   strict_enforcement?: boolean;

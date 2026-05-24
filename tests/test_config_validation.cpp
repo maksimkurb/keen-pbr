@@ -1064,3 +1064,28 @@ TEST_CASE("daemon.skip_marked_packets: rejects non-boolean value") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.skip_marked_packets");
 }
+
+TEST_CASE("daemon.ipv6_enabled: defaults to true behavior when absent") {
+    auto cfg = parse_test_config(R"({"daemon":{}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->ipv6_enabled.has_value());
+}
+
+TEST_CASE("daemon.ipv6_enabled: accepts false") {
+    auto cfg = parse_test_config(R"({"daemon":{"ipv6_enabled":false}})");
+    REQUIRE(cfg.daemon.has_value());
+    REQUIRE(cfg.daemon->ipv6_enabled.has_value());
+    CHECK_FALSE(*cfg.daemon->ipv6_enabled);
+}
+
+TEST_CASE("daemon.ipv6_enabled: accepts null") {
+    auto cfg = parse_test_config(R"({"daemon":{"ipv6_enabled":null}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->ipv6_enabled.has_value());
+}
+
+TEST_CASE("daemon.ipv6_enabled: rejects non-boolean value") {
+    const auto issues = parse_issues(R"({"daemon":{"ipv6_enabled":"yes"}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.ipv6_enabled");
+}

@@ -152,6 +152,14 @@ public:
         return global_prefilter_;
     }
 
+    void set_ipv6_enabled(bool enabled) {
+        ipv6_enabled_ = enabled;
+    }
+
+    bool ipv6_enabled() const {
+        return ipv6_enabled_;
+    }
+
     void set_fwmark_mask(uint32_t fwmark_mask) {
         fwmark_mask_ = fwmark_mask;
     }
@@ -176,6 +184,7 @@ protected:
 
     FirewallGlobalPrefilter global_prefilter_;
     uint32_t fwmark_mask_{0xFFFFFFFFu};
+    bool ipv6_enabled_{true};
 };
 
 // Return the stable config/CLI label for a concrete backend.

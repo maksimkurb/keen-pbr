@@ -21,6 +21,7 @@
 #include "daemon/daemon.hpp"
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
+#include "util/ipv6_support.hpp"
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "log/logger.hpp"
@@ -268,12 +269,16 @@ int main(int argc, char* argv[]) {
             keen_pbr3::ListStreamer streamer(cache);
             const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
             keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
+            const auto ipv6_decision = keen_pbr3::resolve_ipv6_support(config);
+            keen_pbr3::log_ipv6_support_decision_once(ipv6_decision);
             const std::string hash = keen_pbr3::DnsmasqGenerator::compute_config_hash(
                 dns_registry,
                 streamer,
                 config.route.value_or(keen_pbr3::RouteConfig{}),
                 dns_cfg,
-                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}));
+                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}),
+                KEEN_PBR3_VERSION_FULL_STRING,
+                ipv6_decision.enabled);
             std::cout << hash << "\n";
             return 0;
         }
@@ -298,12 +303,16 @@ int main(int argc, char* argv[]) {
             }
             const auto route_cfg = config.route.value_or(keen_pbr3::RouteConfig{});
             const auto dns_cfg   = config.dns.value_or(keen_pbr3::DnsConfig{});
+            const auto ipv6_decision = keen_pbr3::resolve_ipv6_support(config);
+            keen_pbr3::log_ipv6_support_decision_once(ipv6_decision);
             keen_pbr3::ListStreamer list_streamer(cache);
             keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
             auto resolver_type = keen_pbr3::DnsmasqGenerator::parse_resolver_type(opts.resolver_type);
             keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_registry, list_streamer,
                                                      route_cfg, dns_cfg,
-                                                     lists_map, resolver_type);
+                                                     lists_map, resolver_type,
+                                                     KEEN_PBR3_VERSION_FULL_STRING,
+                                                     ipv6_decision.enabled);
             dnsmasq_gen.generate(std::cout);
             return 0;
         }

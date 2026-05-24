@@ -44,6 +44,7 @@ import { toast } from "sonner"
 type SettingsDraft = {
   strictEnforcement: boolean
   skipMarkedPackets: boolean
+  ipv6Enabled: boolean
   inboundInterfaces: string[]
   listsAutoupdateEnabled: boolean
   cron: string
@@ -55,6 +56,7 @@ type SettingsDraft = {
 const fallbackDraft: SettingsDraft = {
   strictEnforcement: true,
   skipMarkedPackets: true,
+  ipv6Enabled: true,
   inboundInterfaces: [],
   listsAutoupdateEnabled: false,
   cron: "0 4 * * 0",
@@ -66,6 +68,7 @@ const fallbackDraft: SettingsDraft = {
 const SETTINGS_FIELD_NAMES = {
   strictEnforcement: "strictEnforcement",
   skipMarkedPackets: "skipMarkedPackets",
+  ipv6Enabled: "ipv6Enabled",
   inboundInterfaces: "inboundInterfaces",
   listsAutoupdateEnabled: "listsAutoupdateEnabled",
   cron: "cron",
@@ -254,6 +257,35 @@ function LoadedGeneralConfigPage({
                     </div>
                     <FieldHint
                       description={t("pages.settings.general.skipMarkedPacketsHint")}
+                    />
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSeparator />
+
+            <form.Field name={SETTINGS_FIELD_NAMES.ipv6Enabled}>
+              {(field) => (
+                <Field>
+                  <FieldContent>
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={field.state.value}
+                        id="ipv6-enabled"
+                        onCheckedChange={(checked) =>
+                          field.handleChange(checked === true)
+                        }
+                      />
+                      <FieldLabel
+                        className="cursor-pointer flex-col items-start gap-0"
+                        htmlFor="ipv6-enabled"
+                      >
+                        {t("pages.settings.general.ipv6EnabledLabel")}
+                      </FieldLabel>
+                    </div>
+                    <FieldHint
+                      description={t("pages.settings.general.ipv6EnabledHint")}
                     />
                   </FieldContent>
                 </Field>
@@ -626,6 +658,8 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
     skipMarkedPackets:
       config.daemon?.skip_marked_packets ?? fallbackDraft.skipMarkedPackets,
+    ipv6Enabled:
+      config.daemon?.ipv6_enabled ?? fallbackDraft.ipv6Enabled,
     inboundInterfaces:
       config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
     listsAutoupdateEnabled:
@@ -652,6 +686,7 @@ function buildUpdatedConfig(
       ...config.daemon,
       strict_enforcement: draft.strictEnforcement,
       skip_marked_packets: draft.skipMarkedPackets,
+      ipv6_enabled: draft.ipv6Enabled,
     },
     route: {
       ...config.route,
@@ -735,6 +770,8 @@ function resolveSettingsFieldPath(path: string): SettingsFieldName | undefined {
       return SETTINGS_FIELD_NAMES.strictEnforcement
     case "daemon.skip_marked_packets":
       return SETTINGS_FIELD_NAMES.skipMarkedPackets
+    case "daemon.ipv6_enabled":
+      return SETTINGS_FIELD_NAMES.ipv6Enabled
     case "lists_autoupdate.enabled":
       return SETTINGS_FIELD_NAMES.listsAutoupdateEnabled
     case "lists_autoupdate.cron":
