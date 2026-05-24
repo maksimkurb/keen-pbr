@@ -16,6 +16,8 @@ namespace keen_pbr3 {
 
 namespace {
 
+constexpr auto kResolverConfigHashActualRefreshInterval = std::chrono::seconds{5};
+
 bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt) {
     if (!dns_cfg_opt.has_value()) {
         return false;
@@ -97,7 +99,7 @@ void Daemon::schedule_resolver_config_hash_actual_refresh() {
         scheduler_->cancel(resolver_config_hash_actual_task_id_);
     }
     resolver_config_hash_actual_task_id_ = scheduler_->schedule_repeating(
-        std::chrono::seconds{30},
+        kResolverConfigHashActualRefreshInterval,
         [this]() {
             maybe_schedule_resolver_config_hash_actual_refresh();
         },
