@@ -215,6 +215,53 @@ void validate_tag(std::vector<ConfigValidationIssue>& issues,
     }
 }
 
+std::set<std::string> collect_list_names(const Config& cfg) {
+    std::set<std::string> names;
+    for (const auto& [name, _] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        names.insert(name);
+    }
+    return names;
+}
+
+std::set<std::string> collect_outbound_tags(const std::vector<Outbound>& outbounds) {
+    std::set<std::string> tags;
+    for (const auto& outbound : outbounds) {
+        tags.insert(outbound.tag);
+    }
+    return tags;
+}
+
+void validate_required_reference(std::vector<ConfigValidationIssue>& issues,
+                                 const std::set<std::string>& known_refs,
+                                 const std::string& path,
+                                 const std::string& owner_path,
+                                 const std::string& value,
+                                 const std::string& ref_kind) {
+    const std::string ref = trim_copy(value);
+    if (ref.empty()) {
+        add_issue(issues, path, path + " must not be empty");
+        return;
+    }
+
+    if (known_refs.find(ref) == known_refs.end()) {
+        add_issue(issues, path, owner_path + " references unknown " + ref_kind + " '" + ref + "'");
+    }
+}
+
+void validate_rule_list_references(std::vector<ConfigValidationIssue>& issues,
+                                   const std::set<std::string>& known_lists,
+                                   const std::string& rule_path,
+                                   const std::vector<std::string>& list_refs) {
+    for (size_t i = 0; i < list_refs.size(); ++i) {
+        validate_required_reference(issues,
+                                    known_lists,
+                                    rule_path + ".list[" + std::to_string(i) + "]",
+                                    rule_path,
+                                    list_refs[i],
+                                    "list");
+    }
+}
+
 std::optional<std::string> validate_port_spec(const std::optional<std::string>& value) {
     if (!value.has_value()) {
         return std::nullopt;
@@ -674,6 +721,13 @@ void validate_config(const Config& cfg) {
         validate_tag(issues, "outbounds." + ob.tag + ".tag", "Outbound tag", ob.tag);
 
         if (ob.type == OutboundType::INTERFACE) {
+            const std::string iface = trim_copy(ob.interface.value_or(""));
+            if (iface.empty()) {
+                add_issue(issues,
+                          "outbounds." + ob.tag + ".interface",
+                          "Interface outbound '" + ob.tag +
+                              "' requires a non-empty interface name");
+            }
             if (ob.gateway.has_value() && !is_valid_ipv4_address(*ob.gateway)) {
                 add_issue(issues,
                           "outbounds." + ob.tag + ".gateway",
@@ -740,6 +794,23 @@ void validate_config(const Config& cfg) {
         }
     }
 
+    const auto list_names = collect_list_names(cfg);
+    const auto outbound_tags = collect_outbound_tags(outbounds);
+    const auto& route_rules =
+        cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
+    for (size_t rule_index = 0; rule_index < route_rules.size(); ++rule_index) {
+        const auto& rule = route_rules[rule_index];
+        const std::string rule_path = "route.rules[" + std::to_string(rule_index) + "]";
+
+        validate_required_reference(issues,
+                                    outbound_tags,
+                                    rule_path + ".outbound",
+                                    rule_path,
+                                    rule.outbound,
+                                    "outbound tag");
+        validate_rule_list_references(issues, list_names, rule_path, route_rule_lists(rule));
+    }
+
     const FwmarkConfig fwmark_cfg = cfg.fwmark.value_or(FwmarkConfig{});
     bool fwmark_start_valid = true;
     try {
@@ -778,8 +849,6 @@ void validate_config(const Config& cfg) {
     }
 
     if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
-        const auto& route_rules =
-            cfg.route.value_or(RouteConfig{}).rules.value_or(std::vector<RouteRule>{});
         for (size_t i = 0; i < route_rules.size(); ++i) {
             const auto& rule = route_rules[i];
             if (!route_rule_uses_unsupported_iptables_multiport_combo(rule)) {
@@ -920,6 +989,26 @@ void validate_config(const Config& cfg) {
         } else {
             add_issue(issues, "dns.system_resolver",
                       "dns.system_resolver must be present");
+        }
+
+        const auto dns_rules = cfg.dns->rules.value_or(std::vector<DnsRule>{});
+        for (size_t rule_index = 0; rule_index < dns_rules.size(); ++rule_index) {
+            const auto& rule = dns_rules[rule_index];
+            const std::string rule_path = "dns.rules[" + std::to_string(rule_index) + "]";
+
+            validate_required_reference(issues,
+                                        dns_server_tags,
+                                        rule_path + ".server",
+                                        rule_path,
+                                        rule.server,
+                                        "DNS server tag");
+            if (rule.list.empty()) {
+                add_issue(issues,
+                          rule_path + ".list",
+                          rule_path + ".list must include at least one list name");
+            } else {
+                validate_rule_list_references(issues, list_names, rule_path, rule.list);
+            }
         }
 
         if (cfg.dns->dns_test_server.has_value()) {

@@ -56,6 +56,15 @@ api::RuntimeInterfaceInventoryResponse build_runtime_interface_inventory_respons
     return build_runtime_interface_inventory_response(netlink.dump_interfaces());
 }
 
+api::RuntimeInterfaceInventoryResponse build_runtime_interface_inventory_response_or_empty(
+    NetlinkManager& netlink) {
+    try {
+        return build_runtime_interface_inventory_response(netlink);
+    } catch (const NetlinkError&) {
+        return api::RuntimeInterfaceInventoryResponse{};
+    }
+}
+
 } // namespace keen_pbr3
 
 #endif // WITH_API

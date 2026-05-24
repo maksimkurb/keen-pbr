@@ -348,7 +348,7 @@ void Daemon::setup_api() {
                 });
         },
         [this]() {
-            return build_runtime_interface_inventory_response(netlink_);
+            return build_runtime_interface_inventory_response_or_empty(netlink_);
         },
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());

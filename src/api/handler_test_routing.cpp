@@ -26,6 +26,11 @@ void register_test_routing_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError("Invalid request body", 400, payload.dump());
         }
 
+        if (req.target.empty()) {
+            nlohmann::json payload = {{"error", "Field 'target' must not be empty"}};
+            throw ApiError("Field 'target' must not be empty", 400, payload.dump());
+        }
+
         auto result = ctx.compute_test_routing(req.target);
 
         api::RoutingTestResponse resp;
