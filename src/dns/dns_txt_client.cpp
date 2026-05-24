@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "dns_server.hpp"
+#include "legacy_resolver_lock.hpp"
 
 namespace keen_pbr3 {
 
@@ -198,15 +199,20 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     }
 
     std::array<unsigned char, NS_PACKETSZ * 2> query {};
-    const int query_len = res_mkquery(ns_o_query,
-                                      domain.c_str(),
-                                      ns_c_in,
-                                      ns_t_txt,
-                                      nullptr,
-                                      0,
-                                      nullptr,
-                                      query.data(),
-                                      static_cast<int>(query.size()));
+    int query_len = -1;
+    {
+        // res_mkquery() builds the packet using the global _res; serialize it.
+        std::lock_guard<std::mutex> resolver_lock(legacy_resolver_mutex());
+        query_len = res_mkquery(ns_o_query,
+                                domain.c_str(),
+                                ns_c_in,
+                                ns_t_txt,
+                                nullptr,
+                                0,
+                                nullptr,
+                                query.data(),
+                                static_cast<int>(query.size()));
+    }
     if (query_len < 0) {
         if (error_out) *error_out = "Failed to build DNS TXT query";
         Logger::instance().trace("dns_txt_query_error",
