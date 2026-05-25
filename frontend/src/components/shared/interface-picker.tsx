@@ -87,7 +87,7 @@ export function InterfacePicker({
       : null
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn(className)}>
       <Autocomplete.Root
         items={pickerItems}
         itemToStringValue={(item) => item.name}
@@ -333,7 +333,11 @@ function SelectedInterfaceRow({
 
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2">
-      <InterfaceRowContent interfaceEntry={interfaceEntry} name={name} />
+      <InterfaceRowContent
+        interfaceEntry={interfaceEntry}
+        name={name}
+        showAddressesInline
+      />
       <Button
         aria-label={t("common.multiSelectList.removeItem", { item: name })}
         className="size-5 text-destructive hover:text-destructive [&_svg:not([class*='size-'])]:size-3.5"
