@@ -52,13 +52,22 @@ export function DiagnosticsDownloadDialog({
         status: dnsCheckStatus,
       },
     }
-  }, [config, dnsCheckStatus, hideListsContent, routingHealth, runtimeOutbounds, serviceHealth])
+  }, [
+    config,
+    dnsCheckStatus,
+    hideListsContent,
+    routingHealth,
+    runtimeOutbounds,
+    serviceHealth,
+  ])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("overview.diagnosticsDownload.modal.title")}</DialogTitle>
+          <DialogTitle>
+            {t("overview.diagnosticsDownload.modal.title")}
+          </DialogTitle>
           <DialogDescription>
             {t("overview.diagnosticsDownload.modal.description")}
           </DialogDescription>
@@ -67,8 +76,12 @@ export function DiagnosticsDownloadDialog({
         <div className="space-y-3 text-sm">
           <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
             <li>{t("overview.diagnosticsDownload.modal.items.config")}</li>
-            <li>{t("overview.diagnosticsDownload.modal.items.serviceHealth")}</li>
-            <li>{t("overview.diagnosticsDownload.modal.items.routingHealth")}</li>
+            <li>
+              {t("overview.diagnosticsDownload.modal.items.serviceHealth")}
+            </li>
+            <li>
+              {t("overview.diagnosticsDownload.modal.items.routingHealth")}
+            </li>
             <li>{t("overview.diagnosticsDownload.modal.items.outbounds")}</li>
             <li>{t("overview.diagnosticsDownload.modal.items.names")}</li>
           </ol>
@@ -80,9 +93,13 @@ export function DiagnosticsDownloadDialog({
           <Label className="flex cursor-pointer items-start gap-2 text-sm">
             <Checkbox
               checked={hideListsContent}
-              onCheckedChange={(checked) => setHideListsContent(Boolean(checked))}
+              onCheckedChange={(checked) =>
+                setHideListsContent(Boolean(checked))
+              }
             />
-            <span>{t("overview.diagnosticsDownload.modal.hideListsOption")}</span>
+            <span>
+              {t("overview.diagnosticsDownload.modal.hideListsOption")}
+            </span>
           </Label>
 
           <Button

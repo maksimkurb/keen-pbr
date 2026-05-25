@@ -33,10 +33,15 @@ export function ThemeSelector() {
       <Select
         defaultValue={theme}
         items={items}
-        onValueChange={(value) => setTheme(value as "system" | "light" | "dark")}
+        onValueChange={(value) =>
+          setTheme(value as "system" | "light" | "dark")
+        }
         value={theme}
       >
-        <SelectTrigger aria-label={t("theme.selectorAria")} className="bg-sidebar">
+        <SelectTrigger
+          aria-label={t("theme.selectorAria")}
+          className="bg-sidebar"
+        >
           <SelectValue placeholder={t("theme.useSystem")} />
         </SelectTrigger>
         <SelectContent align="start" side="top" alignItemWithTrigger={false}>

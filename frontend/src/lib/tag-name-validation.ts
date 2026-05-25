@@ -17,9 +17,7 @@ export function getTagNameValidationError(
   }
 
   if (!TAG_NAME_PATTERN.test(normalizedValue)) {
-    return (
-      options.invalidError ?? "Must match [a-z][a-z0-9_]{0,23}."
-    )
+    return options.invalidError ?? "Must match [a-z][a-z0-9_]{0,23}."
   }
 
   return options.duplicateError ?? undefined

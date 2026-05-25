@@ -52,7 +52,9 @@ createRoot(document.getElementById("root")!).render(
           </ThemeProvider>
         </LanguageProvider>
       </TooltipProvider>
-      {import.meta.env.DEV ? <ReactQueryDevtools initialIsOpen={false} /> : null}
+      {import.meta.env.DEV ? (
+        <ReactQueryDevtools initialIsOpen={false} />
+      ) : null}
     </QueryClientProvider>
   </StrictMode>
 )

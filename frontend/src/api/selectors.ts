@@ -3,7 +3,9 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
 import type { Outbound } from "@/api/generated/model/outbound"
 
-export function selectConfig(response?: getConfigResponse): ConfigObject | undefined {
+export function selectConfig(
+  response?: getConfigResponse
+): ConfigObject | undefined {
   if (!response || response.status !== 200) {
     return undefined
   }

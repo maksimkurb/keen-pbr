@@ -97,12 +97,7 @@ export function RuntimeOutboundDetails({
     return null
   }
 
-  return (
-    <OutboundInterfaceStatusList
-      items={items}
-      variant={variant}
-    />
-  )
+  return <OutboundInterfaceStatusList items={items} variant={variant} />
 }
 
 function mapRuntimeInterfaceToItem(
@@ -132,30 +127,33 @@ function mapRuntimeInterfaceToItem(
     typeof interfaceState.latency_ms === "number"
       ? `${interfaceState.latency_ms} ms`
       : undefined
-  const content = runtimeInterfaces && hasInterfaceName ? (
-    <InterfaceRowContent
-      afterStatus={
-        <>
-          <RuntimeStateBadge
-            active={interfaceState.status === "active"}
-            label={t(`runtime.interfaceStatus.${interfaceState.status}`)}
-            tone={getInterfaceTone(interfaceState.status)}
-          />
-          {latencyLabel ? (
-            <span className="text-xs text-muted-foreground">{latencyLabel}</span>
-          ) : null}
-        </>
-      }
-      grow={false}
-      interfaceEntry={inventoryEntry}
-      isVirtual={!inventoryEntry}
-      name={
-        parentType === "urltest" && hasInterfaceName
-          ? `${interfaceState.outbound_tag} (${interfaceState.interface_name})`
-          : name
-      }
-    />
-  ) : undefined
+  const content =
+    runtimeInterfaces && hasInterfaceName ? (
+      <InterfaceRowContent
+        afterStatus={
+          <>
+            <RuntimeStateBadge
+              active={interfaceState.status === "active"}
+              label={t(`runtime.interfaceStatus.${interfaceState.status}`)}
+              tone={getInterfaceTone(interfaceState.status)}
+            />
+            {latencyLabel ? (
+              <span className="text-xs text-muted-foreground">
+                {latencyLabel}
+              </span>
+            ) : null}
+          </>
+        }
+        grow={false}
+        interfaceEntry={inventoryEntry}
+        isVirtual={!inventoryEntry}
+        name={
+          parentType === "urltest" && hasInterfaceName
+            ? `${interfaceState.outbound_tag} (${interfaceState.interface_name})`
+            : name
+        }
+      />
+    ) : undefined
 
   return {
     name,
@@ -165,7 +163,9 @@ function mapRuntimeInterfaceToItem(
     isLast,
     latency: content ? undefined : latencyLabel,
     secondaryLabel,
-    stateLabel: content ? undefined : t(`runtime.interfaceStatus.${interfaceState.status}`),
+    stateLabel: content
+      ? undefined
+      : t(`runtime.interfaceStatus.${interfaceState.status}`),
   }
 }
 

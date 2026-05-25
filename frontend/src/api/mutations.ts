@@ -127,8 +127,24 @@ export const usePostServiceActionMutation = (action: ServiceAction) => {
   })
 }
 
+export function isConfigMutationPending(
+  postConfigCount: number,
+  postConfigSaveCount: number
+) {
+  return postConfigCount > 0 || postConfigSaveCount > 0
+}
+
+export const useConfigMutationPending = () => {
+  const postConfigCount = useIsMutating({ mutationKey: ["postConfig"] })
+  const postConfigSaveCount = useIsMutating({ mutationKey: ["postConfigSave"] })
+
+  return isConfigMutationPending(postConfigCount, postConfigSaveCount)
+}
+
 export const useRoutingControlPendingState = () => {
+  const draftPostPending = useIsMutating({ mutationKey: ["postConfig"] }) > 0
   const applyPending = useIsMutating({ mutationKey: ["postConfigSave"] }) > 0
+  const configMutationPending = draftPostPending || applyPending
   const startPending =
     useIsMutating({ mutationKey: serviceActionMutationKey("start") }) > 0
   const stopPending =
@@ -138,9 +154,12 @@ export const useRoutingControlPendingState = () => {
 
   return {
     applyPending,
+    draftPostPending,
+    configMutationPending,
     startPending,
     stopPending,
     restartPending,
-    anyPending: applyPending || startPending || stopPending || restartPending,
+    anyPending:
+      configMutationPending || startPending || stopPending || restartPending,
   }
 }

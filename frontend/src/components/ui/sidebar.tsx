@@ -23,7 +23,11 @@ import {
 } from "@/components/ui/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
-import { SidebarContext, useSidebar, type SidebarContextProps } from "@/components/ui/sidebar-context"
+import {
+  SidebarContext,
+  useSidebar,
+  type SidebarContextProps,
+} from "@/components/ui/sidebar-context"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -234,7 +238,10 @@ function SidebarTrigger({
   className,
   onClick,
   ...props
-}: Omit<React.ComponentProps<typeof IconButtonWithTooltip>, "children" | "label">) {
+}: Omit<
+  React.ComponentProps<typeof IconButtonWithTooltip>,
+  "children" | "label"
+>) {
   const { toggleSidebar } = useSidebar()
 
   return (

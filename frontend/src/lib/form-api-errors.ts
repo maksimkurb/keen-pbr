@@ -1,7 +1,10 @@
 import type { AnyFormApi } from "@tanstack/react-form"
 
 import type { ApiError } from "@/api/client"
-import { getApiValidationErrors, type ValidationErrorEntry } from "@/lib/api-errors"
+import {
+  getApiValidationErrors,
+  type ValidationErrorEntry,
+} from "@/lib/api-errors"
 
 export type ApiPathResolver = (
   path: string,
@@ -82,7 +85,10 @@ export function splitFormApiErrors({
 
   for (const item of validationErrors) {
     const fieldPath = resolvePath(item.path, item.message)
-    if (!fieldPath || (allowedFieldNames && !allowedFieldNames.has(fieldPath))) {
+    if (
+      !fieldPath ||
+      (allowedFieldNames && !allowedFieldNames.has(fieldPath))
+    ) {
       unmappedErrors.push(item)
       continue
     }

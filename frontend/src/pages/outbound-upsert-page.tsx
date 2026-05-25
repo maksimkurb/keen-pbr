@@ -363,13 +363,16 @@ function OutboundForm({
   const apiErrorMessage = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as { form?: string } | undefined)?.form ?? null)
+      (state.errorMap.onServer as { form?: string } | undefined)?.form ?? null
   )
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
-        ?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | { unmapped?: { path: string; message: string }[] }
+          | undefined
+      )?.unmapped ?? []
   )
 
   const isInterface = outboundType === "interface"
@@ -457,10 +460,14 @@ function OutboundForm({
                   <Select
                     items={outboundTypeOptions.map((type) => ({
                       value: type,
-                      label: t(`pages.outboundUpsert.fields.typeOptions.${type}`),
+                      label: t(
+                        `pages.outboundUpsert.fields.typeOptions.${type}`
+                      ),
                     }))}
                     onValueChange={(value) =>
-                      field.handleChange((value as Outbound["type"]) ?? draft.type)
+                      field.handleChange(
+                        (value as Outbound["type"]) ?? draft.type
+                      )
                     }
                     value={field.state.value}
                   >
@@ -474,7 +481,9 @@ function OutboundForm({
                         </SelectLabel>
                         {outboundTypeOptions.map((option) => (
                           <SelectItem key={option} value={option}>
-                            {t(`pages.outboundUpsert.fields.typeOptions.${option}`)}
+                            {t(
+                              `pages.outboundUpsert.fields.typeOptions.${option}`
+                            )}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -510,13 +519,17 @@ function OutboundForm({
                         invalid={Boolean(error)}
                         onChange={field.handleChange}
                         onSelect={field.handleChange}
-                        placeholder={t("pages.outboundUpsert.interface.interfacePlaceholder")}
+                        placeholder={t(
+                          "pages.outboundUpsert.interface.interfacePlaceholder"
+                        )}
                         renderSelectedInline
                         showDetails={false}
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.interface.interfaceHint")}
+                        description={t(
+                          "pages.outboundUpsert.interface.interfaceHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -538,11 +551,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={gatewayId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.interface.gatewayHint")}
+                        description={t(
+                          "pages.outboundUpsert.interface.gatewayHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -564,11 +581,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={gateway6Id}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.interface.gateway6Hint")}
+                        description={t(
+                          "pages.outboundUpsert.interface.gateway6Hint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -598,7 +619,9 @@ function OutboundForm({
                       aria-invalid={Boolean(error)}
                       id={tableId}
                       onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
                       value={field.state.value}
                     />
                     <FieldHint
@@ -642,7 +665,9 @@ function OutboundForm({
             const groups = normalizeOutboundGroups(field.state.value)
             return (
               <SectionCard
-                description={t("pages.outboundUpsert.urltest.groupsDescription")}
+                description={t(
+                  "pages.outboundUpsert.urltest.groupsDescription"
+                )}
                 title={t("pages.outboundUpsert.urltest.groupsTitle")}
               >
                 <div className="space-y-4">
@@ -667,7 +692,9 @@ function OutboundForm({
                           groups.length === 1
                             ? groups
                             : normalizeOutboundGroups(
-                                groups.filter((_, currentIndex) => currentIndex !== index)
+                                groups.filter(
+                                  (_, currentIndex) => currentIndex !== index
+                                )
                               )
                         )
                       }
@@ -684,7 +711,9 @@ function OutboundForm({
                             <MultiSelectList
                               error={error}
                               name={OUTBOUND_FIELD_NAMES.outbounds}
-                              addLabel={t("pages.outboundUpsert.urltest.addOutbound")}
+                              addLabel={t(
+                                "pages.outboundUpsert.urltest.addOutbound"
+                              )}
                               emptyMessage={t(
                                 "pages.outboundUpsert.urltest.noInterfaceOutbounds"
                               )}
@@ -706,19 +735,23 @@ function OutboundForm({
                                   runtimeInterfaceByName
                                 )
                               }
-                              renderItem={(tag) =>
+                              renderItem={(tag) => (
                                 <OutboundInterfaceLabel
-                                  interfaceName={interfaceOutboundByTag.get(tag)?.interface}
-                                  runtimeInterface={
-                                    runtimeInterfaceByName.get(
-                                      interfaceOutboundByTag.get(tag)?.interface ?? ""
-                                    )
+                                  interfaceName={
+                                    interfaceOutboundByTag.get(tag)?.interface
                                   }
+                                  runtimeInterface={runtimeInterfaceByName.get(
+                                    interfaceOutboundByTag.get(tag)
+                                      ?.interface ?? ""
+                                  )}
                                   t={t}
                                   tag={tag}
                                 />
-                              }
-                              unavailable={getUnavailableOutbounds(groups, index)}
+                              )}
+                              unavailable={getUnavailableOutbounds(
+                                groups,
+                                index
+                              )}
                               value={group}
                             />
                           ) : (
@@ -740,7 +773,10 @@ function OutboundForm({
                       onClick={() =>
                         field.handleChange([
                           ...groups,
-                          getNextAvailableOutbounds(interfaceOutboundOptions, groups),
+                          getNextAvailableOutbounds(
+                            interfaceOutboundOptions,
+                            groups
+                          ),
                         ])
                       }
                       type="button"
@@ -776,11 +812,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={probeUrlId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.urltest.probeUrlHint")}
+                        description={t(
+                          "pages.outboundUpsert.urltest.probeUrlHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -802,11 +842,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={intervalId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.urltest.intervalHint")}
+                        description={t(
+                          "pages.outboundUpsert.urltest.intervalHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -828,11 +872,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={toleranceId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.urltest.toleranceHint")}
+                        description={t(
+                          "pages.outboundUpsert.urltest.toleranceHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -854,11 +902,15 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={retryAttemptsId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.outboundUpsert.urltest.retryAttemptsHint")}
+                        description={t(
+                          "pages.outboundUpsert.urltest.retryAttemptsHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -880,7 +932,9 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={retryIntervalId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
@@ -917,7 +971,9 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={circuitBreakerFailuresId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
@@ -945,7 +1001,9 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={circuitBreakerSuccessesId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
@@ -973,7 +1031,9 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={circuitBreakerTimeoutId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
@@ -1001,7 +1061,9 @@ function OutboundForm({
                         aria-invalid={Boolean(error)}
                         id={circuitBreakerHalfOpenId}
                         onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value)
+                        }
                         value={field.state.value}
                       />
                       <FieldHint
@@ -1053,7 +1115,9 @@ function OutboundForm({
                     </SelectContent>
                   </Select>
                   <FieldHint
-                    description={t("pages.outboundUpsert.strictEnforcement.hint")}
+                    description={t(
+                      "pages.outboundUpsert.strictEnforcement.hint"
+                    )}
                     error={error ?? null}
                   />
                 </FieldContent>
@@ -1108,7 +1172,12 @@ function getOutboundTagError(
   return getTagNameValidationError(value, {
     requiredError: t("pages.outboundUpsert.validation.tagRequired"),
     invalidError: t("common.validation.tagNamePattern"),
-    duplicateError: validateTagUniqueness(outbounds, value.trim(), existingTag, t),
+    duplicateError: validateTagUniqueness(
+      outbounds,
+      value.trim(),
+      existingTag,
+      t
+    ),
   })
 }
 
@@ -1159,7 +1228,9 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
       interface: draft.interfaceName.trim() || undefined,
       gateway: draft.gateway.trim() || undefined,
       gateway6: draft.gateway6.trim() || undefined,
-      strict_enforcement: mapStrictEnforcementToBoolean(draft.strictEnforcement),
+      strict_enforcement: mapStrictEnforcementToBoolean(
+        draft.strictEnforcement
+      ),
     }
   }
 
@@ -1178,9 +1249,11 @@ function buildOutboundPayload(draft: OutboundDraft): Outbound {
       url: draft.probeUrl.trim() || undefined,
       interval_ms: parseNumber(draft.interval),
       tolerance_ms: parseNumber(draft.tolerance),
-      outbound_groups: normalizeOutboundGroups(draft.outbounds).map((group) => ({
-        outbounds: group,
-      })),
+      outbound_groups: normalizeOutboundGroups(draft.outbounds).map(
+        (group) => ({
+          outbounds: group,
+        })
+      ),
       retry: {
         attempts: parseNumber(draft.retryAttempts),
         interval_ms: parseNumber(draft.retryInterval),
@@ -1217,7 +1290,9 @@ function normalizeOutboundGroups(groups: string[][]) {
     return [[]]
   }
 
-  return groups.map((group) => group.map((value) => value.trim()).filter(Boolean))
+  return groups.map((group) =>
+    group.map((value) => value.trim()).filter(Boolean)
+  )
 }
 
 function moveGroup(groups: string[][], fromIndex: number, toIndex: number) {

@@ -18,7 +18,12 @@ type DnsCheckState = {
 
 type DnsCheckEvent =
   | { type: "HELLO" }
-  | { type: "DNS"; domain?: string | null; source_ip?: string | null; ecs?: string | null }
+  | {
+      type: "DNS"
+      domain?: string | null
+      source_ip?: string | null
+      ecs?: string | null
+    }
 
 type UseDnsCheckReturn = {
   status: DnsCheckStatus

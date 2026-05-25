@@ -37,7 +37,9 @@ export function OrderedGroupCard({
         <div className="space-y-1">
           <div className="text-sm font-medium md:text-xs">{title}</div>
           {description ? (
-            <div className="text-sm text-muted-foreground md:text-xs">{description}</div>
+            <div className="text-sm text-muted-foreground md:text-xs">
+              {description}
+            </div>
           ) : null}
         </div>
         <div className="flex gap-2">

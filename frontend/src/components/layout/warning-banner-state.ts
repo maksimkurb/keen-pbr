@@ -27,9 +27,9 @@ export type WarningBannerState = {
 
 export function useWarningBannerState(): WarningBannerState {
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const [convergingStartedAtMs, setConvergingStartedAtMs] = useState<number | null>(
-    null
-  )
+  const [convergingStartedAtMs, setConvergingStartedAtMs] = useState<
+    number | null
+  >(null)
   const [convergingApplyStartedTs, setConvergingApplyStartedTs] = useState<
     number | null
   >(null)
@@ -51,7 +51,8 @@ export function useWarningBannerState(): WarningBannerState {
     },
   })
   const { anyPending } = useRoutingControlPendingState()
-  const serviceHealth = healthQuery.data?.status === 200 ? healthQuery.data.data : null
+  const serviceHealth =
+    healthQuery.data?.status === 200 ? healthQuery.data.data : null
   const applyStartedTs =
     typeof serviceHealth?.apply_started_ts === "number"
       ? serviceHealth.apply_started_ts
@@ -73,10 +74,7 @@ export function useWarningBannerState(): WarningBannerState {
       isResolverProbeFailed(serviceHealth) &&
       isRecentApply(serviceHealth.apply_started_ts, referenceNowMs)
     )
-  }, [
-    referenceNowMs,
-    serviceHealth,
-  ])
+  }, [referenceNowMs, serviceHealth])
   const effectiveNowMs = shouldTrackNowMs ? nowMs : referenceNowMs
   const mode = getWarningBannerMode(serviceHealth, effectiveNowMs)
 
@@ -102,12 +100,7 @@ export function useWarningBannerState(): WarningBannerState {
     }, 0)
 
     return () => window.clearTimeout(timeout)
-  }, [
-    applyStartedTs,
-    convergingApplyStartedTs,
-    convergingStartedAtMs,
-    mode,
-  ])
+  }, [applyStartedTs, convergingApplyStartedTs, convergingStartedAtMs, mode])
 
   useEffect(() => {
     if (!shouldTrackNowMs) {

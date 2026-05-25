@@ -198,9 +198,9 @@ function ListForm({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
-  const [activeSourceGroups, setActiveSourceGroups] = useState<ListSourceGroup[]>(
-    () => getActiveSourceGroupsFromDraft(draft)
-  )
+  const [activeSourceGroups, setActiveSourceGroups] = useState<
+    ListSourceGroup[]
+  >(() => getActiveSourceGroupsFromDraft(draft))
   const postConfigMutation = usePostConfigMutation()
   const form = useForm({
     defaultValues: draft,
@@ -259,14 +259,18 @@ function ListForm({
   const apiErrorMessage = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as { form?: string } | undefined)?.form ?? null)
+      (state.errorMap.onServer as { form?: string } | undefined)?.form ?? null
   )
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as {
-        unmapped?: { path: string; message: string }[]
-      } | undefined)?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | {
+              unmapped?: { path: string; message: string }[]
+            }
+          | undefined
+      )?.unmapped ?? []
   )
 
   const isCreate = mode === "create"
@@ -312,7 +316,6 @@ function ListForm({
       form.setFieldValue(LIST_FIELD_NAMES.domains, "")
       form.setFieldValue(LIST_FIELD_NAMES.ipCidrs, "")
     }
-
   }
 
   return (
@@ -445,7 +448,9 @@ function ListForm({
       {activeSourceGroups.includes("url") ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t("pages.listUpsert.sourceGroups.url.title")}</CardTitle>
+            <CardTitle>
+              {t("pages.listUpsert.sourceGroups.url.title")}
+            </CardTitle>
             <CardDescription>
               {t("pages.listUpsert.sourceGroups.url.description")}
             </CardDescription>
@@ -481,7 +486,9 @@ function ListForm({
 
                   return (
                     <Field invalid={Boolean(error)}>
-                      <FieldLabel>{t("pages.listUpsert.fields.detour")}</FieldLabel>
+                      <FieldLabel>
+                        {t("pages.listUpsert.fields.detour")}
+                      </FieldLabel>
                       <FieldContent>
                         <OutboundSelect
                           allowEmpty
@@ -489,7 +496,9 @@ function ListForm({
                           emptyLabel={t("pages.listUpsert.fields.detourEmpty")}
                           onValueChange={field.handleChange}
                           outbounds={outbounds}
-                          placeholder={t("pages.listUpsert.fields.detourPlaceholder")}
+                          placeholder={t(
+                            "pages.listUpsert.fields.detourPlaceholder"
+                          )}
                           value={field.state.value}
                         />
                         <FieldHint
@@ -501,7 +510,6 @@ function ListForm({
                   )
                 }}
               </form.Field>
-
             </FieldGroup>
           </CardContent>
         </Card>
@@ -666,7 +674,10 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
     populatedGroups.push("file")
   }
 
-  if (splitLines(draft.domains).length > 0 || splitLines(draft.ipCidrs).length > 0) {
+  if (
+    splitLines(draft.domains).length > 0 ||
+    splitLines(draft.ipCidrs).length > 0
+  ) {
     populatedGroups.push("inline")
   }
 
@@ -676,7 +687,8 @@ function getActiveSourceGroupsFromDraft(draft: ListDraft): ListSourceGroup[] {
 function isSourceGroupPopulated(group: ListSourceGroup, draft: ListDraft) {
   if (group === "inline") {
     return (
-      splitLines(draft.domains).length > 0 || splitLines(draft.ipCidrs).length > 0
+      splitLines(draft.domains).length > 0 ||
+      splitLines(draft.ipCidrs).length > 0
     )
   }
 
@@ -782,7 +794,8 @@ function getListNameError(
       : null
 
   return getTagNameValidationError(value, {
-    requiredError: t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required.",
+    requiredError:
+      t?.("pages.listUpsert.validation.nameRequired") ?? "Name is required.",
     invalidError:
       t?.("common.validation.tagNamePattern") ??
       "Must match [a-z][a-z0-9_]{0,23}.",

@@ -82,7 +82,9 @@ export function DnsServerUpsertPage({
   const config = selectConfig(configQuery.data)
   const dnsServers = config?.dns?.servers ?? []
   const serviceHealth =
-    serviceHealthQuery.data?.status === 200 ? serviceHealthQuery.data.data : undefined
+    serviceHealthQuery.data?.status === 200
+      ? serviceHealthQuery.data.data
+      : undefined
   const supportsKeeneticDns = serviceHealth?.os_type === "keenetic"
 
   const existingServer =
@@ -220,8 +222,11 @@ function DnsServerForm({
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
-        ?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | { unmapped?: { path: string; message: string }[] }
+          | undefined
+      )?.unmapped ?? []
   )
 
   const postConfigMutation = usePostConfigMutation({
@@ -318,12 +323,17 @@ function DnsServerForm({
 
             return (
               <Field invalid={Boolean(error)}>
-                <FieldLabel>{t("pages.dnsServerUpsert.fields.type")}</FieldLabel>
+                <FieldLabel>
+                  {t("pages.dnsServerUpsert.fields.type")}
+                </FieldLabel>
                 <FieldContent>
                   <Select
                     items={dnsTypeSelectItems}
                     onValueChange={(value) =>
-                      field.handleChange((value ?? DnsServerType.static) as DnsServerDraft["type"])
+                      field.handleChange(
+                        (value ??
+                          DnsServerType.static) as DnsServerDraft["type"]
+                      )
                     }
                     value={field.state.value}
                   >
@@ -336,7 +346,9 @@ function DnsServerForm({
                           {t("pages.dnsServerUpsert.fields.typeOptions.static")}
                         </SelectItem>
                         <SelectItem value={DnsServerType.keenetic}>
-                          {t("pages.dnsServerUpsert.fields.typeOptions.keenetic")}
+                          {t(
+                            "pages.dnsServerUpsert.fields.typeOptions.keenetic"
+                          )}
                         </SelectItem>
                       </SelectGroup>
                     </SelectContent>
@@ -360,33 +372,45 @@ function DnsServerForm({
                 {isKeeneticDns ? (
                   <Field>
                     <FieldContent>
-                        <Alert>
-                          <AlertDescription className="space-y-2">
-                            <p className="flex flex-wrap items-center gap-2">
-                              <span>
-                                {t("pages.dnsServerUpsert.fields.keeneticNotice.description")}
-                              </span>
-                              <Button
-                                onClick={() =>
-                                  window.open(
-                                    "http://my.keenetic.net/internet-filter/dns-configuration",
-                                    "_blank",
-                                    "noopener,noreferrer"
-                                  )
-                                }
-                                size="sm"
-                                type="button"
-                                variant="outline"
-                              >
-                                {t("pages.dnsServerUpsert.fields.keeneticNotice.openLink")}
-                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                              </Button>
-                            </p>
-                            <p>{t("pages.dnsServerUpsert.fields.keeneticNotice.navigation")}</p>
-                            <p>{t("pages.dnsServerUpsert.fields.keeneticNotice.dotDohOnly")}</p>
-                          </AlertDescription>
-                        </Alert>
-                      </FieldContent>
+                      <Alert>
+                        <AlertDescription className="space-y-2">
+                          <p className="flex flex-wrap items-center gap-2">
+                            <span>
+                              {t(
+                                "pages.dnsServerUpsert.fields.keeneticNotice.description"
+                              )}
+                            </span>
+                            <Button
+                              onClick={() =>
+                                window.open(
+                                  "http://my.keenetic.net/internet-filter/dns-configuration",
+                                  "_blank",
+                                  "noopener,noreferrer"
+                                )
+                              }
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              {t(
+                                "pages.dnsServerUpsert.fields.keeneticNotice.openLink"
+                              )}
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </p>
+                          <p>
+                            {t(
+                              "pages.dnsServerUpsert.fields.keeneticNotice.navigation"
+                            )}
+                          </p>
+                          <p>
+                            {t(
+                              "pages.dnsServerUpsert.fields.keeneticNotice.dotDohOnly"
+                            )}
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    </FieldContent>
                   </Field>
                 ) : null}
 
@@ -394,9 +418,10 @@ function DnsServerForm({
                   name={DNS_SERVER_FIELD_NAMES.address}
                   validators={{
                     onChange: ({ value, fieldApi }) =>
-                      fieldApi.form.getFieldValue("type") === DnsServerType.keenetic
+                      fieldApi.form.getFieldValue("type") ===
+                      DnsServerType.keenetic
                         ? undefined
-                        : getAddressError(value) ?? undefined,
+                        : (getAddressError(value) ?? undefined),
                   }}
                 >
                   {(field) => {
@@ -416,12 +441,18 @@ function DnsServerForm({
                             aria-invalid={Boolean(error)}
                             id="dns-server-address"
                             onBlur={field.handleBlur}
-                            onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder={t("pages.dnsServerUpsert.fields.addressPlaceholder")}
+                            onChange={(event) =>
+                              field.handleChange(event.target.value)
+                            }
+                            placeholder={t(
+                              "pages.dnsServerUpsert.fields.addressPlaceholder"
+                            )}
                             value={field.state.value}
                           />
                           <FieldHint
-                            description={t("pages.dnsServerUpsert.fields.addressHint")}
+                            description={t(
+                              "pages.dnsServerUpsert.fields.addressHint"
+                            )}
                             error={error}
                           />
                         </FieldContent>
@@ -438,17 +469,27 @@ function DnsServerForm({
 
                     return (
                       <Field>
-                        <FieldLabel>{t("pages.dnsServerUpsert.fields.detour")}</FieldLabel>
+                        <FieldLabel>
+                          {t("pages.dnsServerUpsert.fields.detour")}
+                        </FieldLabel>
                         <FieldContent>
                           <OutboundSelect
                             allowEmpty
-                            emptyLabel={t("pages.dnsServerUpsert.fields.detourEmpty")}
+                            emptyLabel={t(
+                              "pages.dnsServerUpsert.fields.detourEmpty"
+                            )}
                             onValueChange={field.handleChange}
                             outbounds={config?.outbounds ?? []}
-                            placeholder={t("pages.routingRuleUpsert.fields.selectOutbound")}
+                            placeholder={t(
+                              "pages.routingRuleUpsert.fields.selectOutbound"
+                            )}
                             value={field.state.value}
                           />
-                          <FieldHint description={t("pages.dnsServerUpsert.fields.detourHint")} />
+                          <FieldHint
+                            description={t(
+                              "pages.dnsServerUpsert.fields.detourHint"
+                            )}
+                          />
                         </FieldContent>
                       </Field>
                     )
@@ -527,13 +568,15 @@ function getTagError(value: string, servers: DnsServer[], editingTag?: string) {
     (server) => server.tag === normalizedTag && server.tag !== editingTag
   )
 
-  return getTagNameValidationError(value, {
-    requiredError: t("pages.dnsServerUpsert.validation.tagRequired"),
-    invalidError: t("common.validation.tagNamePattern"),
-    duplicateError: duplicate
-      ? t("pages.dnsServerUpsert.validation.tagUnique")
-      : null,
-  }) ?? undefined
+  return (
+    getTagNameValidationError(value, {
+      requiredError: t("pages.dnsServerUpsert.validation.tagRequired"),
+      invalidError: t("common.validation.tagNamePattern"),
+      duplicateError: duplicate
+        ? t("pages.dnsServerUpsert.validation.tagUnique")
+        : null,
+    }) ?? undefined
+  )
 }
 
 function getDnsTypeError(value: string) {

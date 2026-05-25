@@ -10,7 +10,10 @@ import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
 import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
-import { usePostConfigMutation } from "@/api/mutations"
+import {
+  useConfigMutationPending,
+  usePostConfigMutation,
+} from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import {
   useGetConfig,
@@ -19,6 +22,8 @@ import {
 } from "@/api/queries"
 import { selectConfig, selectOutbounds } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import { InterfaceRowContent } from "@/components/shared/interface-picker"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
@@ -32,6 +37,7 @@ import {
   RuntimeOutboundEntry,
 } from "@/components/shared/runtime-outbound-state"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
+import { useRowSelection } from "@/hooks/use-row-selection"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,6 +57,7 @@ export function OutboundsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
+  const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
     query: {
@@ -87,6 +94,8 @@ export function OutboundsPage() {
       t
     )
   )
+  const outboundRowIds = outboundItems.map((outbound) => outbound.id)
+  const outboundSelection = useRowSelection(outboundRowIds)
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -121,7 +130,10 @@ export function OutboundsPage() {
     const nextOutbounds = selectOutbounds(loadedConfig).filter(
       (item) => item.tag !== tag
     )
-    const urltestReferencesError = validateUrltestGroupReferences(nextOutbounds, t)
+    const urltestReferencesError = validateUrltestGroupReferences(
+      nextOutbounds,
+      t
+    )
 
     if (urltestReferencesError) {
       toast.error(urltestReferencesError, { richColors: true })
@@ -137,11 +149,57 @@ export function OutboundsPage() {
     postConfigMutation.mutate({ data: updatedConfig })
   }
 
+  const handleBulkDelete = () => {
+    if (!loadedConfig || outboundSelection.selectedCount === 0) {
+      return
+    }
+
+    if (
+      !window.confirm(
+        t("pages.outbounds.bulk.confirmDelete", {
+          count: outboundSelection.selectedCount,
+        })
+      )
+    ) {
+      return
+    }
+
+    const nextOutbounds = selectOutbounds(loadedConfig).filter(
+      (item) => !outboundSelection.selectedIds.has(item.tag)
+    )
+    const urltestReferencesError = validateUrltestGroupReferences(
+      nextOutbounds,
+      t
+    )
+
+    if (urltestReferencesError) {
+      toast.error(urltestReferencesError, { richColors: true })
+      return
+    }
+
+    postConfigMutation.mutate(
+      {
+        data: {
+          ...loadedConfig,
+          outbounds: nextOutbounds,
+        },
+      },
+      {
+        onSuccess: () => {
+          outboundSelection.clear()
+        },
+      }
+    )
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={() => navigate("/outbounds/create")}>
+          <Button
+            disabled={configMutationPending}
+            onClick={() => navigate("/outbounds/create")}
+          >
             <Plus className="mr-1 h-4 w-4" />
             {t("pages.outbounds.actions.new")}
           </Button>
@@ -149,6 +207,8 @@ export function OutboundsPage() {
         description={t("pages.outbounds.description")}
         title={t("pages.outbounds.title")}
       />
+
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -164,55 +224,86 @@ export function OutboundsPage() {
           title={t("pages.outbounds.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            t("pages.outbounds.headers.tag"),
-            t("pages.outbounds.headers.type"),
-            t("pages.outbounds.headers.summary"),
-            t("pages.outbounds.headers.runtime"),
-            t("pages.outbounds.headers.actions"),
-          ]}
-          rows={outboundItems.map((outbound) => [
-            <RuntimeOutboundEntry
-              key={`${outbound.id}-tag`}
-              runtimeState={outbound.runtimeState}
-              title={outbound.tag}
-              t={t}
-            />,
-            <Badge key={`${outbound.id}-type`} variant="outline">
-              {outbound.type}
-            </Badge>,
-            <div
-              className="min-w-0 text-sm text-muted-foreground"
-              key={`${outbound.id}-summary`}
+        <div className="space-y-3">
+          {outboundSelection.hasSelection ? (
+            <BulkSelectionToolbar
+              countLabel={t("pages.outbounds.bulk.selected", {
+                count: outboundSelection.selectedCount,
+              })}
             >
-              {outbound.summary}
-            </div>,
-            <OutboundRuntimeCell
-              key={`${outbound.id}-runtime`}
-              outbound={outbound.outbound}
-              runtimeInterface={outbound.runtimeInterface}
-              runtimeInterfaces={runtimeInterfaceByName}
-              runtimeState={outbound.runtimeState}
-              t={t}
-            />,
-            <ActionButtons
-              actions={[
-                {
-                  icon: <Pencil className="h-4 w-4" />,
-                  label: t("common.edit"),
-                  onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
-                },
-                {
-                  icon: <Trash2 className="h-4 w-4" />,
-                  label: t("common.delete"),
-                  onClick: () => handleDelete(outbound.id),
-                },
-              ]}
-              key={`${outbound.id}-actions`}
-            />,
-          ])}
-        />
+              <Button
+                disabled={configMutationPending}
+                onClick={handleBulkDelete}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.outbounds.bulk.delete")}
+              </Button>
+            </BulkSelectionToolbar>
+          ) : null}
+          <DataTable
+            headers={[
+              t("pages.outbounds.headers.tag"),
+              t("pages.outbounds.headers.type"),
+              t("pages.outbounds.headers.summary"),
+              t("pages.outbounds.headers.runtime"),
+              t("pages.outbounds.headers.actions"),
+            ]}
+            rows={outboundItems.map((outbound) => [
+              <RuntimeOutboundEntry
+                key={`${outbound.id}-tag`}
+                runtimeState={outbound.runtimeState}
+                title={outbound.tag}
+                t={t}
+              />,
+              <Badge key={`${outbound.id}-type`} variant="outline">
+                {outbound.type}
+              </Badge>,
+              <div
+                className="min-w-0 text-sm text-muted-foreground"
+                key={`${outbound.id}-summary`}
+              >
+                {outbound.summary}
+              </div>,
+              <OutboundRuntimeCell
+                key={`${outbound.id}-runtime`}
+                outbound={outbound.outbound}
+                runtimeInterface={outbound.runtimeInterface}
+                runtimeInterfaces={runtimeInterfaceByName}
+                runtimeState={outbound.runtimeState}
+                t={t}
+              />,
+              <ActionButtons
+                actions={[
+                  {
+                    disabled: configMutationPending,
+                    icon: <Pencil className="h-4 w-4" />,
+                    label: t("common.edit"),
+                    onClick: () => navigate(`/outbounds/${outbound.id}/edit`),
+                  },
+                  {
+                    disabled: configMutationPending,
+                    icon: <Trash2 className="h-4 w-4" />,
+                    label: t("common.delete"),
+                    onClick: () => handleDelete(outbound.id),
+                  },
+                ]}
+                key={`${outbound.id}-actions`}
+              />,
+            ])}
+            selection={{
+              rowIds: outboundRowIds,
+              selectedIds: outboundSelection.selectedIds,
+              disabled: configMutationPending,
+              onToggle: outboundSelection.toggleOne,
+              onToggleAll: outboundSelection.setAllVisible,
+              selectAllLabel: t("common.selection.selectAll"),
+              getRowLabel: (rowId) =>
+                t("common.selection.selectRow", { rowLabel: rowId }),
+            }}
+          />
+        </div>
       )}
     </div>
   )
@@ -299,7 +390,9 @@ function OutboundRuntimeCell({
             runtimeInterfaceState ? (
               <RuntimeStateBadge
                 active={runtimeInterfaceState.status === "active"}
-                label={t(`runtime.interfaceStatus.${runtimeInterfaceState.status}`)}
+                label={t(
+                  `runtime.interfaceStatus.${runtimeInterfaceState.status}`
+                )}
                 tone={getInterfaceRuntimeTone(runtimeInterfaceState.status)}
               />
             ) : null

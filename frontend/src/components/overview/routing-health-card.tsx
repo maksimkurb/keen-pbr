@@ -40,9 +40,14 @@ export function RoutingHealthCard({
     [routingHealth.policy_rules, showHealthyEntries]
   )
 
-  const groupedRoutes = useMemo(() => groupRouteTables(routeTables), [routeTables])
+  const groupedRoutes = useMemo(
+    () => groupRouteTables(routeTables),
+    [routeTables]
+  )
   const hasVisibleEntries =
-    firewallRules.length > 0 || groupedRoutes.length > 0 || policyRules.length > 0
+    firewallRules.length > 0 ||
+    groupedRoutes.length > 0 ||
+    policyRules.length > 0
 
   return (
     <div className="flex flex-1 flex-col space-y-4">
@@ -53,18 +58,20 @@ export function RoutingHealthCard({
         <Badge size="xs" variant="outline">
           {routingHealth.firewall_backend}
         </Badge>
-        <ChainStateBadge
-          isHealthy={routingHealth.firewall.chain_present}
-        >
+        <ChainStateBadge isHealthy={routingHealth.firewall.chain_present}>
           {t("overview.routing.chain")}
         </ChainStateBadge>
-        <ChainStateBadge isHealthy={routingHealth.firewall.prerouting_hook_present}>
+        <ChainStateBadge
+          isHealthy={routingHealth.firewall.prerouting_hook_present}
+        >
           {t("overview.routing.prerouting")}
         </ChainStateBadge>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Checkbox
             checked={showHealthyEntries}
-            onCheckedChange={(checked) => setShowHealthyEntries(checked === true)}
+            onCheckedChange={(checked) =>
+              setShowHealthyEntries(checked === true)
+            }
           />
           <span>{t("overview.routing.showHealthyEntries")}</span>
         </label>
@@ -104,10 +111,18 @@ export function RoutingHealthCard({
               key={`${rule.set_name}-${index}`}
               primary={
                 <>
-                  <span className="font-mono text-[12px] sm:text-sm">{rule.set_name}</span>
+                  <span className="font-mono text-[12px] sm:text-sm">
+                    {rule.set_name}
+                  </span>
                   <InlineMeta>{rule.action}</InlineMeta>
-                  {renderFirewallMark(rule.expected_fwmark, rule.actual_fwmark, t)}
-                  {renderInlineDetail(getDiagnosticDetail(rule.status, rule.detail))}
+                  {renderFirewallMark(
+                    rule.expected_fwmark,
+                    rule.actual_fwmark,
+                    t
+                  )}
+                  {renderInlineDetail(
+                    getDiagnosticDetail(rule.status, rule.detail)
+                  )}
                 </>
               }
               status={rule.status}
@@ -127,15 +142,21 @@ export function RoutingHealthCard({
                   key={`${group.key}-${index}`}
                   primary={
                     <>
-                      <span className="text-sm font-medium">{group.outboundTag}</span>
+                      <span className="text-sm font-medium">
+                        {group.outboundTag}
+                      </span>
                       <InlineMeta>
-                        {t("overview.routing.tableLabel", { value: group.tableId })}
+                        {t("overview.routing.tableLabel", {
+                          value: group.tableId,
+                        })}
                       </InlineMeta>
                       <InlineMeta>
                         {table.expected_destination ??
                           t("overview.routing.defaultRoute")}
                       </InlineMeta>
-                      <InlineMeta>{formatRouteExpectation(table, t)}</InlineMeta>
+                      <InlineMeta>
+                        {formatRouteExpectation(table, t)}
+                      </InlineMeta>
                       {renderInlineDetail(getRouteMismatchDetail(table, t))}
                     </>
                   }
@@ -160,10 +181,14 @@ export function RoutingHealthCard({
                     {policy.fwmark}/{policy.fwmask}
                   </span>
                   <InlineMeta>
-                    {t("overview.routing.tableLabel", { value: policy.expected_table })}
+                    {t("overview.routing.tableLabel", {
+                      value: policy.expected_table,
+                    })}
                   </InlineMeta>
                   <InlineMeta>
-                    {t("overview.routing.priorityLabel", { value: policy.priority })}
+                    {t("overview.routing.priorityLabel", {
+                      value: policy.priority,
+                    })}
                   </InlineMeta>
                   <PresenceBadge
                     label={t("overview.routing.ipv4")}
@@ -177,7 +202,9 @@ export function RoutingHealthCard({
                     yesLabel={t("overview.routing.yes")}
                     noLabel={t("overview.routing.no")}
                   />
-                  {renderInlineDetail(getDiagnosticDetail(policy.status, policy.detail))}
+                  {renderInlineDetail(
+                    getDiagnosticDetail(policy.status, policy.detail)
+                  )}
                 </>
               }
               status={policy.status}
@@ -219,7 +246,7 @@ function CompactDiagnosticRow({
   return (
     <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-1.5">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {primary}
         </div>
         <StatusBadge tone={mapCheckTone(status)}>{status}</StatusBadge>
@@ -240,7 +267,9 @@ function ChainStateBadge({
   children: ReactNode
 }) {
   return (
-    <Badge size="xs" variant={isHealthy ? "success" : "warning"}>{children}</Badge>
+    <Badge size="xs" variant={isHealthy ? "success" : "warning"}>
+      {children}
+    </Badge>
   )
 }
 
@@ -272,7 +301,11 @@ function renderFirewallMark(
   }
 
   if (expected && actual && expected === actual) {
-    return <InlineMeta>{t("overview.routing.fwmarkLabel", { value: expected })}</InlineMeta>
+    return (
+      <InlineMeta>
+        {t("overview.routing.fwmarkLabel", { value: expected })}
+      </InlineMeta>
+    )
   }
 
   if (expected && actual) {
@@ -284,10 +317,18 @@ function renderFirewallMark(
   }
 
   if (expected) {
-    return <InlineMeta>{t("overview.routing.fwmarkLabel", { value: expected })}</InlineMeta>
+    return (
+      <InlineMeta>
+        {t("overview.routing.fwmarkLabel", { value: expected })}
+      </InlineMeta>
+    )
   }
 
-  return <InlineMeta>{t("overview.routing.actualLabel", { value: actual })}</InlineMeta>
+  return (
+    <InlineMeta>
+      {t("overview.routing.actualLabel", { value: actual })}
+    </InlineMeta>
+  )
 }
 
 function renderInlineDetail(detail?: string | null) {
@@ -301,7 +342,12 @@ function renderInlineDetail(detail?: string | null) {
 function groupRouteTables(routeTables: RouteTableCheck[]) {
   const groups = new Map<
     string,
-    { key: string; tableId: number; outboundTag: string; items: RouteTableCheck[] }
+    {
+      key: string
+      tableId: number
+      outboundTag: string
+      items: RouteTableCheck[]
+    }
   >()
 
   routeTables.forEach((table) => {
@@ -339,18 +385,26 @@ function formatRouteExpectation(
   table: RouteTableCheck,
   t: (key: string, options?: Record<string, unknown>) => string
 ) {
-  const parts = [table.expected_route_type ?? t("overview.routing.routeTypeFallback")]
+  const parts = [
+    table.expected_route_type ?? t("overview.routing.routeTypeFallback"),
+  ]
 
   if (table.expected_interface) {
-    parts.push(t("overview.routing.routeVia", { value: table.expected_interface }))
+    parts.push(
+      t("overview.routing.routeVia", { value: table.expected_interface })
+    )
   }
 
   if (table.expected_gateway) {
-    parts.push(t("overview.routing.routeGateway", { value: table.expected_gateway }))
+    parts.push(
+      t("overview.routing.routeGateway", { value: table.expected_gateway })
+    )
   }
 
   if (typeof table.expected_metric === "number") {
-    parts.push(t("overview.routing.routeMetric", { value: table.expected_metric }))
+    parts.push(
+      t("overview.routing.routeMetric", { value: table.expected_metric })
+    )
   }
 
   return parts.join(" ")

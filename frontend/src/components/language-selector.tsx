@@ -34,7 +34,10 @@ export function LanguageSelector() {
         onValueChange={(value) => value && setLanguage(value as "en" | "ru")}
         value={language}
       >
-        <SelectTrigger aria-label={t("language.selectorAria")} className="bg-sidebar">
+        <SelectTrigger
+          aria-label={t("language.selectorAria")}
+          className="bg-sidebar"
+        >
           <SelectValue placeholder="English" />
         </SelectTrigger>
         <SelectContent align="start" side="top" alignItemWithTrigger={false}>

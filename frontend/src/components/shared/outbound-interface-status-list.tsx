@@ -92,7 +92,9 @@ export function RuntimeInterfaceStatusRow({
           : "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 text-sm"
       }
     >
-      {variant === "tree" ? <TreeConnector isLast={item.isLast ?? false} /> : null}
+      {variant === "tree" ? (
+        <TreeConnector isLast={item.isLast ?? false} />
+      ) : null}
       <span
         className={`relative mt-1.5 inline-flex size-2 shrink-0 rounded-full ${getToneDotClass(item.tone)}`}
       />

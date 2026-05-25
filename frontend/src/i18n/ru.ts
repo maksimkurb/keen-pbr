@@ -39,6 +39,10 @@ export const ruTranslation = {
       tagNamePattern:
         "Может содержать только a-z, 0-9 и подчёркивание. Максимум 24 символа, должен начинаться с буквы.",
     },
+    selection: {
+      selectAll: "Выбрать все видимые строки",
+      selectRow: "Выбрать {{rowLabel}}",
+    },
   },
   runtime: {
     healthy: "Исправен",
@@ -406,6 +410,12 @@ export const ruTranslation = {
           'DNS-сервер "{{serverTag}}" сейчас используется в {{count}} правил(е/ах){{fallbackSuffix}}.\nУдалить и автоматически убрать эти ссылки?',
         fallbackSuffix: " и как fallback",
       },
+      bulk: {
+        selected: "Выбрано: {{count}}",
+        delete: "Удалить выбранные",
+        confirmDelete:
+          "Удалить DNS-серверы: {{tags}}?\nАвтоматически убрать ссылки из правил?",
+      },
       none: "нет",
     },
     dnsServerUpsert: {
@@ -474,6 +484,14 @@ export const ruTranslation = {
       messages: {
         saved:
           "Правила маршрутизации сохранены в черновик. Примените новый конфиг, чтобы записать их.",
+      },
+      bulk: {
+        selected: "Выбрано: {{count}}",
+        enable: "Включить выбранные",
+        disable: "Выключить выбранные",
+        delete: "Удалить выбранные",
+        confirmDelete:
+          "Удалить {{count}} правил(о/а) маршрутизации? Изменение нельзя отменить здесь одним действием.",
       },
       empty: {
         title: "Правил маршрутизации пока нет",
@@ -560,6 +578,12 @@ export const ruTranslation = {
       title: "Outbounds (выходы)",
       description: "Настроенные outbounds и группы urltest.",
       actions: { new: "Добавить outbound" },
+      bulk: {
+        selected: "Выбрано: {{count}}",
+        delete: "Удалить выбранные",
+        confirmDelete:
+          "Удалить {{count}} outbound(ов)? Связи проверяются только при сохранении.",
+      },
       empty: {
         title: "Outbounds пока нет",
         description:
@@ -715,6 +739,13 @@ export const ruTranslation = {
         enableRule: "Включить правило",
         disableRule: "Выключить правило",
       },
+      bulk: {
+        selected: "Выбрано: {{count}}",
+        enable: "Включить выбранные",
+        disable: "Выключить выбранные",
+        delete: "Удалить выбранные",
+        confirmDelete: "Удалить {{count}} DNS-правил(о/а)?",
+      },
       messages: {
         saved:
           "Конфигурация DNS сохранена в черновик. Примените новый конфиг, чтобы записать её.",
@@ -824,12 +855,22 @@ export const ruTranslation = {
         confirmWithReferences:
           'Удалить список "{{name}}" и убрать его ссылки из правил маршрутизации и DNS?',
       },
+      bulk: {
+        selected: "Выбрано: {{count}}",
+        refreshSelected: "Обновить выбранные (URL)",
+        deleteSelected: "Удалить выбранные списки",
+        confirmDeleteSimple: "Удалить списки: {{names}}?",
+        confirmDeleteWithRefs:
+          "Удалить списки: {{names}} и при необходимости убрать ссылки из правил маршрутизации и DNS?",
+        noUrlBacked:
+          "Ни один выбранный список не основан на URL (обновлять нечего).",
+      },
       location: {
         inline: "Встроенный",
       },
       refresh: {
         draftBlocked:
-          "Примените сохранённый черновик перед обновлением URL-списков.",
+          "Примените черновик конфигурации перед обновлением списков.",
         updateDisabled: "Примените черновик перед обновлением",
       },
       rule: {

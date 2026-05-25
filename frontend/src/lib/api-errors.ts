@@ -26,7 +26,9 @@ function getValidationErrors(details: unknown): ValidationErrorEntry[] {
   )
 }
 
-export function getApiValidationErrors(error: ApiError | null): ValidationErrorEntry[] {
+export function getApiValidationErrors(
+  error: ApiError | null
+): ValidationErrorEntry[] {
   if (!error) {
     return []
   }

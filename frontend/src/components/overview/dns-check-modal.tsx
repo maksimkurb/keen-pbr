@@ -1,4 +1,11 @@
-import { AlertCircle, Check, CheckCircle2, Copy, Loader2, Terminal } from "lucide-react"
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Terminal,
+} from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -20,7 +27,11 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export function DnsCheckModal({
   open,
@@ -68,7 +79,9 @@ export function DnsCheckModal({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("overview.dnsCheck.modal.title")}</DialogTitle>
-          <DialogDescription>{t("overview.dnsCheck.modal.description")}</DialogDescription>
+          <DialogDescription>
+            {t("overview.dnsCheck.modal.description")}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -139,9 +152,9 @@ function StatusLine({ icon, text }: { icon: React.ReactNode; text: string }) {
 
 function CommandCopyField({ command }: { command: string }) {
   const { t } = useTranslation()
-  const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">(
-    "idle"
-  )
+  const [copyFeedback, setCopyFeedback] = useState<
+    "idle" | "copied" | "failed"
+  >("idle")
   const resetTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -206,7 +219,10 @@ function CommandCopyField({ command }: { command: string }) {
   )
 }
 
-function getBrowserStatusText(status: DnsCheckStatus, t: (key: string) => string) {
+function getBrowserStatusText(
+  status: DnsCheckStatus,
+  t: (key: string) => string
+) {
   switch (status) {
     case "success":
       return t("overview.dnsCheck.status.browserSuccess")

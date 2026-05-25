@@ -51,7 +51,10 @@ function FieldLabel({
 }: React.ComponentProps<typeof Label>) {
   return (
     <Label
-      className={cn("flex w-fit items-center gap-2 text-base font-medium md:text-sm", className)}
+      className={cn(
+        "flex w-fit items-center gap-2 text-base font-medium md:text-sm",
+        className
+      )}
       data-slot="field-label"
       {...props}
     />
@@ -74,7 +77,10 @@ function FieldDescription({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("text-sm leading-normal text-muted-foreground md:text-xs", className)}
+      className={cn(
+        "text-sm leading-normal text-muted-foreground md:text-xs",
+        className
+      )}
       data-slot="field-description"
       {...props}
     />
@@ -119,7 +125,8 @@ function FieldError({
     return (
       <ul className="ml-4 list-disc space-y-1">
         {uniqueErrors.map(
-          (error, index) => error?.message && <li key={index}>{error.message}</li>
+          (error, index) =>
+            error?.message && <li key={index}>{error.message}</li>
         )}
       </ul>
     )
@@ -131,7 +138,10 @@ function FieldError({
 
   return (
     <div
-      className={cn("text-sm font-normal text-destructive md:text-xs", className)}
+      className={cn(
+        "text-sm font-normal text-destructive md:text-xs",
+        className
+      )}
       data-slot="field-error"
       role="alert"
       {...props}
@@ -144,7 +154,10 @@ function FieldError({
 function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex items-center gap-2 text-base font-medium md:text-sm", className)}
+      className={cn(
+        "flex items-center gap-2 text-base font-medium md:text-sm",
+        className
+      )}
       data-slot="field-title"
       {...props}
     />

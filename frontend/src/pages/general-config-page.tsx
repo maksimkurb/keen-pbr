@@ -101,9 +101,7 @@ export function GeneralConfigPage() {
           variant="error"
         />
       ) : (
-        <LoadedGeneralConfigPage
-          loadedConfig={loadedConfig}
-        />
+        <LoadedGeneralConfigPage loadedConfig={loadedConfig} />
       )}
     </div>
   )
@@ -180,8 +178,11 @@ function LoadedGeneralConfigPage({
   const unmappedServerErrors = useStore(
     form.store,
     (state) =>
-      ((state.errorMap.onServer as { unmapped?: { path: string; message: string }[] } | undefined)
-        ?.unmapped ?? [])
+      (
+        state.errorMap.onServer as
+          | { unmapped?: { path: string; message: string }[] }
+          | undefined
+      )?.unmapped ?? []
   )
 
   const isPending = postConfigMutation.isPending
@@ -197,7 +198,6 @@ function LoadedGeneralConfigPage({
 
   return (
     <>
-
       <Card>
         <CardHeader>
           <CardTitle>{t("pages.settings.general.title")}</CardTitle>
@@ -227,7 +227,9 @@ function LoadedGeneralConfigPage({
                       </FieldLabel>
                     </div>
                     <FieldHint
-                      description={t("pages.settings.general.strictEnforcementHint")}
+                      description={t(
+                        "pages.settings.general.strictEnforcementHint"
+                      )}
                     />
                   </FieldContent>
                 </Field>
@@ -256,7 +258,9 @@ function LoadedGeneralConfigPage({
                       </FieldLabel>
                     </div>
                     <FieldHint
-                      description={t("pages.settings.general.skipMarkedPacketsHint")}
+                      description={t(
+                        "pages.settings.general.skipMarkedPacketsHint"
+                      )}
                     />
                   </FieldContent>
                 </Field>
@@ -298,32 +302,39 @@ function LoadedGeneralConfigPage({
               {(field) => {
                 const error = getFirstFieldError(field.state.meta.errors)
                 return (
-                <Field invalid={Boolean(error)}>
-                  <FieldLabel htmlFor="inbound-interfaces">
-                    {t("pages.settings.general.inboundInterfacesLabel")}
-                  </FieldLabel>
-                  <FieldContent>
-                    <div id="inbound-interfaces">
-                      <InterfaceMultiSelectList
-                        name={SETTINGS_FIELD_NAMES.inboundInterfaces}
-                        interfaces={runtimeInterfaces}
-                        value={field.state.value}
-                        onChange={field.handleChange}
-                        addLabel={t("pages.settings.general.inboundInterfacesAddAction")}
-                        emptyMessage={t("pages.settings.general.inboundInterfacesNoAvailable")}
-                        placeholderTitle={t("pages.settings.general.inboundInterfacesEmptyTitle")}
-                        placeholderDescription={t(
-                          "pages.settings.general.inboundInterfacesEmptyDescription"
-                        )}
-                        error={error}
-                      />
-                    </div>
-                    <FieldDescription>
-                      {t("pages.settings.general.inboundInterfacesHint")}
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-              )}}
+                  <Field invalid={Boolean(error)}>
+                    <FieldLabel htmlFor="inbound-interfaces">
+                      {t("pages.settings.general.inboundInterfacesLabel")}
+                    </FieldLabel>
+                    <FieldContent>
+                      <div id="inbound-interfaces">
+                        <InterfaceMultiSelectList
+                          name={SETTINGS_FIELD_NAMES.inboundInterfaces}
+                          interfaces={runtimeInterfaces}
+                          value={field.state.value}
+                          onChange={field.handleChange}
+                          addLabel={t(
+                            "pages.settings.general.inboundInterfacesAddAction"
+                          )}
+                          emptyMessage={t(
+                            "pages.settings.general.inboundInterfacesNoAvailable"
+                          )}
+                          placeholderTitle={t(
+                            "pages.settings.general.inboundInterfacesEmptyTitle"
+                          )}
+                          placeholderDescription={t(
+                            "pages.settings.general.inboundInterfacesEmptyDescription"
+                          )}
+                          error={error}
+                        />
+                      </div>
+                      <FieldDescription>
+                        {t("pages.settings.general.inboundInterfacesHint")}
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                )
+              }}
             </form.Field>
           </FieldGroup>
         </CardContent>
@@ -397,8 +408,7 @@ function LoadedGeneralConfigPage({
                               target="_blank"
                             >
                               Crontab Guru
-                            </a>
-                            {" "}
+                            </a>{" "}
                             {t("pages.settings.autoupdate.cronHintSuffix")}
                           </>
                         }
@@ -457,7 +467,9 @@ function LoadedGeneralConfigPage({
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.settings.advanced.fwmarkStartHint")}
+                        description={t(
+                          "pages.settings.advanced.fwmarkStartHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -491,7 +503,8 @@ function LoadedGeneralConfigPage({
                         description={
                           <>
                             {t("pages.settings.advanced.fwmarkMaskHintPrefix")}{" "}
-                            <code>f</code> {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
+                            <code>f</code>{" "}
+                            {t("pages.settings.advanced.fwmarkMaskHintSuffix")}{" "}
                             <code>0x00ff0000</code>.
                           </>
                         }
@@ -525,7 +538,9 @@ function LoadedGeneralConfigPage({
                         value={field.state.value}
                       />
                       <FieldHint
-                        description={t("pages.settings.advanced.tableStartHint")}
+                        description={t(
+                          "pages.settings.advanced.tableStartHint"
+                        )}
                         error={error ?? null}
                       />
                     </FieldContent>
@@ -536,7 +551,6 @@ function LoadedGeneralConfigPage({
           </FieldGroup>
         </CardContent>
       </Card>
-
 
       <ServerValidationAlert errors={unmappedServerErrors} />
 
@@ -658,8 +672,7 @@ function getDraftFromConfig(config: ConfigObject): SettingsDraft {
       config.daemon?.strict_enforcement ?? fallbackDraft.strictEnforcement,
     skipMarkedPackets:
       config.daemon?.skip_marked_packets ?? fallbackDraft.skipMarkedPackets,
-    ipv6Enabled:
-      config.daemon?.ipv6_enabled ?? fallbackDraft.ipv6Enabled,
+    ipv6Enabled: config.daemon?.ipv6_enabled ?? fallbackDraft.ipv6Enabled,
     inboundInterfaces:
       config.route?.inbound_interfaces ?? fallbackDraft.inboundInterfaces,
     listsAutoupdateEnabled:
@@ -747,7 +760,6 @@ function toBackendIntegerValue(parsed: number | null, raw: string): number {
 
   return raw as unknown as number
 }
-
 
 function getCrontabGuruUrl(value: string) {
   if (getCronHash(value) === null) {

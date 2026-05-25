@@ -30,8 +30,7 @@ export function RoutingDiagnosticsResult({
 }) {
   const { t } = useTranslation()
   const [showAllRules, setShowAllRules] = useState(false)
-  const ruleDiagnostics =
-    diagnostics.rule_diagnostics ?? emptyRuleDiagnostics
+  const ruleDiagnostics = diagnostics.rule_diagnostics ?? emptyRuleDiagnostics
   const visibleRuleDiagnostics = useMemo(
     () => getVisibleRuleDiagnostics(ruleDiagnostics, showAllRules),
     [ruleDiagnostics, showAllRules]
@@ -93,7 +92,9 @@ export function RoutingDiagnosticsResult({
                   ))}
                 </TableRow>
                 <TableRow>
-                  <TableHead>{t("overview.routingDiagnostics.inRuleLists")}</TableHead>
+                  <TableHead>
+                    {t("overview.routingDiagnostics.inRuleLists")}
+                  </TableHead>
                   {visibleRuleDiagnostics.map((rule) => (
                     <TableHead
                       key={`rule-list-${rule.rule_index}`}
@@ -170,7 +171,7 @@ function RuleConditions({
           <dt className="text-foreground">
             {t(`overview.routingDiagnostics.conditions.${condition.key}`)}:
           </dt>
-          <dd className="min-w-0 whitespace-normal wrap-break-words">
+          <dd className="wrap-break-words min-w-0 whitespace-normal">
             {condition.value}
           </dd>
         </div>

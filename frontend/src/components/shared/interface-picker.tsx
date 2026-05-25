@@ -8,7 +8,11 @@ import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model"
 import { FieldError } from "@/components/shared/field"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 type InterfacePickerProps = {
@@ -33,7 +37,9 @@ type VirtualInterfaceEntry = {
   virtual: true
 }
 
-type InterfacePickerItem = RuntimeInterfaceInventoryEntry | VirtualInterfaceEntry
+type InterfacePickerItem =
+  | RuntimeInterfaceInventoryEntry
+  | VirtualInterfaceEntry
 
 export function InterfacePicker({
   id,
@@ -73,7 +79,10 @@ export function InterfacePicker({
       ? selectedInterface
         ? ({ item: selectedInterface, isVirtual: false } as const)
         : allowCustomOption
-          ? ({ item: { name: trimmedValue, virtual: true }, isVirtual: true } as const)
+          ? ({
+              item: { name: trimmedValue, virtual: true },
+              isVirtual: true,
+            } as const)
           : null
       : null
 
@@ -109,7 +118,9 @@ export function InterfacePicker({
           {inlineItem ? (
             <div className="pointer-events-none absolute inset-y-0 right-9 left-2.5 flex items-center overflow-hidden">
               <InterfaceRowContent
-                interfaceEntry={inlineItem.isVirtual ? undefined : inlineItem.item}
+                interfaceEntry={
+                  inlineItem.isVirtual ? undefined : inlineItem.item
+                }
                 isVirtual={inlineItem.isVirtual}
                 name={inlineItem.item.name}
                 showAddressesInline
@@ -135,7 +146,11 @@ export function InterfacePicker({
                       <Autocomplete.Item
                         className="flex cursor-default items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
                         index={index}
-                        key={isVirtualInterface(item) ? `custom:${item.name}` : item.name}
+                        key={
+                          isVirtualInterface(item)
+                            ? `custom:${item.name}`
+                            : item.name
+                        }
                         value={item}
                       >
                         <InterfaceOption item={item} />
@@ -160,7 +175,10 @@ export function InterfacePicker({
             name={selectedInterface.name}
           />
         </div>
-      ) : showDetails && allowCustomOption && trimmedValue && !selectedInterface ? (
+      ) : showDetails &&
+        allowCustomOption &&
+        trimmedValue &&
+        !selectedInterface ? (
         <div className="rounded-lg border border-border bg-background px-2.5 py-2">
           <InterfaceRowContent isVirtual name={trimmedValue} />
         </div>
@@ -195,8 +213,12 @@ export function InterfaceMultiSelectList({
   const { t } = useTranslation()
   const [pickerValue, setPickerValue] = useState("")
   const selectedSet = useMemo(() => new Set(value), [value])
-  const availableInterfaces = interfaces.filter((item) => !selectedSet.has(item.name))
-  const canAddTyped = availableInterfaces.some((item) => item.name === pickerValue)
+  const availableInterfaces = interfaces.filter(
+    (item) => !selectedSet.has(item.name)
+  )
+  const canAddTyped = availableInterfaces.some(
+    (item) => item.name === pickerValue
+  )
 
   const addInterface = (interfaceName: string) => {
     if (!interfaceName || selectedSet.has(interfaceName)) {
@@ -213,7 +235,12 @@ export function InterfaceMultiSelectList({
 
   return (
     <div className="space-y-2" data-field-name={name}>
-      <div className={cn("space-y-3 rounded-xl border p-3", error ? "border-destructive" : "border-border")}>
+      <div
+        className={cn(
+          "space-y-3 rounded-xl border p-3",
+          error ? "border-destructive" : "border-border"
+        )}
+      >
         {value.length ? (
           <div className="space-y-2">
             {value.map((item, index) => (
@@ -222,7 +249,9 @@ export function InterfaceMultiSelectList({
                 key={`${item}-${index}`}
                 name={item}
                 onRemove={() =>
-                  onChange(value.filter((_, currentIndex) => currentIndex !== index))
+                  onChange(
+                    value.filter((_, currentIndex) => currentIndex !== index)
+                  )
                 }
               />
             ))}
@@ -234,7 +263,8 @@ export function InterfaceMultiSelectList({
             </div>
             <div className="mt-0.5 flex flex-col gap-0.5">
               <span className="text-sm font-medium text-foreground">
-                {placeholderTitle ?? t("common.multiSelectList.noItemsSelected")}
+                {placeholderTitle ??
+                  t("common.multiSelectList.noItemsSelected")}
               </span>
               {placeholderDescription ? (
                 <span className="text-sm text-muted-foreground">
@@ -279,11 +309,7 @@ export function InterfaceMultiSelectList({
   )
 }
 
-function InterfaceOption({
-  item,
-}: {
-  item: InterfacePickerItem
-}) {
+function InterfaceOption({ item }: { item: InterfacePickerItem }) {
   return (
     <InterfaceRowContent
       interfaceEntry={isVirtualInterface(item) ? undefined : item}
@@ -338,9 +364,7 @@ export function InterfaceRowContent({
   showAddressesInline?: boolean
 }) {
   const { t } = useTranslation()
-  const addresses = interfaceEntry
-    ? getInterfaceAddresses(interfaceEntry)
-    : []
+  const addresses = interfaceEntry ? getInterfaceAddresses(interfaceEntry) : []
   const className = cn(
     "flex min-h-5 min-w-0 flex-wrap items-center gap-2",
     grow ? "flex-1" : null
@@ -385,7 +409,12 @@ export function InterfaceRowContent({
       <TooltipTrigger render={<div className={className} />}>
         {content}
       </TooltipTrigger>
-      <TooltipContent align="center" className="max-w-md" side="right" sideOffset={16}>
+      <TooltipContent
+        align="center"
+        className="max-w-md"
+        side="right"
+        sideOffset={16}
+      >
         <AddressTooltipContent addresses={addresses} />
       </TooltipContent>
     </Tooltip>
@@ -408,7 +437,9 @@ export function OutboundInterfaceLabel({
 
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
-      <span className="shrink-0 text-sm font-medium text-foreground">{tag}</span>
+      <span className="shrink-0 text-sm font-medium text-foreground">
+        {tag}
+      </span>
       {interfaceName ? (
         <>
           <span className="shrink-0 text-sm font-medium text-foreground">
@@ -464,7 +495,9 @@ export function InterfaceAddressDetails({
     <div
       className={cn(
         "flex flex-wrap gap-1",
-        compact ? "text-xs" : "rounded-lg border border-border bg-muted/30 p-2 text-xs"
+        compact
+          ? "text-xs"
+          : "rounded-lg border border-border bg-muted/30 p-2 text-xs"
       )}
     >
       {addresses.map((address) => (
@@ -519,9 +552,7 @@ function AddressPreview({
 
 function AddressPreviewChip({ address }: { address: string }) {
   return (
-    <code className="truncate rounded bg-muted px-1.5 py-0.5">
-      {address}
-    </code>
+    <code className="truncate rounded bg-muted px-1.5 py-0.5">{address}</code>
   )
 }
 
@@ -539,7 +570,9 @@ function findInterface(
   return interfaces.find((item) => item.name === name)
 }
 
-function isVirtualInterface(item: InterfacePickerItem): item is VirtualInterfaceEntry {
+function isVirtualInterface(
+  item: InterfacePickerItem
+): item is VirtualInterfaceEntry {
   return "virtual" in item && item.virtual
 }
 
@@ -553,11 +586,7 @@ function filterInterfaces(
   }
 
   return interfaces.filter((item) =>
-    [
-      item.name,
-      ...(item.ipv4_addresses ?? []),
-      ...(item.ipv6_addresses ?? []),
-    ]
+    [item.name, ...(item.ipv4_addresses ?? []), ...(item.ipv6_addresses ?? [])]
       .join(" ")
       .toLowerCase()
       .includes(normalizedQuery)

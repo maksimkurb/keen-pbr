@@ -153,17 +153,11 @@ export function OverviewPage() {
         outbound.type === "interface" ||
         detailContent ? (
           <div className="space-y-2">
-            <OutboundHeader
-              outbound={outbound}
-              runtimeState={runtimeState}
-            />
+            <OutboundHeader outbound={outbound} runtimeState={runtimeState} />
             {detailContent}
           </div>
         ) : (
-          <OutboundHeader
-            outbound={outbound}
-            runtimeState={runtimeState}
-          />
+          <OutboundHeader outbound={outbound} runtimeState={runtimeState} />
         )
 
       return [tagCell]
@@ -304,10 +298,7 @@ export function OverviewPage() {
             </Empty>
           ) : null}
           {outboundRows.length > 0 ? (
-            <DataTable
-              compact
-              rows={outboundRows}
-            />
+            <DataTable compact rows={outboundRows} />
           ) : null}
         </SectionCard>
 

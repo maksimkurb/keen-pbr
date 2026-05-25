@@ -5,7 +5,8 @@ import viteCompression from "vite-plugin-compression"
 import { constants } from "zlib"
 import { defineConfig } from "vite"
 
-const textAssetPattern = /\.(html?|css|js|mjs|cjs|jsx|ts|tsx|json|svg|txt|xml|wasm|map)$/i
+const textAssetPattern =
+  /\.(html?|css|js|mjs|cjs|jsx|ts|tsx|json|svg|txt|xml|wasm|map)$/i
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({

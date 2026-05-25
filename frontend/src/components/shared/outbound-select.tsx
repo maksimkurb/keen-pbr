@@ -59,7 +59,8 @@ export function OutboundSelect({
   )
 
   const selectedValue = value || null
-  const resolvedEmptyLabel = emptyLabel ?? t("pages.dnsServerUpsert.fields.detourEmpty")
+  const resolvedEmptyLabel =
+    emptyLabel ?? t("pages.dnsServerUpsert.fields.detourEmpty")
   const resolvedPlaceholder =
     placeholder ?? t("pages.routingRuleUpsert.fields.selectOutbound")
   const resolvedGroupLabel =
@@ -93,7 +94,9 @@ export function OutboundSelect({
           <SelectLabel>{resolvedGroupLabel}</SelectLabel>
           {allowEmpty ? (
             <SelectItem value={null}>
-              <span className="text-muted-foreground">{resolvedEmptyLabel}</span>
+              <span className="text-muted-foreground">
+                {resolvedEmptyLabel}
+              </span>
             </SelectItem>
           ) : null}
           {outbounds.map((outbound) => (

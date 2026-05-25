@@ -7,11 +7,11 @@ import {
   setRouteRuleEnabled,
   toRouteRuleDraft,
 } from "../src/pages/routing-rules-utils"
-import {
-  type DnsRuleDraft,
-} from "../src/pages/dns-rules-utils"
+import { type DnsRuleDraft } from "../src/pages/dns-rules-utils"
 
-let dnsRuleUtilsPromise: Promise<typeof import("../src/pages/dns-rules-utils")> | undefined
+let dnsRuleUtilsPromise:
+  | Promise<typeof import("../src/pages/dns-rules-utils")>
+  | undefined
 
 function loadDnsRuleUtils() {
   if (!globalThis.navigator) {
@@ -95,14 +95,18 @@ describe("dns rule enabled helpers", () => {
     }
 
     expect(
-      buildUpdatedConfigWithRules(config, ["vpn_dns"], [
-        {
-          enabled: false,
-          server: "vpn_dns",
-          lists: ["ads"],
-          allowDomainRebinding: true,
-        },
-      ])
+      buildUpdatedConfigWithRules(
+        config,
+        ["vpn_dns"],
+        [
+          {
+            enabled: false,
+            server: "vpn_dns",
+            lists: ["ads"],
+            allowDomainRebinding: true,
+          },
+        ]
+      )
     ).toEqual({
       dns: {
         fallback: ["vpn_dns"],

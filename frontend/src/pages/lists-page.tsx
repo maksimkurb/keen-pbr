@@ -8,7 +8,11 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { ConfigStateResponseListRefreshState } from "@/api/generated/model/configStateResponseListRefreshState"
-import { usePostConfigMutation, usePostListsRefreshMutation } from "@/api/mutations"
+import {
+  useConfigMutationPending,
+  usePostConfigMutation,
+  usePostListsRefreshMutation,
+} from "@/api/mutations"
 import { queryKeys } from "@/api/query-keys"
 import { useGetConfig } from "@/api/queries"
 import {
@@ -17,15 +21,22 @@ import {
   selectListRefreshState,
 } from "@/api/selectors"
 import { ActionButtons } from "@/components/shared/action-buttons"
+import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
+import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatsDisplay } from "@/components/shared/stats-display"
 import { TableSkeleton } from "@/components/shared/table-skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRowSelection } from "@/hooks/use-row-selection"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import {
+  buildUpdatedConfigForListDelete,
+  buildUpdatedConfigForListsDelete,
+  listDeletesAltersRoutingOrDnsRefs,
+} from "@/pages/lists-utils"
 
 type ListDraft = {
   name: string
@@ -56,10 +67,14 @@ const REFRESH_ALL_TARGET = "__all__"
 
 function isRefreshIconActive(
   activeRefreshTarget: string | null,
+  bulkRefreshRunning: boolean,
+  selectedIds: ReadonlySet<string>,
   listId: string
 ) {
   return (
-    activeRefreshTarget === REFRESH_ALL_TARGET || activeRefreshTarget === listId
+    activeRefreshTarget === REFRESH_ALL_TARGET ||
+    activeRefreshTarget === listId ||
+    (bulkRefreshRunning && selectedIds.has(listId))
   )
 }
 
@@ -67,6 +82,7 @@ export function ListsPage() {
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const queryClient = useQueryClient()
+  const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const loadedConfig = selectConfig(configQuery.data)
   const isDraft = selectConfigIsDraft(configQuery.data)
@@ -74,6 +90,7 @@ export function ListsPage() {
   const [activeRefreshTarget, setActiveRefreshTarget] = useState<string | null>(
     null
   )
+  const [bulkRefreshRunning, setBulkRefreshRunning] = useState(false)
 
   const listRefreshMutation = usePostListsRefreshMutation({
     mutation: {
@@ -115,8 +132,16 @@ export function ListsPage() {
     () => getTableRowsFromListMap(loadedConfig?.lists, listRefreshState, t),
     [loadedConfig?.lists, listRefreshState, t]
   )
+  const listRowIds = tableRows.map((row) => row.id)
+  const listSelection = useRowSelection(listRowIds)
   const hasRefreshableLists = tableRows.some((row) => row.canRefresh)
-  const refreshDisabled = listRefreshMutation.isPending
+  const selectedRefreshableLists = tableRows.filter(
+    (row) => listSelection.selectedIds.has(row.id) && row.canRefresh
+  )
+  const refreshDisabled =
+    listRefreshMutation.isPending ||
+    bulkRefreshRunning ||
+    configMutationPending
 
   const postConfigMutation = usePostConfigMutation({
     mutation: {
@@ -140,7 +165,9 @@ export function ListsPage() {
         (nextConfig.route?.rules ?? []).length ||
       (loadedConfig.route?.rules ?? []).some((rule, index) => {
         const nextRule = nextConfig.route?.rules?.[index]
-        return !nextRule || (nextRule.list ?? []).length !== (rule.list ?? []).length
+        return (
+          !nextRule || (nextRule.list ?? []).length !== (rule.list ?? []).length
+        )
       })
     const hasDnsReferenceUpdates =
       (loadedConfig.dns?.rules ?? []).length !==
@@ -162,6 +189,38 @@ export function ListsPage() {
     postConfigMutation.mutate({ data: nextConfig })
   }
 
+  const handleBulkDelete = () => {
+    if (!loadedConfig || listSelection.selectedCount === 0) {
+      return
+    }
+
+    const listIds = [...listSelection.selectedIds]
+    const nextConfig = buildUpdatedConfigForListsDelete(loadedConfig, listIds)
+    const deletePrompt = listDeletesAltersRoutingOrDnsRefs(
+      loadedConfig,
+      nextConfig
+    )
+      ? t("pages.lists.bulk.confirmDeleteWithRefs", {
+          names: listIds.join(", "),
+        })
+      : t("pages.lists.bulk.confirmDeleteSimple", {
+          names: listIds.join(", "),
+        })
+
+    if (!window.confirm(deletePrompt)) {
+      return
+    }
+
+    postConfigMutation.mutate(
+      { data: nextConfig },
+      {
+        onSuccess: () => {
+          listSelection.clear()
+        },
+      }
+    )
+  }
+
   const handleRefreshAll = () => {
     if (isDraft) {
       toast.warning(t("pages.lists.refresh.draftBlocked"), { richColors: true })
@@ -180,6 +239,28 @@ export function ListsPage() {
 
     setActiveRefreshTarget(listId)
     listRefreshMutation.mutate({ data: { name: listId } })
+  }
+
+  const handleBulkRefreshSelected = async () => {
+    if (isDraft) {
+      toast.warning(t("pages.lists.refresh.draftBlocked"), { richColors: true })
+      return
+    }
+
+    if (selectedRefreshableLists.length === 0) {
+      toast.warning(t("pages.lists.bulk.noUrlBacked"), { richColors: true })
+      return
+    }
+
+    setBulkRefreshRunning(true)
+    try {
+      for (const list of selectedRefreshableLists) {
+        await listRefreshMutation.mutateAsync({ data: { name: list.id } })
+      }
+      listSelection.clear()
+    } finally {
+      setBulkRefreshRunning(false)
+    }
   }
 
   return (
@@ -203,7 +284,10 @@ export function ListsPage() {
                 {t("pages.lists.actions.updateAll")}
               </Button>
             ) : null}
-            <Button onClick={() => navigate("/lists/create")}>
+            <Button
+              disabled={configMutationPending}
+              onClick={() => navigate("/lists/create")}
+            >
               <Plus className="mr-1 h-4 w-4" />
               {t("pages.lists.actions.new")}
             </Button>
@@ -213,13 +297,7 @@ export function ListsPage() {
         title={t("pages.lists.title")}
       />
 
-      {postConfigMutation.error ? (
-        <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-          <AlertDescription className="whitespace-pre-wrap">
-            {getApiErrorMessage(postConfigMutation.error as ApiError)}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConfigSaveErrorAlert error={postConfigMutation.error} />
 
       {configQuery.isLoading ? (
         <TableSkeleton />
@@ -235,100 +313,153 @@ export function ListsPage() {
           title={t("pages.lists.empty.title")}
         />
       ) : (
-        <DataTable
-          headers={[
-            t("pages.lists.headers.name"),
-            t("pages.lists.headers.type"),
-            t("pages.lists.headers.stats"),
-            t("pages.lists.headers.rules"),
-            t("pages.lists.headers.actions"),
-          ]}
-          rows={tableRows.map((list) => [
-            <div className="space-y-1" key={`${list.id}-name`}>
-              <div className="flex items-center gap-2 font-medium">
-                {list.draft.name}
-                {list.locationIcon === "external" ? (
-                  <a
-                    aria-label={list.locationLabel}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
-                    href={list.draft.url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : null}
-              </div>
-              <div className="text-sm text-muted-foreground md:text-xs">
-                {list.locationLabel}
-              </div>
-              {list.canRefresh ? (
-                <div className="text-sm text-muted-foreground md:text-xs">
-                  {t("pages.lists.lastUpdated", {
-                    value: formatLastUpdatedLabel(
-                      list.lastUpdated,
-                      t("pages.lists.neverUpdated")
-                    ),
-                  })}
-                </div>
+        <div className="space-y-3">
+          {listSelection.hasSelection ? (
+            <BulkSelectionToolbar
+              countLabel={t("pages.lists.bulk.selected", {
+                count: listSelection.selectedCount,
+              })}
+            >
+              {hasRefreshableLists ? (
+                <Button
+                  disabled={
+                    refreshDisabled || selectedRefreshableLists.length === 0
+                  }
+                  onClick={() => void handleBulkRefreshSelected()}
+                  size="sm"
+                  variant="outline"
+                >
+                  <RefreshCw
+                    className={`mr-1 h-4 w-4 ${
+                      bulkRefreshRunning ? "animate-spin" : ""
+                    }`}
+                  />
+                  {t("pages.lists.bulk.refreshSelected")}
+                </Button>
               ) : null}
-            </div>,
-            <Badge key={`${list.id}-type`} variant="outline">
-              {getListSourceLabel(list.draft, t)}
-            </Badge>,
-            list.stats ? (
-              <StatsDisplay
-                ipv4Subnets={list.stats.ipv4Subnets}
-                ipv6Subnets={list.stats.ipv6Subnets}
-                key={`${list.id}-stats`}
-                totalHosts={list.stats.totalHosts}
-              />
-            ) : (
-              <span
-                className="text-sm text-muted-foreground"
-                key={`${list.id}-stats-empty`}
+              <Button
+                disabled={configMutationPending}
+                onClick={handleBulkDelete}
+                size="sm"
+                variant="destructive"
               >
-                {t("pages.lists.noStats")}
-              </span>
-            ),
-            <Badge key={`${list.id}-rule`} variant="outline">
-              {list.rule}
-            </Badge>,
-            <ActionButtons
-              actions={[
-                ...(list.canRefresh
-                  ? [
-                      {
-                        disabled: refreshDisabled,
-                        icon: (
-                          <RefreshCw
-                            className={`h-4 w-4 ${
-                              isRefreshIconActive(activeRefreshTarget, list.id)
-                                ? "animate-spin"
-                                : ""
-                            }`}
-                          />
-                        ),
-                        label: t("pages.lists.actions.update"),
-                        onClick: () => handleRefreshOne(list.id),
-                      },
-                    ]
-                  : []),
-                {
-                  icon: <Pencil className="h-4 w-4" />,
-                  label: t("common.edit"),
-                  onClick: () => navigate(`/lists/${list.id}/edit`),
-                },
-                {
-                  icon: <Trash2 className="h-4 w-4" />,
-                  label: t("common.delete"),
-                  onClick: () => handleDelete(list.id),
-                },
-              ]}
-              key={`${list.id}-actions`}
-            />,
-          ])}
-        />
+                <Trash2 className="mr-1 h-4 w-4" />
+                {t("pages.lists.bulk.deleteSelected")}
+              </Button>
+            </BulkSelectionToolbar>
+          ) : null}
+          <DataTable
+            headers={[
+              t("pages.lists.headers.name"),
+              t("pages.lists.headers.type"),
+              t("pages.lists.headers.stats"),
+              t("pages.lists.headers.rules"),
+              t("pages.lists.headers.actions"),
+            ]}
+            rows={tableRows.map((list) => [
+              <div className="space-y-1" key={`${list.id}-name`}>
+                <div className="flex items-center gap-2 font-medium">
+                  {list.draft.name}
+                  {list.locationIcon === "external" ? (
+                    <a
+                      aria-label={list.locationLabel}
+                      className="text-muted-foreground transition-colors hover:text-foreground"
+                      href={list.draft.url}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                </div>
+                <div className="text-sm text-muted-foreground md:text-xs">
+                  {list.locationLabel}
+                </div>
+                {list.canRefresh ? (
+                  <div className="text-sm text-muted-foreground md:text-xs">
+                    {t("pages.lists.lastUpdated", {
+                      value: formatLastUpdatedLabel(
+                        list.lastUpdated,
+                        t("pages.lists.neverUpdated")
+                      ),
+                    })}
+                  </div>
+                ) : null}
+              </div>,
+              <Badge key={`${list.id}-type`} variant="outline">
+                {getListSourceLabel(list.draft, t)}
+              </Badge>,
+              list.stats ? (
+                <StatsDisplay
+                  ipv4Subnets={list.stats.ipv4Subnets}
+                  ipv6Subnets={list.stats.ipv6Subnets}
+                  key={`${list.id}-stats`}
+                  totalHosts={list.stats.totalHosts}
+                />
+              ) : (
+                <span
+                  className="text-sm text-muted-foreground"
+                  key={`${list.id}-stats-empty`}
+                >
+                  {t("pages.lists.noStats")}
+                </span>
+              ),
+              <Badge key={`${list.id}-rule`} variant="outline">
+                {list.rule}
+              </Badge>,
+              <ActionButtons
+                actions={[
+                  ...(list.canRefresh
+                    ? [
+                        {
+                          disabled: refreshDisabled,
+                          icon: (
+                            <RefreshCw
+                              className={`h-4 w-4 ${
+                                isRefreshIconActive(
+                                  activeRefreshTarget,
+                                  bulkRefreshRunning,
+                                  listSelection.selectedIds,
+                                  list.id
+                                )
+                                  ? "animate-spin"
+                                  : ""
+                              }`}
+                            />
+                          ),
+                          label: t("pages.lists.actions.update"),
+                          onClick: () => handleRefreshOne(list.id),
+                        },
+                      ]
+                    : []),
+                  {
+                    disabled: configMutationPending,
+                    icon: <Pencil className="h-4 w-4" />,
+                    label: t("common.edit"),
+                    onClick: () => navigate(`/lists/${list.id}/edit`),
+                  },
+                  {
+                    disabled: configMutationPending,
+                    icon: <Trash2 className="h-4 w-4" />,
+                    label: t("common.delete"),
+                    onClick: () => handleDelete(list.id),
+                  },
+                ]}
+                key={`${list.id}-actions`}
+              />,
+            ])}
+            selection={{
+              rowIds: listRowIds,
+              selectedIds: listSelection.selectedIds,
+              disabled: configMutationPending,
+              onToggle: listSelection.toggleOne,
+              onToggleAll: listSelection.setAllVisible,
+              selectAllLabel: t("common.selection.selectAll"),
+              getRowLabel: (rowId) =>
+                t("common.selection.selectRow", { rowLabel: rowId }),
+            }}
+          />
+        </div>
       )}
     </div>
   )
@@ -388,42 +519,7 @@ function getTableRowsFromListMap(
   })
 }
 
-function buildUpdatedConfigForListDelete(
-  config: ConfigObject,
-  listId: string
-): ConfigObject {
-  const nextLists = { ...(config.lists ?? {}) }
-  delete nextLists[listId]
-
-  return {
-    ...config,
-    lists: nextLists,
-    route: {
-      ...config.route,
-      rules: (config.route?.rules ?? [])
-        .map((rule) => ({
-          ...rule,
-          list: (rule.list ?? []).filter((name) => name !== listId),
-        }))
-        .filter((rule) => rule.list.length > 0),
-    },
-    dns: {
-      ...config.dns,
-      rules: (config.dns?.rules ?? [])
-        .map((rule) => ({
-          ...rule,
-          list: rule.list.filter((name) => name !== listId),
-        }))
-        .filter((rule) => rule.list.length > 0),
-    },
-  }
-}
-
-
-function getListSourceLabel(
-  draft: ListDraft,
-  t: (key: string) => string
-) {
+function getListSourceLabel(draft: ListDraft, t: (key: string) => string) {
   const sources = [
     draft.url ? "url" : null,
     draft.file ? "file" : null,

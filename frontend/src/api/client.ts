@@ -30,10 +30,17 @@ const normalizeError = (status: number, payload: unknown): ApiError => {
     return { status, message: payload, details: payload }
   }
 
-  return { status, message: `Request failed with status ${status}`, details: payload }
+  return {
+    status,
+    message: `Request failed with status ${status}`,
+    details: payload,
+  }
 }
 
-export const apiFetch = async <T>(url: string, options: RequestInit): Promise<T> => {
+export const apiFetch = async <T>(
+  url: string,
+  options: RequestInit
+): Promise<T> => {
   const response = await fetch(url, options)
   const payload = await parseResponsePayload(response)
 
