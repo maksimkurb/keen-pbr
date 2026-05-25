@@ -19,6 +19,7 @@ import {
 import { selectConfig } from "@/api/selectors"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Empty,
@@ -27,7 +28,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ButtonGroup } from "@/components/shared/button-group"
 import { DataTable } from "@/components/shared/data-table"
 import { PageHeader } from "@/components/shared/page-header"
 import { RuntimeOutboundDetails } from "@/components/shared/runtime-outbound-state"

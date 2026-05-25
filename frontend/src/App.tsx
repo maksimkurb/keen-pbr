@@ -1,6 +1,7 @@
-import { Route, Switch } from "wouter"
+import { Redirect, Route, Switch } from "wouter"
 
 import { AppShell } from "@/components/layout/app-shell"
+import { ScrollToTopOnRouteChange } from "@/components/layout/scroll-route"
 import { DnsRuleUpsertPage } from "@/pages/dns-rule-upsert-page"
 import { DnsRulesPage } from "@/pages/dns-rules-page"
 import { DnsServersPage } from "@/pages/dns-servers-page"
@@ -17,6 +18,7 @@ import { RoutingRulesPage } from "@/pages/routing-rules-page"
 function App() {
   return (
     <AppShell>
+      <ScrollToTopOnRouteChange />
       <Switch>
         <Route component={OverviewPage} path="/" />
         <Route component={GeneralConfigPage} path="/general" />
@@ -66,7 +68,9 @@ function App() {
           )}
         </Route>
         <Route component={RoutingRulesPage} path="/routing-rules" />
-        <Route component={OverviewPage} />
+        <Route>
+          <Redirect to="/" />
+        </Route>
       </Switch>
     </AppShell>
   )

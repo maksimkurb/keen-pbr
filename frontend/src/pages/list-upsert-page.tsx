@@ -1,7 +1,13 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-store"
-import { CloudIcon, FileTextIcon, ScrollTextIcon } from "lucide-react"
+import {
+  CheckCircle2Icon,
+  CircleIcon,
+  CloudIcon,
+  FileTextIcon,
+  ScrollTextIcon,
+} from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "wouter"
@@ -23,11 +29,11 @@ import {
   FieldHint,
   FieldLabel,
 } from "@/components/shared/field"
-import { ButtonGroup } from "@/components/shared/button-group"
 import { ServerValidationAlert } from "@/components/shared/server-validation-alert"
 import { UpsertPage } from "@/components/shared/upsert-page"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import {
   Card,
   CardContent,
@@ -42,7 +48,9 @@ import {
   setFormServerErrors,
   splitFormApiErrors,
 } from "@/lib/form-api-errors"
+import { cn } from "@/lib/utils"
 import { getTagNameValidationError } from "@/lib/tag-name-validation"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type ListDraft = {
   name: string
@@ -202,6 +210,8 @@ function ListForm({
     ListSourceGroup[]
   >(() => getActiveSourceGroupsFromDraft(draft))
   const postConfigMutation = usePostConfigMutation()
+  const isMobile = useIsMobile()
+
   const form = useForm({
     defaultValues: draft,
     validators: {
@@ -422,20 +432,35 @@ function ListForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ButtonGroup className="[&>[data-slot=button]]:flex-1">
+          <ButtonGroup
+            className="w-full [&>[data-slot=button]]:flex-1 data-[orientation=vertical]:h-fit data-[orientation=vertical]:[&>[data-slot=button]]:w-full data-[orientation=vertical]:[&>[data-slot=button]]:justify-start data-[orientation=vertical]:[&>[data-slot=button]]:px-3"
+            orientation={isMobile ? "vertical" : "horizontal"}
+          >
             {LIST_SOURCE_GROUPS.map((group) => {
               const Icon = LIST_SOURCE_GROUP_ICONS[group]
+              const active = activeSourceGroups.includes(group)
 
               return (
                 <Button
+                  aria-pressed={active}
+                  className={cn(
+                    isMobile && "h-auto min-h-11 py-2.5",
+                    active &&
+                      "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
                   key={group}
                   onClick={() => handleSourceGroupSelect(group)}
-                  size="sm"
+                  size={isMobile ? "default" : "sm"}
                   type="button"
-                  variant={
-                    activeSourceGroups.includes(group) ? "secondary" : "outline"
-                  }
+                  variant="outline"
                 >
+                  {isMobile ? (
+                    active ? (
+                      <CheckCircle2Icon className="size-4 text-primary" />
+                    ) : (
+                      <CircleIcon className="size-4 text-muted-foreground" />
+                    )
+                  ) : null}
                   <Icon className="size-4" />
                   {t(`pages.listUpsert.sourceGroups.${group}.button`)}
                 </Button>
