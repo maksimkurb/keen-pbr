@@ -10,6 +10,8 @@ PREARGS=""
 POSTCMD=""
 DESC="keen-pbr"
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+IPSET_PROBE_SET="kpbr_probe_hash_net"
+IPSET_COMPONENTS_MESSAGE="ipset kernel modules are not available. Make sure that you followed the installation process and installed all required components: Netfilter Subsystem Kernel Modules and Xtables-addons Extension Package for Netfilter."
 
 log() {
     logger -s -t "keen-pbr" "$1"
@@ -17,6 +19,69 @@ log() {
 
 log_error() {
     logger -s -t "keen-pbr" -p "user.err" "$1"
+}
+
+is_module_loaded() {
+    local module="$1"
+
+    lsmod | grep -q "^${module}[[:space:]]"
+}
+
+module_path_for() {
+    local module="$1"
+
+    printf '/lib/modules/%s/%s.ko\n' "$(uname -r)" "$module"
+}
+
+ensure_kernel_module_loaded() {
+    local module="$1"
+    local module_path="$2"
+    local missing_message="$3"
+    local failure_message="$4"
+
+    if is_module_loaded "$module"; then
+        return 0
+    fi
+
+    if [ ! -f "$module_path" ]; then
+        log_error "$missing_message"
+        return 0
+    fi
+
+    if ! insmod "$module_path" 2>/dev/null; then
+        log_error "$failure_message"
+        return 0
+    fi
+
+    return 0
+}
+
+try_kernel_module_loaded() {
+    local module="$1"
+    local module_path
+
+    if is_module_loaded "$module"; then
+        return 0
+    fi
+
+    module_path="$(module_path_for "$module")"
+    if [ ! -f "$module_path" ]; then
+        return 1
+    fi
+
+    insmod "$module_path" 2>/dev/null
+}
+
+ipset_hash_net_available() {
+    command -v ipset >/dev/null 2>&1 || return 1
+
+    if ipset create "$IPSET_PROBE_SET" hash:net family inet -exist >/dev/null 2>&1; then
+        ipset destroy "$IPSET_PROBE_SET" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    ipset destroy "$IPSET_PROBE_SET" >/dev/null 2>&1 || true
+    return 1
 }
 
 check_netfilter_addons_component() {
@@ -38,27 +103,39 @@ check_netfilter_addons_component() {
     esac
 }
 
+ensure_ipset_modules_loaded() {
+    if ipset_hash_net_available; then
+        try_kernel_module_loaded xt_set >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    try_kernel_module_loaded nfnetlink >/dev/null 2>&1 || true
+    try_kernel_module_loaded ip_set >/dev/null 2>&1 || true
+    try_kernel_module_loaded ip_set_hash_net >/dev/null 2>&1 || true
+    try_kernel_module_loaded xt_set >/dev/null 2>&1 || true
+
+    if ipset_hash_net_available; then
+        return 0
+    fi
+
+    log_error "$IPSET_COMPONENTS_MESSAGE Required probe failed: ipset create $IPSET_PROBE_SET hash:net family inet -exist"
+}
+
 ensure_xt_multiport_loaded() {
     local module_path
 
-    if lsmod | grep -q '^xt_multiport[[:space:]]'; then
-        return 0
-    fi
+    module_path="$(module_path_for xt_multiport)"
 
-    module_path="/lib/modules/$(uname -r)/xt_multiport.ko"
-    if [ ! -f "$module_path" ]; then
-        log_error "xt_multiport module not loaded and not found at $module_path. You can safely ignore this message if you are running a NDMS version lower than 3.x"
-        return 0
-    fi
-
-    if ! insmod "$module_path" 2>/dev/null; then
-        log_error "Failed to load xt_multiport from $module_path"
-        return 0
-    fi
+    ensure_kernel_module_loaded \
+        xt_multiport \
+        "$module_path" \
+        "xt_multiport module not loaded and not found at $module_path. You can safely ignore this message if you are running a NDMS version lower than 3.x" \
+        "Failed to load xt_multiport from $module_path"
 }
 
 check_runtime_dependencies() {
     check_netfilter_addons_component
+    ensure_ipset_modules_loaded
     ensure_xt_multiport_loaded
 }
 
