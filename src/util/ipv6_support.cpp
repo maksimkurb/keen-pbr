@@ -29,15 +29,19 @@ bool nft_ipv6_supported() {
     return safe_exec_pipe_stdin({"nft", "-c", "-f", "-"}, kProbeRuleset) == 0;
 }
 
+bool iptables_ipv6_supported() {
+    return safe_exec({"ip6tables", "-t", "mangle", "-S"},
+                     /*suppress_output=*/true) == 0
+        && safe_exec({"ip6tables-restore", "--version"},
+                     /*suppress_output=*/true) == 0;
+}
+
 bool firewall_ipv6_supported(const Config& config) {
     try {
         const FirewallBackend backend =
             resolve_firewall_backend(firewall_backend_preference(config));
         if (backend == FirewallBackend::iptables) {
-            return safe_exec({"ip6tables", "-t", "mangle", "-L"},
-                             /*suppress_output=*/true) == 0
-                && safe_exec({"which", "ip6tables-restore"},
-                             /*suppress_output=*/true) == 0;
+            return iptables_ipv6_supported();
         }
         if (backend == FirewallBackend::nftables) {
             return nft_ipv6_supported();
