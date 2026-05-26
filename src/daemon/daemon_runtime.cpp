@@ -10,6 +10,7 @@
 #include "../firewall/firewall_runtime.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
 #include "scheduler.hpp"
@@ -141,6 +142,8 @@ void Daemon::restart_routing_runtime() {
 }
 
 void Daemon::setup_static_routing() {
+    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
+    log_ipv6_support_decision_once(ipv6_decision);
     populate_routing_state(
         config_,
         outbound_marks_,
@@ -149,7 +152,8 @@ void Daemon::setup_static_routing() {
         [this](const Outbound& outbound) {
             return is_interface_outbound_reachable(outbound, netlink_);
         },
-        &firewall_state_.get_urltest_selections());
+        &firewall_state_.get_urltest_selections(),
+        ipv6_decision.enabled);
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode) {

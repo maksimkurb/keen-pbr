@@ -63,6 +63,14 @@ size_t count_routes_in_table(const std::vector<RouteSpec>& routes, uint32_t tabl
                                              }));
 }
 
+size_t count_routes_by_family(const std::vector<RouteSpec>& routes, int family) {
+    return static_cast<size_t>(std::count_if(routes.begin(),
+                                             routes.end(),
+                                             [family](const RouteSpec& route) {
+                                                 return route.family == family;
+                                             }));
+}
+
 } // namespace
 
 TEST_CASE("build_fw_rule_states: ignore outbound becomes pass-through firewall rule") {
@@ -368,6 +376,58 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
     CHECK(default_route->interface == std::optional<std::string>{"wg0"});
     CHECK(default_route->gateway == std::optional<std::string>{"10.8.0.1"});
     CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
+}
+
+TEST_CASE("populate_routing_state: ipv6 disabled emits only ipv4 interface routing state") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "daemon":{"strict_enforcement":true,"ipv6_enabled":false},
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) {
+        return true;
+    }, nullptr, false);
+
+    CHECK(count_routes_by_family(routes.get_routes(), AF_INET6) == 0);
+    REQUIRE(rules.get_rules().size() == 1);
+    CHECK(rules.get_rules()[0].family == AF_INET);
+}
+
+TEST_CASE("populate_routing_state: ipv6 disabled skips urltest ipv6 kill-switch route") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "daemon":{"strict_enforcement":false,"ipv6_enabled":false},
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com","interval":30,
+             "outbound_groups":[{"outbounds":["vpn"]}]}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    std::map<std::string, std::string> selections{{"auto", "vpn"}};
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) {
+        return true;
+    }, &selections, false);
+
+    CHECK(count_routes_by_family(routes.get_routes(), AF_INET6) == 0);
+    REQUIRE(rules.get_rules().size() == 2);
+    CHECK(rules.get_rules()[0].family == AF_INET);
+    CHECK(rules.get_rules()[1].family == AF_INET);
 }
 
 TEST_CASE("populate_routing_state: unreachable interface outbound remains unavailable when strict is disabled") {

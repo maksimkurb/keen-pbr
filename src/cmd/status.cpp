@@ -12,6 +12,7 @@
 #include "../routing/route_table.hpp"
 #include "../util/format_compat.hpp"
 #include "../util/firewall_backend_utils.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../util/string_compat.hpp"
 
 #include <netinet/in.h>
@@ -500,6 +501,8 @@ int run_status_command(const Config& config, const std::string& config_path) {
     const auto urltest_selections = infer_urltest_selections(config, netlink);
     RouteTable routes(netlink, true);
     PolicyRuleManager rules(netlink, true);
+    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
+    log_ipv6_support_decision_once(ipv6_decision);
     populate_routing_state(
         config,
         marks,
@@ -508,7 +511,8 @@ int run_status_command(const Config& config, const std::string& config_path) {
         [&netlink](const Outbound& outbound) {
             return is_interface_outbound_reachable(outbound, netlink);
         },
-        &urltest_selections);
+        &urltest_selections,
+        ipv6_decision.enabled);
 
     CacheManager cache(cache_dir, max_file_size_bytes(config));
     ListStreamer list_streamer(cache);

@@ -280,11 +280,19 @@ void populate_routing_state(const Config& cfg,
                             RouteTable& routes,
                             PolicyRuleManager& rules,
                             OutboundReachabilityFn reachability_check,
-                            const std::map<std::string, std::string>* urltest_selections) {
+                            const std::map<std::string, std::string>* urltest_selections,
+                            bool ipv6_enabled) {
     const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
     const uint32_t table_start = static_cast<uint32_t>(
         cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
     const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
+
+    auto add_route_if_enabled = [&](const RouteSpec& route) {
+        if (!ipv6_enabled && route.family == AF_INET6) {
+            return;
+        }
+        routes.add(route);
+    };
 
     uint32_t table_offset = 0;
     for (const auto& ob : outbounds) {
@@ -299,15 +307,15 @@ void populate_routing_state(const Config& cfg,
             const bool reachable = !reachability_check || reachability_check(ob);
             if (reachable) {
                 for (const auto& route : make_default_routes(table_id, ob)) {
-                    routes.add(route);
+                    add_route_if_enabled(route);
                 }
                 for (const auto& route : make_family_closure_routes(table_id, ob)) {
-                    routes.add(route);
+                    add_route_if_enabled(route);
                 }
             }
             if (strict) {
                 for (const auto& route : make_unreachable_routes(table_id)) {
-                    routes.add(route);
+                    add_route_if_enabled(route);
                 }
             }
 
@@ -316,6 +324,9 @@ void populate_routing_state(const Config& cfg,
             ip_rule.fwmask = fwmark_mask;
             ip_rule.table = table_id;
             ip_rule.priority = table_id;
+            if (!ipv6_enabled) {
+                ip_rule.family = AF_INET;
+            }
             rules.add(ip_rule);
         } else if (ob.type == OutboundType::TABLE) {
             auto mark_it = marks.find(ob.tag);
@@ -326,6 +337,9 @@ void populate_routing_state(const Config& cfg,
             ip_rule.fwmask = fwmark_mask;
             ip_rule.table = static_cast<uint32_t>(ob.table.value_or(0));
             ip_rule.priority = safe_table_id(table_start, table_offset);
+            if (!ipv6_enabled) {
+                ip_rule.family = AF_INET;
+            }
             ++table_offset;
             rules.add(ip_rule);
         } else if (ob.type == OutboundType::URLTEST) {
@@ -345,10 +359,10 @@ void populate_routing_state(const Config& cfg,
                     selected->type == OutboundType::INTERFACE &&
                     (!reachability_check || reachability_check(*selected))) {
                     for (const auto& route : make_default_routes(table_id, *selected)) {
-                        routes.add(route);
+                        add_route_if_enabled(route);
                     }
                     for (const auto& route : make_family_closure_routes(table_id, *selected)) {
-                        routes.add(route);
+                        add_route_if_enabled(route);
                     }
                 }
 
@@ -362,11 +376,11 @@ void populate_routing_state(const Config& cfg,
                     }
                     for (auto route : make_default_routes(table_id, *child)) {
                         route.metric = metric;
-                        routes.add(route);
+                        add_route_if_enabled(route);
                     }
                     for (auto route : make_family_closure_routes(table_id, *child)) {
                         route.metric = metric;
-                        routes.add(route);
+                        add_route_if_enabled(route);
                     }
                     ++metric;
                 }
@@ -375,7 +389,7 @@ void populate_routing_state(const Config& cfg,
             // Urltest tables always end with a dual-stack kill-switch so marked
             // traffic cannot leak when no child route is usable or selected.
             for (const auto& route : make_unreachable_routes(table_id)) {
-                routes.add(route);
+                add_route_if_enabled(route);
             }
 
             RuleSpec ip_rule;
@@ -383,6 +397,9 @@ void populate_routing_state(const Config& cfg,
             ip_rule.fwmask = fwmark_mask;
             ip_rule.table = table_id;
             ip_rule.priority = table_id;
+            if (!ipv6_enabled) {
+                ip_rule.family = AF_INET;
+            }
             rules.add(ip_rule);
         }
         // BLACKHOLE: no routing table, no ip rule

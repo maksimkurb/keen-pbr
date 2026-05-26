@@ -34,7 +34,8 @@ void populate_routing_state(const Config& cfg,
                             RouteTable& routes,
                             PolicyRuleManager& rules,
                             OutboundReachabilityFn reachability_check = {},
-                            const std::map<std::string, std::string>* urltest_selections = nullptr);
+                            const std::map<std::string, std::string>* urltest_selections = nullptr,
+                            bool ipv6_enabled = true);
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
 
