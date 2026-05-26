@@ -230,7 +230,7 @@ export function OverviewPage() {
                   </div>
                 </div>
               </div>
-              <ButtonGroup className="mt-auto [&>[data-slot=button]]:flex-1">
+              <ButtonGroup className="mt-auto w-full [&>[data-slot=button]]:flex-1">
                 <Button
                   size="sm"
                   variant="outline"

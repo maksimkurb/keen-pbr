@@ -410,6 +410,18 @@ export const ruTranslation = {
           'DNS-сервер "{{serverTag}}" сейчас используется в {{count}} правил(е/ах){{fallbackSuffix}}.\nУдалить и автоматически убрать эти ссылки?',
         fallbackSuffix: " и как fallback",
       },
+      deleteDialog: {
+        title: "Удалить DNS-серверы?",
+        description:
+          "При подтверждении операции будут произведены следующие действия:",
+        confirm: "Удалить",
+        items: {
+          serverPrefix: "DNS-сервер",
+          serverSuffix: "будет удалён.",
+          dnsRule: "DNS-правило #{{number}} будет удалено.",
+          fallback: "Fallback DNS будет изменён.",
+        },
+      },
       bulk: {
         selected: "Выбрано: {{count}}",
         delete: "Удалить выбранные",
@@ -583,6 +595,26 @@ export const ruTranslation = {
         delete: "Удалить выбранные",
         confirmDelete:
           "Удалить {{count}} outbound(ов)? Связи проверяются только при сохранении.",
+      },
+      deleteDialog: {
+        title: "Удалить outbound?",
+        description:
+          "При подтверждении операции будут произведены следующие действия:",
+        confirm: "Удалить",
+        items: {
+          outboundPrefix: "Outbound",
+          outboundSuffix: "будет удалён.",
+          dependentOutboundPrefix: "Зависимый urltest outbound",
+          dependentOutboundSuffix: "будет удалён.",
+          routingRule: "Правило маршрутизации #{{number}} будет удалено.",
+          ruleDetail: "{{label}}: {{value}}",
+          dnsDetour: 'DNS-сервер "{{server}}" будет изменён.',
+          urltestGroupChanged:
+            'Группа #{{group}} urltest outbound "{{outbound}}" будет изменена.',
+          urltestGroupRemoved:
+            'Группа #{{group}} urltest outbound "{{outbound}}" будет удалена.',
+          groupOutbounds: "Outbounds",
+        },
       },
       empty: {
         title: "Outbounds пока нет",
@@ -854,6 +886,20 @@ export const ruTranslation = {
         confirm: 'Удалить список "{{name}}"?',
         confirmWithReferences:
           'Удалить список "{{name}}" и убрать его ссылки из правил маршрутизации и DNS?',
+      },
+      deleteDialog: {
+        title: "Удалить списки?",
+        description:
+          "При подтверждении операции будут произведены следующие действия:",
+        confirm: "Удалить",
+        items: {
+          listPrefix: "Список",
+          listSuffix: "будет удалён.",
+          routeRuleRemoved: "Правило маршрутизации #{{number}} будет удалено.",
+          routeRuleUpdated: "Правило маршрутизации #{{number}} будет изменено.",
+          dnsRuleRemoved: "DNS-правило #{{number}} будет удалено.",
+          dnsRuleUpdated: "DNS-правило #{{number}} будет изменено.",
+        },
       },
       bulk: {
         selected: "Выбрано: {{count}}",

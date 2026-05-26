@@ -1,5 +1,6 @@
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -8,6 +9,7 @@ import { useLocation } from "wouter"
 import type { ApiError } from "@/api/client"
 import type { ConfigObject } from "@/api/generated/model/configObject"
 import type { Outbound } from "@/api/generated/model/outbound"
+import type { RouteRule } from "@/api/generated/model/routeRule"
 import type { RuntimeInterfaceInventoryEntry } from "@/api/generated/model/runtimeInterfaceInventoryEntry"
 import type { RuntimeOutboundState } from "@/api/generated/model/runtimeOutboundState"
 import {
@@ -25,6 +27,10 @@ import { ActionButtons } from "@/components/shared/action-buttons"
 import { BulkSelectionToolbar } from "@/components/shared/bulk-selection-toolbar"
 import { ConfigSaveErrorAlert } from "@/components/shared/config-save-error-alert"
 import { DataTable } from "@/components/shared/data-table"
+import {
+  DeleteImpactDialog,
+  type DeleteImpactItem,
+} from "@/components/shared/delete-impact-dialog"
 import { InterfaceRowContent } from "@/components/shared/interface-picker"
 import { ListPlaceholder } from "@/components/shared/list-placeholder"
 import {
@@ -42,6 +48,11 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getApiErrorMessage } from "@/lib/api-errors"
+import {
+  buildUpdatedConfigForOutboundsDelete,
+  getOutboundDeleteImpact,
+  type OutboundDeleteImpact,
+} from "@/pages/outbounds-utils"
 
 type OutboundItem = {
   id: string
@@ -57,6 +68,13 @@ export function OutboundsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
+  const [deleteRequest, setDeleteRequest] = useState<{
+    tags: string[]
+    impact: OutboundDeleteImpact
+    config: ConfigObject
+    clearSelectionOnSuccess: boolean
+  } | null>(null)
+  const [deletePreview, setDeletePreview] = useState<typeof deleteRequest>(null)
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
   const runtimeOutboundsQuery = useGetRuntimeOutbounds({
@@ -72,6 +90,7 @@ export function OutboundsPage() {
     },
   })
   const loadedConfig = selectConfig(configQuery.data)
+  const visibleDeleteRequest = deleteRequest ?? deletePreview
   // using toasts for mutation errors
 
   const runtimeOutboundByTag = new Map(
@@ -127,26 +146,14 @@ export function OutboundsPage() {
       return
     }
 
-    const nextOutbounds = selectOutbounds(loadedConfig).filter(
-      (item) => item.tag !== tag
-    )
-    const urltestReferencesError = validateUrltestGroupReferences(
-      nextOutbounds,
-      t
-    )
-
-    if (urltestReferencesError) {
-      toast.error(urltestReferencesError, { richColors: true })
-      return
+    const request = {
+      tags: [tag],
+      impact: getOutboundDeleteImpact(loadedConfig, [tag]),
+      config: loadedConfig,
+      clearSelectionOnSuccess: false,
     }
-
-    const updatedConfig: ConfigObject = {
-      ...loadedConfig,
-      outbounds: nextOutbounds,
-    }
-
-    // proceed with mutation
-    postConfigMutation.mutate({ data: updatedConfig })
+    setDeletePreview(request)
+    setDeleteRequest(request)
   }
 
   const handleBulkDelete = () => {
@@ -154,39 +161,35 @@ export function OutboundsPage() {
       return
     }
 
-    if (
-      !window.confirm(
-        t("pages.outbounds.bulk.confirmDelete", {
-          count: outboundSelection.selectedCount,
-        })
-      )
-    ) {
-      return
+    const tags = [...outboundSelection.selectedIds]
+    const request = {
+      tags,
+      impact: getOutboundDeleteImpact(loadedConfig, tags),
+      config: loadedConfig,
+      clearSelectionOnSuccess: true,
     }
+    setDeletePreview(request)
+    setDeleteRequest(request)
+  }
 
-    const nextOutbounds = selectOutbounds(loadedConfig).filter(
-      (item) => !outboundSelection.selectedIds.has(item.tag)
-    )
-    const urltestReferencesError = validateUrltestGroupReferences(
-      nextOutbounds,
-      t
-    )
-
-    if (urltestReferencesError) {
-      toast.error(urltestReferencesError, { richColors: true })
+  const confirmDelete = () => {
+    if (!loadedConfig || !deleteRequest) {
       return
     }
 
     postConfigMutation.mutate(
       {
-        data: {
-          ...loadedConfig,
-          outbounds: nextOutbounds,
-        },
+        data: buildUpdatedConfigForOutboundsDelete(
+          loadedConfig,
+          deleteRequest.tags
+        ),
       },
       {
         onSuccess: () => {
-          outboundSelection.clear()
+          if (deleteRequest.clearSelectionOnSuccess) {
+            outboundSelection.clear()
+          }
+          setDeleteRequest(null)
         },
       }
     )
@@ -305,8 +308,225 @@ export function OutboundsPage() {
           />
         </div>
       )}
+      <DeleteImpactDialog
+        confirmLabel={t("pages.outbounds.deleteDialog.confirm")}
+        description={t("pages.outbounds.deleteDialog.description", {
+          tags: visibleDeleteRequest?.tags.join(", ") ?? "",
+        })}
+        impactItems={
+          visibleDeleteRequest
+            ? getOutboundDeleteImpactItems(
+                visibleDeleteRequest.config,
+                visibleDeleteRequest.tags,
+                visibleDeleteRequest.impact,
+                t
+              )
+            : []
+        }
+        isPending={postConfigMutation.isPending}
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => {
+          if (!open && !postConfigMutation.isPending) {
+            setDeleteRequest(null)
+          }
+        }}
+        open={deleteRequest !== null}
+        title={t("pages.outbounds.deleteDialog.title")}
+      />
     </div>
   )
+}
+
+function getOutboundDeleteImpactItems(
+  config: ConfigObject | undefined,
+  requestedTags: string[],
+  impact: OutboundDeleteImpact,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  const items: DeleteImpactItem[] = []
+  const requestedTagSet = new Set(requestedTags)
+
+  for (const tag of requestedTags) {
+    items.push({
+      label: (
+        <>
+          {t("pages.outbounds.deleteDialog.items.outboundPrefix")}{" "}
+          <strong>{tag}</strong>{" "}
+          {t("pages.outbounds.deleteDialog.items.outboundSuffix")}
+        </>
+      ),
+    })
+  }
+
+  for (const tag of impact.deletedOutboundTags) {
+    if (requestedTagSet.has(tag)) {
+      continue
+    }
+
+    items.push({
+      label: (
+        <>
+          {t("pages.outbounds.deleteDialog.items.dependentOutboundPrefix")}{" "}
+          <strong>{tag}</strong>{" "}
+          {t("pages.outbounds.deleteDialog.items.dependentOutboundSuffix")}
+        </>
+      ),
+    })
+  }
+
+  for (const index of impact.routeRuleIndexes) {
+    items.push({
+      label: t("pages.outbounds.deleteDialog.items.routingRule", {
+        number: index + 1,
+      }),
+      details: getRouteRuleImpactDetails(config?.route?.rules?.[index], t),
+    })
+  }
+
+  for (const server of impact.dnsServerDetours) {
+    items.push({
+      label: t("pages.outbounds.deleteDialog.items.dnsDetour", { server }),
+      details: [
+        formatDetail(
+          t("pages.dnsServers.headers.outbound"),
+          formatValueTransition(
+            config?.dns?.servers?.find((item) => item.tag === server)?.detour ??
+              t("common.noneShort"),
+            t("common.noneShort")
+          )
+        ),
+      ],
+    })
+  }
+
+  for (const membership of impact.urltestMemberships) {
+    const group = config?.outbounds?.find(
+      (outbound) => outbound.tag === membership.outboundTag
+    )?.outbound_groups?.[membership.groupIndex]
+    const remainingTags =
+      group?.outbounds.filter(
+        (tag) => !impact.deletedOutboundTags.includes(tag)
+      ) ?? []
+    const isRemoved = remainingTags.length === 0
+
+    items.push({
+      label: isRemoved
+        ? t("pages.outbounds.deleteDialog.items.urltestGroupRemoved", {
+            group: membership.groupIndex + 1,
+            outbound: membership.outboundTag,
+          })
+        : t("pages.outbounds.deleteDialog.items.urltestGroupChanged", {
+            group: membership.groupIndex + 1,
+            outbound: membership.outboundTag,
+          }),
+      details: [
+        formatDetail(
+          t("pages.outbounds.deleteDialog.items.groupOutbounds"),
+          isRemoved
+            ? formatListValue(group?.outbounds ?? [], t)
+            : formatTransition(group?.outbounds ?? [], remainingTags, t)
+        ),
+      ],
+    })
+  }
+
+  return items
+}
+
+function getRouteRuleImpactDetails(
+  rule: RouteRule | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  if (!rule) {
+    return []
+  }
+
+  const details = [
+    {
+      label: t("pages.routingRules.headers.outbound"),
+      value: rule.outbound,
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.lists"),
+      value: (rule.list ?? []).join(", "),
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.proto"),
+      value: rule.proto,
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.sourceIp"),
+      value: rule.src_addr,
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.destinationIp"),
+      value: rule.dest_addr,
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.sourcePort"),
+      value: rule.src_port,
+    },
+    {
+      label: t("pages.routingRules.criteriaLabels.destinationPort"),
+      value: rule.dest_port,
+    },
+  ]
+    .filter(
+      (
+        item
+      ): item is {
+        label: string
+        value: string
+      } => typeof item.value === "string" && item.value.trim().length > 0
+    )
+    .map((item) =>
+      t("pages.outbounds.deleteDialog.items.ruleDetail", {
+        label: item.label,
+        value: item.value,
+      })
+    )
+
+  return details
+}
+
+function formatDetail(label: string, value: ReactNode) {
+  return (
+    <>
+      {label}: {value}
+    </>
+  )
+}
+
+function formatTransition(
+  before: string[],
+  after: string[],
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  return formatValueTransition(
+    formatListValue(before, t),
+    formatListValue(after, t)
+  )
+}
+
+function formatValueTransition(before: string, after: string) {
+  return <ChangeValue after={after} before={before} />
+}
+
+function ChangeValue({ after, before }: { after: string; before: string }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1 align-middle leading-4">
+      <span className="min-w-0 truncate">{before}</span>
+      <ArrowRight className="mt-px size-3 shrink-0" />
+      <span className="min-w-0 truncate">{after}</span>
+    </span>
+  )
+}
+
+function formatListValue(
+  values: string[],
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  return values.length > 0 ? values.join(", ") : t("common.noneShort")
 }
 
 function mapOutboundToItem(
@@ -475,30 +695,4 @@ function getRuntimeFallbackTone(
   }
 
   return undefined
-}
-
-function validateUrltestGroupReferences(
-  outbounds: Outbound[],
-  t: (key: string, options?: Record<string, unknown>) => string
-): string | null {
-  const tags = new Set(outbounds.map((outbound) => outbound.tag))
-
-  for (const outbound of outbounds) {
-    if (outbound.type !== "urltest") {
-      continue
-    }
-
-    for (const group of outbound.outbound_groups ?? []) {
-      for (const referencedTag of group.outbounds) {
-        if (!tags.has(referencedTag)) {
-          return t("pages.outbounds.messages.missingReference", {
-            outbound: outbound.tag,
-            referenced: referencedTag,
-          })
-        }
-      }
-    }
-  }
-
-  return null
 }

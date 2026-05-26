@@ -1,5 +1,55 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
 
+export type ListDeleteImpact = {
+  dnsRuleIndexes: number[]
+  routeRuleIndexes: number[]
+  removedDnsRuleIndexes: number[]
+  removedRouteRuleIndexes: number[]
+}
+
+export function getListDeleteImpact(
+  config: ConfigObject,
+  listIds: Iterable<string>
+): ListDeleteImpact {
+  const listIdSet = new Set(listIds)
+  const dnsRuleIndexes: number[] = []
+  const routeRuleIndexes: number[] = []
+  const removedDnsRuleIndexes: number[] = []
+  const removedRouteRuleIndexes: number[] = []
+
+  for (const [index, rule] of (config.route?.rules ?? []).entries()) {
+    const beforeLists = rule.list ?? []
+    const afterLists = beforeLists.filter((name) => !listIdSet.has(name))
+
+    if (afterLists.length !== beforeLists.length) {
+      routeRuleIndexes.push(index)
+    }
+
+    if (beforeLists.length > 0 && afterLists.length === 0) {
+      removedRouteRuleIndexes.push(index)
+    }
+  }
+
+  for (const [index, rule] of (config.dns?.rules ?? []).entries()) {
+    const afterLists = rule.list.filter((name) => !listIdSet.has(name))
+
+    if (afterLists.length !== rule.list.length) {
+      dnsRuleIndexes.push(index)
+    }
+
+    if (rule.list.length > 0 && afterLists.length === 0) {
+      removedDnsRuleIndexes.push(index)
+    }
+  }
+
+  return {
+    dnsRuleIndexes,
+    routeRuleIndexes,
+    removedDnsRuleIndexes,
+    removedRouteRuleIndexes,
+  }
+}
+
 export function buildUpdatedConfigForListsDelete(
   config: ConfigObject,
   listIds: string[]

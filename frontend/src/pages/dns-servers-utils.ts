@@ -1,15 +1,36 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
 
+export type DnsServerDeleteImpact = {
+  matchingRuleIndexes: number[]
+  usesFallback: boolean
+}
+
 export function getDnsServerDeleteReferenceInfo(
   config: ConfigObject,
   serverTags: Iterable<string>
-) {
+): DnsServerDeleteImpact & {
+  matchingRulesCount: number
+} {
+  const impact = getDnsServerDeleteImpact(config, serverTags)
+
+  return {
+    ...impact,
+    matchingRulesCount: impact.matchingRuleIndexes.length,
+  }
+}
+
+export function getDnsServerDeleteImpact(
+  config: ConfigObject,
+  serverTags: Iterable<string>
+): DnsServerDeleteImpact {
   const tagSet = new Set(serverTags)
   const rules = config.dns?.rules ?? []
   const fallback = config.dns?.fallback ?? []
 
   return {
-    matchingRulesCount: rules.filter((rule) => tagSet.has(rule.server)).length,
+    matchingRuleIndexes: rules.flatMap((rule, index) =>
+      tagSet.has(rule.server) ? [index] : []
+    ),
     usesFallback: fallback.some((tag) => tagSet.has(tag)),
   }
 }
