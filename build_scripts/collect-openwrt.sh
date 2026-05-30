@@ -32,7 +32,7 @@ mkdir -p "$DEBUG_DEST_ROOT"
 
 _copy_pkg() {
     local name_prefix="$1"  # "keen-pbr" or "keen-pbr-headless"
-    find "$SDK_DIR/bin" -type f \( -name "${name_prefix}_*.ipk" -o -name "${name_prefix}-*.apk" \) | while read -r f; do
+    find "$SDK_DIR/bin" -type f \( -name "${name_prefix}_*.ipk" -o -name "${name_prefix}-[0-9]*.apk" \) | while read -r f; do
         EXT="${f##*.}"
         PKG_ARCH="$FIXED_PKGARCH"
         if [ -z "$PKG_ARCH" ]; then
