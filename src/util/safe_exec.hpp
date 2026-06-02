@@ -26,6 +26,21 @@ inline void reset_child_signal_mask() {
     sigprocmask(SIG_SETMASK, &empty_mask, nullptr);
 }
 
+inline bool redirect_child_stdin_to_devnull() {
+    const int devnull = open("/dev/null", O_RDONLY);
+    if (devnull < 0) {
+        return false;
+    }
+    if (dup2(devnull, STDIN_FILENO) < 0) {
+        close(devnull);
+        return false;
+    }
+    if (devnull != STDIN_FILENO) {
+        close(devnull);
+    }
+    return true;
+}
+
 inline std::string safe_exec_command_string(const std::vector<std::string>& args) {
     std::ostringstream out;
     for (size_t i = 0; i < args.size(); ++i) {
@@ -68,6 +83,9 @@ inline int safe_exec(const std::vector<std::string>& args, bool suppress_output 
     if (pid == 0) {
         // Child process
         reset_child_signal_mask();
+        if (!redirect_child_stdin_to_devnull()) {
+            _exit(127);
+        }
         if (suppress_output) {
             const int devnull = open("/dev/null", O_WRONLY);
             if (devnull >= 0) {
@@ -252,6 +270,9 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
     if (pid == 0) {
         // Child: write end becomes stdout
         reset_child_signal_mask();
+        if (!redirect_child_stdin_to_devnull()) {
+            _exit(127);
+        }
         close(pipefd[0]);
         dup2(pipefd[1], STDOUT_FILENO);
         if (suppress_stderr) {

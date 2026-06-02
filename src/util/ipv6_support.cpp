@@ -32,7 +32,7 @@ bool nft_ipv6_supported() {
 bool iptables_ipv6_supported() {
     return safe_exec({"ip6tables", "-t", "mangle", "-S"},
                      /*suppress_output=*/true) == 0
-        && safe_exec({"ip6tables-restore", "--version"},
+        && safe_exec({"ip6tables-restore", "--help"},
                      /*suppress_output=*/true) == 0;
 }
 
