@@ -1,5 +1,6 @@
 #include "routing_state.hpp"
 
+#include "addr_spec.hpp"
 #include "../routing/target.hpp"
 
 #include <arpa/inet.h>
@@ -32,6 +33,33 @@ std::string resolve_urltest_selection(
     auto it = selections->find(urltest_tag);
     if (it == selections->end()) return {};
     return it->second;
+}
+
+L4Proto parse_rule_proto(const std::optional<std::string>& proto) {
+    if (!proto.has_value() || proto->empty()) return L4Proto::Any;
+    if (*proto == "tcp") return L4Proto::Tcp;
+    if (*proto == "udp") return L4Proto::Udp;
+    if (*proto == "tcp/udp") return L4Proto::TcpUdp;
+    throw FirewallError("Unsupported route rule protocol: " + *proto);
+}
+
+bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) {
+    if (route.destination != "default" || route.blackhole || route.unreachable) {
+        return false;
+    }
+    if (outbound.type != OutboundType::INTERFACE) {
+        return false;
+    }
+    if (route.interface != outbound.interface) {
+        return false;
+    }
+    if (route.family == AF_INET && outbound.gateway.has_value()) {
+        return route.gateway == outbound.gateway;
+    }
+    if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
+        return route.gateway == outbound.gateway6;
+    }
+    return !route.gateway.has_value();
 }
 
 bool strict_enforcement_enabled(const Config& cfg, const Outbound& ob) {
@@ -448,6 +476,81 @@ FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg) {
     return prefilter;
 }
 
+FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
+    auto strip_neg = [](const std::string& value) -> std::pair<std::string, bool> {
+        if (!value.empty() && value.front() == '!') {
+            return {value.substr(1), true};
+        }
+        return {value, false};
+    };
+
+    FirewallRuleCriteria criteria;
+    criteria.proto = parse_rule_proto(rule.proto);
+
+    {
+        auto [port, negated] = strip_neg(rule.src_port.value_or(""));
+        criteria.src_port = port;
+        criteria.negate_src_port = negated;
+    }
+    {
+        auto [port, negated] = strip_neg(rule.dest_port.value_or(""));
+        criteria.dst_port = port;
+        criteria.negate_dst_port = negated;
+    }
+    {
+        AddrSpec spec = parse_addr_spec(rule.src_addr.value_or(""));
+        criteria.negate_src_addr = spec.negate;
+        criteria.src_addr = std::move(spec.addrs);
+    }
+    {
+        AddrSpec spec = parse_addr_spec(rule.dest_addr.value_or(""));
+        criteria.negate_dst_addr = spec.negate;
+        criteria.dst_addr = std::move(spec.addrs);
+    }
+
+    return criteria;
+}
+
+std::optional<std::string> infer_urltest_selection_from_routes(
+    const std::vector<Outbound>& outbounds,
+    const Outbound& urltest,
+    const std::vector<DumpedRoute>& routes) {
+    std::optional<std::string> selected_tag;
+
+    for (const auto& route : routes) {
+        if (route.destination != "default" ||
+            route.blackhole ||
+            route.unreachable ||
+            route.metric != 0) {
+            continue;
+        }
+
+        std::optional<std::string> route_tag;
+        for (const auto& group : urltest.outbound_groups.value_or(std::vector<OutboundGroup>{})) {
+            for (const auto& child_tag : group.outbounds) {
+                const Outbound* child = find_outbound(outbounds, child_tag);
+                if (!child || !route_matches_outbound(route, *child)) {
+                    continue;
+                }
+                if (route_tag.has_value() && *route_tag != child_tag) {
+                    return std::nullopt;
+                }
+                route_tag = child_tag;
+            }
+        }
+
+        if (!route_tag.has_value()) {
+            return std::nullopt;
+        }
+        if (selected_tag.has_value() && *selected_tag != *route_tag) {
+            return std::nullopt;
+        }
+        selected_tag = std::move(route_tag);
+    }
+
+    return selected_tag;
+}
+
 std::vector<RuleState> build_fw_rule_states(
     const Config& cfg,
     const OutboundMarkMap& marks,
@@ -578,7 +681,8 @@ std::vector<RuleState> build_fw_rule_states(
 void prune_fw_rule_states_to_realized_sets(
     const Config& cfg,
     std::vector<RuleState>& rule_states,
-    const ListSetUsageFn& list_usage_fn) {
+    const ListSetUsageFn& list_usage_fn,
+    bool ipv6_enabled) {
     static const std::map<std::string, ListConfig> empty_lists;
     const auto& lists_map = cfg.lists ? *cfg.lists : empty_lists;
     const auto& route_rules =
@@ -597,6 +701,7 @@ void prune_fw_rule_states_to_realized_sets(
         rs.set_names.clear();
 
         const auto& rule = route_rules[rs.rule_index];
+        rs.criteria = build_firewall_rule_criteria(rule);
         for (const auto& list_name : route_rule_lists(rule)) {
             auto list_cfg_it = lists_map.find(list_name);
             if (list_cfg_it == lists_map.end()) continue;
@@ -611,11 +716,15 @@ void prune_fw_rule_states_to_realized_sets(
 
             if (usage.has_static_entries) {
                 rs.set_names.push_back("kpbr4_" + list_name);
-                rs.set_names.push_back("kpbr6_" + list_name);
+                if (ipv6_enabled) {
+                    rs.set_names.push_back("kpbr6_" + list_name);
+                }
             }
             if (usage.has_domain_entries) {
                 rs.set_names.push_back("kpbr4d_" + list_name);
-                rs.set_names.push_back("kpbr6d_" + list_name);
+                if (ipv6_enabled) {
+                    rs.set_names.push_back("kpbr6d_" + list_name);
+                }
             }
         }
     }

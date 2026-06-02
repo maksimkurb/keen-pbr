@@ -327,6 +327,96 @@ TEST_CASE("prune_fw_rule_states_to_realized_sets: removes nonexistent pass-throu
     }));
 }
 
+TEST_CASE("prune_fw_rule_states_to_realized_sets: matches runtime selectors and ipv6 filtering") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0","gateway":"10.8.0.1"}
+        ],
+        "lists":{
+            "local":{"ip_cidrs":["192.168.0.0/16"],"domains":["example.com"]}
+        },
+        "route":{
+            "rules":[
+                {"list":["local"],"src_addr":"!192.0.2.1","dest_port":"443","outbound":"vpn"}
+            ]
+        }
+    })");
+
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    auto states = build_fw_rule_states(cfg, marks);
+
+    prune_fw_rule_states_to_realized_sets(
+        cfg,
+        states,
+        [](const std::string&, const ListConfig&) {
+            ListSetUsage usage;
+            usage.has_static_entries = true;
+            usage.has_domain_entries = true;
+            return usage;
+        },
+        false);
+
+    REQUIRE(states.size() == 1);
+    CHECK(states[0].set_names == std::vector<std::string>({
+        "kpbr4_local", "kpbr4d_local"
+    }));
+    CHECK(states[0].criteria.src_addr == std::vector<std::string>({"192.0.2.1"}));
+    CHECK(states[0].criteria.negate_src_addr);
+    CHECK(states[0].criteria.dst_port.to_config_string() == "443");
+}
+
+TEST_CASE("infer_urltest_selection_from_routes: accepts equivalent dual-stack defaults") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0"},
+            {"tag":"backup","type":"interface","interface":"wg1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"outbounds":["vpn","backup"]}]}
+        ]
+    })");
+
+    const auto& outbounds = *cfg.outbounds;
+    const auto& urltest = outbounds[2];
+    std::vector<DumpedRoute> routes(3);
+    routes[0].destination = "default";
+    routes[0].interface = "wg0";
+    routes[0].family = AF_INET;
+    routes[1].destination = "default";
+    routes[1].interface = "wg0";
+    routes[1].family = AF_INET6;
+    routes[2].destination = "default";
+    routes[2].interface = "wg1";
+    routes[2].family = AF_INET;
+    routes[2].metric = 1;
+
+    CHECK(infer_urltest_selection_from_routes(outbounds, urltest, routes) ==
+          std::optional<std::string>{"vpn"});
+}
+
+TEST_CASE("infer_urltest_selection_from_routes: rejects conflicting metric-zero defaults") {
+    auto cfg = parse_minimal_config(R"({
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0"},
+            {"tag":"backup","type":"interface","interface":"wg1"},
+            {"tag":"auto","type":"urltest","url":"http://example.com",
+             "outbound_groups":[{"outbounds":["vpn","backup"]}]}
+        ]
+    })");
+
+    const auto& outbounds = *cfg.outbounds;
+    const auto& urltest = outbounds[2];
+    std::vector<DumpedRoute> routes(2);
+    routes[0].destination = "default";
+    routes[0].interface = "wg0";
+    routes[0].family = AF_INET;
+    routes[1].destination = "default";
+    routes[1].interface = "wg1";
+    routes[1].family = AF_INET6;
+
+    CHECK_FALSE(infer_urltest_selection_from_routes(outbounds, urltest, routes).has_value());
+}
+
 TEST_CASE("populate_routing_state: strict enforcement installs unreachable default when down") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},

@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -43,6 +44,16 @@ bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& n
 // Missing or empty inbound_interfaces leaves interface restriction disabled.
 FirewallGlobalPrefilter build_firewall_global_prefilter(const Config& cfg);
 
+// Build the realized firewall selector criteria for a route rule.
+FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule);
+
+// Infer the selected child of a URLTEST outbound from its live metric-zero
+// default routes. Equivalent IPv4 and IPv6 routes for one child are accepted.
+std::optional<std::string> infer_urltest_selection_from_routes(
+    const std::vector<Outbound>& outbounds,
+    const Outbound& urltest,
+    const std::vector<DumpedRoute>& routes);
+
 // Build firewall rule state (set names, actions, selectors) from config without touching firewall.
 // urltest_selections optionally overrides URLTEST outbounds to a selected child tag.
 std::vector<RuleState> build_fw_rule_states(
@@ -59,6 +70,7 @@ using ListSetUsageFn = std::function<ListSetUsage(const std::string&,
 void prune_fw_rule_states_to_realized_sets(
     const Config& cfg,
     std::vector<RuleState>& rule_states,
-    const ListSetUsageFn& list_usage_fn);
+    const ListSetUsageFn& list_usage_fn,
+    bool ipv6_enabled = true);
 
 } // namespace keen_pbr3

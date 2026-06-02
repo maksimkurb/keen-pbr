@@ -1,6 +1,5 @@
 #include "firewall_runtime.hpp"
 
-#include "../config/addr_spec.hpp"
 #include "../config/routing_state.hpp"
 #include "../dns/dns_router.hpp"
 #include "../lists/list_entry_visitor.hpp"
@@ -28,14 +27,6 @@ const Outbound* find_outbound_by_tag(const std::vector<Outbound>& outbounds,
         }
     }
     return nullptr;
-}
-
-L4Proto parse_rule_proto(const std::optional<std::string>& proto) {
-    if (!proto.has_value() || proto->empty()) return L4Proto::Any;
-    if (*proto == "tcp") return L4Proto::Tcp;
-    if (*proto == "udp") return L4Proto::Udp;
-    if (*proto == "tcp/udp") return L4Proto::TcpUdp;
-    throw FirewallError("Unsupported route rule protocol: " + *proto);
 }
 
 } // namespace
@@ -74,37 +65,7 @@ std::vector<RuleState> apply_runtime_firewall(
 
         const bool is_blackhole = rule_state.action_type == RuleActionType::Drop;
         const bool is_pass = rule_state.action_type == RuleActionType::Pass;
-        auto strip_neg = [](const std::string& value) -> std::pair<std::string, bool> {
-            if (!value.empty() && value.front() == '!') {
-                return {value.substr(1), true};
-            }
-            return {value, false};
-        };
-
-        FirewallRuleCriteria criteria;
-        criteria.proto = parse_rule_proto(rule.proto);
-
-        {
-            auto [port, negated] = strip_neg(rule.src_port.value_or(""));
-            criteria.src_port = port;
-            criteria.negate_src_port = negated;
-        }
-        {
-            auto [port, negated] = strip_neg(rule.dest_port.value_or(""));
-            criteria.dst_port = port;
-            criteria.negate_dst_port = negated;
-        }
-        {
-            AddrSpec spec = parse_addr_spec(rule.src_addr.value_or(""));
-            criteria.negate_src_addr = spec.negate;
-            criteria.src_addr = std::move(spec.addrs);
-        }
-        {
-            AddrSpec spec = parse_addr_spec(rule.dest_addr.value_or(""));
-            criteria.negate_dst_addr = spec.negate;
-            criteria.dst_addr = std::move(spec.addrs);
-        }
-
+        FirewallRuleCriteria criteria = build_firewall_rule_criteria(rule);
         rule_state.criteria = criteria;
 
         auto apply_rule = [&](const std::optional<std::string>& dst_set_name) {

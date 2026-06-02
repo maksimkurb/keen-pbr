@@ -123,25 +123,6 @@ const Outbound* find_outbound(const std::vector<Outbound>& outbounds, const std:
     return nullptr;
 }
 
-bool route_matches_outbound(const DumpedRoute& route, const Outbound& outbound) {
-    if (route.destination != "default" || route.blackhole || route.unreachable) {
-        return false;
-    }
-    if (outbound.type != OutboundType::INTERFACE) {
-        return false;
-    }
-    if (route.interface != outbound.interface) {
-        return false;
-    }
-    if (route.family == AF_INET && outbound.gateway.has_value()) {
-        return route.gateway == outbound.gateway;
-    }
-    if (route.family == AF_INET6 && outbound.gateway6.has_value()) {
-        return route.gateway == outbound.gateway6;
-    }
-    return !route.gateway.has_value();
-}
-
 std::map<std::string, std::string> infer_urltest_selections(const Config& config,
                                                             NetlinkManager& netlink) {
     std::map<std::string, std::string> selections;
@@ -171,40 +152,10 @@ std::map<std::string, std::string> infer_urltest_selections(const Config& config
             continue;
         }
 
-        auto routes = netlink.dump_routes_in_table(table_id);
-        const DumpedRoute* selected_route = nullptr;
-        for (const auto& route : routes) {
-            if (route.destination != "default" ||
-                route.blackhole ||
-                route.unreachable ||
-                route.metric != 0) {
-                continue;
-            }
-            if (selected_route != nullptr) {
-                selected_route = nullptr;
-                break;
-            }
-            selected_route = &route;
-        }
-
-        if (!selected_route || !ob.outbound_groups.has_value()) {
-            continue;
-        }
-
-        for (const auto& group : *ob.outbound_groups) {
-            for (const auto& child_tag : group.outbounds) {
-                const Outbound* child = find_outbound(outbounds, child_tag);
-                if (!child) {
-                    continue;
-                }
-                if (route_matches_outbound(*selected_route, *child)) {
-                    selections[ob.tag] = child->tag;
-                    break;
-                }
-            }
-            if (contains(selections, ob.tag)) {
-                break;
-            }
+        const auto selected = infer_urltest_selection_from_routes(
+            outbounds, ob, netlink.dump_routes_in_table(table_id));
+        if (selected.has_value()) {
+            selections[ob.tag] = *selected;
         }
     }
 
@@ -459,8 +410,10 @@ void print_firewall_section(const std::vector<DisplayFirewallRule>& firewall_rul
             if (fr.selected_outbound) {
                 rule_desc += " selected=" + *fr.selected_outbound;
             }
-        } else {
+        } else if (fr.action == "drop") {
             rule_desc += "DROP";
+        } else {
+            rule_desc += "PASS";
         }
         const std::string status_label =
             fr.status_label_override.value_or(check_status_label(fr.status));
@@ -522,7 +475,8 @@ int run_status_command(const Config& config, const std::string& config_path) {
         fw_rules,
         [&list_streamer](const std::string& list_name, const ListConfig& list_cfg) {
             return analyze_list_set_usage(list_name, list_cfg, list_streamer);
-        });
+        },
+        ipv6_decision.enabled);
 
     FirewallState fw_state;
     fw_state.set_outbound_marks(marks);
