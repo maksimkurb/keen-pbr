@@ -42,5 +42,5 @@ REST API доступен, если:
 
 
 ---
-Generated on 2026-06-03 07:07:02 UTC
+Generated on 2026-06-03 07:41:44 UTC
 Site: https://keen-pbr.fyi/
