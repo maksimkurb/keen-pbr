@@ -1,5 +1,5 @@
 #!/bin/bash
-# collect-openwrt.sh — Rename compiled OpenWrt packages and generate repository indexes.
+# collect-openwrt.sh — Collect compiled OpenWrt packages and generate repository indexes.
 #
 # Usage: scripts/collect-openwrt.sh \
 #          <workspace-dir> <sdk-dir> <release-dir> \
@@ -28,7 +28,7 @@ DEBUG_DEST_ROOT="$RELEASE_DIR/openwrt-debug/${TAG}"
 mkdir -p "$RELEASE_DIR"
 mkdir -p "$DEBUG_DEST_ROOT"
 
-# ── Copy and rename packages ──────────────────────────────────────────────────
+# ── Copy packages ──────────────────────────────────────────────────────────────
 
 _copy_pkg() {
     local name_prefix="$1"  # "keen-pbr" or "keen-pbr-headless"
@@ -46,7 +46,11 @@ _copy_pkg() {
         ARCH_DIR_NAME="${PKG_ARCH}"
         DEST_DIR="$RELEASE_DIR/openwrt/${TAG}/${ARCH_DIR_NAME}"
         mkdir -p "$DEST_DIR"
-        cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCHITECTURE}.${EXT}"
+        if [ "$EXT" = "apk" ]; then
+            cp "$f" "$DEST_DIR/$(basename "$f")"
+        else
+            cp "$f" "$DEST_DIR/${name_prefix}_${VERSION_RELEASE}_openwrt_${TAG}_${ARCHITECTURE}.${EXT}"
+        fi
     done
 }
 
@@ -126,13 +130,13 @@ if [ ! -x "$APK_BIN" ]; then
 fi
 
 if [ -n "$APK_BIN" ] && find "$RELEASE_DIR/openwrt/${TAG}" -type f \
-        -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.apk" 2>/dev/null | grep -q .; then
+        -name "keen-pbr*.apk" 2>/dev/null | grep -q .; then
     rm -f "$APK_SIGNING_MARKER"
     for ARCH_DIR in $(find "$RELEASE_DIR/openwrt/${TAG}" -mindepth 1 -maxdepth 1 -type d | sort); do
         ARCH_DIR_NAME=$(basename "$ARCH_DIR")
         PKG_ARCH="${ARCH_DIR_NAME}"
         mapfile -t ARCH_APKS < <(find "$ARCH_DIR" -maxdepth 1 -type f \
-            -name "keen-pbr*_openwrt_${TAG}_${ARCHITECTURE}.apk" -printf '%f\n' | sort)
+            -name "keen-pbr*.apk" -printf '%f\n' | sort)
         if [ "${#ARCH_APKS[@]}" -gt 0 ]; then
             tmp_dir="$(mktemp -d)"
             for apk_file in "${ARCH_APKS[@]}"; do

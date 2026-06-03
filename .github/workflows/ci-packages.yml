@@ -100,6 +100,8 @@ jobs:
             architecture: "aarch64_cortex-a53"
           - openwrt_version: "25.12.2"
             architecture: "aarch64_cortex-a53"
+          - openwrt_version: "25.12.2"
+            architecture: "x86_64"
     uses: ./.github/workflows/reusable-openwrt-packages.yml
     with:
       openwrt_version: ${{ matrix.build.openwrt_version }}
