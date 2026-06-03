@@ -13,7 +13,6 @@
 #include "../util/format_compat.hpp"
 #include "../util/firewall_backend_utils.hpp"
 #include "../util/ipv6_support.hpp"
-#include "../util/string_compat.hpp"
 
 #include <netinet/in.h>
 #include <cstdint>
