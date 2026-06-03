@@ -70,16 +70,16 @@ Types
 
 
 
-  <meta itemprop="name" content="Outbounds">
-  <meta itemprop="description" content="Outbounds tell keen-pbr where matching traffic should go.
+	<meta itemprop="name" content="Outbounds">
+	<meta itemprop="description" content="Outbounds tell keen-pbr where matching traffic should go.
 Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
 Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;interface&#34;: &#34;eth0&#34;, &#34;gateway&#34;: &#34;192.168.1.1&#34; } ] } Types interface Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.">
-  <meta itemprop="wordCount" content="883">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Outbounds">
-  <meta name="twitter:description" content="Outbounds tell keen-pbr where matching traffic should go.
+	<meta itemprop="wordCount" content="883">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Outbounds">
+	<meta name="twitter:description" content="Outbounds tell keen-pbr where matching traffic should go.
 Every outbound tag must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users only need:
 one interface outbound for the VPN connection one interface outbound for the normal connection, often wan optionally one urltest outbound if they want automatic failover between several connections If you are not sure, start with interface outbounds and come back to the others later.
@@ -1075,46 +1075,46 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
     <a href="#types" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
     <a href="#interface" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you want to send traffic through a specific connection such as a VPN tunnel or your normal internet uplink.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td><code>&quot;interface&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>interface</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Egress network interface name (e.g. <code>tun0</code>)</td>
-      </tr>
-      <tr>
-          <td><code>gateway</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Optional IPv4 gateway address</td>
-      </tr>
-      <tr>
-          <td><code>gateway6</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Optional IPv6 gateway address</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td><code>&quot;interface&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>interface</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Egress network interface name (e.g. <code>tun0</code>)</td>
+			</tr>
+			<tr>
+					<td><code>gateway</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Optional IPv4 gateway address</td>
+			</tr>
+			<tr>
+					<td><code>gateway6</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Optional IPv6 gateway address</td>
+			</tr>
+	</tbody>
 </table>
 <p>If neither <code>gateway</code> nor <code>gateway6</code> is set, keen-pbr creates both IPv4 and IPv6 default routes for the interface outbound.</p>
 <p>If only one gateway is set, keen-pbr creates a routed default for that address family and an <code>unreachable</code> default for the other family so marked traffic cannot leak outside the outbound table.</p>
@@ -1162,34 +1162,34 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 </div>
 </div>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td><code>&quot;table&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>table</code></td>
-          <td>integer</td>
-          <td>yes</td>
-          <td>Existing routing table number</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td><code>&quot;table&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>table</code></td>
+					<td>integer</td>
+					<td>yes</td>
+					<td>Existing routing table number</td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1216,28 +1216,28 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
 <h2><code>blackhole</code><span class="hx:absolute hx:-mt-20" id="blackhole"></span>
     <a href="#blackhole" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Drops all matching traffic. Useful for blocking access to specific resources.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td><code>&quot;blackhole&quot;</code></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td><code>&quot;blackhole&quot;</code></td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1264,28 +1264,28 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
     <a href="#ignore" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Passes traffic through without any routing modification. Use this to explicitly exclude traffic from other rules.</p>
 <p>When a route rule resolves to an <code>ignore</code> outbound, keen-pbr installs a matching firewall pass-through verdict for that traffic. This stops further keen-pbr rule processing without setting a mark or dropping the packet. No routing table or <code>ip rule</code> is created for that match, so the packet follows the system&rsquo;s normal routing. Since route rules are evaluated top to bottom and the first match wins, <code>ignore</code> is most useful for exception rules placed before broader catch-all rules.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td><code>&quot;ignore&quot;</code></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td><code>&quot;ignore&quot;</code></td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1312,152 +1312,152 @@ Common Example config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interf
     <a href="#urltest" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Use this when you have several candidate outbounds and want keen-pbr to automatically pick the best available one.</p>
 <p>keen-pbr always appends terminal IPv4 and IPv6 <code>unreachable</code> default routes to the generated <code>urltest</code> table. This acts as a kill-switch: if no selected or fallback child route is usable, marked traffic is blocked instead of leaking via normal routing.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td><code>&quot;urltest&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>url</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>URL used for availability and latency checks</td>
-      </tr>
-      <tr>
-          <td><code>interval_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>180000</code>)</td>
-          <td>Interval between probes in milliseconds</td>
-      </tr>
-      <tr>
-          <td><code>probe_timeout_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>5000</code>)</td>
-          <td>Timeout for each individual probe attempt in milliseconds</td>
-      </tr>
-      <tr>
-          <td><code>tolerance_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>100</code>)</td>
-          <td>Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance</td>
-      </tr>
-      <tr>
-          <td><code>outbound_groups</code></td>
-          <td>array</td>
-          <td>yes</td>
-          <td>Ordered list of outbound groups (see below)</td>
-      </tr>
-      <tr>
-          <td><code>retry</code></td>
-          <td>object</td>
-          <td>no</td>
-          <td>Retry configuration (see below)</td>
-      </tr>
-      <tr>
-          <td><code>circuit_breaker</code></td>
-          <td>object</td>
-          <td>no</td>
-          <td>Circuit breaker configuration (see below)</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td><code>&quot;urltest&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>url</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>URL used for availability and latency checks</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>180000</code>)</td>
+					<td>Interval between probes in milliseconds</td>
+			</tr>
+			<tr>
+					<td><code>probe_timeout_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>5000</code>)</td>
+					<td>Timeout for each individual probe attempt in milliseconds</td>
+			</tr>
+			<tr>
+					<td><code>tolerance_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>100</code>)</td>
+					<td>Latency tolerance in ms; prevent outbound switching if the latency difference between the current and new best outbound is less than this tolerance</td>
+			</tr>
+			<tr>
+					<td><code>outbound_groups</code></td>
+					<td>array</td>
+					<td>yes</td>
+					<td>Ordered list of outbound groups (see below)</td>
+			</tr>
+			<tr>
+					<td><code>retry</code></td>
+					<td>object</td>
+					<td>no</td>
+					<td>Retry configuration (see below)</td>
+			</tr>
+			<tr>
+					<td><code>circuit_breaker</code></td>
+					<td>object</td>
+					<td>no</td>
+					<td>Circuit breaker configuration (see below)</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Outbound Groups<span class="hx:absolute hx:-mt-20" id="outbound-groups"></span>
     <a href="#outbound-groups" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Groups are checked in order. Within the first healthy group, outbounds are selected by the lowest latency. If all outbounds in a group are unhealthy, the next group is evaluated. This lets you define more complex priority rules. For example, you can prefer one of two slower outbounds first, and if both are unavailable, fall back to another outbound that is faster but more expensive.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>outbounds</code></td>
-          <td>array of string</td>
-          <td>yes</td>
-          <td>Ordered list of outbound tags to try</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>outbounds</code></td>
+					<td>array of string</td>
+					<td>yes</td>
+					<td>Ordered list of outbound tags to try</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Retry Configuration<span class="hx:absolute hx:-mt-20" id="retry-configuration"></span>
     <a href="#retry-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>attempts</code></td>
-          <td>integer</td>
-          <td>no (default: <code>3</code>)</td>
-          <td>Number of probe attempts before marking outbound as failed</td>
-      </tr>
-      <tr>
-          <td><code>interval_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>1000</code>)</td>
-          <td>Delay between retry attempts in milliseconds</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>attempts</code></td>
+					<td>integer</td>
+					<td>no (default: <code>3</code>)</td>
+					<td>Number of probe attempts before marking outbound as failed</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>1000</code>)</td>
+					<td>Delay between retry attempts in milliseconds</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Circuit Breaker Configuration<span class="hx:absolute hx:-mt-20" id="circuit-breaker-configuration"></span>
     <a href="#circuit-breaker-configuration" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>failure_threshold</code></td>
-          <td>integer</td>
-          <td>no (default: <code>5</code>)</td>
-          <td>Consecutive failures before opening the circuit</td>
-      </tr>
-      <tr>
-          <td><code>success_threshold</code></td>
-          <td>integer</td>
-          <td>no (default: <code>2</code>)</td>
-          <td>Consecutive successes in half-open state to close the circuit</td>
-      </tr>
-      <tr>
-          <td><code>timeout_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>30000</code>)</td>
-          <td>Time before transitioning from open to half-open state</td>
-      </tr>
-      <tr>
-          <td><code>half_open_max_requests</code></td>
-          <td>integer</td>
-          <td>no (default: <code>1</code>)</td>
-          <td>Max probe requests allowed in half-open state</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>failure_threshold</code></td>
+					<td>integer</td>
+					<td>no (default: <code>5</code>)</td>
+					<td>Consecutive failures before opening the circuit</td>
+			</tr>
+			<tr>
+					<td><code>success_threshold</code></td>
+					<td>integer</td>
+					<td>no (default: <code>2</code>)</td>
+					<td>Consecutive successes in half-open state to close the circuit</td>
+			</tr>
+			<tr>
+					<td><code>timeout_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>30000</code>)</td>
+					<td>Time before transitioning from open to half-open state</td>
+			</tr>
+			<tr>
+					<td><code>half_open_max_requests</code></td>
+					<td>integer</td>
+					<td>no (default: <code>1</code>)</td>
+					<td>Max probe requests allowed in half-open state</td>
+			</tr>
+	</tbody>
 </table>
 <p><strong>Circuit breaker states:</strong></p>
 <ul>

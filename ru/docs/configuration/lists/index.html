@@ -41,46 +41,46 @@ config.json{
 
 Поля
     
-  
-      
-          Поле
-          Тип
-          Обязательно
-          Описание
-      
-  
-  
-      
-          url
-          string
-          нет
-          URL удалённого файла списка для загрузки и кэширования
-      
-      
-          domains
-          array of string
-          нет
-          Встроенные доменные паттерны (поддерживает префиксные wildcards *.)
-      
-      
-          ip_cidrs
-          array of string
-          нет
-          Встроенные IP-адреса или диапазоны CIDR
-      
-      
-          file
-          string
-          нет
-          Путь к локальному файлу списка
-      
-      
-          ttl_ms
-          integer
-          нет (по умолчанию: 0)
-          Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0.
-      
-  
+	
+			
+					Поле
+					Тип
+					Обязательно
+					Описание
+			
+	
+	
+			
+					url
+					string
+					нет
+					URL удалённого файла списка для загрузки и кэширования
+			
+			
+					domains
+					array of string
+					нет
+					Встроенные доменные паттерны (поддерживает префиксные wildcards *.)
+			
+			
+					ip_cidrs
+					array of string
+					нет
+					Встроенные IP-адреса или диапазоны CIDR
+			
+			
+					file
+					string
+					нет
+					Путь к локальному файлу списка
+			
+			
+					ttl_ms
+					integer
+					нет (по умолчанию: 0)
+					Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0.
+			
+	
 
 Должен быть предоставлен хотя бы один из url, domains, ip_cidrs или file.
     
@@ -95,16 +95,16 @@ config.json{
 
 
 
-  <meta itemprop="name" content="Списки">
-  <meta itemprop="description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+	<meta itemprop="name" content="Списки">
+	<meta itemprop="description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
 Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
 Большинство пользователей начинают с простого списка доменов:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Поля Поле Тип Обязательно Описание url string нет URL удалённого файла списка для загрузки и кэширования domains array of string нет Встроенные доменные паттерны (поддерживает префиксные wildcards *.) ip_cidrs array of string нет Встроенные IP-адреса или диапазоны CIDR file string нет Путь к локальному файлу списка ttl_ms integer нет (по умолчанию: 0) Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение 0. Должен быть предоставлен хотя бы один из url, domains, ip_cidrs или file.">
-  <meta itemprop="wordCount" content="435">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Списки">
-  <meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
+	<meta itemprop="wordCount" content="435">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Списки">
+	<meta name="twitter:description" content="Списки — это группы сайтов или диапазонов IP, которые вы хотите, чтобы keen-pbr сопоставлял.
 Ключ lists — это объект, где каждый ключ — это имя списка, а значение — конфигурация списка.
 Имена списков должны соответствовать ^[a-z][a-z0-9_]*$ и быть не более 24 символов.
 Большинство пользователей начинают с простого списка доменов:
@@ -1046,46 +1046,46 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 </div>
 <h2>Поля<span class="hx:absolute hx:-mt-20" id="поля"></span>
     <a href="#%d0%bf%d0%be%d0%bb%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>url</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>URL удалённого файла списка для загрузки и кэширования</td>
-      </tr>
-      <tr>
-          <td><code>domains</code></td>
-          <td>array of string</td>
-          <td>нет</td>
-          <td>Встроенные доменные паттерны (поддерживает префиксные wildcards <code>*.</code>)</td>
-      </tr>
-      <tr>
-          <td><code>ip_cidrs</code></td>
-          <td>array of string</td>
-          <td>нет</td>
-          <td>Встроенные IP-адреса или диапазоны CIDR</td>
-      </tr>
-      <tr>
-          <td><code>file</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Путь к локальному файлу списка</td>
-      </tr>
-      <tr>
-          <td><code>ttl_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>0</code>)</td>
-          <td>Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение <code>0</code>.</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>url</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>URL удалённого файла списка для загрузки и кэширования</td>
+			</tr>
+			<tr>
+					<td><code>domains</code></td>
+					<td>array of string</td>
+					<td>нет</td>
+					<td>Встроенные доменные паттерны (поддерживает префиксные wildcards <code>*.</code>)</td>
+			</tr>
+			<tr>
+					<td><code>ip_cidrs</code></td>
+					<td>array of string</td>
+					<td>нет</td>
+					<td>Встроенные IP-адреса или диапазоны CIDR</td>
+			</tr>
+			<tr>
+					<td><code>file</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Путь к локальному файлу списка</td>
+			</tr>
+			<tr>
+					<td><code>ttl_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>0</code>)</td>
+					<td>Как долго разрешённые IP должны храниться в кэше для списков на основе доменов. Большинство пользователей могут оставить это значение <code>0</code>.</td>
+			</tr>
+	</tbody>
 </table>
 <p>Должен быть предоставлен хотя бы один из <code>url</code>, <code>domains</code>, <code>ip_cidrs</code> или <code>file</code>.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">

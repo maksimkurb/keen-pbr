@@ -51,14 +51,14 @@ config.json{
 
 
 
-  <meta itemprop="name" content="Правила маршрутизации">
-  <meta itemprop="description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
+	<meta itemprop="name" content="Правила маршрутизации">
+	<meta itemprop="description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
 Большинству пользователей нужно только одно простое правило для каждого списка, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, остаётся немаркированным и следует обычной системной маршрутизации.">
-  <meta itemprop="wordCount" content="624">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Правила маршрутизации">
-  <meta name="twitter:description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
+	<meta itemprop="wordCount" content="624">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Правила маршрутизации">
+	<meta name="twitter:description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
 Большинству пользователей нужно только одно простое правило для каждого списка, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, остаётся немаркированным и следует обычной системной маршрутизации.">
 
@@ -1047,89 +1047,89 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>inbound_interfaces</code></td>
-          <td>array of string</td>
-          <td>нет</td>
-          <td>Опциональный фильтр входящих интерфейсов. Если отсутствует или пустой, все интерфейсы доступны. Если непустой, только пакеты, входящие через перечисленные интерфейсы, обрабатываются KeenPbrTable.</td>
-      </tr>
-      <tr>
-          <td><code>rules</code></td>
-          <td>array</td>
-          <td>да</td>
-          <td>Упорядоченный список правил маршрутизации</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>inbound_interfaces</code></td>
+					<td>array of string</td>
+					<td>нет</td>
+					<td>Опциональный фильтр входящих интерфейсов. Если отсутствует или пустой, все интерфейсы доступны. Если непустой, только пакеты, входящие через перечисленные интерфейсы, обрабатываются KeenPbrTable.</td>
+			</tr>
+			<tr>
+					<td><code>rules</code></td>
+					<td>array</td>
+					<td>да</td>
+					<td>Упорядоченный список правил маршрутизации</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Поля правила маршрутизации<span class="hx:absolute hx:-mt-20" id="поля-правила-маршрутизации"></span>
     <a href="#%d0%bf%d0%be%d0%bb%d1%8f-%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d0%bb%d0%b0-%d0%bc%d0%b0%d1%80%d1%88%d1%80%d1%83%d1%82%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>enabled</code></td>
-          <td>boolean</td>
-          <td>нет</td>
-          <td>Активно ли это правило. <code>false</code> отключает его. <code>true</code>, отсутствует или <code>null</code> все означают включено.</td>
-      </tr>
-      <tr>
-          <td><code>list</code></td>
-          <td>array of string</td>
-          <td>да</td>
-          <td>Имена списков, трафик которых сопоставляется этим правилом</td>
-      </tr>
-      <tr>
-          <td><code>outbound</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Тег outbound для маршрутизации сопоставленного трафика</td>
-      </tr>
-      <tr>
-          <td><code>proto</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Протокол: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>src_port</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Сопоставлять только конкретные исходные порты</td>
-      </tr>
-      <tr>
-          <td><code>dest_port</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Сопоставлять только конкретные порты назначения</td>
-      </tr>
-      <tr>
-          <td><code>src_addr</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Сопоставлять только конкретные исходные адреса</td>
-      </tr>
-      <tr>
-          <td><code>dest_addr</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Сопоставлять только конкретные адреса назначения</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>boolean</td>
+					<td>нет</td>
+					<td>Активно ли это правило. <code>false</code> отключает его. <code>true</code>, отсутствует или <code>null</code> все означают включено.</td>
+			</tr>
+			<tr>
+					<td><code>list</code></td>
+					<td>array of string</td>
+					<td>да</td>
+					<td>Имена списков, трафик которых сопоставляется этим правилом</td>
+			</tr>
+			<tr>
+					<td><code>outbound</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Тег outbound для маршрутизации сопоставленного трафика</td>
+			</tr>
+			<tr>
+					<td><code>proto</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Протокол: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>src_port</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Сопоставлять только конкретные исходные порты</td>
+			</tr>
+			<tr>
+					<td><code>dest_port</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Сопоставлять только конкретные порты назначения</td>
+			</tr>
+			<tr>
+					<td><code>src_addr</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Сопоставлять только конкретные исходные адреса</td>
+			</tr>
+			<tr>
+					<td><code>dest_addr</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Сопоставлять только конкретные адреса назначения</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Примеры<span class="hx:absolute hx:-mt-20" id="примеры"></span>
     <a href="#%d0%bf%d1%80%d0%b8%d0%bc%d0%b5%d1%80%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h3>Базовый — маршрутизация списка через VPN<span class="hx:absolute hx:-mt-20" id="базовый--маршрутизация-списка-через-vpn"></span>
@@ -1430,60 +1430,60 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   <div class="hx:p-2 hx:overflow-hidden">
     <p><code>src_addr</code>, <code>dest_addr</code>, <code>src_port</code> и <code>dest_port</code> все используют одинаковый строковый синтаксис:</p>
 <table>
-  <thead>
-      <tr>
-          <th>Формат</th>
-          <th>Пример</th>
-          <th>Сопоставление</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Одиночное значение</td>
-          <td><code>&quot;192.168.1.0/24&quot;</code></td>
-          <td>эта подсеть</td>
-      </tr>
-      <tr>
-          <td>Список</td>
-          <td><code>&quot;192.168.1.0/24,8.8.8.8&quot;</code></td>
-          <td>либо подсеть/IP</td>
-      </tr>
-      <tr>
-          <td>Отрицание</td>
-          <td><code>&quot;!192.168.1.0/24&quot;</code></td>
-          <td>любой источник, кроме этой подсети</td>
-      </tr>
-      <tr>
-          <td>Список с отрицанием</td>
-          <td><code>&quot;!192.168.1.0/24,8.8.8.8&quot;</code></td>
-          <td>любой источник, кроме любой подсети</td>
-      </tr>
-      <tr>
-          <td>Одиночный порт</td>
-          <td><code>&quot;443&quot;</code></td>
-          <td>порт 443</td>
-      </tr>
-      <tr>
-          <td>Список портов</td>
-          <td><code>&quot;80,443&quot;</code></td>
-          <td>порт 80 или 443</td>
-      </tr>
-      <tr>
-          <td>Диапазон портов</td>
-          <td><code>&quot;8000-9000&quot;</code></td>
-          <td>порты 8000-9000</td>
-      </tr>
-      <tr>
-          <td>Отрицание порта</td>
-          <td><code>&quot;!443&quot;</code></td>
-          <td>все порты, кроме 443</td>
-      </tr>
-      <tr>
-          <td>Список портов с отрицанием</td>
-          <td><code>&quot;!80,443&quot;</code></td>
-          <td>все порты, кроме 80 и 443</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Формат</th>
+					<th>Пример</th>
+					<th>Сопоставление</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Одиночное значение</td>
+					<td><code>&quot;192.168.1.0/24&quot;</code></td>
+					<td>эта подсеть</td>
+			</tr>
+			<tr>
+					<td>Список</td>
+					<td><code>&quot;192.168.1.0/24,8.8.8.8&quot;</code></td>
+					<td>либо подсеть/IP</td>
+			</tr>
+			<tr>
+					<td>Отрицание</td>
+					<td><code>&quot;!192.168.1.0/24&quot;</code></td>
+					<td>любой источник, кроме этой подсети</td>
+			</tr>
+			<tr>
+					<td>Список с отрицанием</td>
+					<td><code>&quot;!192.168.1.0/24,8.8.8.8&quot;</code></td>
+					<td>любой источник, кроме любой подсети</td>
+			</tr>
+			<tr>
+					<td>Одиночный порт</td>
+					<td><code>&quot;443&quot;</code></td>
+					<td>порт 443</td>
+			</tr>
+			<tr>
+					<td>Список портов</td>
+					<td><code>&quot;80,443&quot;</code></td>
+					<td>порт 80 или 443</td>
+			</tr>
+			<tr>
+					<td>Диапазон портов</td>
+					<td><code>&quot;8000-9000&quot;</code></td>
+					<td>порты 8000-9000</td>
+			</tr>
+			<tr>
+					<td>Отрицание порта</td>
+					<td><code>&quot;!443&quot;</code></td>
+					<td>все порты, кроме 443</td>
+			</tr>
+			<tr>
+					<td>Список портов с отрицанием</td>
+					<td><code>&quot;!80,443&quot;</code></td>
+					<td>все порты, кроме 80 и 443</td>
+			</tr>
+	</tbody>
 </table>
 <p>Одиночный <code>!</code> в начале отрицает всё значение. Отрицание применяется ко всем записям через запятую.</p>
   </div>

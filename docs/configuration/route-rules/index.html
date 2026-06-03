@@ -51,14 +51,14 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 
 
 
-  <meta itemprop="name" content="Route Rules">
-  <meta itemprop="description" content="Route rules connect your lists to your outbounds.
+	<meta itemprop="name" content="Route Rules">
+	<meta itemprop="description" content="Route rules connect your lists to your outbounds.
 Most users only need one simple rule for each list, for example:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule is left unmarked and follows normal system routing.">
-  <meta itemprop="wordCount" content="656">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Route Rules">
-  <meta name="twitter:description" content="Route rules connect your lists to your outbounds.
+	<meta itemprop="wordCount" content="656">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Route Rules">
+	<meta name="twitter:description" content="Route rules connect your lists to your outbounds.
 Most users only need one simple rule for each list, for example:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule is left unmarked and follows normal system routing.">
 
@@ -1047,89 +1047,89 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 </div>
 </div>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>inbound_interfaces</code></td>
-          <td>array of string</td>
-          <td>no</td>
-          <td>Optional ingress-interface filter. If omitted or empty, all interfaces are eligible. If non-empty, only packets entering via listed interfaces are processed by KeenPbrTable.</td>
-      </tr>
-      <tr>
-          <td><code>rules</code></td>
-          <td>array</td>
-          <td>yes</td>
-          <td>Ordered list of route rules</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>inbound_interfaces</code></td>
+					<td>array of string</td>
+					<td>no</td>
+					<td>Optional ingress-interface filter. If omitted or empty, all interfaces are eligible. If non-empty, only packets entering via listed interfaces are processed by KeenPbrTable.</td>
+			</tr>
+			<tr>
+					<td><code>rules</code></td>
+					<td>array</td>
+					<td>yes</td>
+					<td>Ordered list of route rules</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Route Rule Fields<span class="hx:absolute hx:-mt-20" id="route-rule-fields"></span>
     <a href="#route-rule-fields" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>enabled</code></td>
-          <td>boolean</td>
-          <td>no</td>
-          <td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
-      </tr>
-      <tr>
-          <td><code>list</code></td>
-          <td>array of string</td>
-          <td>yes</td>
-          <td>List names whose traffic this rule matches</td>
-      </tr>
-      <tr>
-          <td><code>outbound</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Outbound tag to route matched traffic through</td>
-      </tr>
-      <tr>
-          <td><code>proto</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Protocol: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>src_port</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Match only specific source ports</td>
-      </tr>
-      <tr>
-          <td><code>dest_port</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Match only specific destination ports</td>
-      </tr>
-      <tr>
-          <td><code>src_addr</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Match only specific source addresses</td>
-      </tr>
-      <tr>
-          <td><code>dest_addr</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Match only specific destination addresses</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>boolean</td>
+					<td>no</td>
+					<td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
+			</tr>
+			<tr>
+					<td><code>list</code></td>
+					<td>array of string</td>
+					<td>yes</td>
+					<td>List names whose traffic this rule matches</td>
+			</tr>
+			<tr>
+					<td><code>outbound</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Outbound tag to route matched traffic through</td>
+			</tr>
+			<tr>
+					<td><code>proto</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Protocol: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>src_port</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Match only specific source ports</td>
+			</tr>
+			<tr>
+					<td><code>dest_port</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Match only specific destination ports</td>
+			</tr>
+			<tr>
+					<td><code>src_addr</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Match only specific source addresses</td>
+			</tr>
+			<tr>
+					<td><code>dest_addr</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Match only specific destination addresses</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Examples<span class="hx:absolute hx:-mt-20" id="examples"></span>
     <a href="#examples" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>Basic — route a list through VPN<span class="hx:absolute hx:-mt-20" id="basic--route-a-list-through-vpn"></span>
@@ -1430,60 +1430,60 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   <div class="hx:p-2 hx:overflow-hidden">
     <p><code>src_addr</code>, <code>dest_addr</code>, <code>src_port</code>, and <code>dest_port</code> all use the same string syntax:</p>
 <table>
-  <thead>
-      <tr>
-          <th>Format</th>
-          <th>Example</th>
-          <th>Matches</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Single value</td>
-          <td><code>&quot;192.168.1.0/24&quot;</code></td>
-          <td>this subnet</td>
-      </tr>
-      <tr>
-          <td>List</td>
-          <td><code>&quot;192.168.1.0/24,8.8.8.8&quot;</code></td>
-          <td>either subnet/ip</td>
-      </tr>
-      <tr>
-          <td>Negation</td>
-          <td><code>&quot;!192.168.1.0/24&quot;</code></td>
-          <td>any source except this subnet</td>
-      </tr>
-      <tr>
-          <td>Negated list</td>
-          <td><code>&quot;!192.168.1.0/24,8.8.8.8&quot;</code></td>
-          <td>any source except either subnet</td>
-      </tr>
-      <tr>
-          <td>Single port</td>
-          <td><code>&quot;443&quot;</code></td>
-          <td>port 443</td>
-      </tr>
-      <tr>
-          <td>Port list</td>
-          <td><code>&quot;80,443&quot;</code></td>
-          <td>port 80 or 443</td>
-      </tr>
-      <tr>
-          <td>Port range</td>
-          <td><code>&quot;8000-9000&quot;</code></td>
-          <td>ports 8000 through 9000</td>
-      </tr>
-      <tr>
-          <td>Negated port</td>
-          <td><code>&quot;!443&quot;</code></td>
-          <td>all ports except 443</td>
-      </tr>
-      <tr>
-          <td>Negated port list</td>
-          <td><code>&quot;!80,443&quot;</code></td>
-          <td>all ports except 80 and 443</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Format</th>
+					<th>Example</th>
+					<th>Matches</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Single value</td>
+					<td><code>&quot;192.168.1.0/24&quot;</code></td>
+					<td>this subnet</td>
+			</tr>
+			<tr>
+					<td>List</td>
+					<td><code>&quot;192.168.1.0/24,8.8.8.8&quot;</code></td>
+					<td>either subnet/ip</td>
+			</tr>
+			<tr>
+					<td>Negation</td>
+					<td><code>&quot;!192.168.1.0/24&quot;</code></td>
+					<td>any source except this subnet</td>
+			</tr>
+			<tr>
+					<td>Negated list</td>
+					<td><code>&quot;!192.168.1.0/24,8.8.8.8&quot;</code></td>
+					<td>any source except either subnet</td>
+			</tr>
+			<tr>
+					<td>Single port</td>
+					<td><code>&quot;443&quot;</code></td>
+					<td>port 443</td>
+			</tr>
+			<tr>
+					<td>Port list</td>
+					<td><code>&quot;80,443&quot;</code></td>
+					<td>port 80 or 443</td>
+			</tr>
+			<tr>
+					<td>Port range</td>
+					<td><code>&quot;8000-9000&quot;</code></td>
+					<td>ports 8000 through 9000</td>
+			</tr>
+			<tr>
+					<td>Negated port</td>
+					<td><code>&quot;!443&quot;</code></td>
+					<td>all ports except 443</td>
+			</tr>
+			<tr>
+					<td>Negated port list</td>
+					<td><code>&quot;!80,443&quot;</code></td>
+					<td>all ports except 80 and 443</td>
+			</tr>
+	</tbody>
 </table>
 <p>A single <code>!</code> at the start negates the entire value. Negation applies to all comma-separated entries.</p>
   </div>

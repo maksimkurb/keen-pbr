@@ -15,11 +15,6 @@ The repository page automatically shows the correct flow for your target:
 
 Install `dnsmasq-full` before installing keen-pbr:
 
-{{< callout type="info" >}}
-OpenWrt 25.x and newer also need `dnsmasq-full` instead of the default `dnsmasq`.
-I do not have an `apk`-based router to test the exact replacement steps yet. If you know the correct procedure, please send a PR to improve these docs.
-{{< /callout >}}
-
 ```bash {filename="bash"}
 # OpenWrt 25.x and newer
 apk --update-cache add dnsmasq-full

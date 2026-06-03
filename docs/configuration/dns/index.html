@@ -46,40 +46,40 @@ config.json{
 
 
 
-  
-      
-          Field
-          Type
-          Description
-      
-  
-  
-      
-          system_resolver
-          object
-          How keen-pbr refreshes dnsmasq on the system
-      
-      
-          servers
-          array
-          DNS server definitions
-      
-      
-          rules
-          array
-          Rules mapping lists to DNS servers
-      
-      
-          fallback
-          array of string
-          Ordered DNS server tags for queries that match no rule
-      
-      
-          dns_test_server
-          object
-          Optional built-in DNS probe listener for advanced troubleshooting
-      
-  
+	
+			
+					Field
+					Type
+					Description
+			
+	
+	
+			
+					system_resolver
+					object
+					How keen-pbr refreshes dnsmasq on the system
+			
+			
+					servers
+					array
+					DNS server definitions
+			
+			
+					rules
+					array
+					Rules mapping lists to DNS servers
+			
+			
+					fallback
+					array of string
+					Ordered DNS server tags for queries that match no rule
+			
+			
+					dns_test_server
+					object
+					Optional built-in DNS probe listener for advanced troubleshooting
+			
+	
 
 System Resolver
     dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.
@@ -95,14 +95,14 @@ System Resolver
 
 
 
-  <meta itemprop="name" content="DNS">
-  <meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+	<meta itemprop="name" content="DNS">
+	<meta itemprop="description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 system_resolver (keep the defaults) servers rules fallback Configuration config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.">
-  <meta itemprop="wordCount" content="813">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="DNS">
-  <meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
+	<meta itemprop="wordCount" content="813">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="DNS">
+	<meta name="twitter:description" content="Use DNS settings when you want domains in a list to be resolved through a specific DNS server, usually the same VPN that will carry the matching traffic.
 On package-based router installs, keen-pbr normally takes care of dnsmasq integration for you. Most users only need to define:
 system_resolver (keep the defaults) servers rules fallback Configuration config.json{ &#34;dns&#34;: { &#34;system_resolver&#34;: { &#34;address&#34;: &#34;127.0.0.1&#34; }, &#34;servers&#34;: [...], &#34;rules&#34;: [...], &#34;fallback&#34;: [&#34;google_dns&#34;, &#34;quad9&#34;] } } Field Type Description system_resolver object How keen-pbr refreshes dnsmasq on the system servers array DNS server definitions rules array Rules mapping lists to DNS servers fallback array of string Ordered DNS server tags for queries that match no rule dns_test_server object Optional built-in DNS probe listener for advanced troubleshooting System Resolver dns.system_resolver tells keen-pbr how to check dnsmasq state after configuration changes.">
 
@@ -1081,87 +1081,87 @@ system_resolver (keep the defaults) servers rules fallback Configuration config.
 </div>
 </div>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>system_resolver</code></td>
-          <td>object</td>
-          <td>How keen-pbr refreshes dnsmasq on the system</td>
-      </tr>
-      <tr>
-          <td><code>servers</code></td>
-          <td>array</td>
-          <td>DNS server definitions</td>
-      </tr>
-      <tr>
-          <td><code>rules</code></td>
-          <td>array</td>
-          <td>Rules mapping lists to DNS servers</td>
-      </tr>
-      <tr>
-          <td><code>fallback</code></td>
-          <td>array of string</td>
-          <td>Ordered DNS server tags for queries that match no rule</td>
-      </tr>
-      <tr>
-          <td><code>dns_test_server</code></td>
-          <td>object</td>
-          <td>Optional built-in DNS probe listener for advanced troubleshooting</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>system_resolver</code></td>
+					<td>object</td>
+					<td>How keen-pbr refreshes dnsmasq on the system</td>
+			</tr>
+			<tr>
+					<td><code>servers</code></td>
+					<td>array</td>
+					<td>DNS server definitions</td>
+			</tr>
+			<tr>
+					<td><code>rules</code></td>
+					<td>array</td>
+					<td>Rules mapping lists to DNS servers</td>
+			</tr>
+			<tr>
+					<td><code>fallback</code></td>
+					<td>array of string</td>
+					<td>Ordered DNS server tags for queries that match no rule</td>
+			</tr>
+			<tr>
+					<td><code>dns_test_server</code></td>
+					<td>object</td>
+					<td>Optional built-in DNS probe listener for advanced troubleshooting</td>
+			</tr>
+	</tbody>
 </table>
 <h2>System Resolver<span class="hx:absolute hx:-mt-20" id="system-resolver"></span>
     <a href="#system-resolver" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.system_resolver</code> tells keen-pbr how to check dnsmasq state after configuration changes.</p>
 <p>On normal router package installs, you usually should not change these settings.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>address</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Resolver address used for integration and TXT health checks, for example <code>&quot;127.0.0.1&quot;</code> or <code>&quot;127.0.0.1:5353&quot;</code></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>address</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Resolver address used for integration and TXT health checks, for example <code>&quot;127.0.0.1&quot;</code> or <code>&quot;127.0.0.1:5353&quot;</code></td>
+			</tr>
+	</tbody>
 </table>
 <h2>DNS Test Server<span class="hx:absolute hx:-mt-20" id="dns-test-server"></span>
     <a href="#dns-test-server" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><code>dns.dns_test_server</code> is optional. It is mainly useful when you are troubleshooting DNS and want keen-pbr to expose a simple test DNS listener.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>listen</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>IPv4 listen address in <code>host:port</code> form, for example <code>&quot;127.0.0.88:53&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>answer_ipv4</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>IPv4 address returned in the DNS probe answer (<code>nslookup check.keen.pbr</code>). Defaults to the host part of <code>listen</code>.</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>listen</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>IPv4 listen address in <code>host:port</code> form, for example <code>&quot;127.0.0.88:53&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>answer_ipv4</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>IPv4 address returned in the DNS probe answer (<code>nslookup check.keen.pbr</code>). Defaults to the host part of <code>listen</code>.</td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1188,40 +1188,40 @@ system_resolver (keep the defaults) servers rules fallback Configuration config.
     <a href="#dns-servers" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Each server has a tag, optional <code>type</code>, optional <code>address</code>, and optional <code>detour</code>.
 DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be at most 24 characters, and must be unique.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>Unique identifier for this DNS server</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>DNS source type: <code>static</code> (default) or <code>keenetic</code></td>
-      </tr>
-      <tr>
-          <td><code>address</code></td>
-          <td>string</td>
-          <td>for <code>static</code></td>
-          <td>IP address of the DNS server, with optional port, for example <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code>, or <code>&quot;[2001:4860:4860::8888]:5353&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>detour</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Outbound to use when contacting this DNS server</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>Unique identifier for this DNS server</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>DNS source type: <code>static</code> (default) or <code>keenetic</code></td>
+			</tr>
+			<tr>
+					<td><code>address</code></td>
+					<td>string</td>
+					<td>for <code>static</code></td>
+					<td>IP address of the DNS server, with optional port, for example <code>&quot;10.8.0.1&quot;</code>, <code>&quot;10.8.0.1:5353&quot;</code>, <code>&quot;2001:4860:4860::8888&quot;</code>, or <code>&quot;[2001:4860:4860::8888]:5353&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>detour</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Outbound to use when contacting this DNS server</td>
+			</tr>
+	</tbody>
 </table>
 <p>The <code>detour</code> field is useful when a DNS server must be reached through a specific connection, usually the same VPN that will carry the matching traffic.</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
@@ -1278,34 +1278,34 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
 <h2>DNS Rules<span class="hx:absolute hx:-mt-20" id="dns-rules"></span>
     <a href="#dns-rules" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Rules map list names to a DNS server tag. Domains from the specified lists are resolved using the specified server.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>enabled</code></td>
-          <td>boolean</td>
-          <td>no</td>
-          <td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
-      </tr>
-      <tr>
-          <td><code>list</code></td>
-          <td>array of string</td>
-          <td>yes</td>
-          <td>List names whose domains should be resolved by this server</td>
-      </tr>
-      <tr>
-          <td><code>server</code></td>
-          <td>string</td>
-          <td>yes</td>
-          <td>DNS server tag to use for matched domains</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>enabled</code></td>
+					<td>boolean</td>
+					<td>no</td>
+					<td>Whether this rule is active. <code>false</code> disables it. <code>true</code>, omitted, or <code>null</code> all mean enabled.</td>
+			</tr>
+			<tr>
+					<td><code>list</code></td>
+					<td>array of string</td>
+					<td>yes</td>
+					<td>List names whose domains should be resolved by this server</td>
+			</tr>
+			<tr>
+					<td><code>server</code></td>
+					<td>string</td>
+					<td>yes</td>
+					<td>DNS server tag to use for matched domains</td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1342,25 +1342,25 @@ DNS server <code>tag</code> values must match <code>^[a-z][a-z0-9_]*$</code>, be
     <p>keen-pbr provides the <code>generate-resolver-config</code> subcommand that prints dnsmasq configuration to stdout.</p>
 <p>Two resolver types are supported:</p>
 <table>
-  <thead>
-      <tr>
-          <th>Resolver type</th>
-          <th>Directive style</th>
-          <th>Use with</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>dnsmasq-ipset</code></td>
-          <td><code>ipset=</code></td>
-          <td>iptables/ipset backend</td>
-      </tr>
-      <tr>
-          <td><code>dnsmasq-nftset</code></td>
-          <td><code>nftset=</code></td>
-          <td>nftables backend</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Resolver type</th>
+					<th>Directive style</th>
+					<th>Use with</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>dnsmasq-ipset</code></td>
+					<td><code>ipset=</code></td>
+					<td>iptables/ipset backend</td>
+			</tr>
+			<tr>
+					<td><code>dnsmasq-nftset</code></td>
+					<td><code>nftset=</code></td>
+					<td>nftables backend</td>
+			</tr>
+	</tbody>
 </table>
 <p>Example dnsmasq integration:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">

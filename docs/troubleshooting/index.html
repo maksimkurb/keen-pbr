@@ -43,13 +43,13 @@ System Log
 
 
 
-  <meta itemprop="name" content="Troubleshooting">
-  <meta itemprop="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+	<meta itemprop="name" content="Troubleshooting">
+	<meta itemprop="description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
 Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
-  <meta itemprop="wordCount" content="2115">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Troubleshooting">
-  <meta name="twitter:description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
+	<meta itemprop="wordCount" content="2115">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Troubleshooting">
+	<meta name="twitter:description" content="Start with logs and service status, then move to DNS, firewall, routing tables, and interfaces. In keen-pbr 3.x the daemon actively writes failure reasons to the system log, so logs are usually faster than guessing from symptoms.
 Quick Diagnostic Order Check the system log for keen-pbr and dnsmasq errors. Check that the keen-pbr and dnsmasq services are running. If keen-pbr crashes during startup, run it manually in foreground mode to see more logs: keen-pbr --log-level verbose service. Check DNS: the user device must use the router DNS, and dnsmasq must answer locally. Check the firewall: keen-pbr rules must be present in KeenPbrTable. Check policy routing: the fwmark must point to the expected routing table. Check interfaces and VPN tunnels. If the problem remains, check remote lists, urltest, rule filters, and low-level routing conflicts. System Log This is the first place to look. Search for keen-pbr, dnsmasq, and the [E] / [W] levels: keen-pbr uses those prefixes for errors and warnings. If libraries for iptables / nftables are missing, an interface is not found, the API port is busy, or JSON is broken, the reason is usually written here.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />

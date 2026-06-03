@@ -37,15 +37,15 @@ Core Entities
 
 
 
-  <meta itemprop="name" content="Concepts">
-  <meta itemprop="description" content="You do not need this page to finish a normal setup.
+	<meta itemprop="name" content="Concepts">
+	<meta itemprop="description" content="You do not need this page to finish a normal setup.
 The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
 This page explains what happens under the hood for readers who want the deeper technical model.
 Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
-  <meta itemprop="wordCount" content="806">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Concepts">
-  <meta name="twitter:description" content="You do not need this page to finish a normal setup.
+	<meta itemprop="wordCount" content="806">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Concepts">
+	<meta name="twitter:description" content="You do not need this page to finish a normal setup.
 The short version is simple: you create a list of sites, choose which connection should carry them, and keen-pbr keeps DNS and routing in sync so the right traffic uses the right path.
 This page explains what happens under the hood for readers who want the deeper technical model.
 Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources can be combined freely:">
@@ -995,34 +995,34 @@ Core Entities Lists Named collections of IPs, CIDRs, and domain names. Sources c
 <h3>Outbounds<span class="hx:absolute hx:-mt-20" id="outbounds"></span>
     <a href="#outbounds" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Named egress targets. Five types:</p>
 <table>
-  <thead>
-      <tr>
-          <th>Type</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>interface</code></td>
-          <td>Route via a specific network interface and optional IPv4/IPv6 gateways</td>
-      </tr>
-      <tr>
-          <td><code>table</code></td>
-          <td>Defer to an existing kernel routing table</td>
-      </tr>
-      <tr>
-          <td><code>blackhole</code></td>
-          <td>Drop matching traffic</td>
-      </tr>
-      <tr>
-          <td><code>ignore</code></td>
-          <td>Pass through without modification (uses default route)</td>
-      </tr>
-      <tr>
-          <td><code>urltest</code></td>
-          <td>Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Type</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>interface</code></td>
+					<td>Route via a specific network interface and optional IPv4/IPv6 gateways</td>
+			</tr>
+			<tr>
+					<td><code>table</code></td>
+					<td>Defer to an existing kernel routing table</td>
+			</tr>
+			<tr>
+					<td><code>blackhole</code></td>
+					<td>Drop matching traffic</td>
+			</tr>
+			<tr>
+					<td><code>ignore</code></td>
+					<td>Pass through without modification (uses default route)</td>
+			</tr>
+			<tr>
+					<td><code>urltest</code></td>
+					<td>Adaptive selection: probes candidate outbounds by latency, picks the fastest within a tolerance window; includes circuit breaker to prevent flapping</td>
+			</tr>
+	</tbody>
 </table>
 <p><code>interface</code> and <code>table</code> outbounds get fwmarks and policy-routing entries. <code>urltest</code> selects among child outbounds that do. <code>blackhole</code> becomes a firewall drop rule, and <code>ignore</code> becomes a firewall pass-through rule.</p>
 <p>When a rule points to <code>ignore</code>, keen-pbr installs a matching firewall verdict that stops further keen-pbr rule processing and leaves the packet unmarked. No routing table or <code>ip rule</code> is created for that match, so the packet continues through the system&rsquo;s normal routing path. Because route rules are first-match wins, <code>ignore</code> is mainly used to carve out exceptions before broader rules below it.</p>

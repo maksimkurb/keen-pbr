@@ -56,13 +56,13 @@ The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and 
 
 
 
-  <meta itemprop="name" content="keen-pbr CLI usage">
-  <meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
+	<meta itemprop="name" content="keen-pbr CLI usage">
+	<meta itemprop="description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
-  <meta itemprop="wordCount" content="449">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="keen-pbr CLI usage">
-  <meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
+	<meta itemprop="wordCount" content="449">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="keen-pbr CLI usage">
+	<meta name="twitter:description" content="keen-pbr can run the service, inspect live routing state, download list data, and print generated resolver configuration.
 Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; Path to JSON config file --log-level &lt;lvl&gt; Log level: error, warn, info, verbose, debug --no-api Disable REST API at runtime --version Show version and exit --help Show this help and exit Commands: service status download generate-resolver-config &lt;res&gt; resolver-config-hash test-routing &lt;ip-or-domain&gt; The config file is usually /etc/keen-pbr/config.json on OpenWrt and Debian, and /opt/etc/keen-pbr/config.json on Keenetic / NetCraze.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1010,93 +1010,93 @@ Usage Usage: keen-pbr [options] &lt;command&gt; Options: --config &lt;path&gt; P
 <p>The config file is usually <code>/etc/keen-pbr/config.json</code> on OpenWrt and Debian, and <code>/opt/etc/keen-pbr/config.json</code> on Keenetic / NetCraze.</p>
 <h2>Options<span class="hx:absolute hx:-mt-20" id="options"></span>
     <a href="#options" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Flag</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>--config &lt;path&gt;</code></td>
-          <td>Path to the JSON config file.</td>
-      </tr>
-      <tr>
-          <td><code>--log-level &lt;lvl&gt;</code></td>
-          <td>Log verbosity: <code>error</code>, <code>warn</code>, <code>info</code>, <code>verbose</code>, or <code>debug</code>.</td>
-      </tr>
-      <tr>
-          <td><code>--no-api</code></td>
-          <td>Disable the REST API even if enabled in config.</td>
-      </tr>
-      <tr>
-          <td><code>--version</code></td>
-          <td>Print version and exit.</td>
-      </tr>
-      <tr>
-          <td><code>--help</code></td>
-          <td>Print help and exit.</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Flag</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>--config &lt;path&gt;</code></td>
+					<td>Path to the JSON config file.</td>
+			</tr>
+			<tr>
+					<td><code>--log-level &lt;lvl&gt;</code></td>
+					<td>Log verbosity: <code>error</code>, <code>warn</code>, <code>info</code>, <code>verbose</code>, or <code>debug</code>.</td>
+			</tr>
+			<tr>
+					<td><code>--no-api</code></td>
+					<td>Disable the REST API even if enabled in config.</td>
+			</tr>
+			<tr>
+					<td><code>--version</code></td>
+					<td>Print version and exit.</td>
+			</tr>
+			<tr>
+					<td><code>--help</code></td>
+					<td>Print help and exit.</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Commands<span class="hx:absolute hx:-mt-20" id="commands"></span>
     <a href="#commands" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Command</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>service</code></td>
-          <td>Start the routing service in the foreground.</td>
-      </tr>
-      <tr>
-          <td><code>status</code></td>
-          <td>Show routing, route table, rule, and firewall verification status, then exit.</td>
-      </tr>
-      <tr>
-          <td><code>download</code></td>
-          <td>Download all URL-backed lists into cache, then exit.</td>
-      </tr>
-      <tr>
-          <td><code>generate-resolver-config &lt;res&gt;</code></td>
-          <td>Print generated resolver config to stdout. Supported resolvers: <code>dnsmasq-ipset</code>, <code>dnsmasq-nftset</code>.</td>
-      </tr>
-      <tr>
-          <td><code>resolver-config-hash</code></td>
-          <td>Print the MD5 hash of the generated domain-to-ipset mapping, then exit.</td>
-      </tr>
-      <tr>
-          <td><code>test-routing &lt;ip-or-domain&gt;</code></td>
-          <td>Compare expected and actual routing for the given IP or domain.</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Command</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>service</code></td>
+					<td>Start the routing service in the foreground.</td>
+			</tr>
+			<tr>
+					<td><code>status</code></td>
+					<td>Show routing, route table, rule, and firewall verification status, then exit.</td>
+			</tr>
+			<tr>
+					<td><code>download</code></td>
+					<td>Download all URL-backed lists into cache, then exit.</td>
+			</tr>
+			<tr>
+					<td><code>generate-resolver-config &lt;res&gt;</code></td>
+					<td>Print generated resolver config to stdout. Supported resolvers: <code>dnsmasq-ipset</code>, <code>dnsmasq-nftset</code>.</td>
+			</tr>
+			<tr>
+					<td><code>resolver-config-hash</code></td>
+					<td>Print the MD5 hash of the generated domain-to-ipset mapping, then exit.</td>
+			</tr>
+			<tr>
+					<td><code>test-routing &lt;ip-or-domain&gt;</code></td>
+					<td>Compare expected and actual routing for the given IP or domain.</td>
+			</tr>
+	</tbody>
 </table>
 <h2>Signals<span class="hx:absolute hx:-mt-20" id="signals"></span>
     <a href="#signals" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>When <code>keen-pbr</code> is running as a managed service (daemon), you can also control it with Unix signals:</p>
 <table>
-  <thead>
-      <tr>
-          <th>Signal</th>
-          <th>Action</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>SIGUSR1</code></td>
-          <td>Re-verify routing tables and trigger immediate <code>urltest</code> latency checks</td>
-      </tr>
-      <tr>
-          <td><code>SIGHUP</code></td>
-          <td>Full reload: re-download lists if changed, re-apply firewall and routing rules</td>
-      </tr>
-      <tr>
-          <td><code>SIGTERM</code> / <code>SIGINT</code></td>
-          <td>Graceful shutdown</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Signal</th>
+					<th>Action</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>SIGUSR1</code></td>
+					<td>Re-verify routing tables and trigger immediate <code>urltest</code> latency checks</td>
+			</tr>
+			<tr>
+					<td><code>SIGHUP</code></td>
+					<td>Full reload: re-download lists if changed, re-apply firewall and routing rules</td>
+			</tr>
+			<tr>
+					<td><code>SIGTERM</code> / <code>SIGINT</code></td>
+					<td>Graceful shutdown</td>
+			</tr>
+	</tbody>
 </table>
 <p>Example full reload via signal:</p>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">

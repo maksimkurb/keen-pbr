@@ -69,16 +69,16 @@ config.json{
 
 
 
-  <meta itemprop="name" content="Outbounds">
-  <meta itemprop="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+	<meta itemprop="name" content="Outbounds">
+	<meta itemprop="description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
 Общий пример config.json{ &#34;outbounds&#34;: [ { &#34;type&#34;: &#34;interface&#34;, &#34;tag&#34;: &#34;vpn&#34;, &#34;interface&#34;: &#34;tun0&#34;, &#34;gateway&#34;: &#34;10.8.0.1&#34;, &#34;gateway6&#34;: &#34;2001:db8::1&#34; }, { &#34;type&#34;: &#34;table&#34;, &#34;tag&#34;: &#34;wan&#34;, &#34;table&#34;: 254 } ] } Типы interface Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.">
-  <meta itemprop="wordCount" content="840">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Outbounds">
-  <meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
+	<meta itemprop="wordCount" content="840">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Outbounds">
+	<meta name="twitter:description" content="Outbounds сообщают keen-pbr, куда отправить совпавший трафик.
 Каждый outbound tag должен соответствовать маске ^[a-z][a-z0-9_]*$ и быть не длиннее 24 символов.
 Большинству пользователей достаточно:
 одного outbound типа interface для VPN-соединения одного outbound типа table с id=254 для прямого соединения, как правило wan при необходимости — одного outbound типа urltest для автоматического выбора лучшего из нескольких соединений Если не знаете, с чего начать, возьмите тип interface и вернитесь к остальным позже.
@@ -1073,46 +1073,46 @@ config.json{
     <a href="#%d1%82%d0%b8%d0%bf%d1%8b" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><h2><code>interface</code><span class="hx:absolute hx:-mt-20" id="interface"></span>
     <a href="#interface" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте, когда хотите отправить трафик через конкретное соединение, например VPN-туннель или обычное интернет-соединение.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Уникальный идентификатор</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td><code>&quot;interface&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>interface</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Имя исходящего сетевого интерфейса (напр. <code>tun0</code>)</td>
-      </tr>
-      <tr>
-          <td><code>gateway</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Необязательный IPv4-адрес шлюза</td>
-      </tr>
-      <tr>
-          <td><code>gateway6</code></td>
-          <td>string</td>
-          <td>нет</td>
-          <td>Необязательный IPv6-адрес шлюза</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Уникальный идентификатор</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td><code>&quot;interface&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>interface</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Имя исходящего сетевого интерфейса (напр. <code>tun0</code>)</td>
+			</tr>
+			<tr>
+					<td><code>gateway</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Необязательный IPv4-адрес шлюза</td>
+			</tr>
+			<tr>
+					<td><code>gateway6</code></td>
+					<td>string</td>
+					<td>нет</td>
+					<td>Необязательный IPv6-адрес шлюза</td>
+			</tr>
+	</tbody>
 </table>
 <p>Если не заданы ни <code>gateway</code>, ни <code>gateway6</code>, keen-pbr создаёт и IPv4-, и IPv6-маршрут по умолчанию для этого interface outbound.</p>
 <p>Если задан только один шлюз, keen-pbr создаёт обычный маршрут по умолчанию для соответствующего семейства адресов и маршрут <code>unreachable</code> для второго семейства, чтобы помеченный трафик не мог утечь за пределы таблицы outbound.</p>
@@ -1160,34 +1160,34 @@ config.json{
 </div>
 </div>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Уникальный идентификатор</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td><code>&quot;table&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>table</code></td>
-          <td>integer</td>
-          <td>да</td>
-          <td>Номер существующей таблицы маршрутизации</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Уникальный идентификатор</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td><code>&quot;table&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>table</code></td>
+					<td>integer</td>
+					<td>да</td>
+					<td>Номер существующей таблицы маршрутизации</td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1214,28 +1214,28 @@ config.json{
 <h2><code>blackhole</code><span class="hx:absolute hx:-mt-20" id="blackhole"></span>
     <a href="#blackhole" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Отбрасывает весь соответствующий трафик. Полезно для блокировки доступа к конкретным ресурсам.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Уникальный идентификатор</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td><code>&quot;blackhole&quot;</code></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Уникальный идентификатор</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td><code>&quot;blackhole&quot;</code></td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1262,28 +1262,28 @@ config.json{
     <a href="#ignore" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Пропускает трафик без какой-либо модификации маршрутизации. Используйте это, чтобы явно исключить трафик из других правил.</p>
 <p>Когда правило маршрутизации разрешается в outbound типа <code>ignore</code>, keen-pbr устанавливает вердикт прохождения через firewall для этого трафика. Это останавливает дальнейшую обработку правил keen-pbr без установки mark или отбрасывания пакета. Ни таблица маршрутизации, ни <code>ip rule</code> не создаются для этого совпадения, поэтому пакет следует обычной системной маршрутизации. Поскольку правила маршрутизации оцениваются сверху вниз и первое совпадение выигрывает, <code>ignore</code> наиболее полезен для исключающих правил, размещённых перед более широкими перехватывающими правилами.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Уникальный идентификатор</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td><code>&quot;ignore&quot;</code></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Уникальный идентификатор</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td><code>&quot;ignore&quot;</code></td>
+			</tr>
+	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
@@ -1310,152 +1310,152 @@ config.json{
     <a href="#urltest" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h2><p>Используйте это, когда у вас есть несколько кандидатов outbound и вы хотите, чтобы keen-pbr автоматически выбирал лучший доступный.</p>
 <p>keen-pbr всегда добавляет в конец сгенерированной таблицы <code>urltest</code> терминальные маршруты <code>unreachable</code> по умолчанию для IPv4 и IPv6. Это работает как kill-switch: если выбранный маршрут или fallback-маршруты недоступны, помеченный трафик блокируется, а не уходит через обычную системную маршрутизацию.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>tag</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>Уникальный идентификатор</td>
-      </tr>
-      <tr>
-          <td><code>type</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td><code>&quot;urltest&quot;</code></td>
-      </tr>
-      <tr>
-          <td><code>url</code></td>
-          <td>string</td>
-          <td>да</td>
-          <td>URL для проверки доступности и задержки</td>
-      </tr>
-      <tr>
-          <td><code>interval_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>180000</code>)</td>
-          <td>Интервал между проверками в миллисекундах</td>
-      </tr>
-      <tr>
-          <td><code>probe_timeout_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>5000</code>)</td>
-          <td>Таймаут каждой отдельной попытки проверки в миллисекундах</td>
-      </tr>
-      <tr>
-          <td><code>tolerance_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>100</code>)</td>
-          <td>Допуск задержки в мс; предотвращает переключение outbound, если разница задержки между текущим и новым лучшим outbound меньше этого допуска</td>
-      </tr>
-      <tr>
-          <td><code>outbound_groups</code></td>
-          <td>array</td>
-          <td>да</td>
-          <td>Упорядоченный список групп outbound (см. ниже)</td>
-      </tr>
-      <tr>
-          <td><code>retry</code></td>
-          <td>object</td>
-          <td>нет</td>
-          <td>Конфигурация повторов (см. ниже)</td>
-      </tr>
-      <tr>
-          <td><code>circuit_breaker</code></td>
-          <td>object</td>
-          <td>нет</td>
-          <td>Конфигурация circuit breaker (см. ниже)</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>tag</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>Уникальный идентификатор</td>
+			</tr>
+			<tr>
+					<td><code>type</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td><code>&quot;urltest&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>url</code></td>
+					<td>string</td>
+					<td>да</td>
+					<td>URL для проверки доступности и задержки</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>180000</code>)</td>
+					<td>Интервал между проверками в миллисекундах</td>
+			</tr>
+			<tr>
+					<td><code>probe_timeout_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>5000</code>)</td>
+					<td>Таймаут каждой отдельной попытки проверки в миллисекундах</td>
+			</tr>
+			<tr>
+					<td><code>tolerance_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>100</code>)</td>
+					<td>Допуск задержки в мс; предотвращает переключение outbound, если разница задержки между текущим и новым лучшим outbound меньше этого допуска</td>
+			</tr>
+			<tr>
+					<td><code>outbound_groups</code></td>
+					<td>array</td>
+					<td>да</td>
+					<td>Упорядоченный список групп outbound (см. ниже)</td>
+			</tr>
+			<tr>
+					<td><code>retry</code></td>
+					<td>object</td>
+					<td>нет</td>
+					<td>Конфигурация повторов (см. ниже)</td>
+			</tr>
+			<tr>
+					<td><code>circuit_breaker</code></td>
+					<td>object</td>
+					<td>нет</td>
+					<td>Конфигурация circuit breaker (см. ниже)</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Группы outbound<span class="hx:absolute hx:-mt-20" id="группы-outbound"></span>
     <a href="#%d0%b3%d1%80%d1%83%d0%bf%d0%bf%d1%8b-outbound" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>Группы проверяются по порядку. Внутри первой здоровой группы outbounds выбираются по наименьшей задержке. Если все outbounds в группе нездоровы, оценивается следующая группа. Это позволяет определить более сложные правила приоритета. Например, можно предпочесть один из двух более медленных outbounds сначала, и если оба недоступны, переключиться на другой outbound, который быстрее, но дороже.</p>
 <table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>outbounds</code></td>
-          <td>array of string</td>
-          <td>да</td>
-          <td>Упорядоченный список тегов outbound для попытки</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>outbounds</code></td>
+					<td>array of string</td>
+					<td>да</td>
+					<td>Упорядоченный список тегов outbound для попытки</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Конфигурация повторов<span class="hx:absolute hx:-mt-20" id="конфигурация-повторов"></span>
     <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-%d0%bf%d0%be%d0%b2%d1%82%d0%be%d1%80%d0%be%d0%b2" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>attempts</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>3</code>)</td>
-          <td>Количество попыток проверки перед пометкой outbound как неработающего</td>
-      </tr>
-      <tr>
-          <td><code>interval_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>1000</code>)</td>
-          <td>Задержка между попытками повтора в миллисекундах</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>attempts</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>3</code>)</td>
+					<td>Количество попыток проверки перед пометкой outbound как неработающего</td>
+			</tr>
+			<tr>
+					<td><code>interval_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>1000</code>)</td>
+					<td>Задержка между попытками повтора в миллисекундах</td>
+			</tr>
+	</tbody>
 </table>
 <h3>Конфигурация Circuit Breaker<span class="hx:absolute hx:-mt-20" id="конфигурация-circuit-breaker"></span>
     <a href="#%d0%ba%d0%be%d0%bd%d1%84%d0%b8%d0%b3%d1%83%d1%80%d0%b0%d1%86%d0%b8%d1%8f-circuit-breaker" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><table>
-  <thead>
-      <tr>
-          <th>Поле</th>
-          <th>Тип</th>
-          <th>Обязательно</th>
-          <th>Описание</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>failure_threshold</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>5</code>)</td>
-          <td>Количество последовательных сбоев перед открытием circuit</td>
-      </tr>
-      <tr>
-          <td><code>success_threshold</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>2</code>)</td>
-          <td>Количество последовательных успехов в состоянии half-open для закрытия circuit</td>
-      </tr>
-      <tr>
-          <td><code>timeout_ms</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>30000</code>)</td>
-          <td>Время перед переходом из открытого в состояние half-open</td>
-      </tr>
-      <tr>
-          <td><code>half_open_max_requests</code></td>
-          <td>integer</td>
-          <td>нет (по умолчанию: <code>1</code>)</td>
-          <td>Максимальное количество запросов проверки в состоянии half-open</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Поле</th>
+					<th>Тип</th>
+					<th>Обязательно</th>
+					<th>Описание</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>failure_threshold</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>5</code>)</td>
+					<td>Количество последовательных сбоев перед открытием circuit</td>
+			</tr>
+			<tr>
+					<td><code>success_threshold</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>2</code>)</td>
+					<td>Количество последовательных успехов в состоянии half-open для закрытия circuit</td>
+			</tr>
+			<tr>
+					<td><code>timeout_ms</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>30000</code>)</td>
+					<td>Время перед переходом из открытого в состояние half-open</td>
+			</tr>
+			<tr>
+					<td><code>half_open_max_requests</code></td>
+					<td>integer</td>
+					<td>нет (по умолчанию: <code>1</code>)</td>
+					<td>Максимальное количество запросов проверки в состоянии half-open</td>
+			</tr>
+	</tbody>
 </table>
 <p><strong>Состояния circuit breaker:</strong></p>
 <ul>

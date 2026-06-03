@@ -41,46 +41,46 @@ config.json{
 
 Fields
     
-  
-      
-          Field
-          Type
-          Required
-          Description
-      
-  
-  
-      
-          url
-          string
-          no
-          URL to a remote list file to download and cache
-      
-      
-          domains
-          array of string
-          no
-          Inline domain patterns (supports *. prefix wildcards)
-      
-      
-          ip_cidrs
-          array of string
-          no
-          Inline IP addresses or CIDR ranges
-      
-      
-          file
-          string
-          no
-          Path to a local list file
-      
-      
-          ttl_ms
-          integer
-          no (default: 0)
-          How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0.
-      
-  
+	
+			
+					Field
+					Type
+					Required
+					Description
+			
+	
+	
+			
+					url
+					string
+					no
+					URL to a remote list file to download and cache
+			
+			
+					domains
+					array of string
+					no
+					Inline domain patterns (supports *. prefix wildcards)
+			
+			
+					ip_cidrs
+					array of string
+					no
+					Inline IP addresses or CIDR ranges
+			
+			
+					file
+					string
+					no
+					Path to a local list file
+			
+			
+					ttl_ms
+					integer
+					no (default: 0)
+					How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0.
+			
+	
 
 At least one of url, domains, ip_cidrs, or file must be provided.
     
@@ -95,16 +95,16 @@ At least one of url, domains, ip_cidrs, or file must be provided.
 
 
 
-  <meta itemprop="name" content="Lists">
-  <meta itemprop="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
+	<meta itemprop="name" content="Lists">
+	<meta itemprop="description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
 config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided.">
-  <meta itemprop="wordCount" content="473">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Lists">
-  <meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
+	<meta itemprop="wordCount" content="473">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Lists">
+	<meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
@@ -1046,46 +1046,46 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 </div>
 <h2>Fields<span class="hx:absolute hx:-mt-20" id="fields"></span>
     <a href="#fields" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><table>
-  <thead>
-      <tr>
-          <th>Field</th>
-          <th>Type</th>
-          <th>Required</th>
-          <th>Description</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>url</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>URL to a remote list file to download and cache</td>
-      </tr>
-      <tr>
-          <td><code>domains</code></td>
-          <td>array of string</td>
-          <td>no</td>
-          <td>Inline domain patterns (supports <code>*.</code> prefix wildcards)</td>
-      </tr>
-      <tr>
-          <td><code>ip_cidrs</code></td>
-          <td>array of string</td>
-          <td>no</td>
-          <td>Inline IP addresses or CIDR ranges</td>
-      </tr>
-      <tr>
-          <td><code>file</code></td>
-          <td>string</td>
-          <td>no</td>
-          <td>Path to a local list file</td>
-      </tr>
-      <tr>
-          <td><code>ttl_ms</code></td>
-          <td>integer</td>
-          <td>no (default: <code>0</code>)</td>
-          <td>How long resolved IPs should stay cached for domain-based lists. Most users can leave this at <code>0</code>.</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Field</th>
+					<th>Type</th>
+					<th>Required</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>url</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>URL to a remote list file to download and cache</td>
+			</tr>
+			<tr>
+					<td><code>domains</code></td>
+					<td>array of string</td>
+					<td>no</td>
+					<td>Inline domain patterns (supports <code>*.</code> prefix wildcards)</td>
+			</tr>
+			<tr>
+					<td><code>ip_cidrs</code></td>
+					<td>array of string</td>
+					<td>no</td>
+					<td>Inline IP addresses or CIDR ranges</td>
+			</tr>
+			<tr>
+					<td><code>file</code></td>
+					<td>string</td>
+					<td>no</td>
+					<td>Path to a local list file</td>
+			</tr>
+			<tr>
+					<td><code>ttl_ms</code></td>
+					<td>integer</td>
+					<td>no (default: <code>0</code>)</td>
+					<td>How long resolved IPs should stay cached for domain-based lists. Most users can leave this at <code>0</code>.</td>
+			</tr>
+	</tbody>
 </table>
 <p>At least one of <code>url</code>, <code>domains</code>, <code>ip_cidrs</code>, or <code>file</code> must be provided.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
