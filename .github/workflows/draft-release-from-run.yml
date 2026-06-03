@@ -83,33 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          mkdir -p release_assets
-          declare -A seen_basenames=()
-
-          mapfile -t asset_files < <(
-            find release_files -type f \
-              \( -name '*.ipk' -o -name '*.apk' -o -name '*.deb' \) \
-              | sort
-          )
-
-          if [ "${#asset_files[@]}" -eq 0 ]; then
-            echo "No release package files were found under release_files" >&2
-            exit 1
-          fi
-
-          for asset in "${asset_files[@]}"; do
-            asset_name="$(basename "$asset")"
-            if [ -n "${seen_basenames[$asset_name]:-}" ]; then
-              echo "Duplicate release asset basename detected: $asset_name" >&2
-              echo "Conflicting files:" >&2
-              echo "  ${seen_basenames[$asset_name]}" >&2
-              echo "  $asset" >&2
-              exit 1
-            fi
-            seen_basenames[$asset_name]="$asset"
-            cp "$asset" "release_assets/$asset_name"
-          done
+          bash ./build_scripts/collect-release-assets.sh release_files release_assets
 
       - name: Prepare draft release
         uses: softprops/action-gh-release@v3
