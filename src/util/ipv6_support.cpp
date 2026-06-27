@@ -30,10 +30,10 @@ bool nft_ipv6_supported() {
 }
 
 bool iptables_ipv6_supported() {
+    static constexpr const char* kProbeRuleset = "*mangle\nCOMMIT\n";
     return safe_exec({"ip6tables", "-t", "mangle", "-S"},
                      /*suppress_output=*/true) == 0
-        && safe_exec({"ip6tables-restore", "--help"},
-                     /*suppress_output=*/true) == 0;
+        && safe_exec_pipe_stdin({"ip6tables-restore", "--test"}, kProbeRuleset) == 0;
 }
 
 bool firewall_ipv6_supported(const Config& config) {

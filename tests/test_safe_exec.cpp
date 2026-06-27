@@ -149,9 +149,10 @@ TEST_CASE("safe_exec: child process receives devnull stdin") {
     CHECK(exit_code == 0);
 }
 
-TEST_CASE("iptables_ipv6_supported: probes ip6tables-restore help") {
+TEST_CASE("iptables_ipv6_supported: probes ip6tables-restore test script") {
     TempDir temp_dir;
     const auto restore_args_path = temp_dir.path() / "restore-args";
+    const auto restore_stdin_path = temp_dir.path() / "restore-stdin";
     write_executable(
         temp_dir.path() / "ip6tables",
         "#!/bin/sh\n"
@@ -160,15 +161,19 @@ TEST_CASE("iptables_ipv6_supported: probes ip6tables-restore help") {
         temp_dir.path() / "ip6tables-restore",
         "#!/bin/sh\n"
         "printf '%s\\n' \"$*\" > \"$KEEN_PBR_TEST_RESTORE_ARGS\"\n"
-        "[ \"$#\" -eq 1 ] && [ \"$1\" = --help ]\n");
+        "/bin/cat > \"$KEEN_PBR_TEST_RESTORE_STDIN\"\n"
+        "[ \"$#\" -eq 1 ] && [ \"$1\" = --test ]\n");
 
     EnvironmentGuard path_guard("PATH");
     EnvironmentGuard restore_args_guard("KEEN_PBR_TEST_RESTORE_ARGS");
+    EnvironmentGuard restore_stdin_guard("KEEN_PBR_TEST_RESTORE_STDIN");
     path_guard.set(temp_dir.path());
     restore_args_guard.set(restore_args_path);
+    restore_stdin_guard.set(restore_stdin_path);
 
     CHECK(iptables_ipv6_supported());
-    CHECK(read_file(restore_args_path) == "--help\n");
+    CHECK(read_file(restore_args_path) == "--test\n");
+    CHECK(read_file(restore_stdin_path) == "*mangle\nCOMMIT\n");
 }
 
 } // namespace keen_pbr3
