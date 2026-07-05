@@ -46,6 +46,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 | `list` | array of string | yes | List names whose traffic this rule matches |
 | `outbound` | string | yes | Outbound tag to route matched traffic through |
 | `proto` | string | no | Protocol: `"tcp"`, `"udp"`, or `"tcp/udp"` |
+| `dscp` | integer | no | DSCP tag value from `1` to `63` |
 | `src_port` | string | no | Match only specific source ports |
 | `dest_port` | string | no | Match only specific destination ports |
 | `src_addr` | string | no | Match only specific source addresses |
@@ -138,6 +139,59 @@ If `inbound_interfaces` is omitted (default) or explicitly set to an empty array
   }
 }
 ```
+
+### DSCP filter — route tagged traffic through VPN
+
+DSCP (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for QoS, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.
+
+```json { filename="config.json" }
+{
+  "route": {
+    "rules": [
+      {
+        "dscp": 46,
+        "outbound": "vpn"
+      }
+    ]
+  }
+}
+```
+
+DSCP can be combined with the same list, protocol, address, and port filters as other route rules. For example, `"dscp": 46` plus `"src_addr": "192.168.10.20"` routes only tagged packets from that host.
+
+The DSCP mark must already be present when the packet reaches the router. Configure it on the device that runs the application.
+
+#### Windows: tag one application
+
+Run PowerShell as Administrator:
+
+```powershell
+New-NetQosPolicy -Name "keen-pbr Zoom DSCP" -AppPathNameMatchCondition "zoom.exe" -DSCPAction 46
+```
+
+`AppPathNameMatchCondition` can be an executable name such as `zoom.exe` or a full application path. Windows then tags matching application traffic with DSCP `46`, and keen-pbr can route it with a rule containing `"dscp": 46`.
+
+#### Linux: tag traffic from a user
+
+On Linux, you can tag packets created by a specific local user. Replace `john` in the examples below with the user that runs the application you want to route.
+
+With nftables:
+
+```sh
+sudo nft add table inet pbr_dscp
+sudo nft 'add chain inet pbr_dscp output { type route hook output priority mangle; policy accept; }'
+sudo nft add rule inet pbr_dscp output meta skuid john ip dscp set 46
+sudo nft add rule inet pbr_dscp output meta skuid john ip6 dscp set 46
+```
+
+With iptables:
+
+```sh
+sudo iptables -t mangle -A OUTPUT -m owner --uid-owner john -j DSCP --set-dscp 46
+sudo ip6tables -t mangle -A OUTPUT -m owner --uid-owner john -j DSCP --set-dscp 46
+```
+
+The iptables `owner` matcher applies to locally generated packets, not forwarded packets. For DSCP routing from a Linux laptop or PC, add these rules on that laptop or PC, not on the keen-pbr router.
 
 ### Address filter — match a specific source subnet
 

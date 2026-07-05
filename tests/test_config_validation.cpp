@@ -643,7 +643,7 @@ TEST_CASE("strict enforcement: outbound override parses") {
 TEST_CASE("route rule: valid port and address filters are accepted") {
     std::string json = R"({
         "route":{"rules":[
-            {"list":["ads"],"outbound":"vpn","src_port":"80,443","dest_port":"!10000-20000","src_addr":"10.0.0.1,2001:db8::1","dest_addr":"!192.168.0.0/16"}
+            {"list":["ads"],"outbound":"vpn","dscp":46,"src_port":"80,443","dest_port":"!10000-20000","src_addr":"10.0.0.1,2001:db8::1","dest_addr":"!192.168.0.0/16"}
         ]}
     })";
     CHECK_NOTHROW(parse_config(json));
@@ -667,6 +667,38 @@ TEST_CASE("route rule: list is optional when another condition is present") {
         ]}
     })";
     CHECK_NOTHROW(parse_config(json));
+}
+
+TEST_CASE("route rule: dscp-only rule is accepted") {
+    std::string json = R"({
+        "route":{"rules":[
+            {"outbound":"vpn","dscp":46}
+        ]}
+    })";
+    CHECK_NOTHROW(parse_config(json));
+}
+
+TEST_CASE("route rule: dscp bounds are enforced") {
+    auto low_issues = parse_issues(R"({"route":{"rules":[{"outbound":"vpn","dscp":0}]}})");
+    REQUIRE_FALSE(low_issues.empty());
+    CHECK(low_issues.front().path == "route.rules[0].dscp");
+
+    auto high_issues = parse_issues(R"({"route":{"rules":[{"outbound":"vpn","dscp":64}]}})");
+    REQUIRE_FALSE(high_issues.empty());
+    CHECK(high_issues.front().path == "route.rules[0].dscp");
+
+    auto type_issues = parse_issues(R"({"route":{"rules":[{"outbound":"vpn","dscp":"46"}]}})");
+    REQUIRE_FALSE(type_issues.empty());
+    CHECK(type_issues.front().path == "route.rules[0].dscp");
+}
+
+TEST_CASE("route rule: firewall criteria carries dscp") {
+    auto cfg = parse_config(R"({"route":{"rules":[{"outbound":"vpn","dscp":63}]}})");
+    REQUIRE(cfg.route.has_value());
+    REQUIRE(cfg.route->rules.has_value());
+    auto criteria = build_firewall_rule_criteria(cfg.route->rules->front());
+    REQUIRE(criteria.dscp.has_value());
+    CHECK(*criteria.dscp == 63);
 }
 
 TEST_CASE("route rule: invalid src_port reports route.rules[0].src_port") {

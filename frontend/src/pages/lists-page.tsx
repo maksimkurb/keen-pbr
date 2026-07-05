@@ -596,6 +596,11 @@ function getRouteRuleDetails(
   )
   appendOptionalDetail(
     details,
+    t("pages.routingRules.criteriaLabels.dscp"),
+    rule.dscp?.toString()
+  )
+  appendOptionalDetail(
+    details,
     t("pages.routingRules.criteriaLabels.sourceIp"),
     rule.src_addr
   )

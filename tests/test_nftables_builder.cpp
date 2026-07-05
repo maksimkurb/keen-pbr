@@ -699,6 +699,32 @@ TEST_CASE(
   CHECK(has_dport);
 }
 
+TEST_CASE("build_mark_rule_json: dscp match expr present") {
+  ProtoPortFilter f;
+  f.dscp = 46;
+  auto j = T::build_mark_rule_json("myset", AF_INET, 0x100, f);
+  const auto &expr = j["add"]["rule"]["expr"];
+  bool has_dscp = false;
+  for (const auto &e : expr) {
+    if (e.contains("match") && e["match"]["left"].contains("payload") &&
+        e["match"]["left"]["payload"]["protocol"] == "ip" &&
+        e["match"]["left"]["payload"]["field"] == "dscp" &&
+        e["match"]["right"] == 46) {
+      has_dscp = true;
+    }
+  }
+  CHECK(has_dscp);
+}
+
+TEST_CASE("create_mark_rule: dscp-only rule emits IPv4 and IPv6 entries") {
+  FirewallRuleCriteria criteria;
+  criteria.dscp = 46;
+  auto commands = T::build_rule_add_commands_via_create_mark_rule(0x100, criteria);
+  REQUIRE(commands.size() == 2);
+  CHECK(commands[0]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip");
+  CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["left"]["payload"]["protocol"] == "ip6");
+}
+
 TEST_CASE("build_mark_rule_json: no filter → no port exprs (regression)") {
   auto j = T::build_mark_rule_json("myset", AF_INET, 0x100);
   const auto &expr = j["add"]["rule"]["expr"];

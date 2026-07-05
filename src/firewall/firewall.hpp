@@ -37,6 +37,7 @@ inline const char* l4_proto_name(L4Proto proto) {
 // All fields default to empty meaning "any".
 struct FirewallRuleCriteria {
     std::optional<std::string> dst_set_name; // named destination set matcher, if any
+    std::optional<uint8_t> dscp;        // DSCP tag selector, empty = any
     L4Proto proto = L4Proto::Any;
     PortSpec src_port;                 // parsed source port selector
     PortSpec dst_port;                 // parsed destination port selector
@@ -47,13 +48,14 @@ struct FirewallRuleCriteria {
     bool negate_src_addr = false;      // if true, match packets NOT from src_addr
     bool negate_dst_addr = false;      // if true, match packets NOT to dst_addr
     bool empty() const {
-        return !dst_set_name.has_value() && proto == L4Proto::Any
+        return !dst_set_name.has_value() && !dscp.has_value()
+            && proto == L4Proto::Any
             && src_port.empty() && dst_port.empty()
             && src_addr.empty() && dst_addr.empty();
     }
 
     bool has_rule_selector() const {
-        return dst_set_name.has_value()
+        return dst_set_name.has_value() || dscp.has_value()
             || !src_port.empty() || !dst_port.empty()
             || !src_addr.empty() || !dst_addr.empty();
     }

@@ -695,6 +695,12 @@ components:
           type: string
           description: Protocol to match ("tcp", "udp", or "tcp/udp"). Omit for any.
           example: "tcp"
+        dscp:
+          type: integer
+          minimum: 1
+          maximum: 63
+          description: DSCP tag value to match. Omit for any DSCP value.
+          example: 46
         src_port:
           type: string
           description: >

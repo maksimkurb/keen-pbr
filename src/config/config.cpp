@@ -369,6 +369,31 @@ bool rule_has_string_condition(const json& rule, const char* key) {
     return value.has_value() && !trim_copy(*value).empty();
 }
 
+bool rule_has_present_condition(const json& rule, const char* key) {
+    const auto it = rule.find(key);
+    return it != rule.end() && !it->is_null();
+}
+
+void validate_dscp_field(const json& rule,
+                         const std::string& rule_path,
+                         std::vector<ConfigValidationIssue>& issues) {
+    const auto it = rule.find("dscp");
+    if (it == rule.end() || it->is_null()) {
+        return;
+    }
+
+    const std::string path = rule_path + ".dscp";
+    if (!it->is_number_integer()) {
+        add_issue(issues, path, path + " must be an integer between 1 and 63");
+        return;
+    }
+
+    const int value = it->get<int>();
+    if (value < 1 || value > 63) {
+        add_issue(issues, path, path + " must be between 1 and 63");
+    }
+}
+
 std::optional<PortSpecKind> classify_optional_port_spec(const std::optional<std::string>& value) {
     if (!value.has_value()) {
         return std::nullopt;
@@ -408,6 +433,7 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
         const std::string rule_path = "route.rules[" + std::to_string(index) + "]";
         const bool has_any_condition =
             rule_has_list_condition(rule) ||
+            rule_has_present_condition(rule, "dscp") ||
             rule_has_string_condition(rule, "src_port") ||
             rule_has_string_condition(rule, "dest_port") ||
             rule_has_string_condition(rule, "src_addr") ||
@@ -416,8 +442,10 @@ void validate_route_rule_specs(const json& root, std::vector<ConfigValidationIss
         if (!has_any_condition) {
             add_issue(issues,
                       rule_path,
-                      "Route rule must include at least one condition: list, src_port, dest_port, src_addr, or dest_addr.");
+                      "Route rule must include at least one condition: list, dscp, src_port, dest_port, src_addr, or dest_addr.");
         }
+
+        validate_dscp_field(rule, rule_path, issues);
 
         if (auto error = validate_port_spec(get_optional_string_field(rule, "src_port"))) {
             add_issue(issues, rule_path + ".src_port", *error);

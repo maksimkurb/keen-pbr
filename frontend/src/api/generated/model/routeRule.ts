@@ -16,6 +16,12 @@ export interface RouteRule {
   outbound: string;
   /** Protocol to match ("tcp", "udp", or "tcp/udp"). Omit for any. */
   proto?: string;
+  /**
+     * DSCP tag value to match. Omit for any DSCP value.
+     * @minimum 1
+     * @maximum 63
+     */
+  dscp?: number;
   /** Source port spec to match: single port ("1024"), list ("80,443"), or range ("8000-9000"). Omit for any source port. Prefix with "!" to negate (e.g. "!443" matches all ports except 443).
    */
   src_port?: string;

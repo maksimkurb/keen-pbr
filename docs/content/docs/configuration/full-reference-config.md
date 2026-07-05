@@ -428,7 +428,7 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
       },
 
       {
-        // Full filter example using proto, source/destination address, and destination port.
+        // Full filter example using DSCP, proto, source/destination address, and destination port.
         "enabled": true,
 
         // Match traffic only if dest domain/IP is in the list
@@ -437,6 +437,10 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
         // Match traffic only if protocol is TCP
         // Possible values: null (for any protocol), tcp, udp, tcp/udp
         "proto": "tcp",
+
+        // Match traffic only if DSCP tag equals this value.
+        // Supported: integer from 1 to 63.
+        "dscp": 46,
 
         // Match traffic only if source IP matches
         // Supported: single IP, CIDR
@@ -513,5 +517,5 @@ List names, outbound tags, and DNS server tags must match `^[a-z][a-z0-9_]*$` an
 
 - `dns.servers[].detour` supports `interface`, `table`, and `urltest` outbounds, but not `blackhole` or `ignore`.
 - `lists[].detour` is useful when a remote list should be downloaded through a VPN or other non-default path.
-- `route.rules[]` must include at least one matching condition: `list`, `src_port`, `dest_port`, `src_addr`, or `dest_addr`.
+- `route.rules[]` must include at least one matching condition: `list`, `dscp`, `src_port`, `dest_port`, `src_addr`, or `dest_addr`.
 - `dns.rules[].allow_domain_rebinding` is mainly for internal domains that intentionally resolve to private IP ranges.

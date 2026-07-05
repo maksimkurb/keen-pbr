@@ -486,6 +486,9 @@ FirewallRuleCriteria build_firewall_rule_criteria(const RouteRule& rule) {
 
     FirewallRuleCriteria criteria;
     criteria.proto = parse_rule_proto(rule.proto);
+    if (rule.dscp.has_value()) {
+        criteria.dscp = static_cast<uint8_t>(*rule.dscp);
+    }
 
     {
         auto [port, negated] = strip_neg(rule.src_port.value_or(""));

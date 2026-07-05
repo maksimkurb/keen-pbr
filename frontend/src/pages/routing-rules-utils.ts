@@ -7,6 +7,7 @@ export type RouteRuleDraft = {
   list: string[]
   outbound: string
   proto: string
+  dscp: string
   src_port: string
   dest_port: string
   src_addr: string
@@ -20,6 +21,7 @@ export const emptyRouteRuleDraft: RouteRuleDraft = {
   list: [],
   outbound: "",
   proto: "",
+  dscp: "",
   src_port: "",
   dest_port: "",
   src_addr: "",
@@ -30,6 +32,7 @@ export function getRuleDetails(rule: RouteRule) {
   const pieces = [
     `src_addr: ${rule.src_addr || "-"}`,
     `dest_addr: ${rule.dest_addr || "-"}`,
+    `dscp: ${rule.dscp ?? "-"}`,
     `src_port: ${rule.src_port || "-"}`,
     `dest_port: ${rule.dest_port || "-"}`,
   ]
@@ -43,6 +46,7 @@ export function toRouteRuleDraft(rule: RouteRule): RouteRuleDraft {
     list: rule.list ?? [],
     outbound: rule.outbound,
     proto: rule.proto ?? "",
+    dscp: rule.dscp?.toString() ?? "",
     src_port: rule.src_port ?? "",
     dest_port: rule.dest_port ?? "",
     src_addr: rule.src_addr ?? "",
@@ -56,6 +60,7 @@ export function normalizeRouteRuleDraft(draft: RouteRuleDraft): RouteRule {
     list: draft.list,
     outbound: draft.outbound,
     proto: trimToUndefined(draft.proto),
+    dscp: parseOptionalDscp(draft.dscp),
     src_port: trimToUndefined(draft.src_port),
     dest_port: trimToUndefined(draft.dest_port),
     src_addr: trimToUndefined(draft.src_addr),
@@ -96,4 +101,12 @@ export function getApiErrorMessage(error: ApiError) {
 function trimToUndefined(value: string) {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
+}
+
+function parseOptionalDscp(value: string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+  return Number(trimmed)
 }

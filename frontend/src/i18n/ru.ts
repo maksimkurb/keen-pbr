@@ -520,6 +520,7 @@ export const ruTranslation = {
       criteriaLabels: {
         lists: "Списки",
         proto: "Протокол",
+        dscp: "DSCP",
         sourceIp: "Исходный IP",
         destinationIp: "IP назначения",
         sourcePort: "Исходный порт",
@@ -546,7 +547,8 @@ export const ruTranslation = {
       },
       validation: {
         atLeastOneCondition:
-          "Укажите хотя бы одно условие: список, адрес источника/назначения или порт источника/назначения.",
+          "Укажите хотя бы одно условие: список, DSCP, адрес источника/назначения или порт источника/назначения.",
+        dscpRange: "DSCP должен быть целым числом от 1 до 63.",
         outboundRequired: "Тег outbound обязателен.",
       },
       actions: { create: "Создать правило", save: "Сохранить правило" },
@@ -562,6 +564,9 @@ export const ruTranslation = {
         protocol: "Протокол",
         protoHint:
           "Фильтр по протоколу (TCP, UDP и т.д.). Оставьте пустым для «любого».",
+        dscp: "DSCP",
+        dscpHint:
+          "Фильтр по DSCP-метке пакета. Оставьте пустым для любого значения.",
         sourcePort: "Исходный порт",
         destinationPort: "Порт назначения",
         sourcePortHint:
@@ -580,6 +585,7 @@ export const ruTranslation = {
         outboundHint: "Какой outbound должен обрабатывать подходящий трафик.",
       },
       placeholders: {
+        dscp: "46",
         sourcePort: "80,443 или 10000-20000",
         destinationPort: "443 или !53,123",
         sourceAddresses: "192.168.1.10,10.0.0.0/8",

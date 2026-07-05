@@ -455,6 +455,10 @@ function getRouteRuleImpactDetails(
       value: rule.proto,
     },
     {
+      label: t("pages.routingRules.criteriaLabels.dscp"),
+      value: rule.dscp?.toString(),
+    },
+    {
       label: t("pages.routingRules.criteriaLabels.sourceIp"),
       value: rule.src_addr,
     },

@@ -271,6 +271,10 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
         addr_frag += std::string(pr.criteria.negate_src_addr ? " !" : "") + " -s " + pr.criteria.src_addr[0];
     if (!pr.criteria.dst_addr.empty())
         addr_frag += std::string(pr.criteria.negate_dst_addr ? " !" : "") + " -d " + pr.criteria.dst_addr[0];
+    std::string dscp_frag;
+    if (pr.criteria.dscp.has_value()) {
+        dscp_frag = keen_pbr3::format(" -m dscp --dscp {}", static_cast<int>(*pr.criteria.dscp));
+    }
     std::vector<std::string> lines;
     lines.reserve(iface_frags.size() * 2);
     for (const auto proto : expand_l4_protos_for_iptables(pr.criteria)) {
@@ -288,31 +292,35 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         pr.fwmark,
                         pr.fwmark_mask);
                     lines.push_back(keen_pbr3::format(
-                        "[0:0] -A {}{}{}{} {}\n",
+                        "[0:0] -A {}{}{}{}{} {}\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp,
                         mark_target));
                     lines.push_back(keen_pbr3::format(
-                        "-A {}{}{}{} -j RETURN\n",
+                        "-A {}{}{}{}{} -j RETURN\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 } else if (pr.action == PendingRule::Drop) {
                     lines.push_back(keen_pbr3::format(
-                        "-A {}{}{}{} -j DROP\n",
+                        "-A {}{}{}{}{} -j DROP\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 } else {
                     lines.push_back(keen_pbr3::format(
-                        "-A {}{}{}{} -j RETURN\n",
+                        "-A {}{}{}{}{} -j RETURN\n",
                         CHAIN_NAME,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 }
             } else {
@@ -322,35 +330,39 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         pr.fwmark,
                         pr.fwmark_mask);
                     lines.push_back(keen_pbr3::format(
-                        "[0:0] -A {} -m set --match-set {} dst{}{}{} {}\n",
+                        "[0:0] -A {} -m set --match-set {} dst{}{}{}{} {}\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp,
                         mark_target));
                     lines.push_back(keen_pbr3::format(
-                        "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                        "-A {} -m set --match-set {} dst{}{}{}{} -j RETURN\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 } else if (pr.action == PendingRule::Drop) {
                     lines.push_back(keen_pbr3::format(
-                        "-A {} -m set --match-set {} dst{}{}{} -j DROP\n",
+                        "-A {} -m set --match-set {} dst{}{}{}{} -j DROP\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 } else {
                     lines.push_back(keen_pbr3::format(
-                        "-A {} -m set --match-set {} dst{}{}{} -j RETURN\n",
+                        "-A {} -m set --match-set {} dst{}{}{}{} -j RETURN\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,
                         iface_frag,
                         addr_frag,
+                        dscp_frag,
                         pp));
                 }
             }

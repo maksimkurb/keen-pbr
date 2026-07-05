@@ -45,6 +45,7 @@ describe("routing rule enabled helpers", () => {
       toRouteRuleDraft({
         enabled: false,
         list: ["ads"],
+        dscp: 46,
         outbound: "vpn",
       }).enabled
     ).toBe(false)
@@ -55,6 +56,17 @@ describe("routing rule enabled helpers", () => {
         outbound: "vpn",
       }).enabled
     ).toBe(true)
+  })
+
+  test("route rule draft preserves dscp", () => {
+    const draft = toRouteRuleDraft({
+      list: ["ads"],
+      dscp: 46,
+      outbound: "vpn",
+    })
+
+    expect(draft.dscp).toBe("46")
+    expect(normalizeRouteRuleDraft(draft).dscp).toBe(46)
   })
 
   test("setRouteRuleEnabled updates only the targeted rule", () => {

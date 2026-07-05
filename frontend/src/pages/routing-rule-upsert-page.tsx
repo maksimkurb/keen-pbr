@@ -53,6 +53,7 @@ const ROUTING_RULE_FIELD_NAMES = {
   enabled: "enabled",
   list: "list",
   proto: "proto",
+  dscp: "dscp",
   srcPort: "src_port",
   destPort: "dest_port",
   srcAddr: "src_addr",
@@ -187,6 +188,7 @@ function RoutingRuleForm({
         const nextRule = normalizeRouteRuleDraft(value)
         const hasRuleCondition =
           (nextRule.list ?? []).length > 0 ||
+          nextRule.dscp !== undefined ||
           Boolean(nextRule.src_port) ||
           Boolean(nextRule.dest_port) ||
           Boolean(nextRule.src_addr) ||
@@ -383,6 +385,45 @@ function RoutingRuleForm({
                 </FieldContent>
               </Field>
             )}
+          </form.Field>
+
+          <form.Field
+            name={ROUTING_RULE_FIELD_NAMES.dscp}
+            validators={{
+              onChange: ({ value }) => validateDscp(value, t),
+            }}
+          >
+            {(field) => {
+              const error = getFirstFieldError(field.state.meta.errors)
+
+              return (
+                <Field invalid={Boolean(error)}>
+                  <FieldLabel htmlFor="routing-dscp">
+                    {t("pages.routingRuleUpsert.fields.dscp")}
+                  </FieldLabel>
+                  <FieldContent>
+                    <Input
+                      aria-invalid={Boolean(error)}
+                      id="routing-dscp"
+                      inputMode="numeric"
+                      max={63}
+                      min={1}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      placeholder={t("pages.routingRuleUpsert.placeholders.dscp")}
+                      type="number"
+                      value={field.state.value}
+                    />
+                    <FieldHint
+                      description={t("pages.routingRuleUpsert.fields.dscpHint")}
+                      error={error}
+                    />
+                  </FieldContent>
+                </Field>
+              )
+            }}
           </form.Field>
 
           <form.Field name={ROUTING_RULE_FIELD_NAMES.srcPort}>
@@ -620,6 +661,10 @@ function resolveRoutingRuleFieldPath(
     return ROUTING_RULE_FIELD_NAMES.proto
   }
 
+  if (/^route\.rules(?:\[\d+\]|\.\d+)?\.dscp$/.test(path)) {
+    return ROUTING_RULE_FIELD_NAMES.dscp
+  }
+
   if (/^route\.rules(?:\[\d+\]|\.\d+)?\.src_port$/.test(path)) {
     return ROUTING_RULE_FIELD_NAMES.srcPort
   }
@@ -637,4 +682,20 @@ function resolveRoutingRuleFieldPath(
   }
 
   return undefined
+}
+
+function validateDscp(value: string, t: (key: string) => string) {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    return t("pages.routingRuleUpsert.validation.dscpRange")
+  }
+
+  const parsed = Number(trimmed)
+  return parsed >= 1 && parsed <= 63
+    ? undefined
+    : t("pages.routingRuleUpsert.validation.dscpRange")
 }

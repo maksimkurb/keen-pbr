@@ -52,6 +52,16 @@ std::optional<L4Proto> parse_l4proto(const std::string& token) {
     return std::nullopt;
 }
 
+std::optional<uint8_t> parse_nft_dscp_value(const nlohmann::json& value) {
+    if (value.is_number_integer() || value.is_number_unsigned()) {
+        const auto parsed = value.get<uint64_t>();
+        if (parsed <= 63) {
+            return static_cast<uint8_t>(parsed);
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<uint32_t> parse_nft_mark_value(const nlohmann::json& value) {
     if (value.is_number_integer() || value.is_number_unsigned()) {
         return static_cast<uint32_t>(value.get<uint64_t>());
@@ -154,6 +164,7 @@ std::vector<std::string> parse_nft_addr_list(const nlohmann::json& rhs) {
 bool criteria_equal(const FirewallRuleCriteria& lhs,
                     const FirewallRuleCriteria& rhs) {
     return lhs.proto == rhs.proto &&
+           lhs.dscp == rhs.dscp &&
            lhs.src_port == rhs.src_port &&
            lhs.dst_port == rhs.dst_port &&
            lhs.src_addr == rhs.src_addr &&
@@ -190,6 +201,9 @@ std::string criteria_summary(const FirewallRuleCriteria& criteria) {
     if (criteria.proto != L4Proto::Any) {
         parts.push_back(keen_pbr3::format("proto={}", l4_proto_name(criteria.proto)));
     }
+    if (criteria.dscp.has_value()) {
+        parts.push_back(keen_pbr3::format("dscp={}", static_cast<int>(*criteria.dscp)));
+    }
     append_port("sport", criteria.src_port, criteria.negate_src_port);
     append_port("dport", criteria.dst_port, criteria.negate_dst_port);
     append_addr("src", criteria.src_addr, criteria.negate_src_addr);
@@ -216,6 +230,7 @@ std::vector<std::string> filter_addrs_by_family(const std::vector<std::string>& 
 
 bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
     return criteria.dst_set_name.has_value() ||
+           criteria.dscp.has_value() ||
            !criteria.src_addr.empty() ||
            !criteria.dst_addr.empty();
 }
@@ -393,7 +408,12 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
 
                         if (protocol == "ip6") nr.ipv6 = true;
 
-                        if (field == "saddr" && match.contains("right")) {
+                        if (field == "dscp" && match.contains("right")) {
+                            const auto value = parse_nft_dscp_value(match["right"]);
+                            if (value.has_value()) {
+                                nr.criteria.dscp = *value;
+                            }
+                        } else if (field == "saddr" && match.contains("right")) {
                             nr.criteria.src_addr = parse_nft_addr_list(match["right"]);
                             nr.criteria.negate_src_addr = (op == "!=");
                         } else if (field == "daddr" && match.contains("right")) {

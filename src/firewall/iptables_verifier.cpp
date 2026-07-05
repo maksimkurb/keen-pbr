@@ -97,6 +97,7 @@ std::vector<std::string> normalize_addr_list(const std::vector<std::string>& add
 bool criteria_equal(const FirewallRuleCriteria& lhs,
                     const FirewallRuleCriteria& rhs) {
     return lhs.proto == rhs.proto &&
+           lhs.dscp == rhs.dscp &&
            lhs.src_port.to_iptables_string() == rhs.src_port.to_iptables_string() &&
            lhs.dst_port.to_iptables_string() == rhs.dst_port.to_iptables_string() &&
            normalize_addr_list(lhs.src_addr) == normalize_addr_list(rhs.src_addr) &&
@@ -132,6 +133,9 @@ std::string criteria_summary(const FirewallRuleCriteria& criteria) {
 
     if (criteria.proto != L4Proto::Any) {
         parts.push_back(keen_pbr3::format("proto={}", l4_proto_name(criteria.proto)));
+    }
+    if (criteria.dscp.has_value()) {
+        parts.push_back(keen_pbr3::format("dscp={}", static_cast<int>(*criteria.dscp)));
     }
     append_port("sport", criteria.src_port, criteria.negate_src_port);
     append_port("dport", criteria.dst_port, criteria.negate_dst_port);
@@ -327,6 +331,15 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             if ((tok == "--dport" || tok == "--dports") && i + 1 < tokens.size()) {
                 rule.criteria.dst_port = tokens[i + 1];
                 rule.criteria.negate_dst_port = negate_next;
+                ++i;
+                negate_next = false;
+                continue;
+            }
+            if (tok == "--dscp" && i + 1 < tokens.size()) {
+                const auto value = parse_u32(tokens[i + 1]);
+                if (value.has_value() && *value <= 63) {
+                    rule.criteria.dscp = static_cast<uint8_t>(*value);
+                }
                 ++i;
                 negate_next = false;
                 continue;

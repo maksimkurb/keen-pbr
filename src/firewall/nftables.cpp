@@ -38,6 +38,7 @@ std::vector<L4Proto> expand_l4_protos(L4Proto proto) {
 
 bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
     return criteria.dst_set_name.has_value()
+        || criteria.dscp.has_value()
         || !criteria.src_addr.empty()
         || !criteria.dst_addr.empty();
 }
@@ -386,12 +387,30 @@ nlohmann::json NftablesFirewall::build_addr_match_exprs(const std::string& ip_pr
     return exprs;
 }
 
+nlohmann::json NftablesFirewall::build_dscp_match_exprs(const std::string& ip_proto,
+                                                        std::optional<uint8_t> dscp) {
+    nlohmann::json exprs = nlohmann::json::array();
+    if (!dscp.has_value()) {
+        return exprs;
+    }
+
+    exprs.push_back({{"match", {
+        {"op", "=="},
+        {"left", {{"payload", {{"protocol", ip_proto}, {"field", "dscp"}}}}},
+        {"right", static_cast<int>(*dscp)}
+    }}});
+    return exprs;
+}
+
 nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     std::string ip_proto = (pr.family == AF_INET6) ? "ip6" : "ip";
     nlohmann::json expr = nlohmann::json::array();
     if (pr.criteria.dst_set_name.has_value()) {
         // set-membership match
         expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
+    }
+    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
+        expr.push_back(e);
     }
     // Append src/dst address constraints
     for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
@@ -436,6 +455,9 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     if (pr.criteria.dst_set_name.has_value()) {
         expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
     }
+    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
+        expr.push_back(e);
+    }
     // Append src/dst address constraints
     for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
                                                  pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {
@@ -461,6 +483,9 @@ nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
     nlohmann::json expr = nlohmann::json::array();
     if (pr.criteria.dst_set_name.has_value()) {
         expr.push_back({{"match", {{"op", "=="}, {"left", {{"payload", {{"protocol", ip_proto}, {"field", "daddr"}}}}}, {"right", "@" + *pr.criteria.dst_set_name}}}});
+    }
+    for (const auto& e : build_dscp_match_exprs(ip_proto, pr.criteria.dscp)) {
+        expr.push_back(e);
     }
     for (const auto& e : build_addr_match_exprs(ip_proto, pr.criteria.src_addr, pr.criteria.dst_addr,
                                                  pr.criteria.negate_src_addr, pr.criteria.negate_dst_addr)) {

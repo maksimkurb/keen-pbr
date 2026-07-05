@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesHgT9EQ data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes07QYnT data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -215,6 +215,7 @@ namespace api {
     struct RouteRuleElement {
         std::optional<std::string> dest_addr;
         std::optional<std::string> dest_port;
+        std::optional<int64_t> dscp;
         std::optional<bool> enabled;
         std::optional<std::vector<std::string>> list;
         std::string outbound;
@@ -455,7 +456,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesHgT9EQ {
+    struct KeenPbrTypes07QYnT {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -648,8 +649,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesHgT9EQ & x);
-    void to_json(json & j, const KeenPbrTypesHgT9EQ & x);
+    void from_json(const json & j, KeenPbrTypes07QYnT & x);
+    void to_json(json & j, const KeenPbrTypes07QYnT & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -940,6 +941,7 @@ namespace api {
     inline void from_json(const json & j, RouteRuleElement& x) {
         x.dest_addr = get_stack_optional<std::string>(j, "dest_addr");
         x.dest_port = get_stack_optional<std::string>(j, "dest_port");
+        x.dscp = get_stack_optional<int64_t>(j, "dscp");
         x.enabled = get_stack_optional<bool>(j, "enabled");
         x.list = get_stack_optional<std::vector<std::string>>(j, "list");
         x.outbound = j.at("outbound").get<std::string>();
@@ -952,6 +954,7 @@ namespace api {
         j = json::object();
         j["dest_addr"] = x.dest_addr;
         j["dest_port"] = x.dest_port;
+        j["dscp"] = x.dscp;
         j["enabled"] = x.enabled;
         j["list"] = x.list;
         j["outbound"] = x.outbound;
@@ -1412,7 +1415,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesHgT9EQ& x) {
+    inline void from_json(const json & j, KeenPbrTypes07QYnT& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1466,7 +1469,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesHgT9EQ & x) {
+    inline void to_json(json & j, const KeenPbrTypes07QYnT & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

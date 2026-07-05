@@ -508,6 +508,7 @@ export const enTranslation = {
       criteriaLabels: {
         lists: "Lists",
         proto: "Proto",
+        dscp: "DSCP",
         sourceIp: "Source IP",
         destinationIp: "Destination IP",
         sourcePort: "Source port",
@@ -533,7 +534,8 @@ export const enTranslation = {
       },
       validation: {
         atLeastOneCondition:
-          "Specify at least one condition: list, source/destination address, or source/destination port.",
+          "Specify at least one condition: list, DSCP, source/destination address, or source/destination port.",
+        dscpRange: "DSCP must be an integer between 1 and 63.",
         outboundRequired: "Outbound tag is required.",
       },
       actions: { create: "Create rule", save: "Save rule" },
@@ -548,6 +550,8 @@ export const enTranslation = {
         anyLower: "any",
         protocol: "Protocol",
         protoHint: "Filter by protocol (TCP, UDP, etc.). Leave empty for any.",
+        dscp: "DSCP",
+        dscpHint: "Match packets with this DSCP tag. Leave empty for any.",
         sourcePort: "Source port",
         destinationPort: "Destination port",
         sourcePortHint:
@@ -566,6 +570,7 @@ export const enTranslation = {
         outboundHint: "Which outbound should handle matching traffic.",
       },
       placeholders: {
+        dscp: "46",
         sourcePort: "80,443 or 10000-20000",
         destinationPort: "443 or !53,123",
         sourceAddresses: "192.168.1.10,10.0.0.0/8",

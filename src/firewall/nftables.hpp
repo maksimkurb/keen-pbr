@@ -109,6 +109,9 @@ private:
                                                   const std::vector<std::string>& dst_addr,
                                                   bool negate_src_addr = false,
                                                   bool negate_dst_addr = false);
+    // Build nftables match expression(s) for DSCP.
+    static nlohmann::json build_dscp_match_exprs(const std::string& ip_proto,
+                                                  std::optional<uint8_t> dscp);
     // Build the JSON element-add object for bulk-loading elems into a named set.
     static nlohmann::json build_elements_json(const std::string& set_name,
                                               const nlohmann::json& elems);

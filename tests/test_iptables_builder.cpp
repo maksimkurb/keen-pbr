@@ -479,6 +479,14 @@ TEST_CASE("build_ipt_script: tcp + single dest_port in rule") {
                "443 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
 }
 
+TEST_CASE("build_ipt_script: dscp matcher is emitted") {
+  ProtoPortFilter f;
+  f.dscp = 46;
+  auto s = T::build_ipt_script(false, {mark_rule("myset", false, 0x100, f)});
+  CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -m dscp --dscp "
+               "46 -j MARK --set-xmark 0x100/0xffffffff") != std::string::npos);
+}
+
 TEST_CASE("build_ipt_script: udp + port range in rule") {
   ProtoPortFilter f;
   f.proto = L4Proto::Udp;
