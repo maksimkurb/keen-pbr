@@ -55,7 +55,7 @@ config.json{
 	<meta itemprop="description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
 Большинству пользователей нужно только одно простое правило для каждого списка, например:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Правила проверяются сверху вниз. Первое совпадение выигрывает. Трафик, который не соответствует никакому правилу, остаётся немаркированным и следует обычной системной маршрутизации.">
-	<meta itemprop="wordCount" content="624">
+	<meta itemprop="wordCount" content="952">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Правила маршрутизации">
 	<meta name="twitter:description" content="Правила маршрутизации соединяют ваши списки с вашими outbounds.
@@ -894,6 +894,18 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-dscp--%d0%bd%d0%b0%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d1%82%d1%8c-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b9-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn">Фильтр DSCP — направить маркированный трафик через VPN
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#windows-%d0%bf%d0%be%d0%bc%d0%b5%d1%82%d0%b8%d1%82%d1%8c-%d0%be%d0%b4%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bb%d0%be%d0%b6%d0%b5%d0%bd%d0%b8%d0%b5">Windows: пометить одно приложение
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#linux-%d0%bf%d0%be%d0%bc%d0%b5%d1%82%d0%b8%d1%82%d1%8c-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8f">Linux: пометить трафик пользователя
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2--%d1%81%d0%be%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-%d0%ba%d0%be%d0%bd%d0%ba%d1%80%d0%b5%d1%82%d0%bd%d0%be%d0%b9-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b0">Фильтр адресов — сопоставление конкретной подсети источника
         </a>
       </li>
@@ -1106,6 +1118,12 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td>Протокол: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code> или <code>&quot;tcp/udp&quot;</code></td>
 			</tr>
 			<tr>
+					<td><code>dscp</code></td>
+					<td>integer</td>
+					<td>нет</td>
+					<td>Значение DSCP-метки от <code>1</code> до <code>63</code></td>
+			</tr>
+			<tr>
 					<td><code>src_port</code></td>
 					<td>string</td>
 					<td>нет</td>
@@ -1261,6 +1279,87 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
+<h3>Фильтр DSCP — направить маркированный трафик через VPN<span class="hx:absolute hx:-mt-20" id="фильтр-dscp--направить-маркированный-трафик-через-vpn"></span>
+    <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-dscp--%d0%bd%d0%b0%d0%bf%d1%80%d0%b0%d0%b2%d0%b8%d1%82%d1%8c-%d0%bc%d0%b0%d1%80%d0%ba%d0%b8%d1%80%d0%be%d0%b2%d0%b0%d0%bd%d0%bd%d1%8b%d0%b9-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d1%87%d0%b5%d1%80%d0%b5%d0%b7-vpn" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><p>DSCP (Differentiated Services Code Point) — это 6-битная метка в IP-заголовке. Обычно она используется для QoS, но keen-pbr может использовать её как условие маршрутизации: пометьте пакеты на клиентском устройстве, затем сопоставьте эту метку в правиле маршрутизации. Это удобно для маршрутизации по приложениям, когда у приложения нет стабильных доменов, IP-адресов или портов назначения.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dscp&#34;</span><span class="p">:</span> <span class="mi">46</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>DSCP можно комбинировать с теми же фильтрами списков, протокола, адресов и портов, что и в других правилах маршрутизации. Например, <code>&quot;dscp&quot;: 46</code> вместе с <code>&quot;src_addr&quot;: &quot;192.168.10.20&quot;</code> направит только маркированные пакеты с этого хоста.</p>
+<p>DSCP-метка должна уже быть в пакете, когда он приходит на роутер. Настраивайте маркировку на устройстве, где запущено приложение.</p>
+<h4>Windows: пометить одно приложение<span class="hx:absolute hx:-mt-20" id="windows-пометить-одно-приложение"></span>
+    <a href="#windows-%d0%bf%d0%be%d0%bc%d0%b5%d1%82%d0%b8%d1%82%d1%8c-%d0%be%d0%b4%d0%bd%d0%be-%d0%bf%d1%80%d0%b8%d0%bb%d0%be%d0%b6%d0%b5%d0%bd%d0%b8%d0%b5" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>Запустите PowerShell от имени администратора:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="nb">New-NetQosPolicy</span> <span class="n">-Name</span> <span class="s2">&#34;keen-pbr Zoom DSCP&#34;</span> <span class="n">-AppPathNameMatchCondition</span> <span class="s2">&#34;zoom.exe&#34;</span> <span class="n">-DSCPAction</span> <span class="mf">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><code>AppPathNameMatchCondition</code> может быть именем исполняемого файла, например <code>zoom.exe</code>, или полным путём к приложению. После этого Windows будет помечать трафик подходящего приложения DSCP <code>46</code>, а keen-pbr сможет маршрутизировать его правилом с <code>&quot;dscp&quot;: 46</code>.</p>
+<h4>Linux: пометить трафик пользователя<span class="hx:absolute hx:-mt-20" id="linux-пометить-трафик-пользователя"></span>
+    <a href="#linux-%d0%bf%d0%be%d0%bc%d0%b5%d1%82%d0%b8%d1%82%d1%8c-%d1%82%d1%80%d0%b0%d1%84%d0%b8%d0%ba-%d0%bf%d0%be%d0%bb%d1%8c%d0%b7%d0%be%d0%b2%d0%b0%d1%82%d0%b5%d0%bb%d1%8f" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h4><p>В Linux можно помечать пакеты, созданные конкретным локальным пользователем. Замените <code>ivan</code> в примерах ниже на имя пользователя, от которого запускается приложение, которое нужно маршрутизировать.</p>
+<p>Через nftables:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">sudo nft add table inet pbr_dscp
+</span></span><span class="line"><span class="cl">sudo nft <span class="s1">&#39;add chain inet pbr_dscp output { type route hook output priority mangle; policy accept; }&#39;</span>
+</span></span><span class="line"><span class="cl">sudo nft add rule inet pbr_dscp output meta skuid ivan ip dscp <span class="nb">set</span> <span class="m">46</span>
+</span></span><span class="line"><span class="cl">sudo nft add rule inet pbr_dscp output meta skuid ivan ip6 dscp <span class="nb">set</span> <span class="m">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Через iptables:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">sudo iptables -t mangle -A OUTPUT -m owner --uid-owner ivan -j DSCP --set-dscp <span class="m">46</span>
+</span></span><span class="line"><span class="cl">sudo ip6tables -t mangle -A OUTPUT -m owner --uid-owner ivan -j DSCP --set-dscp <span class="m">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Скопировать код"
+    aria-label="Скопировать код"
+    data-copied-label="Скопировано!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>Матчер <code>owner</code> в iptables работает с локально созданными пакетами, а не с пересылаемым трафиком. Для DSCP-маршрутизации с Linux-ноутбука или ПК добавляйте эти правила на этом ноутбуке или ПК, а не на роутере с keen-pbr.</p>
 <h3>Фильтр адресов — сопоставление конкретной подсети источника<span class="hx:absolute hx:-mt-20" id="фильтр-адресов--сопоставление-конкретной-подсети-источника"></span>
     <a href="#%d1%84%d0%b8%d0%bb%d1%8c%d1%82%d1%80-%d0%b0%d0%b4%d1%80%d0%b5%d1%81%d0%be%d0%b2--%d1%81%d0%be%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-%d0%ba%d0%be%d0%bd%d0%ba%d1%80%d0%b5%d1%82%d0%bd%d0%be%d0%b9-%d0%bf%d0%be%d0%b4%d1%81%d0%b5%d1%82%d0%b8-%d0%b8%d1%81%d1%82%d0%be%d1%87%d0%bd%d0%b8%d0%ba%d0%b0" class="subheading-anchor" aria-label="Постоянная ссылка на этот раздел"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 

@@ -43,6 +43,7 @@
 | `list` | array of string | да | Имена списков, трафик которых сопоставляется этим правилом |
 | `outbound` | string | да | Тег outbound для маршрутизации сопоставленного трафика |
 | `proto` | string | нет | Протокол: `"tcp"`, `"udp"` или `"tcp/udp"` |
+| `dscp` | integer | нет | Значение DSCP-метки от `1` до `63` |
 | `src_port` | string | нет | Сопоставлять только конкретные исходные порты |
 | `dest_port` | string | нет | Сопоставлять только конкретные порты назначения |
 | `src_addr` | string | нет | Сопоставлять только конкретные исходные адреса |
@@ -135,6 +136,59 @@
   }
 }
 ```
+
+### Фильтр DSCP — направить маркированный трафик через VPN
+
+DSCP (Differentiated Services Code Point) — это 6-битная метка в IP-заголовке. Обычно она используется для QoS, но keen-pbr может использовать её как условие маршрутизации: пометьте пакеты на клиентском устройстве, затем сопоставьте эту метку в правиле маршрутизации. Это удобно для маршрутизации по приложениям, когда у приложения нет стабильных доменов, IP-адресов или портов назначения.
+
+```json { filename="config.json" }
+{
+  "route": {
+    "rules": [
+      {
+        "dscp": 46,
+        "outbound": "vpn"
+      }
+    ]
+  }
+}
+```
+
+DSCP можно комбинировать с теми же фильтрами списков, протокола, адресов и портов, что и в других правилах маршрутизации. Например, `"dscp": 46` вместе с `"src_addr": "192.168.10.20"` направит только маркированные пакеты с этого хоста.
+
+DSCP-метка должна уже быть в пакете, когда он приходит на роутер. Настраивайте маркировку на устройстве, где запущено приложение.
+
+#### Windows: пометить одно приложение
+
+Запустите PowerShell от имени администратора:
+
+```powershell
+New-NetQosPolicy -Name "keen-pbr Zoom DSCP" -AppPathNameMatchCondition "zoom.exe" -DSCPAction 46
+```
+
+`AppPathNameMatchCondition` может быть именем исполняемого файла, например `zoom.exe`, или полным путём к приложению. После этого Windows будет помечать трафик подходящего приложения DSCP `46`, а keen-pbr сможет маршрутизировать его правилом с `"dscp": 46`.
+
+#### Linux: пометить трафик пользователя
+
+В Linux можно помечать пакеты, созданные конкретным локальным пользователем. Замените `ivan` в примерах ниже на имя пользователя, от которого запускается приложение, которое нужно маршрутизировать.
+
+Через nftables:
+
+```sh
+sudo nft add table inet pbr_dscp
+sudo nft 'add chain inet pbr_dscp output { type route hook output priority mangle; policy accept; }'
+sudo nft add rule inet pbr_dscp output meta skuid ivan ip dscp set 46
+sudo nft add rule inet pbr_dscp output meta skuid ivan ip6 dscp set 46
+```
+
+Через iptables:
+
+```sh
+sudo iptables -t mangle -A OUTPUT -m owner --uid-owner ivan -j DSCP --set-dscp 46
+sudo ip6tables -t mangle -A OUTPUT -m owner --uid-owner ivan -j DSCP --set-dscp 46
+```
+
+Матчер `owner` в iptables работает с локально созданными пакетами, а не с пересылаемым трафиком. Для DSCP-маршрутизации с Linux-ноутбука или ПК добавляйте эти правила на этом ноутбуке или ПК, а не на роутере с keen-pbr.
 
 ### Фильтр адресов — сопоставление конкретной подсети источника
 

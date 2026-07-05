@@ -55,7 +55,7 @@ Rules are checked from top to bottom. The first match wins. Traffic that matches
 	<meta itemprop="description" content="Route rules connect your lists to your outbounds.
 Most users only need one simple rule for each list, for example:
 config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_sites&#34;], &#34;outbound&#34;: &#34;vpn&#34; } ] } } Rules are checked from top to bottom. The first match wins. Traffic that matches no rule is left unmarked and follows normal system routing.">
-	<meta itemprop="wordCount" content="656">
+	<meta itemprop="wordCount" content="1005">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Route Rules">
 	<meta name="twitter:description" content="Route rules connect your lists to your outbounds.
@@ -894,6 +894,18 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#dscp-filter--route-tagged-traffic-through-vpn">DSCP filter — route tagged traffic through VPN
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#windows-tag-one-application">Windows: tag one application
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:ltr:pl-8 hx:rtl:pr-8 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#linux-tag-traffic-from-a-user">Linux: tag traffic from a user
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:ltr:pl-4 hx:rtl:pr-4 hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#address-filter--match-a-specific-source-subnet">Address filter — match a specific source subnet
         </a>
       </li>
@@ -1106,6 +1118,12 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
 					<td>Protocol: <code>&quot;tcp&quot;</code>, <code>&quot;udp&quot;</code>, or <code>&quot;tcp/udp&quot;</code></td>
 			</tr>
 			<tr>
+					<td><code>dscp</code></td>
+					<td>integer</td>
+					<td>no</td>
+					<td>DSCP tag value from <code>1</code> to <code>63</code></td>
+			</tr>
+			<tr>
 					<td><code>src_port</code></td>
 					<td>string</td>
 					<td>no</td>
@@ -1261,6 +1279,87 @@ config.json{ &#34;route&#34;: { &#34;rules&#34;: [ { &#34;list&#34;: [&#34;my_si
   </button>
 </div>
 </div>
+<h3>DSCP filter — route tagged traffic through VPN<span class="hx:absolute hx:-mt-20" id="dscp-filter--route-tagged-traffic-through-vpn"></span>
+    <a href="#dscp-filter--route-tagged-traffic-through-vpn" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>DSCP (Differentiated Services Code Point) is a 6-bit tag in the IP header. It is usually used for QoS, but keen-pbr can also use it as a routing selector: tag packets on the client device, then match that tag in a route rule. This is useful for per-application routing when the app does not have stable destination domains, IPs, or ports.</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;route&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rules&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;dscp&#34;</span><span class="p">:</span> <span class="mi">46</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;outbound&#34;</span><span class="p">:</span> <span class="s2">&#34;vpn&#34;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">]</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>DSCP can be combined with the same list, protocol, address, and port filters as other route rules. For example, <code>&quot;dscp&quot;: 46</code> plus <code>&quot;src_addr&quot;: &quot;192.168.10.20&quot;</code> routes only tagged packets from that host.</p>
+<p>The DSCP mark must already be present when the packet reaches the router. Configure it on the device that runs the application.</p>
+<h4>Windows: tag one application<span class="hx:absolute hx:-mt-20" id="windows-tag-one-application"></span>
+    <a href="#windows-tag-one-application" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>Run PowerShell as Administrator:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-powershell" data-lang="powershell"><span class="line"><span class="cl"><span class="nb">New-NetQosPolicy</span> <span class="n">-Name</span> <span class="s2">&#34;keen-pbr Zoom DSCP&#34;</span> <span class="n">-AppPathNameMatchCondition</span> <span class="s2">&#34;zoom.exe&#34;</span> <span class="n">-DSCPAction</span> <span class="mf">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p><code>AppPathNameMatchCondition</code> can be an executable name such as <code>zoom.exe</code> or a full application path. Windows then tags matching application traffic with DSCP <code>46</code>, and keen-pbr can route it with a rule containing <code>&quot;dscp&quot;: 46</code>.</p>
+<h4>Linux: tag traffic from a user<span class="hx:absolute hx:-mt-20" id="linux-tag-traffic-from-a-user"></span>
+    <a href="#linux-tag-traffic-from-a-user" class="subheading-anchor" aria-label="Permalink for this section"></a></h4><p>On Linux, you can tag packets created by a specific local user. Replace <code>john</code> in the examples below with the user that runs the application you want to route.</p>
+<p>With nftables:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">sudo nft add table inet pbr_dscp
+</span></span><span class="line"><span class="cl">sudo nft <span class="s1">&#39;add chain inet pbr_dscp output { type route hook output priority mangle; policy accept; }&#39;</span>
+</span></span><span class="line"><span class="cl">sudo nft add rule inet pbr_dscp output meta skuid john ip dscp <span class="nb">set</span> <span class="m">46</span>
+</span></span><span class="line"><span class="cl">sudo nft add rule inet pbr_dscp output meta skuid john ip6 dscp <span class="nb">set</span> <span class="m">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>With iptables:</p>
+<div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">sudo iptables -t mangle -A OUTPUT -m owner --uid-owner john -j DSCP --set-dscp <span class="m">46</span>
+</span></span><span class="line"><span class="cl">sudo ip6tables -t mangle -A OUTPUT -m owner --uid-owner john -j DSCP --set-dscp <span class="m">46</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-0">
+  <button
+    class="hextra-code-copy-btn hx:group/copybtn hx:cursor-pointer hx:transition-all hx:active:opacity-50 hx:bg-primary-700/5 hx:border hx:border-black/5 hx:text-gray-600 hx:hover:text-gray-900 hx:rounded-md hx:p-1.5 hx:dark:bg-primary-300/10 hx:dark:border-white/10 hx:dark:text-gray-400 hx:dark:hover:text-gray-50"
+    title="Copy code"
+    aria-label="Copy code"
+    data-copied-label="Copied!"
+  >
+    <div class="hextra-copy-icon hx:group-[.copied]/copybtn:hidden hx:pointer-events-none hx:h-4 hx:w-4"></div>
+<div class="hextra-success-icon hx:hidden hx:group-[.copied]/copybtn:block hx:pointer-events-none hx:h-4 hx:w-4"></div>
+  </button>
+</div>
+</div>
+<p>The iptables <code>owner</code> matcher applies to locally generated packets, not forwarded packets. For DSCP routing from a Linux laptop or PC, add these rules on that laptop or PC, not on the keen-pbr router.</p>
 <h3>Address filter — match a specific source subnet<span class="hx:absolute hx:-mt-20" id="address-filter--match-a-specific-source-subnet"></span>
     <a href="#address-filter--match-a-specific-source-subnet" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
