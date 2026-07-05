@@ -733,6 +733,55 @@ TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule ok") {
     CHECK(*checks[0].actual_fwmark == 131072u);
 }
 
+TEST_CASE("NftablesFirewallVerifier::verify_rules: direct dscp mark rule ok") {
+    const std::string canned = R"({
+        "nftables": [
+            {"chain": {"family": "inet", "table": "KeenPbrTable", "name": "prerouting",
+                       "type": "filter", "hook": "prerouting"}},
+            {"rule": {
+                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "expr": [
+                    {"match": {"op": "==",
+                               "left": {"payload": {"protocol": "ip", "field": "dscp"}},
+                               "right": "va"}},
+                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 327680}},
+                    {"accept": null}
+                ]
+            }},
+            {"rule": {
+                "family": "inet", "table": "KeenPbrTable", "chain": "prerouting",
+                "expr": [
+                    {"match": {"op": "==",
+                               "left": {"payload": {"protocol": "ip6", "field": "dscp"}},
+                               "right": "va"}},
+                    {"mangle": {"key": {"meta": {"key": "mark"}}, "value": 327680}},
+                    {"accept": null}
+                ]
+            }}
+        ]
+    })";
+
+    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
+                                "prerouting"})) {
+            return command_result(canned);
+        }
+        return command_result({}, 1);
+    };
+    NftablesFirewallVerifier verifier(runner);
+
+    RuleState rs;
+    rs.rule_index = 0;
+    rs.action_type = RuleActionType::Mark;
+    rs.fwmark = 327680u;
+    rs.criteria.dscp = 44;
+
+    auto checks = verifier.verify_rules({rs});
+    REQUIRE(checks.size() == 2);
+    CHECK(checks[0].status == CheckStatus::ok);
+    CHECK(checks[1].status == CheckStatus::ok);
+}
+
 TEST_CASE("NftablesFirewallVerifier::verify_rules: mark rule missing") {
     const std::string canned = R"({
         "nftables": [

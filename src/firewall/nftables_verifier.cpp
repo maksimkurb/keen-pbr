@@ -4,6 +4,8 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <optional>
 #include <string>
 #include <vector>
@@ -58,6 +60,43 @@ std::optional<uint8_t> parse_nft_dscp_value(const nlohmann::json& value) {
         if (parsed <= 63) {
             return static_cast<uint8_t>(parsed);
         }
+    }
+    if (value.is_string()) {
+        std::string raw = value.get<std::string>();
+        std::transform(raw.begin(), raw.end(), raw.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+
+        if (!raw.empty()) {
+            char* end = nullptr;
+            const unsigned long parsed = std::strtoul(raw.c_str(), &end, 0);
+            if (end != raw.c_str() && *end == '\0' && parsed <= 63) {
+                return static_cast<uint8_t>(parsed);
+            }
+        }
+
+        if (raw == "cs0" || raw == "be") return 0;
+        if (raw == "cs1") return 8;
+        if (raw == "af11") return 10;
+        if (raw == "af12") return 12;
+        if (raw == "af13") return 14;
+        if (raw == "cs2") return 16;
+        if (raw == "af21") return 18;
+        if (raw == "af22") return 20;
+        if (raw == "af23") return 22;
+        if (raw == "cs3") return 24;
+        if (raw == "af31") return 26;
+        if (raw == "af32") return 28;
+        if (raw == "af33") return 30;
+        if (raw == "cs4") return 32;
+        if (raw == "af41") return 34;
+        if (raw == "af42") return 36;
+        if (raw == "af43") return 38;
+        if (raw == "cs5") return 40;
+        if (raw == "va") return 44;
+        if (raw == "ef") return 46;
+        if (raw == "cs6") return 48;
+        if (raw == "cs7") return 56;
     }
     return std::nullopt;
 }
