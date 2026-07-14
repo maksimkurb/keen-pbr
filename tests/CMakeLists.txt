@@ -17,6 +17,7 @@ add_executable(keen-pbr-tests
   test_list_service.cpp
   test_http_client.cpp
   test_config_validation.cpp
+  test_config_writer.cpp
   test_routing_state.cpp
   test_route_table.cpp
   test_policy_rule.cpp
@@ -34,6 +35,7 @@ add_executable(keen-pbr-tests
   test_pid_file.cpp
   test_crash_diagnostics.cpp
   ../src/config/config.cpp
+  ../src/config/config_writer.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
   ../src/firewall/iptables_verifier.cpp
