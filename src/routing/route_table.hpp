@@ -11,7 +11,7 @@ namespace keen_pbr3 {
 class RouteTable {
 public:
     // If dry_run is true, add()/clear() only track specs and skip netlink ops.
-    explicit RouteTable(NetlinkManager& netlink, bool dry_run = false);
+    explicit RouteTable(RouteNetlinkOperations& netlink, bool dry_run = false);
     ~RouteTable();
 
     // Non-copyable
@@ -34,9 +34,12 @@ public:
     const std::vector<RouteSpec>& get_routes() const { return routes_; }
 
 private:
-    NetlinkManager& netlink_;
+    RouteNetlinkOperations& netlink_;
     bool dry_run_{false};
+    // Complete desired state, including identical routes that predated us.
     std::vector<RouteSpec> routes_;
+    // Subset actually created by this process and therefore safe to delete.
+    std::vector<RouteSpec> owned_routes_;
 
     // Check if an identical route is already tracked.
     bool is_tracked(const RouteSpec& spec) const;

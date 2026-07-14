@@ -3,7 +3,6 @@
 #include "../log/logger.hpp"
 
 #include <algorithm>
-#include <set>
 
 namespace keen_pbr3 {
 
@@ -22,7 +21,7 @@ bool routes_equal(const RouteSpec& a, const RouteSpec& b) {
 
 } // anonymous namespace
 
-RouteTable::RouteTable(NetlinkManager& netlink, bool dry_run)
+RouteTable::RouteTable(RouteNetlinkOperations& netlink, bool dry_run)
     : netlink_(netlink),
       dry_run_(dry_run) {}
 
@@ -47,9 +46,10 @@ void RouteTable::add(const RouteSpec& spec) {
     if (is_tracked(spec)) {
         return;
     }
+    bool owned = dry_run_;
     if (!dry_run_) {
         try {
-            netlink_.add_route(spec);
+            owned = netlink_.add_route(spec) == RouteAddResult::Created;
         } catch (const std::exception& e) {
             Logger::instance().error(
                 "Failed to add route (dst={}, table={}, iface={}, gw={}, metric={}, blackhole={}, unreachable={}): {}",
@@ -65,6 +65,7 @@ void RouteTable::add(const RouteSpec& spec) {
         }
     }
     routes_.push_back(spec);
+    if (owned) owned_routes_.push_back(spec);
 }
 
 void RouteTable::remove(const RouteSpec& spec) {
@@ -73,7 +74,11 @@ void RouteTable::remove(const RouteSpec& spec) {
     if (it == routes_.end()) {
         return;
     }
-    if (!dry_run_) {
+    auto owned_it = std::find_if(owned_routes_.begin(), owned_routes_.end(),
+                                 [&](const RouteSpec& route) {
+                                     return routes_equal(route, spec);
+                                 });
+    if (!dry_run_ && owned_it != owned_routes_.end()) {
         try {
             netlink_.delete_route(spec);
         } catch (const std::exception& e) {
@@ -89,31 +94,30 @@ void RouteTable::remove(const RouteSpec& spec) {
                 e.what());
         }
     }
+    if (owned_it != owned_routes_.end()) owned_routes_.erase(owned_it);
     routes_.erase(it);
 }
 
 void RouteTable::clear() {
     if (!dry_run_) {
-        std::set<uint32_t> managed_tables;
-        for (const auto& route : routes_) {
-            managed_tables.insert(route.table);
-        }
-
-        for (uint32_t table_id : managed_tables) {
+        for (auto it = owned_routes_.rbegin(); it != owned_routes_.rend(); ++it) {
             try {
-                netlink_.flush_routes_in_table(table_id);
+                netlink_.delete_route(*it);
             } catch (const std::exception& e) {
                 Logger::instance().error(
-                    "Failed to flush routes in table {} during clear(): {}",
-                    table_id,
+                    "Failed to delete owned route (dst={}, table={}) during clear(): {}",
+                    it->destination,
+                    it->table,
                     e.what());
             } catch (...) {
                 Logger::instance().error(
-                    "Failed to flush routes in table {} during clear(): unknown error",
-                    table_id);
+                    "Failed to delete owned route (dst={}, table={}) during clear(): unknown error",
+                    it->destination,
+                    it->table);
             }
         }
     }
+    owned_routes_.clear();
     routes_.clear();
 }
 

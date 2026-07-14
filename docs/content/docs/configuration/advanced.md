@@ -97,6 +97,10 @@ Controls the routing table ID range used for outbound-specific tables.
 
 Outbounds are assigned sequential table IDs starting from `table_start`. Ensure these IDs don't conflict with existing routing tables on your system.
 
+Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
+table are preserved during reload and shutdown; an identical pre-existing route is
+treated as already satisfied and is not adopted for cleanup.
+
 ## lists_autoupdate
 
 Controls automatic periodic refresh of remote lists.

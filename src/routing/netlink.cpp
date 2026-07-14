@@ -140,7 +140,7 @@ NetlinkManager::NetlinkManager() : impl_(std::make_unique<Impl>()) {}
 
 NetlinkManager::~NetlinkManager() = default;
 
-void NetlinkManager::add_route(const RouteSpec& spec) {
+RouteAddResult NetlinkManager::add_route(const RouteSpec& spec) {
     KPBR_LOCK_GUARD(mutex_);
 
     int family = spec.family;
@@ -205,8 +205,11 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
         rtnl_route_add_nexthop(route.get(), nh.release());
     }
 
-    int err = rtnl_route_add(impl_->sock, route.get(), NLM_F_CREATE | NLM_F_REPLACE);
+    int err = rtnl_route_add(impl_->sock, route.get(), NLM_F_CREATE | NLM_F_EXCL);
     if (err < 0) {
+        if (err == -NLE_EXIST) {
+            return RouteAddResult::AlreadyPresent;
+        }
         throw NetlinkError(keen_pbr3::format(
             "Failed to add route: {} (dst={}, table={}, iface={}, gw={}, family={}, blackhole={})",
             nl_geterror(err),
@@ -217,6 +220,7 @@ void NetlinkManager::add_route(const RouteSpec& spec) {
             family,
             spec.blackhole));
     }
+    return RouteAddResult::Created;
 }
 
 void NetlinkManager::delete_route(const RouteSpec& spec) {

@@ -34,6 +34,18 @@ struct RouteSpec {
     uint32_t metric{0};         // Route metric/priority (0 = kernel default)
 };
 
+enum class RouteAddResult {
+    Created,
+    AlreadyPresent,
+};
+
+class RouteNetlinkOperations {
+public:
+    virtual ~RouteNetlinkOperations() = default;
+    virtual RouteAddResult add_route(const RouteSpec& spec) = 0;
+    virtual void delete_route(const RouteSpec& spec) = 0;
+};
+
 // Represents a policy routing rule (ip rule)
 struct RuleSpec {
     uint32_t fwmark{0};         // Firewall mark to match
@@ -75,7 +87,7 @@ struct DumpedInterface {
 };
 
 // Low-level netlink route and policy rule management via libnl
-class NetlinkManager {
+class NetlinkManager : public RouteNetlinkOperations {
 public:
     NetlinkManager();
     ~NetlinkManager();
@@ -87,8 +99,8 @@ public:
     NetlinkManager& operator=(NetlinkManager&&) = delete;
 
     // Route operations
-    void add_route(const RouteSpec& spec);
-    void delete_route(const RouteSpec& spec);
+    RouteAddResult add_route(const RouteSpec& spec) override;
+    void delete_route(const RouteSpec& spec) override;
     void flush_routes_in_table(uint32_t table_id, int family = 0);
 
     // Policy rule operations
