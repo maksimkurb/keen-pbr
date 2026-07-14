@@ -26,6 +26,7 @@ enum class ConfigOperationState : uint8_t {
 };
 
 struct ConfigApplyResult {
+    bool saved{false};
     bool applied{false};
     bool rolled_back{false};
     std::optional<std::int64_t> apply_started_ts;

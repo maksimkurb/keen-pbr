@@ -4,7 +4,6 @@
 #include "generated/api_types.hpp"
 
 #include "../config/config.hpp"
-#include "../config/config_writer.hpp"
 #include "../log/logger.hpp"
 #include <nlohmann/json.hpp>
 
@@ -116,7 +115,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
         return nlohmann::json(resp).dump();
     });
 
-    // POST /api/config/save - dry-run check, persist staged config, apply immediately
+    // POST /api/config/save - dry-run check, apply staged config, then persist it
     server.post("/api/config/save", [&ctx]() -> std::string {
         ctx.begin_save_operation();
 
@@ -154,16 +153,15 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             throw ApiError("Dry-run apply check failed", 500, error_payload.dump());
         }
 
-        // Phase 2: write + commit/apply.
+        // Phase 2: apply + durable commit.
         try {
-            write_config_atomically(ctx.config_path, staged_snapshot->second);
             ConfigApplyResult apply_result =
                 ctx.enqueue_apply_validated_config(staged_snapshot->first, staged_snapshot->second);
 
             if (!apply_result.error.empty()) {
                 nlohmann::json error_payload = {
                     {"error", std::string("Commit/apply failed: ") + apply_result.error},
-                    {"saved", true},
+                    {"saved", apply_result.saved},
                     {"applied", apply_result.applied},
                     {"rolled_back", apply_result.rolled_back},
                 };
@@ -173,7 +171,7 @@ void register_config_handler(ApiServer& server, ApiContext& ctx) {
             nlohmann::json response = {
                 {"status", "ok"},
                 {"message", "Config saved and applied"},
-                {"saved", true},
+                {"saved", apply_result.saved},
                 {"applied", apply_result.applied},
                 {"rolled_back", apply_result.rolled_back},
             };

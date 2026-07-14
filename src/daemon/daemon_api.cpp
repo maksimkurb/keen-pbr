@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "../config/config_writer.hpp"
 
 #ifdef WITH_API
 
@@ -123,6 +124,8 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
          saved_config_json = std::move(saved_config_json)]() mutable {
             try {
                 apply_prepared_runtime_inputs(std::move(*prepared));
+                write_config_atomically(config_path_, saved_config_json);
+                result->saved = true;
                 result->applied = true;
                 result->rolled_back = false;
                 config_store_.clear_staged_if_matches(saved_config_json);
