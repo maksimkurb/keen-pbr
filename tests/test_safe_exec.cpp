@@ -95,6 +95,16 @@ private:
     std::filesystem::path path_;
 };
 
+class SafeExecTimeoutGuard {
+public:
+    SafeExecTimeoutGuard() : previous_(safe_exec_timeouts()) {}
+    ~SafeExecTimeoutGuard() {
+        set_safe_exec_timeouts(previous_.timeout, previous_.kill_grace);
+    }
+private:
+    SafeExecTimeouts previous_;
+};
+
 void write_executable(const std::filesystem::path& path, const std::string& content) {
     std::ofstream output(path);
     output << content;
@@ -147,6 +157,48 @@ TEST_CASE("safe_exec: child process receives devnull stdin") {
     close(pipe_fds[1]);
 
     CHECK(exit_code == 0);
+}
+
+TEST_CASE("safe_exec: timeout escalates to SIGKILL") {
+    SafeExecTimeoutGuard guard;
+    set_safe_exec_timeouts(std::chrono::milliseconds{100},
+                           std::chrono::milliseconds{50});
+    const auto started = std::chrono::steady_clock::now();
+    const int exit_code = safe_exec({
+        "/bin/sh", "-c", "trap '' TERM; while :; do sleep 1; done",
+    }, true);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+
+    CHECK(exit_code == -1);
+    CHECK(elapsed < std::chrono::seconds{2});
+}
+
+TEST_CASE("safe_exec_pipe_stdin: child that does not read is bounded by deadline") {
+    SafeExecTimeoutGuard guard;
+    set_safe_exec_timeouts(std::chrono::milliseconds{100},
+                           std::chrono::milliseconds{50});
+    const std::string input(2U * 1024U * 1024U, 'x');
+    const auto started = std::chrono::steady_clock::now();
+    const int exit_code = safe_exec_pipe_stdin(
+        {"/bin/sh", "-c", "trap '' TERM; sleep 10"}, input);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+
+    CHECK(exit_code == -1);
+    CHECK(elapsed < std::chrono::seconds{2});
+}
+
+TEST_CASE("safe_exec_capture: ignored SIGTERM cannot hang capture") {
+    SafeExecTimeoutGuard guard;
+    set_safe_exec_timeouts(std::chrono::milliseconds{100},
+                           std::chrono::milliseconds{50});
+    const auto started = std::chrono::steady_clock::now();
+    const auto result = safe_exec_capture(
+        {"/bin/sh", "-c", "trap '' TERM; while :; do sleep 1; done"}, true);
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+
+    CHECK(result.exit_code == -1);
+    CHECK(result.timed_out);
+    CHECK(elapsed < std::chrono::seconds{2});
 }
 
 TEST_CASE("iptables_ipv6_supported: probes ip6tables-restore test script") {

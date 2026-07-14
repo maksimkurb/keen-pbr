@@ -17,6 +17,7 @@
 #include "../firewall/firewall_verifier.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
+#include "../util/safe_exec.hpp"
 #include "../util/time_utils.hpp"
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "scheduler.hpp"
@@ -82,6 +83,11 @@ Daemon::Daemon(Config config,
     if (!hook_command_executor_) {
         hook_command_executor_ = default_hook_command_executor;
     }
+
+    const auto daemon_config = config_.daemon.value_or(DaemonConfig{});
+    set_safe_exec_timeouts(
+        std::chrono::seconds{daemon_config.exec_timeout_seconds.value_or(30)},
+        std::chrono::seconds{daemon_config.exec_kill_grace_seconds.value_or(2)});
 
     epoll_fd_ = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd_ < 0) {

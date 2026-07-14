@@ -748,6 +748,15 @@ void validate_config(const Config& cfg) {
                   "daemon.max_file_size_bytes must be greater than 0");
     }
 
+    if (cfg.daemon && cfg.daemon->exec_timeout_seconds.value_or(30) < 1) {
+        add_issue(issues, "daemon.exec_timeout_seconds",
+                  "daemon.exec_timeout_seconds must be >= 1");
+    }
+    if (cfg.daemon && cfg.daemon->exec_kill_grace_seconds.value_or(2) < 0) {
+        add_issue(issues, "daemon.exec_kill_grace_seconds",
+                  "daemon.exec_kill_grace_seconds must be >= 0");
+    }
+
     if (cfg.api) {
         if (cfg.api->max_request_body_bytes.value_or(1024 * 1024) < 1024) {
             add_issue(issues, "api.max_request_body_bytes",
