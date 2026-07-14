@@ -27,6 +27,7 @@ add_executable(keen-pbr-tests
   test_trace_logging.cpp
   test_interface_monitor.cpp
   test_port_spec_util.cpp
+  test_pid_file.cpp
   test_crash_diagnostics.cpp
   ../src/config/config.cpp
   ../src/crash/crash_diagnostics.cpp
@@ -58,6 +59,7 @@ add_executable(keen-pbr-tests
   ../src/config/list_parser.cpp
   ../src/cmd/test_routing.cpp
   ../src/daemon/list_service.cpp
+  ../src/daemon/pid_file.cpp
   ../src/daemon/resolver_health.cpp
   ../src/daemon/resolver_sync_state_machine.cpp
   ../src/http/http_client.cpp

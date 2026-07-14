@@ -277,6 +277,17 @@ void Daemon::setup_api() {
         [this](const Config& config) {
             validate_config(config);
 
+            const auto active_pid_file = config_store_.active_config()
+                .daemon.value_or(DaemonConfig{}).pid_file.value_or("");
+            const auto candidate_pid_file = config.daemon.value_or(DaemonConfig{})
+                .pid_file.value_or("");
+            if (candidate_pid_file != active_pid_file) {
+                throw ConfigValidationError({{
+                    "daemon.pid_file",
+                    "daemon.pid_file cannot be changed while the daemon is running",
+                }});
+            }
+
             const auto marks = allocate_outbound_marks(
                 config.fwmark.value_or(FwmarkConfig{}),
                 config.outbounds.value_or(std::vector<Outbound>{}));
