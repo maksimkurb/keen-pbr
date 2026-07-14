@@ -33,6 +33,15 @@ bool is_valid_ipv6_address(const std::string& ip) {
     return inet_pton(AF_INET6, ip.c_str(), &addr) == 1;
 }
 
+bool is_http_url(const std::string& url) {
+    const auto separator = url.find("://");
+    if (separator == std::string::npos || separator + 3 >= url.size()) return false;
+    std::string scheme = url.substr(0, separator);
+    std::transform(scheme.begin(), scheme.end(), scheme.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return scheme == "http" || scheme == "https";
+}
+
 void add_issue(std::vector<ConfigValidationIssue>& issues,
                std::string path,
                std::string message) {
@@ -758,6 +767,11 @@ void validate_config(const Config& cfg) {
             add_issue(issues, list_path,
                       "List '" + name +
                           "' must have at least one of: url, domains, ip_cidrs, file");
+        }
+        if (has_url && !is_http_url(*list_cfg.url)) {
+            add_issue(issues,
+                      list_path + ".url",
+                      "List URL must use the http or https scheme");
         }
 
         for (std::size_t index = 0;

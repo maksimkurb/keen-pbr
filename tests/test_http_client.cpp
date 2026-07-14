@@ -24,6 +24,13 @@ bool is_network_unavailable(const keen_pbr3::HttpError& error) {
 
 } // namespace
 
+TEST_CASE("http client rejects non-HTTP initial protocols") {
+    CurlGlobalGuard curl_guard;
+    keen_pbr3::HttpClient client;
+    CHECK_THROWS_AS(client.download("file:///etc/hosts"), keen_pbr3::HttpError);
+    CHECK_THROWS_AS(client.download_conditional("file:///etc/hosts"), keen_pbr3::HttpError);
+}
+
 TEST_CASE("http client enforces configured max response size for remote file [network]") {
     CurlGlobalGuard curl_guard;
 

@@ -37,6 +37,9 @@ to dnsmasq as `google.com`. DNS service labels containing underscores are allowe
 whitespace, directive separators, malformed wildcards, and invalid labels are skipped
 in files and rejected in inline configuration.
 
+Remote list URLs and every redirect must use HTTP or HTTPS. Private and local
+HTTP(S) destinations remain allowed for router-local list deployments.
+
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. 
 
 {{< callout type="warning" >}}

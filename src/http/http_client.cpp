@@ -23,6 +23,21 @@ struct WriteContext {
     size_t max_size;
 };
 
+static void restrict_protocols(CURL* curl) {
+#if LIBCURL_VERSION_NUM >= 0x075500
+    const CURLcode initial = curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
+    const CURLcode redirects = curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+    const CURLcode initial = curl_easy_setopt(
+        curl, CURLOPT_PROTOCOLS, static_cast<long>(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+    const CURLcode redirects = curl_easy_setopt(
+        curl, CURLOPT_REDIR_PROTOCOLS, static_cast<long>(CURLPROTO_HTTP | CURLPROTO_HTTPS));
+#endif
+    if (initial != CURLE_OK || redirects != CURLE_OK) {
+        throw HttpError("Failed to restrict HTTP protocols");
+    }
+}
+
 static size_t write_callback(char* ptr, size_t size, size_t nmemb,
                              void* userdata) {
     if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
@@ -131,6 +146,12 @@ std::string HttpClient::download(const std::string& url,
     uint32_t fwmark = options.fwmark;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    try {
+        restrict_protocols(curl);
+    } catch (...) {
+        curl_easy_cleanup(curl);
+        throw;
+    }
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, static_cast<long>(timeout_.count()));
@@ -207,6 +228,12 @@ ConditionalDownloadResult HttpClient::download_conditional(
     uint32_t fwmark = options.fwmark;
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    try {
+        restrict_protocols(curl);
+    } catch (...) {
+        curl_easy_cleanup(curl);
+        throw;
+    }
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);

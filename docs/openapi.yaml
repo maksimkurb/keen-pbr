@@ -525,7 +525,7 @@ components:
       properties:
         url:
           type: string
-          description: URL to a remote list file to download and cache.
+          description: HTTP(S) URL to a remote list file to download and cache.
           example: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
         domains:
           type: array

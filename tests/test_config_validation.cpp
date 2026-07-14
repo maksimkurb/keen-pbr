@@ -637,6 +637,20 @@ TEST_CASE("inline domains use strict shared domain validation") {
     }
 }
 
+TEST_CASE("remote list URLs allow only HTTP and HTTPS") {
+    CHECK_NOTHROW(parse_test_config(
+        R"({"lists":{"a":{"url":"http://example.com/a"},"b":{"url":"HTTPS://example.com/b"}}})"));
+    for (const std::string& url : {
+             "file:///etc/passwd", "ftp://example.com/list", "data:text/plain,example.com",
+             "//example.com/list", "http://"}) {
+        CAPTURE(url);
+        const nlohmann::json config = {
+            {"lists", {{"remote", {{"url", url}}}}},
+        };
+        CHECK_THROWS_AS(parse_test_config(config.dump()), ConfigValidationError);
+    }
+}
+
 TEST_CASE("strict enforcement: outbound override parses") {
     std::string json = R"({
         "outbounds":[
