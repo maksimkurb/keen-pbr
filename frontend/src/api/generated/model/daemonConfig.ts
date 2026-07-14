@@ -31,4 +31,14 @@ export interface DaemonConfig {
   /** Maximum allowed size in bytes for downloaded remote content such as URL-backed lists. Defaults to 8 MiB.
    */
   max_file_size_bytes?: number;
+  /**
+     * Deadline for privileged helper and hook processes.
+     * @minimum 1
+     */
+  exec_timeout_seconds?: number;
+  /**
+     * Grace period after SIGTERM before a timed-out helper receives SIGKILL.
+     * @minimum 0
+     */
+  exec_kill_grace_seconds?: number;
 }

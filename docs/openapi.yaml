@@ -365,6 +365,16 @@ components:
             lists. Defaults to 8 MiB.
           default: 8388608
           example: 8388608
+        exec_timeout_seconds:
+          type: integer
+          minimum: 1
+          default: 30
+          description: Deadline for privileged helper and hook processes.
+        exec_kill_grace_seconds:
+          type: integer
+          minimum: 0
+          default: 2
+          description: Grace period after SIGTERM before a timed-out helper receives SIGKILL.
 
     ApiConfig:
       type: object
@@ -378,6 +388,26 @@ components:
           description: Address and port for the HTTP API.
           default: "0.0.0.0:12121"
           example: "0.0.0.0:12121"
+        max_request_body_bytes:
+          type: integer
+          minimum: 1024
+          default: 1048576
+          description: Maximum HTTP request body size in bytes.
+        read_timeout_seconds:
+          type: integer
+          minimum: 1
+          default: 15
+          description: Maximum time spent reading an HTTP request.
+        write_timeout_seconds:
+          type: integer
+          minimum: 1
+          default: 15
+          description: Maximum time spent writing an HTTP response.
+        keep_alive_timeout_seconds:
+          type: integer
+          minimum: 1
+          default: 20
+          description: Idle timeout for an HTTP keep-alive connection.
 
     RetryConfig:
       type: object

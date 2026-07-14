@@ -10,4 +10,24 @@ export interface ApiConfig {
   enabled?: boolean;
   /** Address and port for the HTTP API. */
   listen?: string;
+  /**
+     * Maximum HTTP request body size in bytes.
+     * @minimum 1024
+     */
+  max_request_body_bytes?: number;
+  /**
+     * Maximum time spent reading an HTTP request.
+     * @minimum 1
+     */
+  read_timeout_seconds?: number;
+  /**
+     * Maximum time spent writing an HTTP response.
+     * @minimum 1
+     */
+  write_timeout_seconds?: number;
+  /**
+     * Idle timeout for an HTTP keep-alive connection.
+     * @minimum 1
+     */
+  keep_alive_timeout_seconds?: number;
 }

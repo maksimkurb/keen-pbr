@@ -122,3 +122,22 @@ TEST_CASE("static frontend gzip variant respects explicit q zero") {
 } // namespace keen_pbr3
 
 #endif // WITH_API
+TEST_CASE("API server limits use secure defaults and configured values") {
+    keen_pbr3::ApiConfig defaults;
+    const auto default_limits = keen_pbr3::api_server_limits(defaults);
+    CHECK(default_limits.max_request_body_bytes == 1024U * 1024U);
+    CHECK(default_limits.read_timeout_seconds == 15);
+    CHECK(default_limits.write_timeout_seconds == 15);
+    CHECK(default_limits.keep_alive_timeout_seconds == 20);
+
+    keen_pbr3::ApiConfig configured;
+    configured.max_request_body_bytes = 2048;
+    configured.read_timeout_seconds = 3;
+    configured.write_timeout_seconds = 4;
+    configured.keep_alive_timeout_seconds = 5;
+    const auto limits = keen_pbr3::api_server_limits(configured);
+    CHECK(limits.max_request_body_bytes == 2048);
+    CHECK(limits.read_timeout_seconds == 3);
+    CHECK(limits.write_timeout_seconds == 4);
+    CHECK(limits.keep_alive_timeout_seconds == 5);
+}

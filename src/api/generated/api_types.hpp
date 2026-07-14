@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypes07QYnT data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesJItXoE data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -92,7 +92,11 @@ namespace api {
 
     struct ApiConfig {
         std::optional<bool> enabled;
+        std::optional<int64_t> keep_alive_timeout_seconds;
         std::optional<std::string> listen;
+        std::optional<int64_t> max_request_body_bytes;
+        std::optional<int64_t> read_timeout_seconds;
+        std::optional<int64_t> write_timeout_seconds;
     };
 
     struct CacheMetadata {
@@ -118,6 +122,8 @@ namespace api {
 
     struct Daemon {
         std::optional<std::string> cache_dir;
+        std::optional<int64_t> exec_kill_grace_seconds;
+        std::optional<int64_t> exec_timeout_seconds;
         std::optional<DaemonConfigFirewallBackend> firewall_backend;
         std::optional<int64_t> firewall_verify_max_bytes;
         std::optional<bool> ipv6_enabled;
@@ -456,7 +462,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypes07QYnT {
+    struct KeenPbrTypesJItXoE {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -649,8 +655,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypes07QYnT & x);
-    void to_json(json & j, const KeenPbrTypes07QYnT & x);
+    void from_json(const json & j, KeenPbrTypesJItXoE & x);
+    void to_json(json & j, const KeenPbrTypesJItXoE & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -696,13 +702,21 @@ namespace api {
 
     inline void from_json(const json & j, ApiConfig& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
+        x.keep_alive_timeout_seconds = get_stack_optional<int64_t>(j, "keep_alive_timeout_seconds");
         x.listen = get_stack_optional<std::string>(j, "listen");
+        x.max_request_body_bytes = get_stack_optional<int64_t>(j, "max_request_body_bytes");
+        x.read_timeout_seconds = get_stack_optional<int64_t>(j, "read_timeout_seconds");
+        x.write_timeout_seconds = get_stack_optional<int64_t>(j, "write_timeout_seconds");
     }
 
     inline void to_json(json & j, const ApiConfig & x) {
         j = json::object();
         j["enabled"] = x.enabled;
+        j["keep_alive_timeout_seconds"] = x.keep_alive_timeout_seconds;
         j["listen"] = x.listen;
+        j["max_request_body_bytes"] = x.max_request_body_bytes;
+        j["read_timeout_seconds"] = x.read_timeout_seconds;
+        j["write_timeout_seconds"] = x.write_timeout_seconds;
     }
 
     inline void from_json(const json & j, CacheMetadata& x) {
@@ -743,6 +757,8 @@ namespace api {
 
     inline void from_json(const json & j, Daemon& x) {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
+        x.exec_kill_grace_seconds = get_stack_optional<int64_t>(j, "exec_kill_grace_seconds");
+        x.exec_timeout_seconds = get_stack_optional<int64_t>(j, "exec_timeout_seconds");
         x.firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "firewall_backend");
         x.firewall_verify_max_bytes = get_stack_optional<int64_t>(j, "firewall_verify_max_bytes");
         x.ipv6_enabled = get_stack_optional<bool>(j, "ipv6_enabled");
@@ -755,6 +771,8 @@ namespace api {
     inline void to_json(json & j, const Daemon & x) {
         j = json::object();
         j["cache_dir"] = x.cache_dir;
+        j["exec_kill_grace_seconds"] = x.exec_kill_grace_seconds;
+        j["exec_timeout_seconds"] = x.exec_timeout_seconds;
         j["firewall_backend"] = x.firewall_backend;
         j["firewall_verify_max_bytes"] = x.firewall_verify_max_bytes;
         j["ipv6_enabled"] = x.ipv6_enabled;
@@ -1415,7 +1433,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypes07QYnT& x) {
+    inline void from_json(const json & j, KeenPbrTypesJItXoE& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1469,7 +1487,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypes07QYnT & x) {
+    inline void to_json(json & j, const KeenPbrTypesJItXoE & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1528,7 +1546,7 @@ namespace api {
         if (j == "mismatch") x = CheckStatus::MISMATCH;
         else if (j == "missing") x = CheckStatus::MISSING;
         else if (j == "ok") x = CheckStatus::OK;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"CheckStatus\""); }
     }
 
     inline void to_json(json & j, const CheckStatus & x) {
@@ -1544,7 +1562,7 @@ namespace api {
         if (j == "auto") x = DaemonConfigFirewallBackend::AUTO;
         else if (j == "iptables") x = DaemonConfigFirewallBackend::IPTABLES;
         else if (j == "nftables") x = DaemonConfigFirewallBackend::NFTABLES;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DaemonConfigFirewallBackend\""); }
     }
 
     inline void to_json(json & j, const DaemonConfigFirewallBackend & x) {
@@ -1559,7 +1577,7 @@ namespace api {
     inline void from_json(const json & j, DnsServerType & x) {
         if (j == "keenetic") x = DnsServerType::KEENETIC;
         else if (j == "static") x = DnsServerType::STATIC;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"DnsServerType\""); }
     }
 
     inline void to_json(json & j, const DnsServerType & x) {
@@ -1576,7 +1594,7 @@ namespace api {
         else if (j == "interface") x = OutboundType::INTERFACE;
         else if (j == "table") x = OutboundType::TABLE;
         else if (j == "urltest") x = OutboundType::URLTEST;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"OutboundType\""); }
     }
 
     inline void to_json(json & j, const OutboundType & x) {
@@ -1592,7 +1610,7 @@ namespace api {
 
     inline void from_json(const json & j, ConfigUpdateResponseStatus & x) {
         if (j == "ok") x = ConfigUpdateResponseStatus::OK;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ConfigUpdateResponseStatus\""); }
     }
 
     inline void to_json(json & j, const ConfigUpdateResponseStatus & x) {
@@ -1609,7 +1627,7 @@ namespace api {
         else if (j == "query_failed") x = ResolverConfigProbeStatus::QUERY_FAILED;
         else if (j == "success") x = ResolverConfigProbeStatus::SUCCESS;
         else if (j == "unknown") x = ResolverConfigProbeStatus::UNKNOWN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverConfigProbeStatus\""); }
     }
 
     inline void to_json(json & j, const ResolverConfigProbeStatus & x) {
@@ -1628,7 +1646,7 @@ namespace api {
         if (j == "converged") x = ResolverConfigSyncState::CONVERGED;
         else if (j == "converging") x = ResolverConfigSyncState::CONVERGING;
         else if (j == "stale") x = ResolverConfigSyncState::STALE;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverConfigSyncState\""); }
     }
 
     inline void to_json(json & j, const ResolverConfigSyncState & x) {
@@ -1645,7 +1663,7 @@ namespace api {
         else if (j == "healthy") x = ResolverLiveStatus::HEALTHY;
         else if (j == "unavailable") x = ResolverLiveStatus::UNAVAILABLE;
         else if (j == "unknown") x = ResolverLiveStatus::UNKNOWN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ResolverLiveStatus\""); }
     }
 
     inline void to_json(json & j, const ResolverLiveStatus & x) {
@@ -1661,7 +1679,7 @@ namespace api {
     inline void from_json(const json & j, HealthResponseStatus & x) {
         if (j == "running") x = HealthResponseStatus::RUNNING;
         else if (j == "stopped") x = HealthResponseStatus::STOPPED;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"HealthResponseStatus\""); }
     }
 
     inline void to_json(json & j, const HealthResponseStatus & x) {
@@ -1674,7 +1692,7 @@ namespace api {
 
     inline void from_json(const json & j, RoutingHealthErrorResponseOverall & x) {
         if (j == "error") x = RoutingHealthErrorResponseOverall::ERROR;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthErrorResponseOverall\""); }
     }
 
     inline void to_json(json & j, const RoutingHealthErrorResponseOverall & x) {
@@ -1687,7 +1705,7 @@ namespace api {
     inline void from_json(const json & j, RoutingHealthResponseFirewallBackend & x) {
         if (j == "iptables") x = RoutingHealthResponseFirewallBackend::IPTABLES;
         else if (j == "nftables") x = RoutingHealthResponseFirewallBackend::NFTABLES;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthResponseFirewallBackend\""); }
     }
 
     inline void to_json(json & j, const RoutingHealthResponseFirewallBackend & x) {
@@ -1702,7 +1720,7 @@ namespace api {
         if (j == "degraded") x = RoutingHealthResponseOverall::DEGRADED;
         else if (j == "error") x = RoutingHealthResponseOverall::ERROR;
         else if (j == "ok") x = RoutingHealthResponseOverall::OK;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RoutingHealthResponseOverall\""); }
     }
 
     inline void to_json(json & j, const RoutingHealthResponseOverall & x) {
@@ -1717,7 +1735,7 @@ namespace api {
     inline void from_json(const json & j, RuntimeInterfaceInventoryStatusEnum & x) {
         if (j == "down") x = RuntimeInterfaceInventoryStatusEnum::DOWN;
         else if (j == "up") x = RuntimeInterfaceInventoryStatusEnum::UP;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RuntimeInterfaceInventoryStatusEnum\""); }
     }
 
     inline void to_json(json & j, const RuntimeInterfaceInventoryStatusEnum & x) {
@@ -1734,7 +1752,7 @@ namespace api {
         else if (j == "degraded") x = RuntimeInterfaceStatusEnum::DEGRADED;
         else if (j == "unavailable") x = RuntimeInterfaceStatusEnum::UNAVAILABLE;
         else if (j == "unknown") x = RuntimeInterfaceStatusEnum::UNKNOWN;
-        else { throw std::runtime_error("Input JSON does not conform to schema!"); }
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RuntimeInterfaceStatusEnum\""); }
     }
 
     inline void to_json(json & j, const RuntimeInterfaceStatusEnum & x) {

@@ -693,6 +693,18 @@ Config parse_config(const std::string& json_str) {
         "daemon.firewall_verify_max_bytes", issues);
     validate_optional_integer_field(
         parsed_json, "daemon", "max_file_size_bytes", "daemon.max_file_size_bytes", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "exec_timeout_seconds", "daemon.exec_timeout_seconds", issues);
+    validate_optional_integer_field(
+        parsed_json, "daemon", "exec_kill_grace_seconds", "daemon.exec_kill_grace_seconds", issues);
+    validate_optional_integer_field(
+        parsed_json, "api", "max_request_body_bytes", "api.max_request_body_bytes", issues);
+    validate_optional_integer_field(
+        parsed_json, "api", "read_timeout_seconds", "api.read_timeout_seconds", issues);
+    validate_optional_integer_field(
+        parsed_json, "api", "write_timeout_seconds", "api.write_timeout_seconds", issues);
+    validate_optional_integer_field(
+        parsed_json, "api", "keep_alive_timeout_seconds", "api.keep_alive_timeout_seconds", issues);
     validate_optional_string_field(
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_optional_boolean_field(
@@ -734,6 +746,37 @@ void validate_config(const Config& cfg) {
         *cfg.daemon->max_file_size_bytes <= 0) {
         add_issue(issues, "daemon.max_file_size_bytes",
                   "daemon.max_file_size_bytes must be greater than 0");
+    }
+
+    if (cfg.api) {
+        if (cfg.api->max_request_body_bytes.value_or(1024 * 1024) < 1024) {
+            add_issue(issues, "api.max_request_body_bytes",
+                      "api.max_request_body_bytes must be >= 1024");
+        }
+        if (cfg.api->read_timeout_seconds.value_or(15) < 1) {
+            add_issue(issues, "api.read_timeout_seconds",
+                      "api.read_timeout_seconds must be >= 1");
+        }
+        if (cfg.api->read_timeout_seconds.value_or(15) > std::numeric_limits<int>::max()) {
+            add_issue(issues, "api.read_timeout_seconds",
+                      "api.read_timeout_seconds is too large");
+        }
+        if (cfg.api->write_timeout_seconds.value_or(15) < 1) {
+            add_issue(issues, "api.write_timeout_seconds",
+                      "api.write_timeout_seconds must be >= 1");
+        }
+        if (cfg.api->write_timeout_seconds.value_or(15) > std::numeric_limits<int>::max()) {
+            add_issue(issues, "api.write_timeout_seconds",
+                      "api.write_timeout_seconds is too large");
+        }
+        if (cfg.api->keep_alive_timeout_seconds.value_or(20) < 1) {
+            add_issue(issues, "api.keep_alive_timeout_seconds",
+                      "api.keep_alive_timeout_seconds must be >= 1");
+        }
+        if (cfg.api->keep_alive_timeout_seconds.value_or(20) > std::numeric_limits<int>::max()) {
+            add_issue(issues, "api.keep_alive_timeout_seconds",
+                      "api.keep_alive_timeout_seconds is too large");
+        }
     }
 
     if (cfg.lists_autoupdate) {

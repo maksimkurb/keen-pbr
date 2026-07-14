@@ -11,9 +11,10 @@
 
  */
 export interface ListConfig {
-  /** URL to a remote list file to download and cache. */
+  /** HTTP(S) URL to a remote list file to download and cache. */
   url?: string;
-  /** Inline list of domain patterns (supports `*.` wildcards). */
+  /** Inline DNS-compatible domain patterns. A leading `*.` is accepted and normalized to the base domain; the same syntax is used for file and URL lists.
+   */
   domains?: string[];
   /** Inline list of IP addresses or CIDR ranges. */
   ip_cidrs?: string[];

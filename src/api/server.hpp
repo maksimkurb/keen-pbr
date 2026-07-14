@@ -5,6 +5,7 @@
 #include "../config/config.hpp"
 
 #include <functional>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -16,6 +17,15 @@ class Response;
 }
 
 namespace keen_pbr3 {
+
+struct ApiServerLimits {
+    std::size_t max_request_body_bytes{1024U * 1024U};
+    int read_timeout_seconds{15};
+    int write_timeout_seconds{15};
+    int keep_alive_timeout_seconds{20};
+};
+
+ApiServerLimits api_server_limits(const ApiConfig& config);
 
 class ApiError : public std::runtime_error {
 public:

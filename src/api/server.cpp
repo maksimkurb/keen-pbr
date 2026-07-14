@@ -303,7 +303,23 @@ struct ApiServer::Impl {
     std::string listen_error_message;
 };
 
+ApiServerLimits api_server_limits(const ApiConfig& config) {
+    ApiServerLimits limits;
+    limits.max_request_body_bytes = static_cast<std::size_t>(
+        config.max_request_body_bytes.value_or(1024 * 1024));
+    limits.read_timeout_seconds = static_cast<int>(config.read_timeout_seconds.value_or(15));
+    limits.write_timeout_seconds = static_cast<int>(config.write_timeout_seconds.value_or(15));
+    limits.keep_alive_timeout_seconds = static_cast<int>(
+        config.keep_alive_timeout_seconds.value_or(20));
+    return limits;
+}
+
 ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
+    const ApiServerLimits limits = api_server_limits(config);
+    impl_->server.set_payload_max_length(limits.max_request_body_bytes);
+    impl_->server.set_read_timeout(limits.read_timeout_seconds);
+    impl_->server.set_write_timeout(limits.write_timeout_seconds);
+    impl_->server.set_keep_alive_timeout(limits.keep_alive_timeout_seconds);
     // Parse "host:port" from config.listen
     const std::string listen = config.listen.value_or("0.0.0.0:12121");
     auto colon = listen.rfind(':');
