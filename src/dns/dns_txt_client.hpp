@@ -1,11 +1,16 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
 
 namespace keen_pbr3 {
+
+namespace detail {
+bool dns_response_is_truncated(const unsigned char* packet, std::size_t size);
+}
 
 struct ResolverConfigHashTxtValue {
     std::optional<std::int64_t> ts;

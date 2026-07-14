@@ -21,6 +21,11 @@
 
 namespace keen_pbr3 {
 
+bool detail::dns_response_is_truncated(const unsigned char* packet, std::size_t size) {
+    // DNS flags are the network-order bytes at offsets 2-3; TC is bit 9.
+    return packet != nullptr && size >= NS_HFIXEDSZ && (packet[2] & 0x02U) != 0;
+}
+
 namespace {
 
 constexpr const char* kDnsTxtAnswerNotFound = "DNS TXT answer not found";
@@ -301,8 +306,8 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     }
 
     if (response_len >= NS_HFIXEDSZ) {
-        const auto* response_header = reinterpret_cast<const HEADER*>(response.data());
-        if (response_header->tc != 0) {
+        if (detail::dns_response_is_truncated(response.data(),
+                                              static_cast<std::size_t>(response_len))) {
             if (error_out) *error_out = "DNS TXT response truncated; TCP fallback is not implemented";
             Logger::instance().trace("dns_txt_query_error",
                                      "resolver={} domain={} duration_ms={} error=truncated_response",

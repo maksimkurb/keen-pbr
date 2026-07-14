@@ -158,6 +158,16 @@ private:
 
 } // namespace
 
+TEST_CASE("DNS truncation flag parsing supports unaligned packet buffers") {
+    constexpr std::size_t dns_header_size = 12;
+    std::array<unsigned char, dns_header_size + 1> storage {};
+    unsigned char* packet = storage.data() + 1;
+    packet[2] = 0x02;
+    CHECK(keen_pbr3::detail::dns_response_is_truncated(packet, dns_header_size));
+    packet[2] = 0;
+    CHECK_FALSE(keen_pbr3::detail::dns_response_is_truncated(packet, dns_header_size));
+}
+
 TEST_CASE("parse_resolver_config_hash_txt parses ts/hash payload") {
     const auto parsed = parse_resolver_config_hash_txt("1744060800|0123456789abcdef0123456789abcdef");
     REQUIRE(parsed.ts.has_value());
