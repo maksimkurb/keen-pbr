@@ -55,6 +55,18 @@ struct RuleSpec {
     int family{0};              // AF_INET or AF_INET6 (0 = both)
 };
 
+enum class RuleAddResult {
+    Created,
+    AlreadyPresent,
+};
+
+class RuleNetlinkOperations {
+public:
+    virtual ~RuleNetlinkOperations() = default;
+    virtual RuleAddResult add_rule_for_family(const RuleSpec& spec, int family) = 0;
+    virtual void delete_rule_for_family(const RuleSpec& spec, int family) = 0;
+};
+
 // A route dumped from the kernel (read-only snapshot)
 struct DumpedRoute {
     std::string destination;            // "default" for 0/0, else "x.x.x.x/N"
@@ -87,7 +99,7 @@ struct DumpedInterface {
 };
 
 // Low-level netlink route and policy rule management via libnl
-class NetlinkManager : public RouteNetlinkOperations {
+class NetlinkManager : public RouteNetlinkOperations, public RuleNetlinkOperations {
 public:
     NetlinkManager();
     ~NetlinkManager();
@@ -104,8 +116,8 @@ public:
     void flush_routes_in_table(uint32_t table_id, int family = 0);
 
     // Policy rule operations
-    void add_rule(const RuleSpec& spec);
-    void delete_rule(const RuleSpec& spec);
+    RuleAddResult add_rule_for_family(const RuleSpec& spec, int family) override;
+    void delete_rule_for_family(const RuleSpec& spec, int family) override;
 
     // Dump all routes in a specific routing table from the kernel.
     // family: 0 (AF_UNSPEC) to get both IPv4 and IPv6 routes.

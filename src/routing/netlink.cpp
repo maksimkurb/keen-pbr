@@ -329,79 +329,48 @@ void NetlinkManager::flush_routes_in_table(uint32_t table_id, int family) {
     }
 }
 
-void NetlinkManager::add_rule(const RuleSpec& spec) {
+RuleAddResult NetlinkManager::add_rule_for_family(const RuleSpec& spec, int family) {
     KPBR_LOCK_GUARD(mutex_);
 
-    auto add_for_family = [&](int fam) {
-        RulePtr rule(rtnl_rule_alloc());
-        if (!rule) {
-            throw NetlinkError("Failed to allocate rule object");
-        }
-
-        rtnl_rule_set_family(rule.get(), fam);
-        rtnl_rule_set_table(rule.get(), spec.table);
-        rtnl_rule_set_mark(rule.get(), spec.fwmark);
-        rtnl_rule_set_mask(rule.get(), spec.fwmask);
-
-        if (spec.priority != 0) {
-            rtnl_rule_set_prio(rule.get(), spec.priority);
-        }
-
-        rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
-
-        int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
-        if (err < 0) {
-            if (err == -NLE_EXIST) {
-                // Rule already exists (e.g., leftover from a crashed previous instance).
-                // Desired state is already achieved — not an error.
-                return;
-            }
-            throw NetlinkError(std::string("Failed to add rule (family ") +
-                               std::to_string(fam) + "): " + nl_geterror(err));
-        }
-    };
-
-    if (spec.family == 0) {
-        // Add for both IPv4 and IPv6
-        add_for_family(AF_INET);
-        add_for_family(AF_INET6);
-    } else {
-        add_for_family(spec.family);
+    RulePtr rule(rtnl_rule_alloc());
+    if (!rule) {
+        throw NetlinkError("Failed to allocate rule object");
     }
+
+    rtnl_rule_set_family(rule.get(), family);
+    rtnl_rule_set_table(rule.get(), spec.table);
+    rtnl_rule_set_mark(rule.get(), spec.fwmark);
+    rtnl_rule_set_mask(rule.get(), spec.fwmask);
+    if (spec.priority != 0) rtnl_rule_set_prio(rule.get(), spec.priority);
+    rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
+
+    const int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
+    if (err == -NLE_EXIST) return RuleAddResult::AlreadyPresent;
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to add rule (family ") +
+                           std::to_string(family) + "): " + nl_geterror(err));
+    }
+    return RuleAddResult::Created;
 }
 
-void NetlinkManager::delete_rule(const RuleSpec& spec) {
+void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
     KPBR_LOCK_GUARD(mutex_);
 
-    auto del_for_family = [&](int fam) {
-        RulePtr rule(rtnl_rule_alloc());
-        if (!rule) {
-            throw NetlinkError("Failed to allocate rule object");
-        }
+    RulePtr rule(rtnl_rule_alloc());
+    if (!rule) {
+        throw NetlinkError("Failed to allocate rule object");
+    }
+    rtnl_rule_set_family(rule.get(), family);
+    rtnl_rule_set_table(rule.get(), spec.table);
+    rtnl_rule_set_mark(rule.get(), spec.fwmark);
+    rtnl_rule_set_mask(rule.get(), spec.fwmask);
+    if (spec.priority != 0) rtnl_rule_set_prio(rule.get(), spec.priority);
+    rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
 
-        rtnl_rule_set_family(rule.get(), fam);
-        rtnl_rule_set_table(rule.get(), spec.table);
-        rtnl_rule_set_mark(rule.get(), spec.fwmark);
-        rtnl_rule_set_mask(rule.get(), spec.fwmask);
-
-        if (spec.priority != 0) {
-            rtnl_rule_set_prio(rule.get(), spec.priority);
-        }
-
-        rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
-
-        int err = rtnl_rule_delete(impl_->sock, rule.get(), 0);
-        if (err < 0) {
-            throw NetlinkError(std::string("Failed to delete rule (family ") +
-                               std::to_string(fam) + "): " + nl_geterror(err));
-        }
-    };
-
-    if (spec.family == 0) {
-        del_for_family(AF_INET);
-        del_for_family(AF_INET6);
-    } else {
-        del_for_family(spec.family);
+    const int err = rtnl_rule_delete(impl_->sock, rule.get(), 0);
+    if (err < 0) {
+        throw NetlinkError(std::string("Failed to delete rule (family ") +
+                           std::to_string(family) + "): " + nl_geterror(err));
     }
 }
 
