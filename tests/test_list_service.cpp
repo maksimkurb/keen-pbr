@@ -7,9 +7,9 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <curl/curl.h>
 #include <cstdlib>
 #include <cstring>
+#include <curl/curl.h>
 #include <filesystem>
 #include <map>
 #include <mutex>
@@ -38,7 +38,7 @@ std::filesystem::path make_temp_dir() {
 }
 
 class LoggerCapture {
-public:
+  public:
     LoggerCapture() : previous_level_(Logger::instance().level()) {
         Logger::instance().set_level(LogLevel::debug);
         Logger::instance().set_sink([this](const std::string& line) {
@@ -59,15 +59,19 @@ public:
         });
     }
 
-private:
+  private:
     LogLevel previous_level_;
     mutable std::mutex mutex_;
     std::vector<std::string> lines_;
 };
 
 struct CurlGlobalGuard {
-    CurlGlobalGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-    ~CurlGlobalGuard() { curl_global_cleanup(); }
+    CurlGlobalGuard() {
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+    }
+    ~CurlGlobalGuard() {
+        curl_global_cleanup();
+    }
 };
 
 struct HttpResponse {
@@ -75,12 +79,12 @@ struct HttpResponse {
     std::string reason{"OK"};
     std::string body;
     std::vector<std::string> headers;
+    std::chrono::milliseconds delay{0};
 };
 
 class TestHttpServer {
-public:
-    explicit TestHttpServer(std::map<std::string, HttpResponse> routes)
-        : routes_(std::move(routes)) {
+  public:
+    explicit TestHttpServer(std::map<std::string, HttpResponse> routes) : routes_(std::move(routes)) {
         listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
         if (listen_fd_ < 0) {
             throw std::runtime_error("socket failed");
@@ -129,7 +133,11 @@ public:
         return "http://127.0.0.1:" + std::to_string(port_) + path;
     }
 
-private:
+    int request_count() const {
+        return request_count_.load();
+    }
+
+  private:
     void serve() {
         while (running_.load()) {
             const int client_fd = accept(listen_fd_, nullptr, nullptr);
@@ -145,6 +153,7 @@ private:
     }
 
     void handle_client(int client_fd) {
+        request_count_.fetch_add(1);
         std::string request;
         char buffer[1024];
         while (request.find("\r\n\r\n") == std::string::npos) {
@@ -175,6 +184,8 @@ private:
             response.status = 404;
             response.reason = "Not Found";
         }
+        if (response.delay.count() > 0)
+            std::this_thread::sleep_for(response.delay);
 
         std::ostringstream out;
         out << "HTTP/1.1 " << response.status << ' ' << response.reason << "\r\n"
@@ -192,10 +203,43 @@ private:
     int listen_fd_{-1};
     uint16_t port_{0};
     std::atomic<bool> running_{true};
+    std::atomic<int> request_count_{0};
     std::thread worker_;
 };
 
 } // namespace
+
+TEST_CASE("refresh_remote_lists: identical concurrent callers join one flight") {
+    CurlGlobalGuard curl_guard;
+    HttpResponse response;
+    response.body = "example.com\n";
+    response.delay = std::chrono::milliseconds{150};
+    TestHttpServer server({{"/list.txt", response}});
+
+    const auto cache_dir = make_temp_dir();
+    ListService service(cache_dir);
+    service.ensure_dir();
+    Config config;
+    ListConfig remote;
+    remote.url = server.url("/list.txt");
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+    const OutboundMarkMap marks;
+    const std::set<std::string> relevant{"remote"};
+
+    std::optional<RemoteListsRefreshResult> first;
+    std::optional<RemoteListsRefreshResult> second;
+    std::thread one([&] { first = service.refresh_remote_lists(config, marks, &relevant); });
+    std::thread two([&] { second = service.refresh_remote_lists(config, marks, &relevant); });
+    one.join();
+    two.join();
+
+    REQUIRE(first.has_value());
+    REQUIRE(second.has_value());
+    CHECK(first->changed_lists == std::vector<std::string>{"remote"});
+    CHECK(second->changed_lists == first->changed_lists);
+    CHECK(server.request_count() == 1);
+    std::filesystem::remove_all(cache_dir);
+}
 
 TEST_CASE("select_remote_list_targets: refresh-all selects only URL-backed lists") {
     Config config;
@@ -261,7 +305,8 @@ TEST_CASE("select_remote_list_targets: non-URL-backed list returns not remote") 
     CHECK(selection.list_names.empty());
 }
 
-TEST_CASE("should_reload_runtime_after_list_refresh: only relevant changes reload active runtime") {
+TEST_CASE("should_reload_runtime_after_list_refresh: only relevant changes "
+          "reload active runtime") {
     RemoteListsRefreshResult refresh_result;
     refresh_result.changed_lists = {"remote"};
     refresh_result.relevant_changed_lists = {"remote"};
@@ -273,7 +318,8 @@ TEST_CASE("should_reload_runtime_after_list_refresh: only relevant changes reloa
     CHECK_FALSE(should_reload_runtime_after_list_refresh(true, refresh_result));
 }
 
-TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated metadata only") {
+TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated "
+          "metadata only") {
     const auto temp_dir = make_temp_dir();
     CacheManager cache_manager(temp_dir);
     cache_manager.ensure_dir();
@@ -306,7 +352,8 @@ TEST_CASE("build_list_refresh_state_map: URL-backed lists expose last_updated me
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("refresh_remote_lists: failed HTTP list logs status and refresh continues") {
+TEST_CASE("refresh_remote_lists: failed HTTP list logs status and refresh "
+          "continues") {
     CurlGlobalGuard curl_guard;
     TestHttpServer server({
         {"/bad.txt", HttpResponse{404, "Not Found", ""}},
@@ -340,7 +387,8 @@ TEST_CASE("refresh_remote_lists: failed HTTP list logs status and refresh contin
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("download_uncached: reports relevant changed lists for startup resolver reload") {
+TEST_CASE("download_uncached: reports relevant changed lists for startup "
+          "resolver reload") {
     CurlGlobalGuard curl_guard;
     TestHttpServer server({
         {"/route.txt", HttpResponse{200, "OK", "example.com\n"}},
@@ -363,14 +411,12 @@ TEST_CASE("download_uncached: reports relevant changed lists for startup resolve
     };
 
     const std::set<std::string> relevant_lists{"route"};
-    const auto result =
-        service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+    const auto result = service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
 
     CHECK(result.changed_lists == std::vector<std::string>{"route", "unused"});
     CHECK(result.relevant_changed_lists == std::vector<std::string>{"route"});
 
-    const auto second_result =
-        service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+    const auto second_result = service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
     CHECK(second_result.changed_lists.empty());
     CHECK(second_result.relevant_changed_lists.empty());
 

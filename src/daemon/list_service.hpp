@@ -4,7 +4,11 @@
 #include "../config/config.hpp"
 #include "../util/traced_mutex.hpp"
 
+#include <condition_variable>
+#include <exception>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
@@ -50,47 +54,51 @@ struct RemoteListTargetSelection {
     }
 };
 
-RemoteListTargetSelection select_remote_list_targets(
-    const Config& config,
-    const std::optional<std::string>& requested_name);
+RemoteListTargetSelection select_remote_list_targets(const Config& config,
+                                                     const std::optional<std::string>& requested_name);
 
 std::set<std::string> collect_relevant_list_names(const Config& config);
 
-bool should_reload_runtime_after_list_refresh(
-    bool routing_runtime_active,
-    const RemoteListsRefreshResult& refresh_result);
+bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
+                                              const RemoteListsRefreshResult& refresh_result);
 
-std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(
-    const Config& config,
-    const CacheManager& cache_manager);
+std::map<std::string, api::ListRefreshStateValue> build_list_refresh_state_map(const Config& config,
+                                                                               const CacheManager& cache_manager);
 
 class ListService {
-public:
-    ListService(const std::filesystem::path& cache_dir,
-                size_t max_file_size_bytes = kDefaultMaxFileSizeBytes);
+  public:
+    ListService(const std::filesystem::path& cache_dir, size_t max_file_size_bytes = kDefaultMaxFileSizeBytes);
 
     void ensure_dir();
     const CacheManager& cache_manager() const;
 
-    RemoteListsRefreshResult download_uncached(
-        const Config& config,
-        const OutboundMarkMap& outbound_marks,
-        const std::set<std::string>* relevant_lists = nullptr);
-    RemoteListsRefreshResult refresh_remote_lists(
-        const Config& config,
-        const OutboundMarkMap& outbound_marks,
-        const std::set<std::string>* relevant_lists = nullptr,
-        const std::set<std::string>* target_lists = nullptr);
+    RemoteListsRefreshResult download_uncached(const Config& config,
+                                               const OutboundMarkMap& outbound_marks,
+                                               const std::set<std::string>* relevant_lists = nullptr);
+    RemoteListsRefreshResult refresh_remote_lists(const Config& config,
+                                                  const OutboundMarkMap& outbound_marks,
+                                                  const std::set<std::string>* relevant_lists = nullptr,
+                                                  const std::set<std::string>* target_lists = nullptr);
 
-private:
-    RemoteListsRefreshResult download_remote_lists(
-        const Config& config,
-        const OutboundMarkMap& outbound_marks,
-        bool only_uncached,
-        const std::set<std::string>* relevant_lists,
-        const std::set<std::string>* target_lists);
+  private:
+    struct RefreshFlight {
+        std::string key;
+        bool done{false};
+        RemoteListsRefreshResult result;
+        std::exception_ptr error;
+        std::condition_variable_any completed;
+    };
+
+    RemoteListsRefreshResult download_remote_lists(const Config& config,
+                                                   const OutboundMarkMap& outbound_marks,
+                                                   bool only_uncached,
+                                                   const std::set<std::string>* relevant_lists,
+                                                   const std::set<std::string>* target_lists);
 
     mutable TracedMutex mutex_;
+    std::mutex refresh_mutex_;
+    std::condition_variable_any refresh_available_;
+    std::shared_ptr<RefreshFlight> refresh_flight_;
     CacheManager cache_manager_;
 };
 
