@@ -7,6 +7,7 @@
 #include <cctype>
 #include <iomanip>
 #include <limits>
+#include <net/if.h>
 #include <set>
 #include <sstream>
 
@@ -515,6 +516,21 @@ void validate_route_inbound_interfaces(const json& root, std::vector<ConfigValid
         const std::string iface = iface_value.get<std::string>();
         if (trim_copy(iface).empty()) {
             add_issue(issues, iface_path, iface_path + " must not be blank");
+            continue;
+        }
+
+        const bool invalid_character = std::any_of(
+            iface.begin(), iface.end(), [](unsigned char ch) {
+                return ch == '/' || ch == ':' || std::isspace(ch) != 0 ||
+                       std::iscntrl(ch) != 0;
+            });
+        if (iface.size() >= IFNAMSIZ || iface == "." || iface == ".." ||
+            invalid_character) {
+            add_issue(
+                issues,
+                iface_path,
+                iface_path +
+                    " must be a valid Linux interface name (shorter than IFNAMSIZ and without '/', ':', whitespace, or control characters)");
             continue;
         }
 

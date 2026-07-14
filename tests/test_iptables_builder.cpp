@@ -401,6 +401,12 @@ TEST_CASE("build_ipt_script: config-derived prefilter keeps route rule body unch
   CHECK(iface_pos < mark_pos);
 }
 
+TEST_CASE("build_ipt_script: config rejects interface restore injection before serialization") {
+  CHECK_THROWS(parse_valid_config(
+      "{\"route\":{\"inbound_interfaces\":[\"br0\\n-A KeenPbrTable -j DROP\"],"
+      "\"rules\":[]}}"));
+}
+
 TEST_CASE("build_ipt_script_for_rule: masked mark rule uses set-xmark and rule counters") {
   FirewallRuleCriteria criteria;
   auto s = T::build_ipt_script_for_rule(false, Rule::Mark, 0x00010000, criteria,
