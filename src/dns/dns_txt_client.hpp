@@ -10,6 +10,10 @@ namespace keen_pbr3 {
 
 namespace detail {
 bool dns_response_is_truncated(const unsigned char* packet, std::size_t size);
+bool dns_response_matches_query(const unsigned char* packet,
+                                std::size_t size,
+                                std::uint16_t transaction_id,
+                                const std::string& domain);
 }
 
 struct ResolverConfigHashTxtValue {

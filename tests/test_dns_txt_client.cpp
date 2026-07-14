@@ -168,6 +168,18 @@ TEST_CASE("DNS truncation flag parsing supports unaligned packet buffers") {
     CHECK_FALSE(keen_pbr3::detail::dns_response_is_truncated(packet, dns_header_size));
 }
 
+TEST_CASE("DNS response validation checks transaction and question") {
+    constexpr std::uint16_t id = 0x1234;
+    const auto response = build_txt_response(
+        id, "config-hash.keen.pbr", {"0123456789abcdef0123456789abcdef"});
+    CHECK(keen_pbr3::detail::dns_response_matches_query(
+        response.data(), response.size(), id, "config-hash.keen.pbr"));
+    CHECK_FALSE(keen_pbr3::detail::dns_response_matches_query(
+        response.data(), response.size(), 0xabcd, "config-hash.keen.pbr"));
+    CHECK_FALSE(keen_pbr3::detail::dns_response_matches_query(
+        response.data(), response.size(), id, "other.example"));
+}
+
 TEST_CASE("parse_resolver_config_hash_txt parses ts/hash payload") {
     const auto parsed = parse_resolver_config_hash_txt("1744060800|0123456789abcdef0123456789abcdef");
     REQUIRE(parsed.ts.has_value());

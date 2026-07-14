@@ -7,11 +7,13 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <cctype>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <netinet/in.h>
 #include <resolv.h>
 #include <sys/socket.h>
+#include <strings.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <vector>
@@ -24,6 +26,37 @@ namespace keen_pbr3 {
 bool detail::dns_response_is_truncated(const unsigned char* packet, std::size_t size) {
     // DNS flags are the network-order bytes at offsets 2-3; TC is bit 9.
     return packet != nullptr && size >= NS_HFIXEDSZ && (packet[2] & 0x02U) != 0;
+}
+
+bool detail::dns_response_matches_query(const unsigned char* packet,
+                                        std::size_t size,
+                                        std::uint16_t transaction_id,
+                                        const std::string& domain) {
+    if (packet == nullptr || size < NS_HFIXEDSZ || size > static_cast<std::size_t>(INT_MAX)) {
+        return false;
+    }
+    const std::uint16_t response_id =
+        static_cast<std::uint16_t>((static_cast<std::uint16_t>(packet[0]) << 8U) | packet[1]);
+    if (response_id != transaction_id || (packet[2] & 0x80U) == 0 ||
+        (packet[2] & 0x78U) != 0 || (packet[3] & 0x0fU) != 0) {
+        return false;
+    }
+
+    ns_msg handle {};
+    if (ns_initparse(packet, static_cast<int>(size), &handle) < 0 ||
+        ns_msg_count(handle, ns_s_qd) != 1) {
+        return false;
+    }
+    ns_rr question {};
+    if (ns_parserr(&handle, ns_s_qd, 0, &question) < 0 ||
+        ns_rr_type(question) != ns_t_txt || ns_rr_class(question) != ns_c_in) {
+        return false;
+    }
+    std::string expected = domain;
+    if (!expected.empty() && expected.back() == '.') expected.pop_back();
+    std::string actual = ns_rr_name(question);
+    if (!actual.empty() && actual.back() == '.') actual.pop_back();
+    return strcasecmp(actual.c_str(), expected.c_str()) == 0;
 }
 
 namespace {
@@ -242,6 +275,14 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     }
     const auto close_socket = [socket_fd]() { close(socket_fd); };
 
+    if (connect(socket_fd,
+                reinterpret_cast<const sockaddr*>(&resolver_addr),
+                sizeof(resolver_addr)) != 0) {
+        if (error_out) *error_out = "Failed to connect DNS socket";
+        close_socket();
+        return std::nullopt;
+    }
+
     const auto timeout_ms = std::max<int64_t>(1, timeout.count());
     timeval socket_timeout {};
     socket_timeout.tv_sec = static_cast<time_t>(timeout_ms / 1000);
@@ -269,12 +310,7 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
     }
 
     std::array<unsigned char, NS_PACKETSZ * 8> response {};
-    const ssize_t sent = sendto(socket_fd,
-                                query.data(),
-                                static_cast<size_t>(query_len),
-                                0,
-                                reinterpret_cast<const sockaddr*>(&resolver_addr),
-                                sizeof(resolver_addr));
+    const ssize_t sent = send(socket_fd, query.data(), static_cast<size_t>(query_len), 0);
     if (sent != static_cast<ssize_t>(query_len)) {
         if (error_out) *error_out = "Failed to send DNS TXT query";
         Logger::instance().trace("dns_txt_query_error",
@@ -287,12 +323,7 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
         return std::nullopt;
     }
 
-    const ssize_t response_len = recvfrom(socket_fd,
-                                          response.data(),
-                                          response.size(),
-                                          0,
-                                          nullptr,
-                                          nullptr);
+    const ssize_t response_len = recv(socket_fd, response.data(), response.size(), 0);
     if (response_len <= 0) {
         if (error_out) *error_out = "DNS TXT query failed";
         Logger::instance().trace("dns_txt_query_error",
@@ -318,6 +349,17 @@ std::optional<std::string> query_dns_txt_record(const std::string& dns_server_ad
             close_socket();
             return std::nullopt;
         }
+    }
+
+    const std::uint16_t query_id = static_cast<std::uint16_t>(
+        (static_cast<std::uint16_t>(query[0]) << 8U) | query[1]);
+    if (!detail::dns_response_matches_query(response.data(),
+                                            static_cast<std::size_t>(response_len),
+                                            query_id,
+                                            domain)) {
+        if (error_out) *error_out = "DNS TXT response did not match query";
+        close_socket();
+        return std::nullopt;
     }
 
     close_socket();
