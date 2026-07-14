@@ -72,3 +72,16 @@ TEST_CASE("http client enforces configured max response size for remote file [ne
         CHECK(body.size() > 30);
     }
 }
+
+TEST_CASE("conditional download captures validators only from final redirect response") {
+    std::string etag;
+    std::string last_modified;
+    keen_pbr3::detail::capture_response_header_line("HTTP/1.1 302 Found\r\n", etag, last_modified);
+    keen_pbr3::detail::capture_response_header_line("ETag: \"redirect-poison\"\r\n", etag, last_modified);
+    keen_pbr3::detail::capture_response_header_line("Last-Modified: Mon, 01 Jan 2024 00:00:00 GMT\r\n", etag, last_modified);
+    keen_pbr3::detail::capture_response_header_line("HTTP/1.1 200 OK\r\n", etag, last_modified);
+    keen_pbr3::detail::capture_response_header_line("ETag: \"final\"\r\n", etag, last_modified);
+
+    CHECK(etag == "\"final\"");
+    CHECK(last_modified.empty());
+}

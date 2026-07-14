@@ -7,8 +7,15 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace keen_pbr3 {
+
+namespace detail {
+void capture_response_header_line(std::string_view header,
+                                  std::string& etag,
+                                  std::string& last_modified);
+}
 
 struct HttpRequestOptions {
     uint32_t fwmark{0};

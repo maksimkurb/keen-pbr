@@ -70,6 +70,36 @@ static std::string trim_header_value(const std::string& s) {
     return s.substr(start, end - start);
 }
 
+void detail::capture_response_header_line(std::string_view header_view,
+                                          std::string& etag,
+                                          std::string& last_modified) {
+    const std::string header(header_view);
+    if (header.size() >= 5 &&
+        std::tolower(static_cast<unsigned char>(header[0])) == 'h' &&
+        std::tolower(static_cast<unsigned char>(header[1])) == 't' &&
+        std::tolower(static_cast<unsigned char>(header[2])) == 't' &&
+        std::tolower(static_cast<unsigned char>(header[3])) == 'p' &&
+        header[4] == '/') {
+        etag.clear();
+        last_modified.clear();
+        return;
+    }
+
+    auto starts_with_ci = [&](const std::string& prefix) {
+        if (header.size() < prefix.size()) return false;
+        for (size_t i = 0; i < prefix.size(); ++i) {
+            if (std::tolower(static_cast<unsigned char>(header[i])) !=
+                std::tolower(static_cast<unsigned char>(prefix[i]))) return false;
+        }
+        return true;
+    };
+    if (starts_with_ci("etag:")) {
+        etag = trim_header_value(header.substr(5));
+    } else if (starts_with_ci("last-modified:")) {
+        last_modified = trim_header_value(header.substr(14));
+    }
+}
+
 static size_t header_callback(char* buffer, size_t size, size_t nitems,
                               void* userdata) {
     if (nitems != 0 && size > SIZE_MAX / nitems) return 0;
@@ -77,22 +107,7 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems,
     auto* capture = static_cast<HeaderCapture*>(userdata);
     std::string header(buffer, total);
 
-    // Case-insensitive prefix check
-    auto starts_with_ci = [&](const std::string& prefix) {
-        if (header.size() < prefix.size()) return false;
-        for (size_t i = 0; i < prefix.size(); ++i) {
-            if (std::tolower(static_cast<unsigned char>(header[i])) !=
-                std::tolower(static_cast<unsigned char>(prefix[i])))
-                return false;
-        }
-        return true;
-    };
-
-    if (starts_with_ci("etag:")) {
-        capture->etag = trim_header_value(header.substr(5));
-    } else if (starts_with_ci("last-modified:")) {
-        capture->last_modified = trim_header_value(header.substr(14));
-    }
+    detail::capture_response_header_line(header, capture->etag, capture->last_modified);
 
     return total;
 }
