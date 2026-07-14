@@ -123,6 +123,10 @@ RemoteListsRefreshResult ListService::download_remote_lists(
     bool only_uncached,
     const std::set<std::string>* relevant_lists,
     const std::set<std::string>* target_lists) {
+    // All entry points converge here. Keep one complete body+metadata refresh
+    // transaction in flight so deterministic cache temporary paths cannot be
+    // shared by API, scheduled, and startup refreshes.
+    KPBR_LOCK_GUARD(mutex_);
     RemoteListsRefreshResult result;
 
     for (const auto& [name, list_cfg] : config_lists(config)) {
@@ -134,7 +138,6 @@ RemoteListsRefreshResult ListService::download_remote_lists(
         }
 
         if (only_uncached) {
-            KPBR_LOCK_GUARD(mutex_);
             if (cache_manager_.has_cache(name)) {
                 continue;
             }
