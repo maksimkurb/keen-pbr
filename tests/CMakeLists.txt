@@ -13,6 +13,7 @@ add_executable(keen-pbr-tests
   test_dns_probe_server.cpp
   test_list_set_usage.cpp
   test_list_parser.cpp
+  test_list_streamer.cpp
   test_list_service.cpp
   test_http_client.cpp
   test_config_validation.cpp

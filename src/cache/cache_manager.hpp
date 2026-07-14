@@ -53,6 +53,8 @@ public:
     // Set maximum allowed size for downloaded remote content.
     void set_max_file_size(size_t bytes);
 
+    size_t max_file_size() const noexcept { return max_file_size_bytes_; }
+
     // Download a list from URL using conditional requests (ETag/If-Modified-Since).
     // On failure, does not overwrite existing cache.
     CacheDownloadResult download(const std::string& name,
@@ -76,6 +78,7 @@ public:
 
 private:
     std::filesystem::path cache_dir_;
+    size_t max_file_size_bytes_;
     HttpClient http_client_;
 };
 

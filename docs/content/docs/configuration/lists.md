@@ -40,6 +40,10 @@ in files and rejected in inline configuration.
 Remote list URLs and every redirect must use HTTP or HTTPS. Private and local
 HTTP(S) destinations remain allowed for router-local list deployments.
 
+Local list sources must be regular files and may not be symlinks, devices, or
+FIFOs. Local and cached files use `daemon.max_file_size_bytes` (8 MiB by default)
+and each physical line is limited to 4096 bytes.
+
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. 
 
 {{< callout type="warning" >}}

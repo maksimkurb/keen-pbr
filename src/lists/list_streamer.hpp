@@ -10,6 +10,7 @@ namespace keen_pbr3 {
 
 class ListStreamer {
 public:
+    static constexpr std::size_t kMaxLineBytes = 4096;
     explicit ListStreamer(const CacheManager& cache);
 
     // Stream all sources for a named list (cache file, local file, inline entries)
@@ -35,9 +36,10 @@ private:
                             bool include_cache);
 
     // Open a file and stream its entries through the visitor.
-    static void stream_file(const std::filesystem::path& path, ListEntryVisitor& visitor);
+    void stream_file(const std::filesystem::path& path, ListEntryVisitor& visitor);
 
     const CacheManager& cache_;
+    std::size_t max_file_size_bytes_;
 };
 
 } // namespace keen_pbr3

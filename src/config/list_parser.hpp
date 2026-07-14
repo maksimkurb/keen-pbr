@@ -20,6 +20,11 @@ public:
     // Returns true if the entry was recognized and dispatched.
     static bool classify_entry(std::string_view entry, ListEntryVisitor& visitor);
 
+    static void parse_line(std::string_view line,
+                           ListEntryVisitor& visitor,
+                           std::string_view source_name,
+                           std::size_t line_number);
+
     // Validate and normalize a DNS-compatible domain. Leading "*." and one
     // trailing root dot are removed from the returned value.
     static std::optional<std::string> normalize_domain(std::string_view domain);

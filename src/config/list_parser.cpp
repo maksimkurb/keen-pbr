@@ -129,15 +129,21 @@ void ListParser::stream_parse(std::istream& input,
     std::size_t line_number = 0;
     while (std::getline(input, line)) {
         ++line_number;
-        auto sv = trim(std::string_view(line));
-        if (sv.empty()) continue;
-        if (sv.front() == '#') continue;
-        if (!classify_entry(sv, visitor)) {
-            Logger::instance().warn("Skipping invalid list entry in {} at line {}",
-                                    source_name.empty() ? std::string("list source")
-                                                        : std::string(source_name),
-                                    line_number);
-        }
+        parse_line(line, visitor, source_name, line_number);
+    }
+}
+
+void ListParser::parse_line(std::string_view line,
+                            ListEntryVisitor& visitor,
+                            std::string_view source_name,
+                            std::size_t line_number) {
+    const auto value = trim(line);
+    if (value.empty() || value.front() == '#') return;
+    if (!classify_entry(value, visitor)) {
+        Logger::instance().warn("Skipping invalid list entry in {} at line {}",
+                                source_name.empty() ? std::string("list source")
+                                                    : std::string(source_name),
+                                line_number);
     }
 }
 

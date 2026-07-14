@@ -42,7 +42,8 @@ std::string clean_download_error_message(const std::exception& error) {
 
 CacheManager::CacheManager(const std::filesystem::path& cache_dir,
                            size_t max_file_size_bytes)
-    : cache_dir_(cache_dir) {
+    : cache_dir_(cache_dir)
+    , max_file_size_bytes_(max_file_size_bytes) {
     http_client_.set_max_response_size(max_file_size_bytes);
 }
 
@@ -51,6 +52,7 @@ void CacheManager::ensure_dir() {
 }
 
 void CacheManager::set_max_file_size(size_t bytes) {
+    max_file_size_bytes_ = bytes;
     http_client_.set_max_response_size(bytes);
 }
 
