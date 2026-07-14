@@ -43,9 +43,9 @@ void ListStreamer::stream_all_sources(const std::string& name,
         ListParser::classify_entry(entry, visitor);
     }
 
-    // 4. Inline domains as Domain entries
+    // 4. Inline domains use the same parser and normalization as file/URL entries.
     for (const auto& domain : config.domains.value_or(std::vector<std::string>{})) {
-        visitor.on_entry(EntryType::Domain, domain);
+        ListParser::classify_entry(domain, visitor);
     }
 
     // Signal that all sources for this list have been processed
@@ -63,7 +63,7 @@ void ListStreamer::stream_file(const std::filesystem::path& path, ListEntryVisit
     if (!ifs.is_open()) {
         throw std::runtime_error("Failed to open file: " + path.string());
     }
-    ListParser::stream_parse(ifs, visitor);
+    ListParser::stream_parse(ifs, visitor, path.string());
 }
 
 } // namespace keen_pbr3

@@ -529,7 +529,9 @@ components:
           example: "https://raw.githubusercontent.com/v2fly/domain-list-community/refs/heads/master/data/apple"
         domains:
           type: array
-          description: Inline list of domain patterns (supports `*.` wildcards).
+          description: >
+            Inline DNS-compatible domain patterns. A leading `*.` is accepted and
+            normalized to the base domain; the same syntax is used for file and URL lists.
           items:
             type: string
           example: ["example.com", "*.example.org"]

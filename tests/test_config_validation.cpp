@@ -624,6 +624,19 @@ TEST_CASE("daemon max_file_size_bytes: zero is rejected") {
                     ConfigValidationError);
 }
 
+TEST_CASE("inline domains use strict shared domain validation") {
+    CHECK_NOTHROW(parse_test_config(
+        R"({"lists":{"domains":{"domains":["*.google.com","_dns._udp.example.com."]}}})"));
+    for (const std::string& domain : {
+             "bad/domain", "bad domain", "example..com", "-bad.example",
+             "example.com\nserver=/evil/1.1.1.1"}) {
+        CAPTURE(domain);
+        CHECK_THROWS_AS(parse_test_config(
+            "{\"lists\":{\"domains\":{\"domains\":[\"" + domain + "\"]}}}"),
+            ConfigValidationError);
+    }
+}
+
 TEST_CASE("strict enforcement: outbound override parses") {
     std::string json = R"({
         "outbounds":[

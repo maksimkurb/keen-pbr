@@ -26,10 +26,16 @@ Most users start with a simple domain list such as:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `url` | string | no | URL to a remote list file to download and cache |
-| `domains` | array of string | no | Inline domain patterns (supports `*.` prefix wildcards) |
+| `domains` | array of string | no | Inline DNS-compatible domain patterns (supports a leading `*.`) |
 | `ip_cidrs` | array of string | no | Inline IP addresses or CIDR ranges |
 | `file` | string | no | Path to a local list file |
 | `ttl_ms` | integer | no (default: `0`) | How long resolved IPs should stay cached for domain-based lists. Most users can leave this at `0`. |
+
+Inline, local-file, and URL-backed lists use the same domain syntax. A leading
+`*.` and one trailing root dot are normalized away, so `*.google.com` is emitted
+to dnsmasq as `google.com`. DNS service labels containing underscores are allowed;
+whitespace, directive separators, malformed wildcards, and invalid labels are skipped
+in files and rejected in inline configuration.
 
 At least one of `url`, `domains`, `ip_cidrs`, or `file` must be provided. 
 

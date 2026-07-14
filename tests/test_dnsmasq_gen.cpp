@@ -232,6 +232,22 @@ TEST_CASE("compute_config_hash matches hash embedded in generate() output") {
     CHECK(instance_hash == embedded_hash);
 }
 
+TEST_CASE("dnsmasq normalizes wildcard inline domains") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+    const std::string list_name = "wildcards";
+    auto route_cfg = make_route_cfg(list_name);
+    auto lists = std::map<std::string, ListConfig>{
+        {list_name, make_list_cfg({"*.google.com"})}};
+    auto dns_cfg = make_empty_dns_cfg();
+    DnsServerRegistry dns_registry(dns_cfg);
+    DnsmasqGenerator gen(dns_registry, streamer, route_cfg, dns_cfg, lists);
+
+    const std::string output = run_generate(gen);
+    CHECK(output.find("/google.com/") != std::string::npos);
+    CHECK(output.find("*.google.com") == std::string::npos);
+}
+
 TEST_CASE("txt-record line is the last line in generate() output") {
     CacheManager cache("/nonexistent/cache");
     ListStreamer streamer(cache);

@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "addr_spec.hpp"
+#include "list_parser.hpp"
 #include "routing_state.hpp"
 #include "../util/system_info.hpp"
 
@@ -757,6 +758,17 @@ void validate_config(const Config& cfg) {
             add_issue(issues, list_path,
                       "List '" + name +
                           "' must have at least one of: url, domains, ip_cidrs, file");
+        }
+
+        for (std::size_t index = 0;
+             index < list_cfg.domains.value_or(std::vector<std::string>{}).size();
+             ++index) {
+            const auto& domain = list_cfg.domains->at(index);
+            if (!ListParser::normalize_domain(domain).has_value()) {
+                add_issue(issues,
+                          list_path + ".domains[" + std::to_string(index) + "]",
+                          "Invalid domain entry '" + domain + "'");
+            }
         }
     }
 
