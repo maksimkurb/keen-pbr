@@ -407,8 +407,8 @@ void Daemon::handle_sighup() {
 void Daemon::refresh_iproute_and_firewall_runtime() {
     auto& log = Logger::instance();
     try {
-        route_table_.clear();
         policy_rules_.clear();
+        route_table_.clear();
         setup_static_routing();
         apply_firewall(FirewallApplyMode::PreserveSets);
         publish_runtime_state();
@@ -662,8 +662,8 @@ void Daemon::run() {
         urltest_manager_->clear();
     }
     scheduler_->cancel_all();
-    route_table_.clear();
     policy_rules_.clear();
+    route_table_.clear();
     firewall_->cleanup();
     remove_pid_file();
 }

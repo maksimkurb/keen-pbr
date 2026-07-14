@@ -2,6 +2,7 @@
 
 #include "../src/routing/route_table.hpp"
 
+#include <stdexcept>
 #include <vector>
 
 namespace keen_pbr3 {
@@ -11,11 +12,13 @@ class FakeRouteNetlink : public RouteNetlinkOperations {
 public:
     RouteAddResult add_route(const RouteSpec& spec) override {
         added.push_back(spec);
+        if (fail_add) throw std::runtime_error("injected failure");
         return add_result;
     }
     void delete_route(const RouteSpec& spec) override { deleted.push_back(spec); }
 
     RouteAddResult add_result{RouteAddResult::Created};
+    bool fail_add{false};
     std::vector<RouteSpec> added;
     std::vector<RouteSpec> deleted;
 };
@@ -55,6 +58,15 @@ TEST_CASE("RouteTable remove preserves an identical pre-existing route") {
     routes.remove(foreign);
 
     CHECK(netlink.deleted.empty());
+    CHECK(routes.get_routes().empty());
+}
+
+TEST_CASE("RouteTable propagates route installation failures") {
+    FakeRouteNetlink netlink;
+    netlink.fail_add = true;
+    RouteTable routes(netlink);
+
+    CHECK_THROWS(routes.add(route("default", 150)));
     CHECK(routes.get_routes().empty());
 }
 

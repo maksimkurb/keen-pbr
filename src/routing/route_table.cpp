@@ -48,21 +48,7 @@ void RouteTable::add(const RouteSpec& spec) {
     }
     bool owned = dry_run_;
     if (!dry_run_) {
-        try {
-            owned = netlink_.add_route(spec) == RouteAddResult::Created;
-        } catch (const std::exception& e) {
-            Logger::instance().error(
-                "Failed to add route (dst={}, table={}, iface={}, gw={}, metric={}, blackhole={}, unreachable={}): {}",
-                spec.destination,
-                spec.table,
-                spec.interface.value_or("(none)"),
-                spec.gateway.value_or("(none)"),
-                spec.metric,
-                spec.blackhole,
-                spec.unreachable,
-                e.what());
-            return;
-        }
+        owned = netlink_.add_route(spec) == RouteAddResult::Created;
     }
     routes_.push_back(spec);
     if (owned) owned_routes_.push_back(spec);

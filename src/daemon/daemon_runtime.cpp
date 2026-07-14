@@ -77,8 +77,8 @@ void Daemon::stop_routing_runtime() {
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
-    route_table_.clear();
     policy_rules_.clear();
+    route_table_.clear();
     firewall_->cleanup();
     if (keenetic_dns_refresh_task_id_ >= 0) {
         scheduler_->cancel(keenetic_dns_refresh_task_id_);
@@ -177,8 +177,8 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
         log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
         firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
         try {
-            route_table_.clear();
             policy_rules_.clear();
+            route_table_.clear();
             setup_static_routing();
             apply_firewall(FirewallApplyMode::PreserveSets);
             publish_runtime_state();
@@ -495,8 +495,8 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     if (urltest_manager_) {
         urltest_manager_->clear();
     }
-    route_table_.clear();
     policy_rules_.clear();
+    route_table_.clear();
     setup_static_routing();
     register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
