@@ -144,11 +144,12 @@ static std::vector<std::string> split_domains_from_ipset_line(const std::string&
 }
 
 static std::string make_domain_with_len(size_t target_len, const std::string& seed) {
-    std::string domain = seed + ".";
-    if (domain.size() < target_len) {
-        domain += std::string(target_len - domain.size(), 'a');
-    } else if (domain.size() > target_len) {
-        domain.resize(target_len);
+    std::string domain = seed;
+    while (domain.size() < target_len) {
+        const size_t remaining = target_len - domain.size();
+        const size_t label_len = std::min<size_t>(63, remaining - 1);
+        domain.push_back('.');
+        domain.append(label_len, 'a');
     }
     return domain;
 }
@@ -986,11 +987,11 @@ TEST_CASE("generate-resolver-config keeps 1000 short domains within batch and li
     CHECK(emitted_domains == expected_domains);
 }
 
-TEST_CASE("generate-resolver-config edge lengths 200..255 split rows safely and keep all domains") {
+TEST_CASE("generate-resolver-config edge lengths 200..253 split rows safely and keep all domains") {
     CacheManager cache("/nonexistent/cache");
     const std::string list_name(80, 'l');
 
-    for (size_t variable_len = 200; variable_len <= 255; ++variable_len) {
+    for (size_t variable_len = 200; variable_len <= 253; ++variable_len) {
         CAPTURE(variable_len);
 
         ListStreamer streamer(cache);
