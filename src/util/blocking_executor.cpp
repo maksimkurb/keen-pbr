@@ -1,10 +1,12 @@
 #include "blocking_executor.hpp"
 
+#include "../crash/crash_diagnostics.hpp"
 #include "../log/logger.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <system_error>
 
 namespace keen_pbr3 {
@@ -54,6 +56,9 @@ void BlockingExecutor::shutdown() {
 }
 
 void* BlockingExecutor::worker_entry(void* arg) noexcept {
+    if (!crash_diagnostics::install_for_current_thread()) {
+        std::abort();
+    }
     auto* start = static_cast<WorkerStart*>(arg);
     start->executor->worker_loop(start->index);
     return nullptr;

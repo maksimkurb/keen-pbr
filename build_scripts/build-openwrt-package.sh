@@ -12,6 +12,8 @@ WORKSPACE="${1:?Usage: $0 <workspace-dir> <sdk-dir>}"
 SDK_DIR="${2:?}"
 FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
 KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
+KEEN_PBR_GIT_COMMIT="$(git -C "$WORKSPACE" rev-parse HEAD)"
+KEEN_PBR_GIT_BRANCH="${GITHUB_REF_NAME:-$(git -C "$WORKSPACE" branch --show-current)}"
 FEED_UPDATE_RETRIES="${FEED_UPDATE_RETRIES:-3}"
 FEED_UPDATE_RETRY_DELAY="${FEED_UPDATE_RETRY_DELAY:-5}"
 
@@ -61,6 +63,7 @@ install_required_feed_packages() {
         libcurl
         libnl-core
         libnl-route
+        libunwind
         libstdcpp
         zlib
         libzstd
@@ -88,4 +91,8 @@ make defconfig
 make package/keen-pbr/compile V=s "-j$(nproc)" \
     KEEN_PBR_SRC="$WORKSPACE" \
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
-    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE"
+    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE" \
+    KEEN_PBR_GIT_COMMIT="$KEEN_PBR_GIT_COMMIT" \
+    KEEN_PBR_GIT_BRANCH="$KEEN_PBR_GIT_BRANCH" \
+    KEEN_PBR_TARGET_VERSION="${OPENWRT_VERSION:-unknown}" \
+    KEEN_PBR_TARGET_ARCH="${OPENWRT_ARCHITECTURE:-unknown}"

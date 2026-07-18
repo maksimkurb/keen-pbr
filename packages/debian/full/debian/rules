@@ -12,6 +12,9 @@ override_dh_auto_configure:
 		-DKEEN_PBR_FRONTEND_ROOT:STRING=/usr/share/keen-pbr/frontend \
 		-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/usr/lib/keen-pbr/dnsmasq.sh \
 		-DKEEN_PBR_TARGET_OS:STRING=debian \
+		-DKEEN_PBR_TARGET_VERSION:STRING=$$(. /etc/os-release && printf '%s' "$$VERSION_ID") \
+		-DKEEN_PBR_TARGET_ARCH:STRING=$$(dpkg-architecture -qDEB_HOST_ARCH) \
+		-DKEEN_PBR_BUILD_VARIANT:STRING=full \
 		-DWITH_API=ON
 
 override_dh_auto_test:

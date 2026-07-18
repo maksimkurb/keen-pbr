@@ -2,6 +2,7 @@
 
 #include "server.hpp"
 
+#include "../crash/crash_diagnostics.hpp"
 #include "../log/logger.hpp"
 #include "../log/trace.hpp"
 #include "../util/traced_mutex.hpp"
@@ -23,6 +24,26 @@
 namespace keen_pbr3 {
 
 namespace {
+
+class CrashAwareTaskQueue final : public httplib::TaskQueue {
+public:
+    CrashAwareTaskQueue()
+        : delegate_(CPPHTTPLIB_THREAD_POOL_COUNT, CPPHTTPLIB_THREAD_POOL_MAX_COUNT) {}
+
+    bool enqueue(std::function<void()> fn) override {
+        return delegate_.enqueue([fn = std::move(fn)]() mutable {
+            if (!crash_diagnostics::install_for_current_thread()) {
+                std::abort();
+            }
+            fn();
+        });
+    }
+
+    void shutdown() override { delegate_.shutdown(); }
+
+private:
+    httplib::ThreadPool delegate_;
+};
 
 std::string make_error_json(const std::string& message) {
     return nlohmann::json{{"error", message}}.dump();
@@ -315,6 +336,7 @@ ApiServerLimits api_server_limits(const ApiConfig& config) {
 }
 
 ApiServer::ApiServer(const ApiConfig& config) : impl_(std::make_unique<Impl>()) {
+    impl_->server.new_task_queue = [] { return new CrashAwareTaskQueue(); };
     const ApiServerLimits limits = api_server_limits(config);
     impl_->server.set_payload_max_length(limits.max_request_body_bytes);
     impl_->server.set_read_timeout(limits.read_timeout_seconds);
@@ -567,6 +589,9 @@ void ApiServer::start() {
     }
 
     impl_->listen_thread = std::thread([this]() {
+        if (!crash_diagnostics::install_for_current_thread()) {
+            std::abort();
+        }
         std::string error_message;
         bool listen_ok = false;
 

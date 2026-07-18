@@ -53,9 +53,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Size optimization
-add_compile_options(-ffunction-sections -fdata-sections)
-add_link_options(-Wl,--gc-sections)
+# Keep production binaries small while retaining reliable unwind metadata in
+# the deployed ELF. DWARF is split into the separately published .debug file.
+add_compile_options(
+  -g2
+  -ffunction-sections
+  -fdata-sections
+  -fno-omit-frame-pointer
+  -fno-optimize-sibling-calls
+  -funwind-tables
+  -fasynchronous-unwind-tables
+)
+add_link_options(-Wl,--gc-sections -Wl,--build-id=sha1)
 
 # Export symbols so crash diagnostics can recover names in non-signal-safe paths.
 add_link_options(-rdynamic)
@@ -67,7 +76,6 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
 option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
-option(KEEN_PBR_STATIC_LIBUNWIND "Prefer linking libunwind statically when a static archive is available" ON)
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
@@ -76,6 +84,35 @@ set(KEEN_PBR_SYSTEM_RESOLVER_HOOK "${CMAKE_INSTALL_FULL_LIBDIR}/keen-pbr/dnsmasq
   "System resolver hook command path compiled into keen-pbr")
 set(KEEN_PBR_TARGET_OS "linux" CACHE STRING
   "Compile-time target OS identity exposed via /api/health/service (for example: openwrt, keenetic, debian)")
+set(KEEN_PBR_TARGET_VERSION "unknown" CACHE STRING "Target firmware/distribution version")
+set(KEEN_PBR_TARGET_ARCH "unknown" CACHE STRING "Target package architecture")
+set(KEEN_PBR_BUILD_VARIANT "full" CACHE STRING "Package variant: full or headless")
+set(KEEN_PBR_GIT_BRANCH "unknown" CACHE STRING "Source branch used for this build")
+set(KEEN_PBR_GIT_COMMIT "" CACHE STRING "Exact source commit used for this build")
+if(KEEN_PBR_GIT_COMMIT STREQUAL "")
+  execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE KEEN_PBR_GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+endif()
+if(KEEN_PBR_GIT_COMMIT STREQUAL "")
+  set(KEEN_PBR_GIT_COMMIT "unknown")
+endif()
+if(KEEN_PBR_GIT_BRANCH STREQUAL "unknown")
+  execute_process(
+    COMMAND git branch --show-current
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    OUTPUT_VARIABLE _keen_pbr_detected_branch
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(NOT _keen_pbr_detected_branch STREQUAL "")
+    set(KEEN_PBR_GIT_BRANCH "${_keen_pbr_detected_branch}")
+  endif()
+endif()
 
 # Dependencies
 find_package(PkgConfig REQUIRED)
@@ -92,16 +129,6 @@ else()
   message(STATUS "Using CMake libcurl target: ${CURL_LIBRARY_RELEASE}")
 endif()
 add_library(keen_pbr_libunwind INTERFACE)
-set(_keen_pbr_saved_find_library_suffixes "${CMAKE_FIND_LIBRARY_SUFFIXES}")
-set(_keen_pbr_prefer_static_libunwind ${KEEN_PBR_STATIC_LIBUNWIND})
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # GNU libstdc++ exception unwinding can break when a static libunwind archive
-  # is linked into the final executable. Prefer the shared library when available.
-  set(_keen_pbr_prefer_static_libunwind OFF)
-endif()
-if(_keen_pbr_prefer_static_libunwind)
-  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so" ".so.8")
-endif()
 unset(LIBUNWIND_LIBRARY CACHE)
 unset(LIBUNWIND_INCLUDE_DIR CACHE)
 unset(LIBUNWIND CACHE)
@@ -129,8 +156,6 @@ if(LIBUNWIND_INCLUDE_DIR AND LIBUNWIND_LIBRARY)
   get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
   list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
   list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
-  set(LIBUNWIND "${LIBUNWIND_LIBRARY}" CACHE FILEPATH "libunwind library path shared with cpptrace" FORCE)
-  set(LIBUNWIND_INCLUDE_DIRS "${LIBUNWIND_INCLUDE_DIR}" CACHE PATH "libunwind include path shared with cpptrace" FORCE)
 endif()
 find_library(LIBRESOLV resolv)
 find_library(LIBATOMIC atomic)
@@ -152,7 +177,7 @@ if(KEEN_PBR_HAS_LIBUNWIND)
   target_link_libraries(keen_pbr_libunwind INTERFACE "${LIBUNWIND_LIBRARY}")
   message(STATUS "Using libunwind library: ${LIBUNWIND_LIBRARY}")
 else()
-  message(STATUS "libunwind headers/library not found; falling back to compiler _Unwind backend")
+  message(FATAL_ERROR "libunwind headers/library are required for signal-context crash unwinding")
 endif()
 
 # nlohmann/json (bundled as git submodule)
@@ -167,22 +192,6 @@ set(FMT_TEST OFF CACHE INTERNAL "")
 set(FMT_FUZZ OFF CACHE INTERNAL "")
 set(FMT_CUDA_TEST OFF CACHE INTERNAL "")
 add_subdirectory(third_party/fmt)
-
-# cpptrace (bundled as git submodule, crash diagnostics only)
-set(CPPTRACE_BUILD_SHARED OFF CACHE INTERNAL "")
-set(CPPTRACE_INSTALL OFF CACHE INTERNAL "")
-set(CPPTRACE_UNWIND_WITH_LIBUNWIND ${KEEN_PBR_HAS_LIBUNWIND} CACHE BOOL "" FORCE)
-if(KEEN_PBR_HAS_LIBUNWIND)
-  set(CPPTRACE_UNWIND_WITH_UNWIND OFF CACHE BOOL "" FORCE)
-else()
-  set(CPPTRACE_UNWIND_WITH_UNWIND ON CACHE BOOL "" FORCE)
-endif()
-set(CPPTRACE_UNWIND_WITH_EXECINFO OFF CACHE BOOL "" FORCE)
-set(CPPTRACE_GET_SYMBOLS_WITH_LIBDL ON CACHE BOOL "" FORCE)
-set(CPPTRACE_GET_SYMBOLS_WITH_LIBDWARF OFF CACHE BOOL "" FORCE)
-set(CPPTRACE_GET_SYMBOLS_WITH_ADDR2LINE OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/cpptrace EXCLUDE_FROM_ALL)
-set(CMAKE_FIND_LIBRARY_SUFFIXES "${_keen_pbr_saved_find_library_suffixes}")
 
 # cpp-httplib (bundled as git submodule, only if WITH_API — no TLS needed)
 if(WITH_API)
@@ -320,6 +329,11 @@ target_compile_definitions(keen-pbr PRIVATE
   KEEN_PBR_FRONTEND_ROOT="${KEEN_PBR_FRONTEND_ROOT}"
   KEEN_PBR_SYSTEM_RESOLVER_HOOK="${KEEN_PBR_SYSTEM_RESOLVER_HOOK}"
   KEEN_PBR_TARGET_OS="${KEEN_PBR_TARGET_OS}"
+  KEEN_PBR_TARGET_VERSION="${KEEN_PBR_TARGET_VERSION}"
+  KEEN_PBR_TARGET_ARCH="${KEEN_PBR_TARGET_ARCH}"
+  KEEN_PBR_BUILD_VARIANT="${KEEN_PBR_BUILD_VARIANT}"
+  KEEN_PBR_GIT_BRANCH="${KEEN_PBR_GIT_BRANCH}"
+  KEEN_PBR_GIT_COMMIT="${KEEN_PBR_GIT_COMMIT}"
 )
 if(USE_KEENETIC_API)
   target_compile_definitions(keen-pbr PRIVATE USE_KEENETIC_API)
@@ -329,7 +343,6 @@ target_link_libraries(keen-pbr PRIVATE
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
   Threads::Threads
-  cpptrace::cpptrace
   fmt::fmt-header-only
   keen_pbr_libunwind
   nlohmann_json::nlohmann_json

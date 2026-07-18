@@ -16,6 +16,8 @@ WORKSPACE="${1:?Usage: $0 <workspace-dir> <entware-dir>}"
 ENTWARE_DIR="${2:?}"
 FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
 KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
+KEEN_PBR_GIT_COMMIT="$(git -C "$WORKSPACE" rev-parse HEAD)"
+KEEN_PBR_GIT_BRANCH="${GITHUB_REF_NAME:-$(git -C "$WORKSPACE" branch --show-current)}"
 
 sh "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
@@ -30,4 +32,8 @@ make defconfig
 make package/keen-pbr/compile V=s "-j$(nproc)" \
     KEEN_PBR_SRC="$WORKSPACE" \
     KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
-    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE"
+    KEEN_PBR_RELEASE="$KEEN_PBR_RELEASE" \
+    KEEN_PBR_GIT_COMMIT="$KEEN_PBR_GIT_COMMIT" \
+    KEEN_PBR_GIT_BRANCH="$KEEN_PBR_GIT_BRANCH" \
+    KEEN_PBR_TARGET_VERSION="${KEENETIC_VERSION:-unknown}" \
+    KEEN_PBR_TARGET_ARCH="${KEENETIC_CONFIG:-unknown}"

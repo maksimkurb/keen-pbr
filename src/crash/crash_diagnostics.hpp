@@ -13,6 +13,10 @@ enum class RegisterArch {
     arm,
     aarch64,
     mips,
+    ppc,
+    ppc64,
+    riscv,
+    loongarch64,
 };
 
 struct RegisterValue {
@@ -20,8 +24,27 @@ struct RegisterValue {
     std::uintptr_t value;
 };
 
-void warm_up();
-bool install_fatal_signal_handlers();
+struct CrashReporterConfig {
+    std::string report_path{"/tmp/keen-pbr-crash.log"};
+    std::string version;
+    std::string build;
+    std::string commit;
+    std::string branch;
+    std::string target_os;
+    std::string target_version;
+    std::string architecture;
+    std::string variant;
+};
+
+// Initialize process-wide crash output and signal handlers. This also installs
+// an alternate signal stack for the calling thread.
+bool initialize(const CrashReporterConfig& config);
+
+// sigaltstack is per-thread. Call this at the start of every application-owned
+// thread before running code that may fault.
+bool install_for_current_thread() noexcept;
+
+void install_terminate_handler() noexcept;
 
 std::string format_register_dump_for_test(
     RegisterArch arch,

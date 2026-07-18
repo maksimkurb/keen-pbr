@@ -23,15 +23,26 @@ KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/op
 KEEN_PBR_CMAKE_INSTALL_BINDIR ?= usr/bin
 KEEN_PBR_STAGED_BINDIR ?= opt/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
 KEEN_PBR_OBJCOPY ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)objcopy,objcopy)
+KEEN_PBR_READELF ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)readelf,readelf)
+KEEN_PBR_NM ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)nm,nm)
+KEEN_PBR_ADDR2LINE ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)addr2line,addr2line)
 KEEN_PBR_DEBUG_ARTIFACT_DIR ?= $(PKG_BUILD_DIR)/debug-artifacts/$(BUILD_VARIANT)
 KEEN_PBR_STAGED_BIN ?= $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr
 
 define KeenPbr/EmitDebugSymbol
 	@if [ -f "$(KEEN_PBR_STAGED_BIN)" ] && command -v "$(KEEN_PBR_OBJCOPY)" >/dev/null 2>&1; then \
 		mkdir -p "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)"; \
-		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug \
+		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug --compress-debug-sections=zlib \
 			"$(KEEN_PBR_STAGED_BIN)" \
 			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug"; \
+		cd "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)" && \
+			"$(KEEN_PBR_OBJCOPY)" --strip-debug --add-gnu-debuglink=keen-pbr.debug \
+			"$(1)"; \
+		sh "$(PKG_BUILD_DIR)/build_scripts/verify-debug-artifact.sh" \
+			"$(1)" \
+			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug" \
+			"$(KEEN_PBR_READELF)" "$(KEEN_PBR_NM)" \
+			"$(KEEN_PBR_ADDR2LINE)" "$(KEEN_PBR_OBJCOPY)"; \
 	fi
 endef
 
@@ -57,6 +68,11 @@ CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
 	-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/opt/usr/lib/keen-pbr/dnsmasq.sh \
 	-DKEEN_PBR_TARGET_OS:STRING=keenetic \
+	-DKEEN_PBR_TARGET_VERSION:STRING=$(KEEN_PBR_TARGET_VERSION) \
+	-DKEEN_PBR_TARGET_ARCH:STRING=$(KEEN_PBR_TARGET_ARCH) \
+	-DKEEN_PBR_BUILD_VARIANT:STRING=$(if $(BUILD_VARIANT),$(BUILD_VARIANT),full) \
+	-DKEEN_PBR_GIT_COMMIT:STRING=$(KEEN_PBR_GIT_COMMIT) \
+	-DKEEN_PBR_GIT_BRANCH:STRING=$(KEEN_PBR_GIT_BRANCH) \
 	-DCMAKE_INSTALL_BINDIR:PATH=$(KEEN_PBR_CMAKE_INSTALL_BINDIR) \
 	-DUSE_KEENETIC_API=ON \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
@@ -79,7 +95,7 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
@@ -111,7 +127,7 @@ define Package/keen-pbr/install
 	chmod -R a=rX,u+w $(1)/opt/usr/share/keen-pbr/frontend
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
-	$(call KeenPbr/EmitDebugSymbol)
+	$(call KeenPbr/EmitDebugSymbol,$(1)/opt/usr/bin/keen-pbr)
 endef
 
 define Package/keen-pbr/postinst
@@ -135,7 +151,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 
@@ -164,7 +180,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packages/keenetic/keen-pbr/files/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh $(1)/opt/etc/ndm/netfilter.d/50-keen-pbr-routing.sh
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/opt/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/opt/etc/keen-pbr/local.lst
-	$(call KeenPbr/EmitDebugSymbol)
+	$(call KeenPbr/EmitDebugSymbol,$(1)/opt/usr/bin/keen-pbr)
 endef
 
 define Package/keen-pbr-headless/postinst

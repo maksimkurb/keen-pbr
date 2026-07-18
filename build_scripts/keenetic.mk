@@ -23,6 +23,8 @@ keenetic-packages: ## Build Keenetic packages inside Entware Docker container
 	docker run --rm --user root \
 	  --entrypoint /bin/bash \
 	  -e KEEN_PBR_RELEASE_OVERRIDE="$(KEEN_PBR_RELEASE)" \
+	  -e KEENETIC_CONFIG="$(KEENETIC_CONFIG)" \
+	  -e KEENETIC_VERSION="$(KEENETIC_VERSION)" \
 	  -v "$(abspath .):/workspace" \
 	  "$(KEENETIC_DOCKER_IMAGE)" \
 	  -lc 'set -e; \

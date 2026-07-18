@@ -23,15 +23,26 @@ KEEN_PBR_HEADLESS_CONFIG ?= $(PKG_BUILD_DIR)/packages/common/config.headless.exa
 KEEN_PBR_CMAKE_INSTALL_BINDIR ?= sbin
 KEEN_PBR_STAGED_BINDIR ?= usr/$(KEEN_PBR_CMAKE_INSTALL_BINDIR)
 KEEN_PBR_OBJCOPY ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)objcopy,objcopy)
+KEEN_PBR_READELF ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)readelf,readelf)
+KEEN_PBR_NM ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)nm,nm)
+KEEN_PBR_ADDR2LINE ?= $(if $(TARGET_CROSS),$(TARGET_CROSS)addr2line,addr2line)
 KEEN_PBR_DEBUG_ARTIFACT_DIR ?= $(BUILD_DIR)/debug-artifacts/$(PKG_NAME)$(if $(BUILD_VARIANT),-$(BUILD_VARIANT))/$(BUILD_VARIANT)
 KEEN_PBR_STAGED_BIN ?= $(PKG_INSTALL_DIR)/$(KEEN_PBR_STAGED_BINDIR)/keen-pbr
 
 define KeenPbr/EmitDebugSymbol
 	@if [ -f "$(KEEN_PBR_STAGED_BIN)" ] && command -v "$(KEEN_PBR_OBJCOPY)" >/dev/null 2>&1; then \
 		mkdir -p "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)"; \
-		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug \
+		"$(KEEN_PBR_OBJCOPY)" --only-keep-debug --compress-debug-sections=zlib \
 			"$(KEEN_PBR_STAGED_BIN)" \
 			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug"; \
+		cd "$(KEEN_PBR_DEBUG_ARTIFACT_DIR)" && \
+			"$(KEEN_PBR_OBJCOPY)" --strip-debug --add-gnu-debuglink=keen-pbr.debug \
+			"$(1)"; \
+		sh "$(PKG_BUILD_DIR)/build_scripts/verify-debug-artifact.sh" \
+			"$(1)" \
+			"$(KEEN_PBR_DEBUG_ARTIFACT_DIR)/keen-pbr.debug" \
+			"$(KEEN_PBR_READELF)" "$(KEEN_PBR_NM)" \
+			"$(KEEN_PBR_ADDR2LINE)" "$(KEEN_PBR_OBJCOPY)"; \
 	fi
 endef
 
@@ -56,6 +67,11 @@ endef
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/etc/keen-pbr/config.json \
 	-DKEEN_PBR_TARGET_OS:STRING=openwrt \
+	-DKEEN_PBR_TARGET_VERSION:STRING=$(KEEN_PBR_TARGET_VERSION) \
+	-DKEEN_PBR_TARGET_ARCH:STRING=$(KEEN_PBR_TARGET_ARCH) \
+	-DKEEN_PBR_BUILD_VARIANT:STRING=$(if $(BUILD_VARIANT),$(BUILD_VARIANT),full) \
+	-DKEEN_PBR_GIT_COMMIT:STRING=$(KEEN_PBR_GIT_COMMIT) \
+	-DKEEN_PBR_GIT_BRANCH:STRING=$(KEEN_PBR_GIT_BRANCH) \
 	-DCMAKE_INSTALL_BINDIR:PATH=$(KEEN_PBR_CMAKE_INSTALL_BINDIR) \
 	-DCMAKE_BUILD_TYPE=MinSizeRel
 
@@ -77,7 +93,7 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
@@ -109,7 +125,7 @@ define Package/keen-pbr/install
 	$(INSTALL_CONF) $(KEEN_PBR_FULL_CONFIG) $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
-	$(call KeenPbr/EmitDebugSymbol)
+	$(call KeenPbr/EmitDebugSymbol,$(1)/usr/sbin/keen-pbr)
 endef
 
 define Package/keen-pbr/postinst
@@ -129,7 +145,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(if $(CONFIG_USE_APK),$(PKG_VERSION)-r$(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE))
-  DEPENDS:=+dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +zlib +libzstd
+  DEPENDS:=+dnsmasq-full +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 
@@ -158,7 +174,7 @@ define Package/keen-pbr-headless/install
 	$(INSTALL_CONF) $(KEEN_PBR_HEADLESS_CONFIG) $(1)/etc/keen-pbr/config.json
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/openwrt/keen-pbr/files/etc/keen-pbr/dnsmasq-fallback.conf $(1)/etc/keen-pbr/dnsmasq-fallback.conf
 	$(INSTALL_CONF) $(PKG_BUILD_DIR)/packages/common/local.lst $(1)/etc/keen-pbr/local.lst
-	$(call KeenPbr/EmitDebugSymbol)
+	$(call KeenPbr/EmitDebugSymbol,$(1)/usr/sbin/keen-pbr)
 endef
 
 define Package/keen-pbr-headless/postinst

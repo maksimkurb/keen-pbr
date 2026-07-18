@@ -9,7 +9,6 @@
 #include <cerrno>
 #include <unistd.h>
 
-#include <cpptrace/utils.hpp>
 #include <curl/curl.h>
 #include <keen-pbr/version.hpp>
 
@@ -30,6 +29,24 @@
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
 #define KEEN_PBR_DEFAULT_CONFIG_PATH "/etc/keen-pbr/config.json"
 #endif
+#ifndef KEEN_PBR_TARGET_OS
+#define KEEN_PBR_TARGET_OS "linux"
+#endif
+#ifndef KEEN_PBR_TARGET_VERSION
+#define KEEN_PBR_TARGET_VERSION "unknown"
+#endif
+#ifndef KEEN_PBR_TARGET_ARCH
+#define KEEN_PBR_TARGET_ARCH "unknown"
+#endif
+#ifndef KEEN_PBR_BUILD_VARIANT
+#define KEEN_PBR_BUILD_VARIANT "full"
+#endif
+#ifndef KEEN_PBR_GIT_BRANCH
+#define KEEN_PBR_GIT_BRANCH "unknown"
+#endif
+#ifndef KEEN_PBR_GIT_COMMIT
+#define KEEN_PBR_GIT_COMMIT "unknown"
+#endif
 
 namespace {
 
@@ -37,6 +54,7 @@ struct CliOptions {
     std::string config_path{KEEN_PBR_DEFAULT_CONFIG_PATH};
     std::string log_level{"info"};
     std::string pid_file_override;
+    std::string crash_report_path{"/tmp/keen-pbr-crash.log"};
     bool no_api{false};
     bool has_pid_file_override{false};
     bool run_service{false};
@@ -58,6 +76,7 @@ void print_usage(const char* argv0) {
               << "  --config <path>    Path to JSON config file (default: " << KEEN_PBR_DEFAULT_CONFIG_PATH << ")\n"
               << "  --log-level <lvl>  Log level: error, warn, info, verbose, debug (default: info)\n"
               << "  --pid-file <path>  Override daemon.pid_file when running the service command\n"
+              << "  --crash-report <path>  Last-crash report path (default: /tmp/keen-pbr-crash.log)\n"
               << "  --no-api           Disable REST API at runtime\n"
               << "  --version          Show version and exit\n"
               << "  --help             Show this help and exit\n"
@@ -94,6 +113,12 @@ CliOptions parse_args(int argc, char* argv[]) {
             }
             opts.pid_file_override = argv[++i];
             opts.has_pid_file_override = true;
+        } else if (std::strcmp(argv[i], "--crash-report") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --crash-report requires an argument\n";
+                std::exit(1);
+            }
+            opts.crash_report_path = argv[++i];
         } else if (std::strcmp(argv[i], "--no-api") == 0) {
             opts.no_api = true;
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
@@ -160,9 +185,23 @@ int main(int argc, char* argv[]) {
         set_signal_action(SIGPIPE, SIG_IGN);
         sigset_t startup_sigusr1_mask = keen_pbr3::sigusr1_signal_mask();
         keen_pbr3::set_signal_mask_for_current_thread(SIG_BLOCK, startup_sigusr1_mask);
-        keen_pbr3::crash_diagnostics::warm_up();
-        keen_pbr3::crash_diagnostics::install_fatal_signal_handlers();
-        cpptrace::register_terminate_handler();
+
+        CliOptions opts = parse_args(argc, argv);
+        keen_pbr3::crash_diagnostics::CrashReporterConfig crash_config;
+        crash_config.report_path = opts.crash_report_path;
+        crash_config.version = KEEN_PBR3_VERSION_STRING;
+        crash_config.build = KEEN_PBR3_VERSION_RELEASE_STRING;
+        crash_config.commit = KEEN_PBR_GIT_COMMIT;
+        crash_config.branch = KEEN_PBR_GIT_BRANCH;
+        crash_config.target_os = KEEN_PBR_TARGET_OS;
+        crash_config.target_version = KEEN_PBR_TARGET_VERSION;
+        crash_config.architecture = KEEN_PBR_TARGET_ARCH;
+        crash_config.variant = KEEN_PBR_BUILD_VARIANT;
+        if (!keen_pbr3::crash_diagnostics::initialize(crash_config)) {
+            std::cerr << "Error: required crash diagnostics could not be initialized\n";
+            return 2;
+        }
+        keen_pbr3::crash_diagnostics::install_terminate_handler();
 
         struct CurlGuard {
             CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
@@ -170,7 +209,6 @@ int main(int argc, char* argv[]) {
         };
         CurlGuard curl_guard;
 
-        CliOptions opts = parse_args(argc, argv);
         if (!opts.run_service) {
             set_signal_action(SIGUSR1, SIG_IGN);
             keen_pbr3::set_signal_mask_for_current_thread(SIG_UNBLOCK, startup_sigusr1_mask);

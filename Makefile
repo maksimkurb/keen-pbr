@@ -96,6 +96,7 @@ CROSS_STAGING_DIR     := $(abspath $(CROSS_TOOLCHAIN_DIR))/sdk/staging_dir
 # URL of the OpenWrt SDK .tar.zst for an aarch64_cortex-a53 target.
 # Example: https://downloads.openwrt.org/releases/24.10.4/targets/rockchip/armv8/openwrt-sdk-24.10.4-rockchip-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst
 OPENWRT_SDK_URL ?= https://archive.openwrt.org/releases/24.10.3/targets/mediatek/filogic/openwrt-sdk-24.10.3-mediatek-filogic_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+OPENWRT_TARGET_VERSION ?= $(shell printf '%s\n' "$(OPENWRT_SDK_URL)" | sed -n 's@.*/releases/\([^/]*\)/.*@\1@p')
 
 # SFTP deploy settings — pass as environment variables
 ROUTER_HOST ?=
@@ -117,15 +118,24 @@ cross-build: $(CROSS_TOOLCHAIN_STAMP) ## Cross-compile for aarch64_cortex-a53 di
 	STAGING_DIR=$(CROSS_STAGING_DIR) cmake -S . -B $(CROSS_BUILD_DIR) \
 		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-aarch64-openwrt.cmake \
 		-DCMAKE_BUILD_TYPE=MinSizeRel \
-		-DCMAKE_CXX_FLAGS_MINSIZEREL="-Os -DNDEBUG -g1" \
+		-DKEEN_PBR_TARGET_OS=openwrt \
+		-DKEEN_PBR_TARGET_VERSION=$(OPENWRT_TARGET_VERSION) \
+		-DKEEN_PBR_TARGET_ARCH=aarch64_cortex-a53 \
+		-DKEEN_PBR_BUILD_VARIANT=full \
+		-DCMAKE_CXX_FLAGS_MINSIZEREL="-Os -DNDEBUG -g2" \
 		-DWITH_API=ON
 	STAGING_DIR=$(CROSS_STAGING_DIR) cmake --build $(CROSS_BUILD_DIR) -j$(shell nproc)
 	@mkdir -p $(DIST_DIR)
 	# Extract full debug symbols into a separate .debug file (stays on the host)
-	$(CROSS_OBJCOPY) --only-keep-debug $(CROSS_BUILD_DIR)/keen-pbr $(CROSS_DEBUG_BIN)
+	$(CROSS_OBJCOPY) --only-keep-debug --compress-debug-sections=zlib $(CROSS_BUILD_DIR)/keen-pbr $(CROSS_DEBUG_BIN)
 	# Strip DWARF from deployed binary; raw crash PCs still resolve against host-side .debug.
 	$(CROSS_OBJCOPY) --strip-debug --add-gnu-debuglink=$(CROSS_DEBUG_BIN) \
 		$(CROSS_BUILD_DIR)/keen-pbr $(CROSS_BIN)
+	sh build_scripts/verify-debug-artifact.sh $(CROSS_BIN) $(CROSS_DEBUG_BIN) \
+		$(patsubst %objcopy,%readelf,$(CROSS_OBJCOPY)) \
+		$(patsubst %objcopy,%nm,$(CROSS_OBJCOPY)) \
+		$(patsubst %objcopy,%addr2line,$(CROSS_OBJCOPY)) \
+		$(CROSS_OBJCOPY)
 	@echo "Binary:        $(CROSS_BIN)"
 	@echo "Debug symbols: $(CROSS_DEBUG_BIN)"
 	@echo "Resolve crash addresses: addr2line -Cfpie $(CROSS_DEBUG_BIN) <addr...>"

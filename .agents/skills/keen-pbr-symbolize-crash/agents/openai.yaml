@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keen PBR Crash Symbolizer"
+  short_description: "Resolve Keen PBR crash addresses to source"
+  default_prompt: "Use $keen-pbr-symbolize-crash to identify the commit and source location for this Keen PBR crash log."

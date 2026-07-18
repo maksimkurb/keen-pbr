@@ -109,7 +109,6 @@ target_link_libraries(keen-pbr-tests PRIVATE
   ${KEEN_PBR_CURL_TARGET}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
-  cpptrace::cpptrace
   fmt::fmt-header-only
   keen_pbr_libunwind
   ${LIBRESOLV}
@@ -130,7 +129,6 @@ target_include_directories(crash-diagnostics-smoke PRIVATE
   ${CMAKE_SOURCE_DIR}/src
 )
 target_link_libraries(crash-diagnostics-smoke PRIVATE
-  cpptrace::cpptrace
   keen_pbr_libunwind
 )
 
@@ -165,6 +163,7 @@ endif()
 add_executable(keen-pbr-firewall-it
   firewall_integration_main.cpp
   ../src/cache/cache_manager.cpp
+  ../src/crash/crash_diagnostics.cpp
   ../src/config/config.cpp
   ../src/config/list_parser.cpp
   ../src/config/routing_state.cpp
@@ -224,7 +223,6 @@ target_link_libraries(keen-pbr-firewall-it PRIVATE
   ${KEEN_PBR_CURL_TARGET}
   PkgConfig::LIBNL
   PkgConfig::LIBNL_ROUTE
-  cpptrace::cpptrace
   fmt::fmt-header-only
   keen_pbr_libunwind
   ${LIBRESOLV}
