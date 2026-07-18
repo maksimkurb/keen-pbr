@@ -28,7 +28,7 @@ CurlRuntime::CurlRuntime() {
     const curl_version_info_data* info = curl_version_info(CURLVERSION_NOW);
     if (info && !capabilities_logged) {
         capabilities_logged = true;
-        Logger::instance().info("curl runtime initialized: version={} asynch_dns={} thread_safe={}",
+        Logger::instance().verbose("curl runtime initialized: version={} asynch_dns={} thread_safe={}",
                                 info->version,
                                 feature_enabled(info->features, CURL_VERSION_ASYNCHDNS),
 #ifdef CURL_VERSION_THREADSAFE
