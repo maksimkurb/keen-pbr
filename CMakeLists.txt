@@ -226,6 +226,8 @@ set(SOURCES
   src/log/logger.cpp
   src/log/trace.cpp
   src/http/http_client.cpp
+  src/http/http_transport.cpp
+  src/http/curl_runtime.cpp
   src/crash/crash_diagnostics.cpp
   src/config/config.cpp
   src/config/config_writer.cpp

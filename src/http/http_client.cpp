@@ -2,347 +2,88 @@
 
 #include "../log/logger.hpp"
 
-#include <chrono>
-#include <cstdint>
-#include <curl/curl.h>
-#include <sys/socket.h>
+#include <cctype>
 
 namespace keen_pbr3 {
-
-// HttpError
-
 HttpError::HttpError(const std::string& message, long status_code)
     : std::runtime_error(message), status_code_(status_code) {}
-
 long HttpError::status_code() const noexcept { return status_code_; }
 
-// write callback for libcurl — enforces an in-flight size cap so that a
-// server streaming chunked data without Content-Length cannot exhaust RAM.
-struct WriteContext {
-    std::string* body;
-    size_t max_size;
-};
-
-static void restrict_protocols(CURL* curl) {
-#if LIBCURL_VERSION_NUM >= 0x075500
-    const CURLcode initial = curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
-    const CURLcode redirects = curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
-#else
-    const CURLcode initial = curl_easy_setopt(
-        curl, CURLOPT_PROTOCOLS, static_cast<long>(CURLPROTO_HTTP | CURLPROTO_HTTPS));
-    const CURLcode redirects = curl_easy_setopt(
-        curl, CURLOPT_REDIR_PROTOCOLS, static_cast<long>(CURLPROTO_HTTP | CURLPROTO_HTTPS));
-#endif
-    if (initial != CURLE_OK || redirects != CURLE_OK) {
-        throw HttpError("Failed to restrict HTTP protocols");
-    }
+namespace {
+std::string trim_header_value(const std::string& value) {
+    const auto first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return "";
+    return value.substr(first, value.find_last_not_of(" \t\r\n") - first + 1);
 }
-
-static size_t write_callback(char* ptr, size_t size, size_t nmemb,
-                             void* userdata) {
-    if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
-    auto* ctx = static_cast<WriteContext*>(userdata);
-    size_t total = size * nmemb;
-    if (ctx->body->size() + total > ctx->max_size) {
-        return 0; // returning 0 causes CURLE_WRITE_ERROR, aborting the transfer
-    }
-    ctx->body->append(ptr, total);
-    return total;
+HttpTransportRequest request_for(const std::string& url, std::chrono::seconds timeout,
+                                 const std::string& user_agent, size_t max_size,
+                                 uint32_t fwmark) {
+    HttpTransportRequest request;
+    request.url = url;
+    request.timeout_ms = static_cast<long>(timeout.count() * 1000);
+    request.user_agent = user_agent;
+    request.fwmark = fwmark;
+    request.max_redirects = 5;
+    request.max_response_size = max_size;
+    return request;
 }
-
-// header callback for capturing response headers
-struct HeaderCapture {
-    std::string etag;
-    std::string last_modified;
-};
-
-static std::string trim_header_value(const std::string& s) {
-    size_t start = 0;
-    while (start < s.size() &&
-           (s[start] == ' ' || s[start] == '\t' || s[start] == '\r' ||
-            s[start] == '\n'))
-        ++start;
-    size_t end = s.size();
-    while (end > start &&
-           (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r' ||
-            s[end - 1] == '\n'))
-        --end;
-    return s.substr(start, end - start);
+void throw_for_status(long status) {
+    if (status >= 400) throw HttpError("HTTP error " + std::to_string(status), status);
 }
+} // namespace
 
-void detail::capture_response_header_line(std::string_view header_view,
-                                          std::string& etag,
+void detail::capture_response_header_line(std::string_view header_view, std::string& etag,
                                           std::string& last_modified) {
     const std::string header(header_view);
-    if (header.size() >= 5 &&
-        std::tolower(static_cast<unsigned char>(header[0])) == 'h' &&
-        std::tolower(static_cast<unsigned char>(header[1])) == 't' &&
-        std::tolower(static_cast<unsigned char>(header[2])) == 't' &&
-        std::tolower(static_cast<unsigned char>(header[3])) == 'p' &&
-        header[4] == '/') {
-        etag.clear();
-        last_modified.clear();
-        return;
+    if (header.rfind("HTTP/", 0) == 0 || header.rfind("http/", 0) == 0) {
+        etag.clear(); last_modified.clear(); return;
     }
-
-    auto starts_with_ci = [&](const std::string& prefix) {
-        if (header.size() < prefix.size()) return false;
-        for (size_t i = 0; i < prefix.size(); ++i) {
-            if (std::tolower(static_cast<unsigned char>(header[i])) !=
-                std::tolower(static_cast<unsigned char>(prefix[i]))) return false;
-        }
-        return true;
-    };
-    if (starts_with_ci("etag:")) {
-        etag = trim_header_value(header.substr(5));
-    } else if (starts_with_ci("last-modified:")) {
-        last_modified = trim_header_value(header.substr(14));
-    }
+    const auto colon = header.find(':');
+    if (colon == std::string::npos) return;
+    std::string name = header.substr(0, colon);
+    for (char& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (name == "etag") etag = trim_header_value(header.substr(colon + 1));
+    if (name == "last-modified") last_modified = trim_header_value(header.substr(colon + 1));
 }
 
-static size_t header_callback(char* buffer, size_t size, size_t nitems,
-                              void* userdata) {
-    if (nitems != 0 && size > SIZE_MAX / nitems) return 0;
-    size_t total = size * nitems;
-    auto* capture = static_cast<HeaderCapture*>(userdata);
-    std::string header(buffer, total);
-
-    detail::capture_response_header_line(header, capture->etag, capture->last_modified);
-
-    return total;
+HttpClient::HttpClient() : HttpClient(default_http_transport()) {}
+HttpClient::HttpClient(std::shared_ptr<HttpTransport> transport) : transport_(std::move(transport)) {
+    if (!transport_) throw std::invalid_argument("HttpClient requires an HTTP transport");
 }
-
-// HttpClient
-
-HttpClient::HttpClient() {}
-
 HttpClient::~HttpClient() = default;
+void HttpClient::set_timeout(std::chrono::seconds timeout) { timeout_ = timeout; }
+void HttpClient::set_user_agent(const std::string& user_agent) { user_agent_ = user_agent; }
+void HttpClient::set_max_response_size(size_t bytes) { max_response_size_ = bytes; }
 
-void HttpClient::set_timeout(std::chrono::seconds timeout) {
-    timeout_ = timeout;
-}
-
-void HttpClient::set_user_agent(const std::string& user_agent) {
-    user_agent_ = user_agent;
-}
-
-void HttpClient::set_max_response_size(size_t bytes) {
-    max_response_size_ = bytes;
-}
-
-static int sockopt_cb(void* userdata, curl_socket_t fd, curlsocktype) {
-    uint32_t mark = *static_cast<uint32_t*>(userdata);
-    if (mark != 0) {
-        setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
-    }
-    return CURL_SOCKOPT_OK;
-}
-
-std::string HttpClient::download(const std::string& url,
-                                 const HttpRequestOptions& options) {
-    const auto started_at = std::chrono::steady_clock::now();
-    Logger::instance().trace("http_download_start",
-                             "url={} fwmark={} timeout_s={}",
-                             url,
-                             options.fwmark,
-                             timeout_.count());
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        Logger::instance().trace("http_download_error",
-                                 "url={} duration_ms={} error=init_failed",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count());
-        throw HttpError("Failed to initialize curl handle");
-    }
-
-    std::string body;
-    WriteContext write_ctx{&body, max_response_size_};
-    uint32_t fwmark = options.fwmark;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+std::string HttpClient::download(const std::string& url, const HttpRequestOptions& options) {
     try {
-        restrict_protocols(curl);
-    } catch (...) {
-        curl_easy_cleanup(curl);
-        throw;
+        auto response = transport_->perform(request_for(url, timeout_, user_agent_, max_response_size_, options.fwmark));
+        throw_for_status(response.status_code);
+        return response.body;
+    } catch (const HttpTransportError& error) {
+        throw HttpError(error.what());
     }
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, static_cast<long>(timeout_.count()));
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-    curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
-                     static_cast<curl_off_t>(max_response_size_));
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark);
-
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-        std::string err = curl_easy_strerror(res);
-        curl_easy_cleanup(curl);
-        Logger::instance().trace("http_download_error",
-                                 "url={} duration_ms={} error={}",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count(),
-                                 err);
-        throw HttpError("HTTP request failed: " + err);
-    }
-
-    long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    curl_easy_cleanup(curl);
-
-    if (http_code >= 400) {
-        Logger::instance().trace("http_download_error",
-                                 "url={} duration_ms={} http_code={}",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count(),
-                                 http_code);
-        throw HttpError("HTTP error " + std::to_string(http_code), http_code);
-    }
-
-    Logger::instance().trace("http_download_end",
-                             "url={} duration_ms={} bytes={} http_code={}",
-                             url,
-                             std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::steady_clock::now() - started_at).count(),
-                             body.size(),
-                             http_code);
-    return body;
 }
 
 ConditionalDownloadResult HttpClient::download_conditional(
-    const std::string& url, const std::string& if_none_match,
-    const std::string& if_modified_since,
+    const std::string& url, const std::string& if_none_match, const std::string& if_modified_since,
     const HttpRequestOptions& options) {
-    const auto started_at = std::chrono::steady_clock::now();
-    Logger::instance().trace("http_download_conditional_start",
-                             "url={} fwmark={} timeout_s={} has_etag={} has_last_modified={}",
-                             url,
-                             options.fwmark,
-                             timeout_.count(),
-                             if_none_match.empty() ? "false" : "true",
-                             if_modified_since.empty() ? "false" : "true");
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        Logger::instance().trace("http_download_conditional_error",
-                                 "url={} duration_ms={} error=init_failed",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count());
-        throw HttpError("Failed to initialize curl handle");
-    }
-
-    ConditionalDownloadResult result;
-    HeaderCapture headers;
-    WriteContext write_ctx{&result.body, max_response_size_};
-    uint32_t fwmark = options.fwmark;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    auto request = request_for(url, timeout_, user_agent_, max_response_size_, options.fwmark);
+    if (!if_none_match.empty()) request.headers.push_back("If-None-Match: " + if_none_match);
+    if (!if_modified_since.empty()) request.headers.push_back("If-Modified-Since: " + if_modified_since);
     try {
-        restrict_protocols(curl);
-    } catch (...) {
-        curl_easy_cleanup(curl);
-        throw;
-    }
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_ctx);
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_callback);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headers);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT,
-                     static_cast<long>(timeout_.count()));
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent_.c_str());
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-    curl_easy_setopt(curl, CURLOPT_MAXFILESIZE_LARGE,
-                     static_cast<curl_off_t>(max_response_size_));
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, sockopt_cb);
-    curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, &fwmark);
-
-    // Set conditional request headers
-    struct curl_slist* req_headers = nullptr;
-    if (!if_none_match.empty()) {
-        std::string h = "If-None-Match: " + if_none_match;
-        struct curl_slist* prev = req_headers;
-        req_headers = curl_slist_append(req_headers, h.c_str());
-        if (!req_headers) {
-            curl_slist_free_all(prev);
-            curl_easy_cleanup(curl);
-            throw HttpError("Failed to allocate HTTP request header");
-        }
-    }
-    if (!if_modified_since.empty()) {
-        std::string h = "If-Modified-Since: " + if_modified_since;
-        struct curl_slist* prev = req_headers;
-        req_headers = curl_slist_append(req_headers, h.c_str());
-        if (!req_headers) {
-            curl_slist_free_all(prev);
-            curl_easy_cleanup(curl);
-            throw HttpError("Failed to allocate HTTP request header");
-        }
-    }
-    if (req_headers) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, req_headers);
-    }
-
-    CURLcode res = curl_easy_perform(curl);
-    if (req_headers) {
-        curl_slist_free_all(req_headers);
-    }
-    if (res != CURLE_OK) {
-        std::string err = curl_easy_strerror(res);
-        curl_easy_cleanup(curl);
-        Logger::instance().trace("http_download_conditional_error",
-                                 "url={} duration_ms={} error={}",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count(),
-                                 err);
-        throw HttpError("HTTP request failed: " + err);
-    }
-
-    long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    curl_easy_cleanup(curl);
-
-    if (http_code == 304) {
-        result.not_modified = true;
-        result.body.clear();
-        result.etag = headers.etag;
-        result.last_modified = headers.last_modified;
-        Logger::instance().trace("http_download_conditional_end",
-                                 "url={} duration_ms={} http_code=304 not_modified=true",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count());
+        const auto response = transport_->perform(request);
+        ConditionalDownloadResult result;
+        result.not_modified = response.status_code == 304;
+        if (!result.not_modified) throw_for_status(response.status_code);
+        if (!result.not_modified) result.body = response.body;
+        const auto etag = response.headers.find("etag");
+        if (etag != response.headers.end()) result.etag = etag->second;
+        const auto modified = response.headers.find("last-modified");
+        if (modified != response.headers.end()) result.last_modified = modified->second;
         return result;
+    } catch (const HttpTransportError& error) {
+        throw HttpError(error.what());
     }
-
-    if (http_code >= 400) {
-        Logger::instance().trace("http_download_conditional_error",
-                                 "url={} duration_ms={} http_code={}",
-                                 url,
-                                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                                     std::chrono::steady_clock::now() - started_at).count(),
-                                 http_code);
-        throw HttpError("HTTP error " + std::to_string(http_code), http_code);
-    }
-
-    result.not_modified = false;
-    result.etag = headers.etag;
-    result.last_modified = headers.last_modified;
-    Logger::instance().trace("http_download_conditional_end",
-                             "url={} duration_ms={} bytes={} http_code={} not_modified=false",
-                             url,
-                             std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::steady_clock::now() - started_at).count(),
-                             result.body.size(),
-                             http_code);
-    return result;
 }
-
 } // namespace keen_pbr3

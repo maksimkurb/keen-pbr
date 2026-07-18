@@ -69,6 +69,9 @@ add_executable(keen-pbr-tests
   ../src/daemon/resolver_health.cpp
   ../src/daemon/resolver_sync_state_machine.cpp
   ../src/http/http_client.cpp
+  ../src/http/http_transport.cpp
+  ../src/http/curl_runtime.cpp
+  ../src/health/url_tester.cpp
   ../src/routing/netlink.cpp
   ../src/routing/interface_monitor.cpp
   ../src/util/blocking_executor.cpp
@@ -185,6 +188,8 @@ add_executable(keen-pbr-firewall-it
   ../src/health/routing_health_checker.cpp
   ../src/health/url_tester.cpp
   ../src/http/http_client.cpp
+  ../src/http/http_transport.cpp
+  ../src/http/curl_runtime.cpp
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_set_usage.cpp
   ../src/lists/list_streamer.cpp

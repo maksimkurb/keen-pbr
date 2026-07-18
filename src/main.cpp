@@ -9,7 +9,6 @@
 #include <cerrno>
 #include <unistd.h>
 
-#include <curl/curl.h>
 #include <keen-pbr/version.hpp>
 
 #include "cache/cache_manager.hpp"
@@ -24,6 +23,7 @@
 #include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "log/logger.hpp"
+#include "http/curl_runtime.hpp"
 #include "util/daemon_signals.hpp"
 
 #ifndef KEEN_PBR_DEFAULT_CONFIG_PATH
@@ -203,11 +203,7 @@ int main(int argc, char* argv[]) {
         }
         keen_pbr3::crash_diagnostics::install_terminate_handler();
 
-        struct CurlGuard {
-            CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-            ~CurlGuard() { curl_global_cleanup(); }
-        };
-        CurlGuard curl_guard;
+        keen_pbr3::CurlRuntime curl_runtime;
 
         if (!opts.run_service) {
             set_signal_action(SIGUSR1, SIG_IGN);

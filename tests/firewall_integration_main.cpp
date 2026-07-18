@@ -5,6 +5,7 @@
 #include "../src/firewall/firewall_runtime.hpp"
 #include "../src/health/routing_health_checker.hpp"
 #include "../src/health/url_tester.hpp"
+#include "../src/http/curl_runtime.hpp"
 #include "../src/log/logger.hpp"
 #include "../src/routing/firewall_state.hpp"
 #include "../src/routing/netlink.hpp"
@@ -12,8 +13,6 @@
 #include "../src/routing/route_table.hpp"
 #include "../src/util/format_compat.hpp"
 #include "../src/util/safe_exec.hpp"
-
-#include <curl/curl.h>
 
 #include <algorithm>
 #include <fstream>
@@ -488,11 +487,7 @@ int run_firewall_integration(int argc, char* argv[]) {
 } // namespace keen_pbr3
 
 int main(int argc, char* argv[]) {
-    struct CurlGuard {
-        CurlGuard() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-        ~CurlGuard() { curl_global_cleanup(); }
-    };
-    CurlGuard curl_guard;
+    keen_pbr3::CurlRuntime curl_runtime;
 
     try {
         return keen_pbr3::run_firewall_integration(argc, argv);

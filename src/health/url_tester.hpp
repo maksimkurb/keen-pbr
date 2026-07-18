@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../config/config.hpp"
+#include "../http/http_transport.hpp"
 
 #include <cstdint>
 #include <string>
+#include <memory>
 
 namespace keen_pbr3 {
 
@@ -19,6 +21,7 @@ struct URLTestResult {
 class URLTester {
 public:
     URLTester();
+    explicit URLTester(std::shared_ptr<HttpTransport> transport);
     ~URLTester();
 
     URLTester(const URLTester&) = delete;
@@ -34,6 +37,7 @@ public:
 private:
     URLTestResult test_once(const std::string& url, uint32_t fwmark,
                             uint32_t timeout_ms);
+    std::shared_ptr<HttpTransport> transport_;
 };
 
 } // namespace keen_pbr3

@@ -866,6 +866,14 @@ void validate_config(const Config& cfg) {
 
         if (ob.type != OutboundType::URLTEST) continue;
 
+        if (!ob.url.has_value() || ob.url->empty()) {
+            add_issue(issues, "outbounds." + ob.tag + ".url",
+                      "Urltest outbound '" + ob.tag + "' requires a URL");
+        } else if (!is_http_url(*ob.url)) {
+            add_issue(issues, "outbounds." + ob.tag + ".url",
+                      "Urltest URL must use the http or https scheme");
+        }
+
         if (!ob.outbound_groups.has_value() || ob.outbound_groups->empty()) {
             add_issue(issues, "outbounds." + ob.tag + ".outbound_groups",
                       "Urltest outbound '" + ob.tag +

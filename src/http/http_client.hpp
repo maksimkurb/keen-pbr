@@ -8,6 +8,9 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <memory>
+
+#include "http_transport.hpp"
 
 namespace keen_pbr3 {
 
@@ -40,6 +43,7 @@ struct ConditionalDownloadResult {
 class HttpClient {
 public:
     HttpClient();
+    explicit HttpClient(std::shared_ptr<HttpTransport> transport);
     ~HttpClient();
 
     HttpClient(const HttpClient&) = delete;
@@ -62,6 +66,7 @@ private:
     std::chrono::seconds timeout_{10};
     std::string user_agent_{"keen-pbr/" KEEN_PBR3_VERSION_STRING};
     size_t max_response_size_{size_t{8} * 1024U * 1024U}; // 8 MiB
+    std::shared_ptr<HttpTransport> transport_;
 };
 
 } // namespace keen_pbr3
