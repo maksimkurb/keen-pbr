@@ -94,6 +94,21 @@ Controls the routing table ID range used for outbound-specific tables.
 
 Outbounds are assigned sequential table IDs starting from `table_start`. Ensure these IDs don't conflict with existing routing tables on your system.
 
+Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
+table are preserved during reload and shutdown; an identical pre-existing route is
+treated as already satisfied and is not adopted for cleanup.
+
+## Single-instance requirement
+
+Only one keen-pbr daemon is supported in a network namespace. Changing `pid_file`
+does not create an isolated instance: firewall tables, chains, and sets use fixed
+application-wide names. A second instance can replace or remove the first
+instance's firewall state during apply, reload, or shutdown.
+
+Use one daemon with multiple outbounds and rules. If separate instances are
+required, place them in separate network namespaces with independent firewall
+and routing state.
+
 ## lists_autoupdate
 
 Controls automatic periodic refresh of remote lists.

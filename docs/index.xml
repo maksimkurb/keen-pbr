@@ -1262,7 +1262,7 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 					&lt;td&gt;&lt;code&gt;domains&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;array of string&lt;/td&gt;
 					&lt;td&gt;no&lt;/td&gt;
-					&lt;td&gt;Inline domain patterns (supports &lt;code&gt;*.&lt;/code&gt; prefix wildcards)&lt;/td&gt;
+					&lt;td&gt;Inline DNS-compatible domain patterns (supports a leading &lt;code&gt;*.&lt;/code&gt;)&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;ip_cidrs&lt;/code&gt;&lt;/td&gt;
@@ -1284,6 +1284,16 @@ It uses less storage space (~1.2 MB instead of ~2.8 MB) and does not include the
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
+&lt;p&gt;Inline, local-file, and URL-backed lists use the same domain syntax. A leading
+&lt;code&gt;*.&lt;/code&gt; and one trailing root dot are normalized away, so &lt;code&gt;*.google.com&lt;/code&gt; is emitted
+to dnsmasq as &lt;code&gt;google.com&lt;/code&gt;. DNS service labels containing underscores are allowed;
+whitespace, directive separators, malformed wildcards, and invalid labels are skipped
+in files and rejected in inline configuration.&lt;/p&gt;
+&lt;p&gt;Remote list URLs and every redirect must use HTTP or HTTPS. Private and local
+HTTP(S) destinations remain allowed for router-local list deployments.&lt;/p&gt;
+&lt;p&gt;Local list sources must be regular files and may not be symlinks, devices, or
+FIFOs. Local and cached files use &lt;code&gt;daemon.max_file_size_bytes&lt;/code&gt; (8 MiB by default)
+and each physical line is limited to 4096 bytes.&lt;/p&gt;
 &lt;p&gt;At least one of &lt;code&gt;url&lt;/code&gt;, &lt;code&gt;domains&lt;/code&gt;, &lt;code&gt;ip_cidrs&lt;/code&gt;, or &lt;code&gt;file&lt;/code&gt; must be provided.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;
@@ -3485,6 +3495,17 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;p&gt;Outbounds are assigned sequential table IDs starting from &lt;code&gt;table_start&lt;/code&gt;. Ensure these IDs don&amp;rsquo;t conflict with existing routing tables on your system.&lt;/p&gt;
+&lt;p&gt;Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
+table are preserved during reload and shutdown; an identical pre-existing route is
+treated as already satisfied and is not adopted for cleanup.&lt;/p&gt;
+&lt;h2&gt;Single-instance requirement&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;single-instance-requirement&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#single-instance-requirement&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Only one keen-pbr daemon is supported in a network namespace. Changing &lt;code&gt;pid_file&lt;/code&gt;
+does not create an isolated instance: firewall tables, chains, and sets use fixed
+application-wide names. A second instance can replace or remove the first
+instance&amp;rsquo;s firewall state during apply, reload, or shutdown.&lt;/p&gt;
+&lt;p&gt;Use one daemon with multiple outbounds and rules. If separate instances are
+required, place them in separate network namespaces with independent firewall
+and routing state.&lt;/p&gt;
 &lt;h2&gt;lists_autoupdate&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;lists_autoupdate&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#lists_autoupdate&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Controls automatic periodic refresh of remote lists.&lt;/p&gt;
 &lt;p&gt;If the &lt;code&gt;lists_autoupdate&lt;/code&gt; section is omitted, automatic refresh is disabled.&lt;/p&gt;

@@ -13,7 +13,7 @@
 The lists key is an object where each key is the list name and the value is the list configuration.
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/lists/" itemprop="url" />
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline DNS-compatible domain patterns (supports a leading *.) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. Inline, local-file, and URL-backed lists use the same domain syntax. A leading *. and one trailing root dot are normalized away, so *.google.com is emitted to dnsmasq as google.com. DNS service labels containing underscores are allowed; whitespace, directive separators, malformed wildcards, and invalid labels are skipped in files and rejected in inline configuration." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/lists/" itemprop="url" />
 
 <meta property="og:title" content="Lists">
 <meta
@@ -60,7 +60,7 @@ Fields
 					domains
 					array of string
 					no
-					Inline domain patterns (supports *. prefix wildcards)
+					Inline DNS-compatible domain patterns (supports a leading *.)
 			
 			
 					ip_cidrs
@@ -82,7 +82,11 @@ Fields
 			
 	
 
-At least one of url, domains, ip_cidrs, or file must be provided.
+Inline, local-file, and URL-backed lists use the same domain syntax. A leading
+*. and one trailing root dot are normalized away, so *.google.com is emitted
+to dnsmasq as google.com. DNS service labels containing underscores are allowed;
+whitespace, directive separators, malformed wildcards, and invalid labels are skipped
+in files and rejected in inline configuration.
     
   ">
 <meta
@@ -100,15 +104,15 @@ At least one of url, domains, ip_cidrs, or file must be provided.
 The lists key is an object where each key is the list name and the value is the list configuration.
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided.">
-	<meta itemprop="wordCount" content="473">
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline DNS-compatible domain patterns (supports a leading *.) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. Inline, local-file, and URL-backed lists use the same domain syntax. A leading *. and one trailing root dot are normalized away, so *.google.com is emitted to dnsmasq as google.com. DNS service labels containing underscores are allowed; whitespace, directive separators, malformed wildcards, and invalid labels are skipped in files and rejected in inline configuration.">
+	<meta itemprop="wordCount" content="583">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Lists">
 	<meta name="twitter:description" content="Lists are groups of sites or IP ranges that you want keen-pbr to match.
 The lists key is an object where each key is the list name and the value is the list configuration.
 List names must match ^[a-z][a-z0-9_]*$ and be at most 24 characters.
 Most users start with a simple domain list such as:
-config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline domain patterns (supports *. prefix wildcards) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. At least one of url, domains, ip_cidrs, or file must be provided.">
+config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;google.com&#34;, &#34;youtube.com&#34;] } } } Fields Field Type Required Description url string no URL to a remote list file to download and cache domains array of string no Inline DNS-compatible domain patterns (supports a leading *.) ip_cidrs array of string no Inline IP addresses or CIDR ranges file string no Path to a local list file ttl_ms integer no (default: 0) How long resolved IPs should stay cached for domain-based lists. Most users can leave this at 0. Inline, local-file, and URL-backed lists use the same domain syntax. A leading *. and one trailing root dot are normalized away, so *.google.com is emitted to dnsmasq as google.com. DNS service labels containing underscores are allowed; whitespace, directive separators, malformed wildcards, and invalid labels are skipped in files and rejected in inline configuration.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -1065,7 +1069,7 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 					<td><code>domains</code></td>
 					<td>array of string</td>
 					<td>no</td>
-					<td>Inline domain patterns (supports <code>*.</code> prefix wildcards)</td>
+					<td>Inline DNS-compatible domain patterns (supports a leading <code>*.</code>)</td>
 			</tr>
 			<tr>
 					<td><code>ip_cidrs</code></td>
@@ -1087,6 +1091,16 @@ config.json{ &#34;lists&#34;: { &#34;my_sites&#34;: { &#34;domains&#34;: [&#34;g
 			</tr>
 	</tbody>
 </table>
+<p>Inline, local-file, and URL-backed lists use the same domain syntax. A leading
+<code>*.</code> and one trailing root dot are normalized away, so <code>*.google.com</code> is emitted
+to dnsmasq as <code>google.com</code>. DNS service labels containing underscores are allowed;
+whitespace, directive separators, malformed wildcards, and invalid labels are skipped
+in files and rejected in inline configuration.</p>
+<p>Remote list URLs and every redirect must use HTTP or HTTPS. Private and local
+HTTP(S) destinations remain allowed for router-local list deployments.</p>
+<p>Local list sources must be regular files and may not be symlinks, devices, or
+FIFOs. Local and cached files use <code>daemon.max_file_size_bytes</code> (8 MiB by default)
+and each physical line is limited to 4096 bytes.</p>
 <p>At least one of <code>url</code>, <code>domains</code>, <code>ip_cidrs</code>, or <code>file</code> must be provided.</p>
 <div class="hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-amber-200 hx:bg-amber-100 hx:text-amber-900 hx:dark:border-amber-200/30 hx:dark:bg-amber-900/30 hx:dark:text-amber-200">
   <div class="hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2"><svg height=1.2em class="hx:inline-block hx:align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
