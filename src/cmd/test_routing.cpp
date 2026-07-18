@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <cctype>
 #include <cstring>
@@ -27,6 +28,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -473,6 +475,16 @@ std::string find_actual_outbound(const KernelSetTester& set_tester,
     return any_answer ? "(default)" : "(unknown)";
 }
 
+// Kernel membership checks invoke nft/ipset subprocesses.  Keep a modest bound
+// so a domain with a very large DNS response cannot overwhelm the router, while
+// still checking different IPs concurrently.
+constexpr std::size_t kTestRoutingMaxConcurrentIps = 8;
+
+struct PerIpRoutingResult {
+    TestRoutingEntry entry;
+    std::vector<RuleIpDiagnostic> rule_ip_diagnostics;
+};
+
 } // namespace
 
 TestRoutingResult compute_test_routing(const Config& config,
@@ -537,18 +549,21 @@ TestRoutingResult compute_test_routing(const Config& config,
         result.rule_diagnostics.push_back(std::move(diag));
     }
 
-    for (const auto& ip : ips) {
-        TestRoutingEntry entry;
-        entry.ip = ip;
+    std::vector<PerIpRoutingResult> per_ip_results(ips.size());
+    const auto check_ip = [&](size_t ip_index) {
+        const auto& ip = ips[ip_index];
+        auto& per_ip = per_ip_results[ip_index];
+
+        per_ip.entry.ip = ip;
         auto [expected, match] = find_expected_outbound(config, lookups, ip, domain_cands);
-        entry.expected_outbound = expected;
-        entry.list_match = match;
-        entry.actual_outbound = set_tester.has_value()
+        per_ip.entry.expected_outbound = expected;
+        per_ip.entry.list_match = std::move(match);
+        per_ip.entry.actual_outbound = set_tester.has_value()
             ? find_actual_outbound(*set_tester, rule_states, ip, is_ipv4_address(ip))
             : "(unknown)";
-        entry.ok = (entry.expected_outbound == entry.actual_outbound);
-        result.entries.push_back(std::move(entry));
+        per_ip.entry.ok = (per_ip.entry.expected_outbound == per_ip.entry.actual_outbound);
 
+        per_ip.rule_ip_diagnostics.reserve(result.rule_diagnostics.size());
         for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
             RuleIpDiagnostic ip_diag;
             ip_diag.ip = ip;
@@ -556,7 +571,38 @@ TestRoutingResult compute_test_routing(const Config& config,
                 ip_diag.in_ipset = test_rule_ipset_membership(
                     *set_tester, rule_states[idx], ip, is_ipv4_address(ip));
             }
-            result.rule_diagnostics[idx].ip_rows.push_back(std::move(ip_diag));
+            per_ip.rule_ip_diagnostics.push_back(std::move(ip_diag));
+        }
+    };
+
+    const size_t worker_count = std::min(kTestRoutingMaxConcurrentIps, ips.size());
+    if (worker_count > 1) {
+        std::atomic_size_t next_ip{0};
+        std::vector<std::thread> workers;
+        workers.reserve(worker_count);
+        for (size_t worker = 0; worker < worker_count; ++worker) {
+            workers.emplace_back([&]() {
+                while (true) {
+                    const size_t ip_index = next_ip.fetch_add(1);
+                    if (ip_index >= ips.size()) {
+                        return;
+                    }
+                    check_ip(ip_index);
+                }
+            });
+        }
+        for (auto& worker : workers) {
+            worker.join();
+        }
+    } else if (worker_count == 1) {
+        check_ip(0);
+    }
+
+    for (auto& per_ip : per_ip_results) {
+        result.entries.push_back(std::move(per_ip.entry));
+        for (size_t idx = 0; idx < result.rule_diagnostics.size(); ++idx) {
+            result.rule_diagnostics[idx].ip_rows.push_back(
+                std::move(per_ip.rule_ip_diagnostics[idx]));
         }
     }
 

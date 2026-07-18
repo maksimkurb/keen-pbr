@@ -252,6 +252,9 @@ TEST_CASE("compute_test_routing resolves domain through configured system resolv
 
     CHECK(result.is_domain);
     CHECK(result.resolved_ips == std::vector<std::string>{"10.0.0.53", "2001:db8::53"});
+    REQUIRE(result.entries.size() == 2);
+    CHECK(result.entries[0].ip == "10.0.0.53");
+    CHECK(result.entries[1].ip == "2001:db8::53");
     CHECK_FALSE(result.dns_error.has_value());
 
     std::filesystem::remove_all(temp_dir);
