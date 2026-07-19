@@ -1,5 +1,8 @@
 #include "firewall_reconciler.hpp"
 
+#include "iptables_verifier.hpp"
+#include "nftables_verifier.hpp"
+
 #include <exception>
 #include <algorithm>
 #include <sstream>
@@ -23,6 +26,17 @@ const FirewallSetSnapshot* find_set(const std::vector<FirewallSetSnapshot>& sets
         return set.name == name;
     });
     return it == sets.end() ? nullptr : &*it;
+}
+
+template <typename Rule>
+std::string rule_identity(const Rule& rule) {
+    std::ostringstream output;
+    output << (rule.ipv6 ? "ip6:" : "ip4:") << rule.set_name << ':';
+    if (rule.is_mark) output << "mark=" << rule.fwmark;
+    else if (rule.is_drop) output << "drop";
+    else if (rule.is_pass) output << "pass";
+    else output << "unknown";
+    return output.str();
 }
 
 } // namespace
@@ -75,6 +89,29 @@ FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
         if (!find_set(desired.sets, observed.name)) diff.extra_sets.push_back(observed.name);
     }
     return diff;
+}
+
+FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
+                                           const ParsedIptablesState& ipv6) {
+    FirewallActualState state;
+    state.available = true;
+    if (ipv4.has_keen_pbr_chain) state.chains.push_back("ip4:KeenPbrTable");
+    if (ipv6.has_keen_pbr_chain) state.chains.push_back("ip6:KeenPbrTable");
+    if (ipv4.has_prerouting_jump) state.jumps.push_back("ip4:PREROUTING->KeenPbrTable");
+    if (ipv6.has_prerouting_jump) state.jumps.push_back("ip6:PREROUTING->KeenPbrTable");
+    for (const auto& rule : ipv4.rules) state.ordered_rules.push_back(rule_identity(rule));
+    for (const auto& rule : ipv6.rules) state.ordered_rules.push_back(rule_identity(rule));
+    return state;
+}
+
+FirewallActualState inspect_nftables_state(const ParsedNftablesState& parsed) {
+    FirewallActualState state;
+    state.available = parsed.has_table;
+    if (parsed.has_table) state.chains.push_back("inet:KeenPbrTable");
+    if (parsed.has_prerouting_chain) state.chains.push_back("inet:prerouting");
+    if (parsed.has_prerouting_hook) state.jumps.push_back("inet:prerouting-hook");
+    for (const auto& rule : parsed.rules) state.ordered_rules.push_back(rule_identity(rule));
+    return state;
 }
 
 FirewallReconcileResult FirewallReconciler::reconcile(const FirewallDesiredState& desired) {

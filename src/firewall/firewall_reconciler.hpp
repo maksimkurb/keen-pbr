@@ -6,6 +6,9 @@
 
 namespace keen_pbr3 {
 
+struct ParsedIptablesState;
+struct ParsedNftablesState;
+
 struct FirewallSetSnapshot {
     std::string name;
     int family{0};
@@ -46,6 +49,10 @@ struct FirewallStateDiff {
 // reordering is observable drift, not a harmless set difference.
 FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
                                       const FirewallActualState& actual);
+
+FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
+                                           const ParsedIptablesState& ipv6);
+FirewallActualState inspect_nftables_state(const ParsedNftablesState& state);
 
 class FirewallReconcilerBackend {
 public:

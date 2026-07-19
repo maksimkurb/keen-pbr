@@ -1,6 +1,8 @@
 #include <doctest/doctest.h>
 
 #include "../src/firewall/firewall_reconciler.hpp"
+#include "../src/firewall/iptables_verifier.hpp"
+#include "../src/firewall/nftables_verifier.hpp"
 
 #include <netinet/in.h>
 #include <stdexcept>
@@ -84,6 +86,24 @@ TEST_CASE("Firewall state diff distinguishes ordered rules and set schemas") {
     CHECK(diff.schema_mismatches == std::vector<std::string>{"kpbr4d_dns"});
     CHECK(diff.extra_sets == std::vector<std::string>{"kpbr4_extra"});
     CHECK(diff.summary().find("rule order mismatch") != std::string::npos);
+}
+
+TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") {
+    ParsedIptablesState ipv4 = parse_iptables_s(
+        "-N KeenPbrTable\n-A PREROUTING -j KeenPbrTable\n");
+    ipv4.rules.push_back({"", {}, false, false, true, false, 0, true, 0xFFFFFFFFu});
+    const auto iptables = inspect_iptables_state(ipv4, {});
+    CHECK(iptables.chains == std::vector<std::string>{"ip4:KeenPbrTable"});
+    CHECK(iptables.jumps == std::vector<std::string>{"ip4:PREROUTING->KeenPbrTable"});
+    CHECK(iptables.ordered_rules == std::vector<std::string>{"ip4::drop"});
+
+    const auto nft = inspect_nftables_state(parse_nft_json(R"({"nftables":[
+      {"table":{"family":"inet","name":"KeenPbrTable"}},
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting","type":"filter","hook":"prerouting"}}
+    ]})"));
+    CHECK(nft.available);
+    CHECK(nft.chains == std::vector<std::string>{"inet:KeenPbrTable", "inet:prerouting"});
+    CHECK(nft.jumps == std::vector<std::string>{"inet:prerouting-hook"});
 }
 
 } // namespace keen_pbr3
