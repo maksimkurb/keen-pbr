@@ -20,6 +20,18 @@ std::vector<std::string> missing_from(const std::vector<std::string>& expected,
     return result;
 }
 
+std::vector<std::string> owned_extra_from(const std::vector<std::string>& actual,
+                                          const std::vector<std::string>& expected) {
+    std::vector<std::string> result;
+    for (const auto& value : actual) {
+        if (is_keen_pbr_namespace_name(value) &&
+            std::find(expected.begin(), expected.end(), value) == expected.end()) {
+            result.push_back(value);
+        }
+    }
+    return result;
+}
+
 const FirewallSetSnapshot* find_set(const std::vector<FirewallSetSnapshot>& sets,
                                     const std::string& name) {
     const auto it = std::find_if(sets.begin(), sets.end(), [&](const FirewallSetSnapshot& set) {
@@ -40,6 +52,16 @@ std::string rule_identity(const Rule& rule) {
 }
 
 } // namespace
+
+bool is_keen_pbr_namespace_name(const std::string& name) {
+    const auto separator = name.find(':');
+    const std::string object = separator == std::string::npos ? name : name.substr(separator + 1);
+    return object == "KeenPbrTable" || object.rfind("KeenPbrTable_", 0) == 0 ||
+           object.rfind("PREROUTING->KeenPbrTable", 0) == 0 ||
+           object.rfind("OUTPUT->KeenPbrTable", 0) == 0 ||
+           object.rfind("kpbr4_", 0) == 0 || object.rfind("kpbr6_", 0) == 0 ||
+           object.rfind("kpbr4d_", 0) == 0 || object.rfind("kpbr6d_", 0) == 0;
+}
 
 bool FirewallStateDiff::empty() const {
     return missing_chains.empty() && extra_chains.empty() &&
@@ -70,9 +92,9 @@ FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
                                       const FirewallActualState& actual) {
     FirewallStateDiff diff;
     diff.missing_chains = missing_from(desired.chains, actual.chains);
-    diff.extra_chains = missing_from(actual.chains, desired.chains);
+    diff.extra_chains = owned_extra_from(actual.chains, desired.chains);
     diff.missing_jumps = missing_from(desired.jumps, actual.jumps);
-    diff.extra_jumps = missing_from(actual.jumps, desired.jumps);
+    diff.extra_jumps = owned_extra_from(actual.jumps, desired.jumps);
     diff.rules_reordered = desired.ordered_rules != actual.ordered_rules;
 
     for (const auto& expected : desired.sets) {
@@ -86,7 +108,9 @@ FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
         }
     }
     for (const auto& observed : actual.sets) {
-        if (!find_set(desired.sets, observed.name)) diff.extra_sets.push_back(observed.name);
+        if (!find_set(desired.sets, observed.name) && is_keen_pbr_namespace_name(observed.name)) {
+            diff.extra_sets.push_back(observed.name);
+        }
     }
     return diff;
 }

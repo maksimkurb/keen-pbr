@@ -50,6 +50,9 @@ struct FirewallStateDiff {
 FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
                                       const FirewallActualState& actual);
 
+// Only these names may be removed by keen-pbr cleanup/reconciliation.
+bool is_keen_pbr_namespace_name(const std::string& name);
+
 FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
                                            const ParsedIptablesState& ipv6);
 FirewallActualState inspect_nftables_state(const ParsedNftablesState& state);

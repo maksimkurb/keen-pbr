@@ -88,6 +88,20 @@ TEST_CASE("Firewall state diff distinguishes ordered rules and set schemas") {
     CHECK(diff.summary().find("rule order mismatch") != std::string::npos);
 }
 
+TEST_CASE("Firewall state diff only treats reserved namespace objects as extras") {
+    FirewallDesiredState desired;
+    FirewallActualState actual;
+    actual.chains = {"KeenPbrTable_stale", "KeenPbrTableLikeForeign"};
+    actual.sets = {{"kpbr4_stale", AF_INET, 0, false},
+                   {"kpbr_foreign", AF_INET, 0, false}};
+
+    const auto diff = diff_firewall_state(desired, actual);
+    CHECK(diff.extra_chains == std::vector<std::string>{"KeenPbrTable_stale"});
+    CHECK(diff.extra_sets == std::vector<std::string>{"kpbr4_stale"});
+    CHECK(is_keen_pbr_namespace_name("ip4:KeenPbrTable_7"));
+    CHECK_FALSE(is_keen_pbr_namespace_name("KeenPbrTableLikeForeign"));
+}
+
 TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") {
     ParsedIptablesState ipv4 = parse_iptables_s(
         "-N KeenPbrTable\n-A PREROUTING -j KeenPbrTable\n");
