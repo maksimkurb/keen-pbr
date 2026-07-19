@@ -1,10 +1,22 @@
 import type { ConfigObject } from "@/api/generated/model/configObject"
+import type { RouteRule } from "@/api/generated/model/routeRule"
 
 export type ListDeleteImpact = {
   dnsRuleIndexes: number[]
   routeRuleIndexes: number[]
   removedDnsRuleIndexes: number[]
   removedRouteRuleIndexes: number[]
+}
+
+function hasRouteMatchConditionExceptLists(rule: RouteRule): boolean {
+  return Boolean(
+    rule.proto ||
+    rule.dscp !== undefined ||
+    rule.src_port ||
+    rule.dest_port ||
+    rule.src_addr ||
+    rule.dest_addr
+  )
 }
 
 export function getListDeleteImpact(
@@ -25,7 +37,11 @@ export function getListDeleteImpact(
       routeRuleIndexes.push(index)
     }
 
-    if (beforeLists.length > 0 && afterLists.length === 0) {
+    if (
+      beforeLists.length > 0 &&
+      afterLists.length === 0 &&
+      !hasRouteMatchConditionExceptLists(rule)
+    ) {
       removedRouteRuleIndexes.push(index)
     }
   }
@@ -89,7 +105,10 @@ export function buildUpdatedConfigForListDelete(
           ...rule,
           list: (rule.list ?? []).filter((name) => name !== listId),
         }))
-        .filter((rule) => rule.list.length > 0),
+        .filter(
+          (rule) =>
+            rule.list.length > 0 || hasRouteMatchConditionExceptLists(rule)
+        ),
     },
     dns: {
       ...config.dns,

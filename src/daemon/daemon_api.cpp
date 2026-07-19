@@ -441,7 +441,7 @@ void Daemon::setup_api() {
             const auto candidate_pid_file = config.daemon.value_or(DaemonConfig{})
                 .pid_file.value_or("");
             if (candidate_pid_file != active_pid_file) {
-                throw ConfigValidationError({{
+                throw ConfigValidationError(std::vector<ConfigValidationIssue>{{
                     "daemon.pid_file",
                     "daemon.pid_file cannot be changed while the daemon is running",
                 }});
