@@ -8,7 +8,6 @@
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
 
-#include <algorithm>
 #include <array>
 #include <set>
 #include <sstream>
@@ -57,6 +56,18 @@ public:
 
   static nlohmann::json build_delete_chain_json() {
     return NftablesFirewall::build_delete_chain_json();
+  }
+
+  static nlohmann::json build_flush_set_json(const std::string& name) {
+    return NftablesFirewall::build_flush_set_json(name);
+  }
+
+  static nlohmann::json build_delete_set_json(const std::string& name) {
+    return NftablesFirewall::build_delete_set_json(name);
+  }
+
+  static bool is_dynamic_set_name(const std::string& name) {
+    return NftablesFirewall::is_dynamic_set_name(name);
   }
 
   struct RuleDesc {
@@ -399,11 +410,11 @@ TEST_CASE("create_mark_rule: port-only tcp/udp rule emits one tcp and one udp en
       T::build_rule_add_commands_via_create_mark_rule(0x10000, criteria);
 
   REQUIRE(cmds.is_array());
-  REQUIRE(cmds.size() == 2);
+  REQUIRE(cmds.size() == 4);
   CHECK(cmds[0]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
-  CHECK(cmds[0]["add"]["rule"]["expr"][1]["match"]["right"] == 1111);
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
-  CHECK(cmds[1]["add"]["rule"]["expr"][1]["match"]["right"] == 1111);
+  CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
+  CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
 }
 
 // =============================================================================
@@ -1105,6 +1116,16 @@ TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {
   CHECK_FALSE(set.contains("timeout"));
 }
 
+TEST_CASE("nft reconcile: dynamic names are preserved and static names are refreshable") {
+  CHECK(T::is_dynamic_set_name("kpbr4d_domains"));
+  CHECK(T::is_dynamic_set_name("kpbr6d_domains"));
+  CHECK_FALSE(T::is_dynamic_set_name("kpbr4_static"));
+  const auto flush = T::build_flush_set_json("kpbr4_static");
+  CHECK(flush["flush"]["set"]["name"] == "kpbr4_static");
+  const auto erase = T::build_delete_set_json("kpbr4_static");
+  CHECK(erase["delete"]["set"]["name"] == "kpbr4_static");
+}
+
 TEST_CASE("nft dynamic set naming: kpbr4d_ prefix, with timeout when ttl_ms set") {
   auto j = T::build_set_json("kpbr4d_mylist", "ipv4_addr", 3600);
   const auto &set = j["add"]["set"];
@@ -1158,7 +1179,7 @@ TEST_CASE("build_mark_rule_json: direct=true → no @set match in expr") {
   f.proto = L4Proto::Udp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
-  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, 0xFFFFFFFFu, /*direct=*/true);
   const auto &expr = j["add"]["rule"]["expr"];
   // No expression should reference "@..."
   for (const auto &e : expr) {
@@ -1173,7 +1194,7 @@ TEST_CASE("build_mark_rule_json: direct=true IPv4 UDP port 53 → daddr, l4proto
   f.proto = L4Proto::Udp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
-  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, 0xFFFFFFFFu, /*direct=*/true);
   const auto &expr = j["add"]["rule"]["expr"];
   bool has_daddr = false, has_l4proto = false, has_dport = false, has_mangle = false;
   for (const auto &e : expr) {
@@ -1200,7 +1221,7 @@ TEST_CASE("build_mark_rule_json: direct=true → daddr matches server IP") {
   f.proto = L4Proto::Tcp;
   f.dst_port = "53";
   f.dst_addr = {"10.8.0.1"};
-  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, /*direct=*/true);
+  auto j = T::build_mark_rule_json("", AF_INET, 0x10000, f, 0xFFFFFFFFu, /*direct=*/true);
   const auto &expr = j["add"]["rule"]["expr"];
   bool found_ip = false;
   for (const auto &e : expr) {

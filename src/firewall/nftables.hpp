@@ -55,6 +55,7 @@ private:
         bool table_exists{false};
         bool chain_exists{false};
         std::set<std::string> set_names;
+        std::map<std::string, std::string> set_schemas;
     };
 
     LiveTableState read_live_table_state() const;
@@ -85,6 +86,10 @@ private:
     static nlohmann::json build_chain_json();
     // Build the JSON object for deleting the prerouting chain.
     static nlohmann::json build_delete_chain_json();
+    static nlohmann::json build_flush_set_json(const std::string& set_name);
+    static nlohmann::json build_delete_set_json(const std::string& set_name);
+    static bool is_dynamic_set_name(const std::string& set_name);
+    static std::string set_schema_key(const PendingSet& set);
     // Build all prerouting rule add-commands, including global prefilter rules.
     static nlohmann::json build_rule_add_commands(
         const FirewallGlobalPrefilter& prefilter,

@@ -406,7 +406,7 @@ OUTPUT-dispatcher и переключение PREROUTING/OUTPUT на shadow chai
 
 ## US-07. Атомарный nftables reconciler и корректная family-семантика
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** высокая.
 
@@ -445,7 +445,13 @@ nft re-apply может сначала удалить live table, а затем 
 5. Запустить с `ipv6_enabled=false`; IPv4 работает, IPv6 не помечается, health содержит unmanaged indication.
 6. Удалить требуемую nft capability; apply не публикует ложный `running` для включённого enforcement.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** Normal apply больше не выполняет standalone
+`delete table`: таблица, chain/rules и static-set refresh публикуются одной
+JSON-транзакцией `nft -j -f -`. Existing static set очищается и наполняется в
+batch; schema mismatch заменяется там же. Dynamic dnsmasq sets сохранены при
+routine re-apply. Port-only правила разворачиваются по IPv4/IPv6, при
+`ipv6_enabled=false` IPv6 не управляется. Ограничения и atomic-path описаны в
+`docs/content/docs/nftables-atomic-reconcile.md`.
 
 ---
 

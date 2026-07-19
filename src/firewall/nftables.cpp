@@ -40,7 +40,9 @@ bool needs_family_specific_rule(const FirewallRuleCriteria& criteria) {
     return criteria.dst_set_name.has_value()
         || criteria.dscp.has_value()
         || !criteria.src_addr.empty()
-        || !criteria.dst_addr.empty();
+        || !criteria.dst_addr.empty()
+        || !criteria.src_port.empty()
+        || !criteria.dst_port.empty();
 }
 
 } // namespace
@@ -237,6 +239,24 @@ nlohmann::json NftablesFirewall::build_delete_chain_json() {
         {"table", TABLE_NAME},
         {"name", CHAIN_NAME}
     }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_flush_set_json(const std::string& set_name) {
+    return {{"flush", {{"set", {{"family", "inet"}, {"table", TABLE_NAME},
+                                {"name", set_name}}}}}};
+}
+
+nlohmann::json NftablesFirewall::build_delete_set_json(const std::string& set_name) {
+    return {{"delete", {{"set", {{"family", "inet"}, {"table", TABLE_NAME},
+                                 {"name", set_name}}}}}};
+}
+
+bool NftablesFirewall::is_dynamic_set_name(const std::string& set_name) {
+    return set_name.rfind("kpbr4d_", 0) == 0 || set_name.rfind("kpbr6d_", 0) == 0;
+}
+
+std::string NftablesFirewall::set_schema_key(const PendingSet& set) {
+    return set.type + ":" + std::to_string(set.timeout);
 }
 
 nlohmann::json NftablesFirewall::build_rule_add_commands(
@@ -578,6 +598,9 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
                 const std::string name = set.value("name", "");
                 if (!name.empty()) {
                     state.set_names.insert(name);
+                    const std::string type = set.value("type", "");
+                    const uint32_t timeout = set.value("timeout", 0U);
+                    state.set_schemas[name] = type + ":" + std::to_string(timeout);
                 }
             }
         }
@@ -599,10 +622,22 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         arr.push_back(build_table_json());
     }
 
-    // Sets
+    // Sets. Dynamic dnsmasq sets keep their learned elements during normal
+    // re-apply; static sets are refreshed in this same nft transaction.
     for (const auto& ps : pending_sets_) {
-        if (!emit_full_table && live_state.set_names.find(ps.name) != live_state.set_names.end()) {
+        const bool existing = !emit_full_table &&
+            live_state.set_names.find(ps.name) != live_state.set_names.end();
+        if (existing && is_dynamic_set_name(ps.name)) {
             continue;
+        }
+        if (existing && live_state.set_schemas.at(ps.name) == set_schema_key(ps)) {
+            continue;
+        }
+        if (existing) {
+            // Chain removal, old-schema deletion, replacement set creation and
+            // new rules are one nft transaction, so no standalone delete can
+            // publish an unenforced intermediate state.
+            arr.push_back(build_delete_set_json(ps.name));
         }
         arr.push_back(build_set_json(ps));
     }
@@ -620,8 +655,13 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
 
     // Elements
     for (const auto& [set_name, elems] : pending_elements_) {
-        if (!emit_full_table && live_state.set_names.find(set_name) != live_state.set_names.end()) {
+        const bool existing = !emit_full_table &&
+            live_state.set_names.find(set_name) != live_state.set_names.end();
+        if (existing && is_dynamic_set_name(set_name)) {
             continue;
+        }
+        if (existing) {
+            arr.push_back(build_flush_set_json(set_name));
         }
         if (!elems.empty()) {
             arr.push_back(build_elements_json(set_name, elems));
@@ -632,30 +672,18 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
 }
 
 void NftablesFirewall::apply(FirewallApplyMode mode) {
-    const bool preserve_sets = mode == FirewallApplyMode::PreserveSets;
-    const LiveTableState live_state = preserve_sets ? read_live_table_state() : LiveTableState{};
-
-    if (mode == FirewallApplyMode::Destructive) {
-        cleanup_live_impl();
-    }
-
-    const bool emit_full_table = !preserve_sets || !live_state.table_exists;
+    (void)mode;
+    // Never delete the live table before publishing a replacement. nft applies
+    // this JSON batch atomically, including chain replacement and set refresh.
+    const LiveTableState live_state = read_live_table_state();
+    const bool emit_full_table = !live_state.table_exists;
     nlohmann::json doc = build_apply_document(live_state, emit_full_table);
 
     std::string json_str = doc.dump();
     Logger::instance().verbose("nft json:\n{}", json_str);
 
     // Apply atomically via nft -j -f -
-    int status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
-    if (status != 0 && preserve_sets && !emit_full_table && !table_exists()) {
-        Logger::instance().warn(
-            "nft preserve apply failed after KeenPbrTable disappeared; retrying full table restore");
-        cleanup_live_impl();
-        doc = build_apply_document(LiveTableState{}, /*emit_full_table=*/true);
-        json_str = doc.dump();
-        Logger::instance().verbose("nft recovery json:\n{}", json_str);
-        status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
-    }
+    const int status = safe_exec_pipe_stdin({"nft", "-j", "-f", "-"}, json_str);
     if (status != 0) {
         throw FirewallError(keen_pbr3::format("nft -j -f - exited with status {}", status));
     }
