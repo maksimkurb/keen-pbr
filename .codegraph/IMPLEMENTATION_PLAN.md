@@ -722,7 +722,7 @@ round-trip покрыты unit tests.
 
 ## US-12. Streaming resolver config и fail-safe fallback
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** высокая.
 
@@ -785,7 +785,19 @@ Fallback paths — build options:
 10. Заблокировать stdout дольше 15 секунд при продолжающемся server progress; это не считается server idle.
 11. Дважды вызвать генератор без изменения config; hash одинаков, timestamps различаются и близки к wall clock.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** `generate-resolver-config` теперь всегда
+обращается к running daemon: `dnsmasq` выбирает текущий firewall backend, а
+deprecated `dnsmasq-ipset`/`dnsmasq-nftset` печатают warning и сохраняют
+явный backend над active snapshot. IPC передаёт JSON start-header, затем
+bounded chunks (16 KiB) и явный end-of-stream marker; client пишет каждый
+chunk прямо в stdout и применяет 15-секундный idle timeout только к ожиданию
+следующего server chunk. Генерация перенесена в blocking executor, поэтому не
+блокирует daemon event loop. До start-header daemon preflight-проверяет active
+runtime и нужные list caches; CLI в этой фазе потоково выдаёт неизменяемый
+fallback с timestamp, content MD5 и reason code. После первого active chunk
+обрыв потока завершается ошибкой без fallback. Путь fallback задан build option
+для Debian/OpenWrt и Keenetic. Unit-тесты покрывают streaming, обрыв после
+active bytes и fallback markers; полный C++ suite проходит.
 
 ---
 

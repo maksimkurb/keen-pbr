@@ -2,7 +2,9 @@
 
 #include <arpa/inet.h>
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <ctime>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -17,10 +19,18 @@
 #include <sys/un.h>
 #include <thread>
 #include <unistd.h>
+#include <ostream>
+#include <set>
+#include <streambuf>
 
+#include "../cache/cache_manager.hpp"
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
 #include "../cmd/test_routing.hpp"
+#include "../dns/dnsmasq_gen.hpp"
+#include "../dns/dns_router.hpp"
+#include "../lists/list_streamer.hpp"
+#include "../util/ipv6_support.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/safe_exec.hpp"
@@ -41,6 +51,81 @@ namespace {
 
 constexpr auto SIGUSR1_DEBOUNCE_DELAY = std::chrono::milliseconds{150};
 constexpr auto INTERFACE_MONITOR_RECONNECT_RETRY_DELAY = std::chrono::seconds{5};
+constexpr std::size_t kResolverStreamChunkBytes = static_cast<std::size_t>(16) * 1024U;
+
+void send_all(int fd, const char* data, std::size_t size) {
+    std::size_t written = 0;
+    while (written < size) {
+        const ssize_t count = send(fd, data + written, size - written, MSG_NOSIGNAL);
+        if (count <= 0) {
+            throw ipc::ControlProtocolError("resolver stream write failed: " +
+                                            std::string(strerror(errno)));
+        }
+        written += static_cast<std::size_t>(count);
+    }
+}
+
+class SocketStreamBuffer final : public std::streambuf {
+public:
+    explicit SocketStreamBuffer(int fd) : fd_(fd) {
+        setp(buffer_.data(), buffer_.data() + buffer_.size());
+    }
+
+    ~SocketStreamBuffer() override { (void)sync(); }
+
+protected:
+    int overflow(int ch) override {
+        if (flush_buffer() != 0) return traits_type::eof();
+        if (ch != traits_type::eof()) {
+            *pptr() = static_cast<char>(ch);
+            pbump(1);
+        }
+        return ch;
+    }
+
+    std::streamsize xsputn(const char* data, std::streamsize size) override {
+        std::streamsize written = 0;
+        while (written < size) {
+            if (pptr() == epptr() && flush_buffer() != 0) break;
+            const auto capacity = static_cast<std::streamsize>(epptr() - pptr());
+            const auto chunk = std::min(capacity, size - written);
+            std::memcpy(pptr(), data + written, static_cast<std::size_t>(chunk));
+            pbump(static_cast<int>(chunk));
+            written += chunk;
+        }
+        return written;
+    }
+
+    int sync() override { return flush_buffer(); }
+
+private:
+    int flush_buffer() {
+        const auto size = static_cast<std::size_t>(pptr() - pbase());
+        if (size == 0) return 0;
+        try {
+            const std::uint32_t length = htonl(static_cast<std::uint32_t>(size));
+            send_all(fd_, reinterpret_cast<const char*>(&length), sizeof(length));
+            send_all(fd_, pbase(), size);
+        } catch (...) {
+            return -1;
+        }
+        setp(buffer_.data(), buffer_.data() + buffer_.size());
+        return 0;
+    }
+
+    int fd_;
+    std::array<char, kResolverStreamChunkBytes> buffer_{};
+};
+
+std::string resolver_runtime_reason(const RuntimeStateSnapshot& snapshot) {
+    switch (snapshot.runtime_state) {
+    case RuntimeState::starting: return "runtime_starting";
+    case RuntimeState::stopped: return "runtime_stopped";
+    case RuntimeState::broken: return "runtime_broken";
+    case RuntimeState::shutting_down: return "runtime_shutting_down";
+    default: return "daemon_error";
+    }
+}
 
 std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -235,6 +320,7 @@ void Daemon::handle_ipc_control_socket() {
         (void)setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
         nlohmann::json request = nlohmann::json::object();
         nlohmann::json response;
+        bool resolver_stream_dispatched = false;
         try {
             ucred peer{};
             socklen_t peer_length = sizeof(peer);
@@ -264,7 +350,8 @@ void Daemon::handle_ipc_control_socket() {
                 throw ipc::ControlProtocolError("control peer is not authorized for this operation");
             }
             if (operation != "status" && operation != "resolver-config-hash" &&
-                operation != "download" && operation != "test-routing") {
+                operation != "download" && operation != "test-routing" &&
+                operation != "generate-resolver-config") {
                 response = ipc::make_error_response(request, "unsupported_operation",
                                                     "unsupported control operation");
             } else if (operation == "test-routing") {
@@ -287,6 +374,100 @@ void Daemon::handle_ipc_control_socket() {
                                         {"entries", std::move(entries)},
                                         {"warnings", result.warnings},
                                         {"dns_error", result.dns_error}}}};
+            } else if (operation == "generate-resolver-config") {
+                const auto runtime_snapshot = runtime_state_store_.snapshot();
+                if (!runtime_snapshot.routing_runtime_active || !routing_runtime_active_) {
+                    response = ipc::make_error_response(request, resolver_runtime_reason(runtime_snapshot),
+                                                        "resolver runtime is not active");
+                    const std::string frame = ipc::encode_message(response);
+                    (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+                    close(client);
+                    continue;
+                }
+                const auto active_config = config_store_.active_config();
+                const auto dns_config = active_config.dns.value_or(DnsConfig{});
+                const auto cache_dir = active_config.daemon.value_or(DaemonConfig{})
+                    .cache_dir.value_or("/var/cache/keen-pbr");
+                const auto type = request.value("resolver", "dnsmasq") == "dnsmasq-ipset"
+                    ? ResolverType::DNSMASQ_IPSET
+                    : (request.value("resolver", "dnsmasq") == "dnsmasq-nftset"
+                        ? ResolverType::DNSMASQ_NFTSET
+                        : (firewall_->backend() == FirewallBackend::nftables
+                            ? ResolverType::DNSMASQ_NFTSET : ResolverType::DNSMASQ_IPSET));
+                const auto request_id = request.at("request_id").get<std::string>();
+                const bool queued = blocking_executor_.try_post(
+                    "generate-resolver-config",
+                    [client, active_config, dns_config, cache_dir, type, request_id] {
+                        bool stream_started = false;
+                        try {
+                            CacheManager cache(cache_dir, max_file_size_bytes(active_config));
+                            std::set<std::string> referenced_lists;
+                            for (const auto& rule : active_config.route.value_or(RouteConfig{}).rules.value_or(
+                                     std::vector<RouteRule>{})) {
+                                if (!route_rule_enabled(rule)) continue;
+                                for (const auto& list_name : route_rule_lists(rule)) {
+                                    referenced_lists.insert(list_name);
+                                }
+                            }
+                            for (const auto& rule : dns_config.rules.value_or(std::vector<DnsRule>{})) {
+                                if (!dns_rule_enabled(rule)) continue;
+                                for (const auto& list_name : rule.list) {
+                                    referenced_lists.insert(list_name);
+                                }
+                            }
+                            const auto lists = active_config.lists.value_or(
+                                std::map<std::string, ListConfig>{});
+                            for (const auto& list_name : referenced_lists) {
+                                const auto list = lists.find(list_name);
+                                if (list == lists.end()) continue;
+                                if (list->second.url.has_value() && !cache.has_cache(list_name)) {
+                                    throw ipc::ControlProtocolError("list_cache_missing");
+                                }
+                                if (list->second.file.has_value() &&
+                                    !std::filesystem::is_regular_file(list->second.file.value())) {
+                                    throw ipc::ControlProtocolError("active_list_cache_mismatch");
+                                }
+                            }
+                            const auto header = ipc::encode_message(
+                                {{"protocol_version", ipc::kControlProtocolVersion},
+                                 {"request_id", request_id}, {"ok", true}, {"stream", true}});
+                            send_all(client, header.data(), header.size());
+                            stream_started = true;
+                            SocketStreamBuffer buffer(client);
+                            std::ostream output(&buffer);
+                            output << "# keen-pbr resolver state: active\n";
+                            const auto ipv6 = resolve_ipv6_support(active_config);
+                            ListStreamer streamer(cache);
+                            DnsServerRegistry registry(dns_config);
+                            DnsmasqGenerator generator(
+                                registry, streamer, active_config.route.value_or(RouteConfig{}), dns_config,
+                                active_config.lists.value_or(std::map<std::string, ListConfig>{}), type,
+                                KEEN_PBR3_VERSION_FULL_STRING, ipv6.enabled);
+                            generator.generate(output);
+                            output << "txt-record=resolver-state.keen.pbr," << std::time(nullptr)
+                                   << "|active|runtime_active\n";
+                            output.flush();
+                            const std::uint32_t end_of_stream = 0;
+                            send_all(client, reinterpret_cast<const char*>(&end_of_stream),
+                                     sizeof(end_of_stream));
+                        } catch (const std::exception& error) {
+                            if (!stream_started) {
+                                const auto response = ipc::make_error_response(
+                                    {{"request_id", request_id}}, error.what(), error.what());
+                                const auto frame = ipc::encode_message(response);
+                                (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+                            } else {
+                                Logger::instance().warn("resolver config stream failed: {}", error.what());
+                            }
+                        }
+                        close(client);
+                    });
+                if (queued) {
+                    resolver_stream_dispatched = true;
+                    continue;
+                }
+                response = ipc::make_error_response(request, "daemon_error",
+                                                    "resolver stream executor is unavailable");
             } else if (operation == "download") {
                 bool expected = false;
                 if (!ipc_mutation_inflight_.compare_exchange_strong(expected,
@@ -336,9 +517,11 @@ void Daemon::handle_ipc_control_socket() {
         } catch (const std::exception& error) {
             response = ipc::make_error_response(request, "protocol_error", error.what());
         }
-        const std::string frame = ipc::encode_message(response);
-        (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
-        close(client);
+        if (!resolver_stream_dispatched) {
+            const std::string frame = ipc::encode_message(response);
+            (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+            close(client);
+        }
     }
 }
 

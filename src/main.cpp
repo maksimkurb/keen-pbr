@@ -1,9 +1,11 @@
 #include <cstdlib>
+#include <ctime>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include <csignal>
 #include <cerrno>
@@ -11,15 +13,11 @@
 
 #include <keen-pbr/version.hpp>
 
-#include "cache/cache_manager.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "config/config.hpp"
 #include "daemon/daemon.hpp"
 #include "ipc/control_client.hpp"
-#include "dns/dns_router.hpp"
-#include "dns/dnsmasq_gen.hpp"
-#include "util/ipv6_support.hpp"
-#include "lists/list_streamer.hpp"
+#include "ipc/resolver_fallback.hpp"
 #include "log/logger.hpp"
 #include "http/curl_runtime.hpp"
 #include "util/daemon_signals.hpp"
@@ -44,6 +42,9 @@
 #endif
 #ifndef KEEN_PBR_GIT_COMMIT
 #define KEEN_PBR_GIT_COMMIT "unknown"
+#endif
+#ifndef KEEN_PBR_RESOLVER_FALLBACK_CONFIG
+#define KEEN_PBR_RESOLVER_FALLBACK_CONFIG "/etc/keen-pbr/dnsmasq-fallback.conf"
 #endif
 
 namespace {
@@ -85,7 +86,7 @@ void print_usage(const char* argv0) {
               << "  status                             Show routing/firewall status and exit\n"
               << "  download                           Download all configured lists to cache and exit\n"
               << "  generate-resolver-config <res>     Print generated resolver config to stdout and exit\n"
-              << "                                     Resolvers: dnsmasq-ipset, dnsmasq-nftset\n"
+              << "                                     Resolvers: dnsmasq (dnsmasq-ipset and dnsmasq-nftset are deprecated)\n"
               << "  resolver-config-hash               Print MD5 hash of domain-to-ipset mapping and exit\n"
               << "  test-routing <ip-or-domain>        Test expected vs actual routing for an IP or domain\n";
 }
@@ -179,6 +180,20 @@ void set_signal_action(int signum, void (*handler)(int)) {
     }
 }
 
+std::string resolver_fallback_reason(const std::string& error) {
+    static constexpr std::string_view known[] = {
+        "runtime_starting", "runtime_stopped", "runtime_broken", "runtime_shutting_down",
+        "stream_start_timeout", "daemon_error", "protocol_error", "socket_unavailable",
+        "active_list_cache_mismatch", "list_cache_missing",
+    };
+    for (const auto reason : known) {
+        if (error == reason) return std::string(reason);
+    }
+    if (error.find("unavailable") != std::string::npos) return "socket_unavailable";
+    if (error.find("timeout") != std::string::npos) return "connect_timeout";
+    return "protocol_error";
+}
+
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
@@ -233,6 +248,38 @@ int main(int argc, char* argv[]) {
         auto& logger = keen_pbr3::Logger::instance();
         logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
 
+        if (opts.generate_resolver_config) {
+            if (opts.config_path != KEEN_PBR_DEFAULT_CONFIG_PATH) {
+                throw std::runtime_error("--config is only supported with the service command");
+            }
+            if (opts.resolver_type != "dnsmasq" && opts.resolver_type != "dnsmasq-ipset" &&
+                opts.resolver_type != "dnsmasq-nftset") {
+                throw std::runtime_error("Unknown resolver type: " + opts.resolver_type);
+            }
+            if (opts.resolver_type != "dnsmasq") {
+                std::cerr << "Warning: " << opts.resolver_type
+                          << " is deprecated; use dnsmasq to select the active daemon backend\n";
+            }
+            try {
+                keen_pbr3::ipc::stream_control(
+                    KEEN_PBR_CONTROL_SOCKET,
+                    {{"protocol_version", keen_pbr3::ipc::kControlProtocolVersion},
+                     {"request_id", "cli-generate-resolver-config"},
+                     {"operation", "generate-resolver-config"},
+                     {"resolver", opts.resolver_type}},
+                    std::cout, 15000);
+                return 0;
+            } catch (const keen_pbr3::ipc::ControlStreamError& error) {
+                if (!error.active_bytes_streamed() && keen_pbr3::ipc::emit_resolver_fallback(
+                        std::cout, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
+                        resolver_fallback_reason(error.what()),
+                        static_cast<std::int64_t>(std::time(nullptr)))) {
+                    return 0;
+                }
+                throw;
+            }
+        }
+
         if (opts.run_status || opts.resolver_config_hash || opts.download_lists || opts.run_test_routing) {
             if (opts.config_path != KEEN_PBR_DEFAULT_CONFIG_PATH) {
                 throw std::runtime_error("--config is only supported with the service command");
@@ -265,40 +312,6 @@ int main(int argc, char* argv[]) {
                 config.daemon = keen_pbr3::DaemonConfig{};
             }
             config.daemon->pid_file = opts.pid_file_override;
-        }
-
-        // Handle generate-resolver-config command: load lists, generate, print, exit
-        if (opts.generate_resolver_config) {
-            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
-            cache.ensure_dir();
-            const auto lists_map = config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{});
-            for (const auto& [name, list_cfg] : lists_map) {
-                if (!list_cfg.url.has_value()) {
-                    logger.verbose("[{}] Skipped (no URL)", name);
-                    continue;
-                }
-                if (!cache.has_cache(name)) {
-                    logger.warn("[{}] Skipped remote list download during generate-resolver-config (cache missing). Please run 'keen-pbr download'", name);
-                } else {
-                    logger.verbose("[{}] Using cached", name);
-                }
-            }
-            const auto route_cfg = config.route.value_or(keen_pbr3::RouteConfig{});
-            const auto dns_cfg   = config.dns.value_or(keen_pbr3::DnsConfig{});
-            const auto ipv6_decision = keen_pbr3::resolve_ipv6_support(config);
-            keen_pbr3::log_ipv6_support_decision_once(ipv6_decision);
-            keen_pbr3::ListStreamer list_streamer(cache);
-            keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
-            auto resolver_type = keen_pbr3::DnsmasqGenerator::parse_resolver_type(opts.resolver_type);
-            keen_pbr3::DnsmasqGenerator dnsmasq_gen(dns_registry, list_streamer,
-                                                     route_cfg, dns_cfg,
-                                                     lists_map, resolver_type,
-                                                     KEEN_PBR3_VERSION_FULL_STRING,
-                                                     ipv6_decision.enabled);
-            dnsmasq_gen.generate(std::cout);
-            return 0;
         }
 
         // Construct Daemon with all subsystems and run
