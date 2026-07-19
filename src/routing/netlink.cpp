@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <cstring>
 #include <map>
 #include <memory>
 #include <net/if.h>
@@ -166,6 +165,7 @@ RouteAddResult NetlinkManager::add_route(const RouteSpec& spec) {
     if (spec.metric != 0) {
         rtnl_route_set_priority(route.get(), spec.metric);
     }
+    rtnl_route_set_protocol(route.get(), spec.protocol);
 
     // Set destination
     if (spec.destination == "default") {
@@ -249,6 +249,7 @@ void NetlinkManager::delete_route(const RouteSpec& spec) {
     if (spec.metric != 0) {
         rtnl_route_set_priority(route.get(), spec.metric);
     }
+    rtnl_route_set_protocol(route.get(), spec.protocol);
 
     if (spec.destination == "default") {
         NlAddrPtr dst = parse_addr(family == AF_INET6 ? "::/0" : "0.0.0.0/0", family);
@@ -405,6 +406,7 @@ std::vector<DumpedRoute> NetlinkManager::dump_routes_in_table(uint32_t table_id,
         dr.table = ctx->table_id;
         dr.family = rtnl_route_get_family(route);
         dr.metric = static_cast<uint32_t>(rtnl_route_get_priority(route));
+        dr.protocol = rtnl_route_get_protocol(route);
 
         // Determine route type
         int rt_type = rtnl_route_get_type(route);

@@ -87,4 +87,17 @@ TEST_CASE("RouteTable reconciliation adds replacements before removing obsolete 
     CHECK(routes.get_routes().size() == 1);
 }
 
+TEST_CASE("RouteTable treats protocol as route identity") {
+    FakeRouteNetlink netlink;
+    RouteTable routes(netlink);
+    auto generated = route("default", 150);
+    auto foreign = generated;
+    foreign.protocol = 4;
+
+    routes.add(generated);
+    routes.add(foreign);
+
+    CHECK(routes.get_routes().size() == 2);
+}
+
 } // namespace keen_pbr3

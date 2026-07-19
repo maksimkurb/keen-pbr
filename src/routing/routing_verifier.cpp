@@ -42,6 +42,9 @@ bool route_matches_expected(const RouteSpec& expected, const DumpedRoute& actual
     if (!route_type_matches(expected, actual)) {
         return false;
     }
+    if (expected.protocol != actual.protocol) {
+        return false;
+    }
     if (!route_metric_matches(expected, actual)) {
         return false;
     }
@@ -118,6 +121,10 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
             if (!route_type_matches(expected, *first_default)) {
                 detail << "route type mismatch: expected '" << route_type_label(expected)
                        << "', got '" << route_type_label(*first_default) << "'.";
+            } else if (expected.protocol != first_default->protocol) {
+                detail << "route protocol mismatch: expected '"
+                       << static_cast<unsigned>(expected.protocol) << "', got '"
+                       << static_cast<unsigned>(first_default->protocol) << "'.";
             } else if (!route_metric_matches(expected, *first_default)) {
                 detail << "metric mismatch: expected '" << expected.metric
                        << "', got '" << first_default->metric << "'.";

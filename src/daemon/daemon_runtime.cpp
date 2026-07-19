@@ -11,6 +11,7 @@
 #include "../firewall/firewall_runtime.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
+#include "../routing/routing_reconciler.hpp"
 #include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
 #include "../util/cron.hpp"
@@ -133,18 +134,7 @@ void Daemon::restart_routing_runtime() {
 }
 
 void Daemon::setup_static_routing() {
-    const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
-    log_ipv6_support_decision_once(ipv6_decision);
-    populate_routing_state(
-        config_,
-        outbound_marks_,
-        route_table_,
-        policy_rules_,
-        [this](const Outbound& outbound) {
-            return is_interface_outbound_reachable(outbound, netlink_);
-        },
-        &firewall_state_.get_urltest_selections(),
-        ipv6_decision.enabled);
+    reconcile_static_routing();
 }
 
 void Daemon::reconcile_static_routing() {
@@ -163,12 +153,10 @@ void Daemon::reconcile_static_routing() {
         &firewall_state_.get_urltest_selections(),
         ipv6_decision.enabled);
 
-    // A new lookup path is usable only after both its route and policy rule
-    // exist. Do not create a gap by deleting the previous path first.
-    route_table_.add_missing(desired_routes.get_routes());
-    policy_rules_.add_missing(desired_rules.get_rules());
-    policy_rules_.remove_obsolete(desired_rules.get_rules());
-    route_table_.remove_obsolete(desired_routes.get_routes());
+    // Inspect the kernel on every apply so a restarted daemon adopts intact
+    // state and only removes objects with a verifiable ownership marker.
+    RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(),
+                                          desired_rules.get_rules());
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode) {

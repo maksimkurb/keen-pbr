@@ -76,6 +76,13 @@ add_compile_definitions(JSON_DIAGNOSTICS=1)
 option(WITH_API "Build with REST API support (cpp-httplib)" ON)
 option(USE_KEENETIC_API "Enable Keenetic RCI integration (DNS server type: keenetic)" OFF)
 option(ENABLE_THREAD_SAFETY_ANALYSIS "Enable Clang thread-safety diagnostics for project targets" OFF)
+set(KEEN_PBR_ROUTE_PROTOCOL "186" CACHE STRING
+  "Reserved rtnetlink protocol number used to identify keen-pbr routes (1-255)")
+if(NOT KEEN_PBR_ROUTE_PROTOCOL MATCHES "^[1-9][0-9]*$" OR
+   KEEN_PBR_ROUTE_PROTOCOL GREATER 255)
+  message(FATAL_ERROR "KEEN_PBR_ROUTE_PROTOCOL must be an integer from 1 through 255")
+endif()
+add_compile_definitions(KEEN_PBR_ROUTE_PROTOCOL=${KEEN_PBR_ROUTE_PROTOCOL})
 set(KEEN_PBR_DEFAULT_CONFIG_PATH "${CMAKE_INSTALL_FULL_SYSCONFDIR}/keen-pbr/config.json" CACHE STRING
   "Default config file path used by keen-pbr when --config is not passed")
 set(KEEN_PBR_FRONTEND_ROOT "${CMAKE_INSTALL_FULL_DATADIR}/keen-pbr/frontend" CACHE STRING
@@ -250,6 +257,7 @@ set(SOURCES
   src/routing/interface_monitor.cpp
   src/routing/route_table.cpp
   src/routing/policy_rule.cpp
+  src/routing/routing_reconciler.cpp
   src/routing/routing_verifier.cpp
   src/health/circuit_breaker.cpp
   src/health/url_tester.cpp
