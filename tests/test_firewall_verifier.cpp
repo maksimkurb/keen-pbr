@@ -43,6 +43,19 @@ TEST_CASE("parse_iptables_s: empty string") {
     CHECK(state.rules.empty());
 }
 
+TEST_CASE("parse_nft_json: captures KeenPbrTable set schema") {
+    const auto state = parse_nft_json(R"({"nftables":[
+      {"table":{"family":"inet","name":"KeenPbrTable"}},
+      {"set":{"family":"inet","table":"KeenPbrTable","name":"kpbr4_static","type":"ipv4_addr"}},
+      {"set":{"family":"inet","table":"KeenPbrTable","name":"kpbr6d_dns","type":"ipv6_addr","timeout":300}}
+    ]})");
+    REQUIRE(state.sets.size() == 2);
+    CHECK(state.sets[0].name == "kpbr4_static");
+    CHECK(state.sets[0].timeout_seconds == 0);
+    CHECK(state.sets[1].type == "ipv6_addr");
+    CHECK(state.sets[1].timeout_seconds == 300);
+}
+
 TEST_CASE("parse_iptables_s: chain declaration only, no jump") {
     const std::string input =
         "-N KeenPbrTable\n";

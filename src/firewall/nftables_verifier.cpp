@@ -419,6 +419,21 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
             continue;
         }
 
+        if (elem.contains("set")) {
+            const auto& set = elem["set"];
+            if (set.is_object() && set.value("table", "") == TABLE_NAME) {
+                ParsedNftSet parsed;
+                parsed.name = set.value("name", "");
+                parsed.type = set.value("type", "");
+                const auto timeout = set.find("timeout");
+                if (timeout != set.end() && timeout->is_number_unsigned()) {
+                    parsed.timeout_seconds = timeout->get<uint32_t>();
+                }
+                if (!parsed.name.empty()) state.sets.push_back(std::move(parsed));
+            }
+            continue;
+        }
+
         if (!elem.contains("rule")) continue;
         const auto& rule = elem["rule"];
         if (!rule.is_object()) continue;
@@ -450,7 +465,7 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                         if (field == "dscp" && match.contains("right")) {
                             const auto value = parse_nft_dscp_value(match["right"]);
                             if (value.has_value()) {
-                                nr.criteria.dscp = *value;
+                                nr.criteria.dscp = value;
                             }
                         } else if (field == "saddr" && match.contains("right")) {
                             nr.criteria.src_addr = parse_nft_addr_list(match["right"]);

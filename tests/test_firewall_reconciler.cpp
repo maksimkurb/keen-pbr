@@ -113,11 +113,15 @@ TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") 
 
     const auto nft = inspect_nftables_state(parse_nft_json(R"({"nftables":[
       {"table":{"family":"inet","name":"KeenPbrTable"}},
-      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting","type":"filter","hook":"prerouting"}}
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting","type":"filter","hook":"prerouting"}},
+      {"set":{"family":"inet","table":"KeenPbrTable","name":"kpbr6d_dns","type":"ipv6_addr","timeout":300}}
     ]})"));
     CHECK(nft.available);
     CHECK(nft.chains == std::vector<std::string>{"inet:KeenPbrTable", "inet:prerouting"});
     CHECK(nft.jumps == std::vector<std::string>{"inet:prerouting-hook"});
+    REQUIRE(nft.sets.size() == 1);
+    CHECK(nft.sets[0].family == AF_INET6);
+    CHECK(nft.sets[0].dynamic);
 }
 
 } // namespace keen_pbr3

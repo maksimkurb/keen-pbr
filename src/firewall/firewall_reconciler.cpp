@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <algorithm>
+#include <netinet/in.h>
 #include <sstream>
 
 namespace keen_pbr3 {
@@ -135,6 +136,10 @@ FirewallActualState inspect_nftables_state(const ParsedNftablesState& parsed) {
     if (parsed.has_prerouting_chain) state.chains.push_back("inet:prerouting");
     if (parsed.has_prerouting_hook) state.jumps.push_back("inet:prerouting-hook");
     for (const auto& rule : parsed.rules) state.ordered_rules.push_back(rule_identity(rule));
+    for (const auto& set : parsed.sets) {
+        const int family = set.type == "ipv6_addr" ? AF_INET6 : AF_INET;
+        state.sets.push_back({set.name, family, set.timeout_seconds, set.timeout_seconds != 0});
+    }
     return state;
 }
 
