@@ -181,13 +181,25 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
 
     try {
         const std::set<std::string> relevant_lists = collect_relevant_list_names(config_snapshot);
+        const std::set<std::string> dns_relevant_lists = collect_dns_relevant_list_names(config_snapshot);
         const std::set<std::string> target_lists(target_selection.list_names.begin(),
                                                  target_selection.list_names.end());
         RemoteListsRefreshResult refresh_result = list_service_.refresh_remote_lists(
             config_snapshot,
             marks_snapshot,
             &relevant_lists,
-            requested_name ? &target_lists : nullptr);
+            requested_name ? &target_lists : nullptr,
+            &dns_relevant_lists);
+
+        if (!refresh_result.changed_lists.empty()) {
+            Logger::instance().info("Lists refresh (api): updated list(s): {}",
+                                    format_list_names(refresh_result.changed_lists));
+        } else if (!refresh_result.failed_lists.empty()) {
+            Logger::instance().warn("Lists refresh (api): failed list(s): {}",
+                                    format_list_names(refresh_result.failed_lists));
+        } else {
+            Logger::instance().info("Lists refresh (api): all checked list(s) are up-to-date.");
+        }
 
         bool reloaded = false;
         bool stale_runtime = false;

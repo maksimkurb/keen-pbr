@@ -380,8 +380,7 @@ TEST_CASE("refresh_remote_lists: failed HTTP list logs status and refresh "
     std::filesystem::remove_all(temp_dir);
 }
 
-TEST_CASE("download_uncached: reports relevant changed lists for startup "
-          "resolver reload") {
+TEST_CASE("download_uncached: preserves cached lists and tracks DNS-relevant changes") {
     CurlGlobalGuard curl_guard;
     TestHttpServer server({
         {"/route.txt", HttpResponse{200, "OK", "example.com\n"}},
@@ -392,26 +391,31 @@ TEST_CASE("download_uncached: reports relevant changed lists for startup "
     ListService service(temp_dir);
     service.ensure_dir();
 
-    ListConfig route_list;
-    route_list.url = server.url("/route.txt");
+    ListConfig dns_list;
+    dns_list.url = server.url("/route.txt");
     ListConfig unused_list;
     unused_list.url = server.url("/unused.txt");
 
     Config config;
     config.lists = std::map<std::string, ListConfig>{
-        {"route", route_list},
+        {"dns", dns_list},
         {"unused", unused_list},
     };
 
-    const std::set<std::string> relevant_lists{"route"};
-    const auto result = service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+    const std::set<std::string> relevant_lists{"dns"};
+    const std::set<std::string> dns_relevant_lists{"dns"};
+    const auto result = service.refresh_remote_lists(
+        config, OutboundMarkMap{}, &relevant_lists, nullptr, &dns_relevant_lists);
 
-    CHECK(result.changed_lists == std::vector<std::string>{"route", "unused"});
-    CHECK(result.relevant_changed_lists == std::vector<std::string>{"route"});
+    CHECK(result.changed_lists == std::vector<std::string>{"dns", "unused"});
+    CHECK(result.relevant_changed_lists == std::vector<std::string>{"dns"});
+    CHECK(result.dns_relevant_changed_lists == std::vector<std::string>{"dns"});
 
-    const auto second_result = service.download_uncached(config, OutboundMarkMap{}, &relevant_lists);
+    const auto second_result = service.download_uncached(
+        config, OutboundMarkMap{}, &relevant_lists, &dns_relevant_lists);
+    CHECK(second_result.refreshed_lists.empty());
+    CHECK(second_result.cached_lists == std::vector<std::string>{"dns", "unused"});
     CHECK(second_result.changed_lists.empty());
-    CHECK(second_result.relevant_changed_lists.empty());
 
     std::filesystem::remove_all(temp_dir);
 }
@@ -517,4 +521,9 @@ TEST_CASE("collect_relevant_list_names: ignores disabled route and dns rules") {
     CHECK(relevant_lists.count("dns_disabled") == 0);
     CHECK(relevant_lists.count("route_enabled") == 1);
     CHECK(relevant_lists.count("dns_enabled") == 1);
+
+    const auto dns_relevant_lists = collect_dns_relevant_list_names(config);
+    CHECK(dns_relevant_lists.count("route_enabled") == 0);
+    CHECK(dns_relevant_lists.count("dns_disabled") == 0);
+    CHECK(dns_relevant_lists.count("dns_enabled") == 1);
 }

@@ -2,6 +2,8 @@
 
 #include "../log/logger.hpp"
 
+#include <sstream>
+
 namespace keen_pbr3 {
 
 namespace {
@@ -15,13 +17,16 @@ std::string refresh_flight_key(const Config& config,
                                const OutboundMarkMap& outbound_marks,
                                bool only_uncached,
                                const std::set<std::string>* relevant_lists,
-                               const std::set<std::string>* target_lists) {
+                               const std::set<std::string>* target_lists,
+                               const std::set<std::string>* dns_relevant_lists) {
     nlohmann::json key;
     key["config"] = config;
     key["marks"] = outbound_marks;
     key["only_uncached"] = only_uncached;
     key["relevant"] = relevant_lists ? nlohmann::json(*relevant_lists) : nlohmann::json(nullptr);
     key["targets"] = target_lists ? nlohmann::json(*target_lists) : nlohmann::json(nullptr);
+    key["dns_relevant"] = dns_relevant_lists ? nlohmann::json(*dns_relevant_lists)
+                                               : nlohmann::json(nullptr);
     return key.dump();
 }
 
@@ -77,6 +82,32 @@ std::set<std::string> collect_relevant_list_names(const Config& config) {
     return relevant_lists;
 }
 
+std::set<std::string> collect_dns_relevant_list_names(const Config& config) {
+    std::set<std::string> relevant_lists;
+    for (const auto& rule : config.dns.value_or(DnsConfig{}).rules.value_or(std::vector<DnsRule>{})) {
+        if (!dns_rule_enabled(rule)) {
+            continue;
+        }
+        relevant_lists.insert(rule.list.begin(), rule.list.end());
+    }
+    return relevant_lists;
+}
+
+std::string format_list_names(const std::vector<std::string>& list_names) {
+    if (list_names.empty()) {
+        return "(none)";
+    }
+
+    std::ostringstream out;
+    for (size_t i = 0; i < list_names.size(); ++i) {
+        if (i != 0) {
+            out << ", ";
+        }
+        out << list_names[i];
+    }
+    return out.str();
+}
+
 bool should_reload_runtime_after_list_refresh(bool routing_runtime_active,
                                               const RemoteListsRefreshResult& refresh_result) {
     return routing_runtime_active && refresh_result.any_relevant_changed();
@@ -113,29 +144,36 @@ const CacheManager& ListService::cache_manager() const {
     return cache_manager_;
 }
 
-RemoteListsRefreshResult ListService::download_uncached(const Config& config,
-                                                        const OutboundMarkMap& outbound_marks,
-                                                        const std::set<std::string>* relevant_lists) {
-    return download_remote_lists(config, outbound_marks, true, relevant_lists, nullptr);
+RemoteListsRefreshResult ListService::download_uncached(
+    const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::set<std::string>* relevant_lists,
+    const std::set<std::string>* dns_relevant_lists) {
+    return download_remote_lists(
+        config, outbound_marks, true, relevant_lists, nullptr, dns_relevant_lists);
 }
 
 RemoteListsRefreshResult ListService::refresh_remote_lists(const Config& config,
                                                            const OutboundMarkMap& outbound_marks,
                                                            const std::set<std::string>* relevant_lists,
-                                                           const std::set<std::string>* target_lists) {
-    return download_remote_lists(config, outbound_marks, false, relevant_lists, target_lists);
+                                                           const std::set<std::string>* target_lists,
+                                                           const std::set<std::string>* dns_relevant_lists) {
+    return download_remote_lists(
+        config, outbound_marks, false, relevant_lists, target_lists, dns_relevant_lists);
 }
 
 RemoteListsRefreshResult ListService::download_remote_lists(const Config& config,
                                                             const OutboundMarkMap& outbound_marks,
                                                             bool only_uncached,
                                                             const std::set<std::string>* relevant_lists,
-                                                            const std::set<std::string>* target_lists) {
+                                                            const std::set<std::string>* target_lists,
+                                                            const std::set<std::string>* dns_relevant_lists) {
     // All entry points converge here. Matching callers join one flight and
     // receive its result; different scopes wait so deterministic cache temp
     // paths are never shared by API, scheduled, and startup refreshes.
     const std::string flight_key =
-        refresh_flight_key(config, outbound_marks, only_uncached, relevant_lists, target_lists);
+        refresh_flight_key(config, outbound_marks, only_uncached, relevant_lists, target_lists,
+                           dns_relevant_lists);
     std::shared_ptr<RefreshFlight> flight;
     bool owner = false;
     {
@@ -170,11 +208,9 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             if (target_lists && target_lists->count(name) == 0) {
                 continue;
             }
-
-            if (only_uncached) {
-                if (cache_manager_.has_cache(name)) {
-                    continue;
-                }
+            if (only_uncached && cache_manager_.has_cache(name)) {
+                result.cached_lists.push_back(name);
+                continue;
             }
 
             result.refreshed_lists.push_back(name);
@@ -205,12 +241,16 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
             }
 
             if (!download_result.updated()) {
+                result.unchanged_lists.push_back(name);
                 continue;
             }
 
             result.changed_lists.push_back(name);
             if (relevant_lists && relevant_lists->count(name) > 0) {
                 result.relevant_changed_lists.push_back(name);
+            }
+            if (dns_relevant_lists && dns_relevant_lists->count(name) > 0) {
+                result.dns_relevant_changed_lists.push_back(name);
             }
         }
     } catch (...) {

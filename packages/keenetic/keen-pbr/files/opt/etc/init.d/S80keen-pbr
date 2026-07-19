@@ -194,10 +194,6 @@ reapply_dnsmasq_config() {
     fi
 }
 
-download_lists() {
-    "$KEEN_PBR" --config "$CONFIG" download || true
-}
-
 case "$1" in
     reload)
         reapply_dnsmasq_config || exit 1
@@ -214,8 +210,7 @@ case "$1" in
         ;;
     start|restart|restartall)
         prepare_start
-        download_lists
-        POSTCMD="reapply_dnsmasq_config"
+        reapply_dnsmasq_config || exit 1
         ;;
     stop|kill)
         prepare_stop

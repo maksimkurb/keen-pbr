@@ -19,25 +19,6 @@
 
 namespace keen_pbr3 {
 
-namespace {
-
-std::string format_list_names(const std::vector<std::string>& list_names) {
-    if (list_names.empty()) {
-        return "(none)";
-    }
-
-    std::ostringstream out;
-    for (size_t i = 0; i < list_names.size(); ++i) {
-        if (i != 0) {
-            out << ", ";
-        }
-        out << list_names[i];
-    }
-    return out.str();
-}
-
-} // namespace
-
 void Daemon::run_system_resolver_hook_reload() {
     auto& log = Logger::instance();
 
@@ -167,10 +148,6 @@ void Daemon::apply_firewall(FirewallApplyMode mode) {
         mode));
 }
 
-void Daemon::download_uncached_lists() {
-    (void)list_service_.download_uncached(config_, outbound_marks_);
-}
-
 void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                                              const std::string& new_child_tag) {
     post_control_task([this, urltest_tag, new_child_tag]() {
@@ -266,15 +243,29 @@ void Daemon::schedule_lists_autoupdate() {
 }
 
 ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
-    const std::set<std::string>* target_lists) {
+    const std::set<std::string>* target_lists,
+    std::string_view source) {
     auto& log = Logger::instance();
     ListsRefreshExecutionResult result;
     const auto relevant_lists = collect_relevant_list_names(config_);
+    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
     result.refresh_result =
-        list_service_.refresh_remote_lists(config_, outbound_marks_, &relevant_lists, target_lists);
+        list_service_.refresh_remote_lists(
+            config_, outbound_marks_, &relevant_lists, target_lists, &dns_relevant_lists);
+
+    if (!result.refresh_result.changed_lists.empty()) {
+        log.info("Lists refresh ({}): updated list(s): {}", source,
+                 format_list_names(result.refresh_result.changed_lists));
+    } else if (!result.refresh_result.failed_lists.empty()) {
+        log.warn("Lists refresh ({}): failed list(s): {}", source,
+                 format_list_names(result.refresh_result.failed_lists));
+    } else {
+        log.info("Lists refresh ({}): all checked list(s) are up-to-date.", source);
+    }
 
     if (should_reload_runtime_after_list_refresh(routing_runtime_active_, result.refresh_result)) {
-        log.info("Lists refresh: relevant list(s) changed ({}), reloading runtime",
+        log.info("Lists refresh ({}): relevant list(s) changed ({}), reloading runtime",
+                 source,
                  format_list_names(result.refresh_result.relevant_changed_lists));
         apply_config(config_, false);
         result.reloaded = true;
@@ -302,7 +293,7 @@ void Daemon::refresh_lists_and_maybe_reload() {
     log.info("Lists autoupdate: checking for updated lists");
 
     try {
-        const auto result = execute_remote_list_refresh();
+        const auto result = execute_remote_list_refresh(nullptr, "autoupdate");
         if (!result.reloaded) {
             schedule_lists_autoupdate();
         }
@@ -347,10 +338,21 @@ void Daemon::commit_lists_refresh_async_result(
             ListsRefreshExecutionResult result;
             result.refresh_result = std::move(*refresh_result);
 
+            if (!result.refresh_result.changed_lists.empty()) {
+                Logger::instance().info("Lists refresh (autoupdate): updated list(s): {}",
+                                        format_list_names(result.refresh_result.changed_lists));
+            } else if (!result.refresh_result.failed_lists.empty()) {
+                Logger::instance().warn("Lists refresh (autoupdate): failed list(s): {}",
+                                        format_list_names(result.refresh_result.failed_lists));
+            } else {
+                Logger::instance().info(
+                    "Lists refresh (autoupdate): all checked list(s) are up-to-date.");
+            }
+
             if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
                                                         result.refresh_result)) {
                 Logger::instance().info(
-                    "Lists refresh: relevant list(s) changed ({}), reloading runtime",
+                    "Lists refresh (autoupdate): relevant list(s) changed ({}), reloading runtime",
                     format_list_names(result.refresh_result.relevant_changed_lists));
                 try {
                     apply_config(config_snapshot, false);
@@ -399,6 +401,7 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
     const OutboundMarkMap marks_snapshot = outbound_marks_;
     const bool runtime_active_snapshot = routing_runtime_active_;
     const auto relevant_lists = collect_relevant_list_names(config_snapshot);
+    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_snapshot);
     const auto generation = runtime_generation_.load(std::memory_order_acquire);
     const TraceId trace_id = ensure_trace_id();
 
@@ -409,6 +412,7 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
          marks_snapshot,
          runtime_active_snapshot,
          relevant_lists,
+         dns_relevant_lists,
          generation,
          trace_id]() mutable {
             ScopedTraceContext trace_scope(trace_id);
@@ -421,7 +425,9 @@ void Daemon::refresh_lists_and_maybe_reload_async() {
             try {
                 refresh_result = list_service_.refresh_remote_lists(config_snapshot,
                                                                    marks_snapshot,
-                                                                   &relevant_lists);
+                                                                   &relevant_lists,
+                                                                   nullptr,
+                                                                   &dns_relevant_lists);
             } catch (const std::exception& e) {
                 error = e.what();
             }

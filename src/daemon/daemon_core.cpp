@@ -609,10 +609,28 @@ void Daemon::run() {
     setup_static_routing();
     log.info("Static routing tables and ip rules installed.");
 
-    log.info("Loading lists...");
+    log.info("Startup lists: checking local cache; only missing remote lists will be downloaded.");
     const auto relevant_lists = collect_relevant_list_names(config_);
-    const RemoteListsRefreshResult preload_result =
-        list_service_.download_uncached(config_, outbound_marks_, &relevant_lists);
+    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
+    const RemoteListsRefreshResult refresh_result = list_service_.download_uncached(
+        config_, outbound_marks_, &relevant_lists, &dns_relevant_lists);
+
+    if (!refresh_result.cached_lists.empty()) {
+        log.info("Startup lists: using cached list(s): {}", format_list_names(refresh_result.cached_lists));
+    }
+    if (!refresh_result.changed_lists.empty()) {
+        log.info("Startup lists: downloaded missing list(s): {}", format_list_names(refresh_result.changed_lists));
+    } else if (refresh_result.refreshed_lists.empty() && refresh_result.failed_lists.empty()) {
+        log.info("Startup lists: all remote lists are available locally; no downloads needed.");
+    }
+    if (!refresh_result.unchanged_lists.empty()) {
+        log.info("Startup lists: downloaded list(s) were unchanged: {}",
+                 format_list_names(refresh_result.unchanged_lists));
+    }
+    if (!refresh_result.failed_lists.empty()) {
+        log.warn("Startup lists: failed to download missing list(s): {}",
+                 format_list_names(refresh_result.failed_lists));
+    }
 
     register_urltest_outbounds();
     apply_firewall(FirewallApplyMode::Destructive);
@@ -620,7 +638,9 @@ void Daemon::run() {
 
     schedule_lists_autoupdate();
 
-    if (preload_result.any_relevant_changed()) {
+    if (refresh_result.any_dns_relevant_changed()) {
+        log.info("Startup lists: DNS-relevant list(s) changed ({}); reloading system resolver.",
+                 format_list_names(refresh_result.dns_relevant_changed_lists));
         apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
         run_system_resolver_hook_reload();
     }
