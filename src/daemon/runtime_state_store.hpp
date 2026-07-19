@@ -5,6 +5,7 @@
 #include "../routing/netlink.hpp"
 #include "../routing/urltest_manager.hpp"
 #include "../util/traced_mutex.hpp"
+#include "../runtime/runtime_state_machine.hpp"
 
 #include <vector>
 #include <map>
@@ -28,6 +29,8 @@ struct RuntimeStateSnapshot {
     std::optional<std::int64_t> resolver_last_probe_ts;
     std::optional<std::int64_t> apply_started_ts;
     bool routing_runtime_active{true};
+    RuntimeState runtime_state{RuntimeState::starting};
+    std::string runtime_state_reason;
 };
 
 class RuntimeStateStore {

@@ -8,6 +8,20 @@
 
 namespace keen_pbr3 {
 
+namespace {
+
+api::RuntimeState to_api_runtime_state(const std::string& state) {
+    if (state == "starting") return api::RuntimeState::STARTING;
+    if (state == "running") return api::RuntimeState::RUNNING;
+    if (state == "restart_required") return api::RuntimeState::RESTART_REQUIRED;
+    if (state == "applying") return api::RuntimeState::APPLYING;
+    if (state == "stopped") return api::RuntimeState::STOPPED;
+    if (state == "broken") return api::RuntimeState::BROKEN;
+    return api::RuntimeState::SHUTTING_DOWN;
+}
+
+} // namespace
+
 void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
     // GET /api/health/service - daemon version/status + resolver/config summary
     server.get("/api/health/service", [&ctx]() -> std::string {
@@ -16,6 +30,8 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         resp.version = KEEN_PBR3_VERSION_STRING;
         resp.build = KEEN_PBR3_VERSION_RELEASE_STRING;
         resp.status = service_health.status;
+        resp.runtime_state = to_api_runtime_state(service_health.runtime_state);
+        resp.runtime_state_reason = service_health.runtime_state_reason;
         resp.os_type = service_health.os_type;
         resp.os_version = service_health.os_version;
         resp.build_variant = service_health.build_variant;

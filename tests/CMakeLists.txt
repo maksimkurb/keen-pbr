@@ -36,6 +36,9 @@ add_executable(keen-pbr-tests
   test_runtime_reconciler.cpp
   test_conntrack_manager.cpp
   test_resolver_coordinator.cpp
+  test_runtime_state_machine.cpp
+  test_runtime_state_store.cpp
+  test_operation_coordinator.cpp
   test_crash_diagnostics.cpp
   ../src/config/config.cpp
   ../src/config/config_writer.cpp
@@ -44,6 +47,9 @@ add_executable(keen-pbr-tests
   ../src/runtime/runtime_reconciler.cpp
   ../src/runtime/conntrack_manager.cpp
   ../src/runtime/resolver_coordinator.cpp
+  ../src/runtime/runtime_state_machine.cpp
+  ../src/daemon/runtime_state_store.cpp
+  ../src/runtime/operation_coordinator.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp

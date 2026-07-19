@@ -48,6 +48,7 @@ void Daemon::finish_config_operation() {
                              "state={} reason=finish",
                              config_operation_state_name(ConfigOperationState::Idle));
     config_op_cv_.notify_all();
+    operation_coordinator_.finish();
 }
 
 void Daemon::begin_config_operation_or_throw(ConfigOperationState state,
@@ -55,15 +56,18 @@ void Daemon::begin_config_operation_or_throw(ConfigOperationState state,
                                              bool require_runtime_running,
                                              bool require_runtime_stopped) {
     KPBR_UNIQUE_LOCK(lock, config_op_mutex_);
-    if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle) {
+    if (config_op_state_.load(std::memory_order_acquire) != ConfigOperationState::Idle ||
+        !operation_coordinator_.try_begin(reason)) {
         throw ApiError("Another config operation is already in progress", 409);
     }
 
     const bool runtime_running = runtime_state_store_.snapshot().routing_runtime_active;
     if (require_runtime_running && !runtime_running) {
+        operation_coordinator_.finish();
         throw ApiError("Routing runtime is stopped; start it first", 409);
     }
     if (require_runtime_stopped && runtime_running) {
+        operation_coordinator_.finish();
         throw ApiError("Routing runtime is already started", 409);
     }
 
@@ -332,6 +336,8 @@ void Daemon::setup_api() {
             service_health.status = runtime_snapshot.routing_runtime_active
                 ? api::HealthResponseStatus::RUNNING
                 : api::HealthResponseStatus::STOPPED;
+            service_health.runtime_state = runtime_state_name(runtime_snapshot.runtime_state);
+            service_health.runtime_state_reason = runtime_snapshot.runtime_state_reason;
             service_health.os_type = system_info.os_type;
             service_health.os_version = system_info.os_version;
             service_health.build_variant = system_info.build_variant;

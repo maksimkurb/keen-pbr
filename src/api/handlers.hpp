@@ -35,6 +35,8 @@ struct ConfigApplyResult {
 
 struct ServiceHealthState {
     api::HealthResponseStatus status{api::HealthResponseStatus::STOPPED};
+    std::string runtime_state;
+    std::string runtime_state_reason;
     std::string os_type{"unknown"};
     std::string os_version{"unknown"};
     std::string build_variant{"unknown"};

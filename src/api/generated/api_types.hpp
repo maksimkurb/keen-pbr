@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesJItXoE data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesFxcxYw data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -296,6 +296,8 @@ namespace api {
 
     enum class ResolverLiveStatus : int { DEGRADED, HEALTHY, UNAVAILABLE, UNKNOWN };
 
+    enum class RuntimeState : int { APPLYING, BROKEN, RESTART_REQUIRED, RUNNING, SHUTTING_DOWN, STARTING, STOPPED };
+
     enum class HealthResponseStatus : int { RUNNING, STOPPED };
 
     struct HealthResponse {
@@ -312,6 +314,8 @@ namespace api {
         std::optional<ResolverConfigSyncState> resolver_config_sync_state;
         std::optional<int64_t> resolver_last_probe_ts;
         ResolverLiveStatus resolver_live_status;
+        std::optional<RuntimeState> runtime_state;
+        std::optional<std::string> runtime_state_reason;
         HealthResponseStatus status;
         std::string version;
     };
@@ -462,7 +466,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesJItXoE {
+    struct KeenPbrTypesFxcxYw {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -655,8 +659,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesJItXoE & x);
-    void to_json(json & j, const KeenPbrTypesJItXoE & x);
+    void from_json(const json & j, KeenPbrTypesFxcxYw & x);
+    void to_json(json & j, const KeenPbrTypesFxcxYw & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -681,6 +685,9 @@ namespace api {
 
     void from_json(const json & j, ResolverLiveStatus & x);
     void to_json(json & j, const ResolverLiveStatus & x);
+
+    void from_json(const json & j, RuntimeState & x);
+    void to_json(json & j, const RuntimeState & x);
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
@@ -1120,6 +1127,8 @@ namespace api {
         x.resolver_config_sync_state = get_stack_optional<ResolverConfigSyncState>(j, "resolver_config_sync_state");
         x.resolver_last_probe_ts = get_stack_optional<int64_t>(j, "resolver_last_probe_ts");
         x.resolver_live_status = j.at("resolver_live_status").get<ResolverLiveStatus>();
+        x.runtime_state = get_stack_optional<RuntimeState>(j, "runtime_state");
+        x.runtime_state_reason = get_stack_optional<std::string>(j, "runtime_state_reason");
         x.status = j.at("status").get<HealthResponseStatus>();
         x.version = j.at("version").get<std::string>();
     }
@@ -1139,6 +1148,8 @@ namespace api {
         j["resolver_config_sync_state"] = x.resolver_config_sync_state;
         j["resolver_last_probe_ts"] = x.resolver_last_probe_ts;
         j["resolver_live_status"] = x.resolver_live_status;
+        j["runtime_state"] = x.runtime_state;
+        j["runtime_state_reason"] = x.runtime_state_reason;
         j["status"] = x.status;
         j["version"] = x.version;
     }
@@ -1433,7 +1444,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesJItXoE& x) {
+    inline void from_json(const json & j, KeenPbrTypesFxcxYw& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1487,7 +1498,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesJItXoE & x) {
+    inline void to_json(json & j, const KeenPbrTypesFxcxYw & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1673,6 +1684,30 @@ namespace api {
             case ResolverLiveStatus::UNAVAILABLE: j = "unavailable"; break;
             case ResolverLiveStatus::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"ResolverLiveStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, RuntimeState & x) {
+        if (j == "applying") x = RuntimeState::APPLYING;
+        else if (j == "broken") x = RuntimeState::BROKEN;
+        else if (j == "restart_required") x = RuntimeState::RESTART_REQUIRED;
+        else if (j == "running") x = RuntimeState::RUNNING;
+        else if (j == "shutting_down") x = RuntimeState::SHUTTING_DOWN;
+        else if (j == "starting") x = RuntimeState::STARTING;
+        else if (j == "stopped") x = RuntimeState::STOPPED;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"RuntimeState\""); }
+    }
+
+    inline void to_json(json & j, const RuntimeState & x) {
+        switch (x) {
+            case RuntimeState::APPLYING: j = "applying"; break;
+            case RuntimeState::BROKEN: j = "broken"; break;
+            case RuntimeState::RESTART_REQUIRED: j = "restart_required"; break;
+            case RuntimeState::RUNNING: j = "running"; break;
+            case RuntimeState::SHUTTING_DOWN: j = "shutting_down"; break;
+            case RuntimeState::STARTING: j = "starting"; break;
+            case RuntimeState::STOPPED: j = "stopped"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeState\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

@@ -32,6 +32,8 @@
 #include "system_resolver_hook.hpp"
 #include "../runtime/conntrack_manager.hpp"
 #include "../runtime/resolver_coordinator.hpp"
+#include "../runtime/runtime_state_machine.hpp"
+#include "../runtime/operation_coordinator.hpp"
 
 namespace keen_pbr3 {
 
@@ -182,6 +184,7 @@ private:
     void stop_routing_runtime();
     void restart_routing_runtime();
     bool routing_runtime_active() const;
+    void transition_runtime_or_throw(RuntimeState next, const char* reason);
     void run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
     ListsRefreshExecutionResult execute_remote_list_refresh(
@@ -290,6 +293,7 @@ private:
 
 #ifdef WITH_API
     TracedMutex config_op_mutex_;
+    OperationCoordinator operation_coordinator_;
     std::condition_variable_any config_op_cv_;
     std::atomic<ConfigOperationState> config_op_state_{static_cast<ConfigOperationState>(0)};
 #endif
@@ -314,6 +318,7 @@ private:
     FirewallState firewall_state_;
     ConntrackManager conntrack_manager_;
     ResolverCoordinator resolver_coordinator_;
+    RuntimeStateMachine runtime_state_machine_;
     URLTester url_tester_;
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;

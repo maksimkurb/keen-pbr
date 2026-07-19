@@ -645,6 +645,7 @@ void Daemon::run() {
     update_resolver_config_hash();
     refresh_resolver_config_hash_actual_async();
     schedule_resolver_config_hash_actual_refresh();
+    transition_runtime_or_throw(RuntimeState::running, "startup complete");
     publish_runtime_state();
 
     setup_dns_probe();
@@ -670,6 +671,7 @@ void Daemon::run() {
     blocking_executor_.shutdown();
 
     log.info("Shutting down...");
+    transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
 
 #ifdef WITH_API
     if (dns_test_broadcaster_) {

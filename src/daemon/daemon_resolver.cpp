@@ -73,6 +73,8 @@ RuntimeStateSnapshot Daemon::build_runtime_state_snapshot() const {
     snapshot.resolver_last_probe_ts = resolver_snapshot.last_probe_ts;
     snapshot.apply_started_ts = resolver_snapshot.apply_started_ts;
     snapshot.routing_runtime_active = routing_runtime_active_;
+    snapshot.runtime_state = runtime_state_machine_.state();
+    snapshot.runtime_state_reason = runtime_state_machine_.reason();
 
     if (urltest_manager_) {
         for (const auto& outbound : config_.outbounds.value_or(std::vector<Outbound>{})) {

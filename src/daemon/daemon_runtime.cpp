@@ -48,6 +48,13 @@ bool Daemon::routing_runtime_active() const {
     return runtime_state_store_.snapshot().routing_runtime_active;
 }
 
+void Daemon::transition_runtime_or_throw(RuntimeState next, const char* reason) {
+    std::string error;
+    if (!runtime_state_machine_.transition(next, reason, error)) {
+        throw DaemonError(error);
+    }
+}
+
 void Daemon::stop_routing_runtime() {
     auto& log = Logger::instance();
     if (!routing_runtime_active_) {
@@ -77,6 +84,7 @@ void Daemon::stop_routing_runtime() {
     }
 
     routing_runtime_active_ = false;
+    transition_runtime_or_throw(RuntimeState::stopped, "runtime stopped");
     refresh_resolver_config_hash_actual_async();
     publish_runtime_state();
     log.info("Routing runtime stopped.");
@@ -105,6 +113,7 @@ void Daemon::start_routing_runtime() {
     }
 
     routing_runtime_active_ = true;
+    transition_runtime_or_throw(RuntimeState::running, "runtime started");
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     update_resolver_config_hash();
     schedule_keenetic_dns_refresh();
@@ -552,7 +561,15 @@ void Daemon::apply_config(Config config, bool refresh_remote_lists) {
         throw DaemonError("apply_config must run on the control/event-loop thread");
     }
 
-    apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
+    transition_runtime_or_throw(RuntimeState::applying, "config apply");
+    try {
+        apply_prepared_runtime_inputs(prepare_runtime_inputs(config, refresh_remote_lists));
+        transition_runtime_or_throw(RuntimeState::running, "config apply complete");
+    } catch (...) {
+        std::string ignored_error;
+        (void)runtime_state_machine_.transition(RuntimeState::broken, "config apply failed", ignored_error);
+        throw;
+    }
 }
 
 void Daemon::apply_config_with_rollback(const Config& next_config, bool& rolled_back) {

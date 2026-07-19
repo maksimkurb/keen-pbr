@@ -236,6 +236,8 @@ set(SOURCES
   src/runtime/runtime_reconciler.cpp
   src/runtime/conntrack_manager.cpp
   src/runtime/resolver_coordinator.cpp
+  src/runtime/runtime_state_machine.cpp
+  src/runtime/operation_coordinator.cpp
   src/lists/ipset.cpp
   src/lists/kernel_set_tester.cpp
   src/lists/list_streamer.cpp

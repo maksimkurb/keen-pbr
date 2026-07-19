@@ -1115,6 +1115,15 @@ components:
           type: string
           enum: [running, stopped]
           example: "running"
+        runtime_state:
+          type: string
+          description: Detailed runtime lifecycle state used to gate mutations.
+          enum: [starting, running, restart_required, applying, stopped, broken, shutting_down]
+          example: "running"
+        runtime_state_reason:
+          type: string
+          description: Reason for the most recent runtime state transition.
+          example: "config apply complete"
         os_type:
           type: string
           description: Normalized host OS family used by the running daemon.
