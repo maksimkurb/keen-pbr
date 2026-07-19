@@ -7,11 +7,9 @@
 #include "../src/lists/list_entry_visitor.hpp"
 
 #include <sstream>
-#include <iomanip>
 #include <string>
 #include <set>
 #include <array>
-#include <algorithm>
 #include <sys/socket.h>
 #include <vector>
 
@@ -50,6 +48,15 @@ public:
     ps.family_str = family_str;
     ps.timeout = timeout;
     return IptablesFirewall::build_ipset_create_line(ps);
+  }
+
+  static bool is_dynamic_set_name(const std::string& name) {
+    return IptablesFirewall::is_dynamic_set_name(name);
+  }
+
+  static std::string temporary_set_name(const std::string& name,
+                                        unsigned int generation) {
+    return IptablesFirewall::temporary_set_name(name, generation);
   }
 
   static std::string build_ipt_script(bool ipv6,
@@ -251,6 +258,18 @@ TEST_CASE("build_ipset_create_line: IPv6 without timeout") {
   CHECK(line == "create myset hash:net family inet6 -exist\n");
 }
 
+TEST_CASE("ipset reconcile: only dnsmasq names are dynamic") {
+  CHECK(T::is_dynamic_set_name("kpbr4d_domains"));
+  CHECK(T::is_dynamic_set_name("kpbr6d_domains"));
+  CHECK_FALSE(T::is_dynamic_set_name("kpbr4_static"));
+  CHECK_FALSE(T::is_dynamic_set_name("kpbr6_static"));
+  CHECK_FALSE(T::is_dynamic_set_name("foreign_kpbr4d_domains"));
+}
+
+TEST_CASE("ipset reconcile: temporary static set name is generation scoped") {
+  CHECK(T::temporary_set_name("kpbr4_static", 7) == "kpbr4_static__7");
+}
+
 // =============================================================================
 // build_ipt_script tests
 // =============================================================================
@@ -260,6 +279,8 @@ TEST_CASE("build_ipt_script: IPv4 mark rule") {
   CHECK(s.find("*mangle") != std::string::npos);
   CHECK(s.find(":KeenPbrTable") != std::string::npos);
   CHECK(s.find("-A PREROUTING -j KeenPbrTable") != std::string::npos);
+  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT") != std::string::npos);
+  CHECK(s.find("-A KeenPbrTable_OUTPUT -j KeenPbrTable") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j MARK "
                "--set-xmark 0x100/0xffffffff") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable -m set --match-set myset dst -j RETURN") !=
@@ -323,18 +344,24 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
   CHECK(s.find("*mangle\n") != std::string::npos);
   CHECK(s.find(":KeenPbrTable - [0:0]\n") != std::string::npos);
   CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
+  CHECK(s.find("-A OUTPUT -j KeenPbrTable_OUTPUT\n") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable ") == std::string::npos);
-  CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n-A PREROUTING -j KeenPbrTable\nCOMMIT\n");
+  CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n:KeenPbrTable_OUTPUT - [0:0]\n"
+             "-A PREROUTING -j KeenPbrTable\n-A OUTPUT -j KeenPbrTable_OUTPUT\n"
+             "-A KeenPbrTable_OUTPUT -j KeenPbrTable\nCOMMIT\n");
 }
 
 TEST_CASE("build_ipt_script: replacement switches dispatcher before pruning old chain") {
   const auto script = keen_pbr3::IptablesBuilderTest::build_replacement_script();
   const auto replace = script.find("-R KeenPbrTable 1 -j KeenPbrTable_2");
+  const auto output_replace = script.find("-R KeenPbrTable_OUTPUT 1 -j KeenPbrTable_2");
   const auto remove = script.find("-F KeenPbrTable_1\n-X KeenPbrTable_1");
 
   REQUIRE(replace != std::string::npos);
   REQUIRE(remove != std::string::npos);
+  REQUIRE(output_replace != std::string::npos);
   CHECK(replace < remove);
+  CHECK(output_replace < remove);
   CHECK(script.find("-D PREROUTING -j KeenPbrTable") == std::string::npos);
 }
 

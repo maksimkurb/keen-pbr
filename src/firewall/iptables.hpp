@@ -37,7 +37,8 @@ public:
 
     // Atomically apply pending ipsets and rules. PreserveSets creates a new
     // private generation chain and atomically retargets the stable
-    // KeenPbrTable dispatcher, leaving the PREROUTING jump in place.
+    // PREROUTING and OUTPUT dispatchers. Static ipsets are populated under a
+    // temporary name and swapped only after loading succeeds.
     void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Destroy all buffered ipsets (ipset destroy) and flush/delete the
     // KeenPbrTable chain from both iptables and ip6tables mangle tables.
@@ -70,6 +71,9 @@ private:
 
     // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
     static std::string build_ipset_create_line(const PendingSet& ps);
+    static bool is_dynamic_set_name(const std::string& set_name);
+    static std::string temporary_set_name(const std::string& set_name,
+                                          unsigned int generation);
     // Build a complete iptables-restore script for the given protocol and rules.
     static std::string build_ipt_script(bool ipv6,
                                         const std::vector<PendingRule>& rules,
