@@ -14,13 +14,11 @@
 #include "cache/cache_manager.hpp"
 #include "crash/crash_diagnostics.hpp"
 #include "config/config.hpp"
-#include "cmd/status.hpp"
-#include "cmd/test_routing.hpp"
 #include "daemon/daemon.hpp"
+#include "ipc/control_client.hpp"
 #include "dns/dns_router.hpp"
 #include "dns/dnsmasq_gen.hpp"
 #include "util/ipv6_support.hpp"
-#include "lists/list_entry_visitor.hpp"
 #include "lists/list_streamer.hpp"
 #include "log/logger.hpp"
 #include "http/curl_runtime.hpp"
@@ -61,6 +59,7 @@ struct CliOptions {
     bool generate_resolver_config{false};
     std::string resolver_type;
     bool download_lists{false};
+    bool download_reload{false};
     bool resolver_config_hash{false};
     bool run_status{false};
     bool run_test_routing{false};
@@ -139,6 +138,8 @@ CliOptions parse_args(int argc, char* argv[]) {
             opts.generate_resolver_config = true;
         } else if (std::strcmp(argv[i], "download") == 0) {
             opts.download_lists = true;
+        } else if (std::strcmp(argv[i], "--reload") == 0) {
+            opts.download_reload = true;
         } else if (std::strcmp(argv[i], "resolver-config-hash") == 0) {
             opts.resolver_config_hash = true;
         } else if (std::strcmp(argv[i], "test-routing") == 0) {
@@ -232,6 +233,29 @@ int main(int argc, char* argv[]) {
         auto& logger = keen_pbr3::Logger::instance();
         logger.set_level(keen_pbr3::parse_log_level(opts.log_level));
 
+        if (opts.run_status || opts.resolver_config_hash || opts.download_lists || opts.run_test_routing) {
+            if (opts.config_path != KEEN_PBR_DEFAULT_CONFIG_PATH) {
+                throw std::runtime_error("--config is only supported with the service command");
+            }
+            const std::string operation = opts.run_status
+                ? "status"
+                : (opts.resolver_config_hash ? "resolver-config-hash"
+                   : (opts.download_lists ? "download" : "test-routing"));
+            const auto response = keen_pbr3::ipc::request_control(
+                KEEN_PBR_CONTROL_SOCKET,
+                {{"protocol_version", keen_pbr3::ipc::kControlProtocolVersion},
+                 {"request_id", "cli-" + operation},
+                 {"operation", operation},
+                 {"reload", opts.download_reload},
+                 {"target", opts.test_routing_target}});
+            if (opts.resolver_config_hash && response.value("ok", false)) {
+                std::cout << response.at("result").value("resolver_config_hash", "") << '\n';
+            } else {
+                std::cout << response.dump() << '\n';
+            }
+            return response.value("ok", false) ? 0 : 1;
+        }
+
         // Load and parse configuration
         std::string json_str = read_file(opts.config_path);
         keen_pbr3::Config config = keen_pbr3::parse_config(json_str);
@@ -241,81 +265,6 @@ int main(int argc, char* argv[]) {
                 config.daemon = keen_pbr3::DaemonConfig{};
             }
             config.daemon->pid_file = opts.pid_file_override;
-        }
-
-        if (opts.run_status) {
-            return keen_pbr3::run_status_command(config, opts.config_path);
-        }
-
-        if (opts.run_test_routing) {
-            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
-            return keen_pbr3::run_test_routing_command(config, cache, opts.test_routing_target);
-        }
-
-        // Handle download command: download all lists to cache, count entries, exit
-        if (opts.download_lists) {
-            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
-            cache.ensure_dir();
-            for (const auto& [name, list_cfg] : config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{})) {
-                if (!list_cfg.url.has_value()) {
-                    logger.info("[{}] Skipped (no URL)", name);
-                    continue;
-                }
-                try {
-                    const auto download_result = cache.download(name, list_cfg.url.value());
-                    if (download_result.failed()) {
-                        logger.error("[{}] Error refreshing {}: {}",
-                                     name,
-                                     list_cfg.url.value(),
-                                     download_result.error_message.empty()
-                                         ? std::string("unknown error")
-                                         : download_result.error_message);
-                    } else if (download_result.updated()) {
-                        // Count entries by streaming through EntryCounter
-                        keen_pbr3::ListStreamer streamer(cache);
-                        keen_pbr3::EntryCounter counter;
-                        streamer.stream_list(name, list_cfg, counter);
-                        // Update metadata with counts
-                        auto meta = cache.load_metadata(name);
-                        meta.ips = counter.ips();
-                        meta.cidrs = counter.cidrs();
-                        meta.domains = counter.domains();
-                        cache.save_metadata(name, meta);
-                        logger.info("[{}] Updated ({} entries)", name, counter.total());
-                    } else {
-                        logger.info("[{}] Not modified (304)", name);
-                    }
-                } catch (const std::exception& e) {
-                    logger.error("[{}] Error: {}", name, e.what());
-                }
-            }
-            return 0;
-        }
-
-        // Handle resolver-config-hash command: print MD5 of full generated directives, exit
-        if (opts.resolver_config_hash) {
-            const auto cache_dir = config.daemon.value_or(keen_pbr3::DaemonConfig{})
-                                       .cache_dir.value_or("/var/cache/keen-pbr");
-            keen_pbr3::CacheManager cache(cache_dir, keen_pbr3::max_file_size_bytes(config));
-            keen_pbr3::ListStreamer streamer(cache);
-            const auto dns_cfg = config.dns.value_or(keen_pbr3::DnsConfig{});
-            keen_pbr3::DnsServerRegistry dns_registry(dns_cfg);
-            const auto ipv6_decision = keen_pbr3::resolve_ipv6_support(config);
-            keen_pbr3::log_ipv6_support_decision_once(ipv6_decision);
-            const std::string hash = keen_pbr3::DnsmasqGenerator::compute_config_hash(
-                dns_registry,
-                streamer,
-                config.route.value_or(keen_pbr3::RouteConfig{}),
-                dns_cfg,
-                config.lists.value_or(std::map<std::string, keen_pbr3::ListConfig>{}),
-                KEEN_PBR3_VERSION_FULL_STRING,
-                ipv6_decision.enabled);
-            std::cout << hash << "\n";
-            return 0;
         }
 
         // Handle generate-resolver-config command: load lists, generate, print, exit

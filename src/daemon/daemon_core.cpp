@@ -1,26 +1,33 @@
 #include "daemon.hpp"
 
+#include <arpa/inet.h>
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
+#include <grp.h>
 #include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 #include <sys/file.h>
+#include <sys/socket.h>
 #include <sys/signalfd.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 
 #include "../firewall/firewall.hpp"
 #include "../firewall/firewall_verifier.hpp"
+#include "../cmd/test_routing.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/safe_exec.hpp"
 #include "../util/time_utils.hpp"
 #include "../dns/dns_probe_server.hpp" // IWYU pragma: keep
 #include "scheduler.hpp"
+#include "../ipc/control_protocol.hpp"
 
 #ifdef WITH_API
 #include "../api/handlers.hpp" // IWYU pragma: keep
@@ -96,6 +103,7 @@ Daemon::Daemon(Config config,
 
     setup_signals();
     setup_control_channel();
+    setup_ipc_control_socket();
 
     const int64_t verify_max_bytes = config_.daemon.value_or(DaemonConfig{})
         .firewall_verify_max_bytes.value_or(static_cast<int64_t>(DEFAULT_FIREWALL_VERIFY_CAPTURE_MAX_BYTES));
@@ -121,6 +129,7 @@ Daemon::~Daemon() {
             close(control_fd_);
             control_fd_ = -1;
         }
+        remove_ipc_control_socket();
         if (signal_fd_ >= 0) {
             epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, signal_fd_, nullptr);
             close(signal_fd_);
@@ -150,6 +159,186 @@ void Daemon::setup_control_channel() {
     ev.data.fd = control_fd_;
     if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, control_fd_, &ev) < 0) {
         throw DaemonError("epoll_ctl add control_fd failed: " + std::string(strerror(errno)));
+    }
+}
+
+void Daemon::setup_ipc_control_socket() {
+    ipc_control_socket_path_ = KEEN_PBR_CONTROL_SOCKET;
+    if (ipc_control_socket_path_.size() >= sizeof(sockaddr_un::sun_path)) {
+        throw DaemonError("control socket path is too long");
+    }
+
+    std::filesystem::create_directories(std::filesystem::path(ipc_control_socket_path_).parent_path());
+    struct stat existing {};
+    if (lstat(ipc_control_socket_path_.c_str(), &existing) == 0) {
+        if (!S_ISSOCK(existing.st_mode) || unlink(ipc_control_socket_path_.c_str()) != 0) {
+            throw DaemonError("unsafe stale control socket path");
+        }
+    } else if (errno != ENOENT) {
+        throw DaemonError("failed to inspect control socket path: " + std::string(strerror(errno)));
+    }
+
+    const group* control_group = getgrnam("keen-pbr");
+    if (control_group == nullptr) {
+        throw DaemonError("required control socket group keen-pbr does not exist");
+    }
+    ipc_control_group_id_ = control_group->gr_gid;
+
+    ipc_control_fd_ = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (ipc_control_fd_ < 0) {
+        throw DaemonError("control socket create failed: " + std::string(strerror(errno)));
+    }
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::strncpy(address.sun_path, ipc_control_socket_path_.c_str(), sizeof(address.sun_path) - 1U);
+    if (bind(ipc_control_fd_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0 ||
+        listen(ipc_control_fd_, 16) != 0 ||
+        chown(ipc_control_socket_path_.c_str(), 0, ipc_control_group_id_) != 0 ||
+        chmod(ipc_control_socket_path_.c_str(), 0660) != 0) {
+        const std::string error = strerror(errno);
+        remove_ipc_control_socket();
+        throw DaemonError("control socket setup failed: " + error);
+    }
+
+    epoll_event event{};
+    event.events = EPOLLIN;
+    event.data.fd = ipc_control_fd_;
+    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, ipc_control_fd_, &event) != 0) {
+        const std::string error = strerror(errno);
+        remove_ipc_control_socket();
+        throw DaemonError("failed to register control socket: " + error);
+    }
+}
+
+void Daemon::remove_ipc_control_socket() noexcept {
+    if (ipc_control_fd_ >= 0) {
+        if (epoll_fd_ >= 0) (void)epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, ipc_control_fd_, nullptr);
+        close(ipc_control_fd_);
+        ipc_control_fd_ = -1;
+    }
+    ipc_control_group_id_ = static_cast<gid_t>(-1);
+    if (!ipc_control_socket_path_.empty()) {
+        (void)unlink(ipc_control_socket_path_.c_str());
+        ipc_control_socket_path_.clear();
+    }
+}
+
+void Daemon::handle_ipc_control_socket() {
+    while (true) {
+        const int client = accept4(ipc_control_fd_, nullptr, nullptr, SOCK_CLOEXEC);
+        if (client < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+            throw DaemonError("control socket accept failed: " + std::string(strerror(errno)));
+        }
+        timeval timeout{5, 0};
+        (void)setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        (void)setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+        nlohmann::json request = nlohmann::json::object();
+        nlohmann::json response;
+        try {
+            ucred peer{};
+            socklen_t peer_length = sizeof(peer);
+            if (getsockopt(client, SOL_SOCKET, SO_PEERCRED, &peer, &peer_length) != 0) {
+                throw ipc::ControlProtocolError("unable to verify control peer");
+            }
+            std::uint32_t length = 0;
+            if (recv(client, &length, sizeof(length), MSG_WAITALL) != sizeof(length)) {
+                throw ipc::ControlProtocolError("truncated control request");
+            }
+            const std::size_t payload_size = ntohl(length);
+            if (payload_size > ipc::kMaxControlMessageBytes) {
+                throw ipc::ControlProtocolError("control message exceeds maximum size");
+            }
+            std::string frame(sizeof(length) + payload_size, '\0');
+            std::memcpy(frame.data(), &length, sizeof(length));
+            if (recv(client, frame.data() + sizeof(length), payload_size, MSG_WAITALL) !=
+                static_cast<ssize_t>(payload_size)) {
+                throw ipc::ControlProtocolError("truncated control request body");
+            }
+            request = ipc::decode_message(frame);
+            ipc::validate_request_envelope(request);
+            const std::string operation = request.at("operation").get<std::string>();
+            const bool root_peer = peer.uid == 0;
+            const bool list_update_member = peer.gid == ipc_control_group_id_ && operation == "download";
+            if (!root_peer && !list_update_member) {
+                throw ipc::ControlProtocolError("control peer is not authorized for this operation");
+            }
+            if (operation != "status" && operation != "resolver-config-hash" &&
+                operation != "download" && operation != "test-routing") {
+                response = ipc::make_error_response(request, "unsupported_operation",
+                                                    "unsupported control operation");
+            } else if (operation == "test-routing") {
+                const std::string target = request.value("target", "");
+                if (target.empty()) throw ipc::ControlProtocolError("test-routing requires a target");
+                const auto result = compute_test_routing(config_store_.active_config(),
+                                                         list_service_.cache_manager(), target);
+                nlohmann::json entries = nlohmann::json::array();
+                for (const auto& entry : result.entries) {
+                    entries.push_back({{"ip", entry.ip},
+                                       {"expected_outbound", entry.expected_outbound},
+                                       {"actual_outbound", entry.actual_outbound},
+                                       {"ok", entry.ok}});
+                }
+                response = {{"protocol_version", ipc::kControlProtocolVersion},
+                            {"request_id", request.at("request_id")},
+                            {"ok", !result.dns_error.has_value()},
+                            {"result", {{"target", result.target},
+                                        {"resolved_ips", result.resolved_ips},
+                                        {"entries", std::move(entries)},
+                                        {"warnings", result.warnings},
+                                        {"dns_error", result.dns_error}}}};
+            } else if (operation == "download") {
+                bool expected = false;
+                if (!ipc_mutation_inflight_.compare_exchange_strong(expected,
+                                                                     true,
+                                                                     std::memory_order_acq_rel)) {
+                    response = ipc::make_error_response(request, "busy",
+                                                        "another control mutation is in progress");
+                    const std::string frame = ipc::encode_message(response);
+                    (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+                    close(client);
+                    continue;
+                }
+                struct MutationGate {
+                    std::atomic<bool>& flag;
+                    ~MutationGate() { flag.store(false, std::memory_order_release); }
+                } gate{ipc_mutation_inflight_};
+                const bool reload = request.value("reload", false);
+                RemoteListsRefreshResult refresh;
+                bool reloaded = false;
+                if (reload) {
+                    auto result = execute_remote_list_refresh(nullptr, "ipc");
+                    refresh = std::move(result.refresh_result);
+                    reloaded = result.reloaded;
+                } else {
+                    const auto relevant = collect_relevant_list_names(config_);
+                    const auto dns_relevant = collect_dns_relevant_list_names(config_);
+                    refresh = list_service_.refresh_remote_lists(config_, outbound_marks_,
+                                                                  &relevant, nullptr, &dns_relevant);
+                }
+                response = {{"protocol_version", ipc::kControlProtocolVersion},
+                            {"request_id", request.at("request_id")},
+                            {"ok", refresh.failed_lists.empty()},
+                            {"result", {{"refreshed_lists", refresh.refreshed_lists},
+                                        {"changed_lists", refresh.changed_lists},
+                                        {"failed_lists", refresh.failed_lists},
+                                        {"reloaded", reloaded}}}};
+            } else {
+                const auto snapshot = runtime_state_store_.snapshot();
+                response = {{"protocol_version", ipc::kControlProtocolVersion},
+                            {"request_id", request.at("request_id")},
+                            {"ok", true},
+                            {"result", {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
+                                        {"runtime_state_reason", snapshot.runtime_state_reason},
+                                        {"routing_runtime_active", snapshot.routing_runtime_active},
+                                        {"resolver_config_hash", snapshot.resolver_config_hash}}}};
+            }
+        } catch (const std::exception& error) {
+            response = ipc::make_error_response(request, "protocol_error", error.what());
+        }
+        const std::string frame = ipc::encode_message(response);
+        (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
+        close(client);
     }
 }
 
@@ -556,6 +745,10 @@ void Daemon::remove_fd(int fd,
 }
 
 void Daemon::dispatch_event_fd(int fd, uint32_t events) {
+    if (fd == ipc_control_fd_) {
+        if ((events & EPOLLIN) != 0U) handle_ipc_control_socket();
+        return;
+    }
     if (fd == signal_fd_) {
         handle_signal();
         return;

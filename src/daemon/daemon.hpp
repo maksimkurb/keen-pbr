@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <sys/types.h>
 
 #include "../config/config.hpp"
 #include "../dns/dns_txt_client.hpp"
@@ -145,6 +146,9 @@ private:
     void handle_signal();
     void setup_control_channel();
     void handle_control_commands();
+    void setup_ipc_control_socket();
+    void handle_ipc_control_socket();
+    void remove_ipc_control_socket() noexcept;
     void wake_control_loop();
     bool is_event_loop_thread() const;
 
@@ -284,6 +288,9 @@ private:
 
     PidFile pid_file_;
     int control_fd_{-1};
+    int ipc_control_fd_{-1};
+    gid_t ipc_control_group_id_{static_cast<gid_t>(-1)};
+    std::string ipc_control_socket_path_;
     struct ControlTask {
         std::function<void()> callback;
         std::string label;
@@ -327,6 +334,7 @@ private:
     BlockingExecutor blocking_executor_{2, 64};
     std::atomic<std::uint64_t> runtime_generation_{1};
     std::atomic<bool> remote_list_refresh_inflight_{false};
+    std::atomic<bool> ipc_mutation_inflight_{false};
     std::atomic<bool> resolver_hash_refresh_inflight_{false};
 
 #ifdef WITH_API

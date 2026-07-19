@@ -16,6 +16,7 @@ add_executable(keen-pbr-tests
   test_list_parser.cpp
   test_list_streamer.cpp
   test_list_service.cpp
+  test_control_protocol.cpp
   test_http_client.cpp
   test_config_validation.cpp
   test_config_writer.cpp
@@ -73,6 +74,8 @@ add_executable(keen-pbr-tests
   ../src/daemon/system_resolver_hook.cpp
   ../src/dns/dns_probe_server.cpp
   ../src/cache/cache_manager.cpp
+  ../src/ipc/control_protocol.cpp
+  ../src/ipc/control_client.cpp
   ../src/lists/ipset.cpp
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp
