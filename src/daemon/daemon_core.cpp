@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "disk_config_state.hpp"
 
 #include <arpa/inet.h>
 #include <algorithm>
@@ -523,13 +524,34 @@ void Daemon::handle_ipc_control_socket() {
                                         {"reloaded", reloaded}}}};
             } else {
                 const auto snapshot = runtime_state_store_.snapshot();
+                const Config active_config = config_store_.active_config();
+                const auto disk_config = inspect_disk_config_state(config_path_, active_config);
+                nlohmann::json missing_cached_lists = nlohmann::json::array();
+                const auto relevant_lists = collect_relevant_list_names(active_config);
+                const auto& lists = active_config.lists.value_or(std::map<std::string, ListConfig>{});
+                const auto& cache = list_service_.cache_manager();
+                for (const auto& list_name : relevant_lists) {
+                    const auto list = lists.find(list_name);
+                    if (list != lists.end() && list->second.url.has_value() && !cache.has_cache(list_name)) {
+                        missing_cached_lists.push_back(list_name);
+                    }
+                }
                 response = {{"protocol_version", ipc::kControlProtocolVersion},
                             {"request_id", request.at("request_id")},
                             {"ok", true},
                             {"result", {{"runtime_state", runtime_state_name(snapshot.runtime_state)},
                                         {"runtime_state_reason", snapshot.runtime_state_reason},
                                         {"routing_runtime_active", snapshot.routing_runtime_active},
-                                        {"resolver_config_hash", snapshot.resolver_config_hash}}}};
+                                        {"resolver_config_hash", snapshot.resolver_config_hash},
+                                        {"resolver_config_hash_actual", snapshot.resolver_config_hash_actual},
+                                        {"resolver_config_hash_actual_ts", snapshot.resolver_config_hash_actual_ts},
+                                        {"resolver_config_sync_state", snapshot.resolver_config_sync_state},
+                                        {"resolver_config_probe_status", snapshot.resolver_config_probe_status},
+                                        {"resolver_live_status", snapshot.resolver_live_status},
+                                        {"resolver_last_probe_ts", snapshot.resolver_last_probe_ts},
+                                        {"disk_config_mismatch", !disk_config.matches_active},
+                                        {"disk_config_error", disk_config.error},
+                                        {"missing_cached_lists", missing_cached_lists}}}};
             }
             }
         } catch (const std::exception& error) {

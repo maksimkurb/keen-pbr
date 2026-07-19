@@ -947,7 +947,7 @@ policy rules/routes/firewall namespace. Ранее существующие test
 
 ## US-15. Read-only status, health и диагностируемые ошибки
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** средняя.
 
@@ -997,7 +997,17 @@ policy rules/routes/firewall namespace. Ранее существующие test
 6. Сравнить error code HTTP/IPC для busy, broken, permission denied и validation failure.
 7. После успешного релевантного recovery проверить очистку stale error при сохранении warning history согласно выбранной retention policy.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:**
+
+- IPC `status` строится только из опубликованного runtime snapshot и read-only
+  inspect: показывает observed/expected resolver hash, timestamps, sync/probe/live
+  status, mismatch disk/active config и отсутствующие cache-файлы для используемых
+  remote lists. Он не запускает reconcile, не публикует staged config и не меняет
+  enforcement.
+- Добавлен отдельный disk-config inspector с unit-тестами для совпадения,
+  несовпадения, недоступного файла и invalid JSON. Полный C++ suite (592 tests)
+  и clangd-tidy проходят; первая попытка полного suite получила transient reset
+  локального HTTP test fixture, повторный запуск прошёл полностью.
 
 ---
 
