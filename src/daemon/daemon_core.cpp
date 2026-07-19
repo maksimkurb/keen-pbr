@@ -773,17 +773,13 @@ void Daemon::schedule_sigusr1_runtime_refresh() {
         SIGUSR1_DEBOUNCE_DELAY,
         [this]() {
             sigusr1_refresh_task_id_ = -1;
+            if (operation_coordinator_.busy()) {
+                Logger::instance().info("SIGUSR1: config operation is active; deferring runtime reconcile");
+                schedule_sigusr1_runtime_refresh();
+                return;
+            }
             Logger::instance().info("SIGUSR1: applying firewall refresh...");
             refresh_iproute_and_firewall_runtime();
-            
-            if (urltest_manager_) {
-                Logger::instance().info("SIGUSR1: probing urltest endpoints...");
-                for (const auto& ob : config_.outbounds.value_or(std::vector<Outbound>{})) {
-                    if (ob.type == OutboundType::URLTEST) {
-                        urltest_manager_->trigger_immediate_test(ob.tag);
-                    }
-                }
-            }
             Logger::instance().info("SIGUSR1: firewall refresh complete.");
         },
         "sigusr1-runtime-refresh");
@@ -1130,6 +1126,18 @@ void Daemon::run() {
         urltest_manager_->clear();
     }
     scheduler_->cancel_all();
+    const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+    std::set<uint32_t> owned_marks;
+    for (const auto& [tag, mark] : outbound_marks_) {
+        (void)tag;
+        owned_marks.insert(mark);
+    }
+    for (uint32_t mark : owned_marks) {
+        if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
+            log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
+                     mark, mark_mask);
+        }
+    }
     policy_rules_.clear();
     route_table_.clear();
     firewall_->cleanup();

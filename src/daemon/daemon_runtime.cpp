@@ -23,7 +23,7 @@
 
 namespace keen_pbr3 {
 
-bool Daemon::run_system_resolver_hook_reload() {
+bool Daemon::run_system_resolver_hook(std::string_view action) {
     auto& log = Logger::instance();
 
     std::string command;
@@ -46,8 +46,19 @@ bool Daemon::run_system_resolver_hook_reload() {
 
     bool ok = false;
     try {
-        ok = execute_system_resolver_reload_hook(
-            config_, hook_command_executor_, command, exit_code);
+        const auto args = build_system_resolver_hook_args(config_, action);
+        if (args.empty()) {
+            command.clear();
+            exit_code = 0;
+            ok = true;
+        } else {
+            for (std::size_t index = 0; index < args.size(); ++index) {
+                if (index != 0) command += ' ';
+                command += args[index];
+            }
+            exit_code = hook_command_executor_(args);
+            ok = exit_code == 0;
+        }
     } catch (...) {
         pump_running.store(false, std::memory_order_release);
         control_pump.join();
@@ -70,8 +81,12 @@ bool Daemon::run_system_resolver_hook_reload() {
         return false;
     }
 
-    log.info("System resolver reload hook complete: {}", command);
+    log.info("System resolver hook complete: {}", command);
     return true;
+}
+
+bool Daemon::run_system_resolver_hook_reload() {
+    return run_system_resolver_hook("reload");
 }
 
 bool Daemon::routing_runtime_active() const {
@@ -144,22 +159,22 @@ void Daemon::start_routing_runtime() {
     register_urltest_outbounds();
     (void)refresh_keenetic_dns_cache(true);
     apply_firewall(FirewallApplyMode::Destructive);
-
-    if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        auto args = build_system_resolver_hook_args(config_, "activate");
-        const int exit_code = hook_command_executor_(args);
-        if (exit_code != 0) {
-            throw DaemonError("System resolver activate hook failed with exit code " +
-                              std::to_string(exit_code));
-        }
-    }
-
     routing_runtime_active_ = true;
-    transition_runtime_or_throw(RuntimeState::running, "runtime started");
+    transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
+    publish_runtime_state();
+    if (!run_system_resolver_hook("activate")) {
+        routing_runtime_active_ = false;
+        std::string ignored_error;
+        (void)runtime_state_machine_.transition(
+            RuntimeState::broken, "runtime resolver activation failed", ignored_error);
+        publish_runtime_state();
+        throw DaemonError("system resolver activate hook failed");
+    }
     apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     update_resolver_config_hash();
     schedule_keenetic_dns_refresh();
     refresh_resolver_config_hash_actual_async();
+    transition_runtime_or_throw(RuntimeState::running, "runtime started");
     publish_runtime_state();
     log.info("Routing runtime started.");
 }

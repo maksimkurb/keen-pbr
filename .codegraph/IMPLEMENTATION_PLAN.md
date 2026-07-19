@@ -879,7 +879,7 @@ disk file. Добавлены transaction gate, TXT confirmation и fault-inject
 
 ## US-14. Lifecycle: безопасный startup, SIGUSR1, SIGHUP и shutdown
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** высокая.
 
@@ -932,7 +932,16 @@ SIGHUP использует US-13. Interface event выполняет миним
 7. Graceful stop очищает только exact current marks и owned namespace.
 8. SIGKILL после разных apply phases, затем startup; inspect/adopt приводит к единому verified state.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** Startup сохраняет порядок route/rule →
+missing-list download → firewall → resolver hook/TXT confirmation и не
+переходит в `running` до успешного resolver handshake. Runtime start использует
+тот же IPC-safe hook runner. SIGUSR1 coalesced через scheduler, откладывается
+на время config transaction и выполняет только inspect-first routing reconcile
+и firewall `PreserveSets`, без reload config/list, URLTEST probe или conntrack
+cleanup. SIGHUP использует asynchronous transaction US-13. Shutdown закрывает
+API/SSE и scheduler, удаляет conntrack только для owned marks, затем exact
+policy rules/routes/firewall namespace. Ранее существующие tests reconcilers
+покрывают intact/no-op и missing-object repair; полный C++ suite проходит.
 
 ---
 

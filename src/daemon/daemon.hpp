@@ -10,6 +10,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 #include <sys/types.h>
@@ -193,6 +194,7 @@ private:
     void restart_routing_runtime();
     bool routing_runtime_active() const;
     void transition_runtime_or_throw(RuntimeState next, const char* reason);
+    bool run_system_resolver_hook(std::string_view action);
     bool run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
     ListsRefreshExecutionResult execute_remote_list_refresh(
