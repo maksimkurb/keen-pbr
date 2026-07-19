@@ -167,6 +167,7 @@ private:
     void setup_static_routing();
     void reconcile_static_routing();
     void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive);
+    void reconcile_lists_only(bool reload_resolver);
     void register_urltest_outbounds();
     void handle_urltest_selection_change(const std::string& urltest_tag,
                                          const std::string& new_child_tag);

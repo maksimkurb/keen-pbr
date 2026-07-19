@@ -70,6 +70,18 @@ public:
     return NftablesFirewall::build_delete_set_json(name);
   }
 
+  static nlohmann::json build_static_sets_only_document() {
+    NftablesFirewall firewall;
+    NftablesFirewall::LiveTableState live;
+    live.table_exists = true;
+    live.set_names.insert("static_set");
+    live.set_schemas.emplace("static_set", "ipv4_addr:0");
+    NftablesFirewall::PendingSet set{"static_set", "ipv4_addr", 0};
+    firewall.pending_sets_.push_back(set);
+    firewall.pending_elements_.emplace("static_set", nlohmann::json::array({"192.0.2.1"}));
+    return firewall.build_apply_document(live, false, true);
+  }
+
   static bool is_dynamic_set_name(const std::string& name) {
     return NftablesFirewall::is_dynamic_set_name(name);
   }
@@ -425,6 +437,14 @@ TEST_CASE("nft output chain: DNS detour chain uses output hook") {
   const auto chain = T::build_output_chain_json();
   CHECK(chain["add"]["chain"]["name"] == "output");
   CHECK(chain["add"]["chain"]["hook"] == "output");
+}
+
+TEST_CASE("nft static sets-only reconcile leaves chains and rules untouched") {
+  const auto doc = T::build_static_sets_only_document();
+  for (const auto& command : doc["nftables"]) {
+    CHECK_FALSE(command.contains("chain"));
+    CHECK_FALSE(command.contains("rule"));
+  }
 }
 
 // =============================================================================

@@ -213,7 +213,6 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
             [this,
              &reloaded,
              &stale_runtime,
-             config_snapshot,
              generation,
              runtime_active_snapshot,
              refresh_result]() mutable {
@@ -227,7 +226,7 @@ ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::stri
 
                 if (should_reload_runtime_after_list_refresh(runtime_active_snapshot,
                                                             refresh_result)) {
-                    apply_config(config_snapshot, false);
+                    reconcile_lists_only(refresh_result.any_dns_relevant_changed());
                     reloaded = true;
                 }
             },

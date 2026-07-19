@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -473,6 +472,33 @@ TEST_CASE("refresh_remote_lists: 304 not modified does not log a warning") {
     CHECK(result.failed_lists.empty());
     CHECK(result.changed_lists.empty());
     CHECK_FALSE(logs.contains("failed to refresh"));
+
+    std::filesystem::remove_all(temp_dir);
+}
+
+TEST_CASE("refresh_remote_lists: raw-identical 200 response does not change cache state") {
+    CurlGlobalGuard curl_guard;
+    TestHttpServer server({
+        {"/same.txt", HttpResponse{200, "OK", "example.com\n", {"ETag: first"}}},
+    });
+
+    const auto temp_dir = make_temp_dir();
+    ListService service(temp_dir);
+    service.ensure_dir();
+
+    ListConfig remote;
+    remote.url = server.url("/same.txt");
+    Config config;
+    config.lists = std::map<std::string, ListConfig>{{"remote", remote}};
+
+    const auto first = service.refresh_remote_lists(config, OutboundMarkMap{});
+    REQUIRE(first.changed_lists == std::vector<std::string>{"remote"});
+    const auto first_metadata = service.cache_manager().load_metadata("remote");
+
+    const auto second = service.refresh_remote_lists(config, OutboundMarkMap{});
+    CHECK(second.changed_lists.empty());
+    CHECK(second.unchanged_lists == std::vector<std::string>{"remote"});
+    CHECK(service.cache_manager().load_metadata("remote").download_time == first_metadata.download_time);
 
     std::filesystem::remove_all(temp_dir);
 }

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <iterator>
 #include <nlohmann/json.hpp>
 #include <string_view>
 #include <utility>
@@ -36,6 +37,16 @@ std::string clean_download_error_message(const std::exception& error) {
         message.erase(0, prefix.size());
     }
     return message;
+}
+
+bool cache_contents_equal(const std::filesystem::path& path, const std::string& body) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return false;
+    }
+    const std::string existing((std::istreambuf_iterator<char>(input)),
+                               std::istreambuf_iterator<char>());
+    return existing == body;
 }
 
 } // namespace
@@ -84,6 +95,15 @@ CacheDownloadResult CacheManager::download(const std::string& name,
     }
 
     std::filesystem::path final_path = cache_path(name);
+    // The cache version is the raw payload, not transport metadata. A server
+    // may return an equivalent 200 response with a new ETag; keep both the
+    // file and metadata intact so callers do not restart or reconcile.
+    if (cache_contents_equal(final_path, result.body)) {
+        CacheDownloadResult unchanged;
+        unchanged.status = CacheDownloadStatus::NotModified;
+        return unchanged;
+    }
+
     std::filesystem::path final_meta = meta_path(name);
     std::filesystem::path tmp_path = cache_dir_ / (name + ".txt.tmp");
     std::filesystem::path tmp_meta = cache_dir_ / (name + ".meta.json.tmp");

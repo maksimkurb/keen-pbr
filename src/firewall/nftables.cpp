@@ -656,7 +656,8 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
 }
 
 nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live_state,
-                                                      bool emit_full_table) {
+                                                      bool emit_full_table,
+                                                      bool static_sets_only) {
     nlohmann::json doc;
     auto& arr = doc["nftables"];
     arr = nlohmann::json::array();
@@ -688,19 +689,21 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         arr.push_back(build_set_json(ps));
     }
 
-    // Chain with prerouting hook
-    if (!emit_full_table && live_state.chain_exists) {
-        arr.push_back(build_delete_chain_json());
-    }
-    if (!emit_full_table && live_state.output_chain_exists) {
-        arr.push_back(build_delete_output_chain_json());
-    }
-    arr.push_back(build_chain_json());
-    arr.push_back(build_output_chain_json());
+    if (!static_sets_only) {
+        // Chain with prerouting hook
+        if (!emit_full_table && live_state.chain_exists) {
+            arr.push_back(build_delete_chain_json());
+        }
+        if (!emit_full_table && live_state.output_chain_exists) {
+            arr.push_back(build_delete_output_chain_json());
+        }
+        arr.push_back(build_chain_json());
+        arr.push_back(build_output_chain_json());
 
-    // Rules
-    for (const auto& cmd : build_rule_add_commands(global_prefilter_, pending_rules_)) {
-        arr.push_back(cmd);
+        // Rules
+        for (const auto& cmd : build_rule_add_commands(global_prefilter_, pending_rules_)) {
+            arr.push_back(cmd);
+        }
     }
 
     // Elements
@@ -722,16 +725,19 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
 }
 
 void NftablesFirewall::apply(FirewallApplyMode mode) {
-    (void)mode;
     // Never delete the live table before publishing a replacement. nft applies
     // this JSON batch atomically, including chain replacement and set refresh.
     const LiveTableState live_state = read_live_table_state();
+    const bool static_sets_only = mode == FirewallApplyMode::StaticSetsOnly;
+    if (static_sets_only && !live_state.table_exists) {
+        throw FirewallError("cannot refresh list sets before nft firewall state exists");
+    }
     const bool emit_full_table = !live_state.table_exists;
     for (auto& rule : pending_rules_) {
         rule.save_conntrack_mark = global_prefilter_.restore_conntrack_mark &&
                                    global_prefilter_.conntrack_mark_mask != 0;
     }
-    nlohmann::json doc = build_apply_document(live_state, emit_full_table);
+    nlohmann::json doc = build_apply_document(live_state, emit_full_table, static_sets_only);
 
     std::string json_str = doc.dump();
     Logger::instance().verbose("nft json:\n{}", json_str);

@@ -188,6 +188,27 @@ void Daemon::apply_firewall(FirewallApplyMode mode) {
         ConntrackPolicy{prefilter.skip_established_or_dnat});
 }
 
+void Daemon::reconcile_lists_only(bool reload_resolver) {
+    if (!routing_runtime_active_) {
+        throw DaemonError("list-only reconcile requires an active routing runtime");
+    }
+
+    try {
+        apply_firewall(FirewallApplyMode::StaticSetsOnly);
+        if (reload_resolver) {
+            run_system_resolver_hook_reload();
+        }
+        publish_runtime_state();
+    } catch (...) {
+        std::string ignored_error;
+        (void)runtime_state_machine_.transition(RuntimeState::broken,
+                                                "list-only reconcile failed",
+                                                ignored_error);
+        publish_runtime_state();
+        throw;
+    }
+}
+
 void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
                                              const std::string& new_child_tag) {
     post_control_task([this, urltest_tag, new_child_tag]() {
@@ -322,7 +343,7 @@ ListsRefreshExecutionResult Daemon::execute_remote_list_refresh(
         log.info("Lists refresh ({}): relevant list(s) changed ({}), reloading runtime",
                  source,
                  format_list_names(result.refresh_result.relevant_changed_lists));
-        apply_config(config_, false);
+        reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
         result.reloaded = true;
         return result;
     }
@@ -410,7 +431,7 @@ void Daemon::commit_lists_refresh_async_result(
                     "Lists refresh (autoupdate): relevant list(s) changed ({}), reloading runtime",
                     format_list_names(result.refresh_result.relevant_changed_lists));
                 try {
-                    apply_config(config_snapshot, false);
+                    reconcile_lists_only(result.refresh_result.any_dns_relevant_changed());
                     result.reloaded = true;
                 } catch (const std::exception& e) {
                     Logger::instance().error("Lists autoupdate reload failed: {}", e.what());
@@ -516,7 +537,7 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
         config.outbounds.value_or(std::vector<Outbound>{}));
 
     if (refresh_remote_lists) {
-        (void)list_service_.refresh_remote_lists(prepared.config, prepared.outbound_marks);
+        (void)list_service_.download_uncached(prepared.config, prepared.outbound_marks);
         prepared.remote_lists_refreshed = true;
     }
 

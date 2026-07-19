@@ -106,7 +106,10 @@ enum class FirewallApplyMode : uint8_t {
     // Recreate backend-owned firewall state from scratch, including sets.
     Destructive,
     // Refresh chains/rules while preserving existing set contents when possible.
-    PreserveSets
+    PreserveSets,
+    // Refresh only static list-backed set elements. Existing chains, rules,
+    // routes and dynamic DNS sets remain untouched.
+    StaticSetsOnly
 };
 
 // Abstract firewall interface for managing IP sets and packet marking rules.

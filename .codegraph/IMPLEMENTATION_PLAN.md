@@ -574,7 +574,7 @@ mark; child mark не используется. OUTPUT chain shape покрыт 
 
 ## US-10. Жизненный цикл списков и безопасный list-only reconcile
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** очень высокая.
 
@@ -638,7 +638,14 @@ Corrupt/unreadable existing cache не удаляется заранее: вып
 11. Сломать reconcile после cache rename; runtime `broken`; повторный `download --reload` при 304 повторяет reconcile.
 12. Во время list-only reconcile непрерывные TCP/UDP flows не меняют mark и не утекают.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** Config apply и startup используют только
+`download_uncached`, поэтому существующий URL cache не refresh-ится. Cache
+сравнивает raw bytes до rename и при идентичном 200-ответе не перезаписывает
+body/metadata. Для reload/auto-update/REST добавлен `StaticSetsOnly`: ipset
+обновляет static sets через swap, nft публикует только set transaction, без
+routes, chains, rules и dynamic DNS sets; DNS-relevant изменения отдельно
+вызывают resolver reload. Ошибка list-only reconcile переводит runtime в
+`broken`; добавлены тесты raw-identical cache и nft set-only document.
 
 ---
 

@@ -536,6 +536,13 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
         }
     }
 
+    if (mode == FirewallApplyMode::StaticSetsOnly) {
+        pending_sets_.clear();
+        pending_elements_.clear();
+        pending_rules_.clear();
+        return;
+    }
+
     // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
     // Always materialize the KeenPbrTable scaffold for both protocols so
     // diagnostics can verify chain/jump presence even when no rules are needed.
