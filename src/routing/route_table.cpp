@@ -84,6 +84,30 @@ void RouteTable::remove(const RouteSpec& spec) {
     routes_.erase(it);
 }
 
+void RouteTable::reconcile(const std::vector<RouteSpec>& desired) {
+    add_missing(desired);
+    remove_obsolete(desired);
+}
+
+void RouteTable::add_missing(const std::vector<RouteSpec>& desired) {
+    for (const RouteSpec& route : desired) {
+        add(route);
+    }
+}
+
+void RouteTable::remove_obsolete(const std::vector<RouteSpec>& desired) {
+    const std::vector<RouteSpec> current = routes_;
+    for (const RouteSpec& route : current) {
+        const bool still_desired = std::any_of(desired.begin(), desired.end(),
+                                               [&](const RouteSpec& candidate) {
+                                                   return routes_equal(route, candidate);
+                                               });
+        if (!still_desired) {
+            remove(route);
+        }
+    }
+}
+
 void RouteTable::clear() {
     if (!dry_run_) {
         for (auto it = owned_routes_.rbegin(); it != owned_routes_.rend(); ++it) {

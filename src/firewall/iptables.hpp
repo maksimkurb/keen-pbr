@@ -35,9 +35,9 @@ public:
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name) override;
 
-    // Atomically apply all pending ipsets (via ipset restore) and rules
-    // (via iptables-restore / ip6tables-restore), always materializing the
-    // KeenPbrTable chain scaffold and PREROUTING jump for diagnostics.
+    // Atomically apply pending ipsets and rules. PreserveSets creates a new
+    // private generation chain and atomically retargets the stable
+    // KeenPbrTable dispatcher, leaving the PREROUTING jump in place.
     void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Destroy all buffered ipsets (ipset destroy) and flush/delete the
     // KeenPbrTable chain from both iptables and ip6tables mangle tables.
@@ -72,6 +72,12 @@ private:
     static std::string build_ipset_create_line(const PendingSet& ps);
     // Build a complete iptables-restore script for the given protocol and rules.
     static std::string build_ipt_script(bool ipv6,
+                                        const std::vector<PendingRule>& rules,
+                                        const FirewallGlobalPrefilter& prefilter = {});
+    static std::string build_ipt_script(bool ipv6,
+                                        const std::string& active_chain,
+                                        bool replace_active_chain,
+                                        const std::string& previous_chain,
                                         const std::vector<PendingRule>& rules,
                                         const FirewallGlobalPrefilter& prefilter = {});
     // Build early RETURN lines for the global prefilter.
@@ -109,6 +115,8 @@ private:
     // Track whether chain + jump rule exist for each protocol
     bool chain_v4_created_ = false;
     bool chain_v6_created_ = false;
+    std::string active_chain_;
+    unsigned int chain_generation_{0};
 
 #ifdef KEEN_PBR3_TESTING
     friend class IptablesBuilderTest;

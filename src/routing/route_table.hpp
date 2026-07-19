@@ -24,6 +24,13 @@ public:
     // Remove a specific route. If not tracked, this is a no-op.
     void remove(const RouteSpec& spec);
 
+    // Reconcile tracked routes without a destructive clear: install every new
+    // route first, then remove only obsolete routes owned by this instance.
+    void reconcile(const std::vector<RouteSpec>& desired);
+
+    void add_missing(const std::vector<RouteSpec>& desired);
+    void remove_obsolete(const std::vector<RouteSpec>& desired);
+
     // Remove all installed routes (shutdown cleanup).
     void clear();
 

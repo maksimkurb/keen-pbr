@@ -77,6 +77,11 @@ public:
     return IptablesFirewall::build_ipt_script(ipv6, rules, prefilter);
   }
 
+  static std::string build_replacement_script() {
+    return IptablesFirewall::build_ipt_script(
+        false, "KeenPbrTable_2", true, "KeenPbrTable_1", {}, {});
+  }
+
   static std::string build_ipt_script_for_rule(bool ipv6,
                                                RuleDesc::Action action,
                                                uint32_t fwmark,
@@ -320,6 +325,17 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
   CHECK(s.find("-A PREROUTING -j KeenPbrTable\n") != std::string::npos);
   CHECK(s.find("-A KeenPbrTable ") == std::string::npos);
   CHECK(s == "*mangle\n:KeenPbrTable - [0:0]\n-A PREROUTING -j KeenPbrTable\nCOMMIT\n");
+}
+
+TEST_CASE("build_ipt_script: replacement switches dispatcher before pruning old chain") {
+  const auto script = keen_pbr3::IptablesBuilderTest::build_replacement_script();
+  const auto replace = script.find("-R KeenPbrTable 1 -j KeenPbrTable_2");
+  const auto remove = script.find("-F KeenPbrTable_1\n-X KeenPbrTable_1");
+
+  REQUIRE(replace != std::string::npos);
+  REQUIRE(remove != std::string::npos);
+  CHECK(replace < remove);
+  CHECK(script.find("-D PREROUTING -j KeenPbrTable") == std::string::npos);
 }
 
 TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before route rules") {

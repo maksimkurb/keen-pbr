@@ -100,6 +100,30 @@ void PolicyRuleManager::remove(const RuleSpec& spec) {
     rules_.erase(it);
 }
 
+void PolicyRuleManager::reconcile(const std::vector<RuleSpec>& desired) {
+    add_missing(desired);
+    remove_obsolete(desired);
+}
+
+void PolicyRuleManager::add_missing(const std::vector<RuleSpec>& desired) {
+    for (const RuleSpec& rule : desired) {
+        add(rule);
+    }
+}
+
+void PolicyRuleManager::remove_obsolete(const std::vector<RuleSpec>& desired) {
+    const std::vector<RuleSpec> current = rules_;
+    for (const RuleSpec& rule : current) {
+        const bool still_desired = std::any_of(desired.begin(), desired.end(),
+                                               [&](const RuleSpec& candidate) {
+                                                   return rules_equal(rule, candidate);
+                                               });
+        if (!still_desired) {
+            remove(rule);
+        }
+    }
+}
+
 void PolicyRuleManager::clear() {
     // Remove in reverse order (last added first)
     for (auto it = owned_rules_.rbegin(); it != owned_rules_.rend(); ++it) {

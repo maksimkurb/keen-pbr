@@ -24,6 +24,12 @@ public:
     // Remove a specific policy rule. If not tracked, this is a no-op.
     void remove(const RuleSpec& spec);
 
+    // Install missing rules before deleting obsolete rules owned by this process.
+    void reconcile(const std::vector<RuleSpec>& desired);
+
+    void add_missing(const std::vector<RuleSpec>& desired);
+    void remove_obsolete(const std::vector<RuleSpec>& desired);
+
     // Remove all installed policy rules (shutdown cleanup).
     void clear();
 

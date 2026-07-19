@@ -33,11 +33,17 @@ add_executable(keen-pbr-tests
   test_interface_monitor.cpp
   test_port_spec_util.cpp
   test_pid_file.cpp
+  test_runtime_reconciler.cpp
+  test_conntrack_manager.cpp
+  test_resolver_coordinator.cpp
   test_crash_diagnostics.cpp
   ../src/config/config.cpp
   ../src/config/config_writer.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
+  ../src/runtime/runtime_reconciler.cpp
+  ../src/runtime/conntrack_manager.cpp
+  ../src/runtime/resolver_coordinator.cpp
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp

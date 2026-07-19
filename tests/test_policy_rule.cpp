@@ -69,4 +69,18 @@ TEST_CASE("PolicyRuleManager clears only concrete rules it created") {
     CHECK(netlink.deleted.front() == AF_INET);
 }
 
+TEST_CASE("PolicyRuleManager reconciliation leaves an identical plan untouched") {
+    FakeRuleNetlink netlink;
+    PolicyRuleManager rules(netlink);
+    const auto rule = dual_stack_rule();
+    rules.add(rule);
+    netlink.added.clear();
+    netlink.deleted.clear();
+
+    rules.reconcile({rule});
+
+    CHECK(netlink.added.empty());
+    CHECK(netlink.deleted.empty());
+}
+
 } // namespace keen_pbr3

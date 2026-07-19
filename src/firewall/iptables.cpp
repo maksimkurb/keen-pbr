@@ -6,6 +6,7 @@
 #include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
 
+#include <cstring>
 #include <optional>
 #include <set>
 #include <string>
@@ -375,15 +376,52 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
 std::string IptablesFirewall::build_ipt_script(bool ipv6,
                                                 const std::vector<PendingRule>& rules,
                                                 const FirewallGlobalPrefilter& prefilter) {
+    std::string script = keen_pbr3::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
+                                           CHAIN_NAME, CHAIN_NAME);
+    script += build_prefilter_lines(prefilter);
+    for (const auto& rule : rules) {
+        if (rule.ipv6 != ipv6) {
+            continue;
+        }
+        for (const auto& line : build_rule_lines(rule, prefilter)) {
+            script += line;
+        }
+    }
+    script += "COMMIT\n";
+    return script;
+}
+
+std::string IptablesFirewall::build_ipt_script(bool ipv6,
+                                                const std::string& active_chain,
+                                                bool replace_active_chain,
+                                                const std::string& previous_chain,
+                                                const std::vector<PendingRule>& rules,
+                                                const FirewallGlobalPrefilter& prefilter) {
     std::string s;
-    s += keen_pbr3::format("*mangle\n:{} - [0:0]\n-A PREROUTING -j {}\n",
-                           CHAIN_NAME, CHAIN_NAME);
+    s += "*mangle\n";
+    s += keen_pbr3::format(":{} - [0:0]\n", active_chain);
+    if (!replace_active_chain) {
+        s += keen_pbr3::format(":{} - [0:0]\n-A PREROUTING -j {}\n-A {} -j {}\n",
+                               CHAIN_NAME, CHAIN_NAME, CHAIN_NAME, active_chain);
+    } else {
+        s += keen_pbr3::format("-R {} 1 -j {}\n", CHAIN_NAME, active_chain);
+    }
     s += build_prefilter_lines(prefilter);
     for (const auto& pr : rules) {
         if (pr.ipv6 != ipv6) continue;
-        for (const auto& line : build_rule_lines(pr, prefilter)) {
+        for (auto line : build_rule_lines(pr, prefilter)) {
+            const auto pos = line.find(CHAIN_NAME);
+            if (pos != std::string::npos) {
+                line.replace(pos, std::strlen(CHAIN_NAME), active_chain);
+            }
             s += line;
         }
+    }
+    if (replace_active_chain) {
+        // The dispatcher now points at the replacement chain, so the old
+        // chain is no longer referenced and can be removed in this same
+        // iptables-restore transaction.
+        s += keen_pbr3::format("-F {}\n-X {}\n", previous_chain, previous_chain);
     }
     s += "COMMIT\n";
     return s;
@@ -399,9 +437,11 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
 
     if (mode == FirewallApplyMode::Destructive) {
         cleanup_live_impl();
-    } else {
-        cleanup_rules_impl();
     }
+
+    const bool replace_active_chain = mode == FirewallApplyMode::PreserveSets &&
+                                      !active_chain_.empty();
+    const std::string next_chain = keen_pbr3::format("{}_{}", CHAIN_NAME, ++chain_generation_);
 
     // Phase 1: ipsets via 'ipset restore -exist'
     {
@@ -440,12 +480,14 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
 
     if (has_v4) {
         pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                    build_ipt_script(false, pending_rules_, global_prefilter_));
+                    build_ipt_script(false, next_chain, replace_active_chain, active_chain_,
+                                     pending_rules_, global_prefilter_));
         chain_v4_created_ = true;
     }
     if (has_v6) {
         pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                    build_ipt_script(true, pending_rules_, global_prefilter_));
+                    build_ipt_script(true, next_chain, replace_active_chain, active_chain_,
+                                     pending_rules_, global_prefilter_));
         chain_v6_created_ = true;
     }
 
@@ -453,6 +495,7 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
+    active_chain_ = next_chain;
 }
 
 void IptablesFirewall::cleanup_rules_impl() {
@@ -474,6 +517,14 @@ void IptablesFirewall::cleanup_rules_impl() {
         safe_exec({"ip6tables", "-t", "mangle", "-F", CHAIN_NAME}, /*suppress_output=*/true);
         safe_exec({"ip6tables", "-t", "mangle", "-X", CHAIN_NAME}, /*suppress_output=*/true);
         chain_v6_created_ = false;
+    }
+
+    if (!active_chain_.empty()) {
+        safe_exec({"iptables", "-t", "mangle", "-F", active_chain_}, /*suppress_output=*/true);
+        safe_exec({"iptables", "-t", "mangle", "-X", active_chain_}, /*suppress_output=*/true);
+        safe_exec({"ip6tables", "-t", "mangle", "-F", active_chain_}, /*suppress_output=*/true);
+        safe_exec({"ip6tables", "-t", "mangle", "-X", active_chain_}, /*suppress_output=*/true);
+        active_chain_.clear();
     }
 }
 

@@ -49,6 +49,7 @@ void Daemon::update_resolver_config_hash() {
         KEEN_PBR3_VERSION_FULL_STRING,
         ipv6_decision.enabled);
     resolver_sync_.expected_hash_updated(resolver_config_hash);
+    (void)resolver_coordinator_.reconcile(resolver_config_hash);
     const std::int64_t apply_started_ts =
         apply_started_ts_.load(std::memory_order_acquire);
     if (apply_started_ts > 0) {
@@ -189,6 +190,7 @@ void Daemon::schedule_resolver_config_hash_actual_retry() {
 
 void Daemon::reset_resolver_actual_state() {
     resolver_sync_.resolver_not_configured();
+    resolver_coordinator_.clear_actual();
 }
 
 void Daemon::commit_resolver_hash_probe_result(
@@ -260,6 +262,7 @@ void Daemon::commit_resolver_hash_probe_result(
                 }
             }
             const auto resolver_snapshot = resolver_sync_.snapshot(now_ts);
+            resolver_coordinator_.observe_actual(resolver_snapshot.actual_hash);
             if (resolver_snapshot.sync_state ==
                 api::ResolverConfigSyncState::CONVERGING) {
                 schedule_resolver_config_hash_actual_retry();

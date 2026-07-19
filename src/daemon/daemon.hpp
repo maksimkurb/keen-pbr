@@ -30,6 +30,8 @@
 #include "runtime_state_store.hpp"
 #include "resolver_sync_state_machine.hpp"
 #include "system_resolver_hook.hpp"
+#include "../runtime/conntrack_manager.hpp"
+#include "../runtime/resolver_coordinator.hpp"
 
 namespace keen_pbr3 {
 
@@ -161,6 +163,7 @@ private:
 
     // lifecycle and runtime apply
     void setup_static_routing();
+    void reconcile_static_routing();
     void apply_firewall(FirewallApplyMode mode = FirewallApplyMode::Destructive);
     void register_urltest_outbounds();
     void handle_urltest_selection_change(const std::string& urltest_tag,
@@ -309,6 +312,8 @@ private:
     RouteTable route_table_;
     PolicyRuleManager policy_rules_;
     FirewallState firewall_state_;
+    ConntrackManager conntrack_manager_;
+    ResolverCoordinator resolver_coordinator_;
     URLTester url_tester_;
     OutboundMarkMap outbound_marks_;
     std::unique_ptr<Scheduler> scheduler_;

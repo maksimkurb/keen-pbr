@@ -413,9 +413,7 @@ void Daemon::handle_sighup() {
 void Daemon::refresh_iproute_and_firewall_runtime() {
     auto& log = Logger::instance();
     try {
-        policy_rules_.clear();
-        route_table_.clear();
-        setup_static_routing();
+        reconcile_static_routing();
         apply_firewall(FirewallApplyMode::PreserveSets);
         publish_runtime_state();
         log.info("Runtime iproute and firewall refresh complete.");
