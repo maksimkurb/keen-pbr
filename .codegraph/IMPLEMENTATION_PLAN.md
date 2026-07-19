@@ -295,7 +295,7 @@ allocator reorder, validation и adoption.
 
 ## US-05. Backend-neutral firewall contract и ownership namespace
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** средняя–высокая.
 
@@ -338,7 +338,14 @@ Firewall backends имеют разные неполные механизмы п
 5. Сломать backend apply, затем повторить с исправным desired; вторая попытка не содержит старых operations.
 6. Запустить conformance suite для iptables и nftables с одинаковыми logical fixtures.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** Реализован backend-neutral
+`FirewallReconciler` с attempt-scoped plan и lifecycle
+probe/inspect/plan/apply/verify/cleanup. Shared inspect model сохраняет ordered
+rules, chains/jumps и schema sets (family, timeout, dynamic). Добавлены adapters
+для iptables/ip6tables/ipset и nft JSON; общий diff обнаруживает missing/extra,
+reorder и schema mismatch. Extra objects actionable только в точных namespaces
+`KeenPbrTable*`/`kpbr4_*`/`kpbr6_*`/`kpbr4d_*`/`kpbr6d_*`; foreign lookalikes
+сохраняются. Conformance unit fixtures покрывают обе backend формы.
 
 ---
 
