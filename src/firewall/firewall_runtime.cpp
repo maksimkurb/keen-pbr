@@ -192,6 +192,10 @@ std::vector<RuleState> apply_runtime_firewall(
                 // A URLTEST route is switched behind its stable table/mark.
                 // DNS detours must not pin existing flows to the transient
                 // selected child mark.
+            } else {
+                // The internal detour mark has an unconditional terminal guard
+                // even when the user-facing outbound is configured non-strict.
+                effective_tag = internal_detour_mark_key(detour_outbound->tag);
             }
 
             auto mark_it = outbound_marks.find(effective_tag);
@@ -209,6 +213,7 @@ std::vector<RuleState> apply_runtime_firewall(
                 criteria.proto = L4Proto::TcpUdp;
                 criteria.dst_port = std::to_string(resolved_server->port);
                 criteria.dst_addr = {resolved_server->resolved_ip};
+                criteria.apply_output = true;
                 firewall.create_mark_rule(mark_it->second, criteria);
             }
         }

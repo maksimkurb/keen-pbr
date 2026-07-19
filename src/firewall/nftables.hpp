@@ -47,6 +47,7 @@ public:
 private:
     static constexpr const char* TABLE_NAME = "KeenPbrTable";
     static constexpr const char* CHAIN_NAME = "prerouting";
+    static constexpr const char* OUTPUT_CHAIN_NAME = "output";
     void cleanup_live_impl();
     void cleanup_impl();
     bool table_exists() const;
@@ -54,6 +55,7 @@ private:
     struct LiveTableState {
         bool table_exists{false};
         bool chain_exists{false};
+        bool output_chain_exists{false};
         std::set<std::string> set_names;
         std::map<std::string, std::string> set_schemas;
     };
@@ -85,8 +87,10 @@ private:
     static nlohmann::json build_set_json(const PendingSet& ps);
     // Build the JSON object for the prerouting chain (type filter, hook prerouting).
     static nlohmann::json build_chain_json();
+    static nlohmann::json build_output_chain_json();
     // Build the JSON object for deleting the prerouting chain.
     static nlohmann::json build_delete_chain_json();
+    static nlohmann::json build_delete_output_chain_json();
     static nlohmann::json build_flush_set_json(const std::string& set_name);
     static nlohmann::json build_delete_set_json(const std::string& set_name);
     static bool is_dynamic_set_name(const std::string& set_name);

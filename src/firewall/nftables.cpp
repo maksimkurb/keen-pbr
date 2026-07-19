@@ -233,11 +233,24 @@ nlohmann::json NftablesFirewall::build_chain_json() {
     }}}}};
 }
 
+nlohmann::json NftablesFirewall::build_output_chain_json() {
+    return {{"add", {{"chain", {
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", OUTPUT_CHAIN_NAME},
+        {"type", "filter"}, {"hook", "output"}, {"prio", -150}, {"policy", "accept"}
+    }}}}};
+}
+
 nlohmann::json NftablesFirewall::build_delete_chain_json() {
     return {{"delete", {{"chain", {
         {"family", "inet"},
         {"table", TABLE_NAME},
         {"name", CHAIN_NAME}
+    }}}}};
+}
+
+nlohmann::json NftablesFirewall::build_delete_output_chain_json() {
+    return {{"delete", {{"chain", {
+        {"family", "inet"}, {"table", TABLE_NAME}, {"name", OUTPUT_CHAIN_NAME}
     }}}}};
 }
 
@@ -493,7 +506,7 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
     return {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
-        {"chain", CHAIN_NAME},
+        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
 }
@@ -522,7 +535,7 @@ nlohmann::json NftablesFirewall::build_drop_rule_json(const PendingRule& pr) {
     return {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
-        {"chain", CHAIN_NAME},
+        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
 }
@@ -549,7 +562,7 @@ nlohmann::json NftablesFirewall::build_pass_rule_json(const PendingRule& pr) {
     return {{"add", {{"rule", {
         {"family", "inet"},
         {"table", TABLE_NAME},
-        {"chain", CHAIN_NAME},
+        {"chain", pr.criteria.apply_output ? OUTPUT_CHAIN_NAME : CHAIN_NAME},
         {"expr", expr}
     }}}}};
 }
@@ -615,6 +628,10 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
                 && chain.value("table", "") == TABLE_NAME
                 && chain.value("name", "") == CHAIN_NAME) {
                 state.chain_exists = true;
+            } else if (chain.value("family", "") == "inet"
+                       && chain.value("table", "") == TABLE_NAME
+                       && chain.value("name", "") == OUTPUT_CHAIN_NAME) {
+                state.output_chain_exists = true;
             }
             continue;
         }
@@ -675,7 +692,11 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
     if (!emit_full_table && live_state.chain_exists) {
         arr.push_back(build_delete_chain_json());
     }
+    if (!emit_full_table && live_state.output_chain_exists) {
+        arr.push_back(build_delete_output_chain_json());
+    }
     arr.push_back(build_chain_json());
+    arr.push_back(build_output_chain_json());
 
     // Rules
     for (const auto& cmd : build_rule_add_commands(global_prefilter_, pending_rules_)) {

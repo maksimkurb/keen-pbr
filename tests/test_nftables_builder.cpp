@@ -54,6 +54,10 @@ public:
     return NftablesFirewall::build_chain_json();
   }
 
+  static nlohmann::json build_output_chain_json() {
+    return NftablesFirewall::build_output_chain_json();
+  }
+
   static nlohmann::json build_delete_chain_json() {
     return NftablesFirewall::build_delete_chain_json();
   }
@@ -415,6 +419,12 @@ TEST_CASE("create_mark_rule: port-only tcp/udp rule emits one tcp and one udp en
   CHECK(cmds[1]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
   CHECK(cmds[2]["add"]["rule"]["expr"][0]["match"]["right"] == "tcp");
   CHECK(cmds[3]["add"]["rule"]["expr"][0]["match"]["right"] == "udp");
+}
+
+TEST_CASE("nft output chain: DNS detour chain uses output hook") {
+  const auto chain = T::build_output_chain_json();
+  CHECK(chain["add"]["chain"]["name"] == "output");
+  CHECK(chain["add"]["chain"]["hook"] == "output");
 }
 
 // =============================================================================
