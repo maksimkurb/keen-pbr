@@ -281,10 +281,12 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         const uint32_t mask = prefilter.conntrack_mark_mask;
         nlohmann::json restore_expr = nlohmann::json::array();
         restore_expr.push_back({{"match", {{"op", "=="},
-            {"left", {{"ct", {{"key", "direction"}}}}}, {"right", "original"}}}});
-        const nlohmann::json restored_value = {{"|", nlohmann::json::array({
-            {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}}, static_cast<uint32_t>(~mask)})}},
-            {{"&", nlohmann::json::array({{{"ct", {{"key", "mark"}}}}, mask})}}
+            {"left", {{"ct", {{"key", "direction"}}}}}, {"right", 0}}}});
+        // nftables 1.0.x only accepts a constant as the right operand of a
+        // binary expression in a mangle value.  A two-variable merge is
+        // therefore rejected; restore the daemon-owned ctmark bits directly.
+        const nlohmann::json restored_value = {{"&", nlohmann::json::array({
+            {{"ct", {{"key", "mark"}}}}, mask
         })}};
         restore_expr.push_back({{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}},
                                                {"value", restored_value}}}});
@@ -493,11 +495,8 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
         }}});
     }
     if (pr.save_conntrack_mark) {
-        const nlohmann::json saved_value = {{"|", nlohmann::json::array({
-            {{"&", nlohmann::json::array({{{"ct", {{"key", "mark"}}}},
-                                                static_cast<uint32_t>(~pr.fwmark_mask)})}},
-            {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}},
-                                                pr.fwmark_mask})}}
+        const nlohmann::json saved_value = {{"&", nlohmann::json::array({
+            {{"meta", {{"key", "mark"}}}}, pr.fwmark_mask
         })}};
         expr.push_back({{"mangle", {{"key", {{"ct", {{"key", "mark"}}}}},
                                          {"value", saved_value}}}});

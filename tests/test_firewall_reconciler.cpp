@@ -54,6 +54,18 @@ TEST_CASE("FirewallReconciler uses an attempt-scoped plan") {
     CHECK(backend.plans == 2);
 }
 
+TEST_CASE("FirewallReconciler commits an intact state without mutations") {
+    FakeFirewallBackend backend;
+    FirewallReconciler reconciler(backend);
+
+    const auto result = reconciler.reconcile({});
+
+    CHECK(result.committed);
+    CHECK(result.operation_count == 0);
+    CHECK(backend.plans == 1);
+    CHECK(backend.cleanups == 0);
+}
+
 TEST_CASE("FirewallReconciler reports post-apply ordered state drift") {
     FakeFirewallBackend backend;
     backend.verify_ok = false;

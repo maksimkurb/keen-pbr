@@ -124,6 +124,24 @@ public:
         parse_test_proto(proto), PortSpec(src_port), PortSpec(dst_port),
         negate_src, negate_dst);
   }
+
+  static size_t pending_set_count_after_duplicate_create() {
+    IptablesFirewall firewall;
+    firewall.create_ipset("kpbr4_shared", AF_INET);
+    firewall.create_ipset("kpbr4_shared", AF_INET);
+    return firewall.pending_sets_.size();
+  }
+
+  static bool conflicting_duplicate_create_throws() {
+    IptablesFirewall firewall;
+    firewall.create_ipset("kpbr4_shared", AF_INET);
+    try {
+      firewall.create_ipset("kpbr4_shared", AF_INET6);
+    } catch (const FirewallError&) {
+      return true;
+    }
+    return false;
+  }
 };
 
 } // namespace keen_pbr3
@@ -131,6 +149,11 @@ public:
 using namespace keen_pbr3;
 using T = IptablesBuilderTest;
 using Rule = IptablesBuilderTest::RuleDesc;
+
+TEST_CASE("IptablesFirewall deduplicates repeated static ipset declarations") {
+  CHECK(T::pending_set_count_after_duplicate_create() == 1);
+  CHECK(T::conflicting_duplicate_create_throws());
+}
 
 namespace {
 

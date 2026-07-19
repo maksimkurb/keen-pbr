@@ -259,8 +259,7 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
     const std::string chain_decl = std::string("-N ") + CHAIN_NAME;
     const std::string prerouting_jump =
         std::string("-A PREROUTING -j ") + CHAIN_NAME;
-    const std::string chain_rule_prefix =
-        std::string("-A ") + CHAIN_NAME + " ";
+    const std::string chain_rule_prefix = std::string("-A ") + CHAIN_NAME;
 
     std::istringstream stream(output);
     std::string line;
@@ -274,7 +273,10 @@ ParsedIptablesState parse_iptables_s_for_family(const std::string& output,
             state.has_prerouting_jump = true;
             continue;
         }
-        if (line.rfind(chain_rule_prefix, 0) != 0) {
+        if (line.rfind(chain_rule_prefix, 0) != 0 ||
+            (line.size() > chain_rule_prefix.size() &&
+             line[chain_rule_prefix.size()] != ' ' &&
+             line[chain_rule_prefix.size()] != '_')) {
             continue;
         }
 
@@ -437,6 +439,33 @@ const IptablesFirewallVerifier::CachedState& IptablesFirewallVerifier::get_state
                 combined += chain_result.stdout_output;
                 if (!combined.empty() && combined.back() != '\n') {
                     combined.push_back('\n');
+                }
+
+                // Preserve-sets applies the policy rules in a versioned private
+                // chain and jumps to it from KeenPbrTable. `iptables -S
+                // KeenPbrTable` does not include that child chain, so inspect
+                // every direct versioned target before verifying the policy.
+                std::istringstream chain_stream(chain_result.stdout_output);
+                std::string chain_line;
+                while (std::getline(chain_stream, chain_line)) {
+                    const auto tokens = split_ws(chain_line);
+                    for (size_t index = 0; index + 1 < tokens.size(); ++index) {
+                        if (tokens[index] != "-j" ||
+                            tokens[index + 1].rfind("KeenPbrTable_", 0) != 0 ||
+                            tokens[index + 1] == "KeenPbrTable_OUTPUT") {
+                            continue;
+                        }
+                        auto versioned_args = chain_args;
+                        versioned_args.back() = tokens[index + 1];
+                        const auto versioned_result = runner_(versioned_args);
+                        if (versioned_result.exit_code == 0) {
+                            combined += versioned_result.stdout_output;
+                            if (!combined.empty() && combined.back() != '\n') {
+                                combined.push_back('\n');
+                            }
+                        }
+                        break;
+                    }
                 }
             }
 

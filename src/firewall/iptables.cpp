@@ -6,6 +6,7 @@
 #include "../util/ipv6_support.hpp"
 #include "../util/safe_exec.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <optional>
 #include <set>
@@ -69,7 +70,15 @@ void IptablesFirewall::create_ipset(const std::string& set_name, int family,
     ps.name = set_name;
     ps.family_str = (family == AF_INET6) ? "inet6" : "inet";
     ps.timeout = timeout;
-    pending_sets_.push_back(std::move(ps));
+    const auto existing = std::find_if(pending_sets_.begin(), pending_sets_.end(),
+                                       [&set_name](const PendingSet& pending) {
+                                           return pending.name == set_name;
+                                       });
+    if (existing == pending_sets_.end()) {
+        pending_sets_.push_back(std::move(ps));
+    } else if (existing->family_str != ps.family_str || existing->timeout != ps.timeout) {
+        throw FirewallError("conflicting ipset declaration for " + set_name);
+    }
     created_sets_[set_name] = family;
 }
 

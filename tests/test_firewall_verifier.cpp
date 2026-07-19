@@ -138,6 +138,20 @@ TEST_CASE("parse_iptables_s: mark rule with partial xmark mask") {
     CHECK(state.rules[0].xmark_mask == 0x00FF0000u);
 }
 
+TEST_CASE("parse_iptables_s: versioned chain mark rule") {
+    const std::string input =
+        "-N KeenPbrTable\n"
+        "-N KeenPbrTable_1\n"
+        "-A KeenPbrTable -j KeenPbrTable_1\n"
+        "-A KeenPbrTable_1 -m set --match-set myset dst -j MARK --set-xmark 0x20000/0xff0000\n";
+    const auto state = parse_iptables_s(input);
+    REQUIRE(state.rules.size() == 1);
+    CHECK(state.rules[0].set_name == "myset");
+    CHECK(state.rules[0].is_mark);
+    CHECK(state.rules[0].fwmark == 0x20000u);
+    CHECK(state.rules[0].xmark_mask == 0x00FF0000u);
+}
+
 TEST_CASE("parse_iptables_s: drop rule") {
     const std::string input =
         "-N KeenPbrTable\n"
@@ -414,6 +428,38 @@ TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule ok") {
     CHECK(checks[0].set_name == "set1");
     CHECK(checks[0].actual_fwmark.has_value());
     CHECK(*checks[0].actual_fwmark == 65536u);
+}
+
+TEST_CASE("IptablesFirewallVerifier::verify_rules: versioned chain mark rule ok") {
+    const std::string main_chain =
+        "-N KeenPbrTable\n"
+        "-A KeenPbrTable -j KeenPbrTable_1\n";
+    const std::string versioned_chain =
+        "-N KeenPbrTable_1\n"
+        "-A KeenPbrTable_1 -m set --match-set set1 dst -j MARK --set-xmark 0x10000/0xff0000\n";
+    auto runner = [&main_chain, &versioned_chain](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable"})) {
+            return command_result(main_chain);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "KeenPbrTable_1"})) {
+            return command_result(versioned_chain);
+        }
+        if (matches_args(args, {"iptables", "-t", "mangle", "-S", "PREROUTING"})) {
+            return command_result("-A PREROUTING -j KeenPbrTable\n");
+        }
+        return command_result({}, 1);
+    };
+    IptablesFirewallVerifier verifier(runner);
+    verifier.set_expected_fwmark_mask(0x00ff0000u);
+
+    RuleState rule;
+    rule.set_names = {"set1"};
+    rule.action_type = RuleActionType::Mark;
+    rule.fwmark = 0x10000u;
+
+    const auto checks = verifier.verify_rules({rule});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
 }
 
 TEST_CASE("IptablesFirewallVerifier::verify_rules: mark rule missing") {

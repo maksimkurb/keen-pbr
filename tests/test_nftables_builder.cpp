@@ -361,6 +361,19 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
   CHECK(mark_expr[3].contains("accept"));
 }
 
+TEST_CASE("build_rule_add_commands: conntrack restore uses numeric original direction") {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0x00FF0000u;
+
+  const auto commands = T::build_rule_add_commands(prefilter,
+                                                     {mark_rule("myset", AF_INET, 256)});
+  REQUIRE(commands.size() == 2);
+  const auto& match = commands[0]["add"]["rule"]["expr"][0]["match"];
+  CHECK(match["left"]["ct"]["key"] == "direction");
+  CHECK(match["right"] == 0);
+}
+
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {
   auto cfg = parse_valid_config(R"({
     "outbounds":[
