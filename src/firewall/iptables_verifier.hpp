@@ -30,9 +30,19 @@ struct ParsedIptablesState {
     std::vector<ParsedIptablesRule> rules; // rules found in KeenPbrTable chain
 };
 
+struct ParsedIpset {
+    std::string name;
+    int family{0};
+    uint32_t timeout_seconds{0};
+};
+
 // Parse the stdout of `iptables -t mangle -S <chain>` / `ip6tables -t mangle -S <chain>`.
 // Returns the parsed state of the KeenPbrTable chain.
 ParsedIptablesState parse_iptables_s(const std::string& output);
+
+// Parse `ipset save` output for the reserved kpbr namespaces. Unknown lines
+// are ignored so this remains compatible with older ipset implementations.
+std::vector<ParsedIpset> parse_ipset_save(const std::string& output);
 
 // FirewallVerifier implementation for the iptables/ip6tables backend.
 class IptablesFirewallVerifier : public FirewallVerifier {

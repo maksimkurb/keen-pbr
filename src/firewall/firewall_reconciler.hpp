@@ -7,6 +7,7 @@
 namespace keen_pbr3 {
 
 struct ParsedIptablesState;
+struct ParsedIpset;
 struct ParsedNftablesState;
 
 struct FirewallSetSnapshot {
@@ -54,7 +55,8 @@ FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
 bool is_keen_pbr_namespace_name(const std::string& name);
 
 FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
-                                           const ParsedIptablesState& ipv6);
+                                           const ParsedIptablesState& ipv6,
+                                           const std::vector<ParsedIpset>& sets = {});
 FirewallActualState inspect_nftables_state(const ParsedNftablesState& state);
 
 class FirewallReconcilerBackend {

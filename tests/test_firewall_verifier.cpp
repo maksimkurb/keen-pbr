@@ -4,6 +4,8 @@
 #include "../src/firewall/nftables_verifier.hpp"
 #include "../src/util/safe_exec.hpp"
 
+#include <netinet/in.h>
+
 using namespace keen_pbr3;
 
 namespace {
@@ -63,6 +65,19 @@ TEST_CASE("parse_iptables_s: chain declaration only, no jump") {
     CHECK(state.has_keen_pbr_chain);
     CHECK_FALSE(state.has_prerouting_jump);
     CHECK(state.rules.empty());
+}
+
+TEST_CASE("parse_ipset_save: captures kpbr set schema and ignores foreign sets") {
+    const auto sets = parse_ipset_save(
+        "create kpbr4_static hash:net family inet hashsize 1024\n"
+        "create kpbr6d_dns hash:net family inet6 timeout 300\n"
+        "create foreign hash:net family inet timeout 5\n");
+    REQUIRE(sets.size() == 2);
+    CHECK(sets[0].name == "kpbr4_static");
+    CHECK(sets[0].family == AF_INET);
+    CHECK(sets[0].timeout_seconds == 0);
+    CHECK(sets[1].family == AF_INET6);
+    CHECK(sets[1].timeout_seconds == 300);
 }
 
 TEST_CASE("parse_iptables_s: prerouting jump present") {

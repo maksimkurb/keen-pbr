@@ -117,7 +117,8 @@ FirewallStateDiff diff_firewall_state(const FirewallDesiredState& desired,
 }
 
 FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
-                                           const ParsedIptablesState& ipv6) {
+                                           const ParsedIptablesState& ipv6,
+                                           const std::vector<ParsedIpset>& sets) {
     FirewallActualState state;
     state.available = true;
     if (ipv4.has_keen_pbr_chain) state.chains.push_back("ip4:KeenPbrTable");
@@ -126,6 +127,10 @@ FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
     if (ipv6.has_prerouting_jump) state.jumps.push_back("ip6:PREROUTING->KeenPbrTable");
     for (const auto& rule : ipv4.rules) state.ordered_rules.push_back(rule_identity(rule));
     for (const auto& rule : ipv6.rules) state.ordered_rules.push_back(rule_identity(rule));
+    for (const auto& set : sets) {
+        state.sets.push_back({set.name, set.family, set.timeout_seconds,
+                              set.timeout_seconds != 0});
+    }
     return state;
 }
 

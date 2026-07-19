@@ -106,10 +106,14 @@ TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") 
     ParsedIptablesState ipv4 = parse_iptables_s(
         "-N KeenPbrTable\n-A PREROUTING -j KeenPbrTable\n");
     ipv4.rules.push_back({"", {}, false, false, true, false, 0, true, 0xFFFFFFFFu});
-    const auto iptables = inspect_iptables_state(ipv4, {});
+    const auto iptables = inspect_iptables_state(
+        ipv4, {}, {{"kpbr4_static", AF_INET, 0}, {"kpbr6d_dns", AF_INET6, 300}});
     CHECK(iptables.chains == std::vector<std::string>{"ip4:KeenPbrTable"});
     CHECK(iptables.jumps == std::vector<std::string>{"ip4:PREROUTING->KeenPbrTable"});
     CHECK(iptables.ordered_rules == std::vector<std::string>{"ip4::drop"});
+    REQUIRE(iptables.sets.size() == 2);
+    CHECK_FALSE(iptables.sets[0].dynamic);
+    CHECK(iptables.sets[1].dynamic);
 
     const auto nft = inspect_nftables_state(parse_nft_json(R"({"nftables":[
       {"table":{"family":"inet","name":"KeenPbrTable"}},

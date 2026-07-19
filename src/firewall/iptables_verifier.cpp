@@ -394,6 +394,32 @@ ParsedIptablesState parse_iptables_s(const std::string& output) {
     return parse_iptables_s_for_family(output, false);
 }
 
+std::vector<ParsedIpset> parse_ipset_save(const std::string& output) {
+    std::vector<ParsedIpset> sets;
+    std::istringstream input(output);
+    std::string line;
+    while (std::getline(input, line)) {
+        const auto tokens = split_ws(line);
+        if (tokens.size() < 5 || tokens[0] != "create" ||
+            (tokens[1].rfind("kpbr4_", 0) != 0 && tokens[1].rfind("kpbr6_", 0) != 0 &&
+             tokens[1].rfind("kpbr4d_", 0) != 0 && tokens[1].rfind("kpbr6d_", 0) != 0)) {
+            continue;
+        }
+        ParsedIpset set;
+        set.name = tokens[1];
+        for (size_t index = 2; index + 1 < tokens.size(); ++index) {
+            if (tokens[index] == "family") {
+                set.family = tokens[index + 1] == "inet6" ? AF_INET6 : AF_INET;
+            }
+            if (tokens[index] == "timeout") {
+                set.timeout_seconds = parse_u32(tokens[index + 1]).value_or(0);
+            }
+        }
+        if (set.family != 0) sets.push_back(std::move(set));
+    }
+    return sets;
+}
+
 IptablesFirewallVerifier::IptablesFirewallVerifier(CommandRunner runner)
     : runner_(std::move(runner)) {}
 
