@@ -394,6 +394,16 @@ TEST_CASE("build_ipt_script: global prefilter RETURN lines are emitted before ro
   CHECK(iface_pos < mark_pos);
 }
 
+TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask scoped") {
+  FirewallGlobalPrefilter prefilter;
+  prefilter.restore_conntrack_mark = true;
+  prefilter.conntrack_mark_mask = 0x00FF0000U;
+  const auto script = T::build_ipt_script(false, {mark_rule("myset", false, 0x100)}, prefilter);
+  CHECK(script.find("-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/0xff0000") != std::string::npos);
+  CHECK(script.find("CONNMARK --restore-mark --mask 0xff0000") != std::string::npos);
+  CHECK(script.find("CONNMARK --save-mark --mask 0xff0000") != std::string::npos);
+}
+
 TEST_CASE("build_ipt_script: skip_marked_packets prefilter can be disabled") {
   FirewallGlobalPrefilter prefilter;
   prefilter.skip_established_or_dnat = true;

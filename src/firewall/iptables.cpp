@@ -237,6 +237,14 @@ std::string IptablesFirewall::build_proto_port_fragment(L4Proto proto,
 std::string IptablesFirewall::build_prefilter_lines(
     const FirewallGlobalPrefilter& prefilter) {
     std::string lines;
+    if (prefilter.restore_conntrack_mark && prefilter.conntrack_mark_mask != 0) {
+        const std::string mask = keen_pbr3::format("{:#x}", prefilter.conntrack_mark_mask);
+        lines += keen_pbr3::format(
+            "-A {} -m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/{} "
+            "-j CONNMARK --restore-mark --mask {}\n"
+            "-A {} -m conntrack --ctdir ORIGINAL -m mark ! --mark 0/{} -j RETURN\n",
+            CHAIN_NAME, mask, mask, CHAIN_NAME, mask);
+    }
     if (prefilter.skip_established_or_dnat) {
         lines += keen_pbr3::format(
             "-A {} -m conntrack --ctstate DNAT -j RETURN\n",
@@ -289,6 +297,20 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
     }
     std::vector<std::string> lines;
     lines.reserve(iface_frags.size() * 2);
+    auto append_mark_and_save = [&](std::string mark_line) {
+        lines.push_back(mark_line);
+        if (!prefilter.restore_conntrack_mark || prefilter.conntrack_mark_mask == 0) {
+            return;
+        }
+        const auto target = mark_line.find(" -j MARK ");
+        if (target == std::string::npos) {
+            return;
+        }
+        mark_line.replace(target, mark_line.size() - target,
+                          keen_pbr3::format(" -j CONNMARK --save-mark --mask {:#x}\n",
+                                            prefilter.conntrack_mark_mask));
+        lines.push_back(std::move(mark_line));
+    };
     for (const auto proto : expand_l4_protos_for_iptables(pr.criteria)) {
         std::string pp = build_proto_port_fragment(proto,
                                                    pr.criteria.src_port,
@@ -303,7 +325,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         "-j MARK --set-xmark {:#x}/{:#x}",
                         pr.fwmark,
                         pr.fwmark_mask);
-                    lines.push_back(keen_pbr3::format(
+                    append_mark_and_save(keen_pbr3::format(
                         "[0:0] -A {}{}{}{}{} {}\n",
                         CHAIN_NAME,
                         iface_frag,
@@ -341,7 +363,7 @@ std::vector<std::string> IptablesFirewall::build_rule_lines(
                         "-j MARK --set-xmark {:#x}/{:#x}",
                         pr.fwmark,
                         pr.fwmark_mask);
-                    lines.push_back(keen_pbr3::format(
+                    append_mark_and_save(keen_pbr3::format(
                         "[0:0] -A {} -m set --match-set {} dst{}{}{}{} {}\n",
                         CHAIN_NAME,
                         *pr.criteria.dst_set_name,

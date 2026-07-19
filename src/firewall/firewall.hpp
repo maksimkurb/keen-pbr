@@ -67,6 +67,11 @@ struct FirewallGlobalPrefilter {
     std::optional<std::vector<std::string>> inbound_interfaces;
     bool skip_established_or_dnat{false};
     bool skip_marked_packets{false};
+    // Restore only the daemon-owned portion of ctmark for original-direction
+    // packets before normal classification. Disabled by default for builder
+    // callers; runtime enables it with the configured fwmark mask.
+    bool restore_conntrack_mark{false};
+    uint32_t conntrack_mark_mask{0};
 
     bool has_inbound_interfaces() const {
         return inbound_interfaces.has_value() && !inbound_interfaces->empty();

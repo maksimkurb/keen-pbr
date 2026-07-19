@@ -16,6 +16,7 @@ export * from './configStateResponse';
 export * from './configStateResponseListRefreshState';
 export * from './configUpdateResponse';
 export * from './configUpdateResponseStatus';
+export * from './conntrackOnSwitch';
 export * from './daemonConfig';
 export * from './daemonConfigFirewallBackend';
 export * from './daemonConfigStrictEnforcementAction';

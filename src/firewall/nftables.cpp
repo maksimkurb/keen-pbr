@@ -264,6 +264,25 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
     const std::vector<PendingRule>& rules) {
     nlohmann::json commands = nlohmann::json::array();
 
+    if (prefilter.restore_conntrack_mark && prefilter.conntrack_mark_mask != 0) {
+        const uint32_t mask = prefilter.conntrack_mark_mask;
+        nlohmann::json restore_expr = nlohmann::json::array();
+        restore_expr.push_back({{"match", {{"op", "=="},
+            {"left", {{"ct", {{"key", "direction"}}}}}, {"right", "original"}}}});
+        const nlohmann::json restored_value = {{"|", nlohmann::json::array({
+            {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}}, static_cast<uint32_t>(~mask)})}},
+            {{"&", nlohmann::json::array({{{"ct", {{"key", "mark"}}}}, mask})}}
+        })}};
+        restore_expr.push_back({{"mangle", {{"key", {{"meta", {{"key", "mark"}}}}},
+                                               {"value", restored_value}}}});
+        restore_expr.push_back({{"accept", nullptr}});
+        const nlohmann::json restore_rule = {{"family", "inet"},
+                                             {"table", TABLE_NAME},
+                                             {"chain", CHAIN_NAME},
+                                             {"expr", restore_expr}};
+        commands.push_back({{"add", {{"rule", restore_rule}}}});
+    }
+
     if (prefilter.skip_established_or_dnat) {
         nlohmann::json dnat_expr = nlohmann::json::array();
         dnat_expr.push_back({{"match", {
@@ -459,6 +478,16 @@ nlohmann::json NftablesFirewall::build_mark_rule_json(const PendingRule& pr) {
                 pr.fwmark
             })}}}
         }}});
+    }
+    if (pr.save_conntrack_mark) {
+        const nlohmann::json saved_value = {{"|", nlohmann::json::array({
+            {{"&", nlohmann::json::array({{{"ct", {{"key", "mark"}}}},
+                                                static_cast<uint32_t>(~pr.fwmark_mask)})}},
+            {{"&", nlohmann::json::array({{{"meta", {{"key", "mark"}}}},
+                                                pr.fwmark_mask})}}
+        })}};
+        expr.push_back({{"mangle", {{"key", {{"ct", {{"key", "mark"}}}}},
+                                         {"value", saved_value}}}});
     }
     expr.push_back({{"accept", nullptr}});
     return {{"add", {{"rule", {
@@ -677,6 +706,10 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
     // this JSON batch atomically, including chain replacement and set refresh.
     const LiveTableState live_state = read_live_table_state();
     const bool emit_full_table = !live_state.table_exists;
+    for (auto& rule : pending_rules_) {
+        rule.save_conntrack_mark = global_prefilter_.restore_conntrack_mark &&
+                                   global_prefilter_.conntrack_mark_mask != 0;
+    }
     nlohmann::json doc = build_apply_document(live_state, emit_full_table);
 
     std::string json_str = doc.dump();

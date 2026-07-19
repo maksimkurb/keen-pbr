@@ -75,6 +75,7 @@ private:
         enum Action { Mark, Drop, Pass } action; // meta mark, drop, or accept verdict
         uint32_t fwmark; // only for Mark
         uint32_t fwmark_mask{0xFFFFFFFFu}; // only for Mark
+        bool save_conntrack_mark{false};
         FirewallRuleCriteria criteria; // optional packet match criteria
     };
 

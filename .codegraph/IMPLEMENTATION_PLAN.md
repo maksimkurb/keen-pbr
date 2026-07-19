@@ -457,7 +457,7 @@ routine re-apply. Port-only правила разворачиваются по I
 
 ## US-08. Conntrack stickiness и безопасное переключение URLTEST
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** очень высокая.
 
@@ -510,7 +510,14 @@ User traffic к URLTEST и DNS detour через URLTEST используют ma
 8. Удалить binary/kernel capability; startup/apply завершается controlled error/broken, а не silent downgrade.
 9. Выполнить SIGUSR1; targeted conntrack delete не вызывается.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** В iptables и nftables добавлены
+original-direction restore и save только fwmark bits из configured mask;
+чужие bits сохраняются, reply не восстанавливается. URLTEST/DNS detour
+используют стабильный mark URLTEST. Добавлен `conntrack_on_switch:
+preserve|delete` (default preserve); delete выполняет targeted IPv4/IPv6
+cleanup только после routing/firewall reconcile. Graceful stop также делает
+best-effort targeted cleanup без global flush. Контракт и command shape
+покрыты unit tests; failure cleanup остаётся warning.
 
 ---
 

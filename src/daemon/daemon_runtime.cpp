@@ -11,6 +11,8 @@
 #include "../firewall/firewall_runtime.hpp"
 #include "../log/logger.hpp"
 #include "../routing/urltest_manager.hpp"
+
+#include <set>
 #include "../routing/routing_reconciler.hpp"
 #include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
@@ -66,6 +68,18 @@ void Daemon::stop_routing_runtime() {
 
     if (urltest_manager_) {
         urltest_manager_->clear();
+    }
+    const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+    std::set<uint32_t> owned_marks;
+    for (const auto& [tag, mark] : outbound_marks_) {
+        (void)tag;
+        owned_marks.insert(mark);
+    }
+    for (uint32_t mark : owned_marks) {
+        if (!conntrack_manager_.delete_mark(mark, mark_mask)) {
+            log.warn("Best-effort conntrack cleanup failed for mark {:#x}/{:#x}",
+                     mark, mark_mask);
+        }
     }
     policy_rules_.clear();
     route_table_.clear();
@@ -179,10 +193,27 @@ void Daemon::handle_urltest_selection_change(const std::string& urltest_tag,
     post_control_task([this, urltest_tag, new_child_tag]() {
         auto& log = Logger::instance();
         log.info("Urltest '{}' selected outbound: '{}'", urltest_tag, new_child_tag);
+        bool delete_conntrack = false;
+        for (const auto& outbound : config_.outbounds.value_or(std::vector<Outbound>{})) {
+            if (outbound.tag == urltest_tag &&
+                outbound.conntrack_on_switch.value_or(api::ConntrackOnSwitch::PRESERVE) ==
+                    api::ConntrackOnSwitch::DELETE) {
+                delete_conntrack = true;
+                break;
+            }
+        }
         firewall_state_.set_urltest_selection(urltest_tag, new_child_tag);
         try {
             reconcile_static_routing();
             apply_firewall(FirewallApplyMode::PreserveSets);
+            if (delete_conntrack) {
+                const auto mark_it = outbound_marks_.find(urltest_tag);
+                const uint32_t mark_mask = fwmark_mask_value(config_.fwmark.value_or(FwmarkConfig{}));
+                if (mark_it == outbound_marks_.end() ||
+                    !conntrack_manager_.delete_mark(mark_it->second, mark_mask)) {
+                    log.warn("Best-effort conntrack cleanup failed after URLTEST '{}' switch", urltest_tag);
+                }
+            }
             publish_runtime_state();
             log.info("Routing and firewall rebuilt after urltest change.");
         } catch (const std::exception& e) {

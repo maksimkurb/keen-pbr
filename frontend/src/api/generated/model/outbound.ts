@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { CircuitBreakerConfig } from './circuitBreakerConfig';
+import type { ConntrackOnSwitch } from './conntrackOnSwitch';
 import type { OutboundGroup } from './outboundGroup';
 import type { OutboundStrictEnforcementAction } from './outboundStrictEnforcementAction';
 import type { OutboundType } from './outboundType';
@@ -46,6 +47,9 @@ export interface Outbound {
   /** Latency tolerance in milliseconds; outbounds within this range of the best are considered equivalent. Used with `urltest` outbound type.
    */
   tolerance_ms?: number;
+  /** URLTEST conntrack handling when the selected child changes. `preserve` keeps established flows on their existing path; `delete` removes only conntrack entries bearing this URLTEST outbound's reserved mark after the replacement route is active.
+   */
+  conntrack_on_switch?: ConntrackOnSwitch;
   /** Ordered list of outbound groups. Required for `urltest` outbound type. Groups are tried in order; within a group the outbound is selected by weight.
    */
   outbound_groups?: OutboundGroup[];

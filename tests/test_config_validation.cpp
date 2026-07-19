@@ -197,6 +197,14 @@ TEST_CASE("urltest URL is required and limited to HTTP(S)") {
     CHECK_NOTHROW(parse_test_config(prefix + R"({"tag":"ut","type":"urltest","url":"https://example.test/x","outbound_groups":[{"outbounds":["vpn"]}]}]})"));
 }
 
+TEST_CASE("urltest conntrack_on_switch accepts preserve and delete") {
+    const std::string prefix = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"},)";
+    const std::string suffix = R"(,"outbound_groups":[{"outbounds":["vpn"]}]}]})";
+    CHECK_NOTHROW(parse_test_config(prefix + R"({"tag":"ut","type":"urltest","url":"https://example.test","conntrack_on_switch":"preserve")" + suffix));
+    CHECK_NOTHROW(parse_test_config(prefix + R"({"tag":"ut","type":"urltest","url":"https://example.test","conntrack_on_switch":"delete")" + suffix));
+    CHECK_THROWS_AS(parse_test_config(prefix + R"({"tag":"ut","type":"urltest","url":"https://example.test","conntrack_on_switch":"flush")" + suffix), ConfigError);
+}
+
 TEST_CASE("dns detour: unknown outbound tag is rejected") {
     std::string json = R"({"outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}],
         "dns":{"servers":[{"tag":"vpn_dns","address":"10.8.0.1","detour":"nonexistent"}],"fallback":["vpn_dns"]}})";

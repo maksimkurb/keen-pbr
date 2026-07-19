@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesIhIOxh data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesWoBc2A data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -193,6 +193,8 @@ namespace api {
         std::optional<bool> enabled;
     };
 
+    enum class ConntrackOnSwitch : int { DELETE, PRESERVE };
+
     struct OutboundGroupElement {
         std::vector<std::string> outbounds;
         std::optional<int64_t> weight;
@@ -207,6 +209,7 @@ namespace api {
 
     struct OutboundElement {
         std::optional<CircuitBreakerConfig> circuit_breaker;
+        std::optional<ConntrackOnSwitch> conntrack_on_switch;
         std::optional<std::string> gateway;
         std::optional<std::string> gateway6;
         std::optional<std::string> interface;
@@ -474,7 +477,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesIhIOxh {
+    struct KeenPbrTypesWoBc2A {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -482,6 +485,7 @@ namespace api {
         std::optional<ConfigObject> config_object;
         std::optional<ConfigStateResponse> config_state_response;
         std::optional<ConfigUpdateResponse> config_update_response;
+        std::optional<ConntrackOnSwitch> conntrack_on_switch;
         std::optional<Daemon> daemon_config;
         std::optional<Dns> dns_config;
         std::optional<DnsRuleElement> dns_rule;
@@ -667,8 +671,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesIhIOxh & x);
-    void to_json(json & j, const KeenPbrTypesIhIOxh & x);
+    void from_json(const json & j, KeenPbrTypesWoBc2A & x);
+    void to_json(json & j, const KeenPbrTypesWoBc2A & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -681,6 +685,9 @@ namespace api {
 
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
+
+    void from_json(const json & j, ConntrackOnSwitch & x);
+    void to_json(json & j, const ConntrackOnSwitch & x);
 
     void from_json(const json & j, OutboundType & x);
     void to_json(json & j, const OutboundType & x);
@@ -948,6 +955,7 @@ namespace api {
 
     inline void from_json(const json & j, OutboundElement& x) {
         x.circuit_breaker = get_stack_optional<CircuitBreakerConfig>(j, "circuit_breaker");
+        x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "conntrack_on_switch");
         x.gateway = get_stack_optional<std::string>(j, "gateway");
         x.gateway6 = get_stack_optional<std::string>(j, "gateway6");
         x.interface = get_stack_optional<std::string>(j, "interface");
@@ -967,6 +975,7 @@ namespace api {
     inline void to_json(json & j, const OutboundElement & x) {
         j = json::object();
         j["circuit_breaker"] = x.circuit_breaker;
+        j["conntrack_on_switch"] = x.conntrack_on_switch;
         j["gateway"] = x.gateway;
         j["gateway6"] = x.gateway6;
         j["interface"] = x.interface;
@@ -1466,7 +1475,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesIhIOxh& x) {
+    inline void from_json(const json & j, KeenPbrTypesWoBc2A& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1474,6 +1483,7 @@ namespace api {
         x.config_object = get_stack_optional<ConfigObject>(j, "ConfigObject");
         x.config_state_response = get_stack_optional<ConfigStateResponse>(j, "ConfigStateResponse");
         x.config_update_response = get_stack_optional<ConfigUpdateResponse>(j, "ConfigUpdateResponse");
+        x.conntrack_on_switch = get_stack_optional<ConntrackOnSwitch>(j, "ConntrackOnSwitch");
         x.daemon_config = get_stack_optional<Daemon>(j, "DaemonConfig");
         x.dns_config = get_stack_optional<Dns>(j, "DnsConfig");
         x.dns_rule = get_stack_optional<DnsRuleElement>(j, "DnsRule");
@@ -1520,7 +1530,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesIhIOxh & x) {
+    inline void to_json(json & j, const KeenPbrTypesWoBc2A & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1529,6 +1539,7 @@ namespace api {
         j["ConfigObject"] = x.config_object;
         j["ConfigStateResponse"] = x.config_state_response;
         j["ConfigUpdateResponse"] = x.config_update_response;
+        j["ConntrackOnSwitch"] = x.conntrack_on_switch;
         j["DaemonConfig"] = x.daemon_config;
         j["DnsConfig"] = x.dns_config;
         j["DnsRule"] = x.dns_rule;
@@ -1632,6 +1643,20 @@ namespace api {
             case DnsServerType::KEENETIC: j = "keenetic"; break;
             case DnsServerType::STATIC: j = "static"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DnsServerType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, ConntrackOnSwitch & x) {
+        if (j == "delete") x = ConntrackOnSwitch::DELETE;
+        else if (j == "preserve") x = ConntrackOnSwitch::PRESERVE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ConntrackOnSwitch\""); }
+    }
+
+    inline void to_json(json & j, const ConntrackOnSwitch & x) {
+        switch (x) {
+            case ConntrackOnSwitch::DELETE: j = "delete"; break;
+            case ConntrackOnSwitch::PRESERVE: j = "preserve"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ConntrackOnSwitch\": " + std::to_string(static_cast<int>(x)));
         }
     }
 

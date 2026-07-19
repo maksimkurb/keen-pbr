@@ -44,7 +44,10 @@ std::vector<RuleState> apply_runtime_firewall(
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
-    firewall.set_global_prefilter(build_firewall_global_prefilter(config));
+    auto prefilter = build_firewall_global_prefilter(config);
+    prefilter.restore_conntrack_mark = true;
+    prefilter.conntrack_mark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
+    firewall.set_global_prefilter(std::move(prefilter));
     firewall.set_fwmark_mask(fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{})));
 
     const auto& all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
@@ -186,14 +189,9 @@ std::vector<RuleState> apply_runtime_firewall(
 
             std::string effective_tag = detour_outbound->tag;
             if (detour_outbound->type == OutboundType::URLTEST) {
-                auto selection_it = urltest_selections.find(effective_tag);
-                if (selection_it != urltest_selections.end() && !selection_it->second.empty()) {
-                    const Outbound* child =
-                        find_outbound_by_tag(all_outbounds, selection_it->second);
-                    if (child) {
-                        effective_tag = child->tag;
-                    }
-                }
+                // A URLTEST route is switched behind its stable table/mark.
+                // DNS detours must not pin existing flows to the transient
+                // selected child mark.
             }
 
             auto mark_it = outbound_marks.find(effective_tag);

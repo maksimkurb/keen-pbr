@@ -542,6 +542,14 @@ components:
             best are considered equivalent. Used with `urltest` outbound type.
           default: 100
           example: 100
+        conntrack_on_switch:
+          $ref: "#/components/schemas/ConntrackOnSwitch"
+          default: preserve
+          description: >
+            URLTEST conntrack handling when the selected child changes. `preserve`
+            keeps established flows on their existing path; `delete` removes only
+            conntrack entries bearing this URLTEST outbound's reserved mark after
+            the replacement route is active.
         outbound_groups:
           type: array
           description: >
@@ -553,6 +561,10 @@ components:
           $ref: "#/components/schemas/RetryConfig"
         circuit_breaker:
           $ref: "#/components/schemas/CircuitBreakerConfig"
+
+    ConntrackOnSwitch:
+      type: string
+      enum: [preserve, delete]
 
     ListConfig:
       type: object
