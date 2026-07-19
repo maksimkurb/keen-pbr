@@ -28,6 +28,7 @@ keenetic-packages: ## Build Keenetic packages inside Entware Docker container
 	  -v "$(abspath .):/workspace" \
 	  "$(KEENETIC_DOCKER_IMAGE)" \
 	  -lc 'set -e; \
+	    git config --global --add safe.directory /workspace; \
 	    sh /workspace/build_scripts/build-keenetic-package.sh /workspace /home/me/Entware; \
 	    mkdir -p /workspace/build/packages; \
 	    sh /workspace/build_scripts/collect-keenetic.sh \

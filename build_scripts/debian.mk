@@ -21,6 +21,7 @@ deb-packages: ## Build Debian packages inside Docker container
 	  -v "$(abspath .):/workspace" \
 	  "$(DEBIAN_DOCKER_IMAGE)" \
 	  bash -c 'set -e; \
+	    git config --global --add safe.directory /workspace; \
 	    DEBIAN_VERSION="$(DEBIAN_VERSION)" \
 	    bash /workspace/build_scripts/build-debian-packages.sh /workspace /workspace/build/packages'
 

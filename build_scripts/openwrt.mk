@@ -34,6 +34,7 @@ openwrt-packages: ## Build OpenWrt packages inside the official OpenWrt SDK cont
 	  "$(OPENWRT_DOCKER_IMAGE)" \
 	  bash -lc 'set -e; \
 	    mkdir -p "$$HOME"; \
+	    git config --global --add safe.directory /workspace; \
 	    _SDK=$$(bash /workspace/build_scripts/find-openwrt-sdk.sh "$(OPENWRT_SDK_DIR)"); \
 	    bash /workspace/build_scripts/build-openwrt-package.sh /workspace "$$_SDK"; \
 	    mkdir -p /workspace/build/packages; \
@@ -55,6 +56,7 @@ openwrt-sign-packages: ## Sign OpenWrt repository metadata inside the official O
 	  "$(OPENWRT_DOCKER_IMAGE)" \
 	  bash -lc 'set -e; \
 	    mkdir -p "$$HOME"; \
+	    git config --global --add safe.directory /workspace; \
 	    _SDK=$$(bash /workspace/build_scripts/find-openwrt-sdk.sh "$(OPENWRT_SDK_DIR)"); \
 	    bash /workspace/build_scripts/sign-openwrt-repository.sh \
 	      "$$_SDK" /workspace/build/packages "$(OPENWRT_VERSION)"'
