@@ -18,9 +18,11 @@ add_executable(keen-pbr-tests
   test_list_service.cpp
   test_control_protocol.cpp
   test_resolver_fallback.cpp
+  test_resolver_apply_confirmation.cpp
   test_http_client.cpp
   test_config_validation.cpp
   test_config_writer.cpp
+  test_config_apply_transaction.cpp
   test_routing_state.cpp
   test_route_table.cpp
   test_policy_rule.cpp
@@ -46,6 +48,7 @@ add_executable(keen-pbr-tests
   test_crash_diagnostics.cpp
   ../src/config/config.cpp
   ../src/config/config_writer.cpp
+  ../src/daemon/config_apply_transaction.cpp
   ../src/crash/crash_diagnostics.cpp
   ../src/config/routing_state.cpp
   ../src/runtime/runtime_reconciler.cpp
@@ -78,6 +81,7 @@ add_executable(keen-pbr-tests
   ../src/ipc/control_protocol.cpp
   ../src/ipc/control_client.cpp
   ../src/ipc/resolver_fallback.cpp
+  ../src/daemon/resolver_apply_confirmation.cpp
   ../src/lists/ipset.cpp
   ../src/lists/kernel_set_tester.cpp
   ../src/lists/list_streamer.cpp

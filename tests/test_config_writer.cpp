@@ -66,4 +66,36 @@ TEST_CASE("atomic config writer refuses a symlink destination") {
     CHECK(read_file(sentinel) == "unchanged");
 }
 
+TEST_CASE("atomic config writer leaves the old file before rename failures") {
+    TempDir dir;
+    const auto config = dir.path / "config.json";
+    { std::ofstream output(config); output << "old"; }
+
+    for (const auto phase : {ConfigWritePhase::BeforeTemporaryWrite,
+                             ConfigWritePhase::BeforeTemporaryFsync,
+                             ConfigWritePhase::BeforeRename}) {
+        set_config_write_phase_hook_for_testing([phase](ConfigWritePhase current) {
+            if (current == phase) throw std::runtime_error("injected config write failure");
+        });
+        CHECK_THROWS(write_config_atomically(config.string(), "new"));
+        CHECK(read_file(config) == "old");
+    }
+    set_config_write_phase_hook_for_testing({});
+}
+
+TEST_CASE("atomic config writer has committed rename before parent fsync") {
+    TempDir dir;
+    const auto config = dir.path / "config.json";
+    { std::ofstream output(config); output << "old"; }
+
+    set_config_write_phase_hook_for_testing([](ConfigWritePhase phase) {
+        if (phase == ConfigWritePhase::BeforeDirectoryFsync) {
+            throw std::runtime_error("injected parent fsync failure");
+        }
+    });
+    CHECK_THROWS(write_config_atomically(config.string(), "new"));
+    set_config_write_phase_hook_for_testing({});
+    CHECK(read_file(config) == "new");
+}
+
 } // namespace keen_pbr3

@@ -1,9 +1,11 @@
 #include "daemon.hpp"
+#include "config_apply_transaction.hpp"
 #include "../config/config_writer.hpp"
 
 #ifdef WITH_API
 
 #include <filesystem>
+#include <future>
 
 #include "../api/handlers.hpp"
 #include "../api/server.hpp"
@@ -103,10 +105,15 @@ void Daemon::run_runtime_control_operation_or_throw(const std::string& label,
 
 ConfigApplyResult Daemon::apply_validated_config_via_control_task(
     Config config,
-    std::string saved_config_json) {
+    std::string saved_config_json,
+    bool persist_config) {
     auto result = std::make_shared<ConfigApplyResult>();
     auto prepared = std::make_shared<PreparedRuntimeInputs>();
     auto rollback_prepared = std::make_shared<PreparedRuntimeInputs>();
+    auto completion = std::make_shared<std::promise<ConfigApplyResult>>();
+    auto completed = std::make_shared<std::atomic<bool>>(false);
+    auto transaction = std::make_shared<ConfigApplyTransaction>();
+    auto completion_future = completion->get_future();
     const std::int64_t apply_started_ts = unix_timestamp_now_seconds();
     result->apply_started_ts = apply_started_ts;
     apply_started_ts_.store(apply_started_ts, std::memory_order_release);
@@ -125,34 +132,168 @@ ConfigApplyResult Daemon::apply_validated_config_via_control_task(
          result,
          prepared,
          rollback_prepared,
+         completion,
+         completed,
+         transaction,
+         persist_config,
          saved_config_json = std::move(saved_config_json)]() mutable {
-            try {
-                apply_prepared_runtime_inputs(std::move(*prepared));
-                write_config_atomically(config_path_, saved_config_json);
-                result->saved = true;
-                result->applied = true;
-                result->rolled_back = false;
-                config_store_.clear_staged_if_matches(saved_config_json);
-            } catch (const std::exception& e) {
-                result->error = e.what();
-                Logger::instance().error("Apply staged config task failed: {}", e.what());
-
+            const auto complete = [completion, completed](ConfigApplyResult value) {
+                bool expected = false;
+                if (completed->compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+                    completion->set_value(std::move(value));
+                }
+            };
+            auto rollback = [this, result, rollback_prepared, transaction, &complete]() mutable {
                 try {
+                    transaction->rolled_back();
                     apply_prepared_runtime_inputs(std::move(*rollback_prepared));
+                    transition_runtime_or_throw(RuntimeState::running, "config apply rolled back");
                     result->rolled_back = true;
                 } catch (const std::exception& rollback_error) {
                     result->rolled_back = false;
+                    std::string ignored_error;
+                    (void)runtime_state_machine_.transition(
+                        RuntimeState::broken, "config rollback failed", ignored_error);
+                    publish_runtime_state();
                     Logger::instance().error("Rollback to previous config failed: {}",
                                              rollback_error.what());
                 } catch (...) {
                     result->rolled_back = false;
+                    std::string ignored_error;
+                    (void)runtime_state_machine_.transition(
+                        RuntimeState::broken, "config rollback failed", ignored_error);
+                    publish_runtime_state();
                     Logger::instance().error("Rollback to previous config failed: unknown error");
                 }
+                complete(*result);
+            };
+            try {
+                transition_runtime_or_throw(RuntimeState::applying, "config apply");
+                apply_prepared_runtime_inputs(std::move(*prepared), false);
+                transaction->candidate_applied();
+                const std::string expected_hash =
+                    resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
+                const Config candidate = config_;
+                const std::int64_t apply_started_ts = result->apply_started_ts.value_or(0);
+                const bool queued = blocking_executor_.try_post(
+                    "config-apply-resolver-confirmation",
+                    [this,
+                     result,
+                     rollback_prepared,
+                     completion,
+                     completed,
+                     transaction,
+                     persist_config,
+                     saved_config_json,
+                     candidate,
+                     expected_hash,
+                     apply_started_ts] {
+                        std::string confirmation_error;
+                        bool confirmed = false;
+                        try {
+                            confirmed = wait_for_resolver_config_hash_confirmation(
+                                candidate, expected_hash, apply_started_ts, confirmation_error);
+                        } catch (const std::exception& error) {
+                            confirmation_error = error.what();
+                        } catch (...) {
+                            confirmation_error = "resolver confirmation failed with an unknown error";
+                        }
+                        post_control_task(
+                            [this,
+                             result,
+                             rollback_prepared,
+                             completion,
+                             completed,
+                             transaction,
+                             persist_config,
+                             saved_config_json,
+                             confirmed,
+                             confirmation_error = std::move(confirmation_error)]() mutable {
+                                const auto complete_inner = [completion, completed](ConfigApplyResult value) {
+                                    bool expected = false;
+                                    if (completed->compare_exchange_strong(
+                                            expected, true, std::memory_order_acq_rel)) {
+                                        completion->set_value(std::move(value));
+                                    }
+                                };
+                                auto rollback_inner = [this,
+                                                             result,
+                                                             rollback_prepared,
+                                                             transaction,
+                                                             &complete_inner]() mutable {
+                                    try {
+                                        transaction->rolled_back();
+                                        apply_prepared_runtime_inputs(std::move(*rollback_prepared));
+                                        transition_runtime_or_throw(
+                                            RuntimeState::running, "config apply rolled back");
+                                        result->rolled_back = true;
+                                    } catch (const std::exception& rollback_error) {
+                                        result->rolled_back = false;
+                                        std::string ignored_error;
+                                        (void)runtime_state_machine_.transition(
+                                            RuntimeState::broken, "config rollback failed", ignored_error);
+                                        publish_runtime_state();
+                                        Logger::instance().error("Rollback to previous config failed: {}",
+                                                                 rollback_error.what());
+                                    } catch (...) {
+                                        result->rolled_back = false;
+                                        std::string ignored_error;
+                                        (void)runtime_state_machine_.transition(
+                                            RuntimeState::broken, "config rollback failed", ignored_error);
+                                        publish_runtime_state();
+                                        Logger::instance().error(
+                                            "Rollback to previous config failed: unknown error");
+                                    }
+                                    complete_inner(*result);
+                                };
+                                if (!confirmed) {
+                                    result->error = confirmation_error;
+                                    Logger::instance().error("Candidate resolver confirmation failed: {}",
+                                                             confirmation_error);
+                                    rollback_inner();
+                                    return;
+                                }
+                                try {
+                                    transaction->resolver_confirmed();
+                                    if (!transaction->may_commit()) {
+                                        throw DaemonError("resolver confirmation did not unlock config commit");
+                                    }
+                                    if (persist_config) {
+                                        write_config_atomically(config_path_, saved_config_json);
+                                    }
+                                    config_store_.replace_active(config_, outbound_marks_);
+                                    if (persist_config) {
+                                        config_store_.clear_staged_if_matches(saved_config_json);
+                                    }
+                                    transition_runtime_or_throw(RuntimeState::running,
+                                                                "config apply complete");
+                                    publish_runtime_state();
+                                    result->saved = persist_config;
+                                    result->applied = true;
+                                    result->rolled_back = false;
+                                    transaction->committed();
+                                } catch (const std::exception& error) {
+                                    result->error = error.what();
+                                    Logger::instance().error("Config durable commit failed: {}", error.what());
+                                    rollback_inner();
+                                    return;
+                                }
+                                complete_inner(*result);
+                            },
+                            "config-apply-resolver-confirmation-commit");
+                    });
+                if (!queued) {
+                    throw DaemonError("resolver confirmation executor is unavailable");
+                }
+            } catch (const std::exception& e) {
+                result->error = e.what();
+                Logger::instance().error("Apply staged config task failed: {}", e.what());
+                rollback();
             }
         },
-        true,
+        false,
         "api-apply-config");
-    return *result;
+    return completion_future.get();
 }
 
 ListRefreshOperationResult Daemon::refresh_lists_via_api(std::optional<std::string> requested_name) {

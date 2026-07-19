@@ -291,6 +291,7 @@ set(SOURCES
   src/ipc/control_client.cpp
   src/ipc/resolver_fallback.cpp
   src/daemon/config_store.cpp
+  src/daemon/config_apply_transaction.cpp
   src/daemon/pid_file.cpp
   src/daemon/daemon_core.cpp
   src/daemon/daemon_runtime.cpp
@@ -299,6 +300,7 @@ set(SOURCES
   src/daemon/daemon_dns_probe.cpp
   src/daemon/list_service.cpp
   src/daemon/resolver_health.cpp
+  src/daemon/resolver_apply_confirmation.cpp
   src/daemon/resolver_sync_state_machine.cpp
   src/daemon/runtime_state_store.cpp
   src/daemon/system_resolver_hook.cpp

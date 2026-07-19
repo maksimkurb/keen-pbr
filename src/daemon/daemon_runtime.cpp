@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <thread>
 
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
@@ -22,29 +23,55 @@
 
 namespace keen_pbr3 {
 
-void Daemon::run_system_resolver_hook_reload() {
+bool Daemon::run_system_resolver_hook_reload() {
     auto& log = Logger::instance();
 
     std::string command;
     int exit_code = 0;
-    const bool ok = execute_system_resolver_reload_hook(
-        config_,
-        hook_command_executor_,
-        command,
-        exit_code);
+    // dnsmasq invokes the CLI's streaming resolver endpoint while the hook is
+    // waiting for its restart command. Keep a narrowly scoped accept pump
+    // alive so the event-loop thread may safely wait for the hook itself.
+    ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
+    std::atomic<bool> pump_running{true};
+    std::thread control_pump([this, &pump_running] {
+        while (pump_running.load(std::memory_order_acquire)) {
+            try {
+                handle_ipc_control_socket();
+            } catch (const std::exception& error) {
+                Logger::instance().error("resolver hook IPC pump failed: {}", error.what());
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+    });
+
+    bool ok = false;
+    try {
+        ok = execute_system_resolver_reload_hook(
+            config_, hook_command_executor_, command, exit_code);
+    } catch (...) {
+        pump_running.store(false, std::memory_order_release);
+        control_pump.join();
+        ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
+        throw;
+    }
+
+    pump_running.store(false, std::memory_order_release);
+    control_pump.join();
+    ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
 
     if (command.empty()) {
-        return;
+        return true;
     }
 
     if (!ok) {
         log.warn("System resolver reload hook failed (exit code: {}): {}",
                  exit_code,
                  command);
-        return;
+        return false;
     }
 
     log.info("System resolver reload hook complete: {}", command);
+    return true;
 }
 
 bool Daemon::routing_runtime_active() const {
@@ -196,7 +223,9 @@ void Daemon::reconcile_lists_only(bool reload_resolver) {
     try {
         apply_firewall(FirewallApplyMode::StaticSetsOnly);
         if (reload_resolver) {
-            run_system_resolver_hook_reload();
+            if (!run_system_resolver_hook_reload()) {
+                throw DaemonError("system resolver reload hook failed");
+            }
         }
         publish_runtime_state();
     } catch (...) {
@@ -544,7 +573,8 @@ PreparedRuntimeInputs Daemon::prepare_runtime_inputs(const Config& config,
     return prepared;
 }
 
-void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
+void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
+                                           bool publish_active_snapshot) {
     if (event_loop_active_.load(std::memory_order_acquire) && !is_event_loop_thread()) {
         throw DaemonError("apply_prepared_runtime_inputs must run on the control/event-loop thread");
     }
@@ -590,12 +620,16 @@ void Daemon::apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared) {
     schedule_lists_autoupdate();
     update_resolver_config_hash();
     setup_dns_probe();
-    run_system_resolver_hook_reload();
+    if (!run_system_resolver_hook_reload()) {
+        throw DaemonError("system resolver reload hook failed");
+    }
     refresh_resolver_config_hash_actual_async();
     schedule_resolver_config_hash_actual_refresh();
 
-    config_store_.replace_active(config_, outbound_marks_);
-    publish_runtime_state();
+    if (publish_active_snapshot) {
+        config_store_.replace_active(config_, outbound_marks_);
+        publish_runtime_state();
+    }
 }
 
 void Daemon::apply_config(Config config, bool refresh_remote_lists) {
@@ -645,7 +679,21 @@ void Daemon::reload_from_disk() {
     ss << ifs.rdbuf();
     Config next_config = parse_config(ss.str());
     validate_config(next_config);
-    apply_config(std::move(next_config));
+    const Config previous_config = config_store_.active_config();
+    try {
+        apply_config(std::move(next_config));
+    } catch (...) {
+        try {
+            apply_config(previous_config, false);
+        } catch (const std::exception& rollback_error) {
+            std::string ignored_error;
+            (void)runtime_state_machine_.transition(
+                RuntimeState::broken, "disk reload rollback failed", ignored_error);
+            publish_runtime_state();
+            Logger::instance().error("Disk reload rollback failed: {}", rollback_error.what());
+        }
+        throw;
+    }
 }
 
 } // namespace keen_pbr3

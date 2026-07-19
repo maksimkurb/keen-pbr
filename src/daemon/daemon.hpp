@@ -180,7 +180,10 @@ private:
                                       std::map<std::string, URLTestResult> results,
                                       TraceId trace_id);
     void apply_config(Config config, bool refresh_remote_lists = true);
-    void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared);
+    // Candidate application may mutate kernel/resolver state while keeping the
+    // externally visible active snapshot unchanged until its transaction commits.
+    void apply_prepared_runtime_inputs(PreparedRuntimeInputs prepared,
+                                       bool publish_active_snapshot = true);
     PreparedRuntimeInputs prepare_runtime_inputs(const Config& config,
                                                 bool refresh_remote_lists = true);
     void apply_config_with_rollback(const Config& next_config, bool& rolled_back);
@@ -190,7 +193,7 @@ private:
     void restart_routing_runtime();
     bool routing_runtime_active() const;
     void transition_runtime_or_throw(RuntimeState next, const char* reason);
-    void run_system_resolver_hook_reload();
+    bool run_system_resolver_hook_reload();
     void schedule_lists_autoupdate();
     ListsRefreshExecutionResult execute_remote_list_refresh(
         const std::set<std::string>* target_lists = nullptr,
@@ -220,6 +223,11 @@ private:
                                            std::optional<ResolverConfigHashProbeResult> probe_result,
                                            std::optional<std::int64_t> probe_completed_ts,
                                            TraceId trace_id);
+    static bool wait_for_resolver_config_hash_confirmation(
+        const Config& candidate,
+        const std::string& expected_hash,
+        std::int64_t apply_started_ts,
+        std::string& error);
 
 #ifdef WITH_API
     // API integration
@@ -231,7 +239,8 @@ private:
                                          bool require_runtime_stopped);
     ConfigApplyResult apply_validated_config_via_control_task(
         Config config,
-        std::string saved_config_json);
+        std::string saved_config_json,
+        bool persist_config = true);
     void run_runtime_control_operation_or_throw(const std::string& label,
                                                 const char* operation_name,
                                                 std::function<void()> task);
@@ -335,6 +344,7 @@ private:
     std::atomic<std::uint64_t> runtime_generation_{1};
     std::atomic<bool> remote_list_refresh_inflight_{false};
     std::atomic<bool> ipc_mutation_inflight_{false};
+    std::atomic<bool> ipc_resolver_hook_inflight_{false};
     std::atomic<bool> resolver_hash_refresh_inflight_{false};
 
 #ifdef WITH_API

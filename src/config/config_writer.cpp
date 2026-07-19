@@ -3,6 +3,8 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <functional>
+#include <mutex>
 #include <fcntl.h>
 #include <stdexcept>
 #include <string>
@@ -13,6 +15,18 @@
 
 namespace keen_pbr3 {
 namespace {
+
+std::mutex g_phase_hook_mutex;
+std::function<void(ConfigWritePhase)> g_phase_hook;
+
+void invoke_phase_hook(ConfigWritePhase phase) {
+    std::function<void(ConfigWritePhase)> hook;
+    {
+        const std::lock_guard lock(g_phase_hook_mutex);
+        hook = g_phase_hook;
+    }
+    if (hook) hook(phase);
+}
 
 std::runtime_error errno_error(const std::string& prefix) {
     return std::runtime_error(prefix + ": " + std::strerror(errno));
@@ -35,6 +49,11 @@ void fsync_fd(int fd, const std::string& what) {
 }
 
 } // namespace
+
+void set_config_write_phase_hook_for_testing(std::function<void(ConfigWritePhase)> hook) {
+    const std::lock_guard lock(g_phase_hook_mutex);
+    g_phase_hook = std::move(hook);
+}
 
 void write_config_atomically(const std::string& config_path,
                              const std::string& body) {
@@ -69,7 +88,9 @@ void write_config_atomically(const std::string& config_path,
         if (::fchmod(tmp_fd, mode) != 0) {
             throw errno_error("Cannot set config file mode");
         }
+        invoke_phase_hook(ConfigWritePhase::BeforeTemporaryWrite);
         write_all(tmp_fd, body);
+        invoke_phase_hook(ConfigWritePhase::BeforeTemporaryFsync);
         fsync_fd(tmp_fd, "temporary config file");
         if (::close(tmp_fd) != 0) {
             tmp_fd = -1;
@@ -77,6 +98,7 @@ void write_config_atomically(const std::string& config_path,
         }
         tmp_fd = -1;
 
+        invoke_phase_hook(ConfigWritePhase::BeforeRename);
         if (::rename(tmp_path.c_str(), config_path.c_str()) != 0) {
             throw errno_error("Cannot replace config file");
         }
@@ -84,6 +106,7 @@ void write_config_atomically(const std::string& config_path,
         const int dir_fd = ::open(directory.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
         if (dir_fd < 0) throw errno_error("Cannot open config directory for fsync");
         try {
+            invoke_phase_hook(ConfigWritePhase::BeforeDirectoryFsync);
             fsync_fd(dir_fd, "config directory");
         } catch (...) {
             ::close(dir_fd);

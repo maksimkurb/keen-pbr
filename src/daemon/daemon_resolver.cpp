@@ -1,4 +1,5 @@
 #include "daemon.hpp"
+#include "resolver_apply_confirmation.hpp"
 
 #include "../dns/dns_router.hpp"
 #include "../dns/keenetic_dns.hpp"
@@ -17,6 +18,8 @@ namespace keen_pbr3 {
 namespace {
 
 constexpr auto kResolverConfigHashActualRefreshInterval = std::chrono::seconds{5};
+constexpr auto kResolverApplyProbeTimeout = std::chrono::seconds{15};
+constexpr auto kResolverApplyProbeInterval = std::chrono::milliseconds{250};
 
 bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt) {
     if (!dns_cfg_opt.has_value()) {
@@ -33,6 +36,29 @@ bool dns_config_uses_keenetic_server(const std::optional<DnsConfig>& dns_cfg_opt
 }
 
 } // namespace
+
+bool Daemon::wait_for_resolver_config_hash_confirmation(
+    const Config& candidate,
+    const std::string& expected_hash,
+    std::int64_t apply_started_ts,
+    std::string& error) {
+    const auto dns_config = candidate.dns;
+    if (!dns_config.has_value() || !dns_config->system_resolver.has_value() ||
+        dns_config->system_resolver->address.empty()) {
+        return true;
+    }
+
+    const std::string resolver_address = dns_config->system_resolver->address;
+    return wait_for_resolver_hash_confirmation(
+        expected_hash, apply_started_ts,
+        std::chrono::duration_cast<std::chrono::milliseconds>(kResolverApplyProbeTimeout),
+        kResolverApplyProbeInterval,
+        [&resolver_address] {
+            return query_resolver_config_hash_txt(
+                resolver_address, "config-hash.keen.pbr", std::chrono::milliseconds{2000});
+        },
+        error);
+}
 
 void Daemon::update_resolver_config_hash() {
     ListStreamer streamer(list_service_.cache_manager());

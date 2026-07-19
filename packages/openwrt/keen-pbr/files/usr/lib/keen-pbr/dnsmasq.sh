@@ -4,7 +4,6 @@ set -e
 
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
-CONFIG_PATH="/etc/keen-pbr/config.json"
 CACHE_DIR="/var/cache/keen-pbr"
 DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
 PACKAGE_NAME="keen-pbr"
@@ -39,17 +38,8 @@ write_managed_conf() {
     log_info "Created $target with $description configuration"
 }
 
-resolver_type() {
-    if command -v nft >/dev/null 2>&1; then
-        echo "dnsmasq-nftset"
-    else
-        echo "dnsmasq-ipset"
-    fi
-}
-
 conf_script_line() {
-    printf 'conf-script=%s --config %s generate-resolver-config %s' \
-        "$KEEN_PBR_BIN" "$CONFIG_PATH" "$(resolver_type)"
+    printf 'conf-script=%s generate-resolver-config dnsmasq' "$KEEN_PBR_BIN"
 }
 
 fallback_conf_line() {

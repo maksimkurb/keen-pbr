@@ -3,7 +3,6 @@
 set -e
 
 KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
-CONFIG_PATH="/opt/etc/keen-pbr/config.json"
 DNSMASQ_FALLBACK_FILE="/opt/etc/keen-pbr/dnsmasq-fallback.conf"
 STATE_DIR="/tmp/keen-pbr"
 ACTIVE_FILE="${STATE_DIR}/active"
@@ -27,20 +26,12 @@ log_info() {
     log_message info "$1"
 }
 
-resolver_type() {
-    if command -v nft >/dev/null 2>&1; then
-        echo "dnsmasq-nftset"
-    else
-        echo "dnsmasq-ipset"
-    fi
-}
-
 fallback_conf_line() {
     printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
 }
 
 active_conf_line() {
-    "$KEEN_PBR_BIN" --config "$CONFIG_PATH" generate-resolver-config "$(resolver_type)"
+    "$KEEN_PBR_BIN" generate-resolver-config dnsmasq
 }
 
 is_active() {

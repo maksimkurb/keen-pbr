@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
+#include <fstream>
 #include <grp.h>
 #include <signal.h>
 #include <sys/eventfd.h>
@@ -344,6 +345,11 @@ void Daemon::handle_ipc_control_socket() {
             request = ipc::decode_message(frame);
             ipc::validate_request_envelope(request);
             const std::string operation = request.at("operation").get<std::string>();
+            if (ipc_resolver_hook_inflight_.load(std::memory_order_acquire) &&
+                operation != "generate-resolver-config") {
+                response = ipc::make_error_response(
+                    request, "busy", "resolver hook is the only control operation currently allowed");
+            } else {
             const bool root_peer = peer.uid == 0;
             const bool list_update_member = peer.gid == ipc_control_group_id_ && operation == "download";
             if (!root_peer && !list_update_member) {
@@ -376,15 +382,26 @@ void Daemon::handle_ipc_control_socket() {
                                         {"dns_error", result.dns_error}}}};
             } else if (operation == "generate-resolver-config") {
                 const auto runtime_snapshot = runtime_state_store_.snapshot();
-                if (!runtime_snapshot.routing_runtime_active || !routing_runtime_active_) {
-                    response = ipc::make_error_response(request, resolver_runtime_reason(runtime_snapshot),
+                const RuntimeState runtime_state = runtime_state_machine_.state();
+                if (runtime_state == RuntimeState::broken ||
+                    runtime_state == RuntimeState::shutting_down ||
+                    !runtime_snapshot.routing_runtime_active || !routing_runtime_active_) {
+                    const std::string reason = runtime_state == RuntimeState::broken
+                        ? "runtime_broken"
+                        : (runtime_state == RuntimeState::shutting_down
+                            ? "runtime_shutting_down" : resolver_runtime_reason(runtime_snapshot));
+                    response = ipc::make_error_response(request, reason,
                                                         "resolver runtime is not active");
                     const std::string frame = ipc::encode_message(response);
                     (void)send(client, frame.data(), frame.size(), MSG_NOSIGNAL);
                     close(client);
                     continue;
                 }
-                const auto active_config = config_store_.active_config();
+                // During a transactional apply dnsmasq's hook must receive the
+                // candidate, while all ordinary readers still use ConfigStore's
+                // committed snapshot. The candidate is never persisted here.
+                const auto active_config = runtime_state_machine_.state() == RuntimeState::applying
+                    ? config_ : config_store_.active_config();
                 const auto dns_config = active_config.dns.value_or(DnsConfig{});
                 const auto cache_dir = active_config.daemon.value_or(DaemonConfig{})
                     .cache_dir.value_or("/var/cache/keen-pbr");
@@ -513,6 +530,7 @@ void Daemon::handle_ipc_control_socket() {
                                         {"runtime_state_reason", snapshot.runtime_state_reason},
                                         {"routing_runtime_active", snapshot.routing_runtime_active},
                                         {"resolver_config_hash", snapshot.resolver_config_hash}}}};
+            }
             }
         } catch (const std::exception& error) {
             response = ipc::make_error_response(request, "protocol_error", error.what());
@@ -774,11 +792,42 @@ void Daemon::schedule_sigusr1_runtime_refresh() {
 void Daemon::handle_sighup() {
     auto& log = Logger::instance();
     log.info("SIGHUP: full reload starting...");
-    try {
-        reload_from_disk();
-        log.info("SIGHUP: full reload complete.");
-    } catch (const std::exception& e) {
-        log.error("SIGHUP: reload failed: {}", e.what());
+    if (!operation_coordinator_.try_begin("sighup-reload")) {
+        log.warn("SIGHUP: reload skipped because another config operation is in progress");
+        return;
+    }
+    const bool enqueued = blocking_executor_.try_post(
+        "sighup-config-transaction",
+        [this] {
+            ConfigApplyResult result;
+            try {
+                std::ifstream input(config_path_);
+                if (!input.is_open()) {
+                    throw DaemonError("Cannot open config file: " + config_path_);
+                }
+                std::ostringstream contents;
+                contents << input.rdbuf();
+                Config candidate = parse_config(contents.str());
+                validate_config(candidate);
+                result = apply_validated_config_via_control_task(
+                    std::move(candidate), "", false);
+            } catch (const std::exception& error) {
+                result.error = error.what();
+            }
+            post_control_task(
+                [this, result = std::move(result)] {
+                    operation_coordinator_.finish();
+                    if (result.error.empty()) {
+                        Logger::instance().info("SIGHUP: full reload complete.");
+                    } else {
+                        Logger::instance().error("SIGHUP: reload failed: {}", result.error);
+                    }
+                },
+                "sighup-config-transaction-complete");
+        });
+    if (!enqueued) {
+        operation_coordinator_.finish();
+        log.error("SIGHUP: reload could not be scheduled");
     }
 }
 
@@ -1013,15 +1062,32 @@ void Daemon::run() {
     schedule_lists_autoupdate();
 
     if (refresh_result.any_dns_relevant_changed()) {
-        log.info("Startup lists: DNS-relevant list(s) changed ({}); reloading system resolver.",
+        log.info("Startup lists: DNS-relevant list(s) changed: {}",
                  format_list_names(refresh_result.dns_relevant_changed_lists));
-        apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-        run_system_resolver_hook_reload();
+    }
+    // A matching stale TXT is not proof that the newly started daemon has
+    // installed its resolver configuration, so startup always restarts it.
+    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+    if (!run_system_resolver_hook_reload()) {
+        throw DaemonError("system resolver reload hook failed during startup");
     }
     update_resolver_config_hash();
+    const std::string expected_resolver_hash =
+        resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
+    std::string resolver_confirmation_error;
+    const bool resolver_confirmed = wait_for_resolver_config_hash_confirmation(
+        config_, expected_resolver_hash,
+        apply_started_ts_.load(std::memory_order_acquire), resolver_confirmation_error);
     refresh_resolver_config_hash_actual_async();
     schedule_resolver_config_hash_actual_refresh();
-    transition_runtime_or_throw(RuntimeState::running, "startup complete");
+    if (resolver_confirmed) {
+        transition_runtime_or_throw(RuntimeState::running, "startup complete");
+    } else {
+        std::string ignored_error;
+        (void)runtime_state_machine_.transition(
+            RuntimeState::broken, "startup resolver confirmation failed", ignored_error);
+        log.error("Startup resolver confirmation failed: {}", resolver_confirmation_error);
+    }
     publish_runtime_state();
 
     setup_dns_probe();

@@ -803,7 +803,7 @@ active bytes и fallback markers; полный C++ suite проходит.
 
 ## US-13. Транзакционный config apply, dnsmasq handshake и durable commit
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** очень высокая.
 
@@ -862,7 +862,18 @@ Manual SIGHUP читает изменённый пользователем disk 
 9. Перезапустить daemon с уже совпадающим hash; hook всё равно вызывается, timestamp становится новым.
 10. Убить процесс между каждой durable-write фазой и проверить recoverable disk result.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** API save теперь готовит candidate вне event
+loop, применяет его без публикации active snapshot, а затем запускает
+resolver TXT confirmation в blocking executor. Commit gate требует expected MD5
+и timestamp не старее apply; только после этого выполняются durable
+temp/fsync/rename/fsync-parent write и atomic publish. Любой pre-commit failure
+переприменяет previous runtime; успешный rollback возвращает `running`,
+неуспешный оставляет `broken`. Candidate resolver доступен hook во время
+`applying`; временный IPC pump обслуживает только resolver generation, пока
+daemon ждёт dnsmasq hook. Startup всегда restart'ит resolver и ждёт fresh TXT,
+а SIGHUP запускает тот же asynchronous transaction без перезаписи внешнего
+disk file. Добавлены transaction gate, TXT confirmation и fault-injection
+тесты durable writer (включая границу rename/fsync); полный C++ suite проходит.
 
 ---
 
