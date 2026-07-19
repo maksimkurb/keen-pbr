@@ -128,4 +128,23 @@ TEST_CASE("Firewall inspections retain backend rule order and ownership hooks") 
     CHECK(nft.sets[0].dynamic);
 }
 
+TEST_CASE("Live firewall inspectors use backend-specific commands with one contract") {
+    std::vector<std::vector<std::string>> commands;
+    const FirewallCommandRunner iptables_runner = [&](const std::vector<std::string>& command) {
+        commands.push_back(command);
+        if (command[0] == "ipset") return std::string("create kpbr4_static hash:net family inet\n");
+        return std::string("-N KeenPbrTable\n-A PREROUTING -j KeenPbrTable\n");
+    };
+    const auto iptables = inspect_iptables_live(iptables_runner);
+    CHECK(iptables.available);
+    CHECK(commands.size() == 3);
+    CHECK(iptables.sets.size() == 1);
+
+    const auto nftables = inspect_nftables_live([](const std::vector<std::string>& command) {
+        CHECK(command == std::vector<std::string>{"nft", "-j", "list", "table", "inet", "KeenPbrTable"});
+        return std::string(R"({"nftables":[{"table":{"family":"inet","name":"KeenPbrTable"}}]})");
+    });
+    CHECK(nftables.available);
+}
+
 } // namespace keen_pbr3

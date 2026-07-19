@@ -148,6 +148,18 @@ FirewallActualState inspect_nftables_state(const ParsedNftablesState& parsed) {
     return state;
 }
 
+FirewallActualState inspect_iptables_live(const FirewallCommandRunner& run) {
+    return inspect_iptables_state(
+        parse_iptables_s(run({"iptables", "-t", "mangle", "-S"})),
+        parse_iptables_s(run({"ip6tables", "-t", "mangle", "-S"})),
+        parse_ipset_save(run({"ipset", "save"})));
+}
+
+FirewallActualState inspect_nftables_live(const FirewallCommandRunner& run) {
+    return inspect_nftables_state(
+        parse_nft_json(run({"nft", "-j", "list", "table", "inet", "KeenPbrTable"})));
+}
+
 FirewallReconcileResult FirewallReconciler::reconcile(const FirewallDesiredState& desired) {
     try {
         std::string probe_error;

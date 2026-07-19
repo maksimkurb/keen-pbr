@@ -9,6 +9,7 @@ namespace keen_pbr3 {
 struct ParsedIptablesState;
 struct ParsedIpset;
 struct ParsedNftablesState;
+using FirewallCommandRunner = std::function<std::string(const std::vector<std::string>&)>;
 
 struct FirewallSetSnapshot {
     std::string name;
@@ -58,6 +59,9 @@ FirewallActualState inspect_iptables_state(const ParsedIptablesState& ipv4,
                                            const ParsedIptablesState& ipv6,
                                            const std::vector<ParsedIpset>& sets = {});
 FirewallActualState inspect_nftables_state(const ParsedNftablesState& state);
+
+FirewallActualState inspect_iptables_live(const FirewallCommandRunner& run);
+FirewallActualState inspect_nftables_live(const FirewallCommandRunner& run);
 
 class FirewallReconcilerBackend {
 public:
