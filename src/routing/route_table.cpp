@@ -109,6 +109,11 @@ void RouteTable::remove_obsolete(const std::vector<RouteSpec>& desired) {
     }
 }
 
+void RouteTable::adopt_desired(const std::vector<RouteSpec>& desired) {
+    routes_ = desired;
+    owned_routes_.clear();
+}
+
 void RouteTable::clear() {
     if (!dry_run_) {
         for (auto it = owned_routes_.rbegin(); it != owned_routes_.rend(); ++it) {

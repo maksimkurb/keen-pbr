@@ -157,6 +157,8 @@ void Daemon::reconcile_static_routing() {
     // state and only removes objects with a verifiable ownership marker.
     RoutingReconciler(netlink_).reconcile(desired_routes.get_routes(),
                                           desired_rules.get_rules());
+    route_table_.adopt_desired(desired_routes.get_routes());
+    policy_rules_.adopt_desired(desired_rules.get_rules());
 }
 
 void Daemon::apply_firewall(FirewallApplyMode mode) {

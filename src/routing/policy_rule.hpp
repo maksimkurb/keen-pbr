@@ -30,6 +30,9 @@ public:
     void add_missing(const std::vector<RuleSpec>& desired);
     void remove_obsolete(const std::vector<RuleSpec>& desired);
 
+    // Replace the tracked desired snapshot without mutating netlink.
+    void adopt_desired(const std::vector<RuleSpec>& desired);
+
     // Remove all installed policy rules (shutdown cleanup).
     void clear();
 

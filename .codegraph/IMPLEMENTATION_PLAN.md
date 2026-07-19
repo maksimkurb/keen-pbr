@@ -227,7 +227,7 @@ adoption и delete failure.
 
 ## US-04. Fail-closed guards, rule priorities и отдельные enforced marks
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** высокая.
 
@@ -281,7 +281,15 @@ adoption и delete failure.
 7. Исчерпать mask/priority range; validation падает до netlink apply.
 8. Для user-owned table проверить, что routes остались byte-for-byte неизменными.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:** Добавлены terminal RPDB actions
+`unreachable|blackhole`, configurable на daemon/outbound уровне. Allocator
+резервирует стабильные пары priority от `iproute.rule_priority_start` (fallback
+на `table_start`), а URLTEST и internal DNS/list detours всегда получают
+lookup+terminal pair. Для internal traffic выделяется отдельный fwmark; list
+downloads используют именно его. Марки и table allocation детерминированы по
+identity. Netlink inspect/reconcile и health проверяют priority/action; daemon
+adopt-ит verified desired snapshot для status. Добавлены unit-тесты guards,
+allocator reorder, validation и adoption.
 
 ---
 

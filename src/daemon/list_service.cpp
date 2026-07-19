@@ -217,7 +217,7 @@ RemoteListsRefreshResult ListService::download_remote_lists(const Config& config
 
             uint32_t fwmark = 0;
             if (list_cfg.detour.has_value()) {
-                auto it = outbound_marks.find(*list_cfg.detour);
+                auto it = outbound_marks.find(internal_detour_mark_key(*list_cfg.detour));
                 if (it != outbound_marks.end()) {
                     fwmark = it->second;
                 } else {

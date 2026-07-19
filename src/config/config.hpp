@@ -86,8 +86,12 @@ FirewallBackendPreference firewall_backend_preference(const Config& config);
 // Maps outbound tag to its assigned fwmark value
 using OutboundMarkMap = std::map<std::string, uint32_t>;
 
-// Validates fwmark.mask and assigns sequential fwmarks to interface and table
-// outbounds. Blackhole, ignore, and urltest outbounds do NOT get marks.
+// Reserved map key for traffic initiated by keen-pbr itself (DNS/list fetches).
+// It is deliberately distinct from the mark used for user packet classification.
+std::string internal_detour_mark_key(const std::string& outbound_tag);
+
+// Validates fwmark.mask and assigns deterministic normal and internal-detour
+// fwmarks to each routable outbound. Blackhole and ignore outbounds get none.
 // Throws ConfigError if mask is invalid or too many outbounds for the mark space.
 OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
                                          const std::vector<Outbound>& outbounds);

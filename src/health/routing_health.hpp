@@ -51,6 +51,7 @@ struct PolicyRuleCheck {
     uint32_t fwmask{0};
     uint32_t expected_table{0};
     uint32_t priority{0};
+    std::string expected_action{"lookup"};
     bool rule_present_v4{false};
     bool rule_present_v6{false};
     CheckStatus status{CheckStatus::missing};

@@ -5,6 +5,7 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <set>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -67,6 +68,16 @@ bool strict_enforcement_enabled(const Config& cfg, const Outbound& ob) {
         return *ob.strict_enforcement;
     }
     return cfg.daemon.value_or(DaemonConfig{}).strict_enforcement.value_or(false);
+}
+
+RuleAction strict_enforcement_action(const Config& cfg, const Outbound& ob) {
+    const auto configured = ob.strict_enforcement_action.has_value()
+        ? ob.strict_enforcement_action
+        : cfg.daemon.value_or(DaemonConfig{}).strict_enforcement_action;
+    if (configured.has_value() && *configured == api::StrictEnforcementAction::BLACKHOLE) {
+        return RuleAction::blackhole;
+    }
+    return RuleAction::unreachable;
 }
 
 bool parse_ip(const std::string& ip, int family, void* out) {
@@ -310,7 +321,19 @@ void populate_routing_state(const Config& cfg,
                             OutboundReachabilityFn reachability_check,
                             const std::map<std::string, std::string>* urltest_selections,
                             bool ipv6_enabled) {
-    const auto& outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
+    auto outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
+    std::stable_sort(outbounds.begin(), outbounds.end(), [](const Outbound& left, const Outbound& right) {
+        const auto rank = [](OutboundType type) {
+            switch (type) {
+            case OutboundType::INTERFACE: return 0;
+            case OutboundType::TABLE: return 1;
+            case OutboundType::URLTEST: return 2;
+            default: return 3;
+            }
+        };
+        return rank(left.type) == rank(right.type) ? left.tag < right.tag
+                                                   : rank(left.type) < rank(right.type);
+    });
     const uint32_t table_start = static_cast<uint32_t>(
         cfg.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
     const uint32_t fwmark_mask = fwmark_mask_value(cfg.fwmark.value_or(FwmarkConfig{}));
@@ -324,7 +347,42 @@ void populate_routing_state(const Config& cfg,
         planned_routes.push_back(route);
     };
 
+    const uint32_t rule_priority_start = static_cast<uint32_t>(
+        cfg.iproute.value_or(IprouteConfig{}).rule_priority_start.value_or(table_start));
     uint32_t table_offset = 0;
+    uint32_t rule_offset = 0;
+    std::set<std::string> internal_detours;
+    for (const auto& [name, list] : cfg.lists.value_or(std::map<std::string, ListConfig>{})) {
+        (void)name;
+        if (list.detour) internal_detours.insert(*list.detour);
+    }
+    for (const auto& server : cfg.dns.value_or(DnsConfig{}).servers.value_or(std::vector<DnsServer>{})) {
+        if (server.detour) internal_detours.insert(*server.detour);
+    }
+    auto add_lookup_and_guard = [&](uint32_t mark, uint32_t table, const Outbound& ob,
+                                    bool guard_required) {
+        RuleSpec lookup;
+        lookup.fwmark = mark;
+        lookup.fwmask = fwmark_mask;
+        lookup.table = table;
+        lookup.priority = rule_priority_start + rule_offset * 2;
+        if (!ipv6_enabled) lookup.family = AF_INET;
+        planned_rules.push_back(lookup);
+        if (guard_required) {
+            RuleSpec guard = lookup;
+            guard.table = 0;
+            guard.priority += 1;
+            guard.action = strict_enforcement_action(cfg, ob);
+            planned_rules.push_back(guard);
+        }
+        ++rule_offset;
+    };
+    auto add_internal_detour_guard = [&](uint32_t table, const Outbound& ob) {
+        const auto mark = marks.find(internal_detour_mark_key(ob.tag));
+        if (mark != marks.end() && internal_detours.count(ob.tag) != 0) {
+            add_lookup_and_guard(mark->second, table, ob, true);
+        }
+    };
     for (const auto& ob : outbounds) {
         if (ob.type == OutboundType::INTERFACE) {
             auto mark_it = marks.find(ob.tag);
@@ -349,29 +407,17 @@ void populate_routing_state(const Config& cfg,
                 }
             }
 
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = table_id;
-            ip_rule.priority = table_id;
-            if (!ipv6_enabled) {
-                ip_rule.family = AF_INET;
-            }
-            planned_rules.push_back(ip_rule);
+            add_lookup_and_guard(mark_it->second, table_id, ob, strict);
+            add_internal_detour_guard(table_id, ob);
         } else if (ob.type == OutboundType::TABLE) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
 
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = static_cast<uint32_t>(ob.table.value_or(0));
-            ip_rule.priority = safe_table_id(table_start, table_offset);
-            if (!ipv6_enabled) {
-                ip_rule.family = AF_INET;
-            }
+            const bool strict = strict_enforcement_enabled(cfg, ob);
+            add_lookup_and_guard(mark_it->second,
+                                 static_cast<uint32_t>(ob.table.value_or(0)), ob, strict);
+            add_internal_detour_guard(static_cast<uint32_t>(ob.table.value_or(0)), ob);
             ++table_offset;
-            planned_rules.push_back(ip_rule);
         } else if (ob.type == OutboundType::URLTEST) {
             auto mark_it = marks.find(ob.tag);
             if (mark_it == marks.end()) continue;
@@ -422,15 +468,8 @@ void populate_routing_state(const Config& cfg,
                 add_route_if_enabled(route);
             }
 
-            RuleSpec ip_rule;
-            ip_rule.fwmark = mark_it->second;
-            ip_rule.fwmask = fwmark_mask;
-            ip_rule.table = table_id;
-            ip_rule.priority = table_id;
-            if (!ipv6_enabled) {
-                ip_rule.family = AF_INET;
-            }
-            planned_rules.push_back(ip_rule);
+            add_lookup_and_guard(mark_it->second, table_id, ob, true);
+            add_internal_detour_guard(table_id, ob);
         }
         // BLACKHOLE: no routing table, no ip rule
         // IGNORE: no routing needed

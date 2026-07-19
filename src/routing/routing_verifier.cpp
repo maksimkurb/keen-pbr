@@ -8,6 +8,15 @@ namespace keen_pbr3 {
 
 namespace {
 
+std::string rule_action_label(RuleAction action) {
+    switch (action) {
+    case RuleAction::lookup: return "lookup";
+    case RuleAction::unreachable: return "unreachable";
+    case RuleAction::blackhole: return "blackhole";
+    }
+    return "lookup";
+}
+
 std::string route_type_label(const DumpedRoute& route) {
     if (route.blackhole) return "blackhole";
     if (route.unreachable) return "unreachable";
@@ -170,13 +179,15 @@ PolicyRuleCheck RoutingVerifier::verify_policy_rule(const RuleSpec& expected,
     result.fwmask         = expected.fwmask;
     result.expected_table = expected.table;
     result.priority       = expected.priority;
+    result.expected_action = rule_action_label(expected.action);
 
     try {
         auto rules = netlink_.dump_policy_rules();
 
         for (const auto& r : rules) {
             if (r.fwmark != expected.fwmark || r.fwmask != expected.fwmask ||
-                r.table  != expected.table) {
+                r.table != expected.table || r.priority != expected.priority ||
+                r.action != expected.action) {
                 continue;
             }
             if (r.family == AF_INET) {
@@ -199,7 +210,8 @@ PolicyRuleCheck RoutingVerifier::verify_policy_rule(const RuleSpec& expected,
             std::ostringstream detail;
             detail << "ip rule fwmark=0x" << std::hex << expected.fwmark
                    << "/0x" << expected.fwmask << " table=" << std::dec
-                   << expected.table << " missing:";
+                   << expected.table << " priority=" << expected.priority
+                   << " action=" << result.expected_action << " missing:";
             if (!ok_v4) detail << " IPv4";
             if (!ok_v6) detail << " IPv6";
             result.detail = detail.str();

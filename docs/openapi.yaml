@@ -358,6 +358,11 @@ components:
             cannot be confirmed reachable.
           default: false
           example: true
+        strict_enforcement_action:
+          type: string
+          enum: [unreachable, blackhole]
+          default: unreachable
+          description: Terminal RPDB action used by strict enforcement.
         max_file_size_bytes:
           type: integer
           description: >
@@ -502,6 +507,10 @@ components:
             configured gateway/interface cannot be confirmed reachable. Overrides
             `daemon.strict_enforcement` when present.
           example: true
+        strict_enforcement_action:
+          type: string
+          enum: [unreachable, blackhole]
+          description: Per-outbound override of daemon.strict_enforcement_action.
         table:
           type: integer
           description: >
@@ -806,6 +815,11 @@ components:
           description: First routing table ID to allocate for outbounds.
           default: 150
           example: 150
+        rule_priority_start:
+          type: integer
+          nullable: true
+          description: First RPDB priority to allocate. Defaults to table_start.
+          example: 1000
 
     ListsAutoupdateConfig:
       type: object
@@ -1614,6 +1628,10 @@ components:
           type: integer
           description: Policy rule priority.
           example: 1000
+        expected_action:
+          type: string
+          enum: [lookup, unreachable, blackhole]
+          description: Expected terminal or lookup RPDB action.
         rule_present_v4:
           type: boolean
           description: Whether the IPv4 policy rule is present.

@@ -83,4 +83,14 @@ TEST_CASE("PolicyRuleManager reconciliation leaves an identical plan untouched")
     CHECK(netlink.deleted.empty());
 }
 
+TEST_CASE("PolicyRuleManager adopts desired state without claiming ownership") {
+    FakeRuleNetlink netlink;
+    PolicyRuleManager rules(netlink);
+
+    rules.adopt_desired({dual_stack_rule()});
+    rules.clear();
+
+    CHECK(netlink.deleted.empty());
+}
+
 } // namespace keen_pbr3

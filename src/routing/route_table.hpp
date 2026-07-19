@@ -31,6 +31,10 @@ public:
     void add_missing(const std::vector<RouteSpec>& desired);
     void remove_obsolete(const std::vector<RouteSpec>& desired);
 
+    // Replace the tracked desired snapshot without mutating netlink. Used after
+    // an inspect/reconcile pass has adopted kernel state.
+    void adopt_desired(const std::vector<RouteSpec>& desired);
+
     // Remove all installed routes (shutdown cleanup).
     void clear();
 

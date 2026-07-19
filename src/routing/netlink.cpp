@@ -23,6 +23,25 @@ namespace keen_pbr3 {
 
 namespace {
 
+int native_rule_action(RuleAction action) {
+    switch (action) {
+    case RuleAction::lookup: return FR_ACT_TO_TBL;
+    case RuleAction::unreachable: return FR_ACT_UNREACHABLE;
+    case RuleAction::blackhole: return FR_ACT_BLACKHOLE;
+    }
+    return FR_ACT_TO_TBL;
+}
+
+RuleAction dumped_rule_action(int action) {
+    if (action == FR_ACT_UNREACHABLE) return RuleAction::unreachable;
+    if (action == FR_ACT_BLACKHOLE) return RuleAction::blackhole;
+    return RuleAction::lookup;
+}
+
+} // namespace
+
+namespace {
+
 // Convert an nl_addr to a plain IP string (no prefix length suffix).
 std::string nl_addr_to_ip_str(struct nl_addr* addr) {
     if (!addr) return "";
@@ -339,11 +358,11 @@ RuleAddResult NetlinkManager::add_rule_for_family(const RuleSpec& spec, int fami
     }
 
     rtnl_rule_set_family(rule.get(), family);
-    rtnl_rule_set_table(rule.get(), spec.table);
+    if (spec.action == RuleAction::lookup) rtnl_rule_set_table(rule.get(), spec.table);
     rtnl_rule_set_mark(rule.get(), spec.fwmark);
     rtnl_rule_set_mask(rule.get(), spec.fwmask);
     if (spec.priority != 0) rtnl_rule_set_prio(rule.get(), spec.priority);
-    rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
+    rtnl_rule_set_action(rule.get(), native_rule_action(spec.action));
 
     const int err = rtnl_rule_add(impl_->sock, rule.get(), NLM_F_CREATE | NLM_F_EXCL);
     if (err == -NLE_EXIST) return RuleAddResult::AlreadyPresent;
@@ -362,11 +381,11 @@ void NetlinkManager::delete_rule_for_family(const RuleSpec& spec, int family) {
         throw NetlinkError("Failed to allocate rule object");
     }
     rtnl_rule_set_family(rule.get(), family);
-    rtnl_rule_set_table(rule.get(), spec.table);
+    if (spec.action == RuleAction::lookup) rtnl_rule_set_table(rule.get(), spec.table);
     rtnl_rule_set_mark(rule.get(), spec.fwmark);
     rtnl_rule_set_mask(rule.get(), spec.fwmask);
     if (spec.priority != 0) rtnl_rule_set_prio(rule.get(), spec.priority);
-    rtnl_rule_set_action(rule.get(), FR_ACT_TO_TBL);
+    rtnl_rule_set_action(rule.get(), native_rule_action(spec.action));
 
     const int err = rtnl_rule_delete(impl_->sock, rule.get(), 0);
     if (err < 0) {
@@ -477,6 +496,7 @@ std::vector<DumpedRule> NetlinkManager::dump_policy_rules(int family) {
         dr.fwmask   = rtnl_rule_get_mask(rule);
         dr.table    = rtnl_rule_get_table(rule);
         dr.family   = rtnl_rule_get_family(rule);
+        dr.action   = dumped_rule_action(rtnl_rule_get_action(rule));
 
         out->push_back(dr);
     }, &result);

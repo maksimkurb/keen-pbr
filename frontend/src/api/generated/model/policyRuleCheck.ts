@@ -6,6 +6,7 @@
  * OpenAPI spec version: 3.0.0
  */
 import type { CheckStatus } from './checkStatus';
+import type { PolicyRuleCheckExpectedAction } from './policyRuleCheckExpectedAction';
 
 export interface PolicyRuleCheck {
   /** Firewall mark as hex string. */
@@ -16,6 +17,8 @@ export interface PolicyRuleCheck {
   expected_table: number;
   /** Policy rule priority. */
   priority: number;
+  /** Expected terminal or lookup RPDB action. */
+  expected_action?: PolicyRuleCheckExpectedAction;
   /** Whether the IPv4 policy rule is present. */
   rule_present_v4: boolean;
   /** Whether the IPv6 policy rule is present. */

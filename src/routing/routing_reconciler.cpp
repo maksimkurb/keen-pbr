@@ -28,6 +28,7 @@ bool same_route(const RouteSpec& expected, const DumpedRoute& actual,
 bool same_rule(const RuleSpec& expected, const DumpedRule& actual) {
     return expected.fwmark == actual.fwmark && expected.fwmask == actual.fwmask &&
            expected.table == actual.table && expected.priority == actual.priority &&
+           expected.action == actual.action &&
            (expected.family == 0 || expected.family == actual.family);
 }
 
@@ -109,7 +110,7 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
                                         });
         if (!wanted) {
             RuleSpec stale{actual.fwmark, actual.fwmask, actual.table,
-                           actual.priority, actual.family};
+                           actual.priority, actual.family, actual.action};
             netlink_.delete_rule_for_family(stale, actual.family);
         }
     }

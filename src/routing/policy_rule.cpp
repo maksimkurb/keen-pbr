@@ -14,7 +14,8 @@ bool rules_equal(const RuleSpec& a, const RuleSpec& b) {
            a.fwmask == b.fwmask &&
            a.table == b.table &&
            a.priority == b.priority &&
-           a.family == b.family;
+           a.family == b.family &&
+           a.action == b.action;
 }
 
 } // anonymous namespace
@@ -88,7 +89,7 @@ void PolicyRuleManager::remove(const RuleSpec& spec) {
     if (!dry_run_) {
         for (auto owned = owned_rules_.begin(); owned != owned_rules_.end();) {
             if (rules_equal(*owned, RuleSpec{spec.fwmark, spec.fwmask, spec.table,
-                                             spec.priority, owned->family}) &&
+                                             spec.priority, owned->family, spec.action}) &&
                 (spec.family == 0 || spec.family == owned->family)) {
                 netlink_.delete_rule_for_family(*owned, owned->family);
                 owned = owned_rules_.erase(owned);
@@ -122,6 +123,11 @@ void PolicyRuleManager::remove_obsolete(const std::vector<RuleSpec>& desired) {
             remove(rule);
         }
     }
+}
+
+void PolicyRuleManager::adopt_desired(const std::vector<RuleSpec>& desired) {
+    rules_ = desired;
+    owned_rules_.clear();
 }
 
 void PolicyRuleManager::clear() {

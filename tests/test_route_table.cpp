@@ -100,4 +100,15 @@ TEST_CASE("RouteTable treats protocol as route identity") {
     CHECK(routes.get_routes().size() == 2);
 }
 
+TEST_CASE("RouteTable adopts desired state without claiming ownership") {
+    FakeRouteNetlink netlink;
+    RouteTable routes(netlink);
+    const auto expected = route("default", 150);
+
+    routes.adopt_desired({expected});
+    routes.clear();
+
+    CHECK(netlink.deleted.empty());
+}
+
 } // namespace keen_pbr3

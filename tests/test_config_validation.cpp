@@ -1270,3 +1270,9 @@ TEST_CASE("daemon execution kill grace may be zero but not negative") {
     REQUIRE(issues.size() == 1);
     CHECK(issues[0].path == "daemon.exec_kill_grace_seconds");
 }
+
+TEST_CASE("iproute rule priority start must be positive") {
+    const auto issues = validate_issues(R"({"iproute":{"rule_priority_start":0}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "iproute.rule_priority_start");
+}

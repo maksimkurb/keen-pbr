@@ -689,6 +689,8 @@ Config parse_config(const std::string& json_str) {
     validate_optional_integer_field(
         parsed_json, "iproute", "table_start", "iproute.table_start", issues);
     validate_optional_integer_field(
+        parsed_json, "iproute", "rule_priority_start", "iproute.rule_priority_start", issues);
+    validate_optional_integer_field(
         parsed_json, "daemon", "firewall_verify_max_bytes",
         "daemon.firewall_verify_max_bytes", issues);
     validate_optional_integer_field(
@@ -976,6 +978,34 @@ void validate_config(const Config& cfg) {
                       "iproute.table_start " + std::to_string(table_start) +
                           " is reserved. Use a different value (e.g. 150).");
         }
+
+        const auto configured_priority_start =
+            cfg.iproute.value_or(IprouteConfig{}).rule_priority_start;
+        if (configured_priority_start.has_value() &&
+            (*configured_priority_start < 1 ||
+             *configured_priority_start > std::numeric_limits<uint32_t>::max())) {
+            add_issue(issues, "iproute.rule_priority_start",
+                      "iproute.rule_priority_start must be an integer from 1 through 4294967295");
+        }
+        const bool priority_start_valid = !configured_priority_start.has_value() ||
+            (*configured_priority_start >= 1 &&
+             *configured_priority_start <= std::numeric_limits<uint32_t>::max());
+        const uint32_t rule_priority_start = static_cast<uint32_t>(
+            priority_start_valid ? configured_priority_start.value_or(table_start) : table_start);
+        const auto& configured_outbounds = cfg.outbounds.value_or(std::vector<Outbound>{});
+        const size_t routable_count = std::count_if(
+            configured_outbounds.begin(), configured_outbounds.end(),
+            [](const Outbound& outbound) {
+                return outbound.type == OutboundType::INTERFACE ||
+                       outbound.type == OutboundType::TABLE ||
+                       outbound.type == OutboundType::URLTEST;
+            });
+        if (priority_start_valid &&
+            (rule_priority_start == 0 ||
+             routable_count > (std::numeric_limits<uint32_t>::max() - rule_priority_start) / 2)) {
+            add_issue(issues, "iproute.rule_priority_start",
+                      "iproute.rule_priority_start does not leave room for reserved rule priority pairs");
+        }
     }
 
     if (firewall_backend_preference(cfg) == FirewallBackendPreference::iptables) {
@@ -1199,12 +1229,22 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
     uint32_t current_mark = start;
     uint32_t count = 0;
 
+    std::vector<const Outbound*> routable;
+    routable.reserve(outbounds.size());
     for (const auto& ob : outbounds) {
         if (ob.type != OutboundType::INTERFACE &&
             ob.type != OutboundType::TABLE &&
             ob.type != OutboundType::URLTEST) continue;
+        routable.push_back(&ob);
+    }
+    std::sort(routable.begin(), routable.end(), [](const Outbound* left, const Outbound* right) {
+        return left->tag < right->tag;
+    });
 
-        if (count >= max_marks) {
+    for (const Outbound* outbound : routable) {
+        const auto& ob = *outbound;
+
+        if (count + 2 > max_marks) {
             throw ConfigError(
                 "Too many routable outbounds: maximum " + std::to_string(max_marks) +
                 " supported with current fwmark.mask");
@@ -1212,10 +1252,16 @@ OutboundMarkMap allocate_outbound_marks(const FwmarkConfig& fwmark_cfg,
 
         mark_map[ob.tag] = current_mark;
         current_mark += step;
-        ++count;
+        mark_map[internal_detour_mark_key(ob.tag)] = current_mark;
+        current_mark += step;
+        count += 2;
     }
 
     return mark_map;
+}
+
+std::string internal_detour_mark_key(const std::string& outbound_tag) {
+    return "__keen_pbr_internal_detour__:" + outbound_tag;
 }
 
 uint32_t fwmark_start_value(const FwmarkConfig& fwmark_cfg) {

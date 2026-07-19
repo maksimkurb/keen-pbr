@@ -7,6 +7,7 @@
  */
 import type { CircuitBreakerConfig } from './circuitBreakerConfig';
 import type { OutboundGroup } from './outboundGroup';
+import type { OutboundStrictEnforcementAction } from './outboundStrictEnforcementAction';
 import type { OutboundType } from './outboundType';
 import type { RetryConfig } from './retryConfig';
 
@@ -28,6 +29,8 @@ export interface Outbound {
   /** Per-outbound override for strict routing enforcement. When enabled for an `interface` outbound, install an unreachable default route if the configured gateway/interface cannot be confirmed reachable. Overrides `daemon.strict_enforcement` when present.
    */
   strict_enforcement?: boolean;
+  /** Per-outbound override of daemon.strict_enforcement_action. */
+  strict_enforcement_action?: OutboundStrictEnforcementAction;
   /** Kernel routing table ID. Required for `table` outbound type.
    */
   table?: number;

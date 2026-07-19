@@ -216,6 +216,12 @@ static api::CheckStatus to_api_check_status(CheckStatus s) {
     return api::CheckStatus::MISSING;
 }
 
+static api::ExpectedAction to_api_expected_action(const std::string& action) {
+    if (action == "blackhole") return api::ExpectedAction::BLACKHOLE;
+    if (action == "unreachable") return api::ExpectedAction::UNREACHABLE;
+    return api::ExpectedAction::LOOKUP;
+}
+
 static api::RoutingHealthResponseFirewallBackend to_api_firewall_backend(FirewallBackend backend) {
     switch (backend) {
         case FirewallBackend::iptables:
@@ -285,6 +291,7 @@ nlohmann::json routing_health_report_to_json(const RoutingHealthReport& r) {
         arc.fwmask          = hex_str(pr.fwmask);
         arc.expected_table  = pr.expected_table;
         arc.priority        = pr.priority;
+        arc.expected_action = to_api_expected_action(pr.expected_action);
         arc.rule_present_v4 = pr.rule_present_v4;
         arc.rule_present_v6 = pr.rule_present_v6;
         arc.status          = to_api_check_status(pr.status);

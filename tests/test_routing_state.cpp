@@ -488,8 +488,9 @@ TEST_CASE("populate_routing_state: ipv6 disabled emits only ipv4 interface routi
     }, nullptr, false);
 
     CHECK(count_routes_by_family(routes.get_routes(), AF_INET6) == 0);
-    REQUIRE(rules.get_rules().size() == 1);
+    REQUIRE(rules.get_rules().size() == 2);
     CHECK(rules.get_rules()[0].family == AF_INET);
+    CHECK(rules.get_rules()[1].action == RuleAction::unreachable);
 }
 
 TEST_CASE("populate_routing_state: ipv6 disabled skips urltest ipv6 kill-switch route") {
@@ -515,9 +516,10 @@ TEST_CASE("populate_routing_state: ipv6 disabled skips urltest ipv6 kill-switch 
     }, &selections, false);
 
     CHECK(count_routes_by_family(routes.get_routes(), AF_INET6) == 0);
-    REQUIRE(rules.get_rules().size() == 2);
+    REQUIRE(rules.get_rules().size() == 3);
     CHECK(rules.get_rules()[0].family == AF_INET);
     CHECK(rules.get_rules()[1].family == AF_INET);
+    CHECK(rules.get_rules()[2].action == RuleAction::unreachable);
 }
 
 TEST_CASE("populate_routing_state: unreachable interface outbound remains unavailable when strict is disabled") {
@@ -696,8 +698,70 @@ TEST_CASE("populate_routing_state: urltest without completed probe installs only
                                    route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
                         }) == 2);
-    REQUIRE(rules.get_rules().size() == 3);
+    REQUIRE(rules.get_rules().size() == 4);
     CHECK(rules.get_rules()[2].table == 102);
+    CHECK(rules.get_rules()[3].action == RuleAction::unreachable);
+}
+
+TEST_CASE("populate_routing_state reserves stable priority pairs and applies blackhole guard") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100,"rule_priority_start":1000},
+        "daemon":{"strict_enforcement":false,"strict_enforcement_action":"blackhole"},
+        "outbounds":[
+            {"tag":"a","type":"interface","interface":"wg0","gateway":"10.8.0.1"},
+            {"tag":"b","type":"interface","interface":"wg1","gateway":"10.9.0.1","strict_enforcement":true}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) { return true; });
+
+    REQUIRE(rules.get_rules().size() == 3);
+    CHECK(rules.get_rules()[0].priority == 1000);
+    CHECK(rules.get_rules()[1].priority == 1002);
+    CHECK(rules.get_rules()[2].priority == 1003);
+    CHECK(rules.get_rules()[2].action == RuleAction::blackhole);
+}
+
+TEST_CASE("outbound marks are stable when independent config entries are reordered") {
+    const auto first = parse_minimal_config(R"({"outbounds":[
+        {"tag":"zeta","type":"interface","interface":"wg0"},
+        {"tag":"alpha","type":"table","table":200}
+    ]})");
+    const auto second = parse_minimal_config(R"({"outbounds":[
+        {"tag":"alpha","type":"table","table":200},
+        {"tag":"zeta","type":"interface","interface":"wg0"}
+    ]})");
+
+    const auto first_marks = allocate_outbound_marks(
+        first.fwmark.value_or(FwmarkConfig{}), first.outbounds.value_or(std::vector<Outbound>{}));
+    const auto second_marks = allocate_outbound_marks(
+        second.fwmark.value_or(FwmarkConfig{}), second.outbounds.value_or(std::vector<Outbound>{}));
+
+    CHECK(first_marks == second_marks);
+}
+
+TEST_CASE("populate_routing_state gives an internal detour an always-guarded mark") {
+    auto cfg = parse_minimal_config(R"({
+        "lists":{"remote":{"url":"https://example.com/list","detour":"vpn"}},
+        "outbounds":[{"tag":"vpn","type":"interface","interface":"wg0"}]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(cfg, marks, routes, rules, [](const Outbound&) { return true; });
+
+    REQUIRE(rules.get_rules().size() == 3);
+    CHECK(rules.get_rules()[1].fwmark == marks.at(internal_detour_mark_key("vpn")));
+    CHECK(rules.get_rules()[2].action == RuleAction::unreachable);
+    CHECK(rules.get_rules()[2].priority == rules.get_rules()[1].priority + 1);
 }
 
 TEST_CASE("populate_routing_state: urltest without completed probe keeps only terminal kill-switch routes") {

@@ -9,4 +9,6 @@
 export interface IprouteConfig {
   /** First routing table ID to allocate for outbounds. */
   table_start?: number;
+  /** First RPDB priority to allocate. Defaults to table_start. */
+  rule_priority_start?: number | null;
 }

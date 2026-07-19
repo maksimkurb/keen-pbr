@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesFxcxYw data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesIhIOxh data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -120,6 +120,8 @@ namespace api {
 
     enum class DaemonConfigFirewallBackend : int { AUTO, IPTABLES, NFTABLES };
 
+    enum class StrictEnforcementAction : int { BLACKHOLE, UNREACHABLE };
+
     struct Daemon {
         std::optional<std::string> cache_dir;
         std::optional<int64_t> exec_kill_grace_seconds;
@@ -131,6 +133,7 @@ namespace api {
         std::optional<std::string> pid_file;
         std::optional<bool> skip_marked_packets;
         std::optional<bool> strict_enforcement;
+        std::optional<StrictEnforcementAction> strict_enforcement_action;
     };
 
     struct DnsTestServer {
@@ -172,6 +175,7 @@ namespace api {
     };
 
     struct Iproute {
+        std::optional<int64_t> rule_priority_start;
         std::optional<int64_t> table_start;
     };
 
@@ -211,6 +215,7 @@ namespace api {
         std::optional<int64_t> probe_timeout_ms;
         std::optional<Retry> retry;
         std::optional<bool> strict_enforcement;
+        std::optional<StrictEnforcementAction> strict_enforcement_action;
         std::optional<int64_t> table;
         std::string tag;
         std::optional<int64_t> tolerance_ms;
@@ -333,8 +338,11 @@ namespace api {
         ConfigUpdateResponseStatus status;
     };
 
+    enum class ExpectedAction : int { BLACKHOLE, LOOKUP, UNREACHABLE };
+
     struct PolicyRuleCheck {
         std::optional<std::string> detail;
+        std::optional<ExpectedAction> expected_action;
         int64_t expected_table;
         std::string fwmark;
         std::string fwmask;
@@ -466,7 +474,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesFxcxYw {
+    struct KeenPbrTypesIhIOxh {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -659,14 +667,17 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesFxcxYw & x);
-    void to_json(json & j, const KeenPbrTypesFxcxYw & x);
+    void from_json(const json & j, KeenPbrTypesIhIOxh & x);
+    void to_json(json & j, const KeenPbrTypesIhIOxh & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
 
     void from_json(const json & j, DaemonConfigFirewallBackend & x);
     void to_json(json & j, const DaemonConfigFirewallBackend & x);
+
+    void from_json(const json & j, StrictEnforcementAction & x);
+    void to_json(json & j, const StrictEnforcementAction & x);
 
     void from_json(const json & j, DnsServerType & x);
     void to_json(json & j, const DnsServerType & x);
@@ -691,6 +702,9 @@ namespace api {
 
     void from_json(const json & j, HealthResponseStatus & x);
     void to_json(json & j, const HealthResponseStatus & x);
+
+    void from_json(const json & j, ExpectedAction & x);
+    void to_json(json & j, const ExpectedAction & x);
 
     void from_json(const json & j, RoutingHealthErrorResponseOverall & x);
     void to_json(json & j, const RoutingHealthErrorResponseOverall & x);
@@ -773,6 +787,7 @@ namespace api {
         x.pid_file = get_stack_optional<std::string>(j, "pid_file");
         x.skip_marked_packets = get_stack_optional<bool>(j, "skip_marked_packets");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
+        x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "strict_enforcement_action");
     }
 
     inline void to_json(json & j, const Daemon & x) {
@@ -787,6 +802,7 @@ namespace api {
         j["pid_file"] = x.pid_file;
         j["skip_marked_packets"] = x.skip_marked_packets;
         j["strict_enforcement"] = x.strict_enforcement;
+        j["strict_enforcement_action"] = x.strict_enforcement_action;
     }
 
     inline void from_json(const json & j, DnsTestServer& x) {
@@ -868,11 +884,13 @@ namespace api {
     }
 
     inline void from_json(const json & j, Iproute& x) {
+        x.rule_priority_start = get_stack_optional<int64_t>(j, "rule_priority_start");
         x.table_start = get_stack_optional<int64_t>(j, "table_start");
     }
 
     inline void to_json(json & j, const Iproute & x) {
         j = json::object();
+        j["rule_priority_start"] = x.rule_priority_start;
         j["table_start"] = x.table_start;
     }
 
@@ -938,6 +956,7 @@ namespace api {
         x.probe_timeout_ms = get_stack_optional<int64_t>(j, "probe_timeout_ms");
         x.retry = get_stack_optional<Retry>(j, "retry");
         x.strict_enforcement = get_stack_optional<bool>(j, "strict_enforcement");
+        x.strict_enforcement_action = get_stack_optional<StrictEnforcementAction>(j, "strict_enforcement_action");
         x.table = get_stack_optional<int64_t>(j, "table");
         x.tag = j.at("tag").get<std::string>();
         x.tolerance_ms = get_stack_optional<int64_t>(j, "tolerance_ms");
@@ -956,6 +975,7 @@ namespace api {
         j["probe_timeout_ms"] = x.probe_timeout_ms;
         j["retry"] = x.retry;
         j["strict_enforcement"] = x.strict_enforcement;
+        j["strict_enforcement_action"] = x.strict_enforcement_action;
         j["table"] = x.table;
         j["tag"] = x.tag;
         j["tolerance_ms"] = x.tolerance_ms;
@@ -1184,6 +1204,7 @@ namespace api {
 
     inline void from_json(const json & j, PolicyRuleCheck& x) {
         x.detail = get_stack_optional<std::string>(j, "detail");
+        x.expected_action = get_stack_optional<ExpectedAction>(j, "expected_action");
         x.expected_table = j.at("expected_table").get<int64_t>();
         x.fwmark = j.at("fwmark").get<std::string>();
         x.fwmask = j.at("fwmask").get<std::string>();
@@ -1196,6 +1217,7 @@ namespace api {
     inline void to_json(json & j, const PolicyRuleCheck & x) {
         j = json::object();
         j["detail"] = x.detail;
+        j["expected_action"] = x.expected_action;
         j["expected_table"] = x.expected_table;
         j["fwmark"] = x.fwmark;
         j["fwmask"] = x.fwmask;
@@ -1444,7 +1466,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesFxcxYw& x) {
+    inline void from_json(const json & j, KeenPbrTypesIhIOxh& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1498,7 +1520,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesFxcxYw & x) {
+    inline void to_json(json & j, const KeenPbrTypesIhIOxh & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1582,6 +1604,20 @@ namespace api {
             case DaemonConfigFirewallBackend::IPTABLES: j = "iptables"; break;
             case DaemonConfigFirewallBackend::NFTABLES: j = "nftables"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"DaemonConfigFirewallBackend\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StrictEnforcementAction & x) {
+        if (j == "blackhole") x = StrictEnforcementAction::BLACKHOLE;
+        else if (j == "unreachable") x = StrictEnforcementAction::UNREACHABLE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StrictEnforcementAction\""); }
+    }
+
+    inline void to_json(json & j, const StrictEnforcementAction & x) {
+        switch (x) {
+            case StrictEnforcementAction::BLACKHOLE: j = "blackhole"; break;
+            case StrictEnforcementAction::UNREACHABLE: j = "unreachable"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StrictEnforcementAction\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
@@ -1722,6 +1758,22 @@ namespace api {
             case HealthResponseStatus::RUNNING: j = "running"; break;
             case HealthResponseStatus::STOPPED: j = "stopped"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"HealthResponseStatus\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, ExpectedAction & x) {
+        if (j == "blackhole") x = ExpectedAction::BLACKHOLE;
+        else if (j == "lookup") x = ExpectedAction::LOOKUP;
+        else if (j == "unreachable") x = ExpectedAction::UNREACHABLE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"ExpectedAction\""); }
+    }
+
+    inline void to_json(json & j, const ExpectedAction & x) {
+        switch (x) {
+            case ExpectedAction::BLACKHOLE: j = "blackhole"; break;
+            case ExpectedAction::LOOKUP: j = "lookup"; break;
+            case ExpectedAction::UNREACHABLE: j = "unreachable"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"ExpectedAction\": " + std::to_string(static_cast<int>(x)));
         }
     }
 
