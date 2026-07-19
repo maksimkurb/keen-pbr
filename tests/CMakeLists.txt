@@ -1,6 +1,7 @@
 add_executable(keen-pbr-tests
   test_main.cpp
   test_firewall_verifier.cpp
+  test_firewall_reconciler.cpp
   test_nftables_builder.cpp
   test_iptables_builder.cpp
   test_cron.cpp
@@ -54,6 +55,7 @@ add_executable(keen-pbr-tests
   ../src/firewall/iptables_verifier.cpp
   ../src/firewall/nftables_verifier.cpp
   ../src/firewall/firewall_verifier.cpp
+  ../src/firewall/firewall_reconciler.cpp
   ../src/firewall/firewall.cpp
   ../src/firewall/firewall_runtime.cpp
   ../src/firewall/port_spec_util.cpp
