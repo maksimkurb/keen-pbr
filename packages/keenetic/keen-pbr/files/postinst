@@ -7,6 +7,10 @@ DNSMASQ_BACKUP="/opt/etc/dnsmasq.conf.backup-pre-keen-pbr"
 echo "keen-pbr installation"
 echo "------------------------"
 
+if ! grep -q '^keen-pbr:' /etc/group; then
+    addgroup -S keen-pbr
+fi
+
 mkdir -p /opt/usr/lib/keen-pbr
 
 answer=""

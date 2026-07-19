@@ -2,6 +2,10 @@
 
 set -e
 
+if ! getent group keen-pbr >/dev/null 2>&1; then
+    addgroup --system keen-pbr
+fi
+
 DNSMASQ_HELPER="/usr/lib/keen-pbr/dnsmasq.sh"
 DNSMASQ_CONF="/etc/dnsmasq.conf"
 DNSMASQ_TEMPLATE="/usr/lib/keen-pbr/dnsmasq.conf.template"

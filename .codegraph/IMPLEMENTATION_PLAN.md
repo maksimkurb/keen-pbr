@@ -1013,7 +1013,7 @@ policy rules/routes/firewall namespace. Ранее существующие test
 
 ## US-16. Схема, API/UI, packaging и эксплуатационная документация
 
-**Выполнено: нет**
+**Выполнено: да**
 
 **Сложность:** средняя–высокая.
 
@@ -1078,7 +1078,21 @@ Packaging:
 7. Выполнить команды из документации duplicate-rule/URLTEST в namespace fixture; наблюдаемое поведение совпадает с текстом.
 8. Проверить CLI help для required `dnsmasq` и deprecated arguments.
 
-**Примечания после имплементации: (заполнить после выполнения user-story)**
+**Примечания после имплементации:**
+
+- Source OpenAPI/config и generated backend/frontend models уже содержали
+  `strict_enforcement_action`, `rule_priority_start`, `conntrack_on_switch` и
+  runtime health fields; подтверждён их production use и сохранены defaults /
+  nullable inheritance. CMake уже валидирует numeric route protocol и задаёт
+  control socket/fallback paths как platform build options.
+- Debian, OpenWrt и Keenetic packages теперь depend на `conntrack`, создают
+  системную группу `keen-pbr`, а OpenWrt/Keenetic компилируются с platform socket
+  paths. Fallback остаётся conffile, поэтому package manager не перезаписывает
+  пользовательскую версию при upgrade.
+- English/Russian advanced configuration docs описывают terminal actions,
+  RPDB priority base, duplicate-rule non-failover, URLTEST/conntrack behaviour,
+  IPv6/DNS boundaries, mark identity, TTL and `download --reload`. Проверены
+  shell syntax package scripts, package declarations, `make` and diff hygiene.
 
 ---
 

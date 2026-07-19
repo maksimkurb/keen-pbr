@@ -2,6 +2,10 @@
 
 [ -n "$IPKG_INSTROOT" ] && exit 0
 
+if ! grep -q '^keen-pbr:' /etc/group; then
+    addgroup -S keen-pbr
+fi
+
 /etc/init.d/keen-pbr sync_firewall_hook >/dev/null 2>&1 || true
 
 exit 0

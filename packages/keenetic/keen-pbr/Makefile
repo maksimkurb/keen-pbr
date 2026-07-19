@@ -66,6 +66,7 @@ endef
 
 CMAKE_OPTIONS += \
 	-DKEEN_PBR_DEFAULT_CONFIG_PATH:STRING=/opt/etc/keen-pbr/config.json \
+	-DKEEN_PBR_CONTROL_SOCKET:STRING=/tmp/keen-pbr/control.sock \
 	-DKEEN_PBR_RESOLVER_FALLBACK_CONFIG:STRING=/opt/etc/keen-pbr/dnsmasq-fallback.conf \
 	-DKEEN_PBR_SYSTEM_RESOLVER_HOOK:STRING=/opt/usr/lib/keen-pbr/dnsmasq.sh \
 	-DKEEN_PBR_TARGET_OS:STRING=keenetic \
@@ -96,7 +97,7 @@ define Package/keen-pbr
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (full)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=full
 endef
 
@@ -152,7 +153,7 @@ define Package/keen-pbr-headless
   CATEGORY:=Network
   TITLE:=Keen Policy-Based Routing (headless)
   VERSION:=$(PKG_VERSION)-$(PKG_RELEASE)
-  DEPENDS:=+dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
+  DEPENDS:=+conntrack +dnsmasq +ipset +iptables +libatomic +libcurl +libnl-core +libnl-route +libstdcpp +libunwind +zlib +libzstd
   VARIANT:=headless
 endef
 
