@@ -12,7 +12,7 @@
   <meta name="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. strict_enforcement_action string &#34;unreachable&#34; Terminal action for strict enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup." /><link rel="canonical" href="https://keen-pbr.fyi/docs/configuration/advanced/" itemprop="url" />
 
 <meta property="og:title" content="Advanced">
 <meta
@@ -58,6 +58,12 @@ daemon
 					Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound.
 			
 			
+					strict_enforcement_action
+					string
+					&quot;unreachable&quot;
+					Terminal action for strict enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out.
+			
+			
 					max_file_size_bytes
 					integer
 					8388608 (8 MiB)
@@ -79,6 +85,7 @@ config.json{
     &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;,
     &#34;firewall_backend&#34;: &#34;auto&#34;,
     &#34;strict_enforcement&#34;: false,
+    &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;,
     &#34;max_file_size_bytes&#34;: 8388608,
     &#34;firewall_verify_max_bytes&#34;: 262144
   }
@@ -106,14 +113,14 @@ The cache directory stores downloaded remote lists so they are available if the 
 	<meta itemprop="description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
-	<meta itemprop="wordCount" content="564">
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. strict_enforcement_action string &#34;unreachable&#34; Terminal action for strict enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
+	<meta itemprop="wordCount" content="836">
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="Advanced">
 	<meta name="twitter:description" content="Most users can skip this page.
 These settings are for advanced setups and service-level tuning: daemon, api, fwmark, iproute, and lists_autoupdate.
 daemon Controls the PID file path, cache directory, and global routing behaviour.
-Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
+Field Type Default Description pid_file string — Path to write the PID file cache_dir string /var/cache/keen-pbr Directory for cached list data firewall_backend string &#34;auto&#34; Firewall backend selection: auto, iptables, or nftables strict_enforcement boolean false Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. strict_enforcement_action string &#34;unreachable&#34; Terminal action for strict enforcement: unreachable returns an immediate network error; blackhole silently drops packets until the application times out. max_file_size_bytes integer 8388608 (8 MiB) Maximum allowed size in bytes for downloaded remote list content firewall_verify_max_bytes integer 262144 Maximum stdout bytes captured per firewall verification command (0 = unlimited) config.json{ &#34;daemon&#34;: { &#34;pid_file&#34;: &#34;/var/run/keen-pbr.pid&#34;, &#34;cache_dir&#34;: &#34;/var/cache/keen-pbr&#34;, &#34;firewall_backend&#34;: &#34;auto&#34;, &#34;strict_enforcement&#34;: false, &#34;strict_enforcement_action&#34;: &#34;unreachable&#34;, &#34;max_file_size_bytes&#34;: 8388608, &#34;firewall_verify_max_bytes&#34;: 262144 } } The cache directory stores downloaded remote lists so they are available if the network is unreachable at startup.">
 
     <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
     <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
@@ -436,6 +443,12 @@ Field Type Default Description pid_file string — Path to write the PID file ca
             </li>
           <li>
               <a
+                href="#routing-boundaries-and-failover"
+                class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
+              >Routing boundaries and failover</a>
+            </li>
+          <li>
+              <a
                 href="#single-instance-requirement"
                 class="hx:flex hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [word-break:break-word] hx:cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] hx:contrast-more:border hx:gap-2 hx:before:opacity-25 hx:before:content-['#'] hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:text-gray-900 hx:contrast-more:dark:text-gray-50 hx:contrast-more:border-transparent hx:contrast-more:hover:border-gray-900 hx:contrast-more:dark:hover:border-gray-50"
               >Single-instance requirement</a>
@@ -547,6 +560,30 @@ Field Type Default Description pid_file string — Path to write the PID file ca
       
     >
       <span class="hx:min-w-0 [word-break:break-word]">Support This Project</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/iptables-atomic-reconcile/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">iptables/ipset atomic reconciliation</span>
+    </a>
+  </div>
+              
+            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/nftables-atomic-reconcile/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">nftables atomic reconciliation</span>
     </a>
   </div>
               
@@ -823,6 +860,28 @@ Field Type Default Description pid_file string — Path to write the PID file ca
       <span class="hx:min-w-0 [word-break:break-word]">Support This Project</span>
     </a>
   </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/iptables-atomic-reconcile/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">iptables/ipset atomic reconciliation</span>
+    </a>
+  </div></li>
+            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/nftables-atomic-reconcile/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">nftables atomic reconciliation</span>
+    </a>
+  </div></li>
         
       </ul>
     </div>
@@ -946,6 +1005,10 @@ Field Type Default Description pid_file string — Path to write the PID file ca
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
         <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#iproute">iproute
+        </a>
+      </li>
+      <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
+        <a class="hx:font-medium hx:inline-block hx:rounded-sm hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-300 hx:contrast-more:text-gray-900 hx:contrast-more:underline hx:contrast-more:dark:text-gray-50 hx:w-full hx:wrap-break-word hx:hextra-focus-visible-inset" href="#routing-boundaries-and-failover">Routing boundaries and failover
         </a>
       </li>
       <li class="hx:my-2 hx:scroll-my-6 hx:scroll-py-6">
@@ -1078,6 +1141,12 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td>Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound.</td>
 			</tr>
 			<tr>
+					<td><code>strict_enforcement_action</code></td>
+					<td>string</td>
+					<td><code>&quot;unreachable&quot;</code></td>
+					<td>Terminal action for strict enforcement: <code>unreachable</code> returns an immediate network error; <code>blackhole</code> silently drops packets until the application times out.</td>
+			</tr>
+			<tr>
 					<td><code>max_file_size_bytes</code></td>
 					<td>integer</td>
 					<td><code>8388608</code> (8 MiB)</td>
@@ -1099,6 +1168,7 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;cache_dir&#34;</span><span class="p">:</span> <span class="s2">&#34;/var/cache/keen-pbr&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_backend&#34;</span><span class="p">:</span> <span class="s2">&#34;auto&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement&#34;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;strict_enforcement_action&#34;</span><span class="p">:</span> <span class="s2">&#34;unreachable&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;max_file_size_bytes&#34;</span><span class="p">:</span> <span class="mi">8388608</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="nt">&#34;firewall_verify_max_bytes&#34;</span><span class="p">:</span> <span class="mi">262144</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
@@ -1233,13 +1303,20 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 					<td><code>150</code></td>
 					<td>First routing table ID to allocate for outbounds</td>
 			</tr>
+			<tr>
+					<td><code>rule_priority_start</code></td>
+					<td>integer or null</td>
+					<td><code>table_start</code></td>
+					<td>First RPDB rule priority to allocate; null inherits <code>table_start</code></td>
+			</tr>
 	</tbody>
 </table>
 <div class="hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code">
 
 <div class="hextra-code-filename not-prose" dir="auto">config.json</div><div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;iproute&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;table_start&#34;</span><span class="p">:</span> <span class="mi">150</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;table_start&#34;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;rule_priority_start&#34;</span><span class="p">:</span> <span class="kc">null</span>
 </span></span><span class="line"><span class="cl">  <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8">
   <button
@@ -1257,6 +1334,27 @@ Field Type Default Description pid_file string — Path to write the PID file ca
 <p>Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
 table are preserved during reload and shutdown; an identical pre-existing route is
 treated as already satisfied and is not adopted for cleanup.</p>
+<h2>Routing boundaries and failover<span class="hx:absolute hx:-mt-20" id="routing-boundaries-and-failover"></span>
+    <a href="#routing-boundaries-and-failover" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Rules are evaluated in order. Two identical matching rules are <strong>not</strong> a failover
+pair: the first rule marks the packet for its outbound and terminates the chain,
+so the second rule is unreachable. If that first interface disappears and strict
+enforcement is disabled, its table has no usable route and RPDB continues to the
+main table; traffic may use the ordinary default gateway. With strict enforcement,
+the configured terminal action blocks that lookup instead.</p>
+<p>Use one <code>urltest</code> outbound with both interfaces as candidates for real failover.
+Set <code>conntrack_on_switch</code> to <code>preserve</code> (the default) to keep established flows
+on their existing path, or <code>delete</code> to remove only that URLTEST outbound&rsquo;s owned
+conntrack entries after its replacement route is active.</p>
+<p><code>ipv6_enabled: false</code> means IPv6 is unmanaged by keen-pbr; it is not an IPv6
+block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
+must use the router resolver, or DNS enforcement must be provided separately.</p>
+<p>Marks identify active configuration ownership only while that configuration is
+unchanged. After a crash, changing the fwmark mask offline prevents the daemon
+from identifying the old namespace. Dynamic DNS-set TTL expiry affects new
+connections; existing conntrack flows can continue using their established path.</p>
+<p><code>keen-pbr download</code> refreshes cache files and can require a restart before the
+runtime consumes changed lists. Use <code>keen-pbr download --reload</code> to refresh and
+apply the relevant runtime state immediately.</p>
 <h2>Single-instance requirement<span class="hx:absolute hx:-mt-20" id="single-instance-requirement"></span>
     <a href="#single-instance-requirement" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>Only one keen-pbr daemon is supported in a network namespace. Changing <code>pid_file</code>
 does not create an isolated instance: firewall tables, chains, and sets use fixed

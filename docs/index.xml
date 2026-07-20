@@ -3319,6 +3319,12 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 					&lt;td&gt;Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound.&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;strict_enforcement_action&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;string&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;&amp;quot;unreachable&amp;quot;&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Terminal action for strict enforcement: &lt;code&gt;unreachable&lt;/code&gt; returns an immediate network error; &lt;code&gt;blackhole&lt;/code&gt; silently drops packets until the application times out.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;max_file_size_bytes&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;integer&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;8388608&lt;/code&gt; (8 MiB)&lt;/td&gt;
@@ -3340,6 +3346,7 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;cache_dir&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;/var/cache/keen-pbr&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_backend&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;auto&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;false&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;strict_enforcement_action&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;s2&#34;&gt;&amp;#34;unreachable&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;max_file_size_bytes&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;8388608&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;firewall_verify_max_bytes&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;262144&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
@@ -3474,13 +3481,20 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 					&lt;td&gt;&lt;code&gt;150&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;First routing table ID to allocate for outbounds&lt;/td&gt;
 			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;rule_priority_start&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;integer or null&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;table_start&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;First RPDB rule priority to allocate; null inherits &lt;code&gt;table_start&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;div class=&#34;hextra-code-block hx:relative hx:mt-6 hx:first:mt-0 hx:group/code&#34;&gt;
 
 &lt;div class=&#34;hextra-code-filename not-prose&#34; dir=&#34;auto&#34;&gt;config.json&lt;/div&gt;&lt;div&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nt&#34;&gt;&amp;#34;iproute&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;table_start&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;150&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;table_start&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;150&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;nt&#34;&gt;&amp;#34;rule_priority_start&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;:&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;null&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&#34;hextra-code-copy-btn-container hx:opacity-0 hx:transition hx:group-hover/code:opacity-100 hx:flex hx:gap-1 hx:absolute hx:m-[11px] hx:right-0 hx:top-8&#34;&gt;
   &lt;button
@@ -3498,6 +3512,27 @@ DNS server &lt;code&gt;tag&lt;/code&gt; values must match &lt;code&gt;^[a-z][a-z
 &lt;p&gt;Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
 table are preserved during reload and shutdown; an identical pre-existing route is
 treated as already satisfied and is not adopted for cleanup.&lt;/p&gt;
+&lt;h2&gt;Routing boundaries and failover&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;routing-boundaries-and-failover&#34;&gt;&lt;/span&gt;
+    &lt;a href=&#34;#routing-boundaries-and-failover&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Rules are evaluated in order. Two identical matching rules are &lt;strong&gt;not&lt;/strong&gt; a failover
+pair: the first rule marks the packet for its outbound and terminates the chain,
+so the second rule is unreachable. If that first interface disappears and strict
+enforcement is disabled, its table has no usable route and RPDB continues to the
+main table; traffic may use the ordinary default gateway. With strict enforcement,
+the configured terminal action blocks that lookup instead.&lt;/p&gt;
+&lt;p&gt;Use one &lt;code&gt;urltest&lt;/code&gt; outbound with both interfaces as candidates for real failover.
+Set &lt;code&gt;conntrack_on_switch&lt;/code&gt; to &lt;code&gt;preserve&lt;/code&gt; (the default) to keep established flows
+on their existing path, or &lt;code&gt;delete&lt;/code&gt; to remove only that URLTEST outbound&amp;rsquo;s owned
+conntrack entries after its replacement route is active.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;ipv6_enabled: false&lt;/code&gt; means IPv6 is unmanaged by keen-pbr; it is not an IPv6
+block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
+must use the router resolver, or DNS enforcement must be provided separately.&lt;/p&gt;
+&lt;p&gt;Marks identify active configuration ownership only while that configuration is
+unchanged. After a crash, changing the fwmark mask offline prevents the daemon
+from identifying the old namespace. Dynamic DNS-set TTL expiry affects new
+connections; existing conntrack flows can continue using their established path.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;keen-pbr download&lt;/code&gt; refreshes cache files and can require a restart before the
+runtime consumes changed lists. Use &lt;code&gt;keen-pbr download --reload&lt;/code&gt; to refresh and
+apply the relevant runtime state immediately.&lt;/p&gt;
 &lt;h2&gt;Single-instance requirement&lt;span class=&#34;hx:absolute hx:-mt-20&#34; id=&#34;single-instance-requirement&#34;&gt;&lt;/span&gt;
     &lt;a href=&#34;#single-instance-requirement&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Only one keen-pbr daemon is supported in a network namespace. Changing &lt;code&gt;pid_file&lt;/code&gt;
 does not create an isolated instance: firewall tables, chains, and sets use fixed
@@ -6118,6 +6153,53 @@ and routing state.&lt;/p&gt;
 &lt;/div&gt;
 
 &lt;p&gt;Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>iptables/ipset atomic reconciliation</title>
+      <link>https://keen-pbr.fyi/docs/iptables-atomic-reconcile/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/docs/iptables-atomic-reconcile/</guid>
+      <description>
+        
+        
+        &lt;p&gt;The iptables backend uses &lt;code&gt;iptables-restore --noflush&lt;/code&gt; with a fully built
+generation (shadow) chain.  The stable &lt;code&gt;KeenPbrTable&lt;/code&gt; PREROUTING and
+&lt;code&gt;KeenPbrTable_OUTPUT&lt;/code&gt; dispatchers are switched in one restore transaction, so a
+failed transaction leaves the preceding generation reachable.&lt;/p&gt;
+&lt;p&gt;Static &lt;code&gt;kpbr4_&lt;/code&gt;/&lt;code&gt;kpbr6_&lt;/code&gt; sets are loaded into a temporary set and published with
+&lt;code&gt;ipset swap&lt;/code&gt;; the canonical name therefore always refers to either the previous
+set or a complete replacement.  Dynamic &lt;code&gt;kpbr4d_&lt;/code&gt;/&lt;code&gt;kpbr6d_&lt;/code&gt; dnsmasq sets are
+not recreated during &lt;code&gt;PreserveSets&lt;/code&gt; applies, preserving learned entries and
+their timeout metadata.&lt;/p&gt;
+&lt;p&gt;This shadow-chain path is the recorded capability baseline for the supported
+iptables-restore versions. It deliberately avoids relying on an implementation-
+specific in-place chain rewrite.&lt;/p&gt;
+
+      </description>
+    </item>
+    
+    <item>
+      <title>nftables atomic reconciliation</title>
+      <link>https://keen-pbr.fyi/docs/nftables-atomic-reconcile/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://keen-pbr.fyi/docs/nftables-atomic-reconcile/</guid>
+      <description>
+        
+        
+        &lt;p&gt;Normal nftables applies are submitted as one &lt;code&gt;nft -j -f -&lt;/code&gt; JSON transaction.
+keen-pbr never deletes &lt;code&gt;inet KeenPbrTable&lt;/code&gt; before an ordinary replacement, so a
+rejected transaction leaves the previous table unchanged. Existing static sets
+are flushed and refilled in that same transaction; incompatible set schemas are
+deleted and recreated alongside the replacement chain and rules. Dynamic
+&lt;code&gt;kpbr4d_&lt;/code&gt; and &lt;code&gt;kpbr6d_&lt;/code&gt; dnsmasq sets are preserved by routine applies.&lt;/p&gt;
+&lt;p&gt;Port-only rules are emitted separately for IPv4 and IPv6. When IPv6 is disabled
+in configuration, no IPv6 set or rule is generated; IPv6 is intentionally
+unmanaged by this backend configuration.&lt;/p&gt;
 
       </description>
     </item>

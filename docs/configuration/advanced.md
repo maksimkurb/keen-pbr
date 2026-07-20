@@ -14,6 +14,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
 | `cache_dir` | string | `/var/cache/keen-pbr` | Directory for cached list data |
 | `firewall_backend` | string | `"auto"` | Firewall backend selection: `auto`, `iptables`, or `nftables` |
 | `strict_enforcement` | boolean | `false` | Default strict routing enforcement for interface outbounds. When enabled, an unreachable default route is installed if the outbound gateway/interface cannot be confirmed reachable. Can be overridden per-outbound. |
+| `strict_enforcement_action` | string | `"unreachable"` | Terminal action for strict enforcement: `unreachable` returns an immediate network error; `blackhole` silently drops packets until the application times out. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Maximum allowed size in bytes for downloaded remote list content |
 | `firewall_verify_max_bytes` | integer | `262144` | Maximum stdout bytes captured per firewall verification command (`0` = unlimited) |
 
@@ -24,6 +25,7 @@ Controls the PID file path, cache directory, and global routing behaviour.
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
     "strict_enforcement": false,
+    "strict_enforcement_action": "unreachable",
     "max_file_size_bytes": 8388608,
     "firewall_verify_max_bytes": 262144
   }
@@ -83,11 +85,13 @@ Controls the routing table ID range used for outbound-specific tables.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `table_start` | integer | `150` | First routing table ID to allocate for outbounds |
+| `rule_priority_start` | integer or null | `table_start` | First RPDB rule priority to allocate; null inherits `table_start` |
 
 ```json { filename="config.json" }
 {
   "iproute": {
-    "table_start": 150
+    "table_start": 150,
+    "rule_priority_start": null
   }
 }
 ```
@@ -97,6 +101,33 @@ Outbounds are assigned sequential table IDs starting from `table_start`. Ensure 
 Keen-pbr removes only the exact routes it created. Unrelated routes in an allocated
 table are preserved during reload and shutdown; an identical pre-existing route is
 treated as already satisfied and is not adopted for cleanup.
+
+## Routing boundaries and failover
+
+Rules are evaluated in order. Two identical matching rules are **not** a failover
+pair: the first rule marks the packet for its outbound and terminates the chain,
+so the second rule is unreachable. If that first interface disappears and strict
+enforcement is disabled, its table has no usable route and RPDB continues to the
+main table; traffic may use the ordinary default gateway. With strict enforcement,
+the configured terminal action blocks that lookup instead.
+
+Use one `urltest` outbound with both interfaces as candidates for real failover.
+Set `conntrack_on_switch` to `preserve` (the default) to keep established flows
+on their existing path, or `delete` to remove only that URLTEST outbound's owned
+conntrack entries after its replacement route is active.
+
+`ipv6_enabled: false` means IPv6 is unmanaged by keen-pbr; it is not an IPv6
+block. Keen-pbr also does not intercept arbitrary client DNS, DoT, or DoH. Clients
+must use the router resolver, or DNS enforcement must be provided separately.
+
+Marks identify active configuration ownership only while that configuration is
+unchanged. After a crash, changing the fwmark mask offline prevents the daemon
+from identifying the old namespace. Dynamic DNS-set TTL expiry affects new
+connections; existing conntrack flows can continue using their established path.
+
+`keen-pbr download` refreshes cache files and can require a restart before the
+runtime consumes changed lists. Use `keen-pbr download --reload` to refresh and
+apply the relevant runtime state immediately.
 
 ## Single-instance requirement
 
