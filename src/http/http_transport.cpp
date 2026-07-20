@@ -91,6 +91,14 @@ HttpTransportResponse LibcurlHttpTransport::perform(const HttpTransportRequest& 
     setopt(curl.get(), CURLOPT_SOCKOPTFUNCTION, sockopt_callback);
     setopt(curl.get(), CURLOPT_SOCKOPTDATA, &context);
     setopt(curl.get(), CURLOPT_ERRORBUFFER, error_buffer);
+    if (request.method == "POST") {
+        setopt(curl.get(), CURLOPT_POST, 1L);
+        setopt(curl.get(), CURLOPT_POSTFIELDS, request.body.c_str());
+        setopt(curl.get(), CURLOPT_POSTFIELDSIZE_LARGE,
+               static_cast<curl_off_t>(request.body.size()));
+    } else if (request.method != "GET") {
+        throw HttpTransportError("Unsupported HTTP method: " + request.method);
+    }
     if (!request.discard_body) setopt(curl.get(), CURLOPT_MAXFILESIZE_LARGE, static_cast<curl_off_t>(request.max_response_size));
     restrict_protocols(curl.get());
     HeaderList headers;

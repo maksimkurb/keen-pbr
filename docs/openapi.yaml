@@ -270,7 +270,8 @@ paths:
         and is intended for UI selectors and diagnostics rather than outbound
         health. It includes all detected system interfaces, optional live
         detail such as carrier and operstate, and best-effort IPv4/IPv6
-        addresses.
+        addresses. On KeeneticOS, it also includes cached human-readable
+        interface descriptions when they can be resolved through RCI.
       operationId: getRuntimeInterfaces
       responses:
         "200":
@@ -1332,6 +1333,10 @@ components:
           type: string
           description: System interface name.
           example: "eth0"
+        description:
+          type: string
+          description: Optional human-readable interface name supplied by KeeneticOS.
+          example: "Internet"
         status:
           $ref: "#/components/schemas/RuntimeInterfaceInventoryStatus"
         admin_up:

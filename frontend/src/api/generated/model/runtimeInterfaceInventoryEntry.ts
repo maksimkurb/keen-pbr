@@ -10,6 +10,8 @@ import type { RuntimeInterfaceInventoryStatus } from './runtimeInterfaceInventor
 export interface RuntimeInterfaceInventoryEntry {
   /** System interface name. */
   name: string;
+  /** Optional human-readable interface name supplied by KeeneticOS. */
+  description?: string;
   status: RuntimeInterfaceInventoryStatus;
   /** Whether the interface has the kernel IFF_UP flag set. */
   admin_up?: boolean;

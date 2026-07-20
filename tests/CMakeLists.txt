@@ -29,6 +29,7 @@ add_executable(keen-pbr-tests
   test_policy_rule.cpp
   test_routing_reconciler.cpp
   test_runtime_interface_inventory.cpp
+  test_keenetic_interface_descriptions.cpp
   test_api_runtime_interfaces.cpp
   test_api_test_routing.cpp
   test_api_static.cpp
@@ -179,7 +180,8 @@ if(WITH_API)
     ../src/api/sse_broadcaster.cpp
     ../src/api/handler_runtime_interfaces.cpp
     ../src/api/handler_test_routing.cpp
-    ../src/health/runtime_interface_inventory.cpp
+  ../src/health/runtime_interface_inventory.cpp
+  ../src/keenetic/interface_descriptions.cpp
   )
   target_link_libraries(keen-pbr-tests PRIVATE
     httplib::httplib

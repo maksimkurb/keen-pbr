@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesWoBc2A data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesWnMzu6 data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -444,6 +444,7 @@ namespace api {
     struct RuntimeInterfaceInventoryEntry {
         std::optional<bool> admin_up;
         std::optional<bool> carrier;
+        std::optional<std::string> description;
         std::optional<std::vector<std::string>> ipv4_addresses;
         std::optional<std::vector<std::string>> ipv6_addresses;
         std::string name;
@@ -477,7 +478,7 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesWoBc2A {
+    struct KeenPbrTypesWnMzu6 {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -671,8 +672,8 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesWoBc2A & x);
-    void to_json(json & j, const KeenPbrTypesWoBc2A & x);
+    void from_json(const json & j, KeenPbrTypesWnMzu6 & x);
+    void to_json(json & j, const KeenPbrTypesWnMzu6 & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -1405,6 +1406,7 @@ namespace api {
     inline void from_json(const json & j, RuntimeInterfaceInventoryEntry& x) {
         x.admin_up = get_stack_optional<bool>(j, "admin_up");
         x.carrier = get_stack_optional<bool>(j, "carrier");
+        x.description = get_stack_optional<std::string>(j, "description");
         x.ipv4_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv4_addresses");
         x.ipv6_addresses = get_stack_optional<std::vector<std::string>>(j, "ipv6_addresses");
         x.name = j.at("name").get<std::string>();
@@ -1416,6 +1418,7 @@ namespace api {
         j = json::object();
         j["admin_up"] = x.admin_up;
         j["carrier"] = x.carrier;
+        j["description"] = x.description;
         j["ipv4_addresses"] = x.ipv4_addresses;
         j["ipv6_addresses"] = x.ipv6_addresses;
         j["name"] = x.name;
@@ -1475,7 +1478,7 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesWoBc2A& x) {
+    inline void from_json(const json & j, KeenPbrTypesWnMzu6& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1530,7 +1533,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesWoBc2A & x) {
+    inline void to_json(json & j, const KeenPbrTypesWnMzu6 & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

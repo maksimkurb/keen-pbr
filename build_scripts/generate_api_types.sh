@@ -26,7 +26,15 @@ process.stdin.on('end', () => {
     delete obj.discriminator;
     delete obj.example;
     delete obj.description;
-    Object.values(obj).forEach(clean);
+    for (const [key, value] of Object.entries(obj)) {
+      // A schema properties member is a map of property names. Do not mistake
+      // a property literally named description for OpenAPI metadata.
+      if (key === 'properties' && value && typeof value === 'object') {
+        Object.values(value).forEach(clean);
+      } else {
+        clean(value);
+      }
+    }
   }
   clean(schemas);
 

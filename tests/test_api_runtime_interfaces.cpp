@@ -49,6 +49,7 @@ TEST_CASE("register_runtime_interfaces_handler: GET /api/runtime/interfaces retu
     api::RuntimeInterfaceInventoryResponse runtime_interfaces;
     api::RuntimeInterfaceInventoryEntry entry;
     entry.name = "br0";
+    entry.description = std::string("Home network");
     entry.status = api::RuntimeInterfaceInventoryStatusEnum::UP;
     entry.admin_up = true;
     entry.oper_state = std::string("up");
@@ -78,6 +79,7 @@ TEST_CASE("register_runtime_interfaces_handler: GET /api/runtime/interfaces retu
     REQUIRE(body["interfaces"].is_array());
     REQUIRE(body["interfaces"].size() == 1);
     CHECK(body["interfaces"][0]["name"] == "br0");
+    CHECK(body["interfaces"][0]["description"] == "Home network");
     CHECK(body["interfaces"][0]["status"] == "up");
     CHECK(body["interfaces"][0]["admin_up"] == true);
     CHECK(body["interfaces"][0]["oper_state"] == "up");

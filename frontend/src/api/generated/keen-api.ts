@@ -1154,7 +1154,7 @@ export function useGetRuntimeOutbounds<TData = Awaited<ReturnType<typeof getRunt
 
 
 /**
- * Returns the daemon's current system interface inventory derived from live netlink link and address state. This endpoint is interface-centric and is intended for UI selectors and diagnostics rather than outbound health. It includes all detected system interfaces, optional live detail such as carrier and operstate, and best-effort IPv4/IPv6 addresses.
+ * Returns the daemon's current system interface inventory derived from live netlink link and address state. This endpoint is interface-centric and is intended for UI selectors and diagnostics rather than outbound health. It includes all detected system interfaces, optional live detail such as carrier and operstate, and best-effort IPv4/IPv6 addresses. On KeeneticOS, it also includes cached human-readable interface descriptions when they can be resolved through RCI.
 
  * @summary Live system interface inventory
  */

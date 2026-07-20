@@ -65,6 +65,21 @@ std::string HttpClient::download(const std::string& url, const HttpRequestOption
     }
 }
 
+std::string HttpClient::post_json(const std::string& url, const std::string& body,
+                                  const HttpRequestOptions& options) {
+    auto request = request_for(url, timeout_, user_agent_, max_response_size_, options.fwmark);
+    request.method = "POST";
+    request.body = body;
+    request.headers.push_back("Content-Type: application/json");
+    try {
+        auto response = transport_->perform(request);
+        throw_for_status(response.status_code);
+        return response.body;
+    } catch (const HttpTransportError& error) {
+        throw HttpError(error.what());
+    }
+}
+
 ConditionalDownloadResult HttpClient::download_conditional(
     const std::string& url, const std::string& if_none_match, const std::string& if_modified_since,
     const HttpRequestOptions& options) {

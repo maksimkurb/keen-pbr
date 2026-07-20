@@ -111,6 +111,17 @@ TEST_CASE("http client builds conditional transport request and maps errors") {
     CHECK_THROWS_AS(client.download("https://example.test/a"), keen_pbr3::HttpError);
 }
 
+TEST_CASE("http client builds JSON POST transport request") {
+    auto transport = std::make_shared<FakeTransport>();
+    transport->response = {200, "{}", {}, std::chrono::milliseconds(1)};
+    keen_pbr3::HttpClient client(transport);
+
+    CHECK(client.post_json("http://127.0.0.1:79/rci/", "{\"show\":{}}")== "{}");
+    CHECK(transport->request.method == "POST");
+    CHECK(transport->request.body == "{\"show\":{}}");
+    CHECK(transport->request.headers == std::vector<std::string>{"Content-Type: application/json"});
+}
+
 TEST_CASE("url tester uses discard transport probes and retry policy") {
     auto transport = std::make_shared<FakeTransport>();
     transport->response = {204, {}, {}, std::chrono::milliseconds(12)};

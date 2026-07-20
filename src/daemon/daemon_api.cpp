@@ -16,6 +16,7 @@
 #include "../health/routing_health_checker.hpp"
 #include "../health/runtime_interface_inventory.hpp"
 #include "../health/runtime_outbound_state.hpp"
+#include "../keenetic/interface_descriptions.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
 #include "../util/system_info.hpp"
@@ -520,7 +521,9 @@ void Daemon::setup_api() {
                 });
         },
         [this]() {
-            return build_runtime_interface_inventory_response_or_empty(netlink_);
+            auto response = build_runtime_interface_inventory_response_or_empty(netlink_);
+            populate_keenetic_interface_descriptions(response);
+            return response;
         },
         [this](const Config& config) {
             return build_list_refresh_state_map(config, list_service_.cache_manager());

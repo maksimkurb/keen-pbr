@@ -376,9 +376,16 @@ export function InterfaceRowContent({
 
   const content = (
     <>
-      <span className="truncate text-sm font-medium text-foreground">
-        {name}
-      </span>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-medium text-foreground">
+          {name}
+        </span>
+        {interfaceEntry?.description ? (
+          <span className="truncate text-xs text-muted-foreground">
+            {interfaceEntry.description}
+          </span>
+        ) : null}
+      </div>
       {interfaceEntry ? (
         <>
           <InterfaceStatusBadge status={interfaceEntry.status} />
@@ -449,6 +456,11 @@ export function OutboundInterfaceLabel({
           <span className="shrink-0 text-sm font-medium text-foreground">
             ({interfaceName})
           </span>
+          {runtimeInterface?.description ? (
+            <span className="truncate text-xs text-muted-foreground">
+              {runtimeInterface.description}
+            </span>
+          ) : null}
           {runtimeInterface ? (
             <>
               <InterfaceStatusBadge status={runtimeInterface.status} />
@@ -590,7 +602,12 @@ function filterInterfaces(
   }
 
   return interfaces.filter((item) =>
-    [item.name, ...(item.ipv4_addresses ?? []), ...(item.ipv6_addresses ?? [])]
+    [
+      item.name,
+      item.description,
+      ...(item.ipv4_addresses ?? []),
+      ...(item.ipv6_addresses ?? []),
+    ]
       .join(" ")
       .toLowerCase()
       .includes(normalizedQuery)

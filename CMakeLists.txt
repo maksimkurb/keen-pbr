@@ -269,6 +269,7 @@ set(SOURCES
   src/health/routing_health_checker.cpp
   src/health/runtime_outbound_state.cpp
   src/health/runtime_interface_inventory.cpp
+  src/keenetic/interface_descriptions.cpp
   src/routing/urltest_manager.cpp
   src/routing/firewall_state.cpp
   src/firewall/firewall.cpp

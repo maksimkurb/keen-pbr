@@ -9,6 +9,7 @@ export function getInterfaceSearchText(
 
   return [
     interfaceEntry.name,
+    interfaceEntry.description,
     ...(interfaceEntry.ipv4_addresses ?? []),
     ...(interfaceEntry.ipv6_addresses ?? []),
   ].join(" ")

@@ -18,6 +18,8 @@ struct HttpTransportRequest {
     uint32_t fwmark{0};
     long max_redirects{5};
     std::vector<std::string> headers;
+    std::string method{"GET"};
+    std::string body;
     bool discard_body{false};
     size_t max_response_size{size_t{8} * 1024U * 1024U};
 };
