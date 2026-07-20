@@ -85,6 +85,9 @@ export function OverviewPage() {
     routingHealthQuery.data?.status === 200
       ? routingHealthQuery.data.data
       : undefined
+  const routingFirewallRules = routingHealth?.firewall_rules ?? []
+  const routingRouteTables = routingHealth?.route_tables ?? []
+  const routingPolicyRules = routingHealth?.policy_rules ?? []
   const runtimeOutbounds = useMemo(
     () =>
       runtimeOutboundsQuery.data?.status === 200
@@ -327,9 +330,9 @@ export function OverviewPage() {
             </Alert>
           ) : null}
           {routingHealth &&
-          routingHealth.firewall_rules.length === 0 &&
-          routingHealth.route_tables.length === 0 &&
-          routingHealth.policy_rules.length === 0 ? (
+          routingFirewallRules.length === 0 &&
+          routingRouteTables.length === 0 &&
+          routingPolicyRules.length === 0 ? (
             <Empty className="border">
               <EmptyHeader>
                 <EmptyTitle>{t("overview.routing.emptyTitle")}</EmptyTitle>
@@ -340,9 +343,9 @@ export function OverviewPage() {
             </Empty>
           ) : null}
           {routingHealth &&
-          (routingHealth.firewall_rules.length > 0 ||
-            routingHealth.route_tables.length > 0 ||
-            routingHealth.policy_rules.length > 0) ? (
+          (routingFirewallRules.length > 0 ||
+            routingRouteTables.length > 0 ||
+            routingPolicyRules.length > 0) ? (
             <RoutingHealthCard routingHealth={routingHealth} />
           ) : null}
         </SectionCard>

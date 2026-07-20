@@ -460,7 +460,7 @@ TEST_CASE("populate_routing_state: strict enforcement installs real default when
         return true;
     });
 
-    REQUIRE(routes.get_routes().size() == 3);
+    REQUIRE(routes.get_routes().size() == 2);
     const RouteSpec* default_route = find_route(routes.get_routes(), 100, false, false, 0, std::optional<std::string>{"wg0"});
     REQUIRE(default_route != nullptr);
     CHECK(default_route->interface == std::optional<std::string>{"wg0"});
@@ -570,7 +570,7 @@ TEST_CASE("populate_routing_state: outbound true overrides daemon false") {
     CHECK(find_route(routes.get_routes(), 100, false, true, kUnreachableRouteMetric) != nullptr);
 }
 
-TEST_CASE("populate_routing_state: strict urltest installs selected primary, weighted fallbacks, and unreachable terminal") {
+TEST_CASE("populate_routing_state: strict urltest installs selected primary and weighted fallbacks") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
@@ -604,7 +604,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary, wei
         [](const Outbound&) { return true; },
         &selections);
 
-    REQUIRE(routes.get_routes().size() == 19);
+    REQUIRE(routes.get_routes().size() == 18);
     CHECK(find_route(routes.get_routes(), 104, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 104, false, false, 1, std::optional<std::string>{"wg1"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 104, false, false, 2, std::optional<std::string>{"wg2"}) != nullptr);
@@ -617,7 +617,7 @@ TEST_CASE("populate_routing_state: strict urltest installs selected primary, wei
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
-                        }) == 2);
+                        }) == 1);
 }
 
 TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
@@ -649,7 +649,7 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
         [](const Outbound& ob) { return ob.tag != "vpn1"; },
         &selections);
 
-    REQUIRE(routes.get_routes().size() == 7);
+    REQUIRE(routes.get_routes().size() == 6);
     CHECK(find_route(routes.get_routes(), 102, false, false, 0, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg2"}) != nullptr);
     CHECK(find_route(routes.get_routes(), 102, false, false, 1, std::optional<std::string>{"wg1"}) == nullptr);
@@ -660,7 +660,7 @@ TEST_CASE("populate_routing_state: strict urltest skips unreachable children") {
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric &&
                                    (route.family == AF_INET || route.family == AF_INET6);
-                        }) == 2);
+                        }) == 1);
 }
 
 TEST_CASE("populate_routing_state: urltest without completed probe installs only terminal kill-switch routes") {
@@ -833,6 +833,52 @@ TEST_CASE("populate_routing_state: interface outbound without gateway installs d
                         }) == 2);
 }
 
+TEST_CASE("populate_routing_state: IPv4-only interface closes IPv6 instead of expecting a route") {
+    auto cfg = parse_minimal_config(R"({
+        "iproute":{"table_start":100},
+        "outbounds":[
+            {"tag":"vpn","type":"interface","interface":"wg0"}
+        ]
+    })");
+    auto marks = allocate_outbound_marks(cfg.fwmark.value_or(FwmarkConfig{}),
+                                         cfg.outbounds.value_or(std::vector<Outbound>{}));
+
+    NetlinkManager netlink;
+    RouteTable routes(netlink, true);
+    PolicyRuleManager rules(netlink, true);
+
+    populate_routing_state(
+        cfg,
+        marks,
+        routes,
+        rules,
+        [](const Outbound&) { return true; },
+        nullptr,
+        true,
+        [](const Outbound&, int family) { return family == AF_INET; });
+
+    REQUIRE(routes.get_routes().size() == 2);
+    CHECK(std::count_if(routes.get_routes().begin(), routes.get_routes().end(),
+                        [](const RouteSpec& route) {
+                            return route.family == AF_INET &&
+                                   !route.unreachable && !route.blackhole;
+                        }) == 1);
+    CHECK(std::count_if(routes.get_routes().begin(), routes.get_routes().end(),
+                        [](const RouteSpec& route) {
+                            return route.family == AF_INET6 && route.unreachable &&
+                                   route.metric == kUnreachableRouteMetric;
+                        }) == 1);
+}
+
+TEST_CASE("interface_has_routed_ipv6 ignores link-local-only interfaces") {
+    DumpedInterface interface;
+    interface.ipv6_addresses = {"fe80::1234/64"};
+    CHECK_FALSE(interface_has_routed_ipv6(interface));
+
+    interface.ipv6_addresses.push_back("fd00::2/64");
+    CHECK(interface_has_routed_ipv6(interface));
+}
+
 TEST_CASE("populate_routing_state: interface outbound with IPv4 gateway closes IPv6 with unreachable default") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
@@ -991,7 +1037,7 @@ TEST_CASE("populate_routing_state: no allocated table falls in reserved range") 
     }
 }
 
-TEST_CASE("populate_routing_state: non-strict urltest still appends dual-stack kill-switch routes") {
+TEST_CASE("populate_routing_state: non-strict urltest relies on terminal RPDB guard") {
     auto cfg = parse_minimal_config(R"({
         "iproute":{"table_start":100},
         "daemon":{"strict_enforcement":false},
@@ -1019,12 +1065,17 @@ TEST_CASE("populate_routing_state: non-strict urltest still appends dual-stack k
         [](const Outbound&) { return true; },
         &selections);
 
-    CHECK(count_routes_in_table(routes.get_routes(), 102) == 7);
+    CHECK(count_routes_in_table(routes.get_routes(), 102) == 6);
     CHECK(std::count_if(routes.get_routes().begin(),
                         routes.get_routes().end(),
                         [](const RouteSpec& route) {
                             return route.table == 102 &&
                                    route.unreachable &&
                                    route.metric == kUnreachableRouteMetric;
-                        }) == 2);
+                        }) == 1);
+    CHECK(std::count_if(rules.get_rules().begin(),
+                        rules.get_rules().end(),
+                        [](const RuleSpec& rule) {
+                            return rule.action == RuleAction::unreachable;
+                        }) == 1);
 }

@@ -506,7 +506,9 @@ void Daemon::setup_api() {
 
             if (runtime_snapshot.runtime_state == RuntimeState::starting) {
                 RoutingHealthReport report;
-                report.error = "routing runtime initialization is in progress";
+                report.firewall_backend = firewall_->backend();
+                report.firewall_chain.detail =
+                    "routing runtime initialization is in progress";
                 return report;
             }
 

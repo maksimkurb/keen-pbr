@@ -13,7 +13,7 @@ class FakeRoutingNetlink final : public RoutingNetlinkOperations {
 public:
     RouteAddResult add_route(const RouteSpec& route) override {
         added_routes.push_back(route);
-        return RouteAddResult::Created;
+        return route_add_result;
     }
     void delete_route(const RouteSpec& route) override {
         if (fail_route_delete) throw std::runtime_error("route delete failed");
@@ -40,6 +40,7 @@ public:
     std::vector<std::pair<RuleSpec, int>> added_rules;
     std::vector<std::pair<RuleSpec, int>> deleted_rules;
     bool fail_route_delete{false};
+    RouteAddResult route_add_result{RouteAddResult::Created};
 };
 
 RouteSpec desired_route() {
@@ -86,6 +87,44 @@ TEST_CASE("RoutingReconciler adds missing route and deletes only owned extras") 
     CHECK(netlink.added_routes.front().destination == "default");
     REQUIRE(netlink.deleted_routes.size() == 1);
     CHECK(netlink.deleted_routes.front().destination == "192.0.2.0/24");
+}
+
+TEST_CASE("RoutingReconciler replaces stale unreachable route before adding unicast") {
+    FakeRoutingNetlink netlink;
+    RouteSpec desired;
+    desired.destination = "default";
+    desired.table = 402;
+    desired.interface = "vpn_servitro";
+    desired.family = AF_INET6;
+
+    auto stale = desired;
+    stale.interface.reset();
+    stale.unreachable = true;
+    stale.metric = 65535;
+    netlink.routes.push_back(dumped(stale));
+    RoutingReconciler reconciler(netlink);
+
+    reconciler.reconcile({desired}, {});
+
+    REQUIRE(netlink.deleted_routes.size() == 1);
+    CHECK(netlink.deleted_routes.front().unreachable);
+    CHECK(netlink.deleted_routes.front().family == AF_INET6);
+    REQUIRE(netlink.added_routes.size() == 1);
+    CHECK(netlink.added_routes.front().interface ==
+          std::optional<std::string>{"vpn_servitro"});
+    CHECK_FALSE(netlink.added_routes.front().unreachable);
+}
+
+TEST_CASE("RoutingReconciler rejects false already-present result") {
+    FakeRoutingNetlink netlink;
+    const auto route = desired_route();
+    netlink.route_add_result = RouteAddResult::AlreadyPresent;
+    RoutingReconciler reconciler(netlink);
+
+    CHECK_THROWS_WITH_AS(
+        reconciler.reconcile({route}, {}),
+        doctest::Contains("desired route is absent in table 100"),
+        NetlinkError);
 }
 
 TEST_CASE("RoutingReconciler refuses conflicting foreign route before mutation") {

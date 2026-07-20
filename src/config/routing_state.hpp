@@ -28,6 +28,7 @@ inline bool is_reserved_table(uint32_t id) {
 }
 
 using OutboundReachabilityFn = std::function<bool(const Outbound&)>;
+using OutboundFamilyAvailabilityFn = std::function<bool(const Outbound&, int)>;
 
 // Populate route tables and policy rules from config. Works for real or dry-run instances.
 void populate_routing_state(const Config& cfg,
@@ -36,9 +37,14 @@ void populate_routing_state(const Config& cfg,
                             PolicyRuleManager& rules,
                             OutboundReachabilityFn reachability_check = {},
                             const std::map<std::string, std::string>* urltest_selections = nullptr,
-                            bool ipv6_enabled = true);
+                            bool ipv6_enabled = true,
+                            OutboundFamilyAvailabilityFn family_available = {});
 
 bool is_interface_outbound_reachable(const Outbound& outbound, NetlinkManager& netlink);
+
+// A link-local address only proves that IPv6 is enabled on the link; it does
+// not make a gatewayless tunnel capable of carrying arbitrary IPv6 traffic.
+bool interface_has_routed_ipv6(const DumpedInterface& interface);
 
 // Build the global firewall prefilter derived from route-level config.
 // Missing or empty inbound_interfaces leaves interface restriction disabled.

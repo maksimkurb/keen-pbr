@@ -1,8 +1,10 @@
 #include "daemon.hpp"
 #include "../util/safe_exec.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <map>
+#include <netinet/in.h>
 #include <set>
 #include <sstream>
 
@@ -203,6 +205,7 @@ void Daemon::setup_static_routing() {
 void Daemon::reconcile_static_routing() {
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config_);
     log_ipv6_support_decision_once(ipv6_decision);
+    const auto interfaces = netlink_.dump_interfaces();
     RouteTable desired_routes(netlink_, true);
     PolicyRuleManager desired_rules(netlink_, true);
     populate_routing_state(
@@ -214,7 +217,18 @@ void Daemon::reconcile_static_routing() {
             return is_interface_outbound_reachable(outbound, netlink_);
         },
         &firewall_state_.get_urltest_selections(),
-        ipv6_decision.enabled);
+        ipv6_decision.enabled,
+        [&interfaces](const Outbound& outbound, int family) {
+            if (family == AF_INET) return true;
+            if (family != AF_INET6 || outbound.gateway6.has_value()) return true;
+            const auto interface_name = outbound.interface.value_or("");
+            const auto it = std::find_if(
+                interfaces.begin(), interfaces.end(),
+                [&interface_name](const DumpedInterface& interface) {
+                    return interface.name == interface_name;
+                });
+            return it != interfaces.end() && interface_has_routed_ipv6(*it);
+        });
 
     // Inspect the kernel on every apply so a restarted daemon adopts intact
     // state and only removes objects with a verifiable ownership marker.

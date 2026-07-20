@@ -25,6 +25,24 @@ bool same_route(const RouteSpec& expected, const DumpedRoute& actual,
            (!include_protocol || expected.protocol == actual.protocol);
 }
 
+bool same_route_lookup_key(const RouteSpec& expected, const DumpedRoute& actual) {
+    return expected.destination == actual.destination &&
+           expected.table == actual.table &&
+           route_family(expected) == actual.family;
+}
+
+RouteSpec route_spec_from_dump(const DumpedRoute& route) {
+    return {route.destination, route.table, route.interface,
+            route.gateway, route.blackhole, route.unreachable,
+            route.family, route.metric, route.protocol};
+}
+
+DumpedRoute dumped_route_from_spec(const RouteSpec& route) {
+    return {route.destination, route.table, route.interface,
+            route.gateway, route.blackhole, route.unreachable,
+            route.family, route.metric, route.protocol};
+}
+
 bool same_rule(const RuleSpec& expected, const DumpedRule& actual) {
     return expected.fwmark == actual.fwmark && expected.fwmask == actual.fwmask &&
            expected.table == actual.table && expected.priority == actual.priority &&
@@ -67,13 +85,48 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
         }
     }
 
-    // Add all new paths before pruning old ones.
+    // Add all new paths before pruning unrelated old ones. A generated route
+    // with the same table/family/destination is the exception: some kernels
+    // report EEXIST when replacing an IPv6 unreachable fallback with unicast,
+    // even when their metrics differ. The terminal RPDB guard remains active
+    // while this owned fallback is replaced.
     for (const auto& desired : desired_routes) {
-        const bool present = std::any_of(actual_routes.begin(), actual_routes.end(),
-                                         [&](const DumpedRoute& actual) {
-                                             return same_route(desired, actual, true);
-                                         });
-        if (!present) netlink_.add_route(desired);
+        auto present = std::any_of(actual_routes.begin(), actual_routes.end(),
+                                   [&](const DumpedRoute& actual) {
+                                       return same_route(desired, actual, true);
+                                   });
+        if (present) continue;
+
+        for (auto it = actual_routes.begin(); it != actual_routes.end();) {
+            const bool wanted = std::any_of(desired_routes.begin(), desired_routes.end(),
+                                            [&](const RouteSpec& candidate) {
+                                                return same_route(candidate, *it, true);
+                                            });
+            if (it->protocol == KEEN_PBR_GENERATED_ROUTE_PROTOCOL &&
+                !wanted && same_route_lookup_key(desired, *it)) {
+                netlink_.delete_route(route_spec_from_dump(*it));
+                it = actual_routes.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        const auto result = netlink_.add_route(desired);
+        if (result == RouteAddResult::Created) {
+            actual_routes.push_back(dumped_route_from_spec(desired));
+            continue;
+        }
+
+        auto refreshed = netlink_.dump_routes_in_table(desired.table);
+        present = std::any_of(refreshed.begin(), refreshed.end(),
+                              [&](const DumpedRoute& actual) {
+                                  return same_route(desired, actual, true);
+                              });
+        if (!present) {
+            throw NetlinkError(
+                "kernel reported route already present but desired route is absent in table " +
+                std::to_string(desired.table));
+        }
     }
     for (const auto& actual : actual_routes) {
         if (actual.protocol != KEEN_PBR_GENERATED_ROUTE_PROTOCOL) continue;
@@ -82,10 +135,7 @@ void RoutingReconciler::reconcile(const std::vector<RouteSpec>& desired_routes,
                                             return same_route(desired, actual, true);
                                         });
         if (!wanted) {
-            RouteSpec stale{actual.destination, actual.table, actual.interface,
-                            actual.gateway, actual.blackhole, actual.unreachable,
-                            actual.family, actual.metric, actual.protocol};
-            netlink_.delete_route(stale);
+            netlink_.delete_route(route_spec_from_dump(actual));
         }
     }
 
