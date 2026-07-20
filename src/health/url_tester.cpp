@@ -1,7 +1,5 @@
 #include "url_tester.hpp"
 
-#include "../log/logger.hpp"
-
 #include <chrono>
 #include <thread>
 

@@ -99,7 +99,7 @@ bool IpSet::parse_ipv6(std::string_view s, std::array<uint8_t, 16>& out) {
             // Build a new string: prefix + two hex groups for the v4 bytes
             std::string modified;
             modified.reserve(s.size());
-            modified.append(s.data(), v4_sep + 1);
+            modified.append(s.substr(0, v4_sep + 1));
             // Convert v4 bytes to two 16-bit hex groups
             char buf[16];
             std::snprintf(buf, sizeof(buf), "%x:%x",

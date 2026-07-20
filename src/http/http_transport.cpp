@@ -1,7 +1,6 @@
 #include "http_transport.hpp"
 
 #include <cerrno>
-#include <climits>
 #include <cctype>
 #include <cstring>
 #include <curl/curl.h>
@@ -105,7 +104,9 @@ HttpTransportResponse LibcurlHttpTransport::perform(const HttpTransportRequest& 
     for (const auto& header : request.headers) {
         curl_slist* appended = curl_slist_append(headers.get(), header.c_str());
         if (!appended) throw HttpTransportError("Failed to allocate HTTP request header");
-        headers.release(); headers.reset(appended);
+        const auto previous = headers.release();
+        (void)previous;
+        headers.reset(appended);
     }
     if (headers) setopt(curl.get(), CURLOPT_HTTPHEADER, headers.get());
     const auto started = std::chrono::steady_clock::now();

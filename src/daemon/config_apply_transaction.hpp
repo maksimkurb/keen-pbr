@@ -1,8 +1,5 @@
 #pragma once
 
-#include <stdexcept>
-#include <string>
-
 namespace keen_pbr3 {
 
 enum class ConfigApplyTransactionState {

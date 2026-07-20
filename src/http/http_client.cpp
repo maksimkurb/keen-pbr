@@ -1,7 +1,5 @@
 #include "http_client.hpp"
 
-#include "../log/logger.hpp"
-
 #include <cctype>
 
 namespace keen_pbr3 {

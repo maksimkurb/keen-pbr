@@ -2,12 +2,6 @@
 
 #ifdef WITH_API
 
-#include <chrono>
-#include <functional>
-#include <map>
-#include <optional>
-#include <string>
-
 #include "../api/generated/api_types.hpp"
 
 namespace keen_pbr3 {

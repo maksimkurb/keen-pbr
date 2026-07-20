@@ -1,5 +1,8 @@
 #include "config_apply_transaction.hpp"
 
+#include <stdexcept>
+#include <string>
+
 namespace keen_pbr3 {
 namespace {
 

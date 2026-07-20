@@ -3,7 +3,6 @@
 #include "../util/format_compat.hpp"
 
 #include <cerrno>
-#include <cstring>
 #include <net/if.h>
 #include <linux/rtnetlink.h>
 #include <sys/socket.h>

@@ -9,7 +9,7 @@
 namespace keen_pbr3::ipc {
 
 constexpr std::uint32_t kControlProtocolVersion = 1;
-constexpr std::size_t kMaxControlMessageBytes = 1024U * 1024U;
+constexpr std::size_t kMaxControlMessageBytes = std::size_t{1024} * 1024U;
 
 class ControlProtocolError : public std::runtime_error {
   public:

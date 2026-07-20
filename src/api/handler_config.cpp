@@ -4,11 +4,9 @@
 #include "generated/api_types.hpp"
 
 #include "../config/config.hpp"
-#include "../log/logger.hpp"
 #include <nlohmann/json.hpp>
 
 #include <functional>
-#include <stdexcept>
 #include <string>
 
 namespace keen_pbr3 {

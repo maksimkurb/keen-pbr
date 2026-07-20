@@ -49,6 +49,7 @@ PidFile::~PidFile() {
     try {
         remove();
     } catch (...) {
+        return;
     }
 }
 

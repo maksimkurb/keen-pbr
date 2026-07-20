@@ -19,7 +19,7 @@ class Response;
 namespace keen_pbr3 {
 
 struct ApiServerLimits {
-    std::size_t max_request_body_bytes{1024U * 1024U};
+    std::size_t max_request_body_bytes{std::size_t{1024} * 1024U};
     int read_timeout_seconds{15};
     int write_timeout_seconds{15};
     int keep_alive_timeout_seconds{20};

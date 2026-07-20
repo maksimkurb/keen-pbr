@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <nlohmann/json.hpp>
 
-#include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <cstdint>
@@ -57,7 +56,7 @@ FetchFn default_fetcher() {
     return [](const std::string& method, const std::string& url, const std::string& body) {
         HttpClient client;
         client.set_timeout(std::chrono::seconds(3));
-        client.set_max_response_size(256 * 1024);
+        client.set_max_response_size(std::size_t{256} * 1024U);
         return method == "POST" ? client.post_json(url, body) : client.download(url);
     };
 }
