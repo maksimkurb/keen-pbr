@@ -77,18 +77,8 @@ export function OutboundsPage() {
   const [deletePreview, setDeletePreview] = useState<typeof deleteRequest>(null)
   const configMutationPending = useConfigMutationPending()
   const configQuery = useGetConfig()
-  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds()
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces()
   const loadedConfig = selectConfig(configQuery.data)
   const visibleDeleteRequest = deleteRequest ?? deletePreview
   // using toasts for mutation errors

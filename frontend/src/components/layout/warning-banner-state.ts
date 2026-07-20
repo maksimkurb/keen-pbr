@@ -4,8 +4,6 @@ import type { HealthResponse } from "@/api/generated/model"
 import { useRoutingControlPendingState } from "@/api/mutations"
 import { useGetHealthService } from "@/api/queries"
 
-const DEFAULT_REFETCH_INTERVAL_MS = 30_000
-const CONVERGING_REFETCH_INTERVAL_MS = 1_000
 const CONVERGING_WINDOW_MS = 15_000
 
 export type WarningBannerMode =
@@ -33,23 +31,7 @@ export function useWarningBannerState(): WarningBannerState {
   const [convergingApplyStartedTs, setConvergingApplyStartedTs] = useState<
     number | null
   >(null)
-  const healthQuery = useGetHealthService({
-    query: {
-      refetchInterval: (query) => {
-        const response = query.state.data
-        if (response?.status !== 200) {
-          return DEFAULT_REFETCH_INTERVAL_MS
-        }
-
-        const mode = getWarningBannerMode(response.data, Date.now())
-
-        return mode === "dnsmasq-converging" || mode === "dnsmasq-error"
-          ? CONVERGING_REFETCH_INTERVAL_MS
-          : DEFAULT_REFETCH_INTERVAL_MS
-      },
-      refetchIntervalInBackground: false,
-    },
-  })
+  const healthQuery = useGetHealthService()
   const { anyPending } = useRoutingControlPendingState()
   const serviceHealth =
     healthQuery.data?.status === 200 ? healthQuery.data.data : null

@@ -26,6 +26,7 @@ public:
     explicit SseBroadcaster(size_t max_queue_size = 128);
 
     SubscriptionPtr subscribe();
+    SubscriptionPtr subscribe(std::vector<std::string> initial_messages);
     void unsubscribe(const SubscriptionPtr& subscription);
     void publish(const std::string& message);
     void close_all();

@@ -74,11 +74,7 @@ export function DnsServerUpsertPage({
   const { t } = useTranslation()
   const [, navigate] = useLocation()
   const configQuery = useGetConfig()
-  const serviceHealthQuery = useGetHealthService({
-    query: {
-      staleTime: 60_000,
-    },
-  })
+  const serviceHealthQuery = useGetHealthService()
   const config = selectConfig(configQuery.data)
   const dnsServers = config?.dns?.servers ?? []
   const serviceHealth =

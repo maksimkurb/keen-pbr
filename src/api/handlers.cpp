@@ -10,6 +10,7 @@
 #include "handler_runtime_outbounds.hpp"
 #include "handler_test_routing.hpp"
 #include "handler_dns_test.hpp"
+#include "handler_status_events.hpp"
 
 namespace keen_pbr3 {
 
@@ -23,6 +24,7 @@ void register_api_handlers(ApiServer& server, ApiContext& ctx) {
     register_runtime_outbounds_handler(server, ctx);
     register_test_routing_handler(server, ctx);
     register_dns_test_handler(server, ctx);
+    register_status_events_handler(server, ctx);
 }
 
 } // namespace keen_pbr3

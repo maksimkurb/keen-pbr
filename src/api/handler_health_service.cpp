@@ -22,10 +22,7 @@ api::RuntimeState to_api_runtime_state(const std::string& state) {
 
 } // namespace
 
-void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
-    // GET /api/health/service - daemon version/status + resolver/config summary
-    server.get("/api/health/service", [&ctx]() -> std::string {
-        const auto service_health = ctx.get_service_health();
+api::HealthResponse build_health_response(const ServiceHealthState& service_health) {
         api::HealthResponse resp;
         resp.version = KEEN_PBR3_VERSION_STRING;
         resp.build = KEEN_PBR3_VERSION_RELEASE_STRING;
@@ -44,9 +41,14 @@ void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
         resp.apply_started_ts = service_health.apply_started_ts;
         resp.resolver_config_sync_state = service_health.resolver_config_sync_state;
 
-        nlohmann::json response = resp;
-        response["config_is_draft"] = service_health.config_is_draft;
-        return response.dump();
+        resp.config_is_draft = service_health.config_is_draft;
+        return resp;
+}
+
+void register_health_service_handler(ApiServer& server, ApiContext& ctx) {
+    // GET /api/health/service - daemon version/status + resolver/config summary
+    server.get("/api/health/service", [&ctx]() -> std::string {
+        return nlohmann::json(build_health_response(ctx.get_service_health())).dump();
     });
 }
 

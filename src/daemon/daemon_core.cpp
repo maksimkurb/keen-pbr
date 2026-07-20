@@ -44,6 +44,7 @@
 #include "../api/handlers.hpp" // IWYU pragma: keep
 #include "../api/server.hpp"
 #include "../api/sse_broadcaster.hpp"
+#include "../api/status_stream.hpp"
 #endif
 
 namespace keen_pbr3 {
@@ -151,8 +152,8 @@ Daemon::Daemon(Config config,
     , opts_(std::move(opts))
     , firewall_(create_firewall(firewall_backend_preference(config_)))
     , interface_monitor_(std::make_unique<InterfaceMonitor>(
-          [this](const std::string& interface_name, bool is_up) {
-              handle_interface_state_change(interface_name, is_up);
+          [this](const InterfaceMonitor::Event& event) {
+              handle_interface_event(event);
           }))
     , netlink_()
     , route_table_(netlink_)
@@ -856,15 +857,17 @@ bool Daemon::is_interface_outbound_in_use(const std::string& interface_name) con
     });
 }
 
-void Daemon::handle_interface_state_change(const std::string& interface_name, bool is_up) {
+void Daemon::handle_interface_event(const InterfaceMonitor::Event& event) {
     auto& log = Logger::instance();
-    if (!is_interface_outbound_in_use(interface_name)) {
-        return;
-    }
+#ifdef WITH_API
+    if (status_stream_) status_stream_->reconcile();
+#endif
+    if (!event.administrative_state_changed ||
+        !is_interface_outbound_in_use(event.interface_name)) return;
 
     log.info("Interface {} state changed to {}, iproute and firewall refresh triggered",
-             interface_name,
-             is_up ? "UP" : "DOWN");
+             event.interface_name,
+             event.is_up ? "UP" : "DOWN");
     refresh_iproute_and_firewall_runtime();
 }
 
@@ -1210,6 +1213,9 @@ void Daemon::run() {
     transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
 
 #ifdef WITH_API
+    if (status_stream_) {
+        status_stream_->close_all();
+    }
     if (dns_test_broadcaster_) {
         dns_test_broadcaster_->close_all();
     }

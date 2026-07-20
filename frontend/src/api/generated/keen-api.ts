@@ -1267,6 +1267,119 @@ export function useGetRuntimeInterfaces<TData = Awaited<ReturnType<typeof getRun
 
 
 /**
+ * Streams named Server-Sent Events for service health, runtime outbounds, and system interfaces. Every connection receives a snapshot first. Later events contain the complete dataset that changed. Heartbeat comments are sent every 15 seconds; reconnecting starts with a fresh snapshot and no event replay is performed.
+
+ * @summary Stream live WebUI status
+ */
+export type getStatusEventsResponse200 = {
+  data: string
+  status: 200
+}
+
+export type getStatusEventsResponseSuccess = (getStatusEventsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getStatusEventsResponse = (getStatusEventsResponseSuccess)
+
+export const getGetStatusEventsUrl = () => {
+
+
+
+
+  return `/api/status/events`
+}
+
+export const getStatusEvents = async ( options?: RequestInit): Promise<getStatusEventsResponse> => {
+
+  return apiFetch<getStatusEventsResponse>(getGetStatusEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStatusEventsQueryKey = () => {
+    return [
+    `/api/status/events`
+    ] as const;
+    }
+
+
+export const getGetStatusEventsQueryOptions = <TData = Awaited<ReturnType<typeof getStatusEvents>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStatusEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStatusEvents>>> = ({ signal }) => getStatusEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStatusEventsQueryResult = NonNullable<Awaited<ReturnType<typeof getStatusEvents>>>
+export type GetStatusEventsQueryError = unknown
+
+
+export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEvents>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStatusEvents>>,
+          TError,
+          Awaited<ReturnType<typeof getStatusEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEvents>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStatusEvents>>,
+          TError,
+          Awaited<ReturnType<typeof getStatusEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEvents>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Stream live WebUI status
+ */
+
+export function useGetStatusEvents<TData = Awaited<ReturnType<typeof getStatusEvents>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStatusEvents>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStatusEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+/**
  * Streams DNS query names observed by the built-in `dns.test_server` listener as Server-Sent Events. Each connection receives `HELLO` first, then one event per queried DNS name.
 
  * @summary Stream DNS test queries

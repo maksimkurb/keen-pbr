@@ -10,6 +10,7 @@ import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { StatusEventBridge } from "@/api/status-event-bridge"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ const toasterBottomOffset =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <StatusEventBridge />
       <TooltipProvider>
         <LanguageProvider>
           <ThemeProvider>

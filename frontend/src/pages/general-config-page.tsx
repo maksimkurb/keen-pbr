@@ -116,12 +116,7 @@ function LoadedGeneralConfigPage({
 }: LoadedGeneralConfigPageProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces()
 
   const postConfigMutation = usePostConfigMutation()
 

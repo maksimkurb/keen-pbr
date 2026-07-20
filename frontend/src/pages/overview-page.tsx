@@ -39,18 +39,11 @@ import { getDnsmasqBadgeState } from "@/components/overview/dnsmasq-status"
 import { RoutingTestPanel } from "@/components/overview/routing-test-panel"
 import { getApiErrorMessage } from "@/lib/api-errors"
 
-const SERVICE_HEALTH_REFETCH_INTERVAL_MS = 30_000
-
 export function OverviewPage() {
   const { t } = useTranslation()
   const [dnsCheckStatus, setDnsCheckStatus] = useState<DnsCheckStatus>("idle")
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false)
-  const serviceHealthQuery = useGetHealthService({
-    query: {
-      refetchInterval: SERVICE_HEALTH_REFETCH_INTERVAL_MS,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const serviceHealthQuery = useGetHealthService()
   const configQuery = useGetConfig()
   const routingHealthQuery = useGetHealthRouting({
     query: {
@@ -58,18 +51,8 @@ export function OverviewPage() {
       refetchIntervalInBackground: false,
     },
   })
-  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
-    query: {
-      refetchInterval: 30_000,
-      refetchIntervalInBackground: false,
-    },
-  })
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
-    query: {
-      refetchInterval: 30_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds()
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces()
 
   const postServiceStartMutation = usePostServiceActionMutation("start")
   const postServiceStopMutation = usePostServiceActionMutation("stop")

@@ -32,6 +32,7 @@ add_executable(keen-pbr-tests
   test_runtime_interface_inventory.cpp
   test_keenetic_interface_descriptions.cpp
   test_api_runtime_interfaces.cpp
+  test_api_status_events.cpp
   test_api_test_routing.cpp
   test_api_static.cpp
   test_resolver_health.cpp
@@ -40,6 +41,7 @@ add_executable(keen-pbr-tests
   test_safe_exec.cpp
   test_trace_logging.cpp
   test_interface_monitor.cpp
+  test_status_stream.cpp
   test_port_spec_util.cpp
   test_pid_file.cpp
   test_runtime_reconciler.cpp
@@ -180,7 +182,9 @@ if(WITH_API)
   target_sources(keen-pbr-tests PRIVATE
     ../src/api/server.cpp
     ../src/api/sse_broadcaster.cpp
+    ../src/api/status_stream.cpp
     ../src/api/handler_runtime_interfaces.cpp
+    ../src/api/handler_status_events.cpp
     ../src/api/handler_test_routing.cpp
   ../src/health/runtime_interface_inventory.cpp
   ../src/keenetic/interface_descriptions.cpp

@@ -40,12 +40,7 @@ export function OutboundSelect({
   disabled,
 }: OutboundSelectProps) {
   const { t } = useTranslation()
-  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds()
 
   const runtimeOutboundsByTag = useMemo(
     () =>

@@ -7,7 +7,7 @@ namespace keen_pbr3 {
 TEST_CASE("InterfaceMonitor reconnect rebuilds usable netlink socket") {
     std::unique_ptr<InterfaceMonitor> monitor;
     try {
-        monitor = std::make_unique<InterfaceMonitor>([](const std::string&, bool) {});
+        monitor = std::make_unique<InterfaceMonitor>([](const InterfaceMonitor::Event&) {});
     } catch (const InterfaceMonitorError& e) {
         (void)e;
         return;

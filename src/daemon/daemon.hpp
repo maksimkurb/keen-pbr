@@ -49,6 +49,7 @@ enum class ConfigOperationState : uint8_t;
 class ApiServer;
 struct ApiContext;
 class SseBroadcaster;
+class StatusStream;
 struct ConfigApplyResult;
 struct ListRefreshOperationResult;
 #endif
@@ -169,7 +170,7 @@ private:
     void register_interface_monitor_fd();
     void unregister_interface_monitor_fd();
     void schedule_interface_monitor_reconnect_retry();
-    void handle_interface_state_change(const std::string& interface_name, bool is_up);
+    void handle_interface_event(const InterfaceMonitor::Event& event);
     bool is_interface_outbound_in_use(const std::string& interface_name) const;
     void refresh_iproute_and_firewall_runtime();
     void dispatch_event_fd(int fd, uint32_t events);
@@ -366,6 +367,7 @@ private:
     std::unique_ptr<ApiServer> api_server_;
     std::unique_ptr<ApiContext> api_ctx_;
     std::unique_ptr<SseBroadcaster> dns_test_broadcaster_;
+    std::unique_ptr<StatusStream> status_stream_;
 #endif
 
     std::unique_ptr<DnsProbeServer> dns_probe_server_;

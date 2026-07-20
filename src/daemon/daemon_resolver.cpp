@@ -7,6 +7,9 @@
 #include "../dns/dnsmasq_gen.hpp"
 #include "../lists/list_streamer.hpp"
 #include "../log/logger.hpp"
+#ifdef WITH_API
+#include "../api/status_stream.hpp"
+#endif
 #include "../util/ipv6_support.hpp"
 #include "../util/time_utils.hpp"
 #include "scheduler.hpp"
@@ -145,6 +148,11 @@ void Daemon::publish_runtime_state() {
     Logger::instance().trace("runtime_state_publish", "routing_runtime_active={}",
                              routing_runtime_active_ ? "true" : "false");
     runtime_state_store_.publish(build_runtime_state_snapshot());
+#ifdef WITH_API
+    if (status_stream_) {
+        status_stream_->reconcile();
+    }
+#endif
 }
 
 void Daemon::schedule_resolver_config_hash_actual_refresh() {

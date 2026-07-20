@@ -40,12 +40,7 @@ export function RoutingRulesPage() {
   const routeRules = loadedConfig?.route?.rules ?? []
   const ruleRowIds = routeRules.map((_rule, index) => String(index))
   const ruleSelection = useRowSelection(ruleRowIds)
-  const runtimeOutboundsQuery = useGetRuntimeOutbounds({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeOutboundsQuery = useGetRuntimeOutbounds()
   const runtimeOutbounds = useMemo(
     () =>
       runtimeOutboundsQuery.data?.status === 200

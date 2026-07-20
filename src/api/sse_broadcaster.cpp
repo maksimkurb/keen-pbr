@@ -10,7 +10,15 @@ SseBroadcaster::SseBroadcaster(size_t max_queue_size)
     : max_queue_size_(max_queue_size) {}
 
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
+    return subscribe({});
+}
+
+SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe(
+    std::vector<std::string> initial_messages) {
     auto subscription = std::make_shared<Subscription>();
+    subscription->messages.insert(subscription->messages.end(),
+                                  std::make_move_iterator(initial_messages.begin()),
+                                  std::make_move_iterator(initial_messages.end()));
     KPBR_LOCK_GUARD(mutex_);
     subscriptions_.push_back(subscription);
     Logger::instance().trace("sse_subscribe", "subscriptions={}", subscriptions_.size());

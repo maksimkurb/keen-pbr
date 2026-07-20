@@ -8,7 +8,9 @@
 #include <future>
 
 #include "../api/handlers.hpp"
+#include "../api/handler_health_service.hpp"
 #include "../api/server.hpp"
+#include "../api/status_stream.hpp"
 #include "../config/routing_state.hpp"
 #include "../dns/dns_router.hpp"
 #include "../dns/dnsmasq_gen.hpp"
@@ -433,12 +435,14 @@ void Daemon::setup_api() {
         },
         [this](Config staged_config, std::string staged_config_json) {
             config_store_.stage_config(std::move(staged_config), std::move(staged_config_json));
+            if (status_stream_) status_stream_->reconcile();
         },
         [this]() -> std::optional<std::pair<Config, std::string>> {
             return config_store_.staged_snapshot();
         },
         [this]() {
             config_store_.clear_staged();
+            if (status_stream_) status_stream_->reconcile();
         },
         [this](const Config& config) {
             validate_config(config);
@@ -604,7 +608,16 @@ void Daemon::setup_api() {
         [this](std::optional<std::string> requested_name) {
             return refresh_lists_via_api(requested_name);
         },
+        nullptr,
     });
+    status_stream_ = std::make_unique<StatusStream>([this]() {
+        return StatusSnapshot{
+            build_health_response(api_ctx_->get_service_health()),
+            api_ctx_->get_runtime_outbounds(),
+            api_ctx_->get_runtime_interfaces(),
+        };
+    });
+    api_ctx_->status_stream = status_stream_.get();
     register_api_handlers(*api_server_, *api_ctx_);
 
     const std::filesystem::path frontend_root(KEEN_PBR_FRONTEND_ROOT);

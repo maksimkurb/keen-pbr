@@ -235,12 +235,7 @@ function OutboundForm({
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const existingOutbounds = selectOutbounds(loadedConfig)
-  const runtimeInterfacesQuery = useGetRuntimeInterfaces({
-    query: {
-      refetchInterval: 10_000,
-      refetchIntervalInBackground: false,
-    },
-  })
+  const runtimeInterfacesQuery = useGetRuntimeInterfaces()
   const runtimeInterfaces =
     runtimeInterfacesQuery.data?.status === 200
       ? runtimeInterfacesQuery.data.data.interfaces

@@ -281,6 +281,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
 
+  /api/status/events:
+    get:
+      summary: Stream live WebUI status
+      description: >
+        Streams named Server-Sent Events for service health, runtime outbounds,
+        and system interfaces. Every connection receives a snapshot first.
+        Later events contain the complete dataset that changed. Heartbeat
+        comments are sent every 15 seconds; reconnecting starts with a fresh
+        snapshot and no event replay is performed.
+      operationId: getStatusEvents
+      responses:
+        "200":
+          description: Live status stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |-
+                event: snapshot
+                data: {"type":"snapshot","data":{"service":{},"outbounds":{"outbounds":[]},"interfaces":{"interfaces":[]}}}
+
   /api/dns/test:
     get:
       summary: Stream DNS test queries
@@ -305,6 +326,54 @@ paths:
 
 components:
   schemas:
+
+    StatusEventSnapshot:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [snapshot]
+        data:
+          type: object
+          required: [service, outbounds, interfaces]
+          properties:
+            service:
+              $ref: "#/components/schemas/HealthResponse"
+            outbounds:
+              $ref: "#/components/schemas/RuntimeOutboundsResponse"
+            interfaces:
+              $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
+
+    StatusEventService:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [service]
+        data:
+          $ref: "#/components/schemas/HealthResponse"
+
+    StatusEventOutbounds:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [outbounds]
+        data:
+          $ref: "#/components/schemas/RuntimeOutboundsResponse"
+
+    StatusEventInterfaces:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [interfaces]
+        data:
+          $ref: "#/components/schemas/RuntimeInterfaceInventoryResponse"
 
     # -------------------------------------------------------------------------
     # /api/config — configuration object schema

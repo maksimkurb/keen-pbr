@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesWnMzu6 data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypesWed3YB data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -26,7 +26,7 @@ namespace nlohmann {
         }
 
         static std::shared_ptr<T> from_json(const json & j) {
-            if (j.is_null()) return std::make_shared<T>(); else return std::make_shared<T>(j.get<T>());
+            if (j.is_null()) return std::shared_ptr<T>(); else return std::make_shared<T>(j.get<T>());
         }
     };
     template <typename T>
@@ -36,7 +36,7 @@ namespace nlohmann {
         }
 
         static std::optional<T> from_json(const json & j) {
-            if (j.is_null()) return std::make_optional<T>(); else return std::make_optional<T>(j.get<T>());
+            if (j.is_null()) return std::optional<T>(); else return std::make_optional<T>(j.get<T>());
         }
     };
 }
@@ -478,7 +478,41 @@ namespace api {
         std::vector<RuntimeOutboundStateElement> outbounds;
     };
 
-    struct KeenPbrTypesWnMzu6 {
+    enum class StatusEventInterfacesType : int { INTERFACES };
+
+    struct StatusEventInterfaces {
+        RuntimeInterfaceInventoryResponse data;
+        StatusEventInterfacesType type;
+    };
+
+    enum class StatusEventOutboundsType : int { OUTBOUNDS };
+
+    struct StatusEventOutbounds {
+        RuntimeOutboundsResponse data;
+        StatusEventOutboundsType type;
+    };
+
+    enum class StatusEventServiceType : int { SERVICE };
+
+    struct StatusEventService {
+        HealthResponse data;
+        StatusEventServiceType type;
+    };
+
+    struct Data {
+        RuntimeInterfaceInventoryResponse interfaces;
+        RuntimeOutboundsResponse outbounds;
+        HealthResponse service;
+    };
+
+    enum class StatusEventSnapshotType : int { SNAPSHOT };
+
+    struct StatusEventSnapshot {
+        Data data;
+        StatusEventSnapshotType type;
+    };
+
+    struct KeenPbrTypesWed3YB {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -530,6 +564,10 @@ namespace api {
         std::optional<RuntimeOutboundsResponse> runtime_outbounds_response;
         std::optional<RuntimeOutboundStateElement> runtime_outbound_state;
         std::optional<ResolverLiveStatus> runtime_outbound_status;
+        std::optional<StatusEventInterfaces> status_event_interfaces;
+        std::optional<StatusEventOutbounds> status_event_outbounds;
+        std::optional<StatusEventService> status_event_service;
+        std::optional<StatusEventSnapshot> status_event_snapshot;
         std::optional<ValidationErrorElement> validation_error;
     };
 }
@@ -672,8 +710,23 @@ namespace api {
     void from_json(const json & j, RuntimeOutboundsResponse & x);
     void to_json(json & j, const RuntimeOutboundsResponse & x);
 
-    void from_json(const json & j, KeenPbrTypesWnMzu6 & x);
-    void to_json(json & j, const KeenPbrTypesWnMzu6 & x);
+    void from_json(const json & j, StatusEventInterfaces & x);
+    void to_json(json & j, const StatusEventInterfaces & x);
+
+    void from_json(const json & j, StatusEventOutbounds & x);
+    void to_json(json & j, const StatusEventOutbounds & x);
+
+    void from_json(const json & j, StatusEventService & x);
+    void to_json(json & j, const StatusEventService & x);
+
+    void from_json(const json & j, Data & x);
+    void to_json(json & j, const Data & x);
+
+    void from_json(const json & j, StatusEventSnapshot & x);
+    void to_json(json & j, const StatusEventSnapshot & x);
+
+    void from_json(const json & j, KeenPbrTypesWed3YB & x);
+    void to_json(json & j, const KeenPbrTypesWed3YB & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -728,6 +781,18 @@ namespace api {
 
     void from_json(const json & j, RuntimeInterfaceStatusEnum & x);
     void to_json(json & j, const RuntimeInterfaceStatusEnum & x);
+
+    void from_json(const json & j, StatusEventInterfacesType & x);
+    void to_json(json & j, const StatusEventInterfacesType & x);
+
+    void from_json(const json & j, StatusEventOutboundsType & x);
+    void to_json(json & j, const StatusEventOutboundsType & x);
+
+    void from_json(const json & j, StatusEventServiceType & x);
+    void to_json(json & j, const StatusEventServiceType & x);
+
+    void from_json(const json & j, StatusEventSnapshotType & x);
+    void to_json(json & j, const StatusEventSnapshotType & x);
 
     inline void from_json(const json & j, ApiConfig& x) {
         x.enabled = get_stack_optional<bool>(j, "enabled");
@@ -1478,7 +1543,64 @@ namespace api {
         j["outbounds"] = x.outbounds;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesWnMzu6& x) {
+    inline void from_json(const json & j, StatusEventInterfaces& x) {
+        x.data = j.at("data").get<RuntimeInterfaceInventoryResponse>();
+        x.type = j.at("type").get<StatusEventInterfacesType>();
+    }
+
+    inline void to_json(json & j, const StatusEventInterfaces & x) {
+        j = json::object();
+        j["data"] = x.data;
+        j["type"] = x.type;
+    }
+
+    inline void from_json(const json & j, StatusEventOutbounds& x) {
+        x.data = j.at("data").get<RuntimeOutboundsResponse>();
+        x.type = j.at("type").get<StatusEventOutboundsType>();
+    }
+
+    inline void to_json(json & j, const StatusEventOutbounds & x) {
+        j = json::object();
+        j["data"] = x.data;
+        j["type"] = x.type;
+    }
+
+    inline void from_json(const json & j, StatusEventService& x) {
+        x.data = j.at("data").get<HealthResponse>();
+        x.type = j.at("type").get<StatusEventServiceType>();
+    }
+
+    inline void to_json(json & j, const StatusEventService & x) {
+        j = json::object();
+        j["data"] = x.data;
+        j["type"] = x.type;
+    }
+
+    inline void from_json(const json & j, Data& x) {
+        x.interfaces = j.at("interfaces").get<RuntimeInterfaceInventoryResponse>();
+        x.outbounds = j.at("outbounds").get<RuntimeOutboundsResponse>();
+        x.service = j.at("service").get<HealthResponse>();
+    }
+
+    inline void to_json(json & j, const Data & x) {
+        j = json::object();
+        j["interfaces"] = x.interfaces;
+        j["outbounds"] = x.outbounds;
+        j["service"] = x.service;
+    }
+
+    inline void from_json(const json & j, StatusEventSnapshot& x) {
+        x.data = j.at("data").get<Data>();
+        x.type = j.at("type").get<StatusEventSnapshotType>();
+    }
+
+    inline void to_json(json & j, const StatusEventSnapshot & x) {
+        j = json::object();
+        j["data"] = x.data;
+        j["type"] = x.type;
+    }
+
+    inline void from_json(const json & j, KeenPbrTypesWed3YB& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1530,10 +1652,14 @@ namespace api {
         x.runtime_outbounds_response = get_stack_optional<RuntimeOutboundsResponse>(j, "RuntimeOutboundsResponse");
         x.runtime_outbound_state = get_stack_optional<RuntimeOutboundStateElement>(j, "RuntimeOutboundState");
         x.runtime_outbound_status = get_stack_optional<ResolverLiveStatus>(j, "RuntimeOutboundStatus");
+        x.status_event_interfaces = get_stack_optional<StatusEventInterfaces>(j, "StatusEventInterfaces");
+        x.status_event_outbounds = get_stack_optional<StatusEventOutbounds>(j, "StatusEventOutbounds");
+        x.status_event_service = get_stack_optional<StatusEventService>(j, "StatusEventService");
+        x.status_event_snapshot = get_stack_optional<StatusEventSnapshot>(j, "StatusEventSnapshot");
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesWnMzu6 & x) {
+    inline void to_json(json & j, const KeenPbrTypesWed3YB & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;
@@ -1586,6 +1712,10 @@ namespace api {
         j["RuntimeOutboundsResponse"] = x.runtime_outbounds_response;
         j["RuntimeOutboundState"] = x.runtime_outbound_state;
         j["RuntimeOutboundStatus"] = x.runtime_outbound_status;
+        j["StatusEventInterfaces"] = x.status_event_interfaces;
+        j["StatusEventOutbounds"] = x.status_event_outbounds;
+        j["StatusEventService"] = x.status_event_service;
+        j["StatusEventSnapshot"] = x.status_event_snapshot;
         j["ValidationError"] = x.validation_error;
     }
 
@@ -1878,6 +2008,54 @@ namespace api {
             case RuntimeInterfaceStatusEnum::UNAVAILABLE: j = "unavailable"; break;
             case RuntimeInterfaceStatusEnum::UNKNOWN: j = "unknown"; break;
             default: throw std::runtime_error("Unexpected value in enumeration \"RuntimeInterfaceStatusEnum\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StatusEventInterfacesType & x) {
+        if (j == "interfaces") x = StatusEventInterfacesType::INTERFACES;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StatusEventInterfacesType\""); }
+    }
+
+    inline void to_json(json & j, const StatusEventInterfacesType & x) {
+        switch (x) {
+            case StatusEventInterfacesType::INTERFACES: j = "interfaces"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StatusEventInterfacesType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StatusEventOutboundsType & x) {
+        if (j == "outbounds") x = StatusEventOutboundsType::OUTBOUNDS;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StatusEventOutboundsType\""); }
+    }
+
+    inline void to_json(json & j, const StatusEventOutboundsType & x) {
+        switch (x) {
+            case StatusEventOutboundsType::OUTBOUNDS: j = "outbounds"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StatusEventOutboundsType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StatusEventServiceType & x) {
+        if (j == "service") x = StatusEventServiceType::SERVICE;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StatusEventServiceType\""); }
+    }
+
+    inline void to_json(json & j, const StatusEventServiceType & x) {
+        switch (x) {
+            case StatusEventServiceType::SERVICE: j = "service"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StatusEventServiceType\": " + std::to_string(static_cast<int>(x)));
+        }
+    }
+
+    inline void from_json(const json & j, StatusEventSnapshotType & x) {
+        if (j == "snapshot") x = StatusEventSnapshotType::SNAPSHOT;
+        else { throw std::runtime_error("Cannot deserialize to enumeration \"StatusEventSnapshotType\""); }
+    }
+
+    inline void to_json(json & j, const StatusEventSnapshotType & x) {
+        switch (x) {
+            case StatusEventSnapshotType::SNAPSHOT: j = "snapshot"; break;
+            default: throw std::runtime_error("Unexpected value in enumeration \"StatusEventSnapshotType\": " + std::to_string(static_cast<int>(x)));
         }
     }
 }

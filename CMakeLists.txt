@@ -320,6 +320,7 @@ if(WITH_API)
     src/api/server.cpp
     src/api/handlers.cpp
     src/api/sse_broadcaster.cpp
+    src/api/status_stream.cpp
     src/api/handler_health_service.cpp
     src/api/handler_reload.cpp
     src/api/handler_lists_refresh.cpp
@@ -328,6 +329,7 @@ if(WITH_API)
     src/api/handler_runtime_interfaces.cpp
     src/api/handler_runtime_outbounds.cpp
     src/api/handler_test_routing.cpp
+    src/api/handler_status_events.cpp
     src/api/handler_dns_test.cpp
   )
 endif()

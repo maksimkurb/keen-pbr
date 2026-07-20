@@ -8,6 +8,7 @@
 #include "../config/config.hpp"
 #include "../health/routing_health.hpp"
 #include "sse_broadcaster.hpp"
+#include "status_stream.hpp"
 #include "server.hpp"
 
 #include <cstdint>
@@ -87,6 +88,7 @@ struct ApiContext {
     std::function<void()> stop_runtime_fn;
     std::function<void()> restart_runtime_fn;
     std::function<ListRefreshOperationResult(std::optional<std::string>)> refresh_lists_fn;
+    StatusStream* status_stream{nullptr};
 
     Config get_visible_config() const {
         return get_visible_config_fn();

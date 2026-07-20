@@ -14,7 +14,12 @@ public:
 
 class InterfaceMonitor {
 public:
-    using InterfaceStateCallback = std::function<void(const std::string& interface_name, bool is_up)>;
+    struct Event {
+        std::string interface_name;
+        bool administrative_state_changed{false};
+        bool is_up{false};
+    };
+    using InterfaceStateCallback = std::function<void(const Event&)>;
 
     explicit InterfaceMonitor(InterfaceStateCallback callback);
     ~InterfaceMonitor();
