@@ -68,3 +68,64 @@ jobs:
 
       - name: Run firewall integration suite
         run: make firewall-it
+
+  integration-deb:
+    name: integration Debian package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: docker/setup-buildx-action@v4
+      - name: Restore compiler cache
+        uses: actions/cache@v5
+        with:
+          path: build/ccache
+          key: ccache-debian-${{ github.sha }}
+          restore-keys: |
+            ccache-debian-
+      - name: Cache Debian image layers
+        uses: actions/cache@v5
+        with:
+          path: /tmp/.buildx-cache-debian-integration
+          key: buildx-debian-integration-${{ hashFiles('docker/Dockerfile.debian-builder') }}
+      - name: Build full Debian package
+        run: |
+          make deb-packages DEBIAN_VARIANTS=full \
+            DEBIAN_DOCKER_CACHE_FROM="/tmp/.buildx-cache-debian-integration" \
+            DEBIAN_DOCKER_CACHE_TO="/tmp/.buildx-cache-debian-integration-new"
+      - name: Persist Debian image cache
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache-debian-integration
+          if [ -d /tmp/.buildx-cache-debian-integration-new ]; then
+            mv /tmp/.buildx-cache-debian-integration-new /tmp/.buildx-cache-debian-integration
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: integration-debian-package
+          path: build/packages/debian/**/*.deb
+
+  system-integration:
+    name: system integration (${{ matrix.backend }})
+    needs: integration-deb
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [iptables, nftables]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v8
+        with:
+          name: integration-debian-package
+          path: build/integration-debian-package
+      - name: Install QEMU integration prerequisites
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-utils mtools dosfstools
+      - name: Run packaged system integration suite
+        run: |
+          make integration-tests \
+            INTEGRATION_BACKEND=${{ matrix.backend }} \
+            INTEGRATION_DEB="$GITHUB_WORKSPACE/build/integration-debian-package/$(find "$GITHUB_WORKSPACE/build/integration-debian-package" -name 'keen-pbr_*_amd64.deb' -printf '%f\n' | head -n 1)"

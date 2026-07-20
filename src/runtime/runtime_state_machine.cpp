@@ -26,7 +26,8 @@ const std::string& RuntimeStateMachine::reason() const { return reason_; }
 bool RuntimeStateMachine::transition(RuntimeState next, std::string reason, std::string& error) {
     const bool allowed =
         (state_ == RuntimeState::starting &&
-         (next == RuntimeState::running || next == RuntimeState::stopped || next == RuntimeState::broken)) ||
+         (next == RuntimeState::running || next == RuntimeState::stopped ||
+          next == RuntimeState::broken || next == RuntimeState::shutting_down)) ||
         (state_ == RuntimeState::running &&
          (next == RuntimeState::applying || next == RuntimeState::restart_required ||
           next == RuntimeState::stopped || next == RuntimeState::broken || next == RuntimeState::shutting_down)) ||

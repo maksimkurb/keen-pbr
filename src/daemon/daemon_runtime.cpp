@@ -5,7 +5,6 @@
 #include <map>
 #include <set>
 #include <sstream>
-#include <thread>
 
 #include "../config/routing_state.hpp"
 #include "../firewall/firewall.hpp"
@@ -29,20 +28,9 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
     std::string command;
     int exit_code = 0;
     // dnsmasq invokes the CLI's streaming resolver endpoint while the hook is
-    // waiting for its restart command. Keep a narrowly scoped accept pump
-    // alive so the event-loop thread may safely wait for the hook itself.
+    // waiting for its restart command. Resolver hooks run on BlockingExecutor,
+    // while the normal event loop keeps servicing the control socket.
     ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
-    std::atomic<bool> pump_running{true};
-    std::thread control_pump([this, &pump_running] {
-        while (pump_running.load(std::memory_order_acquire)) {
-            try {
-                handle_ipc_control_socket();
-            } catch (const std::exception& error) {
-                Logger::instance().error("resolver hook IPC pump failed: {}", error.what());
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds{10});
-        }
-    });
 
     bool ok = false;
     try {
@@ -56,18 +44,29 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
                 if (index != 0) command += ' ';
                 command += args[index];
             }
-            exit_code = hook_command_executor_(args);
+            if (is_event_loop_thread()) {
+                // Some runtime reconfiguration paths still originate on the
+                // event-loop thread. Run the external hook on the existing
+                // bounded executor and service only its resolver stream while
+                // waiting. This avoids both deadlock and an extra thread/stack.
+                auto hook_result = blocking_executor_.submit(
+                    "system-resolver-hook-command",
+                    [this, args] { return hook_command_executor_(args); });
+                while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
+                       std::future_status::ready) {
+                    handle_ipc_control_socket();
+                }
+                exit_code = hook_result.get();
+            } else {
+                exit_code = hook_command_executor_(args);
+            }
             ok = exit_code == 0;
         }
     } catch (...) {
-        pump_running.store(false, std::memory_order_release);
-        control_pump.join();
         ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
         throw;
     }
 
-    pump_running.store(false, std::memory_order_release);
-    control_pump.join();
     ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
 
     if (command.empty()) {
@@ -86,7 +85,14 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
 }
 
 bool Daemon::run_system_resolver_hook_reload() {
-    return run_system_resolver_hook("reload");
+    if (!run_system_resolver_hook("reload")) {
+        return false;
+    }
+    // The hook synchronously asks the daemon to stream dnsmasq directives.
+    // Recompute only the tiny expected hash afterwards, so confirmation uses
+    // the current list/DNS cache state without retaining the large config.
+    update_resolver_config_hash();
+    return true;
 }
 
 bool Daemon::routing_runtime_active() const {
@@ -162,6 +168,8 @@ void Daemon::start_routing_runtime() {
     routing_runtime_active_ = true;
     transition_runtime_or_throw(RuntimeState::applying, "runtime starting");
     publish_runtime_state();
+    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+    update_resolver_config_hash();
     if (!run_system_resolver_hook("activate")) {
         routing_runtime_active_ = false;
         std::string ignored_error;
@@ -170,7 +178,6 @@ void Daemon::start_routing_runtime() {
         publish_runtime_state();
         throw DaemonError("system resolver activate hook failed");
     }
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
     update_resolver_config_hash();
     schedule_keenetic_dns_refresh();
     refresh_resolver_config_hash_actual_async();
@@ -238,6 +245,7 @@ void Daemon::reconcile_lists_only(bool reload_resolver) {
     try {
         apply_firewall(FirewallApplyMode::StaticSetsOnly);
         if (reload_resolver) {
+            update_resolver_config_hash();
             if (!run_system_resolver_hook_reload()) {
                 throw DaemonError("system resolver reload hook failed");
             }

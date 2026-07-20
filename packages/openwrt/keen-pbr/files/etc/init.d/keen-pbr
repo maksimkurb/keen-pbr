@@ -90,7 +90,7 @@ start_service() {
 
     ensure_fw4_include || return 1
 
-    mkdir -p /var/cache/keen-pbr
+    mkdir -p /var/cache/keen-pbr /var/run/keen-pbr
 
     if [ -x "$HELPER" ]; then
         "$HELPER" activate || return 1

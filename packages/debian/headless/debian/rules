@@ -2,6 +2,10 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+ifneq ($(shell command -v ccache),)
+CCACHE_LAUNCHER = -DCMAKE_CXX_COMPILER_LAUNCHER:STRING=ccache
+endif
+
 %:
 	dh $@ --buildsystem=cmake
 
@@ -15,9 +19,14 @@ override_dh_auto_configure:
 		-DKEEN_PBR_TARGET_VERSION:STRING=$$(. /etc/os-release && printf '%s' "$$VERSION_ID") \
 		-DKEEN_PBR_TARGET_ARCH:STRING=$$(dpkg-architecture -qDEB_HOST_ARCH) \
 		-DKEEN_PBR_BUILD_VARIANT:STRING=headless \
-		-DWITH_API=OFF
+		-DWITH_API=OFF $(CCACHE_LAUNCHER)
 
 override_dh_auto_test:
+
+override_dh_dwz:
+	# Bullseye dwz cannot process DW_OP_255 emitted in the current debug data.
+	# dwz only optimizes debug information; package stripping still runs normally.
+	:
 
 override_dh_auto_install:
 	dh_auto_install

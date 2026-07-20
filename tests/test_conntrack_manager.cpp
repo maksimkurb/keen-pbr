@@ -22,7 +22,7 @@ TEST_CASE("ConntrackManager deletes only the requested mark in both families") {
     std::vector<std::vector<std::string>> commands;
     ConntrackManager manager([&commands](const std::vector<std::string>& args) {
         commands.push_back(args);
-        return 0;
+        return ConntrackManager::CommandResult{0, {}};
     });
 
     CHECK(manager.delete_mark(0x120000, 0xFF0000));
@@ -33,7 +33,24 @@ TEST_CASE("ConntrackManager deletes only the requested mark in both families") {
 
 TEST_CASE("ConntrackManager reports family cleanup failure without broad fallback") {
     ConntrackManager manager([](const std::vector<std::string>& args) {
-        return args[3] == "ipv6" ? 1 : 0;
+        return ConntrackManager::CommandResult{args[3] == "ipv6" ? 1 : 0,
+                                               "netlink error"};
+    });
+    CHECK_FALSE(manager.delete_mark(0x120000, 0xFF0000));
+}
+
+TEST_CASE("ConntrackManager treats an already-empty family as cleanup success") {
+    ConntrackManager manager([](const std::vector<std::string>&) {
+        return ConntrackManager::CommandResult{
+            1,
+            "conntrack v1.4.8 (conntrack-tools): 0 flow entries have been deleted.\n"};
+    });
+    CHECK(manager.delete_mark(0x120000, 0xFF0000));
+}
+
+TEST_CASE("ConntrackManager does not hide other conntrack exit status one errors") {
+    ConntrackManager manager([](const std::vector<std::string>&) {
+        return ConntrackManager::CommandResult{1, "Operation not permitted\n"};
     });
     CHECK_FALSE(manager.delete_mark(0x120000, 0xFF0000));
 }

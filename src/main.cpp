@@ -180,18 +180,18 @@ void set_signal_action(int signum, void (*handler)(int)) {
     }
 }
 
-std::string resolver_fallback_reason(const std::string& error) {
-    static constexpr std::string_view known[] = {
-        "runtime_starting", "runtime_stopped", "runtime_broken", "runtime_shutting_down",
-        "stream_start_timeout", "daemon_error", "protocol_error", "socket_unavailable",
-        "active_list_cache_mismatch", "list_cache_missing",
-    };
-    for (const auto reason : known) {
-        if (error == reason) return std::string(reason);
+std::optional<std::string> resolver_fallback_reason(const std::string& error) {
+    // Fallback is a lifecycle decision, not a generic IPC error handler.
+    // A daemon that is alive (including one in `broken`) remains the source
+    // of the managed DNS configuration.  Otherwise an internal error could
+    // silently remove all nftset/ipset and domain-routing directives.
+    if (error == "runtime_stopped") return "runtime_stopped";
+    if (error == "runtime_shutting_down") return "runtime_shutting_down";
+    if (error.find("control socket unavailable") != std::string::npos ||
+        error.find("control socket create failed") != std::string::npos) {
+        return "daemon_unavailable";
     }
-    if (error.find("unavailable") != std::string::npos) return "socket_unavailable";
-    if (error.find("timeout") != std::string::npos) return "connect_timeout";
-    return "protocol_error";
+    return std::nullopt;
 }
 
 } // anonymous namespace
@@ -270,11 +270,14 @@ int main(int argc, char* argv[]) {
                     std::cout, 15000);
                 return 0;
             } catch (const keen_pbr3::ipc::ControlStreamError& error) {
-                if (!error.active_bytes_streamed() && keen_pbr3::ipc::emit_resolver_fallback(
-                        std::cout, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
-                        resolver_fallback_reason(error.what()),
-                        static_cast<std::int64_t>(std::time(nullptr)))) {
-                    return 0;
+                const auto fallback_reason = resolver_fallback_reason(error.what());
+                if (!error.active_bytes_streamed() && fallback_reason.has_value()) {
+                    if (keen_pbr3::ipc::emit_resolver_fallback(
+                            std::cout, KEEN_PBR_RESOLVER_FALLBACK_CONFIG,
+                            *fallback_reason,
+                            static_cast<std::int64_t>(std::time(nullptr)))) {
+                        return 0;
+                    }
                 }
                 throw;
             }

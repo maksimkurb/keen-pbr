@@ -326,11 +326,13 @@ inline int safe_exec_pipe_stdin(const std::vector<std::string>& args,
     return -1;
 }
 
-// Execute a command with arguments and capture its stdout output.
-// Returns stdout, exit status and whether capture exceeded max_bytes.
+// Execute a command with arguments and capture its stdout output. When
+// merge_stderr is true, stderr is captured into stdout_output as well.
+// Returns output, exit status and whether capture exceeded max_bytes.
 inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
                                            bool suppress_stderr = false,
-                                           size_t max_bytes = 0) {
+                                           size_t max_bytes = 0,
+                                           bool merge_stderr = false) {
     ExecCaptureResult result;
     if (args.empty()) return result;
     const std::string command = safe_exec_command_string(args);
@@ -381,7 +383,9 @@ inline ExecCaptureResult safe_exec_capture(const std::vector<std::string>& args,
         }
         close(pipefd[0]);
         dup2(pipefd[1], STDOUT_FILENO);
-        if (suppress_stderr) {
+        if (merge_stderr) {
+            dup2(pipefd[1], STDERR_FILENO);
+        } else if (suppress_stderr) {
             const int devnull = open("/dev/null", O_WRONLY);
             if (devnull >= 0) {
                 dup2(devnull, STDERR_FILENO);

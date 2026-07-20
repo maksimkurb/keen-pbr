@@ -21,6 +21,7 @@ CLANG_FEATURE_CMAKE_FLAGS := -DWITH_API=ON -DUSE_KEENETIC_API=ON
         frontend-api-generate \
         test \
         firewall-it-images firewall-it \
+        integration-tests integration-tests-iptables integration-tests-nftables \
         clang-build clang-check clang-tidy \
         generate \
         cross-setup cross-build cross-deploy \
@@ -58,6 +59,19 @@ firewall-it-images: ## Build the Docker images for firewall integration tests (a
 
 firewall-it: ## Run the Docker + netns firewall integration suite (builds images first)
 	bash tests/firewall_it/scripts/run-suite.sh
+
+INTEGRATION_BACKEND ?= all
+INTEGRATION_DEB ?=
+INTEGRATION_REBUILD ?= 0
+
+integration-tests: ## Run packaged Debian system integration tests (INTEGRATION_BACKEND=all|iptables|nftables)
+	bash tests/integration/scripts/run-qemu-suite.sh "$(INTEGRATION_BACKEND)" "$(INTEGRATION_DEB)" "$(INTEGRATION_REBUILD)"
+
+integration-tests-iptables: ## Run packaged Debian integration tests with the iptables backend
+	$(MAKE) integration-tests INTEGRATION_BACKEND=iptables INTEGRATION_DEB="$(INTEGRATION_DEB)" INTEGRATION_REBUILD="$(INTEGRATION_REBUILD)"
+
+integration-tests-nftables: ## Run packaged Debian integration tests with the nftables backend
+	$(MAKE) integration-tests INTEGRATION_BACKEND=nftables INTEGRATION_DEB="$(INTEGRATION_DEB)" INTEGRATION_REBUILD="$(INTEGRATION_REBUILD)"
 
 clang-build: ## Configure and compile with Clang in a host-only build dir
 	cmake -S . -B $(CLANG_BUILD_DIR) $(CLANG_CMAKE_FLAGS) $(CLANG_FEATURE_CMAKE_FLAGS)

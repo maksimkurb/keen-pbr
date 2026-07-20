@@ -111,7 +111,7 @@ Commands:
   activate               Mark keen-pbr dnsmasq state active and restart dnsmasq.
   deactivate             Mark keen-pbr dnsmasq state inactive and restart dnsmasq.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Alias for restart-dnsmasq; used by the system resolver hook.
+  reload                 Switch to managed config and restart; used by the system resolver hook.
   help                   Show this help text.
 EOF
 }
@@ -130,7 +130,7 @@ case "${1:-}" in
         restart_dnsmasq
         ;;
     reload)
-        restart_dnsmasq
+        activate_dnsmasq
         ;;
     help|-h|--help)
         print_help

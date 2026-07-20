@@ -5,6 +5,7 @@
 #include <cstring>
 #include <curl/curl.h>
 #include <memory>
+#include <mutex>
 #include <sys/socket.h>
 
 namespace keen_pbr3 {
@@ -13,6 +14,12 @@ struct EasyDeleter { void operator()(CURL* curl) const { if (curl) curl_easy_cle
 struct SlistDeleter { void operator()(curl_slist* list) const { if (list) curl_slist_free_all(list); } };
 using EasyHandle = std::unique_ptr<CURL, EasyDeleter>;
 using HeaderList = std::unique_ptr<curl_slist, SlistDeleter>;
+
+// OpenWrt's libcurl callback path has crashed when simultaneous initial
+// urltest probes mutate their per-transfer response-header maps. All callers
+// use this process-wide transport, so serialize the complete easy-handle
+// lifetime rather than allowing callbacks from separate transfers to overlap.
+std::mutex http_transport_mutex;
 
 [[noreturn]] void fail(CURLcode code, const char* operation) {
     throw HttpTransportError(std::string(operation) + ": " + curl_easy_strerror(code));
@@ -72,6 +79,8 @@ void restrict_protocols(CURL* curl) {
 } // namespace
 
 HttpTransportResponse LibcurlHttpTransport::perform(const HttpTransportRequest& request) {
+    std::lock_guard<std::mutex> lock(http_transport_mutex);
+
     EasyHandle curl(curl_easy_init());
     if (!curl) throw HttpTransportError("Failed to initialize curl handle");
     HttpTransportResponse response;

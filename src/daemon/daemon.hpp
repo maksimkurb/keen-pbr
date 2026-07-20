@@ -13,8 +13,6 @@
 #include <string_view>
 #include <thread>
 #include <vector>
-#include <sys/types.h>
-
 #include "../config/config.hpp"
 #include "../dns/dns_txt_client.hpp"
 #include "config_store.hpp"
@@ -44,6 +42,7 @@ class Scheduler;
 class UrltestManager;
 class DnsProbeServer;
 struct DnsProbeEvent;
+enum class ResolverType;
 
 #ifdef WITH_API
 enum class ConfigOperationState : uint8_t;
@@ -76,6 +75,14 @@ struct PreparedRuntimeInputs {
     Config config;
     OutboundMarkMap outbound_marks;
     bool remote_lists_refreshed{false};
+};
+
+struct ResolverGenerationSnapshot {
+    Config config;
+    ResolverType resolver_type;
+    bool ipv6_enabled{true};
+    std::string expected_hash;
+    std::uint64_t generation{0};
 };
 
 // Helper to get tag from any outbound variant
@@ -167,6 +174,11 @@ private:
     void refresh_iproute_and_firewall_runtime();
     void dispatch_event_fd(int fd, uint32_t events);
     void run_event_loop();
+    void begin_startup_runtime();
+    void continue_startup_after_lists(std::optional<RemoteListsRefreshResult> refresh_result,
+                                      std::string error);
+    void finish_startup_after_resolver_hook(bool hook_succeeded, std::string error);
+    void fail_startup_runtime(std::string error);
 
     // lifecycle and runtime apply
     void setup_static_routing();
@@ -264,6 +276,7 @@ private:
 
     // Recompute resolver_config_hash_ from current config/cache state
     void update_resolver_config_hash();
+    ResolverGenerationSnapshot make_resolver_generation_snapshot();
     // Schedule (or reschedule) the periodic refresh of resolver_config_hash_actual_.
     void schedule_resolver_config_hash_actual_refresh();
     RuntimeStateSnapshot build_runtime_state_snapshot() const;
@@ -300,7 +313,6 @@ private:
     PidFile pid_file_;
     int control_fd_{-1};
     int ipc_control_fd_{-1};
-    gid_t ipc_control_group_id_{static_cast<gid_t>(-1)};
     std::string ipc_control_socket_path_;
     struct ControlTask {
         std::function<void()> callback;
@@ -337,6 +349,7 @@ private:
     FirewallState firewall_state_;
     ConntrackManager conntrack_manager_;
     ResolverCoordinator resolver_coordinator_;
+    std::optional<ResolverGenerationSnapshot> resolver_generation_snapshot_;
     RuntimeStateMachine runtime_state_machine_;
     URLTester url_tester_;
     OutboundMarkMap outbound_marks_;

@@ -8,7 +8,12 @@ ConntrackManager::ConntrackManager(CommandRunner runner)
     : runner_(std::move(runner)) {
     if (!runner_) {
         runner_ = [](const std::vector<std::string>& args) {
-            return safe_exec(args, /*suppress_output=*/true);
+            constexpr size_t kMaxDiagnosticBytes = 1024;
+            const auto result = safe_exec_capture(args,
+                                                  /*suppress_stderr=*/false,
+                                                  kMaxDiagnosticBytes,
+                                                  /*merge_stderr=*/true);
+            return CommandResult{result.exit_code, result.stdout_output};
         };
     }
 }
@@ -37,8 +42,20 @@ uint32_t ConntrackManager::save_selected_mark(uint32_t ctmark, uint32_t nfmark,
 
 bool ConntrackManager::delete_mark(uint32_t mark, uint32_t owned_mask) const {
     const std::string selector = std::to_string(mark) + "/" + std::to_string(owned_mask);
-    const bool ipv4 = runner_({"conntrack", "-D", "-f", "ipv4", "--mark", selector}) == 0;
-    const bool ipv6 = runner_({"conntrack", "-D", "-f", "ipv6", "--mark", selector}) == 0;
+    const auto delete_family = [this, &selector](const char* family) {
+        const auto result = runner_({"conntrack", "-D", "-f", family, "--mark", selector});
+        if (result.exit_code == 0) {
+            return true;
+        }
+
+        // conntrack exits with status 1 when the selector matches no flows.
+        // Cleanup is intentionally idempotent, so an already-empty table is
+        // success rather than a best-effort cleanup failure.
+        return result.exit_code == 1 &&
+               result.output.find("0 flow entries have been deleted") != std::string::npos;
+    };
+    const bool ipv4 = delete_family("ipv4");
+    const bool ipv6 = delete_family("ipv6");
     return ipv4 && ipv6;
 }
 

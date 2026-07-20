@@ -28,6 +28,7 @@ add_executable(keen-pbr-tests
   test_route_table.cpp
   test_policy_rule.cpp
   test_routing_reconciler.cpp
+  test_routing_verifier.cpp
   test_runtime_interface_inventory.cpp
   test_keenetic_interface_descriptions.cpp
   test_api_runtime_interfaces.cpp
@@ -108,6 +109,7 @@ add_executable(keen-pbr-tests
   ../src/util/traced_mutex.cpp
   ../src/routing/policy_rule.cpp
   ../src/routing/routing_reconciler.cpp
+  ../src/routing/routing_verifier.cpp
   ../src/routing/route_table.cpp
   ../src/routing/target.cpp
 )

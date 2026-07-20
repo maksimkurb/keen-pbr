@@ -17,6 +17,8 @@ using UrltestStateLookupFn = std::function<std::optional<UrltestState>(const std
 
 api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::vector<RuleSpec>& policy_rules,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup);
 

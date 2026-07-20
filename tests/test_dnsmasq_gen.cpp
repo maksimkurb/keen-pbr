@@ -1129,3 +1129,66 @@ TEST_CASE("generate-resolver-config merges cached content with file and inline e
         throw;
     }
 }
+
+TEST_CASE("nft resolver stream keeps routed and DNS-only list directives together") {
+    CacheManager cache("/nonexistent/cache");
+    ListStreamer streamer(cache);
+
+    RouteRule work_route;
+    work_route.list = std::vector<std::string>{"work"};
+    work_route.outbound = "vpn_work";
+    RouteRule home_route;
+    home_route.list = std::vector<std::string>{"cubly_home"};
+    home_route.outbound = "vpn_home";
+    RouteConfig route_cfg;
+    route_cfg.rules = std::vector<RouteRule>{work_route, home_route};
+
+    DnsServer work_server;
+    work_server.tag = "work_dns";
+    work_server.address = "10.3.5.18";
+    DnsServer home_server;
+    home_server.tag = "home_dns";
+    home_server.address = "10.5.0.101";
+    DnsServer tailscale_server;
+    tailscale_server.tag = "tailscale_dns";
+    tailscale_server.address = "100.100.100.100";
+    DnsConfig dns_cfg;
+    dns_cfg.servers = std::vector<DnsServer>{work_server, home_server, tailscale_server};
+    dns_cfg.fallback = std::vector<std::string>{"tailscale_dns"};
+    DnsRule work_dns_rule;
+    work_dns_rule.list = std::vector<std::string>{"work"};
+    work_dns_rule.server = "work_dns";
+    work_dns_rule.allow_domain_rebinding = true;
+    DnsRule home_dns_rule;
+    home_dns_rule.list = std::vector<std::string>{"cubly_home"};
+    home_dns_rule.server = "home_dns";
+    home_dns_rule.allow_domain_rebinding = true;
+    DnsRule tailscale_dns_rule;
+    tailscale_dns_rule.list = std::vector<std::string>{"tailscale"};
+    tailscale_dns_rule.server = "tailscale_dns";
+    tailscale_dns_rule.allow_domain_rebinding = true;
+    dns_cfg.rules = std::vector<DnsRule>{work_dns_rule, home_dns_rule, tailscale_dns_rule};
+
+    const auto lists = std::map<std::string, ListConfig>{
+        {"work", make_list_cfg({"work.example"})},
+        {"cubly_home", make_list_cfg({"home.example"})},
+        {"tailscale", make_list_cfg({"ts.net"})},
+    };
+
+    DnsServerRegistry registry(dns_cfg);
+    DnsmasqGenerator generator(registry, streamer, route_cfg, dns_cfg, lists,
+                                ResolverType::DNSMASQ_NFTSET);
+    const std::string expected_hash = generator.compute_config_hash();
+    const std::string output = run_generate(generator);
+
+    CHECK(output.find("nftset=/work.example/4#inet#KeenPbrTable#kpbr4d_work,6#inet#KeenPbrTable#kpbr6d_work\n") != std::string::npos);
+    CHECK(output.find("nftset=/home.example/4#inet#KeenPbrTable#kpbr4d_cubly_home,6#inet#KeenPbrTable#kpbr6d_cubly_home\n") != std::string::npos);
+    CHECK(output.find("nftset=/ts.net/") == std::string::npos);
+    CHECK(output.find("server=/work.example/10.3.5.18\n") != std::string::npos);
+    CHECK(output.find("server=/home.example/10.5.0.101\n") != std::string::npos);
+    CHECK(output.find("server=/ts.net/100.100.100.100\n") != std::string::npos);
+    CHECK(output.find("rebind-domain-ok=/work.example/\n") != std::string::npos);
+    CHECK(output.find("rebind-domain-ok=/home.example/\n") != std::string::npos);
+    CHECK(output.find("rebind-domain-ok=/ts.net/\n") != std::string::npos);
+    CHECK(extract_txt_hash(output) == expected_hash);
+}

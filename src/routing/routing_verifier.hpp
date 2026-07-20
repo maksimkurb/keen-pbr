@@ -8,10 +8,10 @@
 namespace keen_pbr3 {
 
 // Verifies live kernel routing state against expected configuration.
-// Uses NetlinkManager (libnl3) — no CLI calls.
+// Uses the read-only routing netlink surface — no CLI calls.
 class RoutingVerifier {
 public:
-    explicit RoutingVerifier(NetlinkManager& netlink);
+    explicit RoutingVerifier(RoutingNetlinkOperations& netlink);
 
     // Verify that the expected route (from a RouteSpec) is present in the kernel.
     // outbound_tag is used to populate the RouteTableCheck for reporting.
@@ -29,7 +29,7 @@ public:
     RoutingVerifier& operator=(const RoutingVerifier&) = delete;
 
 private:
-    NetlinkManager& netlink_;
+    RoutingNetlinkOperations& netlink_;
 };
 
 } // namespace keen_pbr3

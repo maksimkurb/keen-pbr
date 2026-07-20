@@ -10,7 +10,6 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
-#include <grp.h>
 #include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
@@ -119,16 +118,6 @@ private:
     std::array<char, kResolverStreamChunkBytes> buffer_{};
 };
 
-std::string resolver_runtime_reason(const RuntimeStateSnapshot& snapshot) {
-    switch (snapshot.runtime_state) {
-    case RuntimeState::starting: return "runtime_starting";
-    case RuntimeState::stopped: return "runtime_stopped";
-    case RuntimeState::broken: return "runtime_broken";
-    case RuntimeState::shutting_down: return "runtime_shutting_down";
-    default: return "daemon_error";
-    }
-}
-
 std::int64_t steady_duration_ms(std::chrono::steady_clock::time_point started_at) {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started_at).count();
@@ -187,6 +176,11 @@ Daemon::Daemon(Config config,
     if (epoll_fd_ < 0) {
         throw DaemonError("epoll_create1 failed: " + std::string(strerror(errno)));
     }
+
+    // Acquire the single-instance lock before creating the externally visible
+    // socket.  A rejected second service invocation must never unlink the
+    // active daemon's control socket during its own setup.
+    write_pid_file();
 
     setup_signals();
     setup_control_channel();
@@ -265,12 +259,6 @@ void Daemon::setup_ipc_control_socket() {
         throw DaemonError("failed to inspect control socket path: " + std::string(strerror(errno)));
     }
 
-    const group* control_group = getgrnam("keen-pbr");
-    if (control_group == nullptr) {
-        throw DaemonError("required control socket group keen-pbr does not exist");
-    }
-    ipc_control_group_id_ = control_group->gr_gid;
-
     ipc_control_fd_ = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (ipc_control_fd_ < 0) {
         throw DaemonError("control socket create failed: " + std::string(strerror(errno)));
@@ -280,8 +268,8 @@ void Daemon::setup_ipc_control_socket() {
     std::strncpy(address.sun_path, ipc_control_socket_path_.c_str(), sizeof(address.sun_path) - 1U);
     if (bind(ipc_control_fd_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0 ||
         listen(ipc_control_fd_, 16) != 0 ||
-        chown(ipc_control_socket_path_.c_str(), 0, ipc_control_group_id_) != 0 ||
-        chmod(ipc_control_socket_path_.c_str(), 0660) != 0) {
+        chown(ipc_control_socket_path_.c_str(), 0, 0) != 0 ||
+        chmod(ipc_control_socket_path_.c_str(), 0600) != 0) {
         const std::string error = strerror(errno);
         remove_ipc_control_socket();
         throw DaemonError("control socket setup failed: " + error);
@@ -303,7 +291,6 @@ void Daemon::remove_ipc_control_socket() noexcept {
         close(ipc_control_fd_);
         ipc_control_fd_ = -1;
     }
-    ipc_control_group_id_ = static_cast<gid_t>(-1);
     if (!ipc_control_socket_path_.empty()) {
         (void)unlink(ipc_control_socket_path_.c_str());
         ipc_control_socket_path_.clear();
@@ -346,14 +333,23 @@ void Daemon::handle_ipc_control_socket() {
             request = ipc::decode_message(frame);
             ipc::validate_request_envelope(request);
             const std::string operation = request.at("operation").get<std::string>();
-            if (ipc_resolver_hook_inflight_.load(std::memory_order_acquire) &&
-                operation != "generate-resolver-config") {
+            const bool resolver_hook_inflight =
+                ipc_resolver_hook_inflight_.load(std::memory_order_acquire);
+            const bool read_only_operation =
+                operation == "status" || operation == "resolver-config-hash";
+            const bool startup_mutation =
+                runtime_state_machine_.state() == RuntimeState::starting &&
+                (operation == "download" || operation == "test-routing");
+            if (resolver_hook_inflight &&
+                operation != "generate-resolver-config" && !read_only_operation) {
                 response = ipc::make_error_response(
-                    request, "busy", "resolver hook is the only control operation currently allowed");
+                    request, "busy", "mutating control operations are unavailable during resolver reload");
+            } else if (startup_mutation) {
+                response = ipc::make_error_response(
+                    request, "busy", "routing runtime initialization is still in progress");
             } else {
             const bool root_peer = peer.uid == 0;
-            const bool list_update_member = peer.gid == ipc_control_group_id_ && operation == "download";
-            if (!root_peer && !list_update_member) {
+            if (!root_peer) {
                 throw ipc::ControlProtocolError("control peer is not authorized for this operation");
             }
             if (operation != "status" && operation != "resolver-config-hash" &&
@@ -382,15 +378,19 @@ void Daemon::handle_ipc_control_socket() {
                                         {"warnings", result.warnings},
                                         {"dns_error", result.dns_error}}}};
             } else if (operation == "generate-resolver-config") {
-                const auto runtime_snapshot = runtime_state_store_.snapshot();
                 const RuntimeState runtime_state = runtime_state_machine_.state();
-                if (runtime_state == RuntimeState::broken ||
-                    runtime_state == RuntimeState::shutting_down ||
-                    !runtime_snapshot.routing_runtime_active || !routing_runtime_active_) {
-                    const std::string reason = runtime_state == RuntimeState::broken
-                        ? "runtime_broken"
-                        : (runtime_state == RuntimeState::shutting_down
-                            ? "runtime_shutting_down" : resolver_runtime_reason(runtime_snapshot));
+                // The DNS configuration is a daemon-owned desired-state
+                // artifact, not a reward for a successful routing health
+                // check.  In particular, serving fallback after a failed
+                // resolver confirmation makes the failure self-sustaining:
+                // dnsmasq can then never publish the managed TXT hash which
+                // would let the daemon recover.  Only an explicit runtime
+                // stop (or shutdown) requests fallback DNS behaviour.
+                if (runtime_state == RuntimeState::stopped ||
+                    runtime_state == RuntimeState::shutting_down) {
+                    const std::string reason = runtime_state == RuntimeState::shutting_down
+                        ? "runtime_shutting_down"
+                        : "runtime_stopped";
                     response = ipc::make_error_response(request, reason,
                                                         "resolver runtime is not active");
                     const std::string frame = ipc::encode_message(response);
@@ -398,11 +398,15 @@ void Daemon::handle_ipc_control_socket() {
                     close(client);
                     continue;
                 }
-                // During a transactional apply dnsmasq's hook must receive the
-                // candidate, while all ordinary readers still use ConfigStore's
-                // committed snapshot. The candidate is never persisted here.
-                const auto active_config = runtime_state_machine_.state() == RuntimeState::applying
-                    ? config_ : config_store_.active_config();
+                if (!resolver_generation_snapshot_.has_value()) {
+                    throw ipc::ControlProtocolError("resolver_generation_unavailable");
+                }
+                // The worker captures the active configuration by value. List
+                // cache files remain deliberately streamed from disk rather
+                // than copied into daemon memory; the post-hook hash refresh
+                // accounts for their current content before confirmation.
+                const ResolverGenerationSnapshot generation = *resolver_generation_snapshot_;
+                const Config& active_config = generation.config;
                 const auto dns_config = active_config.dns.value_or(DnsConfig{});
                 const auto cache_dir = active_config.daemon.value_or(DaemonConfig{})
                     .cache_dir.value_or("/var/cache/keen-pbr");
@@ -410,42 +414,15 @@ void Daemon::handle_ipc_control_socket() {
                     ? ResolverType::DNSMASQ_IPSET
                     : (request.value("resolver", "dnsmasq") == "dnsmasq-nftset"
                         ? ResolverType::DNSMASQ_NFTSET
-                        : (firewall_->backend() == FirewallBackend::nftables
-                            ? ResolverType::DNSMASQ_NFTSET : ResolverType::DNSMASQ_IPSET));
+                        : generation.resolver_type);
                 const auto request_id = request.at("request_id").get<std::string>();
                 const bool queued = blocking_executor_.try_post(
                     "generate-resolver-config",
-                    [client, active_config, dns_config, cache_dir, type, request_id] {
+                    [client, generation, dns_config, cache_dir, type, request_id] {
                         bool stream_started = false;
                         try {
+                            const Config& active_config = generation.config;
                             CacheManager cache(cache_dir, max_file_size_bytes(active_config));
-                            std::set<std::string> referenced_lists;
-                            for (const auto& rule : active_config.route.value_or(RouteConfig{}).rules.value_or(
-                                     std::vector<RouteRule>{})) {
-                                if (!route_rule_enabled(rule)) continue;
-                                for (const auto& list_name : route_rule_lists(rule)) {
-                                    referenced_lists.insert(list_name);
-                                }
-                            }
-                            for (const auto& rule : dns_config.rules.value_or(std::vector<DnsRule>{})) {
-                                if (!dns_rule_enabled(rule)) continue;
-                                for (const auto& list_name : rule.list) {
-                                    referenced_lists.insert(list_name);
-                                }
-                            }
-                            const auto lists = active_config.lists.value_or(
-                                std::map<std::string, ListConfig>{});
-                            for (const auto& list_name : referenced_lists) {
-                                const auto list = lists.find(list_name);
-                                if (list == lists.end()) continue;
-                                if (list->second.url.has_value() && !cache.has_cache(list_name)) {
-                                    throw ipc::ControlProtocolError("list_cache_missing");
-                                }
-                                if (list->second.file.has_value() &&
-                                    !std::filesystem::is_regular_file(list->second.file.value())) {
-                                    throw ipc::ControlProtocolError("active_list_cache_mismatch");
-                                }
-                            }
                             const auto header = ipc::encode_message(
                                 {{"protocol_version", ipc::kControlProtocolVersion},
                                  {"request_id", request_id}, {"ok", true}, {"stream", true}});
@@ -454,13 +431,15 @@ void Daemon::handle_ipc_control_socket() {
                             SocketStreamBuffer buffer(client);
                             std::ostream output(&buffer);
                             output << "# keen-pbr resolver state: active\n";
-                            const auto ipv6 = resolve_ipv6_support(active_config);
                             ListStreamer streamer(cache);
                             DnsServerRegistry registry(dns_config);
+                            const RouteConfig route_config =
+                                active_config.route.value_or(RouteConfig{});
+                            const auto lists = active_config.lists.value_or(
+                                std::map<std::string, ListConfig>{});
                             DnsmasqGenerator generator(
-                                registry, streamer, active_config.route.value_or(RouteConfig{}), dns_config,
-                                active_config.lists.value_or(std::map<std::string, ListConfig>{}), type,
-                                KEEN_PBR3_VERSION_FULL_STRING, ipv6.enabled);
+                                registry, streamer, route_config, dns_config, lists, type,
+                                KEEN_PBR3_VERSION_FULL_STRING, generation.ipv6_enabled);
                             generator.generate(output);
                             output << "txt-record=resolver-state.keen.pbr," << std::time(nullptr)
                                    << "|active|runtime_active\n";
@@ -1049,86 +1028,176 @@ void Daemon::run_event_loop() {
     }
 }
 
+void Daemon::fail_startup_runtime(std::string error) {
+    auto& log = Logger::instance();
+    std::string transition_error;
+    const std::string reason = "startup failed: " + error;
+    if (!runtime_state_machine_.transition(RuntimeState::broken,
+                                           reason,
+                                           transition_error)) {
+        log.error("Unable to publish failed startup state: {}", transition_error);
+    }
+    publish_runtime_state();
+    log.error("Routing runtime startup failed: {}", error);
+}
+
+void Daemon::begin_startup_runtime() {
+    auto& log = Logger::instance();
+    try {
+        setup_static_routing();
+        log.info("Static routing tables and ip rules installed.");
+
+        log.info("Startup lists: checking local cache; only missing remote lists will be downloaded.");
+        const auto relevant_lists = collect_relevant_list_names(config_);
+        const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
+        const bool queued = blocking_executor_.try_post(
+            "startup-lists",
+            [this, relevant_lists, dns_relevant_lists] {
+                std::optional<RemoteListsRefreshResult> refresh_result;
+                std::string error;
+                try {
+                    refresh_result = list_service_.download_uncached(
+                        config_, outbound_marks_, &relevant_lists, &dns_relevant_lists);
+                } catch (const std::exception& exception) {
+                    error = exception.what();
+                } catch (...) {
+                    error = "unknown startup list error";
+                }
+                post_control_task(
+                    [this, refresh_result = std::move(refresh_result), error = std::move(error)]() mutable {
+                        continue_startup_after_lists(std::move(refresh_result), std::move(error));
+                    },
+                    "startup-after-lists");
+            });
+        if (!queued) {
+            throw DaemonError("startup list executor is unavailable");
+        }
+    } catch (const std::exception& exception) {
+        fail_startup_runtime(exception.what());
+    } catch (...) {
+        fail_startup_runtime("unknown routing initialization error");
+    }
+}
+
+void Daemon::continue_startup_after_lists(
+    std::optional<RemoteListsRefreshResult> refresh_result,
+    std::string error) {
+    auto& log = Logger::instance();
+    if (!refresh_result.has_value()) {
+        fail_startup_runtime(error.empty() ? "startup list refresh failed" : std::move(error));
+        return;
+    }
+
+    const auto& result = *refresh_result;
+
+    if (!result.cached_lists.empty()) {
+        log.info("Startup lists: using cached list(s): {}", format_list_names(result.cached_lists));
+    }
+    if (!result.changed_lists.empty()) {
+        log.info("Startup lists: downloaded missing list(s): {}", format_list_names(result.changed_lists));
+    } else if (result.refreshed_lists.empty() && result.failed_lists.empty()) {
+        log.info("Startup lists: all remote lists are available locally; no downloads needed.");
+    }
+    if (!result.unchanged_lists.empty()) {
+        log.info("Startup lists: downloaded list(s) were unchanged: {}",
+                 format_list_names(result.unchanged_lists));
+    }
+    if (!result.failed_lists.empty()) {
+        log.warn("Startup lists: failed to download missing list(s): {}",
+                 format_list_names(result.failed_lists));
+    }
+
+    try {
+        register_urltest_outbounds();
+        apply_firewall(FirewallApplyMode::Destructive);
+        log.info("Firewall rules and routing applied.");
+        schedule_lists_autoupdate();
+
+        if (result.any_dns_relevant_changed()) {
+            log.info("Startup lists: DNS-relevant list(s) changed: {}",
+                     format_list_names(result.dns_relevant_changed_lists));
+        }
+
+        // Publish the desired resolver generation before invoking the system
+        // hook. dnsmasq can then stream the complete managed configuration
+        // through the already-running control socket.
+        apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
+        update_resolver_config_hash();
+        publish_runtime_state();
+
+        const bool queued = blocking_executor_.try_post(
+            "startup-resolver-hook",
+            [this] {
+                bool hook_succeeded = false;
+                std::string hook_error;
+                try {
+                    hook_succeeded = run_system_resolver_hook("reload");
+                    if (!hook_succeeded) hook_error = "system resolver reload hook failed";
+                } catch (const std::exception& exception) {
+                    hook_error = exception.what();
+                } catch (...) {
+                    hook_error = "unknown system resolver hook error";
+                }
+                post_control_task(
+                    [this, hook_succeeded, hook_error = std::move(hook_error)]() mutable {
+                        finish_startup_after_resolver_hook(hook_succeeded, std::move(hook_error));
+                    },
+                    "startup-after-resolver-hook");
+            });
+        if (!queued) {
+            throw DaemonError("startup resolver hook executor is unavailable");
+        }
+    } catch (const std::exception& exception) {
+        fail_startup_runtime(exception.what());
+    } catch (...) {
+        fail_startup_runtime("unknown firewall or resolver initialization error");
+    }
+}
+
+void Daemon::finish_startup_after_resolver_hook(bool hook_succeeded, std::string error) {
+    if (!hook_succeeded) {
+        fail_startup_runtime(error.empty() ? "system resolver reload hook failed" : std::move(error));
+        return;
+    }
+
+    try {
+        // Resolver convergence is health information, not a startup gate. A
+        // synchronous TXT wait here used to hide the WebUI and permanently
+        // mark a healthy runtime broken on a transient DNS response.
+        update_resolver_config_hash();
+        setup_dns_probe();
+        register_interface_monitor_fd();
+        refresh_resolver_config_hash_actual_async();
+        schedule_resolver_config_hash_actual_refresh();
+        transition_runtime_or_throw(RuntimeState::running, "startup complete");
+        publish_runtime_state();
+        Logger::instance().info("Routing runtime started.");
+    } catch (const std::exception& exception) {
+        fail_startup_runtime(exception.what());
+    } catch (...) {
+        fail_startup_runtime("unknown startup finalization error");
+    }
+}
+
 void Daemon::run() {
     auto& log = Logger::instance();
 
-    write_pid_file();
-
-    setup_static_routing();
-    log.info("Static routing tables and ip rules installed.");
-
-    log.info("Startup lists: checking local cache; only missing remote lists will be downloaded.");
-    const auto relevant_lists = collect_relevant_list_names(config_);
-    const auto dns_relevant_lists = collect_dns_relevant_list_names(config_);
-    const RemoteListsRefreshResult refresh_result = list_service_.download_uncached(
-        config_, outbound_marks_, &relevant_lists, &dns_relevant_lists);
-
-    if (!refresh_result.cached_lists.empty()) {
-        log.info("Startup lists: using cached list(s): {}", format_list_names(refresh_result.cached_lists));
-    }
-    if (!refresh_result.changed_lists.empty()) {
-        log.info("Startup lists: downloaded missing list(s): {}", format_list_names(refresh_result.changed_lists));
-    } else if (refresh_result.refreshed_lists.empty() && refresh_result.failed_lists.empty()) {
-        log.info("Startup lists: all remote lists are available locally; no downloads needed.");
-    }
-    if (!refresh_result.unchanged_lists.empty()) {
-        log.info("Startup lists: downloaded list(s) were unchanged: {}",
-                 format_list_names(refresh_result.unchanged_lists));
-    }
-    if (!refresh_result.failed_lists.empty()) {
-        log.warn("Startup lists: failed to download missing list(s): {}",
-                 format_list_names(refresh_result.failed_lists));
-    }
-
-    register_urltest_outbounds();
-    apply_firewall(FirewallApplyMode::Destructive);
-    log.info("Firewall rules and routing applied.");
-
-    schedule_lists_autoupdate();
-
-    if (refresh_result.any_dns_relevant_changed()) {
-        log.info("Startup lists: DNS-relevant list(s) changed: {}",
-                 format_list_names(refresh_result.dns_relevant_changed_lists));
-    }
-    // A matching stale TXT is not proof that the newly started daemon has
-    // installed its resolver configuration, so startup always restarts it.
-    apply_started_ts_.store(unix_timestamp_now_seconds(), std::memory_order_release);
-    if (!run_system_resolver_hook_reload()) {
-        throw DaemonError("system resolver reload hook failed during startup");
-    }
-    update_resolver_config_hash();
-    const std::string expected_resolver_hash =
-        resolver_sync_.snapshot(unix_timestamp_now_seconds()).expected_hash;
-    std::string resolver_confirmation_error;
-    const bool resolver_confirmed = wait_for_resolver_config_hash_confirmation(
-        config_, expected_resolver_hash,
-        apply_started_ts_.load(std::memory_order_acquire), resolver_confirmation_error);
-    refresh_resolver_config_hash_actual_async();
-    schedule_resolver_config_hash_actual_refresh();
-    if (resolver_confirmed) {
-        transition_runtime_or_throw(RuntimeState::running, "startup complete");
-    } else {
-        std::string ignored_error;
-        (void)runtime_state_machine_.transition(
-            RuntimeState::broken, "startup resolver confirmation failed", ignored_error);
-        log.error("Startup resolver confirmation failed: {}", resolver_confirmation_error);
-    }
+    // Make the control plane observable before any routing, list download, or
+    // resolver work. Health reports runtime_state=starting until the deferred
+    // initialization pipeline completes or reports a concrete failure.
     publish_runtime_state();
-
-    setup_dns_probe();
-
-    register_interface_monitor_fd();
-
-#ifdef WITH_API
-    setup_api();
-#endif
-
-    log.info("Daemon running. PID: {}", getpid());
 
     running_.store(true, std::memory_order_release);
     event_loop_thread_id_.store(std::this_thread::get_id(), std::memory_order_relaxed);
     event_loop_active_.store(true, std::memory_order_release);
     accept_posted_control_tasks_.store(true, std::memory_order_release);
+
+#ifdef WITH_API
+    setup_api();
+#endif
+
+    log.info("Daemon control plane running. PID: {}", getpid());
+    post_control_task([this] { begin_startup_runtime(); }, "startup-runtime");
 
     run_event_loop();
 

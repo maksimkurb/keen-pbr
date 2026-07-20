@@ -197,46 +197,30 @@ api::ResolverLiveStatus derive_overall_status(
         : api::ResolverLiveStatus::UNKNOWN;
 }
 
-std::optional<uint32_t> outbound_table_id(const Config& config,
-                                          const std::vector<Outbound>& outbounds,
+std::optional<uint32_t> outbound_table_id(const OutboundMarkMap& outbound_marks,
+                                          const std::vector<RuleSpec>& policy_rules,
                                           const std::string& outbound_tag) {
-    const uint32_t table_start = static_cast<uint32_t>(
-        config.iproute.value_or(IprouteConfig{}).table_start.value_or(150));
-
-    uint32_t table_offset = 0;
-    for (const auto& outbound : outbounds) {
-        const bool routable =
-            (outbound.type == OutboundType::INTERFACE ||
-             outbound.type == OutboundType::TABLE ||
-             outbound.type == OutboundType::URLTEST);
-        if (!routable) {
-            continue;
-        }
-
-        uint32_t table_id = 0;
-        if (outbound.type == OutboundType::TABLE) {
-            table_id = static_cast<uint32_t>(outbound.table.value_or(0));
-        } else {
-            table_id = safe_table_id(table_start, table_offset);
-        }
-        ++table_offset;
-
-        if (outbound.tag == outbound_tag) {
-            return table_id;
+    const auto mark = outbound_marks.find(outbound_tag);
+    if (mark == outbound_marks.end()) {
+        return std::nullopt;
+    }
+    for (const auto& rule : policy_rules) {
+        if (rule.fwmark == mark->second && rule.action == RuleAction::lookup) {
+            return rule.table;
         }
     }
-
     return std::nullopt;
 }
 
-api::RuntimeOutboundStateElement build_interface_outbound_state(const Config& config,
-                                                                const Outbound& outbound,
+api::RuntimeOutboundStateElement build_interface_outbound_state(const Outbound& outbound,
+                                                                const OutboundMarkMap& outbound_marks,
+                                                                const std::vector<RuleSpec>& policy_rules,
                                                                 NetlinkManager& netlink) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
-    const auto table_id = outbound_table_id(config, config.outbounds.value_or(std::vector<Outbound>{}), outbound.tag);
+    const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
     std::vector<DumpedRoute> routes;
     if (table_id.has_value()) {
         routes = netlink.dump_routes_in_table(*table_id);
@@ -263,14 +247,15 @@ api::RuntimeOutboundStateElement build_interface_outbound_state(const Config& co
     return state;
 }
 
-api::RuntimeOutboundStateElement build_table_outbound_state(const Config& config,
-                                                            const Outbound& outbound,
+api::RuntimeOutboundStateElement build_table_outbound_state(const Outbound& outbound,
+                                                            const OutboundMarkMap& outbound_marks,
+                                                            const std::vector<RuleSpec>& policy_rules,
                                                             NetlinkManager& netlink) {
     api::RuntimeOutboundStateElement state;
     state.tag = outbound.tag;
     state.type = outbound.type;
 
-    const auto table_id = outbound_table_id(config, config.outbounds.value_or(std::vector<Outbound>{}), outbound.tag);
+    const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
     std::vector<DumpedRoute> routes;
     if (table_id.has_value()) {
         routes = netlink.dump_routes_in_table(*table_id);
@@ -285,6 +270,8 @@ api::RuntimeOutboundStateElement build_table_outbound_state(const Config& config
 
 api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& config,
                                                               const Outbound& outbound,
+                                                              const OutboundMarkMap& outbound_marks,
+                                                              const std::vector<RuleSpec>& policy_rules,
                                                               NetlinkManager& netlink,
                                                               const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundStateElement state;
@@ -293,7 +280,7 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
 
     const auto all_outbounds = config.outbounds.value_or(std::vector<Outbound>{});
     const auto children = ordered_urltest_children(all_outbounds, outbound);
-    const auto table_id = outbound_table_id(config, all_outbounds, outbound.tag);
+    const auto table_id = outbound_table_id(outbound_marks, policy_rules, outbound.tag);
 
     std::vector<DumpedRoute> routes;
     if (table_id.has_value()) {
@@ -371,6 +358,8 @@ api::RuntimeOutboundStateElement build_urltest_outbound_state(const Config& conf
 
 api::RuntimeOutboundsResponse build_runtime_outbounds_response(
     const Config& config,
+    const OutboundMarkMap& outbound_marks,
+    const std::vector<RuleSpec>& policy_rules,
     NetlinkManager& netlink,
     const UrltestStateLookupFn& urltest_state_lookup) {
     api::RuntimeOutboundsResponse response;
@@ -381,15 +370,16 @@ api::RuntimeOutboundsResponse build_runtime_outbounds_response(
         switch (outbound.type) {
             case OutboundType::INTERFACE:
                 response.outbounds.push_back(
-                    build_interface_outbound_state(config, outbound, netlink));
+                    build_interface_outbound_state(outbound, outbound_marks, policy_rules, netlink));
                 break;
             case OutboundType::TABLE:
                 response.outbounds.push_back(
-                    build_table_outbound_state(config, outbound, netlink));
+                    build_table_outbound_state(outbound, outbound_marks, policy_rules, netlink));
                 break;
             case OutboundType::URLTEST:
                 response.outbounds.push_back(
-                    build_urltest_outbound_state(config, outbound, netlink, urltest_state_lookup));
+                    build_urltest_outbound_state(config, outbound, outbound_marks,
+                                                 policy_rules, netlink, urltest_state_lookup));
                 break;
             case OutboundType::BLACKHOLE:
             case OutboundType::IGNORE: {

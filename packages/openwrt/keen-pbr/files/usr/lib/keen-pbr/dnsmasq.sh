@@ -147,6 +147,8 @@ uninstall_persistent() {
 }
 
 restart_dnsmasq() {
+    # Keep existing installations in sync when the jail mount contract changes.
+    ensure_runtime_prereqs
     /etc/init.d/dnsmasq restart 2>/dev/null || true
 }
 
@@ -160,7 +162,7 @@ Commands:
   deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
   uninstall-persistent   Remove persistent integration and helper-managed runtime config.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Alias for restart-dnsmasq; used by the system resolver hook.
+  reload                 Switch to managed config and restart; used by the system resolver hook.
   help                   Show this help text.
 EOF
 }
@@ -182,7 +184,7 @@ case "$1" in
         restart_dnsmasq
         ;;
     reload)
-        restart_dnsmasq
+        activate_dnsmasq
         ;;
     help|-h|--help)
         print_help

@@ -75,7 +75,7 @@ bool route_matches_expected(const RouteSpec& expected, const DumpedRoute& actual
 
 } // anonymous namespace
 
-RoutingVerifier::RoutingVerifier(NetlinkManager& netlink)
+RoutingVerifier::RoutingVerifier(RoutingNetlinkOperations& netlink)
     : netlink_(netlink) {}
 
 RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
@@ -104,8 +104,12 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
                 continue;
             }
 
+            if (expected.family != 0 && r.family != expected.family) {
+                continue;
+            }
+
             result.default_route_present = true;
-            if (!first_default) {
+            if (first_default == nullptr) {
                 first_default = &r;
             }
 
@@ -161,7 +165,9 @@ RouteTableCheck RoutingVerifier::verify_route_table(const RouteSpec& expected,
                             " has no routes (table missing or empty)";
         } else {
             result.status = CheckStatus::missing;
-            result.detail = "no default route found in table " +
+            const char* family = expected.family == AF_INET ? "IPv4 "
+                : expected.family == AF_INET6 ? "IPv6 " : "";
+            result.detail = std::string("no ") + family + "default route found in table " +
                             std::to_string(expected.table);
         }
     } catch (const NetlinkError& e) {

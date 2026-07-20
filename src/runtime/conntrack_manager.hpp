@@ -20,7 +20,11 @@ struct ConntrackPolicy {
 
 class ConntrackManager {
 public:
-    using CommandRunner = std::function<int(const std::vector<std::string>&)>;
+    struct CommandResult {
+        int exit_code{-1};
+        std::string output;
+    };
+    using CommandRunner = std::function<CommandResult(const std::vector<std::string>&)>;
 
     explicit ConntrackManager(CommandRunner runner = {});
     // Records the policy successfully handed to the firewall backend.

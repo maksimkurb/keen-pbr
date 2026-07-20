@@ -1,0 +1,15 @@
+{
+  "daemon": {"cache_dir": "/var/cache/keen-pbr", "firewall_backend": "BACKEND", "strict_enforcement": true},
+  "api": {"enabled": true, "listen": "0.0.0.0:12121"},
+  "fwmark": {"start": "0x00010000", "mask": "0x00ff0000"},
+  "iproute": {"table_start": 150},
+  "outbounds": [
+    {"tag": "wan_direct", "type": "interface", "interface": "wan_direct", "gateway": "10.10.0.2"},
+    {"tag": "wan_pbr", "type": "interface", "interface": "wan_pbr", "gateway": "10.20.0.2"},
+    {"tag": "auto", "type": "urltest", "url": "http://198.18.0.10:18080/health", "tolerance_ms": 20,
+      "outbound_groups": [{"weight": 1, "outbounds": ["wan_direct", "wan_pbr"]}]}
+  ],
+  "lists": {"routed": {"domains": ["routed.test"]}},
+  "route": {"inbound_interfaces": ["lan0"], "rules": [{"list": ["routed"], "outbound": "auto"}]},
+  "dns": {"system_resolver": {"address": "192.0.2.1"}, "servers": [{"tag": "upstream", "address": "10.20.0.2"}], "fallback": ["upstream"]}
+}

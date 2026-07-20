@@ -34,4 +34,12 @@ TEST_CASE("RuntimeStateMachine prevents mutations while shutting down") {
     CHECK(machine.state() == RuntimeState::shutting_down);
 }
 
+TEST_CASE("RuntimeStateMachine permits shutdown while startup is asynchronous") {
+    RuntimeStateMachine machine;
+    std::string error;
+
+    CHECK(machine.transition(RuntimeState::shutting_down, "signal during startup", error));
+    CHECK(machine.state() == RuntimeState::shutting_down);
+}
+
 } // namespace keen_pbr3

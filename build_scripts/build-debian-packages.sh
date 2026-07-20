@@ -6,6 +6,7 @@ WORKSPACE="${1:?Usage: $0 <workspace-dir> <release-dir>}"
 RELEASE_DIR="${2:?}"
 FRONTEND_DIST="${KEEN_PBR_FRONTEND_DIST:-$WORKSPACE/frontend/dist}"
 DEBIAN_VERSION="${DEBIAN_VERSION:-bookworm}"
+DEBIAN_VARIANTS="${DEBIAN_VARIANTS:-full headless}"
 KEEN_PBR_VERSION="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" version "$WORKSPACE")"
 KEEN_PBR_RELEASE="$(bash "$WORKSPACE/build_scripts/resolve-version.sh" release "$WORKSPACE")"
 VERSION_RELEASE="${KEEN_PBR_VERSION}-${KEEN_PBR_RELEASE}"
@@ -31,27 +32,30 @@ mkdir -p "$RELEASE_DIR"
 bash "$WORKSPACE/build_scripts/ensure-frontend-dist.sh" "$WORKSPACE" "$FRONTEND_DIST"
 
 BUILD_ROOT="$(mktemp -d /tmp/keen-pbr-debian.XXXXXX)"
-FULL_SRC="$BUILD_ROOT/full"
-HEADLESS_SRC="$BUILD_ROOT/headless"
 trap 'rm -rf "$BUILD_ROOT"' EXIT
 
-prepare_tree full "$FULL_SRC"
-prepare_tree headless "$HEADLESS_SRC"
+for variant in $DEBIAN_VARIANTS; do
+    case "$variant" in
+        full|headless) ;;
+        *) echo "Unsupported DEBIAN_VARIANTS entry: $variant" >&2; exit 2 ;;
+    esac
 
-(
-    cd "$FULL_SRC"
-    KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
-    KEEN_PBR_RELEASE_OVERRIDE="$KEEN_PBR_RELEASE" \
-    dpkg-buildpackage -b -us -uc
-)
-find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr_*_*.deb' -exec cp -t "$RELEASE_DIR" {} +
-find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-dbgsym_*_*.ddeb' -exec cp -t "$RELEASE_DIR" {} +
+    src_dir="$BUILD_ROOT/$variant"
+    prepare_tree "$variant" "$src_dir"
+    (
+        cd "$src_dir"
+        if [ "$variant" = "full" ]; then
+            KEEN_PBR_FRONTEND_DIST="$FRONTEND_DIST" \
+            KEEN_PBR_RELEASE_OVERRIDE="$KEEN_PBR_RELEASE" \
+            dpkg-buildpackage -b -us -uc
+        else
+            KEEN_PBR_RELEASE_OVERRIDE="$KEEN_PBR_RELEASE" dpkg-buildpackage -b -us -uc
+        fi
+    )
+done
 
-(
-    cd "$HEADLESS_SRC"
-    KEEN_PBR_RELEASE_OVERRIDE="$KEEN_PBR_RELEASE" dpkg-buildpackage -b -us -uc
-)
-find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-headless_*_*.deb' -exec cp -t "$RELEASE_DIR" {} +
-find "$BUILD_ROOT" -maxdepth 1 -type f -name 'keen-pbr-headless-dbgsym_*_*.ddeb' -exec cp -t "$RELEASE_DIR" {} +
+find "$BUILD_ROOT" -maxdepth 1 -type f \( -name 'keen-pbr_*_*.deb' -o -name 'keen-pbr-headless_*_*.deb' \
+    -o -name 'keen-pbr-dbgsym_*_*.ddeb' -o -name 'keen-pbr-headless-dbgsym_*_*.ddeb' \) \
+    -exec cp -t "$RELEASE_DIR" {} +
 
 bash "$WORKSPACE/build_scripts/collect-debian.sh" "$RELEASE_DIR" "$DEBIAN_VERSION"

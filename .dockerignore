@@ -4,8 +4,14 @@ cmake-build/
 cmake-build-gcc/
 cmake-build-clang/
 cmake-build-aarch64/
+cmake-build-*/
 cross-toolchain/
 dist/
 .git/
+.codegraph/
+.cache/
+.idea/
+frontend/node_modules/
+frontend/dist/
 subprojects/*/
 !subprojects/packagefiles/

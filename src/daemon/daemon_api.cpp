@@ -64,7 +64,13 @@ void Daemon::begin_config_operation_or_throw(ConfigOperationState state,
         throw ApiError("Another config operation is already in progress", 409);
     }
 
-    const bool runtime_running = runtime_state_store_.snapshot().routing_runtime_active;
+    const auto runtime_snapshot = runtime_state_store_.snapshot();
+    if (runtime_snapshot.runtime_state == RuntimeState::starting ||
+        runtime_snapshot.runtime_state == RuntimeState::shutting_down) {
+        operation_coordinator_.finish();
+        throw ApiError("Routing runtime initialization is still in progress", 409);
+    }
+    const bool runtime_running = runtime_snapshot.routing_runtime_active;
     if (require_runtime_running && !runtime_running) {
         operation_coordinator_.finish();
         throw ApiError("Routing runtime is stopped; start it first", 409);
@@ -498,6 +504,12 @@ void Daemon::setup_api() {
         [this]() {
             const auto runtime_snapshot = runtime_state_store_.snapshot();
 
+            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
+                RoutingHealthReport report;
+                report.error = "routing runtime initialization is in progress";
+                return report;
+            }
+
             return build_routing_health_report(
                 firewall_->backend(),
                 runtime_snapshot.firewall_state,
@@ -509,8 +521,23 @@ void Daemon::setup_api() {
             const Config config_snapshot = config_store_.active_config();
             const auto runtime_snapshot = runtime_state_store_.snapshot();
 
+            if (runtime_snapshot.runtime_state == RuntimeState::starting) {
+                api::RuntimeOutboundsResponse response;
+                for (const auto& outbound :
+                     config_snapshot.outbounds.value_or(std::vector<Outbound>{})) {
+                    api::RuntimeOutboundStateElement state;
+                    state.tag = outbound.tag;
+                    state.type = outbound.type;
+                    state.status = api::ResolverLiveStatus::UNKNOWN;
+                    response.outbounds.push_back(std::move(state));
+                }
+                return response;
+            }
+
             return build_runtime_outbounds_response(
                 config_snapshot,
+                runtime_snapshot.firewall_state.get_outbound_marks(),
+                runtime_snapshot.policy_rule_specs,
                 netlink_,
                 [&runtime_snapshot](const std::string& tag) -> std::optional<UrltestState> {
                     auto it = runtime_snapshot.urltest_states.find(tag);

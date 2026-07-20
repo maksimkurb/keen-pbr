@@ -140,6 +140,18 @@ TEST_CASE("safe_exec_capture: child process does not inherit blocked signal mask
     CHECK(result.stdout_output == "0000000000000000\n");
 }
 
+TEST_CASE("safe_exec_capture: stderr can be merged into bounded output") {
+    const auto result = safe_exec_capture(
+        {"/bin/sh", "-c", "echo conntrack-error >&2; exit 1"},
+        /*suppress_stderr=*/false,
+        /*max_bytes=*/1024,
+        /*merge_stderr=*/true);
+
+    CHECK(result.exit_code == 1);
+    CHECK(result.stdout_output == "conntrack-error\n");
+    CHECK_FALSE(result.truncated);
+}
+
 TEST_CASE("safe_exec: child process receives devnull stdin") {
     StdinGuard stdin_guard;
     REQUIRE(stdin_guard.saved_stdin >= 0);

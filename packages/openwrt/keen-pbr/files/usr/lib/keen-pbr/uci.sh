@@ -5,10 +5,13 @@ set -e
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
 CACHE_DIR="/var/cache/keen-pbr"
+CONTROL_DIR="/var/run/keen-pbr"
 FW4_INCLUDE_PATH="/usr/lib/keen-pbr/firewall.sh"
 
-# Paths to bind-mount read-only into the dnsmasq procd jail.
-JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR"
+# Paths to bind-mount read-only into the dnsmasq procd jail.  The control socket
+# is recreated whenever keen-pbr starts, so mount its stable parent directory
+# instead of pinning the socket inode that existed when dnsmasq entered its jail.
+JAIL_MOUNTS="$KEEN_PBR_BIN $CONFIG_DIR $CACHE_DIR $CONTROL_DIR"
 
 [ -r /lib/functions.sh ] && . /lib/functions.sh
 
@@ -80,6 +83,12 @@ dnsmasq_confdir() {
     config_load dhcp
     config_get confdir "$section" confdir
     printf '%s\n' "${confdir:-/tmp/dnsmasq.${section}.d}"
+}
+
+ensure_jail_mount_targets() {
+    # /var lives on persistent storage on some targets while /var/run is
+    # volatile. Both directories must exist before procd builds the jail.
+    mkdir -p "$CACHE_DIR" "$CONTROL_DIR"
 }
 
 install_mounts_for_section() {
@@ -184,6 +193,8 @@ dnsmasq_install_persistent() {
     local section
     local changed=1
 
+    ensure_jail_mount_targets
+
     for section in $(dnsmasq_sections); do
         if backup_list_option_for_section "$section" server kpbr_server; then
             changed=0
@@ -199,6 +210,11 @@ dnsmasq_install_persistent() {
 dnsmasq_ensure_runtime_prereqs() {
     local section
     local changed=1
+
+    # addnmount targets must exist before procd constructs the dnsmasq jail.
+    # Mounting the directory also makes later control.sock replacement visible
+    # without restarting or rebuilding the jail mount namespace.
+    ensure_jail_mount_targets
 
     for section in $(dnsmasq_sections); do
         if install_mounts_for_section "$section"; then
