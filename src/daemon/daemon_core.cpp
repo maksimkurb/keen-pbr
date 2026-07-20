@@ -795,11 +795,13 @@ void Daemon::schedule_sigusr1_runtime_refresh() {
         SIGUSR1_DEBOUNCE_DELAY,
         [this]() {
             sigusr1_refresh_task_id_ = -1;
+#ifdef WITH_API
             if (operation_coordinator_.busy()) {
                 Logger::instance().info("SIGUSR1: config operation is active; deferring runtime reconcile");
                 schedule_sigusr1_runtime_refresh();
                 return;
             }
+#endif
             Logger::instance().info("SIGUSR1: applying firewall refresh...");
             refresh_iproute_and_firewall_runtime();
             Logger::instance().info("SIGUSR1: firewall refresh complete.");
@@ -809,6 +811,10 @@ void Daemon::schedule_sigusr1_runtime_refresh() {
 
 void Daemon::handle_sighup() {
     auto& log = Logger::instance();
+#ifndef WITH_API
+    log.warn("SIGHUP: configuration reload is unavailable in headless builds");
+    return;
+#else
     log.info("SIGHUP: full reload starting...");
     if (!operation_coordinator_.try_begin("sighup-reload")) {
         log.warn("SIGHUP: reload skipped because another config operation is in progress");
@@ -847,6 +853,7 @@ void Daemon::handle_sighup() {
         operation_coordinator_.finish();
         log.error("SIGHUP: reload could not be scheduled");
     }
+#endif
 }
 
 void Daemon::refresh_iproute_and_firewall_runtime() {

@@ -49,22 +49,32 @@ RuntimeReconcileResult RuntimeReconciler::reconcile(const RuntimeDesiredState& d
         for (RuntimeSubsystem& subsystem : subsystems_) {
             std::string verification_error;
             if (!subsystem.verify(desired, subsystem.inspect(), verification_error)) {
-                return {.committed = false,
-                        .drift_detected = true,
-                        .error = verification_error.empty() ? "runtime state drift detected"
-                                                           : std::move(verification_error),
-                        .operation_count = attempt_plan.size()};
+                RuntimeReconcileResult result;
+                result.drift_detected = true;
+                result.error = verification_error.empty() ? "runtime state drift detected"
+                                                          : std::move(verification_error);
+                result.operation_count = attempt_plan.size();
+                return result;
             }
         }
 
         if (commit) {
             commit();
         }
-        return {.committed = true, .operation_count = attempt_plan.size()};
+        RuntimeReconcileResult result;
+        result.committed = true;
+        result.operation_count = attempt_plan.size();
+        return result;
     } catch (const std::exception& error) {
-        return {.error = error.what(), .operation_count = attempt_plan.size()};
+        RuntimeReconcileResult result;
+        result.error = error.what();
+        result.operation_count = attempt_plan.size();
+        return result;
     } catch (...) {
-        return {.error = "unknown runtime reconciliation error", .operation_count = attempt_plan.size()};
+        RuntimeReconcileResult result;
+        result.error = "unknown runtime reconciliation error";
+        result.operation_count = attempt_plan.size();
+        return result;
     }
 }
 

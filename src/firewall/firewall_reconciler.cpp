@@ -164,7 +164,9 @@ FirewallReconcileResult FirewallReconciler::reconcile(const FirewallDesiredState
     try {
         std::string probe_error;
         if (!backend_.probe(probe_error)) {
-            return {.error = probe_error.empty() ? "firewall backend is unavailable" : probe_error};
+            FirewallReconcileResult result;
+            result.error = probe_error.empty() ? "firewall backend is unavailable" : probe_error;
+            return result;
         }
 
         const FirewallActualState actual = backend_.inspect();
@@ -175,16 +177,25 @@ FirewallReconcileResult FirewallReconciler::reconcile(const FirewallDesiredState
 
         std::string verification_error;
         if (!backend_.verify(desired, backend_.inspect(), verification_error)) {
-            return {.drift_detected = true,
-                    .error = verification_error.empty() ? "firewall state drift detected"
-                                                       : verification_error,
-                    .operation_count = plan.size()};
+            FirewallReconcileResult result;
+            result.drift_detected = true;
+            result.error = verification_error.empty() ? "firewall state drift detected"
+                                                       : verification_error;
+            result.operation_count = plan.size();
+            return result;
         }
-        return {.committed = true, .operation_count = plan.size()};
+        FirewallReconcileResult result;
+        result.committed = true;
+        result.operation_count = plan.size();
+        return result;
     } catch (const std::exception& error) {
-        return {.error = error.what()};
+        FirewallReconcileResult result;
+        result.error = error.what();
+        return result;
     } catch (...) {
-        return {.error = "unknown firewall reconciliation error"};
+        FirewallReconcileResult result;
+        result.error = "unknown firewall reconciliation error";
+        return result;
     }
 }
 
