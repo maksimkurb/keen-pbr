@@ -1203,13 +1203,22 @@ void Daemon::run() {
 
     run_event_loop();
 
+    log.info("Shutting down...");
+    transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
+    publish_runtime_state();
+    try {
+        if (!run_system_resolver_hook("deactivate")) {
+            log.warn("System resolver shutdown hook failed; dnsmasq will use fallback on its next restart");
+        }
+    } catch (const std::exception& error) {
+        log.warn("System resolver shutdown hook failed: {}; dnsmasq will use fallback on its next restart",
+                 error.what());
+    }
+
     event_loop_active_.store(false, std::memory_order_release);
     event_loop_thread_id_.store(std::thread::id{}, std::memory_order_relaxed);
     accept_posted_control_tasks_.store(false, std::memory_order_release);
     blocking_executor_.shutdown();
-
-    log.info("Shutting down...");
-    transition_runtime_or_throw(RuntimeState::shutting_down, "daemon shutdown");
 
 #ifdef WITH_API
     if (status_stream_) {

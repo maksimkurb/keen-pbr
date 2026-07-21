@@ -192,20 +192,16 @@ prepare_start() {
 
 prepare_stop() {
     enable_hwnat
-    if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" deactivate || true
-    fi
 }
 
 reapply_dnsmasq_config() {
     if [ -x "$DNSMASQ_HELPER" ]; then
-        "$DNSMASQ_HELPER" activate || return 1
+        "$DNSMASQ_HELPER" reload || return 1
     fi
 }
 
 case "$1" in
     reload)
-        reapply_dnsmasq_config || exit 1
         signal_service HUP
         exit $?
         ;;
@@ -219,7 +215,6 @@ case "$1" in
         ;;
     start|restart|restartall)
         prepare_start
-        reapply_dnsmasq_config || exit 1
         ;;
     stop|kill)
         prepare_stop

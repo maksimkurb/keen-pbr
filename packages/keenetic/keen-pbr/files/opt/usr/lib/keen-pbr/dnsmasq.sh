@@ -3,9 +3,6 @@
 set -e
 
 KEEN_PBR_BIN="/opt/usr/bin/keen-pbr"
-DNSMASQ_FALLBACK_FILE="/opt/etc/keen-pbr/dnsmasq-fallback.conf"
-STATE_DIR="/tmp/keen-pbr"
-ACTIVE_FILE="${STATE_DIR}/active"
 
 log_message() {
     local level="$1"
@@ -18,54 +15,9 @@ log_info() {
     log_message info "$1"
 }
 
-log_warn() {
-    log_message warn "$1"
-}
-
-log_info() {
-    log_message info "$1"
-}
-
-fallback_conf_line() {
-    printf 'conf-file=%s\n' "$DNSMASQ_FALLBACK_FILE"
-}
-
-active_conf_line() {
-    "$KEEN_PBR_BIN" generate-resolver-config dnsmasq
-}
-
-is_active() {
-    [ -r "$ACTIVE_FILE" ] || return 1
-
-    active_state="$(tr -d '[:space:]' < "$ACTIVE_FILE" 2>/dev/null || true)"
-    [ "$active_state" = "Y" ]
-}
-
-set_active_state() {
-    mkdir -p "$STATE_DIR"
-    printf '%s\n' "$1" > "$ACTIVE_FILE"
-}
-
 emit_dnsmasq_config_entry() {
-    if is_active; then
-        active_conf_line
-        log_info "Produced dnsmasq keen-pbr managed config"
-    else
-        fallback_conf_line
-        log_info "Produced dnsmasq fallback config entry"
-    fi
-}
-
-activate_dnsmasq() {
-    set_active_state "Y"
-    log_info "Marked keen-pbr dnsmasq state as active"
-    restart_dnsmasq
-}
-
-deactivate_dnsmasq() {
-    set_active_state "N"
-    log_info "Marked keen-pbr dnsmasq state as inactive"
-    restart_dnsmasq
+    "$KEEN_PBR_BIN" generate-resolver-config dnsmasq
+    log_info "Produced dnsmasq configuration from keen-pbr lifecycle state"
 }
 
 restart_dnsmasq() {
@@ -82,11 +34,11 @@ print_help() {
 Usage: $0 <command>
 
 Commands:
-  dnsmasq-config-entry   Print the dnsmasq config entry for the current active state.
-  activate               Mark keen-pbr dnsmasq state active and restart dnsmasq.
-  deactivate             Mark keen-pbr dnsmasq state inactive and restart dnsmasq.
+  dnsmasq-config-entry   Print managed or fallback config based on daemon lifecycle state.
+  activate               Restart dnsmasq; compatibility alias for reload.
+  deactivate             Restart dnsmasq; compatibility alias for reload.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Switch to managed config and restart; used by the system resolver hook.
+  reload                 Restart dnsmasq; used by the system resolver hook.
   help                   Show this help text.
 EOF
 }
@@ -95,17 +47,8 @@ case "$1" in
     dnsmasq-config-entry)
         emit_dnsmasq_config_entry
         ;;
-    activate)
-        activate_dnsmasq
-        ;;
-    deactivate)
-        deactivate_dnsmasq
-        ;;
-    restart-dnsmasq)
+    activate|deactivate|restart-dnsmasq|reload)
         restart_dnsmasq
-        ;;
-    reload)
-        activate_dnsmasq
         ;;
     help|-h|--help)
         print_help

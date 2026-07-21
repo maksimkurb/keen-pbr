@@ -5,7 +5,7 @@
 # Refresh dnsmasq's procd-jail mounts before restarting it.  This is also an
 # upgrade migration from the obsolete control.sock file mount to its stable
 # parent directory, which remains valid when keen-pbr recreates the socket.
-/usr/lib/keen-pbr/dnsmasq.sh restart-dnsmasq >/dev/null 2>&1 || true
+/usr/lib/keen-pbr/dnsmasq.sh reload >/dev/null 2>&1 || true
 
 /etc/init.d/keen-pbr sync_firewall_hook >/dev/null 2>&1 || true
 

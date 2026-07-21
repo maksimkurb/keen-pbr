@@ -92,9 +92,7 @@ start_service() {
 
     mkdir -p /var/cache/keen-pbr /var/run/keen-pbr
 
-    if [ -x "$HELPER" ]; then
-        "$HELPER" activate || return 1
-    fi
+    [ ! -x "$HELPER" ] || "$HELPER" prepare || return 1
 
     procd_open_instance
     procd_set_param command "$PROG" --config "$CONFIG" --pid-file "$PIDFILE" service
@@ -102,19 +100,8 @@ start_service() {
     procd_close_instance
 }
 
-stop_service() {
-    [ -n "$KEEN_PBR_SKIP_DNSMASQ" ] && return 0
-    is_enabled || return 0
-
-    if [ -x "$HELPER" ]; then
-        "$HELPER" deactivate || true
-    fi
-}
-
 reload_service() {
     [ -s "$PIDFILE" ] || return 1
-
-    reapply_dnsmasq_config || return 1
 
     kill -HUP "$(cat "$PIDFILE")"
 }
@@ -126,7 +113,7 @@ reapply_firewall() {
 
 reapply_dnsmasq_config() {
     if [ -x "$HELPER" ]; then
-        "$HELPER" activate || return 1
+        "$HELPER" reload || return 1
     fi
 }
 

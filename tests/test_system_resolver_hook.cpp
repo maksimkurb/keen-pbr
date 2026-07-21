@@ -20,6 +20,17 @@ TEST_CASE("build_system_resolver_reload_args: returns hook and reload as separat
     CHECK(args[1] == "reload");
 }
 
+TEST_CASE("build_system_resolver_hook_args: preserves shutdown action") {
+    Config cfg;
+    cfg.dns = DnsConfig{};
+    cfg.dns->system_resolver = api::SystemResolver{};
+
+    const auto args = build_system_resolver_hook_args(cfg, "deactivate");
+    REQUIRE(args.size() == 2);
+    CHECK(args[0] == system_resolver_hook_path());
+    CHECK(args[1] == "deactivate");
+}
+
 TEST_CASE("execute_system_resolver_reload_hook: succeeds for zero exit code") {
     Config cfg;
     cfg.dns = DnsConfig{};

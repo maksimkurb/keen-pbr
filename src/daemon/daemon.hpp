@@ -362,6 +362,7 @@ private:
     std::atomic<bool> ipc_mutation_inflight_{false};
     std::atomic<bool> ipc_resolver_hook_inflight_{false};
     std::atomic<bool> resolver_hash_refresh_inflight_{false};
+    TracedMutex system_resolver_hook_mutex_;
 
 #ifdef WITH_API
     std::unique_ptr<ApiServer> api_server_;

@@ -5,7 +5,6 @@ set -e
 KEEN_PBR_BIN="/usr/sbin/keen-pbr"
 CONFIG_DIR="/etc/keen-pbr"
 CACHE_DIR="/var/cache/keen-pbr"
-DNSMASQ_FALLBACK_FILE="/etc/keen-pbr/dnsmasq-fallback.conf"
 PACKAGE_NAME="keen-pbr"
 CONFFILE="${PACKAGE_NAME}.conf"
 UCI_HELPER="/usr/lib/keen-pbr/uci.sh"
@@ -42,10 +41,6 @@ conf_script_line() {
     printf 'conf-script=%s generate-resolver-config dnsmasq' "$KEEN_PBR_BIN"
 }
 
-fallback_conf_line() {
-    printf 'conf-file=%s' "$DNSMASQ_FALLBACK_FILE"
-}
-
 dnsmasq_confdir() {
     "$UCI_HELPER" dnsmasq-confdir "$1"
 }
@@ -61,20 +56,6 @@ write_temp_conf_for_section() {
     confdir="$(dnsmasq_confdir "$section")"
     mkdir -p "$confdir"
     write_managed_conf "${confdir}/${CONFFILE}" "$(conf_script_line)" "working"
-}
-
-write_fallback_conf_for_section() {
-    local section="$1"
-    local confdir
-
-    confdir="$(dnsmasq_confdir "$section")"
-    mkdir -p "$confdir"
-    if [ -f "$DNSMASQ_FALLBACK_FILE" ]; then
-        write_managed_conf "${confdir}/${CONFFILE}" "$(fallback_conf_line)" "fallback"
-    else
-        rm -f "${confdir}/${CONFFILE}"
-        log_info "Removed ${confdir}/${CONFFILE}"
-    fi
 }
 
 remove_temp_conf_for_section() {
@@ -100,7 +81,7 @@ install_persistent() {
     local section
 
     for section in $(dnsmasq_sections); do
-        write_fallback_conf_for_section "$section" || true
+        write_temp_conf_for_section "$section" || true
     done
 
     "$UCI_HELPER" dnsmasq-install-persistent
@@ -110,7 +91,7 @@ ensure_runtime_prereqs() {
     "$UCI_HELPER" dnsmasq-ensure-runtime-prereqs
 }
 
-activate_dnsmasq() {
+prepare_dnsmasq() {
     local section
 
     ensure_runtime_prereqs
@@ -118,17 +99,10 @@ activate_dnsmasq() {
     for section in $(dnsmasq_sections); do
         write_temp_conf_for_section "$section" || true
     done
-
-    restart_dnsmasq
 }
 
-deactivate_dnsmasq() {
-    local section
-
-    for section in $(dnsmasq_sections); do
-        write_fallback_conf_for_section "$section" || true
-    done
-
+reload_dnsmasq() {
+    prepare_dnsmasq
     restart_dnsmasq
 }
 
@@ -157,12 +131,13 @@ print_help() {
 Usage: $0 <command>
 
 Commands:
-  install-persistent     Seed fallback dnsmasq config and install persistent integration.
-  activate               Switch dnsmasq to keen-pbr dynamic resolver config, and restart dnsmasq.
-  deactivate             Switch dnsmasq to fallback resolver config and restart dnsmasq.
+  install-persistent     Install the dynamic resolver integration.
+  prepare                Create the constant conf-script entry without restarting dnsmasq.
+  activate               Prepare and restart dnsmasq; compatibility alias for reload.
+  deactivate             Prepare and restart dnsmasq; compatibility alias for reload.
   uninstall-persistent   Remove persistent integration and helper-managed runtime config.
   restart-dnsmasq        Restart dnsmasq without changing helper-managed config.
-  reload                 Switch to managed config and restart; used by the system resolver hook.
+  reload                 Prepare and restart dnsmasq; used by the system resolver hook.
   help                   Show this help text.
 EOF
 }
@@ -171,11 +146,8 @@ case "$1" in
     install-persistent)
         install_persistent
         ;;
-    activate)
-        activate_dnsmasq
-        ;;
-    deactivate)
-        deactivate_dnsmasq
+    prepare)
+        prepare_dnsmasq
         ;;
     uninstall-persistent)
         uninstall_persistent
@@ -183,8 +155,8 @@ case "$1" in
     restart-dnsmasq)
         restart_dnsmasq
         ;;
-    reload)
-        activate_dnsmasq
+    activate|deactivate|reload)
+        reload_dnsmasq
         ;;
     help|-h|--help)
         print_help

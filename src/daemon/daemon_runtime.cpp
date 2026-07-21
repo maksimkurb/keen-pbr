@@ -29,47 +29,46 @@ bool Daemon::run_system_resolver_hook(std::string_view action) {
 
     std::string command;
     int exit_code = 0;
-    // dnsmasq invokes the CLI's streaming resolver endpoint while the hook is
-    // waiting for its restart command. Resolver hooks run on BlockingExecutor,
-    // while the normal event loop keeps servicing the control socket.
-    ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
-
     bool ok = false;
-    try {
-        const auto args = build_system_resolver_hook_args(config_, action);
-        if (args.empty()) {
-            command.clear();
-            exit_code = 0;
-            ok = true;
-        } else {
-            for (std::size_t index = 0; index < args.size(); ++index) {
-                if (index != 0) command += ' ';
-                command += args[index];
-            }
-            if (is_event_loop_thread()) {
-                // Some runtime reconfiguration paths still originate on the
-                // event-loop thread. Run the external hook on the existing
-                // bounded executor and service only its resolver stream while
-                // waiting. This avoids both deadlock and an extra thread/stack.
-                auto hook_result = blocking_executor_.submit(
-                    "system-resolver-hook-command",
-                    [this, args] { return hook_command_executor_(args); });
-                while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
-                       std::future_status::ready) {
-                    handle_ipc_control_socket();
-                }
-                exit_code = hook_result.get();
-            } else {
-                exit_code = hook_command_executor_(args);
-            }
-            ok = exit_code == 0;
+    const auto args = build_system_resolver_hook_args(config_, action);
+    if (args.empty()) {
+        command.clear();
+        exit_code = 0;
+        ok = true;
+    } else {
+        for (std::size_t index = 0; index < args.size(); ++index) {
+            if (index != 0) command += ' ';
+            command += args[index];
         }
-    } catch (...) {
-        ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
-        throw;
+        auto execute_hook = [this, args] {
+            KPBR_LOCK_GUARD(system_resolver_hook_mutex_);
+            ipc_resolver_hook_inflight_.store(true, std::memory_order_release);
+            try {
+                const int result = hook_command_executor_(args);
+                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
+                return result;
+            } catch (...) {
+                ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
+                throw;
+            }
+        };
+        if (is_event_loop_thread()) {
+            // Some runtime reconfiguration paths still originate on the
+            // event-loop thread. Run the external hook on the existing
+            // bounded executor and service only its resolver stream while
+            // waiting. This avoids both deadlock and an extra thread/stack.
+            auto hook_result = blocking_executor_.submit(
+                "system-resolver-hook-command", std::move(execute_hook));
+            while (hook_result.wait_for(std::chrono::milliseconds{10}) !=
+                   std::future_status::ready) {
+                handle_ipc_control_socket();
+            }
+            exit_code = hook_result.get();
+        } else {
+            exit_code = execute_hook();
+        }
+        ok = exit_code == 0;
     }
-
-    ipc_resolver_hook_inflight_.store(false, std::memory_order_release);
 
     if (command.empty()) {
         return true;
@@ -140,11 +139,8 @@ void Daemon::stop_routing_runtime() {
     }
 
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
-        const auto args = build_system_resolver_hook_args(config_, "deactivate");
-        const int exit_code = hook_command_executor_(args);
-        if (exit_code != 0) {
-            throw DaemonError("System resolver deactivate hook failed with exit code " +
-                              std::to_string(exit_code));
+        if (!run_system_resolver_hook("deactivate")) {
+            throw DaemonError("System resolver deactivate hook failed");
         }
     }
 
