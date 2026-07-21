@@ -361,7 +361,7 @@ TEST_CASE("build_rule_add_commands: prefilter rules lead the prerouting chain") 
   CHECK(mark_expr[3].contains("accept"));
 }
 
-TEST_CASE("build_rule_add_commands: conntrack restore uses numeric original direction") {
+TEST_CASE("build_rule_add_commands: conntrack restore is masked, ordered, and falls through") {
   FirewallGlobalPrefilter prefilter;
   prefilter.restore_conntrack_mark = true;
   prefilter.conntrack_mark_mask = 0x00FF0000u;
@@ -369,9 +369,22 @@ TEST_CASE("build_rule_add_commands: conntrack restore uses numeric original dire
   const auto commands = T::build_rule_add_commands(prefilter,
                                                      {mark_rule("myset", AF_INET, 256)});
   REQUIRE(commands.size() == 2);
-  const auto& match = commands[0]["add"]["rule"]["expr"][0]["match"];
-  CHECK(match["left"]["ct"]["key"] == "direction");
-  CHECK(match["right"] == 0);
+  const auto& restore = commands[0]["add"]["rule"]["expr"];
+  REQUIRE(restore.size() == 4);
+  CHECK(restore[0]["match"]["left"]["ct"]["key"] == "direction");
+  CHECK(restore[0]["match"]["right"] == 0);
+  CHECK(restore[1]["match"]["op"] == "!=");
+  CHECK(restore[1]["match"]["left"]["&"][0]["ct"]["key"] == "mark");
+  CHECK(restore[1]["match"]["left"]["&"][1] == 0x00FF0000u);
+  CHECK(restore[1]["match"]["right"] == 0);
+  CHECK(restore[2]["mangle"]["key"]["meta"]["key"] == "mark");
+  CHECK(restore[2]["mangle"]["value"]["&"][0]["ct"]["key"] == "mark");
+  CHECK(restore[2]["mangle"]["value"]["&"][1] == 0x00FF0000u);
+  CHECK(restore[3].contains("accept"));
+
+  // The policy rule follows the conditional restore rule. An unmarked new
+  // connection fails restore[1] and therefore reaches normal classification.
+  CHECK(commands[1]["add"]["rule"]["expr"][0]["match"]["right"] == "@myset");
 }
 
 TEST_CASE("build_rule_add_commands: config-derived prefilter omits interface guard when inbound list is empty") {

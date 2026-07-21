@@ -5,10 +5,17 @@ lan_ns=kpbr-lan
 direct_ns=kpbr-direct
 pbr_ns=kpbr-pbr
 server_pids=()
+server_pid_file=/run/kpbr-integration-server.pids
 integration_container_dir=${KPBR_INTEGRATION_CONTAINER_DIR:-/opt/keen-pbr-integration/container}
 
 cleanup_topology() {
   local pid
+  if [[ -f "$server_pid_file" ]]; then
+    while read -r pid; do
+      [[ -n "$pid" ]] && kill "$pid" >/dev/null 2>&1 || true
+    done <"$server_pid_file"
+    rm -f "$server_pid_file"
+  fi
   for pid in "${server_pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
   ip netns del "$lan_ns" >/dev/null 2>&1 || true
   ip netns del "$direct_ns" >/dev/null 2>&1 || true
@@ -16,6 +23,7 @@ cleanup_topology() {
   ip link del lan0 >/dev/null 2>&1 || true
   ip link del wan_direct >/dev/null 2>&1 || true
   ip link del wan_pbr >/dev/null 2>&1 || true
+  ip link del kpbr_dummy >/dev/null 2>&1 || true
 }
 
 diagnose_upstream_dns() {
@@ -59,6 +67,7 @@ prepare_topology() {
   ip link set wan_direct up
   ip -n "$direct_ns" addr add 10.10.0.2/24 dev wan_direct
   ip -n "$direct_ns" addr add 198.18.0.10/32 dev lo
+  ip -n "$direct_ns" addr add 198.18.0.11/32 dev lo
   ip -n "$direct_ns" link set lo up
   ip -n "$direct_ns" link set wan_direct up
   ip -n "$direct_ns" route add 192.0.2.0/24 via 10.10.0.1
@@ -73,6 +82,7 @@ prepare_topology() {
   ip -n "$pbr_ns" route add 192.0.2.0/24 via 10.20.0.1
 
   ip route replace 198.18.0.10/32 via 10.10.0.2 dev wan_direct
+  ip route replace 198.18.0.11/32 via 10.10.0.2 dev wan_direct
   printf '1' >/proc/sys/net/ipv4/ip_forward
   printf '0' >/proc/sys/net/ipv4/conf/all/rp_filter
 
@@ -92,10 +102,11 @@ prepare_topology() {
     'bind-interfaces' \
     'address=/routed.test/198.18.0.10' \
     'address=/added.test/198.18.0.10' \
-    'address=/direct.test/198.18.0.10' >"$upstream_dns_conf"
+    'address=/direct.test/198.18.0.11' >"$upstream_dns_conf"
   ip netns exec "$pbr_ns" dnsmasq --keep-in-foreground --conf-file="$upstream_dns_conf" \
     >/var/log/kpbr-upstream-dns.log 2>&1 &
   server_pids+=("$!")
+  printf '%s\n' "${server_pids[@]}" >"$server_pid_file"
 
   for namespace in "$direct_ns" "$pbr_ns"; do
     for _ in $(seq 1 40); do
@@ -117,3 +128,19 @@ prepare_topology() {
   diagnose_upstream_dns
   return 1
 }
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  case "${1:-}" in
+    reset)
+      cleanup_topology
+      prepare_topology
+      ;;
+    cleanup)
+      cleanup_topology
+      ;;
+    *)
+      echo "usage: topology.sh reset|cleanup" >&2
+      exit 2
+      ;;
+  esac
+fi

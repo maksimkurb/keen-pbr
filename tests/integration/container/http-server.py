@@ -33,4 +33,4 @@ parser.add_argument("--delay-ms", type=int, default=0)
 args = parser.parse_args()
 Handler.identity = args.identity
 Handler.delay_ms = args.delay_ms
-http.server.ThreadingHTTPServer(("198.18.0.10", 18080), Handler).serve_forever()
+http.server.ThreadingHTTPServer(("0.0.0.0", 18080), Handler).serve_forever()

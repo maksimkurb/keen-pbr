@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-backend=${1:?usage: guest-run.sh <iptables|nftables>}
+backend=${1:?usage: guest-run.sh <iptables|nftables> [cases]}
+integration_cases=${2:-all}
 repo=/mnt/payload
 seed=/mnt/seed
 status_file="$seed/result"
+summary_file="$seed/summary.json"
+provision_log=/var/log/kpbr-integration-provision.log
 
 on_error() {
   local status=$?
-  echo "guest-run failed at line $1: $2 (status $status)" >&2
+  echo "KPBR_IT_DIAG backend=$backend case=suite stage=guest message=failed_at_line_$1_status_$status" >&2
+  printf 'guest-run failed at line %s: %s (status %s)\n' "$1" "$2" "$status" >"$seed/diagnostics.txt"
+  cp "$provision_log" "$seed/provision.log" >/dev/null 2>&1 || true
   exit "$status"
 }
 trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
@@ -22,35 +27,11 @@ finish() {
   exit "$status"
 }
 
-start_dnsmasq() {
-  if systemctl restart dnsmasq.service; then
-    return 0
-  fi
-  echo 'dnsmasq failed after the integration configuration was installed' >&2
-  systemctl --no-pager --full status dnsmasq.service >&2 || true
-  journalctl --no-pager -u dnsmasq.service >&2 || true
-  echo '--- /etc/dnsmasq.conf ---' >&2
-  sed -n '1,240p' /etc/dnsmasq.conf >&2 || true
-  return 1
-}
-
-assert_dnsmasq_active() {
-  if systemctl is-active --quiet dnsmasq.service; then
-    return 0
-  fi
-  echo 'dnsmasq stopped while keen-pbr was starting' >&2
-  systemctl --no-pager --full status keen-pbr.service dnsmasq.service >&2 || true
-  journalctl --no-pager -u keen-pbr.service -u dnsmasq.service >&2 || true
-  echo '--- /etc/dnsmasq.conf ---' >&2
-  sed -n '1,240p' /etc/dnsmasq.conf >&2 || true
-  echo '--- keen-pbr generated resolver config ---' >&2
-  /usr/sbin/keen-pbr generate-resolver-config dnsmasq >&2 || true
-  return 1
-}
 mkdir -p "$repo" "$seed"
 mountpoint -q "$repo" || mount -o ro /dev/vdc "$repo"
 mount /dev/vdb "$seed"
 trap finish EXIT
+echo "KPBR_IT_BEGIN backend=$backend case=suite stage=provision"
 
 export DEBIAN_FRONTEND=noninteractive
 printf '#!/bin/sh\nexit 101\n' >/usr/sbin/policy-rc.d
@@ -59,12 +40,13 @@ chmod 755 /usr/sbin/policy-rc.d
 # the VM topology and the final dnsmasq configuration exist.
 systemctl mask dnsmasq.service
 ln -s /dev/null /etc/systemd/system/keen-pbr.service
-apt-get update
+apt-get update >"$provision_log" 2>&1
 apt-get install -y --no-install-recommends \
   conntrack curl dnsmasq dnsutils iproute2 ipset iptables \
-  libcurl4 libnl-3-200 libnl-route-3-200 libunwind8 nftables python3
+  libcurl4 libnl-3-200 libnl-route-3-200 libunwind8 nftables python3 \
+  >>"$provision_log" 2>&1
 
-KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y dpkg -i "$repo/keen-pbr.deb"
+KEEN_PBR_REPLACE_DNSMASQ_DEFAULTS=Y dpkg -i "$repo/keen-pbr.deb" >>"$provision_log" 2>&1
 rm -f /usr/sbin/policy-rc.d
 systemctl unmask dnsmasq.service keen-pbr.service
 mkdir -p /etc/systemd/system/keen-pbr.service.d /etc/systemd/system/dnsmasq.service.d
@@ -85,16 +67,8 @@ systemctl daemon-reload
 # that case); it is not an integration-test failure.
 systemctl reset-failed dnsmasq.service keen-pbr.service >/dev/null 2>&1 || true
 
+echo "KPBR_IT_EVENT backend=$backend case=suite stage=provision status=pass"
 export KPBR_INTEGRATION_CONTAINER_DIR="$repo/tests/integration/container"
-source "$repo/tests/integration/container/topology.sh"
-trap 'status=$?; cleanup_topology; finish "$status"' EXIT
-
-systemctl stop keen-pbr.service dnsmasq.service >/dev/null 2>&1 || true
-prepare_topology
-sed "s/BACKEND/$backend/g" "$repo/tests/integration/container/config.json" >/etc/keen-pbr/config.json
-
-start_dnsmasq
-systemctl start keen-pbr.service
-sleep 1
-assert_dnsmasq_active
+export INTEGRATION_CASES="$integration_cases"
+export KPBR_IT_SUMMARY="$summary_file"
 python3 "$repo/tests/integration/container/test-system.py" "$backend"

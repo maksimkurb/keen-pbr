@@ -282,6 +282,10 @@ nlohmann::json NftablesFirewall::build_rule_add_commands(
         nlohmann::json restore_expr = nlohmann::json::array();
         restore_expr.push_back({{"match", {{"op", "=="},
             {"left", {{"ct", {{"key", "direction"}}}}}, {"right", 0}}}});
+        restore_expr.push_back({{"match", {{"op", "!="},
+            {"left", {{"&", nlohmann::json::array({
+                {{"ct", {{"key", "mark"}}}}, mask
+            })}}}, {"right", 0}}}});
         // nftables 1.0.x only accepts a constant as the right operand of a
         // binary expression in a mangle value.  A two-variable merge is
         // therefore rejected; restore the daemon-owned ctmark bits directly.

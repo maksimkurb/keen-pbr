@@ -425,6 +425,17 @@ TEST_CASE("build_ipt_script: conntrack restore is original-direction and mask sc
   CHECK(script.find("-m conntrack --ctdir ORIGINAL -m connmark ! --mark 0/0xff0000") != std::string::npos);
   CHECK(script.find("CONNMARK --restore-mark --mask 0xff0000") != std::string::npos);
   CHECK(script.find("CONNMARK --save-mark --mask 0xff0000") != std::string::npos);
+  const auto restore = script.find("--ctdir ORIGINAL -m connmark ! --mark 0/0xff0000");
+  const auto restored_return = script.find("-m conntrack --ctdir ORIGINAL -m mark ! --mark 0/0xff0000 -j RETURN");
+  const auto policy = script.find("--match-set myset dst -j MARK");
+  const auto save = script.find("--match-set myset dst -j CONNMARK --save-mark --mask 0xff0000");
+  REQUIRE(restore != std::string::npos);
+  REQUIRE(restored_return != std::string::npos);
+  REQUIRE(policy != std::string::npos);
+  REQUIRE(save != std::string::npos);
+  CHECK(restore < restored_return);
+  CHECK(restored_return < policy);
+  CHECK(policy < save);
 }
 
 TEST_CASE("build_ipt_script: skip_marked_packets prefilter can be disabled") {
