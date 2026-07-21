@@ -1,0 +1,133 @@
+.hero-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--hx-spacing) * 2);
+
+  padding:
+    calc(var(--hx-spacing) * 3)
+    calc(var(--hx-spacing) * 6);
+
+  border: 1px solid transparent;
+  border-radius: 9999px;
+
+  background-color: var(--hx-color-primary-600);
+  color: var(--hx-color-white);
+
+  font-weight: var(--hx-font-weight-medium);
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition:
+    color 200ms var(--hx-ease-in),
+    background-color 200ms var(--hx-ease-in),
+    border-color 200ms var(--hx-ease-in),
+    transform 200ms var(--hx-ease-in);
+}
+
+.hero-button:hover {
+  background-color: var(--hx-color-primary-700);
+  color: var(--hx-color-white);
+  text-decoration: none;
+}
+
+.hero-button:active {
+  transform: translateY(1px);
+}
+
+.hero-button:focus-visible {
+  outline: 2px solid var(--hx-color-primary-500);
+  outline-offset: 2px;
+}
+
+.hero-button__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+
+  color: currentColor;
+}
+
+.hero-button__icon svg {
+  width: 1.125em;
+  height: 1.125em;
+
+  color: currentColor;
+  stroke: currentColor;
+  fill: currentColor;
+}
+
+/*
+Some icons are filled rather than stroked.
+Do not force fill on every SVG because that can break outline icons.
+*/
+.hero-button__icon svg [fill]:not([fill="none"]) {
+  fill: currentColor;
+}
+
+.hero-button__icon svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor;
+}
+
+.hero-button-secondary {
+  background-color: transparent;
+  border-color: var(--hx-color-primary-600);
+  color: var(--hx-color-primary-600);
+}
+
+.hero-button-secondary:hover {
+  background-color: var(--hx-color-primary-600);
+  border-color: var(--hx-color-primary-600);
+  color: var(--hx-color-white);
+}
+
+.hero-button-secondary:active {
+  background-color: var(--hx-color-primary-700);
+  border-color: var(--hx-color-primary-700);
+  color: var(--hx-color-white);
+}
+
+.support-payment-cards .hextra-card-icon {
+  align-items: center;
+}
+
+.support-payment-cards .hextra-card-icon svg {
+  flex: none;
+}
+
+/* Keep the donation link prominent without crowding the mobile navbar. */
+@media (min-width: 768px) {
+  .donation-nav-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--hx-color-primary-600);
+    border-radius: 0.5rem;
+    background-color: transparent;
+    color: var(--hx-color-primary-600);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    transition: background-color 200ms var(--hx-ease-in), transform 200ms var(--hx-ease-in);
+  }
+
+  .donation-nav-button svg {
+    fill: currentColor;
+  }
+
+  .donation-nav-button:hover {
+    background-color: var(--hx-color-primary-700);
+    color: var(--hx-color-white);
+    text-decoration: none;
+  }
+
+  .donation-nav-button:active {
+    transform: translateY(1px);
+  }
+}

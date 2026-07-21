@@ -1,0 +1,23 @@
+{{- $githubSupporters := hugo.Data.sponsors.github | default slice -}}
+{{- $otherSupporters := hugo.Data.sponsors.others | default slice -}}
+
+{{- if or $githubSupporters $otherSupporters -}}
+  {{- partialCached "supporters-assets.html" . "supporters-assets" -}}
+  <div class="supporters-grid not-prose hx:mt-6">
+    {{- range $username := $githubSupporters -}}
+      <a class="supporter-card" href="https://github.com/{{ $username }}" target="_blank" rel="noreferrer">
+        <img class="supporter-card__avatar" src="https://github.com/{{ $username }}.png?size=96" alt="" width="52" height="52" loading="lazy">
+        <span class="supporter-card__name">@{{ $username }}</span>
+      </a>
+    {{- end -}}
+    {{- range $name := $otherSupporters -}}
+      <div class="supporter-card supporter-card--text">
+        <span class="supporter-card__name">{{ $name }}</span>
+      </div>
+    {{- end }}
+  </div>
+{{- else if eq .Page.Language.Lang "ru" -}}
+  <p>Список пока пуст.</p>
+{{- else -}}
+  <p>No supporters are listed yet.</p>
+{{- end -}}

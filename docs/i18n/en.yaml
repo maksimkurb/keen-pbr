@@ -7,3 +7,32 @@ copyright: |-
 
 madeBy: |-
   Made by [Maxim Kurbatov](https://kurb.me?utm_source=keen-pbr&utm_medium=docs-footer&utm_campaign=website) | Website is powered by [Hextra](https://github.com/imfing/hextra)
+
+donationIntro: keen-pbr is distributed free of charge. You may voluntarily support its development and maintenance with a gratuitous transfer of any permitted amount.
+donationAmountLabel: Transfer amount
+donationAmountHint: Choose an amount from {{ .Min }} to {{ .Max }} ₽.
+donationAmountRequired: Enter a transfer amount.
+donationAmountIntegerError: Enter the amount in whole rubles, without kopecks.
+donationAmountMinError: The minimum transfer is {{ .Amount }} ₽.
+donationAmountMaxError: The maximum transfer is {{ .Amount }} ₽.
+donationQuickAmounts: Quick amount additions
+donationAddAmount: Add {{ .Amount }} rubles
+donationPaymentMethod: Payment method
+donationBankCard: Bank card
+donationYooMoneyWallet: YooMoney wallet
+donationNicknameLabel: Display name or GitHub username
+donationOptional: Optional
+donationNicknameHint: If you enter a display name, we may publish it in the supporters list. This is optional and does not depend on the transfer amount.
+donationModerationHint: null
+donationConsentLabel: I agree to publish my name in the supporters list.
+donationConsentHint: Consent applies only to publishing the name. To withdraw consent, email keen-pbr@kurb.me.
+donationConsentRequired: Consent is required when a display name is provided.
+donationConfirmMessage: "Review the form values before sending:"
+donationNoticeTitle: Voluntary, gratuitous support
+donationNoticeText: Funds are transferred gratuitously as a gift to support development. This is not payment for software, a license, features, technical support, advertising, goods, or services, and creates no obligation to provide anything in return.
+donationSubmit: Continue to YooMoney
+donationSubmitting: Opening YooMoney…
+languageSuggestionTitle: Prefer another language?
+languageSuggestionText: This page is also available in
+languageSuggestionSwitch: Switch to
+languageSuggestionDismiss: Close language suggestion

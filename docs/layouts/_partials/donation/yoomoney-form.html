@@ -1,0 +1,131 @@
+{{- $config := hugo.Data.donations.yoomoney -}}
+{{- $walletID := $config.wallet_id -}}
+{{- $minAmount := $config.min_amount -}}
+{{- $maxAmount := $config.max_amount -}}
+{{- $amountIncrements := $config.amount_increments -}}
+{{- $showPaymentMethodSelector := $config.payment_method_selector -}}
+{{- $formID := printf "yoomoney-donation-%s" .Language.Lang -}}
+
+{{- partialCached "donation/yoomoney-assets.html" . "yoomoney-donation-assets" -}}
+
+<div class="yoomoney-donation-layout">
+<form
+  id="{{ $formID }}"
+  class="yoomoney-donation-form not-prose"
+  method="POST"
+  action="https://yoomoney.ru/quickpay/confirm"
+  data-yoomoney-donation-form
+  data-amount-required="{{ T "donationAmountRequired" }}"
+  data-amount-integer="{{ T "donationAmountIntegerError" }}"
+  data-amount-min="{{ T "donationAmountMinError" (dict "Amount" $minAmount) }}"
+  data-amount-max="{{ T "donationAmountMaxError" (dict "Amount" $maxAmount) }}"
+  data-consent-required="{{ T "donationConsentRequired" }}"
+  data-confirm-message="{{ T "donationConfirmMessage" }}"
+  data-submitting-label="{{ T "donationSubmitting" }}"
+>
+  <input type="hidden" name="receiver" value="{{ $walletID }}">
+  <input type="hidden" name="quickpay-form" value="button">
+
+  <div class="yoomoney-donation-form__fields">
+  <div class="yoomoney-donation-form__field">
+    <label for="{{ $formID }}-amount">{{ T "donationAmountLabel" }}</label>
+    <div class="yoomoney-donation-form__amount">
+      <input
+        id="{{ $formID }}-amount"
+        name="sum"
+        type="number"
+        inputmode="decimal"
+        data-type="number"
+        min="{{ $minAmount }}"
+        max="{{ $maxAmount }}"
+        step="1"
+        placeholder="500"
+        required
+        aria-describedby="{{ $formID }}-amount-hint {{ $formID }}-amount-error"
+      >
+      <span aria-hidden="true">₽</span>
+    </div>
+    <div class="yoomoney-donation-form__increments" aria-label="{{ T "donationQuickAmounts" }}">
+      {{- range $amountIncrements }}
+        <button
+          type="button"
+          data-amount-increment="{{ . }}"
+          aria-label="{{ T "donationAddAmount" (dict "Amount" .) }}"
+        >+{{ . }}</button>
+      {{- end }}
+    </div>
+    <p id="{{ $formID }}-amount-hint" class="yoomoney-donation-form__hint">
+      {{ T "donationAmountHint" (dict "Min" $minAmount "Max" $maxAmount) }}
+    </p>
+    <p id="{{ $formID }}-amount-error" class="yoomoney-donation-form__error" aria-live="polite" hidden></p>
+  </div>
+
+  {{- if $showPaymentMethodSelector }}
+    <fieldset class="yoomoney-donation-form__field">
+      <legend>{{ T "donationPaymentMethod" }}</legend>
+      <div class="yoomoney-donation-form__payment-options">
+        <label class="yoomoney-donation-form__payment-option">
+          <input type="radio" name="paymentType" value="AC" checked>
+          <span>{{ T "donationBankCard" }}</span>
+        </label>
+        <label class="yoomoney-donation-form__payment-option">
+          <input type="radio" name="paymentType" value="PC">
+          <span>{{ T "donationYooMoneyWallet" }}</span>
+        </label>
+      </div>
+    </fieldset>
+  {{- else }}
+    <input type="hidden" name="paymentType" value="AC">
+  {{- end }}
+
+  <div class="yoomoney-donation-form__field">
+    <label for="{{ $formID }}-nickname">
+      {{ T "donationNicknameLabel" }}
+      <span class="yoomoney-donation-form__optional">{{ T "donationOptional" }}</span>
+    </label>
+    <input
+      id="{{ $formID }}-nickname"
+      type="text"
+      maxlength="40"
+      autocomplete="nickname"
+      data-supporter-name
+      aria-describedby="{{ $formID }}-nickname-hint"
+    >
+    <p id="{{ $formID }}-nickname-hint" class="yoomoney-donation-form__hint">
+      {{ T "donationNicknameHint" }}
+    </p>
+    <p class="yoomoney-donation-form__hint">
+      {{ T "donationModerationHint" }}
+    </p>
+
+    <label class="yoomoney-donation-form__choice yoomoney-donation-form__consent">
+      <input
+        type="checkbox"
+        data-publication-consent
+        aria-describedby="{{ $formID }}-consent-hint {{ $formID }}-consent-error"
+        disabled
+      >
+      <span>{{ T "donationConsentLabel" }}</span>
+    </label>
+    <p id="{{ $formID }}-consent-hint" class="yoomoney-donation-form__hint">
+      {{ T "donationConsentHint" }}
+    </p>
+    <p id="{{ $formID }}-consent-error" class="yoomoney-donation-form__error" aria-live="polite" hidden></p>
+  </div>
+  </div>
+
+  <input type="hidden" name="label" value="keen-pbr" data-yoomoney-label>
+
+  <button type="submit" class="yoomoney-donation-form__submit">
+    {{ T "donationSubmit" }}
+  </button>
+</form>
+
+<aside class="yoomoney-donation-sidebar not-prose">
+  <p class="yoomoney-donation-intro">{{ T "donationIntro" }}</p>
+  <div class="yoomoney-donation-form__notice">
+    <strong>{{ T "donationNoticeTitle" }}</strong>
+    <span>{{ T "donationNoticeText" }}</span>
+  </div>
+</aside>
+</div>

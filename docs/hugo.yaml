@@ -8,9 +8,21 @@ languages:
   en:
     languageName: English
     weight: 1
+    params:
+      languageSuggestion:
+        title: Prefer English?
+        text: The English version of the site is available.
+        switch: Switch to English
+        dismiss: Close language suggestion
   ru:
     languageName: Русский
     weight: 2
+    params:
+      languageSuggestion:
+        title: Предпочитаете русский?
+        text: Русская версия сайта уже доступна.
+        switch: Перейти на русский
+        dismiss: Закрыть предложение сменить язык
 
 module:
   imports:
@@ -41,7 +53,6 @@ params:
   navbar:
     logo:
       path: logo.svg
-      link: /
       width: 32
       height: 32
     width: wide
@@ -85,9 +96,11 @@ menu:
       params:
         icon: telegram
     
-    - name: Support this project
+    - name: Sponsor this project
       identifier: donate
-      pageRef: /docs/support-this-project
+      pageRef: /docs/donate
       weight: 50
       params:
+        type: link
         icon: donate
+        class: donation-nav-button

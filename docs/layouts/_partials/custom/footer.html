@@ -6,3 +6,47 @@
   {{- with $madeBy }}<div>{{ . | markdownify }}</div>{{- end -}}
 </div>
 {{- end -}}
+
+{{- $context := .context -}}
+{{- $translationLinks := dict -}}
+{{- range $context.Translations -}}
+  {{- $translationLinks = merge $translationLinks (dict .Language.Lang .RelPermalink) -}}
+{{- end -}}
+{{- if gt (len hugo.Sites) 1 -}}
+  {{- partialCached "language-suggestion-assets.html" $context "language-suggestion-assets" -}}
+  <aside class="language-suggestion" data-language-suggestion hidden aria-labelledby="language-suggestion-title">
+    <div class="language-suggestion__content">
+      <strong id="language-suggestion-title" data-language-suggestion-title></strong>
+      <p data-language-suggestion-text></p>
+    </div>
+    <div class="language-suggestion__actions">
+      {{- range hugo.Sites -}}
+        {{- if ne .Language.Lang $context.Site.Language.Lang -}}
+          {{- $link := index $translationLinks .Language.Lang | default .Home.RelPermalink -}}
+          {{- $title := T "languageSuggestionTitle" -}}
+          {{- $text := T "languageSuggestionText" -}}
+          {{- $switch := T "languageSuggestionSwitch" -}}
+          {{- $dismiss := T "languageSuggestionDismiss" -}}
+          {{- with .Params.languageSuggestion -}}
+            {{- $title = .title | default $title -}}
+            {{- $text = .text | default $text -}}
+            {{- $switch = .switch | default $switch -}}
+            {{- $dismiss = .dismiss | default $dismiss -}}
+          {{- end -}}
+          <a
+            href="{{ $link }}"
+            data-language-suggestion-option
+            data-language="{{ .Language.Lang }}"
+            data-language-name="{{ .Language.Label }}"
+            data-language-title="{{ $title }}"
+            data-language-text="{{ $text }}"
+            data-language-switch="{{ $switch }}"
+            data-language-dismiss="{{ $dismiss }}"
+            hidden
+          ></a>
+        {{- end -}}
+      {{- end -}}
+      <button type="button" data-language-suggestion-dismiss>×</button>
+    </div>
+  </aside>
+{{- end -}}

@@ -17,7 +17,7 @@ toc: false
 </div>
 
 <div class="hx:mb-6">
-{{< hextra/hero-button text="Перейти к документации" link="docs/getting-started/" >}}
+{{< hextra/hero-button text="Начало работы" icon="cloud" link="docs/getting-started/" >}}
 </div>
 
 <div class="hx:mt-6"></div>

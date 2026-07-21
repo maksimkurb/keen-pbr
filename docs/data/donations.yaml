@@ -1,0 +1,13 @@
+yoomoney:
+  wallet_id: "4100119579898250"
+  min_amount: 2
+  max_amount: 15000
+  payment_method_selector: false
+  amount_increments:
+    - 100
+    - 200
+    - 300
+    - 500
+    - 1000
+    - 3000
+    - 5000

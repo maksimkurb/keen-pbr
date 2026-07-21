@@ -61,6 +61,23 @@ If keen-pbr helps you, you can support its development here:
 - Ko-fi: https://ko-fi.com/keen_pbr
 - CloudTips: https://pay.cloudtips.ru/p/a633c47d
 
+<!-- SPONSORS-LIST:START -->
+# Thanks to all our supporters
+
+## GitHub supporters
+
+[<img src="https://github.com/lekobyroxa.png?size=96" alt="lekobyroxa" width="80" height="80" />](https://github.com/lekobyroxa)
+
+## Other supporters
+
+- Anonymous baker
+
+<!-- SPONSORS-LIST:END -->
+
+If you support keen-pbr and would like your name included, email
+[keen-pbr@kurb.me](mailto:keen-pbr@kurb.me) or message
+[tg.me/maksimkurb](https://t.me/maksimkurb).
+
 ## License
 
 See [LICENSE](LICENSE).

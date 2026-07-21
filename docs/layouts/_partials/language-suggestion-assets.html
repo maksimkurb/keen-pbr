@@ -1,0 +1,4 @@
+{{- $styles := resources.Get "css/language-suggestion.css" | minify | fingerprint -}}
+{{- $script := resources.Get "js/language-suggestion.js" | minify | fingerprint -}}
+<link rel="stylesheet" href="{{ $styles.RelPermalink }}" integrity="{{ $styles.Data.Integrity }}">
+<script src="{{ $script.RelPermalink }}" integrity="{{ $script.Data.Integrity }}" defer></script>

@@ -1,0 +1,51 @@
+{{- /*
+A shortcode for rendering an outlined button.
+
+@param {string} link The link of the button.
+@param {string} text The text of the button.
+@param {string} icon Optional Hextra icon name.
+@param {string} icon-position Optional icon position: left or right.
+@param {string} style Optional inline CSS.
+
+@example {{< hextra/hero-button-secondary
+  text="View on GitHub"
+  link="https://github.com/example/project"
+  icon="github"
+>}}
+*/ -}}
+
+{{- $link := .Get "link" -}}
+{{- $text := .Get "text" -}}
+{{- $icon := .Get "icon" -}}
+{{- $iconPosition := .Get "icon-position" | default "left" -}}
+{{- $style := .Get "style" -}}
+
+{{- $external := hasPrefix $link "http" -}}
+{{- $href := cond (hasPrefix $link "/") ($link | relURL) $link -}}
+
+<a
+  href="{{ $href }}"
+  class="not-prose hero-button"
+  {{ with $style }}style="{{ . | safeCSS }}"{{ end }}
+  {{ if $external }}target="_blank" rel="noreferrer"{{ end -}}
+>
+  {{- if and $icon (ne $iconPosition "right") -}}
+    <span class="hero-button__icon" aria-hidden="true">
+      {{- partial "utils/icon.html" (dict
+        "name" $icon
+        "attributes" "height=1em"
+      ) -}}
+    </span>
+  {{- end -}}
+
+  <span>{{ $text }}</span>
+
+  {{- if and $icon (eq $iconPosition "right") -}}
+    <span class="hero-button__icon" aria-hidden="true">
+      {{- partial "utils/icon.html" (dict
+        "name" $icon
+        "attributes" "height=1em"
+      ) -}}
+    </span>
+  {{- end -}}
+</a>

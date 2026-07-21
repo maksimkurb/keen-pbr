@@ -1,0 +1,12 @@
+# This file is the source of truth for the README.md and keen-pbr.fyi lists.
+# GitHub entries receive an avatar and profile link; others are display names only.
+github:
+  - lekobyroxa
+others: []
+  # - Anonymous baker
+
+# Example:
+# github:
+#   - octocat
+# others:
+#   - A friendly supporter
