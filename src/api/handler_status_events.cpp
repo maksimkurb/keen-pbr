@@ -4,8 +4,6 @@
 #include "handlers.hpp"
 #include "status_stream.hpp"
 
-#include "../log/logger.hpp"
-
 #include <chrono>
 #include <httplib.h>
 

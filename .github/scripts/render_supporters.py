@@ -15,6 +15,24 @@ END_MARKER = "<!-- SPONSORS-LIST:END -->"
 EXPECTED_KEYS = {"github", "others"}
 
 
+def _parse_inline_list(value: str, path: Path, number: int) -> list[str]:
+    """Parse the small inline-list subset we allow in the sponsors file."""
+    if value == "[]":
+        return []
+    if not (value.startswith("[") and value.endswith("]")):
+        raise ValueError(f"{path}:{number}: expected a list value")
+
+    entries = []
+    for item in value[1:-1].split(","):
+        item = item.strip()
+        if len(item) >= 2 and item[0] == item[-1] and item[0] in {"'", '"'}:
+            item = item[1:-1]
+        if not item:
+            raise ValueError(f"{path}:{number}: supporter name cannot be empty")
+        entries.append(item)
+    return entries
+
+
 def parse_supporters(path: Path) -> dict[str, list[str]]:
     """Parse the deliberately small YAML schema used by docs/data/sponsors.yaml."""
     supporters = {"github": [], "others": []}
@@ -25,11 +43,13 @@ def parse_supporters(path: Path) -> dict[str, list[str]]:
         if not stripped or stripped.startswith("#"):
             continue
 
-        if not raw_line[0].isspace() and stripped.endswith(":"):
-            key = stripped[:-1]
+        if not raw_line[0].isspace() and ":" in stripped:
+            key, inline_value = (part.strip() for part in stripped.split(":", 1))
             if key not in EXPECTED_KEYS:
                 raise ValueError(f"{path}:{number}: unsupported key {key!r}")
             current_key = key
+            if inline_value:
+                supporters[key].extend(_parse_inline_list(inline_value, path, number))
             continue
 
         if current_key and stripped.startswith("- "):

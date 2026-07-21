@@ -68,10 +68,6 @@ If keen-pbr helps you, you can support its development here:
 
 [<img src="https://github.com/lekobyroxa.png?size=96" alt="lekobyroxa" width="80" height="80" />](https://github.com/lekobyroxa)
 
-## Other supporters
-
-- Anonymous baker
-
 <!-- SPONSORS-LIST:END -->
 
 If you support keen-pbr and would like your name included, email

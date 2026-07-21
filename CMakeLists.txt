@@ -140,33 +140,35 @@ else()
   message(STATUS "Using CMake libcurl target: ${CURL_LIBRARY_RELEASE}")
 endif()
 add_library(keen_pbr_libunwind INTERFACE)
-unset(LIBUNWIND_LIBRARY CACHE)
-unset(LIBUNWIND_INCLUDE_DIR CACHE)
-unset(LIBUNWIND CACHE)
-unset(LIBUNWIND_INCLUDE_DIRS CACHE)
-set(_keen_pbr_libunwind_include_hints
-  "$ENV{STAGING_DIR}/usr/include"
-  "$ENV{STAGING_DIR}/include"
-)
-set(_keen_pbr_libunwind_library_hints
-  "$ENV{STAGING_DIR}/usr/lib"
-  "$ENV{STAGING_DIR}/lib"
-)
-find_path(LIBUNWIND_INCLUDE_DIR
-  NAMES libunwind.h libunwind/libunwind.h
-  HINTS ${_keen_pbr_libunwind_include_hints}
-  PATH_SUFFIXES libunwind
-)
-find_library(LIBUNWIND_LIBRARY
-  NAMES unwind libunwind libunwind.so.8
-  HINTS ${_keen_pbr_libunwind_library_hints}
-)
 set(KEEN_PBR_HAS_LIBUNWIND OFF)
-if(LIBUNWIND_INCLUDE_DIR AND LIBUNWIND_LIBRARY)
-  set(KEEN_PBR_HAS_LIBUNWIND ON)
-  get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
-  list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
-  list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
+if(NOT KEEN_PBR_TARGET_OS STREQUAL "keenetic")
+  unset(LIBUNWIND_LIBRARY CACHE)
+  unset(LIBUNWIND_INCLUDE_DIR CACHE)
+  unset(LIBUNWIND CACHE)
+  unset(LIBUNWIND_INCLUDE_DIRS CACHE)
+  set(_keen_pbr_libunwind_include_hints
+    "$ENV{STAGING_DIR}/usr/include"
+    "$ENV{STAGING_DIR}/include"
+  )
+  set(_keen_pbr_libunwind_library_hints
+    "$ENV{STAGING_DIR}/usr/lib"
+    "$ENV{STAGING_DIR}/lib"
+  )
+  find_path(LIBUNWIND_INCLUDE_DIR
+    NAMES libunwind.h libunwind/libunwind.h
+    HINTS ${_keen_pbr_libunwind_include_hints}
+    PATH_SUFFIXES libunwind
+  )
+  find_library(LIBUNWIND_LIBRARY
+    NAMES unwind libunwind libunwind.so.8
+    HINTS ${_keen_pbr_libunwind_library_hints}
+  )
+  if(LIBUNWIND_INCLUDE_DIR AND LIBUNWIND_LIBRARY)
+    set(KEEN_PBR_HAS_LIBUNWIND ON)
+    get_filename_component(LIBUNWIND_LIBRARY_DIR "${LIBUNWIND_LIBRARY}" DIRECTORY)
+    list(APPEND CMAKE_INCLUDE_PATH "${LIBUNWIND_INCLUDE_DIR}")
+    list(APPEND CMAKE_LIBRARY_PATH "${LIBUNWIND_LIBRARY_DIR}")
+  endif()
 endif()
 find_library(LIBRESOLV resolv)
 find_library(LIBATOMIC atomic)
@@ -187,8 +189,15 @@ if(KEEN_PBR_HAS_LIBUNWIND)
   target_include_directories(keen_pbr_libunwind INTERFACE "${LIBUNWIND_INCLUDE_DIR}")
   target_link_libraries(keen_pbr_libunwind INTERFACE "${LIBUNWIND_LIBRARY}")
   message(STATUS "Using libunwind library: ${LIBUNWIND_LIBRARY}")
+elseif(KEEN_PBR_TARGET_OS STREQUAL "keenetic")
+  message(STATUS "Keenetic build: libunwind disabled; using register-only crash diagnostics")
 else()
   message(FATAL_ERROR "libunwind headers/library are required for signal-context crash unwinding")
+endif()
+if(KEEN_PBR_HAS_LIBUNWIND)
+  add_compile_definitions(KEEN_PBR_HAS_LIBUNWIND=1)
+else()
+  add_compile_definitions(KEEN_PBR_HAS_LIBUNWIND=0)
 endif()
 
 # nlohmann/json (bundled as git submodule)

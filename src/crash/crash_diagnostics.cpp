@@ -16,8 +16,10 @@
 #include <ucontext.h>
 #include <unistd.h>
 
+#if KEEN_PBR_HAS_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
+#endif
 
 namespace keen_pbr3::crash_diagnostics {
 
@@ -329,6 +331,7 @@ void write_mappings() noexcept {
 }
 
 std::uintptr_t write_unwind(void* context_ptr) noexcept {
+#if KEEN_PBR_HAS_LIBUNWIND
     unw_cursor_t cursor{};
     auto* context = reinterpret_cast<unw_context_t*>(context_ptr);
     const int init_status = context == nullptr
@@ -399,6 +402,26 @@ std::uintptr_t write_unwind(void* context_ptr) noexcept {
     write_unsigned(step_status < 0 ? static_cast<std::uintptr_t>(-step_status) : 0);
     write_literal("\n");
     return first_sp;
+#else
+    const auto snapshot = capture_registers(static_cast<const ucontext_t*>(context_ptr));
+    std::uintptr_t instruction_pointer = 0;
+    for (std::size_t index = 0; index < snapshot.count; ++index) {
+        const char* name = snapshot.entries[index].name;
+        if (cstr_equal(name, "pc") || cstr_equal(name, "rip") || cstr_equal(name, "eip")) {
+            instruction_pointer = snapshot.entries[index].value;
+            break;
+        }
+    }
+    const std::uintptr_t stack_pointer = stack_pointer_from(snapshot);
+    write_literal("unwind backend=registers init=0\n");
+    write_literal("frame index=0 kind=fault pc=");
+    write_hex(instruction_pointer);
+    write_literal(" sp=");
+    write_hex(stack_pointer);
+    write_literal("\n");
+    write_literal("unwind-status complete=0 frames=1 error=unsupported\n");
+    return stack_pointer;
+#endif
 }
 
 void write_stack_snapshot(std::uintptr_t sp) noexcept {

@@ -31,7 +31,6 @@
 #include "../dns/dnsmasq_gen.hpp"
 #include "../dns/dns_router.hpp"
 #include "../lists/list_streamer.hpp"
-#include "../util/ipv6_support.hpp"
 #include "../log/logger.hpp"
 #include "../util/daemon_signals.hpp"
 #include "../util/safe_exec.hpp"
