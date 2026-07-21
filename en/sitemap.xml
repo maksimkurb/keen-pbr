@@ -242,16 +242,28 @@
                 href="https://keen-pbr.fyi/ru/docs/developer/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/support-this-project/</loc>
+    <loc>https://keen-pbr.fyi/docs/donate/</loc>
     <xhtml:link
                 rel="alternate"
                 hreflang="en-us"
-                href="https://keen-pbr.fyi/docs/support-this-project/"
+                href="https://keen-pbr.fyi/docs/donate/"
                 />
     <xhtml:link
                 rel="alternate"
                 hreflang="ru"
-                href="https://keen-pbr.fyi/ru/docs/support-this-project/"
+                href="https://keen-pbr.fyi/ru/docs/donate/"
+                />
+  </url><url>
+    <loc>https://keen-pbr.fyi/docs/donate-yoomoney/</loc>
+    <xhtml:link
+                rel="alternate"
+                hreflang="en-us"
+                href="https://keen-pbr.fyi/docs/donate-yoomoney/"
+                />
+    <xhtml:link
+                rel="alternate"
+                hreflang="ru"
+                href="https://keen-pbr.fyi/ru/docs/donate-yoomoney/"
                 />
   </url><url>
     <loc>https://keen-pbr.fyi/categories/</loc>
@@ -278,8 +290,6 @@
                 href="https://keen-pbr.fyi/ru/docs/"
                 />
   </url><url>
-    <loc>https://keen-pbr.fyi/docs/iptables-atomic-reconcile/</loc>
-  </url><url>
     <loc>https://keen-pbr.fyi/</loc>
     <xhtml:link
                 rel="alternate"
@@ -291,8 +301,6 @@
                 hreflang="ru"
                 href="https://keen-pbr.fyi/ru/"
                 />
-  </url><url>
-    <loc>https://keen-pbr.fyi/docs/nftables-atomic-reconcile/</loc>
   </url><url>
     <loc>https://keen-pbr.fyi/tags/</loc>
     <xhtml:link

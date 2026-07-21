@@ -6106,105 +6106,6 @@ and routing state.&lt;/p&gt;
     </item>
     
     <item>
-      <title>Support This Project</title>
-      <link>https://keen-pbr.fyi/docs/support-this-project/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://keen-pbr.fyi/docs/support-this-project/</guid>
-      <description>
-        
-        
-        &lt;p&gt;If keen-pbr saves you time, helps keep your router setup sane, or just makes your day a bit easier, you can support the project here:&lt;/p&gt;
-&lt;div class=&#34;hextra-cards hx:mt-4 hx:gap-4 hx:grid not-prose&#34; style=&#34;--hextra-cards-grid-cols: 1;&#34;&gt;
-  &lt;a
-    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://ko-fi.com/keen_pbr&#34;
-      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
-      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;svg viewBox=&#34;0 0 241 194&#34; fill=&#34;none&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
-  &lt;mask id=&#34;mask0_1_219&#34; style=&#34;mask-type:luminance&#34; maskUnits=&#34;userSpaceOnUse&#34; x=&#34;-1&#34; y=&#34;0&#34; width=&#34;242&#34; height=&#34;194&#34;&gt;
-  &lt;path d=&#34;M240.469 0.958984H-0.00585938V193.918H240.469V0.958984Z&#34; fill=&#34;white&#34;/&gt;
-  &lt;/mask&gt;
-  &lt;g mask=&#34;url(#mask0_1_219)&#34;&gt;
-  &lt;path d=&#34;M96.1344 193.911C61.1312 193.911 32.6597 178.256 15.9721 149.829C1.19788 124.912 -0.00585938 97.9229 -0.00585938 67.7662C-0.00585938 49.8876 5.37293 34.3215 15.5413 22.7466C24.8861 12.1157 38.1271 5.22907 52.8317 3.35378C70.2858 1.14271 91.9848 0.958984 114.545 0.958984C151.259 0.958984 161.63 1.4088 176.075 2.85328C195.29 4.76026 211.458 11.932 222.824 23.5955C234.368 35.4428 240.469 51.2624 240.469 69.3627V72.9994C240.469 103.885 219.821 129.733 191.046 136.759C188.898 141.827 186.237 146.871 183.089 151.837L183.006 151.964C172.869 167.632 149.042 193.918 103.401 193.918H96.1281L96.1344 193.911Z&#34; fill=&#34;white&#34;/&gt;
-  &lt;path d=&#34;M174.568 17.9772C160.927 16.6151 151.38 16.1589 114.552 16.1589C90.908 16.1589 70.9008 16.387 54.7644 18.4334C33.3949 21.164 15.2058 37.5285 15.2058 67.7674C15.2058 98.0066 16.796 121.422 29.0741 142.107C42.9425 165.751 66.1302 178.707 96.1412 178.707H103.414C140.242 178.707 160.25 159.156 170.253 143.698C174.574 136.874 177.754 130.058 179.801 123.234C205.947 120.96 225.27 99.3624 225.27 72.9941V69.3577C225.27 40.9432 206.631 21.164 174.574 17.9772H174.568Z&#34; fill=&#34;white&#34;/&gt;
-  &lt;path d=&#34;M15.1975 67.7674C15.1975 37.5285 33.3866 21.164 54.7559 18.4334C70.8987 16.387 90.906 16.1589 114.544 16.1589C151.372 16.1589 160.919 16.6151 174.559 17.9772C206.617 21.1576 225.255 40.937 225.255 69.3577V72.9941C225.255 99.3687 205.932 120.966 179.786 123.234C177.74 130.058 174.559 136.874 170.238 143.698C160.235 159.156 140.228 178.707 103.4 178.707H96.1264C66.1155 178.707 42.9277 165.751 29.0595 142.107C16.7814 121.422 15.1912 98.4563 15.1912 67.7674&#34; fill=&#34;#202020&#34;/&gt;
-  &lt;path d=&#34;M32.2469 67.9899C32.2469 97.3168 34.0654 116.184 43.6127 133.689C54.5225 153.924 74.3018 161.653 96.8117 161.653H103.857C133.411 161.653 147.736 147.329 155.693 134.829C159.558 128.462 162.966 121.417 164.784 112.547L166.147 106.864H174.332C192.521 106.864 208.208 92.09 208.208 73.2166V69.8082C208.208 48.6669 195.024 37.5228 172.058 34.7987C159.102 33.6646 151.372 33.2084 114.538 33.2084C89.7602 33.2084 72.0272 33.4364 58.6152 35.4828C39.7483 38.2134 32.2407 48.8951 32.2407 67.9899&#34; fill=&#34;white&#34;/&gt;
-  &lt;path d=&#34;M166.158 83.6801C166.158 86.4107 168.204 88.4572 171.841 88.4572C183.435 88.4572 189.802 81.8619 189.802 70.9523C189.802 60.0427 183.435 53.2195 171.841 53.2195C168.204 53.2195 166.158 55.2657 166.158 57.9963V83.6866V83.6801Z&#34; fill=&#34;#202020&#34;/&gt;
-  &lt;path d=&#34;M54.5321 82.3198C54.5321 95.732 62.0332 107.326 71.5807 116.424C77.9478 122.562 87.9515 128.93 94.7685 133.022C96.8147 134.157 98.8611 134.841 101.136 134.841C103.866 134.841 106.134 134.157 107.959 133.022C114.782 128.93 124.779 122.562 130.919 116.424C140.694 107.332 148.195 95.7383 148.195 82.3198C148.195 67.7673 137.286 54.8115 121.599 54.8115C112.28 54.8115 105.912 59.5882 101.136 66.1772C96.8147 59.582 90.2259 54.8115 80.9001 54.8115C64.9855 54.8115 54.5256 67.7673 54.5256 82.3198&#34; fill=&#34;#FF5A16&#34;/&gt;
-  &lt;/g&gt;
-  &lt;/svg&gt;
-  Donate on ko-fi.com&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;PayPal and bank cards&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
-  &lt;a
-    class=&#34;hextra-card hx:group hx:flex hx:flex-col hx:justify-start hx:overflow-hidden hx:rounded-lg hx:border hx:border-gray-200 hx:text-current hx:no-underline hx:dark:shadow-none hx:hover:shadow-gray-100 hx:dark:hover:shadow-none hx:shadow-gray-100 hx:active:shadow-sm hx:active:shadow-gray-200 hx:transition-all hx:duration-200 hx:hover:border-gray-300 hx:bg-transparent hx:shadow-xs hx:dark:border-neutral-800 hx:hover:bg-slate-50 hx:hover:shadow-md hx:dark:hover:border-neutral-700 hx:dark:hover:bg-neutral-900&#34;href=&#34;https://pay.cloudtips.ru/p/a633c47d&#34;
-      target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;div class=&#34;hx:mt-auto&#34;&gt;
-      &lt;span class=&#34;hextra-card-icon hx:flex hx:font-semibold hx:items-start hx:gap-2 hx:pt-4 hx:px-4 hx:text-gray-700 hx:hover:text-gray-900 hx:dark:text-neutral-200 hx:dark:hover:text-neutral-50&#34;&gt;&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
-  &lt;svg fill=&#34;none&#34; viewBox=&#34;0 0 266.18 266.18&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34;&gt;
-  &lt;g clip-path=&#34;url(#a)&#34;&gt;
-  &lt;path d=&#34;M133.09 266.18C206.594 266.18 266.18 206.594 266.18 133.09C266.18 59.5864 206.594 0 133.09 0C59.5864 0 0 59.5864 0 133.09C0 206.594 59.5864 266.18 133.09 266.18Z&#34; fill=&#34;#6496DC&#34;/&gt;
-  &lt;path d=&#34;m104.5 170.3 86.19-86.19c2.131-2.1328 4.661-3.8249 7.445-4.9793 2.785-1.1544 5.77-1.7486 8.785-1.7486s6 0.5942 8.785 1.7486c2.784 1.1544 5.314 2.8465 7.445 4.9793 2.133 2.1305 3.825 4.6605 4.979 7.4454 1.155 2.7849 1.749 5.77 1.749 8.7846 0 3.015-0.594 6-1.749 8.785-1.154 2.785-2.846 5.315-4.979 7.445l-53.65 53.73c-8.624 8.61-20.313 13.446-32.5 13.446s-23.876-4.836-32.5-13.446z&#34; fill=&#34;#fff&#34;/&gt;
-  &lt;path d=&#34;m161.68 95.89-86.19 86.19c-2.1305 2.133-4.6606 3.825-7.4454 4.979-2.7849 1.155-5.77 1.749-8.7846 1.749-3.0147 0-5.9998-0.594-8.7847-1.749-2.7848-1.154-5.3148-2.846-7.4453-4.979-4.2929-4.311-6.7032-10.146-6.7032-16.23s2.4103-11.919 6.7032-16.23l53.65-53.73c8.6249-8.6102 20.313-13.446 32.5-13.446s23.876 4.836 32.5 13.446z&#34; fill=&#34;#fff&#34;/&gt;
-  &lt;/g&gt;
-  &lt;defs&gt;
-  &lt;clipPath id=&#34;a&#34;&gt;
-  &lt;rect width=&#34;1198.7&#34; height=&#34;266.19&#34; fill=&#34;#fff&#34;/&gt;
-  &lt;/clipPath&gt;
-  &lt;/defs&gt;
-  &lt;/svg&gt;
-  Donate on Cloudtips&lt;/span&gt;&lt;div class=&#34;hextra-card-subtitle hx:line-clamp-3 hx:text-sm hx:font-normal hx:text-gray-500 hx:dark:text-gray-400 hx:px-4 hx:mb-4 hx:mt-2&#34;&gt;Russian bank cards and SBP&lt;/div&gt;&lt;/div&gt;&lt;/a&gt;
-&lt;/div&gt;
-
-&lt;p&gt;Every donation helps with development time, testing hardware, and keeping the project moving. Thank you.&lt;/p&gt;
-
-      </description>
-    </item>
-    
-    <item>
-      <title>iptables/ipset atomic reconciliation</title>
-      <link>https://keen-pbr.fyi/docs/iptables-atomic-reconcile/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://keen-pbr.fyi/docs/iptables-atomic-reconcile/</guid>
-      <description>
-        
-        
-        &lt;p&gt;The iptables backend uses &lt;code&gt;iptables-restore --noflush&lt;/code&gt; with a fully built
-generation (shadow) chain.  The stable &lt;code&gt;KeenPbrTable&lt;/code&gt; PREROUTING and
-&lt;code&gt;KeenPbrTable_OUTPUT&lt;/code&gt; dispatchers are switched in one restore transaction, so a
-failed transaction leaves the preceding generation reachable.&lt;/p&gt;
-&lt;p&gt;Static &lt;code&gt;kpbr4_&lt;/code&gt;/&lt;code&gt;kpbr6_&lt;/code&gt; sets are loaded into a temporary set and published with
-&lt;code&gt;ipset swap&lt;/code&gt;; the canonical name therefore always refers to either the previous
-set or a complete replacement.  Dynamic &lt;code&gt;kpbr4d_&lt;/code&gt;/&lt;code&gt;kpbr6d_&lt;/code&gt; dnsmasq sets are
-not recreated during &lt;code&gt;PreserveSets&lt;/code&gt; applies, preserving learned entries and
-their timeout metadata.&lt;/p&gt;
-&lt;p&gt;This shadow-chain path is the recorded capability baseline for the supported
-iptables-restore versions. It deliberately avoids relying on an implementation-
-specific in-place chain rewrite.&lt;/p&gt;
-
-      </description>
-    </item>
-    
-    <item>
-      <title>nftables atomic reconciliation</title>
-      <link>https://keen-pbr.fyi/docs/nftables-atomic-reconcile/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      
-      <guid>https://keen-pbr.fyi/docs/nftables-atomic-reconcile/</guid>
-      <description>
-        
-        
-        &lt;p&gt;Normal nftables applies are submitted as one &lt;code&gt;nft -j -f -&lt;/code&gt; JSON transaction.
-keen-pbr never deletes &lt;code&gt;inet KeenPbrTable&lt;/code&gt; before an ordinary replacement, so a
-rejected transaction leaves the previous table unchanged. Existing static sets
-are flushed and refilled in that same transaction; incompatible set schemas are
-deleted and recreated alongside the replacement chain and rules. Dynamic
-&lt;code&gt;kpbr4d_&lt;/code&gt; and &lt;code&gt;kpbr6d_&lt;/code&gt; dnsmasq sets are preserved by routine applies.&lt;/p&gt;
-&lt;p&gt;Port-only rules are emitted separately for IPv4 and IPv6. When IPv6 is disabled
-in configuration, no IPv6 set or rule is generated; IPv6 is intentionally
-unmanaged by this backend configuration.&lt;/p&gt;
-
-      </description>
-    </item>
-    
-    <item>
       <title>Upgrade from 2.x</title>
       <link>https://keen-pbr.fyi/docs/getting-started/upgrade-from-2x/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
@@ -6218,10 +6119,9 @@ unmanaged by this backend configuration.&lt;/p&gt;
     &lt;a href=&#34;#1-replace-the-repository&#34; class=&#34;subheading-anchor&#34; aria-label=&#34;Permalink for this section&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Open the repository instructions page, select &lt;strong&gt;Keenetic / NetCraze&lt;/strong&gt; in the OS selector on the left, select your router architecture, and follow the generated commands to replace the old keen-pbr 2.x repository with the current one:&lt;/p&gt;
 &lt;a
   href=&#34;https://repo.keen-pbr.fyi/repository/stable/?lang=en&#34;
-  class=&#34;not-prose hx:font-medium hx:cursor-pointer hx:px-6 hx:py-3 hx:rounded-full hx:text-center hx:text-white hx:inline-block hx:bg-primary-600 hx:hover:bg-primary-700 hx:hextra-focus-visible hx:dark:bg-primary-600 hx:dark:hover:bg-primary-700 hx:transition-all hx:ease-in hx:duration-200&#34;
+  class=&#34;not-prose hero-button&#34;
   
-  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;keen-pbr repository&lt;/a&gt;
-
+  target=&#34;_blank&#34; rel=&#34;noreferrer&#34;&gt;&lt;span&gt;keen-pbr repository&lt;/span&gt;&lt;/a&gt;
 &lt;p&gt;Use the commands exactly as shown for Keenetic / NetCraze on the repository page.&lt;/p&gt;
 &lt;div class=&#34;hx:overflow-x-auto hx:mt-6 hx:flex hx:rounded-lg hx:border hx:py-2 hx:ltr:pr-4 hx:rtl:pl-4 hx:contrast-more:border-current hx:contrast-more:dark:border-current hx:border-blue-200 hx:bg-blue-100 hx:text-blue-900 hx:dark:border-blue-200/30 hx:dark:bg-blue-900/30 hx:dark:text-blue-200&#34;&gt;
   &lt;div class=&#34;hx:ltr:pl-3 hx:ltr:pr-2 hx:rtl:pr-3 hx:rtl:pl-2&#34;&gt;&lt;svg height=1.2em class=&#34;hx:inline-block hx:align-middle&#34; xmlns=&#34;http://www.w3.org/2000/svg&#34; fill=&#34;none&#34; viewBox=&#34;0 0 24 24&#34; stroke-width=&#34;2&#34; stroke=&#34;currentColor&#34; aria-hidden=&#34;true&#34;&gt;&lt;path stroke-linecap=&#34;round&#34; stroke-linejoin=&#34;round&#34; d=&#34;M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z&#34;/&gt;&lt;/svg&gt;&lt;/div&gt;

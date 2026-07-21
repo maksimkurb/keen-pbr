@@ -8,47 +8,34 @@
 <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
-<title>iptables/ipset atomic reconciliation – keen-pbr</title>
-  <meta name="description" content="The iptables backend uses iptables-restore --noflush with a fully built generation (shadow) chain. The stable KeenPbrTable PREROUTING and KeenPbrTable_OUTPUT dispatchers are switched in one restore transaction, so a failed transaction leaves the preceding generation reachable.
-Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ipset swap; the canonical name therefore always refers to either the previous set or a complete replacement. Dynamic kpbr4d_/kpbr6d_ dnsmasq sets are not recreated during PreserveSets applies, preserving learned entries and their timeout metadata." /><link rel="canonical" href="https://keen-pbr.fyi/docs/iptables-atomic-reconcile/" itemprop="url" />
+<title>Sponsor This Project (RU cards) – keen-pbr</title>
+  <meta name="description" content=" Transfer amount ₽ &#43;100 &#43;200 &#43;300 &#43;500 &#43;1000 &#43;3000 &#43;5000 Choose an amount from 2 to 15000 ₽. " /><link rel="canonical" href="https://keen-pbr.fyi/docs/donate-yoomoney/" itemprop="url" />
 
-<meta property="og:title" content="iptables/ipset atomic reconciliation">
+<meta property="og:title" content="Sponsor This Project (RU cards)">
 <meta
   property="og:description"
   content="
     
-      The iptables backend uses iptables-restore --noflush with a fully built
-generation (shadow) chain.  The stable KeenPbrTable PREROUTING and
-KeenPbrTable_OUTPUT dispatchers are switched in one restore transaction, so a
-failed transaction leaves the preceding generation reachable.
-Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with
-ipset swap; the canonical name therefore always refers to either the previous
-set or a complete replacement.  Dynamic kpbr4d_/kpbr6d_ dnsmasq sets are
-not recreated during PreserveSets applies, preserving learned entries and
-their timeout metadata.
+      
     
   ">
 <meta
   property="og:type"
   content="
-    article
+    website
   ">
-<meta property="og:url" content="https://keen-pbr.fyi/docs/iptables-atomic-reconcile/"><meta property="article:section" content="docs">
+<meta property="og:url" content="https://keen-pbr.fyi/docs/donate-yoomoney/">
 
 
-
-
-	<meta itemprop="name" content="iptables/ipset atomic reconciliation">
-	<meta itemprop="description" content="The iptables backend uses iptables-restore --noflush with a fully built generation (shadow) chain. The stable KeenPbrTable PREROUTING and KeenPbrTable_OUTPUT dispatchers are switched in one restore transaction, so a failed transaction leaves the preceding generation reachable.
-Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ipset swap; the canonical name therefore always refers to either the previous set or a complete replacement. Dynamic kpbr4d_/kpbr6d_ dnsmasq sets are not recreated during PreserveSets applies, preserving learned entries and their timeout metadata.">
-	<meta itemprop="wordCount" content="105">
+	<meta itemprop="name" content="Sponsor This Project (RU cards)">
+	<meta itemprop="description" content="Transfer amount ₽ &#43;100 &#43;200 &#43;300 &#43;500 &#43;1000 &#43;3000 &#43;5000 Choose an amount from 2 to 15000 ₽.">
+	<meta itemprop="wordCount" content="133">
 	<meta name="twitter:card" content="summary">
-	<meta name="twitter:title" content="iptables/ipset atomic reconciliation">
-	<meta name="twitter:description" content="The iptables backend uses iptables-restore --noflush with a fully built generation (shadow) chain. The stable KeenPbrTable PREROUTING and KeenPbrTable_OUTPUT dispatchers are switched in one restore transaction, so a failed transaction leaves the preceding generation reachable.
-Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ipset swap; the canonical name therefore always refers to either the previous set or a complete replacement. Dynamic kpbr4d_/kpbr6d_ dnsmasq sets are not recreated during PreserveSets applies, preserving learned entries and their timeout metadata.">
+	<meta name="twitter:title" content="Sponsor This Project (RU cards)">
+	<meta name="twitter:description" content="Transfer amount ₽ &#43;100 &#43;200 &#43;300 &#43;500 &#43;1000 &#43;3000 &#43;5000 Choose an amount from 2 to 15000 ₽.">
 
-    <link rel="preload" href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" as="style" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
-    <link href="/css/compiled/main.min.8e39a9cb629e2b245385d956e0a69f9342a714c459f8852d9af55cacb4ca5ec2.css" rel="stylesheet" integrity="sha256-jjmpy2KeKyRThdlW4Kafk0KnFMRZ&#43;IUtmvVcrLTKXsI=" />
+    <link rel="preload" href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" as="style" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
+    <link href="/css/compiled/main.min.3aec5c70abde7eff6ccd5985ea8c797bc145ed52556ed9b9e628573234fca4b6.css" rel="stylesheet" integrity="sha256-OuxccKvefv9szVmF6ox5e8FF7VJVbtm55ihXMjT8pLY=" />
 
   
 
@@ -75,10 +62,10 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
     <span class="hx:mr-2 hx:font-extrabold hx:inline hx:select-none">keen-pbr</span>
 </a>
 <a
-  title=""
+  title="Docs"
   href="/docs"
   
-  class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:font-medium"
+  class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:font-medium "
 ><span class="hx:text-center">Docs</span>
 </a><div class="hextra-search-wrapper hx:relative hx:md:w-64">
   <div class="hx:relative hx:flex hx:items-center hx:text-gray-900 hx:contrast-more:text-gray-800 hx:dark:text-gray-300 hx:contrast-more:dark:text-gray-300">
@@ -114,9 +101,13 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
 <span class="hx:sr-only">GitHub</span>
           </a>
           <a class="hx:p-2 hx:text-current" target="_blank" rel="noreferrer" href="https://t.me/keen_pbr" title="Telegram"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path fill="currentColor" d="M248 8C111.033 8 0 119.033 0 256s111.033 248 248 248 248-111.033 248-248S384.967 8 248 8m114.952 168.66c-3.732 39.215-19.881 134.378-28.1 178.3-3.476 18.584-10.322 24.816-16.948 25.425-14.4 1.326-25.338-9.517-39.287-18.661-21.827-14.308-34.158-23.215-55.346-37.177-24.485-16.135-8.612-25 5.342-39.5 3.652-3.793 67.107-61.51 68.335-66.746.153-.655.3-3.1-1.154-4.384s-3.59-.849-5.135-.5q-3.283.746-104.608 69.142-14.845 10.194-26.894 9.934c-8.855-.191-25.888-5.006-38.551-9.123-15.531-5.048-27.875-7.717-26.8-16.291q.84-6.7 18.45-13.7 108.446-47.248 144.628-62.3c68.872-28.647 83.183-33.623 92.511-33.789 2.052-.034 6.639.474 9.61 2.885a10.45 10.45 0 0 1 3.53 6.716 43.8 43.8 0 0 1 .417 9.769"/></svg><span class="hx:sr-only">Telegram</span>
-          </a>
-          <a class="hx:p-2 hx:text-current"  href="/docs/support-this-project" title="Support this project"><svg height=24 xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg><span class="hx:sr-only">Support this project</span>
-          </a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+          </a><a
+  title="Sponsor this project"
+  href="/docs/donate"
+  
+  class="hx:text-sm hx:contrast-more:text-gray-700 hx:contrast-more:dark:text-gray-100 hx:relative hx:-ml-2 hx:hidden hx:whitespace-nowrap hx:p-2 hx:md:inline-flex hx:items-center hx:gap-1 hx:text-gray-600 hx:hover:text-gray-800 hx:dark:text-gray-400 hx:dark:hover:text-gray-200 donation-nav-button"
+><span class="hx:inline-flex hx:items-center"><svg height="1em" class="hx:inline-block" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f"><path d="M640-440 474-602q-31-30-52.5-66.5T400-748q0-55 38.5-93.5T532-880q32 0 60 13.5t48 36.5q20-23 48-36.5t60-13.5q55 0 93.5 38.5T880-748q0 43-21 79.5T807-602L640-440Zm0-112 109-107q19-19 35-40.5t16-48.5q0-22-15-37t-37-15q-14 0-26.5 5.5T700-778l-60 72-60-72q-9-11-21.5-16.5T532-800q-22 0-37 15t-15 37q0 27 16 48.5t35 40.5l109 107ZM280-220l278 76 238-74q-5-9-14.5-15.5T760-240H558q-27 0-43-2t-33-8l-93-31 22-78 81 27q17 5 40 8t68 4q0-11-6.5-21T578-354l-234-86h-64v220ZM40-80v-440h304q7 0 14 1.5t13 3.5l235 87q33 12 53.5 42t20.5 66h80q50 0 85 33t35 87v40L560-60l-280-78v58H40Zm80-80h80v-280h-80v280Zm520-546Z"/></svg></span><span class="hx:text-center">Sponsor this project</span>
+</a><button type="button" aria-label="Menu" aria-expanded="false" class="hextra-hamburger-menu hx:cursor-pointer hx:-mr-2 hx:rounded-sm hx:p-2 hx:active:bg-gray-400/20 hx:md:hidden hx:hextra-focus-visible-inset"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
 
@@ -436,40 +427,26 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/support-this-project/"
+      href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Support This Project</span>
-    </a>
-  </div>
-              
-            </li><li class="hx:flex hx:flex-col open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
-      href="/docs/iptables-atomic-reconcile/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">iptables/ipset atomic reconciliation</span>
-    </a>
-  </div>
-  
-              
-            </li><li class="hx:flex hx:flex-col "><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/nftables-atomic-reconcile/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">nftables atomic reconciliation</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Sponsor This Project</span>
     </a>
   </div>
               
             </li></ul>
       </div></li>
+              <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
+    <a
+      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
+      hx:hextra-focus-visible-inset
+        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
+      href="/docs/donate/"
+      
+    >
+      <span class="hx:min-w-0 [word-break:break-word]">Sponsor this project</span>
+    </a>
+  </div></li>
     </ul>
 
     <ul class="hx:flex hx:flex-col hx:gap-1 hx:max-md:hidden">
@@ -735,32 +712,10 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
       class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
       hx:hextra-focus-visible-inset
         hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/support-this-project/"
+      href="/docs/donate/"
       
     >
-      <span class="hx:min-w-0 [word-break:break-word]">Support This Project</span>
-    </a>
-  </div></li>
-            <li class="open"><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="true">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hextra-sidebar-active-item hx:bg-primary-100 hx:font-semibold hx:text-primary-800 hx:contrast-more:border hx:contrast-more:border-primary-500 hx:dark:bg-primary-400/10 hx:dark:text-primary-600 hx:contrast-more:dark:border-primary-500"
-      href="/docs/iptables-atomic-reconcile/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">iptables/ipset atomic reconciliation</span>
-    </a>
-  </div></li>
-            <li class=""><div class="hextra-sidebar-item hx:group hx:relative hx:flex hx:items-center" data-active="false">
-    <a
-      class="hx:flex hx:items-center hx:justify-between hx:gap-2 hx:grow hx:cursor-pointer hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]
-      hx:hextra-focus-visible-inset
-        hx:text-gray-500 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:contrast-more:border hx:contrast-more:border-transparent hx:contrast-more:text-gray-900 hx:contrast-more:hover:border-gray-900 hx:dark:text-neutral-400 hx:dark:hover:bg-primary-100/5 hx:dark:hover:text-gray-50 hx:contrast-more:dark:text-gray-50 hx:contrast-more:dark:hover:border-gray-50"
-      href="/docs/nftables-atomic-reconcile/"
-      
-    >
-      <span class="hx:min-w-0 [word-break:break-word]">nftables atomic reconciliation</span>
+      <span class="hx:min-w-0 [word-break:break-word]">Sponsor This Project</span>
     </a>
   </div></li>
         
@@ -790,7 +745,7 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
         
         <li role="none" class="hx:flex hx:flex-col">
           <a
-            href="/docs/iptables-atomic-reconcile/"
+            href="/docs/donate-yoomoney/"
             role="menuitem"
             class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9"
           >English<span class="hx:absolute hx:inset-y-0 hx:flex hx:items-center hx:ltr:right-3 hx:rtl:left-3"><svg height=1em width=1em xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span></a>
@@ -799,7 +754,7 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
         
         <li role="none" class="hx:flex hx:flex-col">
           <a
-            href="/ru/"
+            href="/ru/docs/donate-yoomoney/"
             role="menuitem"
             class="hx:text-gray-700 hx:dark:text-gray-300 hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100 hx:relative hx:cursor-pointer hx:whitespace-nowrap hx:rounded-sm hx:py-1.5 hx:transition-colors hx:ltr:pl-3 hx:ltr:pr-9 hx:rtl:pr-3 hx:rtl:pl-9"
           >Русский</a>
@@ -870,18 +825,7 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
 </div>
 </div></aside>
     
-<nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents">
-    <div class="hextra-scrollbar hx:sticky hx:top-16 hx:overflow-y-auto hx:pr-4 hx:pt-6 hx:text-sm [hyphens:auto] hx:max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] hx:ltr:-mr-4 hx:rtl:-ml-4">
-      <div class=" hx:sticky hx:bottom-0 hx:flex hx:flex-col hx:items-start hx:gap-2 hx:pb-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-t hx:contrast-more:border-neutral-400 hx:contrast-more:shadow-none hx:contrast-more:dark:border-neutral-400">
-        <button id="backToTop" tabindex="-1" onClick="scrollUp();" class="hx:cursor-pointer hx:transition-all hx:duration-75 hx:opacity-0 hx:text-xs hx:font-medium hx:text-gray-500 hx:hover:text-gray-900 hx:dark:text-gray-400 hx:dark:hover:text-gray-100 hx:contrast-more:text-gray-800 hx:contrast-more:dark:text-gray-50">
-          <span>Scroll to top</span>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" focusable="false" class="hx:inline hx:ltr:ml-1 hx:rtl:mr-1 hx:h-3.5 hx:w-3.5 hx:rounded-full hx:border hx:border-gray-500 hx:hover:border-gray-900 hx:dark:border-gray-400 hx:dark:hover:border-gray-100 hx:contrast-more:border-gray-800 hx:contrast-more:dark:border-gray-50">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  </nav>
+<nav class="hextra-toc hx:order-last hx:hidden hx:w-64 hx:shrink-0 hx:xl:block hx:print:hidden hx:px-4" aria-label="Table of contents"></nav>
 
 
     <article class="hx:w-full hx:break-words hx:flex hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:justify-center hx:pb-8 hx:pr-[calc(env(safe-area-inset-right)-1.5rem)]">
@@ -889,18 +833,18 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
         <div class="hx:mt-1.5 hx:flex hx:items-center hx:gap-1 hx:overflow-hidden hx:text-sm hx:text-gray-500 hx:dark:text-gray-400 hx:contrast-more:text-current">
         <div class="hx:whitespace-nowrap hx:transition-colors hx:min-w-[24px] hx:overflow-hidden hx:text-ellipsis hx:hover:text-gray-900 hx:dark:hover:text-gray-100">
           <a href="/docs/" class="hx:inline-block hx:rounded-sm hx:hextra-focus-visible-inset">Documentation</a>
-        </div><svg class="hx:w-3.5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx:whitespace-nowrap hx:transition-colors hx:font-medium hx:text-gray-700 hx:contrast-more:font-bold hx:contrast-more:text-current hx:dark:text-gray-100 hx:contrast-more:dark:text-current">iptables/ipset atomic reconciliation</div>
+        </div><svg class="hx:w-3.5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx:whitespace-nowrap hx:transition-colors hx:font-medium hx:text-gray-700 hx:contrast-more:font-bold hx:contrast-more:text-current hx:dark:text-gray-100 hx:contrast-more:dark:text-current">Sponsor This Project (RU cards)</div>
   </div>
 
         <div class="content">
           
           <div class="hx:flex hx:flex-col hx:sm:flex-row hx:items-start hx:sm:items-center hx:sm:justify-between hx:gap-4 hx:mb-4">
-            <h1 class="hx:mb-0">iptables/ipset atomic reconciliation</h1>
+            <h1 class="hx:mb-0">Sponsor This Project (RU cards)</h1>
             <div class="hextra-page-context-menu hx:relative hx:inline-flex hx:shrink-0">
       <div class="hx:inline-flex hx:rounded-lg hx:border hx:border-gray-200 hx:transition-colors hx:hover:border-gray-300 hx:dark:border-neutral-800 hx:dark:hover:border-neutral-700">
         <button
           class="hextra-page-context-menu-copy hx:group/copybtn hx:inline-flex hx:cursor-pointer hx:items-center hx:gap-1.5 hx:bg-transparent hx:px-2.5 hx:py-1 hx:text-sm hx:font-medium hx:text-gray-700 hx:transition-colors hx:hover:bg-slate-50 hx:dark:text-gray-300 hx:dark:hover:bg-neutral-900 hx:ltr:rounded-l-lg hx:rtl:rounded-r-lg hx:hextra-focus-visible-inset"
-          data-url="https://keen-pbr.fyi/docs/iptables-atomic-reconcile.md"
+          data-url="https://keen-pbr.fyi/docs/donate-yoomoney/index.md"
           title="Copy as Markdown"
           aria-label="Copy as Markdown"
         >
@@ -932,7 +876,7 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
         <li role="none">
           <button
             data-action="view"
-            data-url="https://keen-pbr.fyi/docs/iptables-atomic-reconcile.md"
+            data-url="https://keen-pbr.fyi/docs/donate-yoomoney/index.md"
             role="menuitem"
             class="hx:flex hx:w-full hx:cursor-pointer hx:select-none hx:items-center hx:gap-2 hx:whitespace-nowrap hx:rounded-sm hx:px-2 hx:py-1.5 hx:text-sm hx:text-gray-700 hx:outline-none hx:transition-colors hx:hover:bg-gray-100 hx:hover:text-gray-900 hx:dark:text-gray-300 hx:dark:hover:bg-neutral-800 hx:dark:hover:text-gray-100"
           >
@@ -941,7 +885,7 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
           </button>
         </li><li class="hx:my-1 hx:h-px hx:bg-gray-200 hx:dark:bg-neutral-700" role="separator"></li><li role="none">
             <a
-              href="https://chatgpt.com/?hints=search&amp;q=I%27m&#43;looking&#43;at&#43;this&#43;documentation%3A&#43;https%3A%2F%2Fkeen-pbr.fyi%2Fdocs%2Fiptables-atomic-reconcile%2F%0AHelp&#43;me&#43;understand&#43;how&#43;to&#43;use&#43;it."
+              href="https://chatgpt.com/?hints=search&amp;q=I%27m&#43;looking&#43;at&#43;this&#43;documentation%3A&#43;https%3A%2F%2Fkeen-pbr.fyi%2Fdocs%2Fdonate-yoomoney%2F%0AHelp&#43;me&#43;understand&#43;how&#43;to&#43;use&#43;it."
               target="_blank"
               rel="noopener noreferrer"
               role="menuitem"
@@ -952,29 +896,144 @@ Static kpbr4_/kpbr6_ sets are loaded into a temporary set and published with ips
     </div>
           </div>
           
-          <p>The iptables backend uses <code>iptables-restore --noflush</code> with a fully built
-generation (shadow) chain.  The stable <code>KeenPbrTable</code> PREROUTING and
-<code>KeenPbrTable_OUTPUT</code> dispatchers are switched in one restore transaction, so a
-failed transaction leaves the preceding generation reachable.</p>
-<p>Static <code>kpbr4_</code>/<code>kpbr6_</code> sets are loaded into a temporary set and published with
-<code>ipset swap</code>; the canonical name therefore always refers to either the previous
-set or a complete replacement.  Dynamic <code>kpbr4d_</code>/<code>kpbr6d_</code> dnsmasq sets are
-not recreated during <code>PreserveSets</code> applies, preserving learned entries and
-their timeout metadata.</p>
-<p>This shadow-chain path is the recorded capability baseline for the supported
-iptables-restore versions. It deliberately avoids relying on an implementation-
-specific in-place chain rewrite.</p>
+          <link rel="stylesheet" href="/css/donation-form.min.2605a2b20c944ec4318f90aa00c3e7290305ca5afebed90c05d4d3143ac0531b.css" integrity="sha256-JgWisgyUTsQxj5CqAMPnKQMFylr&#43;vtkMBdTTFDrAUxs=">
+<script src="/js/yoomoney-donation.min.623737fb6f0ee62af7833562b0ff00d7444447fd5a3ebbd20f49ad7b3e659770.js" integrity="sha256-Yjc3&#43;28O5ir3gzVisP8A10RER/1aPrvSD0mtez5ll3A=" defer></script>
+<div class="yoomoney-donation-layout">
+<form
+  id="yoomoney-donation-en"
+  class="yoomoney-donation-form not-prose"
+  method="POST"
+  action="https://yoomoney.ru/quickpay/confirm"
+  data-yoomoney-donation-form
+  data-amount-required="Enter a transfer amount."
+  data-amount-integer="Enter the amount in whole rubles, without kopecks."
+  data-amount-min="The minimum transfer is 2 ₽."
+  data-amount-max="The maximum transfer is 15000 ₽."
+  data-consent-required="Consent is required when a display name is provided."
+  data-confirm-message="Review the form values before sending:"
+  data-submitting-label="Opening YooMoney…"
+>
+  <input type="hidden" name="receiver" value="4100119579898250">
+  <input type="hidden" name="quickpay-form" value="button">
+
+  <div class="yoomoney-donation-form__fields">
+  <div class="yoomoney-donation-form__field">
+    <label for="yoomoney-donation-en-amount">Transfer amount</label>
+    <div class="yoomoney-donation-form__amount">
+      <input
+        id="yoomoney-donation-en-amount"
+        name="sum"
+        type="number"
+        inputmode="decimal"
+        data-type="number"
+        min="2"
+        max="15000"
+        step="1"
+        placeholder="500"
+        required
+        aria-describedby="yoomoney-donation-en-amount-hint yoomoney-donation-en-amount-error"
+      >
+      <span aria-hidden="true">₽</span>
+    </div>
+    <div class="yoomoney-donation-form__increments" aria-label="Quick amount additions">
+        <button
+          type="button"
+          data-amount-increment="100"
+          aria-label="Add 100 rubles"
+        >+100</button>
+        <button
+          type="button"
+          data-amount-increment="200"
+          aria-label="Add 200 rubles"
+        >+200</button>
+        <button
+          type="button"
+          data-amount-increment="300"
+          aria-label="Add 300 rubles"
+        >+300</button>
+        <button
+          type="button"
+          data-amount-increment="500"
+          aria-label="Add 500 rubles"
+        >+500</button>
+        <button
+          type="button"
+          data-amount-increment="1000"
+          aria-label="Add 1000 rubles"
+        >+1000</button>
+        <button
+          type="button"
+          data-amount-increment="3000"
+          aria-label="Add 3000 rubles"
+        >+3000</button>
+        <button
+          type="button"
+          data-amount-increment="5000"
+          aria-label="Add 5000 rubles"
+        >+5000</button>
+    </div>
+    <p id="yoomoney-donation-en-amount-hint" class="yoomoney-donation-form__hint">
+      Choose an amount from 2 to 15000 ₽.
+    </p>
+    <p id="yoomoney-donation-en-amount-error" class="yoomoney-donation-form__error" aria-live="polite" hidden></p>
+  </div>
+    <input type="hidden" name="paymentType" value="AC">
+
+  <div class="yoomoney-donation-form__field">
+    <label for="yoomoney-donation-en-nickname">
+      Display name or GitHub username
+      <span class="yoomoney-donation-form__optional">Optional</span>
+    </label>
+    <input
+      id="yoomoney-donation-en-nickname"
+      type="text"
+      maxlength="40"
+      autocomplete="nickname"
+      data-supporter-name
+      aria-describedby="yoomoney-donation-en-nickname-hint"
+    >
+    <p id="yoomoney-donation-en-nickname-hint" class="yoomoney-donation-form__hint">
+      If you enter a display name, we may publish it in the supporters list. This is optional and does not depend on the transfer amount.
+    </p>
+    <p class="yoomoney-donation-form__hint">
+      
+    </p>
+
+    <label class="yoomoney-donation-form__choice yoomoney-donation-form__consent">
+      <input
+        type="checkbox"
+        data-publication-consent
+        aria-describedby="yoomoney-donation-en-consent-hint yoomoney-donation-en-consent-error"
+        disabled
+      >
+      <span>I agree to publish my name in the supporters list.</span>
+    </label>
+    <p id="yoomoney-donation-en-consent-hint" class="yoomoney-donation-form__hint">
+      Consent applies only to publishing the name. To withdraw consent, email keen-pbr@kurb.me.
+    </p>
+    <p id="yoomoney-donation-en-consent-error" class="yoomoney-donation-form__error" aria-live="polite" hidden></p>
+  </div>
+  </div>
+
+  <input type="hidden" name="label" value="keen-pbr" data-yoomoney-label>
+
+  <button type="submit" class="yoomoney-donation-form__submit">
+    Continue to YooMoney
+  </button>
+</form>
+
+<aside class="yoomoney-donation-sidebar not-prose">
+  <p class="yoomoney-donation-intro">keen-pbr is distributed free of charge. You may voluntarily support its development and maintenance with a gratuitous transfer of any permitted amount.</p>
+  <div class="yoomoney-donation-form__notice">
+    <strong>Voluntary, gratuitous support</strong>
+    <span>Funds are transferred gratuitously as a gift to support development. This is not payment for software, a license, features, technical support, advertising, goods, or services, and creates no obligation to provide anything in return.</span>
+  </div>
+</aside>
+</div>
+
 
         </div>
-        <div class="hx:mt-16"></div><div class="hx:mb-8 hx:flex hx:items-center hx:border-t hx:pt-8 hx:border-gray-200 hx:dark:border-neutral-800 hx:contrast-more:border-neutral-400 hx:dark:contrast-more:border-neutral-400 hx:print:hidden"><a
-        href="/docs/support-this-project/"
-        title="Support This Project"
-        class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:pr-4 hx:rtl:pl-4"
-      ><svg class="hx:inline hx:h-5 hx:shrink-0 hx:ltr:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>Support This Project</a><a
-        href="/docs/nftables-atomic-reconcile/"
-        title="nftables atomic reconciliation"
-        class="hx:flex hx:max-w-[50%] hx:items-center hx:gap-1 hx:py-4 hx:text-base hx:font-medium hx:text-gray-600 hx:transition-colors [word-break:break-word] hx:hover:text-primary-600 hx:dark:text-gray-300 hx:md:text-lg hx:ltr:ml-auto hx:ltr:pl-4 hx:ltr:text-right hx:rtl:mr-auto hx:rtl:pr-4 hx:rtl:text-left"
-      >nftables atomic reconciliation<svg class="hx:inline hx:h-5 hx:shrink-0 hx:rtl:-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></a></div>
+        <div class="hx:mt-16"></div>
       </main>
     </article>
   </div>
@@ -982,7 +1041,26 @@ specific in-place chain rewrite.</p>
       <footer class="hextra-footer hx:bg-gray-100 hx:pb-[env(safe-area-inset-bottom)] hx:dark:bg-neutral-900 hx:print:bg-transparent"><div class="hextra-custom-footer hextra-max-footer-width hx:mx-auto hx:pl-[max(env(safe-area-inset-left),1.5rem)] hx:pr-[max(env(safe-area-inset-right),1.5rem)] hx:text-gray-600 hx:dark:text-gray-400"><div class="hx:py-12 hx:flex hx:flex-col hx:gap-4 hx:text-xs hx:text-gray-400 hx:dark:text-gray-600"><div><p>keen-pbr is an independent open-source project. This website is not official and is not affiliated with or endorsed by Keenetic or Netcraze.</p>
 <p>Keenetic® is a registered trademark of Keenetic GmbH.</p>
 <p>Netcraze® is a registered trademark of ООО «Неткрейз».</p>
-</div><div>Made by <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Maxim Kurbatov</a> | Website is powered by <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div></div></footer>
+</div><div>Made by <a href="https://kurb.me?utm_source=keen-pbr&amp;utm_medium=docs-footer&amp;utm_campaign=website"target="_blank" rel="noopener">Maxim Kurbatov</a> | Website is powered by <a href="https://github.com/imfing/hextra"target="_blank" rel="noopener">Hextra</a></div></div><link rel="stylesheet" href="/css/language-suggestion.min.72d944667a3a87fcf62ebc0572c11c9b686f4b94a00589dbedda1973f52afc79.css" integrity="sha256-ctlEZno6h/z2LrwFcsEcm2hvS5SgBYnb7doZc/Uq/Hk=">
+<script src="/js/language-suggestion.min.373c9416827ca93781164d2feccb0e396d3accb6eeb2d5d290092f8f79ef39d3.js" integrity="sha256-NzyUFoJ8qTeBFk0v7MsOOW06zLbustXSkAkvj3nvOdM=" defer></script>
+<aside class="language-suggestion" data-language-suggestion hidden aria-labelledby="language-suggestion-title">
+    <div class="language-suggestion__content">
+      <strong id="language-suggestion-title" data-language-suggestion-title></strong>
+      <p data-language-suggestion-text></p>
+    </div>
+    <div class="language-suggestion__actions"><a
+            href="/ru/docs/donate-yoomoney/"
+            data-language-suggestion-option
+            data-language="ru"
+            data-language-name="Русский"
+            data-language-title="Предпочитаете русский?"
+            data-language-text="Русская версия сайта уже доступна."
+            data-language-switch="Перейти на русский"
+            data-language-dismiss="Закрыть предложение сменить язык"
+            hidden
+          ></a><button type="button" data-language-suggestion-dismiss>×</button>
+    </div>
+  </aside></div></footer>
     
     <script defer src="/js/main.min.15eb8e58ef474e8764f1b2119666d41ed10d0c0d647ff5a407a86631cd51f0e2.js" integrity="sha256-FeuOWO9HTodk8bIRlmbUHtENDA1kf/WkB6hmMc1R8OI="></script>
 <script defer src="/js/flexsearch.433e941a8a573ebb9931fc16fc75266ab6b93f569ac2fb4f3dc66882e0416f4c.js" integrity="sha256-Qz6UGopXPruZMfwW/HUmara5P1aawvtPPcZoguBBb0w=" crossorigin="anonymous"></script><script defer src="/en.search.min.1218c2ef45ef833ab2111711159d544ed1bd06f1713be74314bbf3d8fc783522.js" integrity="sha256-EhjC70XvgzqyERcRFZ1UTtG9BvFxO&#43;dDFLvz2Px4NSI="></script>

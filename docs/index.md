@@ -16,5 +16,5 @@ If something is not working yet, see [Troubleshooting]({{< relref "/docs/trouble
 
 If you are building packages or compiling from source, see [Developer]({{< relref "/docs/developer" >}}).
 
-If you want to help keep keen-pbr moving, see [Support This Project]({{< relref "/docs/support-this-project" >}}).
+If you want to help keep keen-pbr moving, see [Support This Project]({{< relref "/docs/donate" >}}).
 
