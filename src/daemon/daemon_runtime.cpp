@@ -138,16 +138,17 @@ void Daemon::stop_routing_runtime() {
         keenetic_dns_refresh_task_id_ = -1;
     }
 
+    routing_runtime_active_ = false;
+    transition_runtime_or_throw(RuntimeState::stopped, "runtime stopped");
+    publish_runtime_state();
+
     if (config_.dns.has_value() && config_.dns->system_resolver.has_value()) {
         if (!run_system_resolver_hook("deactivate")) {
             throw DaemonError("System resolver deactivate hook failed");
         }
     }
 
-    routing_runtime_active_ = false;
-    transition_runtime_or_throw(RuntimeState::stopped, "runtime stopped");
     refresh_resolver_config_hash_actual_async();
-    publish_runtime_state();
     log.info("Routing runtime stopped.");
 }
 
