@@ -16,9 +16,12 @@ SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe() {
 SseBroadcaster::SubscriptionPtr SseBroadcaster::subscribe(
     std::vector<std::string> initial_messages) {
     auto subscription = std::make_shared<Subscription>();
-    subscription->messages.insert(subscription->messages.end(),
-                                  std::make_move_iterator(initial_messages.begin()),
-                                  std::make_move_iterator(initial_messages.end()));
+    {
+        KPBR_UNIQUE_LOCK(sub_lock, subscription->mutex);
+        subscription->messages.insert(subscription->messages.end(),
+                                      std::make_move_iterator(initial_messages.begin()),
+                                      std::make_move_iterator(initial_messages.end()));
+    }
     KPBR_LOCK_GUARD(mutex_);
     subscriptions_.push_back(subscription);
     Logger::instance().trace("sse_subscribe", "subscriptions={}", subscriptions_.size());
