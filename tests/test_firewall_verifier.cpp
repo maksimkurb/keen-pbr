@@ -353,6 +353,38 @@ TEST_CASE("parse_nft_json: masked mark rule extracts explicit fwmark bits") {
     CHECK(state.rules[0].fwmark == 65536u);
 }
 
+TEST_CASE("NftablesFirewallVerifier parses live CIDR bitmasks and host prefixes") {
+    const std::string canned = R"({"nftables":[
+      {"chain":{"family":"inet","table":"KeenPbrTable","name":"prerouting",
+                 "type":"filter","hook":"prerouting"}},
+      {"rule":{"family":"inet","table":"KeenPbrTable","chain":"prerouting","expr":[
+        {"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"saddr"}},
+                  "right":"192.0.2.2"}},
+        {"match":{"op":"==","left":{"&":[
+                    {"payload":{"protocol":"ip","field":"daddr"}},"255.255.255.0"]},
+                  "right":"198.18.0.0"}},
+        {"mangle":{"key":{"meta":{"key":"mark"}},"value":196608}},
+        {"accept":null}
+      ]}}
+    ]})";
+    auto runner = [&canned](const std::vector<std::string>& args) -> CommandResult {
+        if (matches_args(args, {"nft", "-j", "list", "chain", "inet", "KeenPbrTable",
+                                "prerouting"})) {
+            return command_result(canned);
+        }
+        return command_result({}, 1);
+    };
+    NftablesFirewallVerifier verifier(runner);
+    RuleState rule;
+    rule.action_type = RuleActionType::Mark;
+    rule.fwmark = 196608u;
+    rule.criteria.src_addr = {"192.0.2.2/32"};
+    rule.criteria.dst_addr = {"198.18.0.0/24"};
+    const auto checks = verifier.verify_rules({rule});
+    REQUIRE(checks.size() == 1);
+    CHECK(checks[0].status == CheckStatus::ok);
+}
+
 TEST_CASE("parse_nft_json: drop rule") {
     const std::string input = R"({
         "nftables": [

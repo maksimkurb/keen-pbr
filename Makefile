@@ -53,6 +53,7 @@ test: ## Build and run unit tests (doctest)
 	$(GCC_BUILD_DIR)/tests/crash-diagnostics-smoke
 	python3 -m unittest tests/integration/test_case_engine.py
 	python3 -m unittest tests/integration/test_qemu_harness.py
+	python3 -m unittest tests/integration/test_integration_modules.py
 
 INTEGRATION_BACKEND ?= all
 INTEGRATION_DEB ?=

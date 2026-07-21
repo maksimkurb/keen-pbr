@@ -4,6 +4,8 @@
 #include "../util/format_compat.hpp"
 
 #include <algorithm>
+#include <arpa/inet.h>
+#include <array>
 #include <cctype>
 #include <cstdlib>
 #include <optional>
@@ -200,14 +202,59 @@ std::vector<std::string> parse_nft_addr_list(const nlohmann::json& rhs) {
     return {};
 }
 
+std::optional<int> prefix_length_from_mask(const std::string& mask) {
+    const int family = mask.find(':') == std::string::npos ? AF_INET : AF_INET6;
+    std::array<unsigned char, 16> bytes{};
+    if (inet_pton(family, mask.c_str(), bytes.data()) != 1) {
+        return std::nullopt;
+    }
+    const size_t size = family == AF_INET ? 4u : 16u;
+    int prefix = 0;
+    bool saw_zero = false;
+    for (size_t i = 0; i < size; ++i) {
+        for (int bit = 7; bit >= 0; --bit) {
+            const bool set = (bytes[i] & (1u << bit)) != 0;
+            if (set && saw_zero) return std::nullopt;
+            if (set) {
+                ++prefix;
+            } else {
+                saw_zero = true;
+            }
+        }
+    }
+    return prefix;
+}
+
+std::string normalize_host_prefix(const std::string& address) {
+    const auto slash = address.rfind('/');
+    if (slash == std::string::npos) return address;
+    const std::string suffix = address.substr(slash + 1);
+    if ((address.find(':') == std::string::npos && suffix == "32") ||
+        (address.find(':') != std::string::npos && suffix == "128")) {
+        return address.substr(0, slash);
+    }
+    return address;
+}
+
+bool addr_lists_equal(const std::vector<std::string>& lhs,
+                      const std::vector<std::string>& rhs) {
+    if (lhs.size() != rhs.size()) return false;
+    for (size_t i = 0; i < lhs.size(); ++i) {
+        if (normalize_host_prefix(lhs[i]) != normalize_host_prefix(rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool criteria_equal(const FirewallRuleCriteria& lhs,
                     const FirewallRuleCriteria& rhs) {
     return lhs.proto == rhs.proto &&
            lhs.dscp == rhs.dscp &&
            lhs.src_port == rhs.src_port &&
            lhs.dst_port == rhs.dst_port &&
-           lhs.src_addr == rhs.src_addr &&
-           lhs.dst_addr == rhs.dst_addr &&
+           addr_lists_equal(lhs.src_addr, rhs.src_addr) &&
+           addr_lists_equal(lhs.dst_addr, rhs.dst_addr) &&
            lhs.negate_src_port == rhs.negate_src_port &&
            lhs.negate_dst_port == rhs.negate_dst_port &&
            lhs.negate_src_addr == rhs.negate_src_addr &&
@@ -455,10 +502,23 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                 const std::string op = match.value("op", "==");
                 if (match.contains("left") && match["left"].is_object()) {
                     const auto& left = match["left"];
+                    const nlohmann::json* payload = nullptr;
+                    std::optional<int> address_prefix;
                     if (left.contains("payload") && left["payload"].is_object()) {
-                        const auto& payload = left["payload"];
-                        const std::string protocol = payload.value("protocol", "");
-                        const std::string field = payload.value("field", "");
+                        payload = &left["payload"];
+                    } else if (left.contains("&") && left["&"].is_array() &&
+                               left["&"].size() == 2 &&
+                               left["&"][0].is_object() &&
+                               left["&"][0].contains("payload") &&
+                               left["&"][0]["payload"].is_object() &&
+                               left["&"][1].is_string()) {
+                        payload = &left["&"][0]["payload"];
+                        address_prefix = prefix_length_from_mask(
+                            left["&"][1].get<std::string>());
+                    }
+                    if (payload != nullptr) {
+                        const std::string protocol = payload->value("protocol", "");
+                        const std::string field = payload->value("field", "");
 
                         if (protocol == "ip6") nr.ipv6 = true;
 
@@ -469,6 +529,11 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                             }
                         } else if (field == "saddr" && match.contains("right")) {
                             nr.criteria.src_addr = parse_nft_addr_list(match["right"]);
+                            if (address_prefix.has_value() &&
+                                nr.criteria.src_addr.size() == 1) {
+                                nr.criteria.src_addr[0] += "/" +
+                                    std::to_string(*address_prefix);
+                            }
                             nr.criteria.negate_src_addr = (op == "!=");
                         } else if (field == "daddr" && match.contains("right")) {
                             const auto& right = match["right"];
@@ -484,6 +549,11 @@ ParsedNftablesState parse_nft_json(const std::string& json_output) {
                                 nr.set_name = set_ref.substr(1);
                             } else {
                                 nr.criteria.dst_addr = parse_nft_addr_list(right);
+                                if (address_prefix.has_value() &&
+                                    nr.criteria.dst_addr.size() == 1) {
+                                    nr.criteria.dst_addr[0] += "/" +
+                                        std::to_string(*address_prefix);
+                                }
                                 nr.criteria.negate_dst_addr = (op == "!=");
                             }
                         } else if (field == "sport" && match.contains("right")) {

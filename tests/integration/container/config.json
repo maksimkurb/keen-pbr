@@ -4,12 +4,12 @@
   "fwmark": {"start": "0x00010000", "mask": "0x00ff0000"},
   "iproute": {"table_start": 150},
   "outbounds": [
-    {"tag": "wan_direct", "type": "interface", "interface": "wan_direct", "gateway": "10.10.0.2"},
-    {"tag": "wan_pbr", "type": "interface", "interface": "wan_pbr", "gateway": "10.20.0.2"},
+    {"tag": "wan_direct", "type": "interface", "interface": "wan_direct", "gateway": "10.10.0.2", "gateway6": "2001:db8:10::2"},
+    {"tag": "wan_pbr", "type": "interface", "interface": "wan_pbr", "gateway": "10.20.0.2", "gateway6": "2001:db8:20::2"},
     {"tag": "auto", "type": "urltest", "url": "http://198.18.0.10:18080/health", "tolerance_ms": 20,
       "outbound_groups": [{"weight": 1, "outbounds": ["wan_direct", "wan_pbr"]}]}
   ],
-  "lists": {"routed": {"domains": ["routed.test"]}},
+  "lists": {"routed": {"domains": ["routed.test"]}, "direct": {"domains": ["direct.test"]}},
   "route": {"inbound_interfaces": ["lan0"], "rules": [{"list": ["routed"], "outbound": "auto"}]},
-  "dns": {"system_resolver": {"address": "192.0.2.1"}, "servers": [{"tag": "upstream", "address": "10.20.0.2"}], "fallback": ["upstream"]}
+  "dns": {"system_resolver": {"address": "192.0.2.1"}, "servers": [{"tag": "upstream", "address": "10.20.0.2:15353"}], "fallback": ["upstream"], "rules": [{"list": ["routed", "direct"], "server": "upstream", "allow_domain_rebinding": true}]}
 }
