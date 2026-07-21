@@ -176,6 +176,15 @@ signal_service() {
     return 0
 }
 
+pidof() {
+    local pid
+    [ "$1" = "$PROCS" ] || { command pidof "$@"; return $?; }
+    [ -s "$PIDFILE" ] || return 1
+    pid=$(cat "$PIDFILE") || return 1
+    [ -d "/proc/$pid" ] || return 1
+    printf '%s\n' "$pid"
+}
+
 prepare_start() {
     check_runtime_dependencies
     disable_hwnat
