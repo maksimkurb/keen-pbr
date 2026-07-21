@@ -18,6 +18,9 @@ public:
     // Destructor performs best-effort cleanup without virtual dispatch.
     ~IptablesFirewall() override;
 
+    void prepare_apply(FirewallApplyMode mode) override;
+    std::string static_set_name(const std::string& list_name, int family) const override;
+
     // Buffer an ipset create command (hash:net family, optional timeout).
     void create_ipset(const std::string& set_name, int family,
                       uint32_t timeout = 0) override;
@@ -35,10 +38,8 @@ public:
     std::unique_ptr<ListEntryVisitor> create_batch_loader(
         const std::string& set_name) override;
 
-    // Atomically apply pending ipsets and rules. PreserveSets creates a new
-    // private generation chain and atomically retargets the stable
-    // PREROUTING and OUTPUT dispatchers. Static ipsets are populated under a
-    // temporary name and swapped only after loading succeeds.
+    // Populate the inactive A/B static-set generation, then atomically rebuild
+    // and retarget the stable PREROUTING and OUTPUT dispatchers.
     void apply(FirewallApplyMode mode = FirewallApplyMode::Destructive) override;
     // Destroy all buffered ipsets (ipset destroy) and flush/delete the
     // KeenPbrTable chain from both iptables and ip6tables mangle tables.
@@ -48,9 +49,12 @@ public:
 
 private:
     static constexpr const char* CHAIN_NAME = "KeenPbrTable";
-    void cleanup_live_impl();
+    void cleanup_live_impl(bool preserve_dynamic_sets = false,
+                           bool sweep_live_state = false);
     void cleanup_impl();
-    void cleanup_rules_impl();
+    void cleanup_rules_impl(bool sweep_live_state = false);
+    void cleanup_saved_sets(bool preserve_dynamic_sets);
+    static void cleanup_legacy_generation_chains(const char* command);
 
     // Describes a set to be created via 'ipset restore'.
     struct PendingSet {
@@ -72,8 +76,6 @@ private:
     // Build the 'create <name> hash:net family <f> [timeout <t>]' line.
     static std::string build_ipset_create_line(const PendingSet& ps);
     static bool is_dynamic_set_name(const std::string& set_name);
-    static std::string temporary_set_name(const std::string& set_name,
-                                          unsigned int generation);
     // Build a complete iptables-restore script for the given protocol and rules.
     static std::string build_ipt_script(bool ipv6,
                                         const std::vector<PendingRule>& rules,
@@ -119,8 +121,13 @@ private:
     // Track whether chain + jump rule exist for each protocol
     bool chain_v4_created_ = false;
     bool chain_v6_created_ = false;
-    std::string active_chain_;
-    unsigned int chain_generation_{0};
+    static const char* generation_chain(FirewallSetGeneration generation);
+    static FirewallSetGeneration opposite_generation(FirewallSetGeneration generation);
+    std::optional<FirewallSetGeneration> active_v4_generation_;
+    std::optional<FirewallSetGeneration> active_v6_generation_;
+    FirewallSetGeneration target_v4_generation_{FirewallSetGeneration::A};
+    FirewallSetGeneration target_v6_generation_{FirewallSetGeneration::A};
+    bool apply_prepared_{false};
 
 #ifdef KEEN_PBR3_TESTING
     friend class IptablesBuilderTest;

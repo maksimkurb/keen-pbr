@@ -82,6 +82,16 @@ public:
     return firewall.build_apply_document(live, false, true);
   }
 
+  static nlohmann::json build_dynamic_set_document(bool clear) {
+    NftablesFirewall firewall;
+    NftablesFirewall::LiveTableState live;
+    live.table_exists = true;
+    live.set_names.insert("kpbr4d_domains");
+    live.set_schemas.emplace("kpbr4d_domains", "ipv4_addr:300");
+    firewall.pending_sets_.push_back({"kpbr4d_domains", "ipv4_addr", 300});
+    return firewall.build_apply_document(live, false, false, clear);
+  }
+
   static bool is_dynamic_set_name(const std::string& name) {
     return NftablesFirewall::is_dynamic_set_name(name);
   }
@@ -471,6 +481,14 @@ TEST_CASE("nft static sets-only reconcile leaves chains and rules untouched") {
     CHECK_FALSE(command.contains("chain"));
     CHECK_FALSE(command.contains("rule"));
   }
+}
+
+TEST_CASE("nft destructive policy optionally flushes existing dynamic sets") {
+  const auto preserved = T::build_dynamic_set_document(false).dump();
+  const auto cleared = T::build_dynamic_set_document(true).dump();
+  CHECK(preserved.find("\"flush\"") == std::string::npos);
+  CHECK(cleared.find("\"flush\"") != std::string::npos);
+  CHECK(cleared.find("kpbr4d_domains") != std::string::npos);
 }
 
 // =============================================================================

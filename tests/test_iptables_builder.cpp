@@ -54,9 +54,22 @@ public:
     return IptablesFirewall::is_dynamic_set_name(name);
   }
 
-  static std::string temporary_set_name(const std::string& name,
-                                        unsigned int generation) {
-    return IptablesFirewall::temporary_set_name(name, generation);
+  static std::string static_set_name(FirewallSetGeneration generation,
+                                     const std::string& name,
+                                     int family) {
+    IptablesFirewall firewall;
+    firewall.target_v4_generation_ = generation;
+    firewall.target_v6_generation_ = generation;
+    return firewall.static_set_name(name, family);
+  }
+
+  static std::string prepared_static_set_name(
+      std::optional<FirewallSetGeneration> active,
+      FirewallApplyMode mode) {
+    IptablesFirewall firewall;
+    firewall.active_v4_generation_ = active;
+    firewall.prepare_apply(mode);
+    return firewall.static_set_name("sample", AF_INET);
   }
 
   static std::string build_ipt_script(bool ipv6,
@@ -86,7 +99,7 @@ public:
 
   static std::string build_replacement_script() {
     return IptablesFirewall::build_ipt_script(
-        false, "KeenPbrTable_2", true, "KeenPbrTable_1", {}, {});
+        false, "KeenPbrTable_B", true, "KeenPbrTable_A", {}, {});
   }
 
   static std::string build_ipt_script_for_rule(bool ipv6,
@@ -289,8 +302,33 @@ TEST_CASE("ipset reconcile: only dnsmasq names are dynamic") {
   CHECK_FALSE(T::is_dynamic_set_name("foreign_kpbr4d_domains"));
 }
 
-TEST_CASE("ipset reconcile: temporary static set name is generation scoped") {
-  CHECK(T::temporary_set_name("kpbr4_static", 7) == "kpbr4_static__7");
+TEST_CASE("ipset reconcile: static A/B names fit the ipset limit") {
+  const std::string longest_name(24, 'a');
+  const auto v4a = T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET);
+  const auto v4b = T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET);
+  const auto v6a = T::static_set_name(FirewallSetGeneration::A, longest_name, AF_INET6);
+  const auto v6b = T::static_set_name(FirewallSetGeneration::B, longest_name, AF_INET6);
+  CHECK(v4a == "kpbr4s_" + longest_name);
+  CHECK(v4b == "kpbr4S_" + longest_name);
+  CHECK(v6a == "kpbr6s_" + longest_name);
+  CHECK(v6b == "kpbr6S_" + longest_name);
+  CHECK(v4a.size() == 31);
+  CHECK(v4b.size() == 31);
+  CHECK(v6a.size() == 31);
+  CHECK(v6b.size() == 31);
+  CHECK(("kpbr4d_" + longest_name).size() == 31);
+  CHECK(("kpbr6d_" + longest_name).size() == 31);
+}
+
+TEST_CASE("ipset reconcile: prepared generation alternates A/B without growth") {
+  CHECK(T::prepared_static_set_name(std::nullopt, FirewallApplyMode::Destructive) ==
+        "kpbr4s_sample");
+  CHECK(T::prepared_static_set_name(FirewallSetGeneration::A,
+                                    FirewallApplyMode::PreserveSets) ==
+        "kpbr4S_sample");
+  CHECK(T::prepared_static_set_name(FirewallSetGeneration::B,
+                                    FirewallApplyMode::StaticSetsOnly) ==
+        "kpbr4s_sample");
 }
 
 // =============================================================================
@@ -374,17 +412,17 @@ TEST_CASE("build_ipt_script: empty rules still build KeenPbrTable scaffold") {
              "-A KeenPbrTable_OUTPUT -j KeenPbrTable\nCOMMIT\n");
 }
 
-TEST_CASE("build_ipt_script: replacement switches dispatcher before pruning old chain") {
+TEST_CASE("build_ipt_script: replacement rebuilds inactive B chain and switches dispatcher") {
   const auto script = keen_pbr3::IptablesBuilderTest::build_replacement_script();
-  const auto replace = script.find("-R KeenPbrTable 1 -j KeenPbrTable_2");
-  const auto output_replace = script.find("-R KeenPbrTable_OUTPUT 1 -j KeenPbrTable_2");
-  const auto remove = script.find("-F KeenPbrTable_1\n-X KeenPbrTable_1");
+  const auto flush = script.find("-F KeenPbrTable_B");
+  const auto replace = script.find("-R KeenPbrTable 1 -j KeenPbrTable_B");
+  const auto output_replace = script.find("-R KeenPbrTable_OUTPUT 1 -j KeenPbrTable_B");
 
+  REQUIRE(flush != std::string::npos);
   REQUIRE(replace != std::string::npos);
-  REQUIRE(remove != std::string::npos);
   REQUIRE(output_replace != std::string::npos);
-  CHECK(replace < remove);
-  CHECK(output_replace < remove);
+  CHECK(flush < replace);
+  CHECK(script.find("-X KeenPbrTable_A") == std::string::npos);
   CHECK(script.find("-D PREROUTING -j KeenPbrTable") == std::string::npos);
 }
 
@@ -848,9 +886,9 @@ TEST_CASE(
 // Static / dynamic set split tests
 // =============================================================================
 
-TEST_CASE("static set naming: kpbr4_ prefix, no timeout") {
-  auto line = T::build_ipset_create_line("kpbr4_mylist", "inet", 0);
-  CHECK(line == "create kpbr4_mylist hash:net family inet -exist\n");
+TEST_CASE("static set naming: kpbr4s_ prefix, no timeout") {
+  auto line = T::build_ipset_create_line("kpbr4s_mylist", "inet", 0);
+  CHECK(line == "create kpbr4s_mylist hash:net family inet -exist\n");
 }
 
 TEST_CASE("dynamic set naming: kpbr4d_ prefix, no timeout when ttl_ms=0") {

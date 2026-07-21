@@ -61,6 +61,8 @@ bool is_keen_pbr_namespace_name(const std::string& name) {
            object.rfind("PREROUTING->KeenPbrTable", 0) == 0 ||
            object.rfind("OUTPUT->KeenPbrTable", 0) == 0 ||
            object.rfind("kpbr4_", 0) == 0 || object.rfind("kpbr6_", 0) == 0 ||
+           object.rfind("kpbr4s_", 0) == 0 || object.rfind("kpbr6s_", 0) == 0 ||
+           object.rfind("kpbr4S_", 0) == 0 || object.rfind("kpbr6S_", 0) == 0 ||
            object.rfind("kpbr4d_", 0) == 0 || object.rfind("kpbr6d_", 0) == 0;
 }
 

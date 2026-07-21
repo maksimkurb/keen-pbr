@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <sys/socket.h>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -107,10 +108,12 @@ enum class FirewallApplyMode : uint8_t {
     Destructive,
     // Refresh chains/rules while preserving existing set contents when possible.
     PreserveSets,
-    // Refresh only static list-backed set elements. Existing chains, rules,
-    // routes and dynamic DNS sets remain untouched.
+    // Refresh static list-backed elements while preserving dynamic DNS sets.
+    // Backends may rebuild equivalent chains to publish the refreshed sets.
     StaticSetsOnly
 };
+
+enum class FirewallSetGeneration : uint8_t { A, B };
 
 // Abstract firewall interface for managing IP sets and packet marking rules.
 // Both iptables and nftables backends implement this interface.
@@ -122,6 +125,18 @@ enum class FirewallApplyMode : uint8_t {
 class Firewall {
 public:
     virtual ~Firewall() = default;
+
+    // Start a new buffered apply attempt. Backends use this to select any
+    // attempt-scoped physical names before rules and set contents are queued.
+    virtual void prepare_apply(FirewallApplyMode mode) { (void)mode; }
+
+    virtual std::string static_set_name(const std::string& list_name, int family) const {
+        return std::string(family == AF_INET6 ? "kpbr6_" : "kpbr4_") + list_name;
+    }
+
+    virtual std::string dynamic_set_name(const std::string& list_name, int family) const {
+        return std::string(family == AF_INET6 ? "kpbr6d_" : "kpbr4d_") + list_name;
+    }
 
     // Create a named IP set for storing IP addresses and/or CIDR subnets.
     // set_name: unique name for the set
@@ -179,6 +194,14 @@ public:
         return fwmark_mask_;
     }
 
+    void set_clear_dynamic_sets_on_apply(bool clear) {
+        clear_dynamic_sets_on_apply_ = clear;
+    }
+
+    bool clear_dynamic_sets_on_apply() const {
+        return clear_dynamic_sets_on_apply_;
+    }
+
     // Remove all firewall rules and IP sets created by this instance.
     // Should be called on daemon shutdown.
     virtual void cleanup() = 0;
@@ -196,6 +219,7 @@ protected:
     FirewallGlobalPrefilter global_prefilter_;
     uint32_t fwmark_mask_{0xFFFFFFFFu};
     bool ipv6_enabled_{true};
+    bool clear_dynamic_sets_on_apply_{true};
 };
 
 // Return the stable config/CLI label for a concrete backend.

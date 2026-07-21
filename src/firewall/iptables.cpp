@@ -7,6 +7,7 @@
 #include "../util/safe_exec.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <optional>
 #include <set>
@@ -51,6 +52,44 @@ std::vector<L4Proto> expand_l4_protos_for_iptables(const FirewallRuleCriteria& c
 } // namespace
 
 IptablesFirewall::IptablesFirewall() = default;
+
+FirewallSetGeneration IptablesFirewall::opposite_generation(
+    FirewallSetGeneration generation) {
+    return generation == FirewallSetGeneration::A
+        ? FirewallSetGeneration::B
+        : FirewallSetGeneration::A;
+}
+
+const char* IptablesFirewall::generation_chain(FirewallSetGeneration generation) {
+    return generation == FirewallSetGeneration::A ? "KeenPbrTable_A" : "KeenPbrTable_B";
+}
+
+void IptablesFirewall::prepare_apply(FirewallApplyMode mode) {
+    pending_sets_.clear();
+    pending_elements_.clear();
+    pending_rules_.clear();
+
+    target_v4_generation_ = mode == FirewallApplyMode::Destructive
+        ? FirewallSetGeneration::A
+        : active_v4_generation_.has_value()
+            ? opposite_generation(*active_v4_generation_)
+            : FirewallSetGeneration::A;
+    target_v6_generation_ = mode == FirewallApplyMode::Destructive
+        ? FirewallSetGeneration::A
+        : active_v6_generation_.has_value()
+            ? opposite_generation(*active_v6_generation_)
+            : FirewallSetGeneration::A;
+    apply_prepared_ = true;
+}
+
+std::string IptablesFirewall::static_set_name(const std::string& list_name,
+                                              int family) const {
+    const FirewallSetGeneration generation = family == AF_INET6
+        ? target_v6_generation_
+        : target_v4_generation_;
+    const char slot = generation == FirewallSetGeneration::A ? 's' : 'S';
+    return keen_pbr3::format("kpbr{}{}_{}", family == AF_INET6 ? 6 : 4, slot, list_name);
+}
 
 IptablesFirewall::~IptablesFirewall() {
     try {
@@ -182,13 +221,6 @@ std::string IptablesFirewall::build_ipset_create_line(const PendingSet& ps) {
 
 bool IptablesFirewall::is_dynamic_set_name(const std::string& set_name) {
     return set_name.rfind("kpbr4d_", 0) == 0 || set_name.rfind("kpbr6d_", 0) == 0;
-}
-
-std::string IptablesFirewall::temporary_set_name(const std::string& set_name,
-                                                  unsigned int generation) {
-    // ipset names are limited to 31 characters on the supported legacy targets.
-    // The configured names already fit there, so use a short, deterministic suffix.
-    return keen_pbr3::format("{}__{}", set_name, generation);
 }
 
 bool IptablesFirewall::ipv6_backend_available() const {
@@ -438,12 +470,13 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
 std::string IptablesFirewall::build_ipt_script(bool ipv6,
                                                 const std::string& active_chain,
                                                 bool replace_active_chain,
-                                                const std::string& previous_chain,
+                                                const std::string& /*previous_chain*/,
                                                 const std::vector<PendingRule>& rules,
                                                 const FirewallGlobalPrefilter& prefilter) {
     std::string s;
     s += "*mangle\n";
     s += keen_pbr3::format(":{} - [0:0]\n", active_chain);
+    s += keen_pbr3::format("-F {}\n", active_chain);
     if (!replace_active_chain) {
         s += keen_pbr3::format(
             ":{} - [0:0]\n:{}_OUTPUT - [0:0]\n"
@@ -455,7 +488,14 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
         s += keen_pbr3::format("-R {} 1 -j {}\n-R {}_OUTPUT 1 -j {}\n",
                                CHAIN_NAME, active_chain, CHAIN_NAME, active_chain);
     }
-    s += build_prefilter_lines(prefilter);
+    std::string prefilter_lines = build_prefilter_lines(prefilter);
+    size_t prefilter_pos = 0;
+    while ((prefilter_pos = prefilter_lines.find(CHAIN_NAME, prefilter_pos)) !=
+           std::string::npos) {
+        prefilter_lines.replace(prefilter_pos, std::strlen(CHAIN_NAME), active_chain);
+        prefilter_pos += active_chain.size();
+    }
+    s += prefilter_lines;
     for (const auto& pr : rules) {
         if (pr.ipv6 != ipv6) continue;
         for (auto line : build_rule_lines(pr, prefilter)) {
@@ -466,17 +506,16 @@ std::string IptablesFirewall::build_ipt_script(bool ipv6,
             s += line;
         }
     }
-    if (replace_active_chain) {
-        // The dispatcher now points at the replacement chain, so the old
-        // chain is no longer referenced and can be removed in this same
-        // iptables-restore transaction.
-        s += keen_pbr3::format("-F {}\n-X {}\n", previous_chain, previous_chain);
-    }
     s += "COMMIT\n";
     return s;
 }
 
 void IptablesFirewall::apply(FirewallApplyMode mode) {
+    if (!apply_prepared_) {
+        throw FirewallError("iptables apply was not prepared");
+    }
+    apply_prepared_ = false;
+
     bool effective_ipv6 = ipv6_enabled();
     if (effective_ipv6 && !ipv6_backend_available()) {
         Logger::instance().error(
@@ -485,19 +524,17 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     }
 
     if (mode == FirewallApplyMode::Destructive) {
-        cleanup_live_impl();
+        cleanup_live_impl(!clear_dynamic_sets_on_apply(), /*sweep_live_state=*/true);
+        active_v4_generation_.reset();
+        active_v6_generation_.reset();
     }
 
-    const bool replace_active_chain = mode == FirewallApplyMode::PreserveSets &&
-                                      !active_chain_.empty();
-    const unsigned int next_generation = ++chain_generation_;
-    const std::string next_chain = keen_pbr3::format("{}_{}", CHAIN_NAME, next_generation);
-
-    // Phase 1: ipsets via 'ipset restore -exist'
+    // Phase 1: populate the inactive static generation. Reusing an A/B slot is
+    // safe because every target set is flushed before entries are added; a
+    // failed restore can only leave partial data in an unreachable generation.
     {
         std::string ipset_script;
         std::set<std::string> disabled_ipv6_sets;
-        std::vector<std::pair<PendingSet, std::string>> static_sets;
         for (const auto& ps : pending_sets_) {
             if (ps.family_str == "inet6" && !effective_ipv6) {
                 disabled_ipv6_sets.insert(ps.name);
@@ -508,27 +545,20 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
                 // flush them nor alter their timeout metadata.
                 if (mode == FirewallApplyMode::Destructive) {
                     ipset_script += build_ipset_create_line(ps);
+                    if (clear_dynamic_sets_on_apply()) {
+                        ipset_script += keen_pbr3::format("flush {}\n", ps.name);
+                    }
                 }
                 continue;
             }
-            PendingSet temporary = ps;
-            temporary.name = temporary_set_name(ps.name, next_generation);
-            ipset_script += build_ipset_create_line(temporary);
-            static_sets.emplace_back(ps, temporary.name);
+            ipset_script += build_ipset_create_line(ps);
+            ipset_script += keen_pbr3::format("flush {}\n", ps.name);
         }
         for (auto& [set_name, buf] : pending_elements_) {
             if (disabled_ipv6_sets.find(set_name) != disabled_ipv6_sets.end()) {
                 continue;
             }
             std::string elements = buf.str();
-            if (!is_dynamic_set_name(set_name)) {
-                const std::string temporary = temporary_set_name(set_name, next_generation);
-                size_t pos = 0;
-                while ((pos = elements.find(set_name, pos)) != std::string::npos) {
-                    elements.replace(pos, set_name.size(), temporary);
-                    pos += temporary.size();
-                }
-            }
             if (!elements.empty()) {
                 ipset_script += elements;
             }
@@ -536,20 +566,6 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
         if (!ipset_script.empty()) {
             pipe_to_cmd({"ipset", "restore", "-exist"}, ipset_script);
         }
-        // A swap changes the canonical name only after its replacement is fully
-        // loaded. If loading failed above, the live set is untouched.
-        for (const auto& [canonical, temporary] : static_sets) {
-            pipe_to_cmd({"ipset", "restore", "-exist"}, build_ipset_create_line(canonical));
-            pipe_to_cmd(std::vector<std::string>{"ipset", "swap", temporary, canonical.name}, "");
-            safe_exec({"ipset", "destroy", temporary}, /*suppress_output=*/true);
-        }
-    }
-
-    if (mode == FirewallApplyMode::StaticSetsOnly) {
-        pending_sets_.clear();
-        pending_elements_.clear();
-        pending_rules_.clear();
-        return;
     }
 
     // Phase 2: iptables rules via iptables-restore / ip6tables-restore.
@@ -563,30 +579,43 @@ void IptablesFirewall::apply(FirewallApplyMode mode) {
     }
 
     if (has_v4) {
+        const std::string next_chain = generation_chain(target_v4_generation_);
+        const bool replace_active_chain = active_v4_generation_.has_value();
+        const std::string previous_chain = replace_active_chain
+            ? generation_chain(*active_v4_generation_)
+            : "";
         pipe_to_cmd({"iptables-restore", "--noflush", "--counters"},
-                    build_ipt_script(false, next_chain, replace_active_chain, active_chain_,
+                    build_ipt_script(false, next_chain, replace_active_chain, previous_chain,
                                      pending_rules_, global_prefilter_));
         chain_v4_created_ = true;
+        active_v4_generation_ = target_v4_generation_;
     }
     if (has_v6) {
+        const std::string next_chain = generation_chain(target_v6_generation_);
+        const bool replace_active_chain = active_v6_generation_.has_value();
+        const std::string previous_chain = replace_active_chain
+            ? generation_chain(*active_v6_generation_)
+            : "";
         pipe_to_cmd({"ip6tables-restore", "--noflush", "--counters"},
-                    build_ipt_script(true, next_chain, replace_active_chain, active_chain_,
+                    build_ipt_script(true, next_chain, replace_active_chain, previous_chain,
                                      pending_rules_, global_prefilter_));
         chain_v6_created_ = true;
+        active_v6_generation_ = target_v6_generation_;
     }
 
     // Clear pending buffers
     pending_sets_.clear();
     pending_elements_.clear();
     pending_rules_.clear();
-    active_chain_ = next_chain;
 }
 
-void IptablesFirewall::cleanup_rules_impl() {
+void IptablesFirewall::cleanup_rules_impl(bool sweep_live_state) {
     auto& log = Logger::instance();
+    const bool owned_v4 = chain_v4_created_;
+    const bool owned_v6 = chain_v6_created_;
 
     // Remove jump rules, flush and delete custom chain for IPv4
-    if (chain_v4_created_) {
+    if (owned_v4 || sweep_live_state) {
         log.verbose("iptables cleanup: removing IPv4 chain {}", CHAIN_NAME);
         safe_exec({"iptables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, /*suppress_output=*/true);
         safe_exec({"iptables", "-t", "mangle", "-D", "OUTPUT", "-j", std::string(CHAIN_NAME) + "_OUTPUT"}, /*suppress_output=*/true);
@@ -598,7 +627,7 @@ void IptablesFirewall::cleanup_rules_impl() {
     }
 
     // Same for IPv6
-    if (chain_v6_created_) {
+    if (owned_v6 || sweep_live_state) {
         log.verbose("iptables cleanup: removing IPv6 chain {}", CHAIN_NAME);
         safe_exec({"ip6tables", "-t", "mangle", "-D", "PREROUTING", "-j", CHAIN_NAME}, /*suppress_output=*/true);
         safe_exec({"ip6tables", "-t", "mangle", "-D", "OUTPUT", "-j", std::string(CHAIN_NAME) + "_OUTPUT"}, /*suppress_output=*/true);
@@ -609,25 +638,98 @@ void IptablesFirewall::cleanup_rules_impl() {
         chain_v6_created_ = false;
     }
 
-    if (!active_chain_.empty()) {
-        safe_exec({"iptables", "-t", "mangle", "-F", active_chain_}, /*suppress_output=*/true);
-        safe_exec({"iptables", "-t", "mangle", "-X", active_chain_}, /*suppress_output=*/true);
-        safe_exec({"ip6tables", "-t", "mangle", "-F", active_chain_}, /*suppress_output=*/true);
-        safe_exec({"ip6tables", "-t", "mangle", "-X", active_chain_}, /*suppress_output=*/true);
-        active_chain_.clear();
+    if (owned_v4 || owned_v6 || sweep_live_state) {
+        for (const char* chain : {generation_chain(FirewallSetGeneration::A),
+                                  generation_chain(FirewallSetGeneration::B)}) {
+            safe_exec({"iptables", "-t", "mangle", "-F", chain}, /*suppress_output=*/true);
+            safe_exec({"iptables", "-t", "mangle", "-X", chain}, /*suppress_output=*/true);
+            safe_exec({"ip6tables", "-t", "mangle", "-F", chain}, /*suppress_output=*/true);
+            safe_exec({"ip6tables", "-t", "mangle", "-X", chain}, /*suppress_output=*/true);
+        }
+    }
+    if (sweep_live_state) {
+        cleanup_legacy_generation_chains("iptables");
+        cleanup_legacy_generation_chains("ip6tables");
+    }
+    active_v4_generation_.reset();
+    active_v6_generation_.reset();
+}
+
+void IptablesFirewall::cleanup_legacy_generation_chains(const char* command) {
+    const auto result = safe_exec_capture(
+        {command, "-t", "mangle", "-S"}, /*suppress_stderr=*/true);
+    if (result.exit_code != 0) {
+        return;
+    }
+
+    std::istringstream input(result.stdout_output);
+    std::string line;
+    constexpr std::string_view prefix = "-N KeenPbrTable_";
+    while (std::getline(input, line)) {
+        if (line.rfind(prefix, 0) != 0) {
+            continue;
+        }
+        const std::string chain = line.substr(prefix.size());
+        if (chain.empty() || !std::all_of(chain.begin(), chain.end(), [](unsigned char ch) {
+                return std::isdigit(ch) != 0;
+            })) {
+            continue;
+        }
+        safe_exec({command, "-t", "mangle", "-F", chain}, /*suppress_output=*/true);
+        safe_exec({command, "-t", "mangle", "-X", chain}, /*suppress_output=*/true);
     }
 }
 
-void IptablesFirewall::cleanup_live_impl() {
+void IptablesFirewall::cleanup_saved_sets(bool preserve_dynamic_sets) {
+    const auto result = safe_exec_capture({"ipset", "save"}, /*suppress_stderr=*/true);
+    if (result.exit_code != 0) {
+        return;
+    }
+
+    std::istringstream input(result.stdout_output);
+    std::string verb;
+    std::string name;
+    std::string rest;
+    while (input >> verb >> name) {
+        std::getline(input, rest);
+        if (verb != "create") {
+            continue;
+        }
+        const bool dynamic = is_dynamic_set_name(name);
+        const bool managed_static = name.rfind("kpbr4_", 0) == 0 ||
+                                    name.rfind("kpbr6_", 0) == 0 ||
+                                    name.rfind("kpbr4s_", 0) == 0 ||
+                                    name.rfind("kpbr6s_", 0) == 0 ||
+                                    name.rfind("kpbr4S_", 0) == 0 ||
+                                    name.rfind("kpbr6S_", 0) == 0;
+        if (!managed_static && !dynamic) {
+            continue;
+        }
+        if (dynamic && preserve_dynamic_sets) {
+            continue;
+        }
+        safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
+        safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
+    }
+}
+
+void IptablesFirewall::cleanup_live_impl(bool preserve_dynamic_sets,
+                                         bool sweep_live_state) {
     auto& log = Logger::instance();
 
-    cleanup_rules_impl();
+    cleanup_rules_impl(sweep_live_state);
 
     // Destroy all created ipsets
     for (const auto& [name, _] : created_sets_) {
+        if (preserve_dynamic_sets && is_dynamic_set_name(name)) {
+            continue;
+        }
         log.verbose("iptables cleanup: destroying ipset {}", name);
         safe_exec({"ipset", "flush", name}, /*suppress_output=*/true);
         safe_exec({"ipset", "destroy", name}, /*suppress_output=*/true);
+    }
+    if (sweep_live_state) {
+        cleanup_saved_sets(preserve_dynamic_sets);
     }
 }
 

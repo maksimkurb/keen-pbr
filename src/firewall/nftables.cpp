@@ -660,7 +660,8 @@ NftablesFirewall::LiveTableState NftablesFirewall::read_live_table_state() const
 
 nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live_state,
                                                       bool emit_full_table,
-                                                      bool static_sets_only) {
+                                                      bool static_sets_only,
+                                                      bool clear_dynamic_sets) {
     nlohmann::json doc;
     auto& arr = doc["nftables"];
     arr = nlohmann::json::array();
@@ -678,6 +679,9 @@ nlohmann::json NftablesFirewall::build_apply_document(const LiveTableState& live
         const bool existing = !emit_full_table &&
             live_state.set_names.find(ps.name) != live_state.set_names.end();
         if (existing && is_dynamic_set_name(ps.name)) {
+            if (clear_dynamic_sets) {
+                arr.push_back(build_flush_set_json(ps.name));
+            }
             continue;
         }
         if (existing && live_state.set_schemas.at(ps.name) == set_schema_key(ps)) {
@@ -740,7 +744,10 @@ void NftablesFirewall::apply(FirewallApplyMode mode) {
         rule.save_conntrack_mark = global_prefilter_.restore_conntrack_mark &&
                                    global_prefilter_.conntrack_mark_mask != 0;
     }
-    nlohmann::json doc = build_apply_document(live_state, emit_full_table, static_sets_only);
+    const bool clear_dynamic_sets = mode == FirewallApplyMode::Destructive
+        && clear_dynamic_sets_on_apply();
+    nlohmann::json doc = build_apply_document(
+        live_state, emit_full_table, static_sets_only, clear_dynamic_sets);
 
     std::string json_str = doc.dump();
     Logger::instance().verbose("nft json:\n{}", json_str);

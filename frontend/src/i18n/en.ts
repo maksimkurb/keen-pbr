@@ -322,6 +322,9 @@ export const enTranslation = {
         skipMarkedPacketsLabel: "Skip packets that are already marked",
         skipMarkedPacketsHint:
           "Ignore packets that already have a fwmark set by other firewall rules so policy routing does not process them again.",
+        clearDynamicSetsOnApplyLabel: "Clear learned domain addresses on apply",
+        clearDynamicSetsOnApplyHint:
+          "Flush dnsmasq-managed dynamic firewall sets during a full config apply or runtime restart. Disable this to preserve learned addresses until their TTL expires.",
         ipv6EnabledLabel: "Enable IPv6 support",
         ipv6EnabledHint:
           "Install IPv6 firewall sets and emit IPv6 dnsmasq targets. Disable this on older firmware without IPv6 netfilter support.",

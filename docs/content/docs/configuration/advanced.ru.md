@@ -16,6 +16,7 @@ weight: 5
 | `pid_file` | string | — | Путь к PID-файлу |
 | `cache_dir` | string | `/var/cache/keen-pbr` | Каталог для кэшированных данных списков |
 | `firewall_backend` | string | `"auto"` | Бэкенд firewall: `auto`, `iptables` или `nftables` |
+| `clear_dynamic_sets_on_apply` | boolean | `true` | Очищать динамические наборы dnsmasq при полном применении конфигурации или перезапуске runtime. Reconcile в режимах preserve/list-only их не очищает. |
 | `strict_enforcement` | boolean | `false` | Строгое применение маршрутизации для outbound типа `interface`: если включено, при недоступности шлюза или интерфейса устанавливается недостижимый маршрут по умолчанию. Можно переопределить для каждого outbound отдельно. |
 | `strict_enforcement_action` | string | `"unreachable"` | Terminal-действие strict enforcement: `unreachable` сразу возвращает приложению сетевую ошибку, а `blackhole` молча отбрасывает пакеты до тайм-аута приложения. |
 | `max_file_size_bytes` | integer | `8388608` (8 MiB) | Максимальный размер загруженного удалённого списка в байтах |
@@ -27,6 +28,7 @@ weight: 5
     "pid_file": "/var/run/keen-pbr.pid",
     "cache_dir": "/var/cache/keen-pbr",
     "firewall_backend": "auto",
+    "clear_dynamic_sets_on_apply": true,
     "strict_enforcement": false,
     "strict_enforcement_action": "unreachable",
     "max_file_size_bytes": 8388608,

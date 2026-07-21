@@ -410,6 +410,16 @@ components:
             Whether firewall prefilter rules should bypass packets that already carry
             a fwmark. Defaults to `true` when omitted or set to `null`.
           example: true
+        clear_dynamic_sets_on_apply:
+          type: boolean
+          nullable: true
+          description: >
+            Whether a full firewall apply should clear dnsmasq-owned dynamic
+            IP sets before recreating runtime rules. Defaults to `true` when
+            omitted or set to `null`. List-only and preserve-set reconciles
+            never clear dynamic entries.
+          default: true
+          example: true
         ipv6_enabled:
           type: boolean
           nullable: true
@@ -952,6 +962,7 @@ components:
           firewall_backend: auto
           firewall_verify_max_bytes: 262144
           skip_marked_packets: true
+          clear_dynamic_sets_on_apply: true
           ipv6_enabled: true
           strict_enforcement: true
           max_file_size_bytes: 8388608

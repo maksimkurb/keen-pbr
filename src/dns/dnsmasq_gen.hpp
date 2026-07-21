@@ -56,7 +56,8 @@ public:
 
     // Build the dynamic (dnsmasq-populated) IPv4/IPv6 set names for a given list name.
     // These are the sets referenced by ipset=/nftset= directives in dnsmasq config.
-    // Static IP/CIDR sets use the "kpbr4_" / "kpbr6_" prefix (without "d").
+    // Dynamic names stay stable across firewall generations. Static names are
+    // backend-owned (stable kpbr4_/kpbr6_ for nftables, A/B s/S for iptables).
     static std::string ipset_name_v4(const std::string& list_name) {
         return "kpbr4d_" + list_name;
     }

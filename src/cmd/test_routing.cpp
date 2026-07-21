@@ -431,8 +431,10 @@ std::optional<bool> test_rule_ipset_membership(const KernelSetTester& set_tester
     bool any_answer = false;
 
     for (const auto& set_name : rule_state.set_names) {
-        const bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4d_");
-        const bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6d_");
+        const bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4s_") ||
+                            has_prefix(set_name, "kpbr4S_") || has_prefix(set_name, "kpbr4d_");
+        const bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6s_") ||
+                            has_prefix(set_name, "kpbr6S_") || has_prefix(set_name, "kpbr6d_");
         if (is_v4 && !v4_set) continue;
         if (!is_v4 && !v6_set) continue;
 
@@ -458,8 +460,10 @@ std::string find_actual_outbound(const KernelSetTester& set_tester,
         if (rs.action_type == RuleActionType::Skip) continue;
 
         for (const auto& set_name : rs.set_names) {
-            bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4d_");
-            bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6d_");
+            bool v4_set = has_prefix(set_name, "kpbr4_") || has_prefix(set_name, "kpbr4s_") ||
+                          has_prefix(set_name, "kpbr4S_") || has_prefix(set_name, "kpbr4d_");
+            bool v6_set = has_prefix(set_name, "kpbr6_") || has_prefix(set_name, "kpbr6s_") ||
+                          has_prefix(set_name, "kpbr6S_") || has_prefix(set_name, "kpbr6d_");
 
             if (is_v4 && !v4_set) continue;
             if (!is_v4 && !v6_set) continue;

@@ -1183,6 +1183,31 @@ TEST_CASE("daemon.skip_marked_packets: rejects non-boolean value") {
     CHECK(issues[0].path == "daemon.skip_marked_packets");
 }
 
+TEST_CASE("daemon.clear_dynamic_sets_on_apply: accepts explicit policy") {
+    auto enabled = parse_test_config(
+        R"({"daemon":{"clear_dynamic_sets_on_apply":true}})");
+    auto disabled = parse_test_config(
+        R"({"daemon":{"clear_dynamic_sets_on_apply":false}})");
+    REQUIRE(enabled.daemon->clear_dynamic_sets_on_apply.has_value());
+    REQUIRE(disabled.daemon->clear_dynamic_sets_on_apply.has_value());
+    CHECK(*enabled.daemon->clear_dynamic_sets_on_apply);
+    CHECK_FALSE(*disabled.daemon->clear_dynamic_sets_on_apply);
+}
+
+TEST_CASE("daemon.clear_dynamic_sets_on_apply: null uses default behavior") {
+    auto cfg = parse_test_config(
+        R"({"daemon":{"clear_dynamic_sets_on_apply":null}})");
+    REQUIRE(cfg.daemon.has_value());
+    CHECK_FALSE(cfg.daemon->clear_dynamic_sets_on_apply.has_value());
+}
+
+TEST_CASE("daemon.clear_dynamic_sets_on_apply: rejects non-boolean value") {
+    const auto issues = parse_issues(
+        R"({"daemon":{"clear_dynamic_sets_on_apply":"yes"}})");
+    REQUIRE(issues.size() == 1);
+    CHECK(issues[0].path == "daemon.clear_dynamic_sets_on_apply");
+}
+
 TEST_CASE("daemon.ipv6_enabled: defaults to true behavior when absent") {
     auto cfg = parse_test_config(R"({"daemon":{}})");
     REQUIRE(cfg.daemon.has_value());

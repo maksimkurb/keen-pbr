@@ -19,7 +19,7 @@ Named collections of IPs, CIDRs, and domain names. Sources can be combined freel
 - **Inline domains** (`domains`) — loaded directly from config
 - **Local file** (`file`) — read from disk
 
-At startup, IP/CIDR entries are loaded into kernel ipsets or nftsets (`kpbr4_<list>`, `kpbr6_<list>`, no timeout on entries).
+At startup, IP/CIDR entries are loaded into kernel sets. The iptables backend alternates between `kpbr4s_/kpbr4S_` and `kpbr6s_/kpbr6S_`; nftables keeps stable `kpbr4_`/`kpbr6_` names. Static entries have no timeout.
 
 Domain entries generate dnsmasq `ipset=`/`nftset=` directives so that when a domain is resolved, its IPs are dynamically added to the matching set (`kpbr4d_<list>`, `kpbr6d_<list>`, entries are timing out after `ttl_ms` configured for domain list).
 
@@ -70,7 +70,7 @@ See [DNS]({{< relref "/docs/configuration/dns" >}}) for the full reference.
 ## How It Works — Startup Sequence
 
 1. **Load lists** — download remote URLs (using cache if unavailable), read local files and inline entries
-2. **Populate ipsets/nftsets** — IP/CIDR entries from lists are inserted into kernel sets (`kpbr4_<list>`, `kpbr6_<list>`)
+2. **Populate ipsets/nftsets** — IP/CIDR entries are inserted into the inactive A/B iptables sets or stable nftables sets
 3. **Install firewall rules** — create rules in the `iptables` `mangle` table or the `nftables` `inet KeenPbrTable` table that match configured lists and filters, then set the appropriate fwmark in `PREROUTING` / `prerouting`
 4. **Install routing** — create routing tables and `ip rule` entries for each outbound based on assigned fwmarks
 5. **Generate resolver config** — write `/tmp/keen-pbr-dnsmasq.conf` with `server=` + `ipset=`/`nftset=` directives; signal dnsmasq to reload
@@ -90,7 +90,7 @@ flowchart TD
     end
 
     subgraph Kernel["Linux Kernel"]
-        Ipsets["ipsets / nftsets\n(kpbr4_&lt;list&gt;, kpbr6_&lt;list&gt;)"]
+        Ipsets["ipsets / nftsets\n(static A/B + stable dynamic sets)"]
         FwmarkRules["Firewall rules\n(PREROUTING →\nmark, drop, or pass)"]
         IpRules["ip rules\n(fwmark → table)"]
         RoutingTables["Routing tables\n(table → interfaces)"]

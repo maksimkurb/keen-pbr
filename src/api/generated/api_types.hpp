@@ -7,7 +7,7 @@
 //
 //  Then include this file, and then do
 //
-//     KeenPbrTypesWed3YB data = nlohmann::json::parse(jsonString);
+//     KeenPbrTypes9JmqJk data = nlohmann::json::parse(jsonString);
 
 #pragma once
 
@@ -124,6 +124,7 @@ namespace api {
 
     struct Daemon {
         std::optional<std::string> cache_dir;
+        std::optional<bool> clear_dynamic_sets_on_apply;
         std::optional<int64_t> exec_kill_grace_seconds;
         std::optional<int64_t> exec_timeout_seconds;
         std::optional<DaemonConfigFirewallBackend> firewall_backend;
@@ -512,7 +513,7 @@ namespace api {
         StatusEventSnapshotType type;
     };
 
-    struct KeenPbrTypesWed3YB {
+    struct KeenPbrTypes9JmqJk {
         std::optional<ApiConfig> api_config;
         std::optional<CacheMetadata> cache_metadata;
         std::optional<CheckStatus> check_status;
@@ -725,8 +726,8 @@ namespace api {
     void from_json(const json & j, StatusEventSnapshot & x);
     void to_json(json & j, const StatusEventSnapshot & x);
 
-    void from_json(const json & j, KeenPbrTypesWed3YB & x);
-    void to_json(json & j, const KeenPbrTypesWed3YB & x);
+    void from_json(const json & j, KeenPbrTypes9JmqJk & x);
+    void to_json(json & j, const KeenPbrTypes9JmqJk & x);
 
     void from_json(const json & j, CheckStatus & x);
     void to_json(json & j, const CheckStatus & x);
@@ -851,6 +852,7 @@ namespace api {
 
     inline void from_json(const json & j, Daemon& x) {
         x.cache_dir = get_stack_optional<std::string>(j, "cache_dir");
+        x.clear_dynamic_sets_on_apply = get_stack_optional<bool>(j, "clear_dynamic_sets_on_apply");
         x.exec_kill_grace_seconds = get_stack_optional<int64_t>(j, "exec_kill_grace_seconds");
         x.exec_timeout_seconds = get_stack_optional<int64_t>(j, "exec_timeout_seconds");
         x.firewall_backend = get_stack_optional<DaemonConfigFirewallBackend>(j, "firewall_backend");
@@ -866,6 +868,7 @@ namespace api {
     inline void to_json(json & j, const Daemon & x) {
         j = json::object();
         j["cache_dir"] = x.cache_dir;
+        j["clear_dynamic_sets_on_apply"] = x.clear_dynamic_sets_on_apply;
         j["exec_kill_grace_seconds"] = x.exec_kill_grace_seconds;
         j["exec_timeout_seconds"] = x.exec_timeout_seconds;
         j["firewall_backend"] = x.firewall_backend;
@@ -1600,7 +1603,7 @@ namespace api {
         j["type"] = x.type;
     }
 
-    inline void from_json(const json & j, KeenPbrTypesWed3YB& x) {
+    inline void from_json(const json & j, KeenPbrTypes9JmqJk& x) {
         x.api_config = get_stack_optional<ApiConfig>(j, "ApiConfig");
         x.cache_metadata = get_stack_optional<CacheMetadata>(j, "CacheMetadata");
         x.check_status = get_stack_optional<CheckStatus>(j, "CheckStatus");
@@ -1659,7 +1662,7 @@ namespace api {
         x.validation_error = get_stack_optional<ValidationErrorElement>(j, "ValidationError");
     }
 
-    inline void to_json(json & j, const KeenPbrTypesWed3YB & x) {
+    inline void to_json(json & j, const KeenPbrTypes9JmqJk & x) {
         j = json::object();
         j["ApiConfig"] = x.api_config;
         j["CacheMetadata"] = x.cache_metadata;

@@ -44,6 +44,9 @@ std::vector<RuleState> apply_runtime_firewall(
     const Ipv6SupportDecision ipv6_decision = resolve_ipv6_support(config);
     log_ipv6_support_decision_once(ipv6_decision);
     firewall.set_ipv6_enabled(ipv6_decision.enabled);
+    firewall.set_clear_dynamic_sets_on_apply(
+        config.daemon.value_or(DaemonConfig{}).clear_dynamic_sets_on_apply.value_or(true));
+    firewall.prepare_apply(mode);
     auto prefilter = build_firewall_global_prefilter(config);
     prefilter.restore_conntrack_mark = true;
     prefilter.conntrack_mark_mask = fwmark_mask_value(config.fwmark.value_or(FwmarkConfig{}));
@@ -103,10 +106,10 @@ std::vector<RuleState> apply_runtime_firewall(
                 }
                 const auto& usage = usage_it->second;
 
-                const std::string set4 = "kpbr4_" + list_name;
-                const std::string set6 = "kpbr6_" + list_name;
-                const std::string set4d = "kpbr4d_" + list_name;
-                const std::string set6d = "kpbr6d_" + list_name;
+                const std::string set4 = firewall.static_set_name(list_name, AF_INET);
+                const std::string set6 = firewall.static_set_name(list_name, AF_INET6);
+                const std::string set4d = firewall.dynamic_set_name(list_name, AF_INET);
+                const std::string set6d = firewall.dynamic_set_name(list_name, AF_INET6);
 
                 if (usage.has_static_entries) {
                     firewall.create_ipset(set4, AF_INET, 0);

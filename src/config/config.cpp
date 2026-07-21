@@ -177,7 +177,7 @@ bool parse_uint_in_range(const std::string& raw, int min_value, int max_value, i
 }
 
 constexpr size_t IPSET_MAX_NAME = 31;
-constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_")
+constexpr size_t IPSET_PREFIX_LEN = 7; // len("kpbr4d_"), "kpbr4s_", or "kpbr4S_"
 constexpr size_t MAX_TAG_LEN = IPSET_MAX_NAME - IPSET_PREFIX_LEN; // 24
 
 bool is_valid_tag(const std::string& value) {
@@ -711,6 +711,9 @@ Config parse_config(const std::string& json_str) {
         parsed_json, "daemon", "firewall_backend", "daemon.firewall_backend", issues);
     validate_optional_boolean_field(
         parsed_json, "daemon", "skip_marked_packets", "daemon.skip_marked_packets", issues);
+    validate_optional_boolean_field(
+        parsed_json, "daemon", "clear_dynamic_sets_on_apply",
+        "daemon.clear_dynamic_sets_on_apply", issues);
     validate_optional_boolean_field(
         parsed_json, "daemon", "ipv6_enabled", "daemon.ipv6_enabled", issues);
     validate_route_rule_specs(parsed_json, issues);
