@@ -2,27 +2,30 @@ import { useEffect, useState } from "react"
 import { CheckIcon, CircleIcon, LoaderCircleIcon, XIcon } from "lucide-react"
 
 import { useGetHealthService } from "@/api/generated/keen-api"
+import type { LifecycleOperation } from "@/api/generated/model"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 export function LifecycleOperationDialog() {
   const health = useGetHealthService()
   const operation = health.data?.data.lifecycle_operation
-  const dismissedKey = operation ? `keen-pbr.lifecycle.dismissed.${operation.id}` : ""
-  const [dismissed, setDismissed] = useState(false)
+
+  if (!operation) return null
+
+  return <OperationDialog key={operation.id} operation={operation} />
+}
+
+function OperationDialog({ operation }: { operation: LifecycleOperation }) {
+  const dismissedKey = `keen-pbr.lifecycle.dismissed.${operation.id}`
+  const [dismissed, setDismissed] = useState(() => Boolean(localStorage.getItem(dismissedKey)))
 
   useEffect(() => {
-    setDismissed(Boolean(dismissedKey && localStorage.getItem(dismissedKey)))
-  }, [dismissedKey])
-
-  useEffect(() => {
-    if (operation?.status === "succeeded") {
+    if (operation.status === "succeeded") {
       const timer = window.setTimeout(() => setDismissed(true), 1200)
       return () => window.clearTimeout(timer)
     }
-  }, [operation?.id, operation?.status])
+  }, [operation.status])
 
-  if (!operation) return null
   const running = operation.status === "running"
   const open = running || (operation.status === "failed" && !dismissed)
   return (

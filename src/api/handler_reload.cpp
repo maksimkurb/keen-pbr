@@ -5,8 +5,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <stdexcept>
-
 namespace keen_pbr3 {
 
 namespace {

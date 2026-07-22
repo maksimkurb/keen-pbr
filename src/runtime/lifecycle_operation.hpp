@@ -2,7 +2,6 @@
 
 #include "../util/traced_mutex.hpp"
 
-#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
